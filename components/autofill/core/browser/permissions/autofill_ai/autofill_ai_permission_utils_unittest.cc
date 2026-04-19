@@ -116,10 +116,13 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
         client().GetSyncService(), webdata_helper_.autofill_webdata_service(),
         /*history_service=*/nullptr,
         /*strike_database=*/nullptr,
-        /*accessibility_annotator_data_adapter=*/nullptr,
+        /*accessibility_annotator_service=*/nullptr,
         /*variation_country_code=*/GeoIpCountryCode("US")));
     client().SetUpPrefsAndIdentityForAutofillAi();
     client().set_sync_service(&sync_service_);
+    // Re-auth availability depends on platform and device configuration. For
+    // simplicity, assume it is supported.
+    edm().SetReauthAvailability(true);
   }
 
   void AddEntity() {
@@ -169,6 +172,21 @@ TEST_P(AutofillAiMayPerformActionTest, ReturnsFalseWhenMainFeatureIsOff) {
   feature_list.InitAndDisableFeature(features::kAutofillAiWithDataSchema);
 
   EXPECT_FALSE(MayPerformAutofillAiAction(client(), GetParam()));
+}
+
+// Tests that transparency actions are allowed even when the main feature is off
+// if data is saved.
+TEST_P(AutofillAiMayPerformActionTest,
+       TransparencyActionsAllowedWhenMainFeatureIsOff) {
+  AddEntity();
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAutofillAiWithDataSchema);
+
+  const bool is_transparency_action =
+      GetParam() == AutofillAiAction::kEditAndDeleteEntityInstanceInSettings ||
+      GetParam() == AutofillAiAction::kListEntityInstancesInSettings;
+  EXPECT_EQ(MayPerformAutofillAiAction(client(), GetParam()),
+            is_transparency_action);
 }
 
 // Tests that when `kAutofillAiAvailableByDefault` and the user is opted out,
@@ -900,6 +918,57 @@ TEST_F(AutofillAiMayPerformImportToWalletTest,
       .WillByDefault(Return(syncer::DataTypeSet()));
   EXPECT_FALSE(MayPerformAutofillAiAction(
       client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));
+  EXPECT_FALSE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kImportToWallet, EntityType(kPassport)));
+}
+
+// Tests that the Wallet import is not allowed for private passes if the country
+// is explicitly excluded (currently France and Oman).
+TEST_F(AutofillAiMayPerformImportToWalletTest,
+       ImportToWallet_FalseForPrivatePassIfCountryIsExcluded) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiWalletPrivatePasses};
+
+  for (const auto& country : {GeoIpCountryCode("FR"), GeoIpCountryCode("OM")}) {
+    SCOPED_TRACE(testing::Message() << "country: " << country.value());
+    client().SetVariationConfigCountryCode(country);
+    // Public pass.
+    EXPECT_TRUE(MayPerformAutofillAiAction(
+        client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));
+    // Private pass.
+    EXPECT_FALSE(MayPerformAutofillAiAction(
+        client(), AutofillAiAction::kImportToWallet, EntityType(kPassport)));
+  }
+}
+
+TEST_F(AutofillAiMayPerformImportToWalletTest,
+       ImportToWallet_FalseForPrivatePassesForUnderagedUsers) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiWalletPrivatePasses};
+  // Simulate that the can_use_model_execution_features() capability is false.
+  signin::IdentityManager* identity_manager = client().GetIdentityManager();
+  AccountInfo account_info = identity_manager->FindExtendedAccountInfo(
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
+  AccountCapabilitiesTestMutator(&account_info.capabilities)
+      .set_can_use_model_execution_features(false);
+  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  // Expect that Wallet imports for public passes are allowed.
+  EXPECT_TRUE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));
+  // Expect that Wallet imports for private passes are not allowed.
+  EXPECT_FALSE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kImportToWallet, EntityType(kPassport)));
+}
+
+TEST_F(AutofillAiMayPerformImportToWalletTest,
+       ImportToWallet_FalseWithoutDeviceReauth) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiWalletPrivatePasses};
+  edm().SetReauthAvailability(false);
+  // Expect that for public passes the re-auth availability doesn't matter.
+  EXPECT_TRUE(MayPerformAutofillAiAction(
+      client(), AutofillAiAction::kImportToWallet, EntityType(kVehicle)));
+  // Expect that imports of private passes are not allowed.
   EXPECT_FALSE(MayPerformAutofillAiAction(
       client(), AutofillAiAction::kImportToWallet, EntityType(kPassport)));
 }

@@ -4,17 +4,14 @@
 
 package org.chromium.chrome.browser.tabbed_mode;
 
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import androidx.annotation.Nullable;
 import androidx.test.annotation.UiThreadTest;
@@ -29,6 +26,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.transit.ViewFinder;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -41,12 +39,9 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarSceneLayer;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarSceneLayerJni;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
-import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
-import org.chromium.chrome.browser.privacy_sandbox.ActivityTypeMapper;
-import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridgeJni;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
@@ -55,9 +50,14 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.transit.testhtmls.NavigatePageStations;
+import org.chromium.components.policy.test.annotations.Policies;
+import org.chromium.components.policy.test.annotations.Policies.Add;
 import org.chromium.components.search_engines.SearchEngineChoiceService;
+import org.chromium.components.signin.SigninFeatures;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.test.util.ViewUtils;
 
 /** Tests for {@link TabbedRootUiCoordinator}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -75,13 +75,11 @@ public class TabbedRootUiCoordinatorTest {
     private WebPageStation mPage;
     private TabbedRootUiCoordinator mTabbedRootUiCoordinator;
 
-    @Mock private PrivacySandboxBridgeJni mPrivacySandboxBridgeJni;
     @Mock private BookmarkBarSceneLayer.Natives mBookmarkBarSceneLayerJni;
     @Mock private SearchEngineChoiceService mSearchEngineChoiceService;
 
     @Before
     public void setUp() {
-        PrivacySandboxBridgeJni.setInstanceForTesting(mPrivacySandboxBridgeJni);
         BookmarkBarSceneLayerJni.setInstanceForTesting(mBookmarkBarSceneLayerJni);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -90,34 +88,13 @@ public class TabbedRootUiCoordinatorTest {
                     doReturn(false).when(mSearchEngineChoiceService).isDeviceChoiceDialogEligible();
                 });
 
+        mBrowserTestRule.addAccountThenSigninAndEnableHistorySync(TestAccounts.ACCOUNT1);
+
         BookmarkBarUtils.setBookmarkBarVisibleForTesting(true);
         TabbedRootUiCoordinator.setDisableTopControlsAnimationsForTesting(true);
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
                 (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
-    }
-
-    // TODO(crbug.com/40112282): Enable for tablets once we support them.
-    @Test
-    @MediumTest
-    @EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_ACTIVITY_TYPE_STORAGE)
-    @Restriction({DeviceFormFactor.PHONE})
-    public void testRecordPrivacySandboxActivityTypeIncrementsRecordWhenFlagIsEnabled() {
-        verify(mPrivacySandboxBridgeJni)
-                .recordActivityType(
-                        any(),
-                        eq(
-                                ActivityTypeMapper.toPrivacySandboxStorageActivityType(
-                                        ActivityType.TABBED)));
-    }
-
-    // TODO(crbug.com/40112282): Enable for tablets once we support them.
-    @Test
-    @MediumTest
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_ACTIVITY_TYPE_STORAGE)
-    @Restriction({DeviceFormFactor.PHONE})
-    public void testRecordPrivacySandboxActivityTypeDoesNotIncrementRecordWhenFlagIsDisabled() {
-        verify(mPrivacySandboxBridgeJni, never()).recordActivityType(any(), anyInt());
     }
 
     @Test
@@ -156,6 +133,20 @@ public class TabbedRootUiCoordinatorTest {
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     public void testTopControlsHeightWithBookmarkBarWhenFlagIsEnabledOnTablet() {
         testTopControlsHeightWithBookmarkBar(/* expectBookmarkBar= */ true);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SUPPORT_FORCED_SIGNIN_POLICY)
+    @Add({@Policies.Item(key = "BrowserSignin", string = "2")})
+    public void testForcedSignin() {
+        // The user is already signed in at first, so the fullscreen signin prompt is not displayed.
+        mActivityTestRule.alreadyStartedOnBlankPage();
+        ViewFinder.waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+
+        // The fullscreen prompt should be displayed upon signout.
+        mBrowserTestRule.signOut();
+        ViewUtils.waitForVisibleView(withText(R.string.signin_fre_title_signin_forced_by_policy));
     }
 
     private void testTopControlsHeightWithBookmarkBar(boolean expectBookmarkBar) {

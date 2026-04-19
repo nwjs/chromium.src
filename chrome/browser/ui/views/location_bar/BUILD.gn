@@ -15,7 +15,6 @@ source_set("location_bar") {
       "ai_mode_page_action_icon_view.h",
       "content_setting_image_view.h",
       "custom_tab_bar_view.h",
-      "find_bar_icon.h",
       "intent_chip_button.h",
       "intent_picker_view.h",
       "lens_overlay_homework_page_action_controller.h",
@@ -23,6 +22,7 @@ source_set("location_bar") {
       "location_bar_bubble_delegate_view.h",
       "location_bar_layout.h",
       "location_bar_view.h",
+      "location_icon_state_helper.h",
       "location_icon_view.h",
       "merchant_trust_chip_button_controller.h",
       "omnibox_chip_button.h",
@@ -47,6 +47,7 @@ source_set("location_bar") {
       "//chrome/browser/ui/page_action:icon_type",
       "//chrome/browser/ui/views/frame:immersive_mode_controller",
       "//chrome/browser/ui/views/page_action",
+      "//components/browser_apis/ui_controllers/toolbar:mojom_data_model",
       "//components/omnibox/browser:location_bar",
       "//components/page_info/core",
       "//components/sessions:session_id",
@@ -68,6 +69,7 @@ source_set("impl") {
     ":icon_label_bubble",
     ":location_bar",
     "//chrome/browser/ui/dialogs",
+    "//chrome/browser/ui/select_file_policy",
   ]
 
   if (toolkit_views) {
@@ -75,7 +77,6 @@ source_set("impl") {
       "ai_mode_page_action_icon_view.cc",
       "content_setting_image_view.cc",
       "custom_tab_bar_view.cc",
-      "find_bar_icon.cc",
       "intent_chip_button.cc",
       "intent_picker_view.cc",
       "lens_overlay_homework_page_action_controller.cc",
@@ -83,6 +84,7 @@ source_set("impl") {
       "location_bar_bubble_delegate_view.cc",
       "location_bar_layout.cc",
       "location_bar_view.cc",
+      "location_icon_state_helper.cc",
       "location_icon_view.cc",
       "merchant_trust_chip_button_controller.cc",
       "omnibox_chip_button.cc",
@@ -235,6 +237,7 @@ source_set("browser_tests") {
     "intent_chip_button_test_base.h",
     "location_bar_view_browsertest.cc",
     "location_icon_view_browsertest.cc",
+    "webui_location_bar_browsertest.cc",
     "zoom_bubble_view_browsertest.cc",
   ]
   deps = [
@@ -273,6 +276,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "icon_label_bubble_view_unittest.cc",
+    "location_icon_state_helper_unittest.cc",
     "location_icon_view_unittest.cc",
   ]
   deps = [
@@ -281,6 +285,7 @@ source_set("unit_tests") {
     "//chrome/app:generated_resources",
     "//chrome/test:test_support",
     "//components/omnibox/browser",
+    "//components/omnibox/browser:vector_icons",
     "//components/strings:components_strings",
     "//testing/gtest",
     "//ui/events:gesture_detection",

@@ -14,7 +14,6 @@ import android.content.Intent;
 import android.provider.Settings;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
@@ -394,7 +393,6 @@ public class DefaultBrowserPromoUtils {
                 });
     }
 
-    @VisibleForTesting
     protected void fetchDefaultBrowserInfo(
             Callback<DefaultBrowserInfo.@Nullable DefaultInfo> callback) {
         // Force clear the old cached value and generate a fresh DefaultInfoTask.

@@ -305,6 +305,7 @@ PreloadingEligibility ToEligibility(PrerenderFinalStatus status) {
     case PrerenderFinalStatus::kBrowsingDataRemoved:
       NOTREACHED();
     case PrerenderFinalStatus::kPrerenderHostReused:
+    case PrerenderFinalStatus::kFormSubmitWhenPrerendering:
       NOTREACHED();
   }
 
@@ -817,7 +818,7 @@ PrerenderHostId PrerenderHostRegistry::CreateAndStartHost(
         // the head of the queue if there's no running prerender and the
         // initiator is in the foreground. If the initiator page is in the
         // background, `StartPrerendering` will return a corresponding
-        // frame_tree_node_id if allowed by
+        // PrerenderHostId if allowed by
         // `PrerenderCanBeStartedWhenInitiatorIsInBackground`.
         if (IsBackground(initiator_web_contents.GetVisibility()) &&
             !initiator_web_contents.GetPrerenderHostRegistry()
@@ -1114,14 +1115,8 @@ bool PrerenderHostRegistry::CancelNewTabHostInternal(
   prerender_new_tab_handle_by_id_.erase(iter);
   NotifyCancel(handle->prerender_host_id(), reason);
 
-  if (reason.final_status() == PrerenderFinalStatus::kSpeculationRuleRemoved) {
-    auto& new_tab_registry = handle->GetPrerenderHostRegistry();
-    new_tab_registry.SchedulePendingDeletionPrerenderNewTabHandle(
-        std::move(handle));
-    new_tab_registry.CancelHost(prerender_host_id, reason);
-  } else {
-    handle->CancelPrerendering(reason);
-  }
+  PrerenderNewTabHandle::CancelPrerenderingAndDestroy(std::move(handle),
+                                                      reason);
 
   return true;
 }
@@ -1320,12 +1315,17 @@ PrerenderHostRegistry::TakePreCreatedWebContentsForNewTabIfExists(
   // Don't serve a prerendered page if the window needs the opener or is created
   // for non-regular navigations.
   if (!create_new_window_params.opener_suppressed ||
-      create_new_window_params.is_form_submission ||
       create_new_window_params.pip_options) {
     return nullptr;
   }
 
   for (auto& iter : prerender_new_tab_handle_by_id_) {
+    // Skip those PrerenderHosts that are not for form submission if the window
+    // is created by form submission.
+    if (create_new_window_params.is_form_submission &&
+        !iter.second->form_submission()) {
+      continue;
+    }
     std::unique_ptr<WebContentsImpl> web_contents =
         iter.second->TakeWebContentsIfAvailable(create_new_window_params,
                                                 web_contents_create_params);
@@ -1799,6 +1799,7 @@ void PrerenderHostRegistry::DeletePendingDeletionHosts(
 }
 
 void PrerenderHostRegistry::SchedulePendingDeletionPrerenderNewTabHandle(
+    base::PassKey<PrerenderNewTabHandle>,
     std::unique_ptr<PrerenderNewTabHandle> handle) {
   CHECK(!pending_deletion_new_tab_prerender_handle_);
   pending_deletion_new_tab_prerender_handle_ = std::move(handle);
@@ -2034,11 +2035,11 @@ void PrerenderHostRegistry::CancelHostsByOriginFilter(
 }
 
 void PrerenderHostRegistry::RecordPotentialPrerenderProcessReuse(
-    bool kHasMatchableHosts,
+    bool has_matchable_hosts,
     const GURL& navigation_url) {
   static constexpr char kPrerenderProcessReuseUMAName[] =
       "Prerender.Experimental.PrerenderProcessReuseAvailability";
-  if (kHasMatchableHosts) {
+  if (has_matchable_hosts) {
     base::UmaHistogramEnumeration(
         kPrerenderProcessReuseUMAName,
         PrerenderProcessReuseAvailability::kHasMatchableHosts);

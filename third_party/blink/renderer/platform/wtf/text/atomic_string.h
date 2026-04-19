@@ -70,11 +70,12 @@ class WTF_EXPORT AtomicString {
 
   // Factories ------------------------------------------------------
 
-  // AtomicString::FromUTF8 will return a null string if
-  // the input data contains invalid UTF-8 sequences.
-  static AtomicString FromUTF8(base::span<const uint8_t>);
-  static AtomicString FromUTF8(const char*);
-  static AtomicString FromUTF8(std::string_view);
+  // AtomicString::FromUtf8 will return a null string if the input data
+  // contains invalid UTF-8 sequences.
+  static AtomicString FromUtf8(base::span<const uint8_t>);
+  static AtomicString FromUtf8(std::string_view utf8_string) {
+    return FromUtf8(base::as_byte_span(utf8_string));
+  }
 
   template <typename IntegerType>
   static AtomicString Number(IntegerType number) {
@@ -247,9 +248,9 @@ class WTF_EXPORT AtomicString {
 
   // Returns a lowercase/uppercase version of the string.
   // These functions convert ASCII characters only.
-  static AtomicString LowerASCII(AtomicString source);
-  AtomicString LowerASCII() const;
-  AtomicString UpperASCII() const;
+  static AtomicString ToAsciiLower(AtomicString source);
+  AtomicString ToAsciiLower() const;
+  AtomicString ToAsciiUpper() const;
 
 #ifdef __OBJC__
   operator NSString*() const { return string_; }

@@ -15,6 +15,7 @@ import androidx.annotation.RequiresApi;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 
+import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.Log;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -113,87 +114,87 @@ class VideoAcceleratorUtil {
         public boolean requiresSecurePlayback;
         public int maxNumberOfTemporalLayers;
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getProfile() {
             return this.profile;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getLevel() {
             return this.level;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMaxWidth() {
             return this.maxWidth;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMaxHeight() {
             return this.maxHeight;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMinWidth() {
             return this.minWidth;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMinHeight() {
             return this.minHeight;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMaxFramerateNumerator() {
             return this.maxFramerateNumerator;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMaxFramerateDenominator() {
             return this.maxFramerateDenominator;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean supportsCbr() {
             return this.supportsCbr;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean supportsVbr() {
             return this.supportsVbr;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public @Nullable String getName() {
             return this.name;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean isSoftwareCodec() {
             return this.isSoftwareCodec;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean supportsLowLatency() {
             return this.supportsLowLatency;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean requiresLowLatency() {
             return this.requiresLowLatency;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean supportsSecurePlayback() {
             return this.supportsSecurePlayback;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public boolean requiresSecurePlayback() {
             return this.requiresSecurePlayback;
         }
 
-        @CalledByNative("SupportedProfileAdapter")
+        @CalledByNative
         public int getMaxNumberOfTemporalLayers() {
             return this.maxNumberOfTemporalLayers;
         }
@@ -673,5 +674,11 @@ class VideoAcceleratorUtil {
         SupportedProfileAdapter[] profileArray = new SupportedProfileAdapter[profiles.size()];
         profiles.toArray(profileArray);
         return profileArray;
+    }
+
+    @CalledByNative
+    private static boolean isTemporalLayerEncodingEnabled() {
+        AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
+        return delegate != null && delegate.isTemporalLayerEncodingEnabled();
     }
 }

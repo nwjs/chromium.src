@@ -101,21 +101,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-10-x86-fyi-rel",
-    mirrors = [
-        "ci/android-10-x86-fyi-rel",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-10-x86-fyi-rel",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "android-10-x86-nofieldtrial-rel",
     mirrors = [
         "ci/android-10-x86-nofieldtrial-rel",
@@ -238,21 +223,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-13-x64-fyi-rel",
-    mirrors = [
-        "ci/android-13-x64-fyi-rel",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-13-x64-fyi-rel",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "android-14-tablet-landscape-arm64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = [
@@ -266,23 +236,6 @@ try_.builder(
     ),
     contact_team_email = "clank-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-14-arm64-fyi-rel",
-    mirrors = [
-        "ci/android-14-arm64-fyi-rel",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-14-arm64-fyi-rel",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    coverage_test_types = ["unit", "overall"],
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-    use_clang_coverage = True,
 )
 
 try_.builder(
@@ -326,21 +279,6 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/android-14-x64-rel",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-14-x64-fyi-rel",
-    mirrors = [
-        "ci/android-14-x64-fyi-rel",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-14-x64-fyi-rel",
             "release_try_builder",
         ],
     ),
@@ -402,21 +340,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-15-x64-fyi-rel",
-    mirrors = [
-        "ci/android-15-x64-fyi-rel",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-15-x64-fyi-rel",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "android-16-x64-dbg",
     mirrors = [
         "ci/Android x64 Builder (dbg)",
@@ -457,6 +380,21 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/android-16-x64-fyi-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-17-x64-fyi-rel",
+    mirrors = [
+        "ci/android-17-x64-fyi-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-17-x64-fyi-rel",
             "release_try_builder",
         ],
     ),
@@ -508,6 +446,7 @@ try_.orchestrator_builder(
             "release_try_builder",
             "android_fastbuild",
             "enable_android_secondary_abi",
+            "enable_rust_clippy",
             "fail_on_android_expectations",
             "use_clang_coverage",
             "partial_code_coverage_instrumentation",
@@ -660,7 +599,6 @@ try_.builder(
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
-            "release_java",
         ],
     ),
     contact_team_email = "cronet-team@google.com",
@@ -1131,12 +1069,12 @@ try_.orchestrator_builder(
     description_html = "Run Chromium tests on Android emulators.",
     mirrors = [
         "ci/android-12l-x64-rel-cq",
-        "ci/android-15-x64-rel",
+        "ci/android-16-x64-rel",
         "ci/android-webview-13-x64-hostside-rel",
     ],
     gn_args = gn_args.config(
         configs = [
-            "ci/android-15-x64-rel",
+            "ci/android-16-x64-rel",
             "release_try_builder",
             "use_clang_coverage",
             "use_java_coverage",

@@ -857,6 +857,9 @@ ci.builder(
                      # https://crbug.com/1468262
                      "All/PaymentHandlerEnforceFullDelegationTest.WhenEnabled_ShowPaymentSheet_WhenDisabled_Reject/1"),
                 ],
+                swarming = targets.swarming(
+                    shards = 6,
+                ),
             ),
             "base_unittests": targets.mixin(
                 args = [
@@ -1262,7 +1265,6 @@ ci.builder(
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
-            "release_java",
         ],
     ),
     targets = targets.bundle(
@@ -4029,6 +4031,7 @@ ci.builder(
     targets = targets.bundle(
         targets = [
             "android_16_emulator_gtests",
+            "android_16_webview_64_cts_tests",
         ],
         mixins = [
             "16-x64-emulator",

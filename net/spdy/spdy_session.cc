@@ -758,14 +758,21 @@ bool SpdySession::CanPool(TransportSecurityState* transport_security_state,
   // record whether CT policy was used to bypass a CT error (as a separate enum
   // value in the ct_requirement_status), and then just always disallow pooling
   // in that case (assuming that doesn't affect perf too much).
-  switch (transport_security_state->CheckCTRequirements(
-      new_hostname, ssl_info.is_issued_by_known_root,
-      ssl_info.public_key_hashes, ssl_info.cert.get(),
-      ssl_info.ct_policy_compliance)) {
+  ct::CTRequirementsStatus ct_requirement_status =
+      transport_security_state->CheckCTRequirements(
+          new_hostname, ssl_info.is_issued_by_known_root,
+          ssl_info.public_key_hashes, ssl_info.cert.get(),
+          ssl_info.ct_policy_compliance);
+  base::UmaHistogramEnumeration("Net.CanPool.CTRequirementStatus",
+                                ct_requirement_status);
+  switch (ct_requirement_status) {
     case ct::CTRequirementsStatus::CT_REQUIREMENTS_NOT_MET:
       return false;
     case ct::CTRequirementsStatus::CT_REQUIREMENTS_MET:
     case ct::CTRequirementsStatus::CT_NOT_REQUIRED:
+    case ct::CTRequirementsStatus::CT_REQUIREMENT_OVERRIDDEN:
+    case ct::CTRequirementsStatus::
+        CT_REQUIREMENT_OVERRIDDEN_APPLIES_ACROSS_NAMES:
       // Intentional fallthrough; this case is just here to make sure that all
       // possible values of CheckCTRequirements() are handled.
       break;
@@ -773,6 +780,26 @@ bool SpdySession::CanPool(TransportSecurityState* transport_security_state,
 
   return true;
 }
+
+SpdySession::PendingStreamRequest::PendingStreamRequest(
+    base::WeakPtr<SpdyStreamRequest> request,
+    base::TimeTicks queue_first_enqueued_time)
+    : request(std::move(request)),
+      queue_first_enqueued_time(queue_first_enqueued_time) {}
+
+SpdySession::PendingStreamRequest::~PendingStreamRequest() = default;
+
+SpdySession::PendingStreamRequest::PendingStreamRequest(
+    const PendingStreamRequest& other) = default;
+
+SpdySession::PendingStreamRequest::PendingStreamRequest(
+    PendingStreamRequest&& other) = default;
+
+SpdySession::PendingStreamRequest& SpdySession::PendingStreamRequest::operator=(
+    const PendingStreamRequest& other) = default;
+
+SpdySession::PendingStreamRequest& SpdySession::PendingStreamRequest::operator=(
+    PendingStreamRequest&& other) = default;
 
 SpdySession::SpdySession(
     const SpdySessionKey& spdy_session_key,
@@ -1291,6 +1318,13 @@ bool SpdySession::GetSSLInfo(SSLInfo* ssl_info) const {
   return socket_->GetSSLInfo(ssl_info);
 }
 
+std::optional<ResolutionDetails> SpdySession::GetResolutionDetails() const {
+  if (stream_socket_handle_) {
+    return stream_socket_handle_->resolution_details();
+  }
+  return std::nullopt;
+}
+
 std::string_view SpdySession::GetAcceptChViaAlps(
     const url::SchemeHostPort& scheme_host_port) const {
   auto it = accept_ch_entries_received_via_alps_.find(scheme_host_port);
@@ -1672,7 +1706,9 @@ int SpdySession::TryCreateStream(
   RequestPriority priority = request->priority();
   CHECK_GE(priority, MINIMUM_PRIORITY);
   CHECK_LE(priority, MAXIMUM_PRIORITY);
-  pending_create_stream_queues_[priority].push_back(request);
+  pending_create_stream_queues_[priority].emplace_back(
+      request,
+      /*queue_first_enqueued_time=*/base::TimeTicks::Now());
   return ERR_IO_PENDING;
 }
 
@@ -1691,7 +1727,9 @@ int SpdySession::CreateStream(const SpdyStreamRequest& request,
   UMA_HISTOGRAM_BOOLEAN("Net.SpdySession.CreateStreamWithSocketConnected",
                         socket_->IsConnected());
   if (!socket_->IsConnected()) {
-    DoDrainSession(
+    // Since there may be a consumer of the session on the stack, can't call
+    // DoDrainSession() synchronously, as it may result in reentrancy.
+    DoDrainSessionAsync(
         ERR_CONNECTION_CLOSED,
         "Tried to create SPDY stream for a closed socket connection.");
     return ERR_CONNECTION_CLOSED;
@@ -1722,9 +1760,11 @@ bool SpdySession::CancelStreamRequest(
   for (int i = MINIMUM_PRIORITY; i <= MAXIMUM_PRIORITY; ++i) {
     if (priority == i)
       continue;
-    DCHECK(!std::ranges::contains(pending_create_stream_queues_[i],
-                                  request.get(),
-                                  &base::WeakPtr<SpdyStreamRequest>::get));
+    DCHECK(
+        !std::ranges::contains(pending_create_stream_queues_[i], request.get(),
+                               [](const PendingStreamRequest& pending_request) {
+                                 return pending_request.request.get();
+                               }));
   }
 #endif
 
@@ -1732,7 +1772,9 @@ bool SpdySession::CancelStreamRequest(
   // Remove |request| from |queue| while preserving the order of the
   // other elements.
   PendingStreamRequestQueue::iterator it = std::ranges::find(
-      *queue, request.get(), &base::WeakPtr<SpdyStreamRequest>::get);
+      *queue, request.get(), [](const PendingStreamRequest& pending_request) {
+        return pending_request.request.get();
+      });
   // The request may already be removed if there's a
   // CompleteStreamRequest() in flight.
   if (it != queue->end()) {
@@ -1740,8 +1782,9 @@ bool SpdySession::CancelStreamRequest(
     // |request| should be in the queue at most once, and if it is
     // present, should not be pending completion.
     DCHECK(std::ranges::find(it, queue->end(), request.get(),
-                             &base::WeakPtr<SpdyStreamRequest>::get) ==
-           queue->end());
+                             [](const PendingStreamRequest& pending_request) {
+                               return pending_request.request.get();
+                             }) == queue->end());
     return true;
   }
   return false;
@@ -1755,20 +1798,28 @@ void SpdySession::ChangeStreamRequestPriority(
   // CancelStreamRequest() to find it in the correct queue.
   DCHECK_NE(priority, request->priority());
   if (CancelStreamRequest(request)) {
-    pending_create_stream_queues_[priority].push_back(request);
+    pending_create_stream_queues_[priority].emplace_back(
+        request, base::TimeTicks::Now());
   }
 }
 
 base::WeakPtr<SpdyStreamRequest> SpdySession::GetNextPendingStreamRequest() {
   for (int j = MAXIMUM_PRIORITY; j >= MINIMUM_PRIORITY; --j) {
-    if (pending_create_stream_queues_[j].empty())
+    if (pending_create_stream_queues_[j].empty()) {
       continue;
+    }
 
-    base::WeakPtr<SpdyStreamRequest> pending_request =
-        pending_create_stream_queues_[j].front();
-    DCHECK(pending_request);
+    PendingStreamRequest pending_request =
+        std::move(pending_create_stream_queues_[j].front());
     pending_create_stream_queues_[j].pop_front();
-    return pending_request;
+    CHECK(pending_request.request);
+
+    if (pending_request.request) {
+      pending_request.request->max_stream_limit_pending_delay_ =
+          base::TimeTicks::Now() - pending_request.queue_first_enqueued_time;
+    }
+
+    return pending_request.request;
   }
   return base::WeakPtr<SpdyStreamRequest>();
 }
@@ -2681,6 +2732,23 @@ void SpdySession::DoDrainSession(Error err,
   }
   DcheckDraining();
   MaybePostWriteLoop();
+}
+
+void SpdySession::DoDrainSessionAsync(Error err,
+                                      std::string description,
+                                      bool force_send_go_away) {
+  // Make this unavailable to prevent consumers from pulling it from the session
+  // pool again, which could result in an infinite loop, or otherwise running
+  // into this error again rather than trying a new connection.
+  MakeUnavailable(err);
+
+  // This will close the socket and inform consumers asynchronously. If
+  // something happens before this task runs (like a read error), that should
+  // not cause issues, since DoDrainSession() does nothing if already draining.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&SpdySession::DoDrainSession, weak_factory_.GetWeakPtr(),
+                     err, std::move(description), force_send_go_away));
 }
 
 void SpdySession::LogAbandonedStream(SpdyStream* stream, Error status) {

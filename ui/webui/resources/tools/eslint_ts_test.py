@@ -4,12 +4,25 @@
 # found in the LICENSE file.
 
 import eslint_ts
+import json
 import os
 import tempfile
 import shutil
 import unittest
 
+# Instructions on how to run these tests locally.
+#    1) Build target //ui/webui/resources/tools:webui_resources_tools_python_unittests
+#   2a) Run
+#       ./out/<out_folder>/bin/run_webui_resources_tools_python_unittests \
+#       -- eslint_ts_test.EslintTsTest
+#   2b) Alternatively, on Linux these tests can be run directly by manually
+#       setting the CHROMIUM_BUILD_DIRECTORY environment variable, for example
+#       as follows:
+#       CHROMIUM_BUILD_DIRECTORY=/absolute/path/to/output/folder/ \
+#       python3 -m unittest eslint_ts_test.EslintTsTest
+
 _HERE_DIR = os.path.dirname(__file__)
+_BUILD_DIR = os.environ['CHROMIUM_BUILD_DIRECTORY']
 
 
 class EslintTsTest(unittest.TestCase):
@@ -27,8 +40,39 @@ class EslintTsTest(unittest.TestCase):
       return file.read()
 
   def _run_test(self, in_files, enable_web_component_missing_deps=False):
-    config_base = os.path.join(_HERE_DIR, "eslint_ts.config_base.mjs")
-    tsconfig = os.path.join(self._in_folder, "tsconfig.json")
+    config_base = os.path.join(_BUILD_DIR, "gen", "ui", "webui", "resources",
+                               "tools", "eslint", "eslint_ts.config_base.js")
+    orig_tsconfig_path = os.path.join(self._in_folder, "tsconfig.json")
+
+    with open(orig_tsconfig_path, "r") as f:
+      config = json.load(f)
+
+    if "compilerOptions" not in config:
+      config["compilerOptions"] = {}
+    if "paths" not in config["compilerOptions"]:
+      config["compilerOptions"]["paths"] = {}
+
+    gen_lit_dir = os.path.join(
+        os.path.abspath(_BUILD_DIR), "gen", "third_party", "lit", "v3_0")
+    rel_lit_path = os.path.relpath(gen_lit_dir,
+                                   self._in_folder).replace(os.sep, "/")
+    config["compilerOptions"]["paths"]["/resources/lit/v3_0/lit.rollup.js"] = [
+        rel_lit_path + "/lit.d.ts"
+    ]
+
+    config["compilerOptions"]["rootDir"] = os.path.normpath(self._in_folder)
+    config["extends"] = os.path.normpath(
+        os.path.join(self._in_folder, config["extends"]))
+    config["files"] = [
+        os.path.join(self._in_folder, f) for f in config["files"]
+    ]
+    config["references"] = [{"path": rel_lit_path + "/tsconfig_build_ts.json"}]
+
+    tsconfig = os.path.join(self._out_dir, "tsconfig.json")
+    with open(tsconfig, "w") as f:
+      json.dump(config, f, indent=4)
+
+    custom_loader = os.path.join(_HERE_DIR, "eslint", "custom_loader.mjs")
 
     args = [
         "--in_folder",
@@ -36,9 +80,13 @@ class EslintTsTest(unittest.TestCase):
         "--out_folder",
         self._out_dir,
         "--config_base",
-        os.path.relpath(config_base, self._out_dir).replace(os.sep, '/'),
+        os.path.relpath(config_base, self._out_dir).replace(os.sep, "/"),
         "--tsconfig",
-        os.path.relpath(tsconfig, self._out_dir).replace(os.sep, '/'),
+        os.path.relpath(
+            os.path.join(self._in_folder, 'tsconfig.json'),
+            _HERE_DIR).replace(os.sep, "/"),
+        "--custom_loader_script",
+        custom_loader,
         "--in_files",
         *in_files,
     ]
@@ -52,9 +100,14 @@ class EslintTsTest(unittest.TestCase):
     self._run_test(["no_violations.ts"])
     actual_contents = self._read_file(
         os.path.join(self._out_dir, "eslint.config.mjs"))
+    path_to_build_dir = os.path.relpath(_BUILD_DIR,
+                                        self._out_dir).replace('\\', '/')
     expected_contents = self._read_file(
-        os.path.join(self._in_folder, "eslint_expected.config.mjs"))
-    self.assertMultiLineEqual(expected_contents, actual_contents)
+        os.path.join(self._in_folder, "eslint_expected.config.mjs")).replace(
+            './../tsconfig.json', './tsconfig.json')
+    self.assertMultiLineEqual(
+        expected_contents % {"path_to_build_dir": path_to_build_dir},
+        actual_contents)
 
   def testError(self):
     with self.assertRaises(RuntimeError) as context:
@@ -75,9 +128,19 @@ class EslintTsTest(unittest.TestCase):
         "Unnecessary 'accessor' keyword when declaring regular (non Lit reactive) property 'prop3' in class 'SomeElement'",
         "Missing 'accessor' keyword when declaring Lit reactive property 'prop1' in class 'SomeOtherElement'",
         "Unnecessary 'accessor' keyword when declaring regular (non Lit reactive) property 'prop4' in class 'SomeOtherElement'",
+        "Property type mismatch: propMismatchedString is declared as String reactive property but is typed as number",
+        "Property type mismatch: propMismatchedNumber is declared as Number reactive property but is typed as string",
+        "Missing class member declaration for Lit reactive property 'propMissingNumber'",
+    ]
+    non_errors = [
+        "Property type mismatch: propEnumString is declared as String reactive property",
+        "Property type mismatch: propEnumNumber is declared as Number reactive property",
+        "Property type mismatch: propObjectType is declared as Object reactive property",
     ]
     for e in errors:
       self.assertTrue(e in str(context.exception))
+    for e in non_errors:
+      self.assertFalse(e in str(context.exception))
 
   def testWebUiEslintPlugin_PolymerPropertyDeclare(self):
     with self.assertRaises(RuntimeError) as context:
@@ -241,7 +304,9 @@ class EslintTsTest(unittest.TestCase):
     self.assertTrue(_EXPECTED_STRING in str(context.exception))
 
     _EXPECTED_INCONSISTENT_METHOD_DEFINITION_ORDER_ERROR = "Inconsistent method definition order in class %(className)s. Expected %(expectedOrder)s, found %(actualOrder)s"
-    _EXPECTED_INCORRECT_CLASS_NAME_ERROR = 'CrLitElement subclass %(className)s should end with the \'Element\' suffix'
+    _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR = 'Class name \'%(className)s\' should end with the \'Element\' suffix'
+    _EXPECTED_INCONSISTENT_CLASS_NAME_ERROR = 'Naming of class/dom pair %(className)s ↔ %(domName)s is inconsistent'
+    _EXPECTED_INCORRECT_DOM_NAME_SUFFIX_ERROR = 'DOM name \'%(domName)s\' should not end with the \'-element\' suffix'
     _EXPECTED_INCORRECT_DOLLAR_SIGN_NOTATION_ERROR = 'Use camelCase instead of dash-case for DOM ids, change this.$[\'%(dashCaseName)s\'] to this.$.%(camelCaseName)s'
     _EXPECTED_MISSING_CUSTOM_ELEMENTS_DEFINE_ERROR = "Missing customElements.define(%(className)s.is, %(className)s) call"
     _EXPECTED_MISSING_STATIC_GET_IS_ERROR = "Missing 'static get is() {...}' for web component class %(className)s"
@@ -287,6 +352,9 @@ class EslintTsTest(unittest.TestCase):
             'lifecycleMethods': ', '.join(super_call_required_methods),
         },
         # Case 1.6
+        _EXPECTED_INCORRECT_DOM_NAME_SUFFIX_ERROR % {
+            'domName': 'test-error6-element',
+        },
         _EXPECTED_INCONSISTENT_METHOD_DEFINITION_ORDER_ERROR % {
             'className':
                 'TestError6Element',
@@ -315,20 +383,25 @@ class EslintTsTest(unittest.TestCase):
             'name': '_otherEvent',
         },
         # Case 1.7
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestError7ElementFoo',
         },
         # Case 1.8
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestError8ElementFoo',
         },
         # Case 1.9
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestError9ElementFoo',
         },
         # Case 1.10
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestError10ElementFoo',
+        },
+        # Case 1.11
+        _EXPECTED_INCONSISTENT_CLASS_NAME_ERROR % {
+            'className': 'TestError11Element',
+            'domName': 'test-other-error11',
         },
     ]
     for e in errors:
@@ -352,7 +425,7 @@ class EslintTsTest(unittest.TestCase):
             'className': 'TestNoError1Element',
             'lifecycleMethods': ', '.join(super_call_required_methods)
         },
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestNoError1Element',
         },
         # Case 2.2
@@ -370,10 +443,13 @@ class EslintTsTest(unittest.TestCase):
             'className': 'TestNoError2Element',
             'lifecycleMethods': ', '.join(super_call_required_methods),
         },
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestNoError2Element',
         },
         # Case 2.3
+        _EXPECTED_INCORRECT_DOM_NAME_SUFFIX_ERROR % {
+            'domName': 'test-no-error3',
+        },
         _EXPECTED_MISSING_STATIC_GET_IS_ERROR % {
             'className': 'TestNoError3Element',
         },
@@ -396,8 +472,12 @@ class EslintTsTest(unittest.TestCase):
             'actualOrder':
                 '',
         },
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestNoError3Element',
+        },
+        _EXPECTED_INCONSISTENT_CLASS_NAME_ERROR % {
+            'className': 'TestNoError3Element',
+            'domName': 'test-no-error3',
         },
         _EXPECTED_USE_FIRE_HELPER_WITH_EVENT_NAME_ERROR % {
             'eventName': 'bar-updated',
@@ -415,13 +495,49 @@ class EslintTsTest(unittest.TestCase):
             'name': '_otherEvent2',
         },
         # Case 2.4
-        _EXPECTED_INCORRECT_CLASS_NAME_ERROR % {
+        _EXPECTED_INCORRECT_CLASS_NAME_SUFFIX_ERROR % {
             'className': 'TestNoError4Element',
         },
     ]
     for e in non_errors:
       self.assertFalse(
           e in str(context.exception), f'Found unexpected error: {e}')
+
+  def testWebUiEslintPlugin_LitElementIncorrectFilenameSuffixCheck(self):
+    with self.assertRaises(RuntimeError) as context:
+      self._run_test(
+          ["with_webui_plugin_violations_incorrect_filename_suffix_element.ts"])
+
+    # Expected ESLint rule violation that should be part of the error output.
+    _EXPECTED_STRING = "@webui-eslint/lit-element-structure"
+    self.assertTrue(_EXPECTED_STRING in str(context.exception))
+
+    _EXPECTED_INCORRECT_FILE_NAME_SUFFIX_ERROR = "File name '%(filename)s' should not end with the '_element' suffix"
+    error = _EXPECTED_INCORRECT_FILE_NAME_SUFFIX_ERROR % {
+        'filename':
+            'with_webui_plugin_violations_incorrect_filename_suffix_element.ts',
+    }
+    self.assertTrue(
+        error in str(context.exception),
+        f'Didn\'t find expected error: {error}')
+
+  def testWebUiEslintPlugin_LitElementInconsistentFilenameCheck(self):
+    with self.assertRaises(RuntimeError) as context:
+      self._run_test(["with_webui_plugin_violations_inconsistent_file_name.ts"])
+
+    # Expected ESLint rule violation that should be part of the error output.
+    _EXPECTED_STRING = "@webui-eslint/lit-element-structure"
+    self.assertTrue(_EXPECTED_STRING in str(context.exception))
+
+    _EXPECTED_INCONSISTENT_FILE_NAME_ERROR = "Naming of file/%(referenceType)s pair %(filename)s ↔ %(referenceName)s is inconsistent"
+    error = _EXPECTED_INCONSISTENT_FILE_NAME_ERROR % {
+        'filename': 'with_webui_plugin_violations_inconsistent_file_name.ts',
+        'referenceType': 'DOM',
+        'referenceName': 'inconsistent-filename',
+    }
+    self.assertTrue(
+        error in str(context.exception),
+        f'Didn\'t find expected error: {error}')
 
   def testWebUiEslintPlugin_LitElementTemplateStructure(self):
     with self.assertRaises(RuntimeError) as context:
@@ -582,6 +698,7 @@ class EslintTsTest(unittest.TestCase):
       self._run_test([
           "with_webui_plugin_lit_element_bindings_violations.ts",
           "with_webui_plugin_lit_element_bindings_violations.html.ts",
+          "with_webui_plugin_lit_element_bindings_violations_child.ts",
       ])
 
     _EXPECTED_STRING = "@webui-eslint/lit-element-expressions"
@@ -591,8 +708,50 @@ class EslintTsTest(unittest.TestCase):
 
     _INCORRECT_BOOLEAN_ERROR = "Incorrect assignment to property '%(propertyName)s' using boolean attribute expression '?%(attributeName)s='. Boolean attribute expressions should only be assigned to boolean properties. To bind to the truthiness of '%(propertyName)s', convert it to a boolean using '!!'"
 
+    _NO_TRUE_BINDING_ERROR = "Boolean attribute '%(attributeName)s' does not need to be bound to '${true}'. Use either '%(attributeName)s' or '.%(propertyName)s=\"${true}\"' instead"
+
+    _NO_FALSE_BINDING_ERROR = "Incorrect assignment to boolean attribute expression '?%(attributeName)s=' using '${false}'. Use property binding '.%(propertyName)s=\"${false}\"' instead"
+
+    _PROPERTY_TYPE_MISMATCH_ERROR = "Property type mismatch: %(propertyName)s is declared as %(declaredType)s reactive property but is typed as %(tsType)s"
+
+    _BINDING_TYPE_MISMATCH_ERROR = "Type mismatch in property binding: Property '%(propertyName)s' on element '%(tagName)s' expects type '%(expectedType)s', but was provided '%(providedType)s'"
+
+    _PROPERTY_NOT_FOUND_ERROR = "Property '%(propertyName)s' was not found on element '%(tagName)s'"
+
+    _BINDING_TYPE_MISMATCH_PREFIX_ERROR = "Type mismatch in property binding: Property '%(propertyName)s' on element '%(tagName)s'"
+
     # The following strings *should* appear in the error output.
     errors = [
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'fooString',
+            'tagName': 'hello-world-child',
+            'expectedType': 'string',
+            'providedType': 'number[]',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'fooNumber',
+            'tagName': 'hello-world-child',
+            'expectedType': 'number',
+            'providedType': 'string',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'fooArray',
+            'tagName': 'hello-world-child',
+            'expectedType': 'number[]',
+            'providedType': 'string',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'fooBoolean',
+            'tagName': 'hello-world-child',
+            'expectedType': 'boolean',
+            'providedType': 'string[]',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'fooObject',
+            'tagName': 'hello-world-child',
+            'expectedType': '{ bar: string; }',
+            'providedType': '"A" | "B"',
+        },
         _INCORRECT_ATTRIBUTE_ERROR % {
             'attributeName': 'value',
             'propertyName': 'value',
@@ -606,6 +765,47 @@ class EslintTsTest(unittest.TestCase):
         _INCORRECT_BOOLEAN_ERROR % {
             'attributeName': 'invalid',
             'propertyName': 'errorMessage',
+        },
+        _INCORRECT_BOOLEAN_ERROR % {
+            'attributeName': 'disabled',
+            'propertyName': 'buttonDisabled',
+        },
+        _NO_TRUE_BINDING_ERROR % {
+            'attributeName': 'readonly',
+            'propertyName': 'readonly',
+        },
+        _NO_FALSE_BINDING_ERROR % {
+            'attributeName': 'hidden',
+            'propertyName': 'hidden',
+        },
+        _NO_FALSE_BINDING_ERROR % {
+            'attributeName': 'some-multi-word-attr',
+            'propertyName': 'someMultiWordAttr',
+        },
+        _INCORRECT_BOOLEAN_ERROR % {
+            'attributeName': 'hidden',
+            'propertyName': 'this.getErrorMessage()',
+        },
+        _INCORRECT_ATTRIBUTE_ERROR % {
+            'attributeName': 'aria-label',
+            'propertyName': 'this.getLabels()',
+            'propertyExpression': '.ariaLabel=',
+        },
+        _PROPERTY_NOT_FOUND_ERROR % {
+            'propertyName': 'nonExistentProperty',
+            'tagName': 'hello-world-child',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'mixinString',
+            'tagName': 'hello-world-child',
+            'expectedType': 'string',
+            'providedType': 'boolean',
+        },
+        _BINDING_TYPE_MISMATCH_ERROR % {
+            'propertyName': 'mixinString',
+            'tagName': 'hello-world-child',
+            'expectedType': 'string',
+            'providedType': 'boolean',
         },
     ]
     for e in errors:
@@ -638,10 +838,33 @@ class EslintTsTest(unittest.TestCase):
             'propertyName': 'limits',
             'propertyExpression': '.max=',
         },
+        _BINDING_TYPE_MISMATCH_PREFIX_ERROR % {
+            'propertyName': 'innerHTML',
+            'tagName': 'div',
+        },
+        _BINDING_TYPE_MISMATCH_PREFIX_ERROR % {
+            'propertyName': 'style',
+            'tagName': 'div',
+        },
+        _PROPERTY_NOT_FOUND_ERROR % {
+            'propertyName': 'mixinString',
+            'tagName': 'hello-world-child',
+        },
     ]
     for e in non_errors:
       self.assertFalse(
           e in str(context.exception), f'Found unexpected error: {e}')
+
+  def testWebUiEslintPlugin_NoMixedTypeAndValueImports(self):
+    with self.assertRaises(RuntimeError) as context:
+      self._run_test(
+          ["with_webui_plugin_no_mixed_type_and_value_imports_violations.ts"])
+
+    _EXPECTED_STRING = "@webui-eslint/no-mixed-type-and-value-imports"
+    self.assertTrue(_EXPECTED_STRING in str(context.exception))
+
+    _EXPECTED_ERROR = "Do not mix type and value imports in the same statement. Split them into separate import statements instead"
+    self.assertTrue(_EXPECTED_ERROR in str(context.exception))
 
 if __name__ == "__main__":
   unittest.main()

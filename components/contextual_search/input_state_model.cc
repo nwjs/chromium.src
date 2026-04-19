@@ -36,27 +36,15 @@ void MaybePopulateBrowserTabInputTypeRule(omnibox::SearchboxConfig* config) {
   }
   omnibox::RuleSet* rule_set = config->mutable_rule_set();
 
-  // The default max_instance for tabs is 5.
-  int max_browser_tab_instances = 5;
-
-  bool browser_tab_rule_exists = false;
-  for (const auto& rule : rule_set->input_type_rules()) {
-    // Until we get browser tab rules, treat browser tab input as image input
-    // for max instance limit purposes.
-    if (rule.input_type() == omnibox::INPUT_TYPE_LENS_IMAGE) {
-      max_browser_tab_instances = rule.max_instance();
-    }
-    if (rule.input_type() == omnibox::INPUT_TYPE_BROWSER_TAB) {
-      browser_tab_rule_exists = true;
-      break;
-    }
-  }
+  bool browser_tab_rule_exists =
+      std::ranges::any_of(rule_set->input_type_rules(), [](const auto& rule) {
+        return rule.input_type() == omnibox::INPUT_TYPE_BROWSER_TAB;
+      });
 
   // Populate `InputTypeRule` for `omnibox::INPUT_TYPE_BROWSER_TAB`.
   if (!browser_tab_rule_exists) {
     omnibox::InputTypeRule* new_rule = rule_set->add_input_type_rules();
     new_rule->set_input_type(omnibox::INPUT_TYPE_BROWSER_TAB);
-    new_rule->set_max_instance(max_browser_tab_instances);
     new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_IMAGE);
     new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_FILE);
     new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_BROWSER_TAB);
@@ -105,7 +93,8 @@ std::optional<omnibox::ModelMode> GetActiveModelFromUrl(
     return std::nullopt;
   }
 
-  std::optional<omnibox::ModelMode> active_model = std::nullopt;
+  std::optional<omnibox::ModelMode> best_model = std::nullopt;
+  size_t max_matched_params = 0;
 
   for (const auto& model_config : model_configs) {
     if (!std::ranges::contains(allowed_models, model_config.model())) {
@@ -115,6 +104,7 @@ std::optional<omnibox::ModelMode> GetActiveModelFromUrl(
       continue;
     }
     bool all_params_match = true;
+    size_t matched_count = model_config.aim_url_params().size();
     for (const auto& url_param : model_config.aim_url_params()) {
       std::string value;
       bool found =
@@ -125,13 +115,25 @@ std::optional<omnibox::ModelMode> GetActiveModelFromUrl(
       }
     }
     if (all_params_match) {
-      DCHECK(!active_model.has_value())
-          << "Multiple models matched URL parameters";
-      active_model = model_config.model();
+      if (!best_model.has_value() || matched_count > max_matched_params) {
+        best_model = model_config.model();
+        max_matched_params = matched_count;
+      } else if (matched_count == max_matched_params) {
+        DLOG(WARNING) << "Ambiguous model match tie!";
+      }
     }
   }
 
-  return active_model;
+  return best_model;
+}
+
+// Checks if a set of items are all present in an allowed list.
+template <typename T, typename U>
+bool AreItemsAllowed(const T& items, const U& allowed_items) {
+  return std::all_of(items.begin(), items.end(),
+                     [&allowed_items](const auto& item) {
+                       return std::ranges::contains(allowed_items, item);
+                     });
 }
 
 }  // namespace
@@ -247,36 +249,8 @@ InputStateModel::InputStateModel(
 
 InputStateModel::~InputStateModel() = default;
 
-void InputStateModel::Initialize() {
-  notifySubscribers();
-}
-
-void InputStateModel::SetPrefService(const PrefService* pref_service) {
-  pref_service_ = pref_service;
-  updateDisabledState();
-}
-
-base::CallbackListSubscription InputStateModel::subscribe(Subscriber callback) {
-  return subscribers_.Add(std::move(callback));
-}
-
-void InputStateModel::notifySubscribers() {
-  subscribers_.Notify(state_);
-}
-
-namespace {
-
-// Checks if a set of items are all present in an allowed list.
-template <typename T, typename U>
-bool AreItemsAllowed(const T& items, const U& allowed_items) {
-  return std::all_of(items.begin(), items.end(),
-                     [&allowed_items](const auto& item) {
-                       return std::ranges::contains(allowed_items, item);
-                     });
-}
-
-// Gets the current input types from the session handle.
-std::vector<omnibox::InputType> GetCurrentInputTypes(
+// static
+std::vector<omnibox::InputType> InputStateModel::GetCurrentInputTypes(
     const contextual_search::ContextualSearchSessionHandle* session_handle) {
   std::vector<omnibox::InputType> input_types;
   if (!session_handle) {
@@ -297,13 +271,29 @@ std::vector<omnibox::InputType> GetCurrentInputTypes(
         input_types.push_back(omnibox::InputType::INPUT_TYPE_LENS_FILE);
         break;
       default:
+        input_types.push_back(omnibox::InputType::INPUT_TYPE_UNSPECIFIED);
         break;
     }
   }
   return input_types;
 }
 
-}  // namespace
+void InputStateModel::Initialize() {
+  notifySubscribers();
+}
+
+void InputStateModel::SetPrefService(const PrefService* pref_service) {
+  pref_service_ = pref_service;
+  updateDisabledState();
+}
+
+base::CallbackListSubscription InputStateModel::subscribe(Subscriber callback) {
+  return subscribers_.Add(std::move(callback));
+}
+
+void InputStateModel::notifySubscribers() {
+  subscribers_.Notify(state_);
+}
 
 void InputStateModel::setActiveTool(ToolMode tool) {
   updateSelectedState(tool, state_.active_model);
@@ -311,6 +301,14 @@ void InputStateModel::setActiveTool(ToolMode tool) {
 
 void InputStateModel::setActiveModel(ModelMode model) {
   updateSelectedState(state_.active_tool, model);
+}
+
+void InputStateModel::UpdateModelFromUrl(const GURL& url) {
+  if (auto matched_model = GetActiveModelFromUrl(url, state_.model_configs,
+                                                 state_.allowed_models);
+      matched_model.has_value()) {
+    setActiveModel(*matched_model);
+  }
 }
 
 void InputStateModel::OnContextChanged() {

@@ -179,11 +179,13 @@ enum class PrerenderFinalStatus {
   // Prerendering cancelled but the PrerenderHost is reused for future
   // navigation.
   kPrerenderHostReused = 88,
+  // Submitting form when prerender is not allowed.
+  kFormSubmitWhenPrerendering = 89,
 
-  kMaxValue = kPrerenderHostReused,
+  kMaxValue = kFormSubmitWhenPrerendering,
 };
 // LINT.ThenChange(
-//     //third_party/blink/public/devtools_protocol/browser_protocol.pdl,
+//     //third_party/blink/public/devtools_protocol/domains/Preload.pdl,
 //     //tools/metrics/histograms/enums.xml
 // )
 

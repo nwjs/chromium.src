@@ -11,24 +11,6 @@ namespace base {
 
 // Describes how a MemoryConsumer works using a set of enum values.
 struct MemoryConsumerTraits {
-  // Indicates if this MemoryConsumer supports the concept of a memory limit.
-  enum class SupportsMemoryLimit : uint8_t {
-    kYes,
-    kNo,
-
-    kMaxValue = kNo,
-  };
-
-  // Indicates if the memory freed happens inside the process where the consumer
-  // lives. If yes, then the consumer can be notified to help in the case of
-  // address space exhaustion in the current process.
-  enum class InProcess : uint8_t {
-    kYes,
-    kNo,
-
-    kMaxValue = kNo,
-  };
-
   // The approximate scale of how much memory the consumer can manage.
   enum class EstimatedMemoryUsage : uint8_t {
     // Under 10 MBs.
@@ -56,6 +38,45 @@ struct MemoryConsumerTraits {
     kMaxValue = kRequiresTraversal,
   };
 
+  enum class InformationRetention : uint8_t {
+    // Freeing memory will result in loss of user state. I.e. discarding a tab.
+    kLossy,
+    // Freeing memory will not result in the loss of user state. I.e. It is a
+    // cache, or it can be recalculated from a raw resource.
+    kLossless,
+
+    kMaxValue = kLossless,
+  };
+
+  // Indicates if freeing memory is an asynchronous operation or a synchronous
+  // operation. Knowing that a consumer will execute synchronously is useful to
+  // know because the memory coordinator policy can then immediately assess the
+  // new state of the machine after the notification.
+  enum class ExecutionType : uint8_t {
+    kSynchronous,
+    kAsynchronous,
+
+    kMaxValue = kAsynchronous,
+  };
+
+  // Indicates if this MemoryConsumer supports the concept of a memory limit.
+  enum class SupportsMemoryLimit : uint8_t {
+    kYes,
+    kNo,
+
+    kMaxValue = kNo,
+  };
+
+  // Indicates if the memory freed happens inside the process where the consumer
+  // lives. If yes, then the consumer can be notified to help in the case of
+  // address space exhaustion in the current process.
+  enum class InProcess : uint8_t {
+    kYes,
+    kNo,
+
+    kMaxValue = kNo,
+  };
+
   // Indicates if recreating the memory is possible, and if so, if is it
   // expensive to do so.
   enum class RecreateMemoryCost : uint8_t {
@@ -69,16 +90,6 @@ struct MemoryConsumerTraits {
     kMaxValue = kExpensive,
   };
 
-  enum class InformationRetention : uint8_t {
-    // Freeing memory will result in loss of user state. I.e. discarding a tab.
-    kLossy,
-    // Freeing memory will not result in the loss of user state. I.e. It is a
-    // cache, or it can be recalculated from a raw resource.
-    kLossless,
-
-    kMaxValue = kLossless,
-  };
-
   enum class MemoryReleaseBehavior : uint8_t {
     // OnReleaseMemory() can be called repeatedly to release additional memory.
     // i.e. Tab discarding.
@@ -88,17 +99,6 @@ struct MemoryConsumerTraits {
     kIdempotent,
 
     kMaxValue = kIdempotent,
-  };
-
-  // Indicates if freeing memory is an asynchronous operation or a synchronous
-  // operation. Knowing that a consumer will execute synchronously is useful to
-  // know because the memory coordinator policy can then immediately assess the
-  // new state of the machine after the notification.
-  enum class ExecutionType : uint8_t {
-    kSynchronous,
-    kAsynchronous,
-
-    kMaxValue = kAsynchronous,
   };
 
   // Indicates if this consumer manages references to the v8 heap. In this case,
@@ -118,20 +118,43 @@ struct MemoryConsumerTraits {
     kMaxValue = kNo,
   };
 
+  // Indicates if the consumer is stateful. Stateful consumers (kYes) are
+  // preferred as they provide more predictable memory usage. The stateless
+  // option (kNo) exists primarily to facilitate the migration of legacy
+  // MemoryPressureListener clients.
+  //
+  // A stateful consumer (kYes) is one that maintains a lasting internal memory
+  // limit based on the `memory_limit()` it receives. When memory pressure
+  // occurs, it updates this limit and expects to keep it until the next update.
+  //
+  // A stateless consumer (kNo) is one that does not maintain a lasting limit.
+  // Instead, it reacts to memory pressure by performing a one-time eviction of
+  // its current entries or resources. Because a stateless consumer doesn't
+  // "remember" a restricted state, the memory coordinator will call its
+  // `OnReleaseMemory()` method repeatedly if the system remains under pressure,
+  // until the pressure is relieved.
+  enum class IsStateful : uint8_t {
+    kYes,
+    kNo,
+
+    kMaxValue = kNo,
+  };
+
   friend bool operator==(const MemoryConsumerTraits& lhs,
                          const MemoryConsumerTraits& rhs) = default;
 
   // LINT.IfChange
-  SupportsMemoryLimit supports_memory_limit;
-  InProcess in_process;
   EstimatedMemoryUsage estimated_memory_usage;
   ReleaseMemoryCost release_memory_cost;
-  RecreateMemoryCost recreate_memory_cost;
   InformationRetention information_retention;
-  MemoryReleaseBehavior memory_release_behavior;
   ExecutionType execution_type;
+  SupportsMemoryLimit supports_memory_limit;
+  InProcess in_process;
+  RecreateMemoryCost recreate_memory_cost;
+  MemoryReleaseBehavior memory_release_behavior;
   ReleaseGCReferences release_gc_references;
   GarbageCollectsV8Heap garbage_collects_v8_heap;
+  IsStateful is_stateful;
   // LINT.ThenChange(//content/common/memory_coordinator/mojom/memory_coordinator.mojom)
 };
 

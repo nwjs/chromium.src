@@ -176,7 +176,7 @@ CustomElementDefinition* CustomElementRegistry::DefineInternal(
       return nullptr;
     // 7.2. If element interface is undefined element, throw exception
     if (HtmlElementTypeForTag(extends, owner_->document()) ==
-        HTMLElementType::kHTMLUnknownElement) {
+        ElementType::kHTMLUnknownElement) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kNotSupportedError,
           StrCat({"\"", extends, "\" is an HTMLUnknownElement"}));
@@ -414,10 +414,6 @@ void CustomElementRegistry::upgrade(Node* root) {
   // 1-3. For each candidate of candidates, try to upgrade candidate.
   for (auto& candidate : candidates)
     CustomElement::TryToUpgrade(*candidate);
-}
-
-bool CustomElementRegistry::IsGlobalRegistry() const {
-  return this == owner_->customElements();
 }
 
 void CustomElementRegistry::AssociatedWith(Document& document) {

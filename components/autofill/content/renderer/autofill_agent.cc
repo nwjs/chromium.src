@@ -268,7 +268,7 @@ bool ShowPredictions(const WebDocument& document,
       });
     }
 
-    WebString kAutocomplete = WebString::FromASCII("autocomplete");
+    WebString kAutocomplete = WebString::FromAscii("autocomplete");
     if (element.HasAttribute(kAutocomplete)) {
       autofill_info +=
           "\nautocomplete: " +
@@ -342,10 +342,14 @@ AutofillAgent::Config CreateConfig(bool uses_platform_autofill) {
   };
 }
 
-// @memory should be triggered if no text is selected and the cursor is located
-// behind two '@' symbols.
+// @memory should be triggered if the field is not a password field, no text is
+// selected and the cursor is located behind two '@' symbols.
 bool ShouldTriggerAtMemorySearch(const blink::WebFormControlElement& element) {
   if (!base::FeatureList::IsEnabled(features::kAutofillAtMemory)) {
+    return false;
+  }
+  if (element.FormControlTypeForAutofill() ==
+      blink::mojom::FormControlType::kInputPassword) {
     return false;
   }
   const unsigned int sel_start = element.SelectionStart();
@@ -443,11 +447,7 @@ class AutofillAgent::DeferringAutofillDriver : public mojom::AutofillDriver {
                           const std::optional<PasswordSuggestionRequest>&
                               password_request) override {
     DeferMsg(&mojom::AutofillDriver::AskForValuesToFill, form, field_id,
-             caret_bounds, trigger_source,
-             base::FeatureList::IsEnabled(
-                 features::kAutofillAndPasswordsInSameSurface)
-                 ? password_request
-                 : std::nullopt);
+             caret_bounds, trigger_source, password_request);
   }
   void HidePopup() override { DeferMsg(&mojom::AutofillDriver::HidePopup); }
   void SuppressAutomaticRefills(const FillId& fill_id) override {
@@ -822,63 +822,6 @@ void AutofillAgent::FireHostSubmitEvents(const FormData& form_data,
   }
 }
 
-bool AutofillAgent::TryShowPasswordSuggestions(
-    const WebInputElement& input,
-    IsPasswordRequestManuallyTriggered manually_triggered_password_request,
-    base::optional_ref<const PasswordSuggestionRequest> password_request) {
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillAndPasswordsInSameSurface)) {
-    // No update to `is_popup_possibly_visible_` yet: it could still be open.
-    return false;
-  }
-
-  const bool is_field_empty_or_autofilled =
-      input.IsAutofilled() || input.Value().IsEmpty();
-  const bool is_password_field = input.FormControlTypeForAutofill() ==
-                                 blink::mojom::FormControlType::kInputPassword;
-
-  // Only show password suggestions on password-type fields if the field is
-  // either empty or autofilled. This will effectively close the popup on a
-  // password-type field once the user starts typing.
-  if (is_password_field && !is_field_empty_or_autofilled) {
-    HidePopup();
-    return false;
-  }
-
-  if (password_request) {
-    password_autofill_agent_->ShowSuggestions(password_request.value());
-    is_popup_possibly_visible_ = true;
-    return true;
-  }
-  // Beyond this point, the renderer won't be called. Earlier renderer calls may
-  // have shown/suppressed popups, so update visibility & success of this call.
-
-  // Treat the popup as (still) visible if
-  //  - a suggestion was accepted on another field, or if
-  //  - it was already open and no manual request force-closes the popup.
-  is_popup_possibly_visible_ =
-      password_autofill_agent_->HasAcceptedSuggestionOnOtherField(input) ||
-      (is_popup_possibly_visible_ && !manually_triggered_password_request);
-
-  // Call `FormControlType()` instead of `FormControlTypeForAutofill()` to
-  // determine whether the focsed field is *currently* a password field, not
-  // whether it has ever been a password field.
-  bool is_password_field_now = input.FormControlType() ==  // nocheck
-                               blink::mojom::FormControlType::kInputPassword;
-
-  // Return whether the password autofill agent has handled this request. Above,
-  // we already returned true if suggestions were shown. But there are several
-  // cases were the AutofillAgent should not show non-password Autofill:
-  //   a) when the user request password explicitly.
-  //   b) when the focused field is a password field (right now).
-  // Special condition for b: if the autofill agent handles all requests, don't
-  // defer to the password agent either.
-  // TODO: crbug.com/410753794 - Check if an early return works better here.
-  return manually_triggered_password_request        // --> case a.
-         || (is_password_field_now &&               // --> case b.
-             !config_.query_password_suggestions);  // --> case b without PWM.
-}
-
 void AutofillAgent::TextFieldCleared(const WebFormControlElement& element) {
   const WebInputElement input_element = element.DynamicTo<WebInputElement>();
   CHECK(input_element || form_util::IsTextAreaElement(element));
@@ -978,14 +921,6 @@ void AutofillAgent::OnTextFieldValueChanged(
     std::optional<PasswordSuggestionRequest> password_request =
         password_autofill_agent_->CreateRequestForChangeInTextField(
             input_element, form_cache);
-    if (password_request &&
-        TryShowPasswordSuggestions(input_element,
-                                   IsPasswordRequestManuallyTriggered(false),
-                                   password_request.value())) {
-      last_queried_element_ = FieldRef(element);
-      return;
-    }
-
     ShowSuggestions(element,
                     AutofillSuggestionTriggerSource::kTextFieldValueChanged,
                     form_cache, password_request);
@@ -1311,7 +1246,8 @@ void AutofillAgent::TriggerSuggestions(
   if (trigger_source ==
           AutofillSuggestionTriggerSource::kComposeDialogLostFocus ||
       trigger_source ==
-          AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge) {
+          AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge ||
+      trigger_source == AutofillSuggestionTriggerSource::kAtMemoryContextMenu) {
     if (WebElement content_editable =
             form_util::GetContentEditableByRendererId(field_id)) {
       ShowSuggestionsForContentEditable(content_editable, trigger_source);
@@ -1354,7 +1290,7 @@ void AutofillAgent::ApplyFieldAction(
             }
             previewed_elements_.emplace_back(field_id,
                                              form_control.GetAutofillState());
-            form_control.SetSuggestedValue(WebString::FromUTF16(preview_value));
+            form_control.SetSuggestedValue(WebString::FromUtf16(preview_value));
             break;
           }
           case mojom::FieldActionType::kReplaceSelection:
@@ -1364,7 +1300,7 @@ void AutofillAgent::ApplyFieldAction(
           case mojom::FieldActionType::kReplaceAll:
             previewed_elements_.emplace_back(field_id,
                                              form_control.GetAutofillState());
-            form_control.SetSuggestedValue(WebString::FromUTF16(value));
+            form_control.SetSuggestedValue(WebString::FromUtf16(value));
             break;
           case mojom::FieldActionType::kSelectAll:
             NOTIMPLEMENTED() << "Previewing select all is not implemented";
@@ -1387,12 +1323,12 @@ void AutofillAgent::ApplyFieldAction(
                     .Equals("@@")) {
               form_control.SetSelectionRange(sel_start - 2, sel_start);
             }
-            form_control.PasteText(WebString::FromUTF16(value),
+            form_control.PasteText(WebString::FromUtf16(value),
                                    /*replace_all=*/false);
             break;
           }
           case mojom::FieldActionType::kReplaceSelection: {
-            form_control.PasteText(WebString::FromUTF16(value),
+            form_control.PasteText(WebString::FromUtf16(value),
                                    /*replace_all=*/false);
             break;
           }
@@ -1444,7 +1380,7 @@ void AutofillAgent::ApplyFieldAction(
             [[fallthrough]];
           case mojom::FieldActionType::kReplaceSelection:
             content_editable.PasteText(
-                WebString::FromUTF16(value),
+                WebString::FromUtf16(value),
                 /*replace_all=*/
                 (action_type == mojom::FieldActionType::kReplaceAll));
             break;
@@ -1457,8 +1393,8 @@ void AutofillAgent::ApplyFieldAction(
               frame->SetEditableSelectionOffsets(selection.StartOffset() - 2,
                                                  selection.StartOffset());
             }
-            frame->ExecuteCommand(WebString::FromASCII("InsertText"),
-                                  WebString::FromUTF16(value));
+            frame->ExecuteCommand(WebString::FromAscii("InsertText"),
+                                  WebString::FromUtf16(value));
             break;
         }
     }
@@ -1620,12 +1556,6 @@ void AutofillAgent::ShowSuggestions(
         return;
       }
     }
-    bool password_agent_handled_request = TryShowPasswordSuggestions(
-        input_element, IsPasswordsAutofillManuallyTriggered(trigger_source),
-        password_request);
-    if (password_agent_handled_request) {
-      return;
-    }
   }
 
   if (config_.secure_context_required &&
@@ -1710,7 +1640,7 @@ void AutofillAgent::DoFillFieldWithValue(std::u16string_view value,
                                          WebFormControlElement& element,
                                          WebAutofillState autofill_state) {
   DCHECK(form_util::MaybeWasOwnedByFrame(element, unsafe_render_frame()));
-  element.SetAutofillValue(WebString::FromUTF16(value), autofill_state);
+  element.SetAutofillValue(WebString::FromUtf16(value), autofill_state);
   UpdateStateForTextChange(element,
                            autofill_state == WebAutofillState::kAutofilled
                                ? FieldPropertiesFlags::kAutofilledOnUserTrigger
@@ -2035,7 +1965,7 @@ void AutofillAgent::DidReceiveLeftMouseDownOrGestureTapInNode(
   const bool is_focused =
       node.Focused() || ((contenteditable = node.RootEditableElement()) &&
                          contenteditable.Focused());
-#if defined(ANDROID)
+#if BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(
           features::kAutofillAndroidKeyboardAccessoryDynamicPositioning)) {
     last_left_mouse_down_or_gesture_tap_in_node_caused_focus_ = is_focused;

@@ -134,10 +134,9 @@ class PaymentsDataManagerHelper : public PaymentsDataManagerTestBase {
                                 sync_service_);
     payments_data_manager_ = std::make_unique<PaymentsDataManager>(
         profile_database_service_, account_database_service_,
-        /*image_fetcher=*/nullptr, /*shared_storage_handler=*/nullptr,
-        prefs_.get(), &sync_service_, identity_test_env_.identity_manager(),
-        GeoIpCountryCode(country_code), app_locale,
-        autofill_client()->GetAutofillOptimizationGuideDecider());
+        /*image_fetcher=*/nullptr, prefs_.get(), &sync_service_,
+        identity_test_env_.identity_manager(), GeoIpCountryCode(country_code),
+        app_locale, autofill_client()->GetAutofillOptimizationGuideDecider());
     payments_data_manager_->Refresh();
     WaitForOnPaymentsDataChanged();
   }
@@ -705,9 +704,6 @@ TEST_F(PaymentsDataManagerTest, AddUpdateRemoveCreditCards) {
 // - `local_card2`'s and `server_card`'s modification dates fall in the removal
 //   range. Expect that only the local card is removed.
 TEST_F(PaymentsDataManagerTest, RemoveLocalDataModifiedBetween) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
-
   AdvanceClock(kArbitraryTime - base::Time::Now());
   CreditCard local_card1 = test::GetCreditCard();
   // PaymentsAutofillTable sets modification dates when adding/updating.
@@ -764,8 +760,6 @@ TEST_F(PaymentsDataManagerTest, RecordUseOfCard) {
 
 // Test that UpdateLocalCvc function working as expected.
 TEST_F(PaymentsDataManagerTest, UpdateLocalCvc) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   CreditCard credit_card = test::GetCreditCard();
   const std::u16string kCvc = u"111";
   credit_card.set_cvc(kCvc);
@@ -784,9 +778,6 @@ TEST_F(PaymentsDataManagerTest, UpdateLocalCvc) {
 #if !BUILDFLAG(IS_IOS)
 // Test that cleanup for crbug.com/411681430 is working as expected.
 TEST_F(PaymentsDataManagerTest, ClearLocalCvcsUpToMay2025) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
-
   AdvanceClock(kArbitraryTime - base::Time::Now());
   // Add a credit card with older timestamp to the database.
   CreditCard credit_card_1(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -831,8 +822,6 @@ TEST_F(PaymentsDataManagerTest, ClearLocalCvcsUpToMay2025) {
 
 // Test that verify add, update, remove server cvc function working as expected.
 TEST_P(PaymentsDataManagerServerTest, ServerCvc) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   const std::u16string kCvc = u"111";
   CreditCard credit_card = test::GetMaskedServerCard();
   SetServerCards({credit_card});
@@ -866,8 +855,6 @@ TEST_P(PaymentsDataManagerServerTest, ServerCvc) {
 
 // Test that verify clear server cvc function working as expected.
 TEST_P(PaymentsDataManagerServerTest, ClearServerCvc) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   // Add a server card cvc.
   const std::u16string kCvc = u"111";
   CreditCard credit_card = test::GetMaskedServerCard();
@@ -1835,8 +1822,6 @@ TEST_F(
 }
 
 TEST_F(PaymentsDataManagerTest, ClearAllCvcs) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   // Add a server card and its CVC.
   CreditCard server_card = test::GetMaskedServerCard();
   const std::u16string server_cvc = u"111";
@@ -3010,7 +2995,6 @@ TEST_F(PaymentsDataManagerTest,
       /*profile_database=*/nullptr,
       /*account_database=*/nullptr,
       /*image_fetcher=*/nullptr,
-      /*shared_storage_handler=*/nullptr,
       /*pref_service=*/nullptr,
       /*sync_service=*/nullptr,
       /*identity_manager=*/nullptr,

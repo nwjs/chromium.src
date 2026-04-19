@@ -117,6 +117,7 @@
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
@@ -553,7 +554,7 @@
 }
 
 - (void)locationBarDidResignFirstResponder {
-  [self.NTPViewController omniboxDidResignFirstResponder];
+  [self.NTPViewController omniboxDidEndEditing];
 }
 
 - (void)constrainNamedGuideForFeedIPH {
@@ -954,6 +955,13 @@
                                HomeCustomizationEntrypoint::kMain];
 
   [self openCustomizationMenuAtPage:CustomizationMenuPage::kMain animated:YES];
+}
+
+- (void)toolsMenuWasTapped:(UIView*)toolsMenu {
+  CHECK(IsChromeNextIaEnabled());
+  id<PopupMenuCommands> popupMenuHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), PopupMenuCommands);
+  [popupMenuHandler showToolsMenuPopup];
 }
 
 #pragma mark - SigninPromoViewMediatorDelegate
@@ -1861,8 +1869,21 @@
   if (!_customizationCoordinator) {
     return;
   }
+
+  BOOL shouldShowPhotoNotSyncedSnackbar =
+      _customizationCoordinator.shouldShowPhotoNotSyncedSnackbarOnDismiss;
+
   [_customizationCoordinator stop];
   _customizationCoordinator = nil;
+
+  if (shouldShowPhotoNotSyncedSnackbar) {
+    id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), SnackbarCommands);
+    NSString* title = l10n_util::GetNSString(
+        IDS_IOS_HOME_BACKGROUND_CUSTOMIZATION_USER_UPLOAD_NOT_SYNCED_SNACKBAR);
+    SnackbarMessage* message = [[SnackbarMessage alloc] initWithTitle:title];
+    [snackbarHandler showSnackbarMessageOverBrowserToolbar:message];
+  }
 }
 
 #pragma mark - NewTabPageShortcutsHandler

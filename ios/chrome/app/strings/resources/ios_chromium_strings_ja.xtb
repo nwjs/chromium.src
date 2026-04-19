@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ja">
 <translation id="1000436330784933699">ここで Google レンズを開くことができます。</translation>
+<translation id="1005291068154454184">Chromium を既定に設定する方法を説明したフルスクリーン動画</translation>
 <translation id="1042296835509784301">Chromium でパスワード マネージャーを開きます。</translation>
 <translation id="1047130070405668746">[Chromium] を選択する</translation>
 <translation id="1091252999271033193">Chromium は毎回モバイルサイトをリクエストします。</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">Chromium に保存されている安全でないサイトのリストと URL を照合します。サイトがパスワードを不正に取得しようとしている場合や、ユーザーが安全でないファイルをダウンロードしようとした場合は、URL とページ コンテンツの一部をセーフ ブラウジングに送信することがあります。</translation>
 <translation id="2314220608288760290">YouTube のシークレット リンクが Chromium のシークレット モードで自動的に開きます。</translation>
 <translation id="231828342043114302">興味や関心に基づいてパーソナライズされたコンテンツを受け取るには、Chromium にログインします。</translation>
-<translation id="2326738825692478496">Chromium データの一部が Google アカウントにまだ保存されていません。
-
-数分待ってからログアウトしてください。今すぐログアウトすると、このデータは削除されます。</translation>
 <translation id="2334943301233020675">次のパスキーは要件を満たしていないため、パスワード マネージャーにインポートされませんでした。</translation>
 <translation id="2337722506862731008">Chromium を共有</translation>
 <translation id="2340423701577464731">Chromium にリーディング リストの項目を追加する</translation>
@@ -103,7 +101,6 @@
 Chromium を使いやすくするためにデータを使用するその他の設定については、<ph name="BEGIN_LINK" />Google サービス<ph name="END_LINK" />をご覧ください。</translation>
 <translation id="2832168932648876507">Chromium で音声検索します。</translation>
 <translation id="2843571538056574338">自動入力に Chromium を使用する</translation>
-<translation id="2899085719655668655">Chromium を既定に設定する方法を説明したピクチャー イン ピクチャーの動画</translation>
 <translation id="2918709798697875261">組織が Chromium にログインしないように求めています。</translation>
 <translation id="2942241131342758843">Chromium を既定に設定すると、リンクの表示やウィジェットからの検索、他のアプリでのパスワードの自動入力に使用できるようになります</translation>
 <translation id="2977470724722393594">Chromium は最新版です</translation>
@@ -281,7 +278,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="6887138405044152640">このタブを別のデバイスに送信するには、送信先のデバイスで Chromium にログインしてください。</translation>
 <translation id="6911341667534646387">Google アカウントの Chromium データを引き続き使用してください</translation>
 <translation id="7018284295775193585">Chromium を更新できません</translation>
-<translation id="7055269218854630176">組織（<ph name="DOMAIN" />）が、ログインしているアカウントと Chromium の使用方法を管理しています。管理者は特定の機能を設定または制限できます。</translation>
+<translation id="7055269218854630176">ログインしようとしているアカウントおよび Chromium の使用方法は、組織（<ph name="DOMAIN" />）によって管理されています。管理者は特定の機能を設定または制限できます。</translation>
 <translation id="7099326575020694068">Chromium では、分割表示モードでカメラを使用することはできません</translation>
 <translation id="7165402419892018581">自動入力で Chromium を選択する</translation>
 <translation id="7175400662502680481">データ侵害によってパスワードが漏洩しました。パスワード マネージャーでは、このパスワードを今すぐ変更することをおすすめします。</translation>

@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.ntp;
 
-import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -17,8 +16,6 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewStub;
-import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
@@ -35,9 +32,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
-import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -56,20 +51,14 @@ import org.chromium.chrome.browser.feed.FeedSurfaceProvider;
 import org.chromium.chrome.browser.feed.FeedSwipeRefreshLayout;
 import org.chromium.chrome.browser.feed.NtpFeedSurfaceLifecycleManager;
 import org.chromium.chrome.browser.feed.componentinterfaces.SurfaceCoordinator;
+import org.chromium.chrome.browser.glic.GlicHelper;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.LifecycleObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
-import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
-import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
-import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
-import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
-import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
-import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
@@ -81,12 +70,8 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
 import org.chromium.chrome.browser.readaloud.ReadAloudController.Entrypoint;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleCoordinator;
-import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleUtils;
-import org.chromium.chrome.browser.setup_list.SetupListManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
-import org.chromium.chrome.browser.single_tab.SingleTabSwitcherCoordinator;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
 import org.chromium.chrome.browser.suggestions.SuggestionsNavigationDelegate;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegateImpl;
@@ -96,29 +81,23 @@ import org.chromium.chrome.browser.suggestions.tile.TileGroupDelegateImpl;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
-import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.InvalidationAwareThumbnailProvider;
-import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
-import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.TopInsetProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
-import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.AutocompleteInput;
@@ -126,13 +105,11 @@ import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
-import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.url.GURL;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -146,7 +123,7 @@ public class NewTabPage
                 BrowserControlsStateProvider.Observer,
                 FeedSurfaceDelegate,
                 VoiceRecognitionHandler.Observer,
-                ModuleDelegateHost {
+                SnackbarManageable {
     private static final String TAG = "NewTabPage";
 
     // Key for the scroll position data that may be stored in a navigation entry.
@@ -170,10 +147,10 @@ public class NewTabPage
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final ObserverList<MostVisitedTileClickObserver> mMostVisitedTileClickObservers;
     private final BottomSheetController mBottomSheetController;
-    private final WindowAndroid mWindowAndroid;
-    private FeedSurfaceProvider mFeedSurfaceProvider;
+    private final NewTabPageLayout mNewTabPageLayout;
+    private final NewTabPageCoordinator mNewTabPageCoordinator;
 
-    private NewTabPageLayout mNewTabPageLayout;
+    private FeedSurfaceProvider mFeedSurfaceProvider;
     private @Nullable TabObserver mTabObserver;
     private @Nullable LifecycleObserver mLifecycleObserver;
     protected boolean mSearchProviderHasLogo;
@@ -196,25 +173,12 @@ public class NewTabPage
     private final int mToolbarHeight;
 
     private final Supplier<Toolbar> mToolbarSupplier;
-    private final TabModelSelector mTabModelSelector;
     private final TemplateUrlService mTemplateUrlService;
-    private final MonotonicObservableSupplier<TabContentManager> mTabContentManagerSupplier;
     private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
 
-    private @Nullable SingleTabSwitcherCoordinator mSingleTabSwitcherCoordinator;
-    private @Nullable ViewGroup mSingleTabCardContainer;
-    private @Nullable HomeModulesCoordinator mHomeModulesCoordinator;
-    private SetupListManager.@Nullable Observer mSetupListObserver;
-    private @Nullable ViewGroup mHomeModulesContainer;
-    private final SettableNullableObservableSupplier<Tab> mMostRecentTabSupplier =
-            ObservableSuppliers.createNullable();
-    private @Nullable Point mContextMenuStartPosition;
-
     private final Activity mActivity;
-    private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
     private boolean mSnapshotSingleTabCardChanged;
     private final boolean mIsInNightMode;
-    private final @Nullable OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
     private final boolean mCanSupportEdgeToEdgeForCustomizedTheme;
     private final TopInsetProvider mTopInsetProvider;
     private TopInsetProvider.@Nullable Observer mTopInsetChangeObserver;
@@ -228,7 +192,6 @@ public class NewTabPage
     // tablet mode.
     private boolean mUseLightIconTint;
 
-    private @Nullable SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
     private @Nullable NtpSmoothTransitionDelegate mSmoothTransitionDelegate;
 
     private final CallbackController mCallbackController = new CallbackController();
@@ -292,7 +255,7 @@ public class NewTabPage
         @Override
         public boolean isLocationBarShownInNtp() {
             if (mIsDestroyed) return false;
-            return isInSingleUrlBarMode() && !mNewTabPageLayout.urlFocusAnimationsDisabled();
+            return isInSingleUrlBarMode() && !mNewTabPageCoordinator.urlFocusAnimationsDisabled();
         }
 
         @Override
@@ -385,7 +348,7 @@ public class NewTabPage
             if (mIsDestroyed) return;
 
             super.onLoadingComplete(tiles);
-            mNewTabPageLayout.onTilesLoaded();
+            mNewTabPageCoordinator.onTilesLoaded();
         }
 
         @Override
@@ -420,15 +383,12 @@ public class NewTabPage
      * @param shareDelegateSupplier Supplies the Delegate used to open SharingHub.
      * @param windowAndroid The containing window of this page.
      * @param toolbarSupplier Supplies the {@link Toolbar}.
-     * @param activityResultTracker Tracker of activity results.
      * @param homeSurfaceTracker Used to decide whether we are the home surface.
-     * @param tabContentManagerSupplier Used to create tab thumbnails.
+     * @param activityResultTracker Tracker of activity results.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
      * @param moduleRegistrySupplier Supplier for the {@link ModuleRegistry}.
      * @param edgeToEdgeControllerSupplier Supplier for the {@link EdgeToEdgeController}.
      * @param startupMetricsTracker Used to record NTP startup metric.
-     * @param multiInstanceManager multiInstanceManager An instance of the {@link
-     *     MultiInstanceManager}.
      */
     public NewTabPage(
             Activity activity,
@@ -450,13 +410,11 @@ public class NewTabPage
             Supplier<Toolbar> toolbarSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
             ActivityResultTracker activityResultTracker,
-            MonotonicObservableSupplier<TabContentManager> tabContentManagerSupplier,
             NonNullObservableSupplier<Integer> tabStripHeightSupplier,
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             TopInsetProvider topInsetProvider,
-            StartupMetricsTracker startupMetricsTracker,
-            MultiInstanceManager multiInstanceManager) {
+            StartupMetricsTracker startupMetricsTracker) {
         mConstructedTimeNs = System.nanoTime();
         TraceEvent.begin(TAG);
 
@@ -467,26 +425,16 @@ public class NewTabPage
         mToolbarSupplier = toolbarSupplier;
         mMostVisitedTileClickObservers = new ObserverList<>();
         mBrowserControlsStateProvider = browserControlsStateProvider;
-        mTabModelSelector = tabModelSelector;
         mBottomSheetController = bottomSheetController;
-        mHomeSurfaceTracker = homeSurfaceTracker;
-        mTabContentManagerSupplier = tabContentManagerSupplier;
         mIsInNightMode = isInNightMode;
         mTabStripHeightSupplier = tabStripHeightSupplier;
-        mModuleRegistrySupplier = moduleRegistrySupplier;
         mTopInsetProvider = topInsetProvider;
-        mWindowAndroid = windowAndroid;
 
         Profile profile = mTab.getProfile();
 
         SuggestionsNavigationDelegate navigationDelegate =
                 new SuggestionsNavigationDelegate(
-                        activity,
-                        profile,
-                        nativePageHost,
-                        tabModelSelector,
-                        mTab,
-                        multiInstanceManager);
+                        activity, profile, nativePageHost, tabModelSelector, mTab);
         mNewTabPageManager =
                 new NewTabPageManagerImpl(
                         navigationDelegate, profile, nativePageHost, snackbarManager);
@@ -511,18 +459,13 @@ public class NewTabPage
                         if (mIsLoaded) {
                             recordNtpShown();
                         }
-                        maybeUpdateMagicStack();
-                        mNewTabPageLayout.onSwitchToForeground();
+                        mNewTabPageCoordinator.maybeUpdateHomeModules(mIsLoaded);
+                        mNewTabPageCoordinator.onSwitchToForeground();
                     }
 
                     @Override
                     public void onHidden(Tab tab, @TabHidingType int type) {
                         if (mIsLoaded) recordNtpHidden();
-                        if (mSingleTabSwitcherCoordinator != null
-                                && (mHomeSurfaceTracker == null
-                                        || !mHomeSurfaceTracker.canShowHomeSurface(mTab))) {
-                            mSingleTabSwitcherCoordinator.hide();
-                        }
                     }
                 };
         mTab.addObserver(mTabObserver);
@@ -531,7 +474,7 @@ public class NewTabPage
                 new PauseResumeWithNativeObserver() {
                     @Override
                     public void onResumeWithNative() {
-                        maybeUpdateMagicStack();
+                        mNewTabPageCoordinator.maybeUpdateHomeModules(mIsLoaded);
                     }
 
                     @Override
@@ -545,7 +488,30 @@ public class NewTabPage
         mActivityLifecycleDispatcher.register(mLifecycleObserver);
 
         updateSearchProvider();
-        initializeMainView(
+
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        // TODO(crbug.com/347509698): Remove the log statements after fixing the bug.
+        Log.d(TAG, "NewTabPageLayout inflate");
+        mNewTabPageLayout = (NewTabPageLayout) inflater.inflate(R.layout.new_tab_page_layout, null);
+        mNewTabPageCoordinator =
+                new NewTabPageCoordinator(
+                        mNewTabPageManager,
+                        activity,
+                        mNewTabPageLayout,
+                        mTab,
+                        tabModelSelector,
+                        moduleRegistrySupplier,
+                        mTab.getProfile(),
+                        windowAndroid,
+                        activityResultTracker,
+                        bottomSheetController,
+                        modalDialogManager,
+                        snackbarManager,
+                        mIsTablet,
+                        mTabStripHeightSupplier,
+                        homeSurfaceTracker);
+
+        initializeFeedSurfaceProvider(
                 activity,
                 windowAndroid,
                 activityResultTracker,
@@ -555,15 +521,9 @@ public class NewTabPage
                 modalDialogManager,
                 url,
                 edgeToEdgeControllerSupplier,
-                startupMetricsTracker);
-
-        // It is possible that the NewTabPage is created when the Tab model hasn't been initialized.
-        // For example, the user changes theme when a NTP is showing, which leads to the recreation
-        // of the ChromeTabbedActivity and showing the NTP as the last visited Tab.
-        TabModelUtils.runOnTabStateInitialized(
-                mTabModelSelector,
-                mCallbackController.makeCancelable(
-                        unusedTabModelSelector -> mayCreateSearchResumptionModule(profile)));
+                startupMetricsTracker,
+                tabModelSelector,
+                moduleRegistrySupplier);
 
         View view = getView();
         view.addOnAttachStateChangeListener(
@@ -602,9 +562,7 @@ public class NewTabPage
 
         NewTabPageUma.recordContentSuggestionsDisplayStatus(profile);
 
-        mNewTabPageLayout.initialize(
-                mNewTabPageManager,
-                activity,
+        mNewTabPageCoordinator.initialize(
                 mTileGroupDelegate,
                 mSearchProviderHasLogo,
                 mIsDefaultSearchEngineGoogle,
@@ -612,17 +570,7 @@ public class NewTabPage
                 mFeedSurfaceProvider.getTouchEnabledDelegate(),
                 mFeedSurfaceProvider.getUiConfig(),
                 lifecycleDispatcher,
-                mTab.getProfile(),
-                windowAndroid,
-                activityResultTracker,
-                bottomSheetController,
-                modalDialogManager,
-                snackbarManager,
-                mIsTablet,
-                mTabStripHeightSupplier,
                 () -> assumeNonNull(mTemplateUrlService.getComposeplateUrl()));
-
-        initializeHomeModules();
 
         sTotalCount++;
         NewTabPageUma.recordSimultaneousNtpCount(sTotalCount);
@@ -631,7 +579,7 @@ public class NewTabPage
     }
 
     /**
-     * Create and initialize the main view contained in this NewTabPage.
+     * Create and initialize the FeedSurfaceProvider of this NewTabPage.
      *
      * @param activity The activity used to initialize the view.
      * @param windowAndroid Provides the current active tab.
@@ -643,8 +591,8 @@ public class NewTabPage
      * @param edgeToEdgeControllerSupplier The supplier to {@link EdgeToEdgeController}.
      * @param startupMetricsTracker Used to record NTP startup metric.
      */
-    @EnsuresNonNull({"mNewTabPageLayout", "mFeedSurfaceProvider"})
-    protected void initializeMainView(
+    @EnsuresNonNull({"mFeedSurfaceProvider"})
+    protected void initializeFeedSurfaceProvider(
             Activity activity,
             WindowAndroid windowAndroid,
             ActivityResultTracker activityResultTracker,
@@ -654,13 +602,10 @@ public class NewTabPage
             ModalDialogManager modalDialogManager,
             String url,
             MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
-            StartupMetricsTracker startupMetricsTracker) {
+            StartupMetricsTracker startupMetricsTracker,
+            TabModelSelector tabModelSelector,
+            OneshotSupplier<ModuleRegistry> moduleRegistrySupplier) {
         Profile profile = mTab.getProfile();
-
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        // TODO(crbug.com/347509698): Remove the log statements after fixing the bug.
-        Log.i(TAG, "NewTabPageLayout inflate");
-        mNewTabPageLayout = (NewTabPageLayout) inflater.inflate(R.layout.new_tab_page_layout, null);
 
         FeedSurfaceCoordinator.ActionDelegateFactory createActionDelegate =
                 () ->
@@ -674,7 +619,7 @@ public class NewTabPage
                                 modalDialogManager,
                                 mNewTabPageManager.getNavigationDelegate(),
                                 BookmarkModel.getForProfile(profile),
-                                mTabModelSelector,
+                                tabModelSelector,
                                 profile,
                                 mBottomSheetController) {
                             @Override
@@ -689,7 +634,7 @@ public class NewTabPage
                         activity,
                         snackbarManager,
                         windowAndroid,
-                        new SnapScrollHelperImpl(mNewTabPageManager, mNewTabPageLayout),
+                        new SnapScrollHelperImpl(mNewTabPageManager, mNewTabPageCoordinator),
                         mNewTabPageLayout,
                         mBrowserControlsStateProvider.getTopControlsHeight(),
                         isInNightMode,
@@ -708,42 +653,11 @@ public class NewTabPage
                         createActionDelegate,
                         mTabStripHeightSupplier,
                         edgeToEdgeControllerSupplier,
-                        assumeNonNull(mModuleRegistrySupplier).get());
+                        assumeNonNull(moduleRegistrySupplier).get());
         startupMetricsTracker.registerNtpViewObserver(mFeedSurfaceProvider.getView());
     }
 
     /** Initialize the single tab card on home surface NTP or magic stack. */
-    private void initializeHomeModules() {
-        boolean isTrackingTabReady =
-                mHomeSurfaceTracker != null && mHomeSurfaceTracker.isHomeSurfaceTab(mTab);
-        // The magic stack is shown on every NTP. There are three cases:
-        // 1) on any normal NewTabPage. Initialize the magic stack here.
-        // 2) The home surface NewTabPage which is created via back operations. Initialize the
-        // magic stack here, and re-show the single Tab card with the previously tracked Tab.
-        // 3) The home surface NewTabPage which is created at startup. The magic stack will be
-        // initialized later since its tracking Tab hasn't been available yet.
-        // The launch type of a home surface NTP is TabLaunchType.FROM_STARTUP.
-        if (HomeModulesMetricsUtils.useMagicStack()) {
-            mContextMenuStartPosition =
-                    ReturnToChromeUtil.calculateContextMenuStartPosition(mActivity.getResources());
-            if (isTrackingTabReady) {
-                assumeNonNull(mHomeSurfaceTracker);
-                // Case 2) on home surface NTP via back operations.
-                showMagicStack(mHomeSurfaceTracker.getLastActiveTabToTrack());
-            } else if (mTab.getLaunchType() != TabLaunchType.FROM_STARTUP) {
-                // Case 1) on normal NTP.
-                showMagicStack(null);
-            }
-        } else if (isTrackingTabReady) { // On NTP home surface with magic stack disabled.
-            assumeNonNull(mHomeSurfaceTracker);
-            showHomeSurfaceUi(mHomeSurfaceTracker.getLastActiveTabToTrack());
-        }
-
-        if (isTrackingTabReady) {
-            ReturnToChromeUtil.recordHomeSurfaceShown();
-        }
-    }
-
     private void initTopInsetProviderObserver() {
         mTopInsetChangeObserver = this::onToEdgeChange;
         mTopInsetProvider.addObserver(mTopInsetChangeObserver);
@@ -789,7 +703,7 @@ public class NewTabPage
         if (!mIsTablet) {
             mUseLightIconTint = applyWhiteBackgroundOnSearchBox;
         }
-        mNewTabPageLayout.onCustomizedBackgroundChanged(applyWhiteBackgroundOnSearchBox);
+        mNewTabPageCoordinator.onCustomizedBackgroundChanged(applyWhiteBackgroundOnSearchBox);
     }
 
     /** Initializes whether to use a light tint color on icons of toolbar and status bar. */
@@ -821,7 +735,7 @@ public class NewTabPage
         // However, consumeTopInset being false takes priority — if the parent is not consuming top
         // insets (e.g. status indicator is visible), the NTP must not apply its own top inset
         // either, since the content view already has the system top padding.
-        mNewTabPageLayout.onToEdgeChange(
+        mNewTabPageCoordinator.onToEdgeChange(
                 systemTopInset, consumeTopInset && supportsEdgeToEdgeOnTop());
     }
 
@@ -880,12 +794,16 @@ public class NewTabPage
                 - mTabStripHeightSupplier.get();
     }
 
-    /**
-     * @return The view container for the new tab layout.
-     */
+    /** Returns the instance of {@link NewTabPageCoordinator}. */
     @VisibleForTesting
-    public NewTabPageLayout getNewTabPageLayout() {
-        return mNewTabPageLayout;
+    public NewTabPageCoordinator getNewTabPageCoordinator() {
+        return mNewTabPageCoordinator;
+    }
+
+    /** Returns the view container for the new tab layout. */
+    @VisibleForTesting
+    public View getLayout() {
+        return mNewTabPageCoordinator.getNewTabPageLayout();
     }
 
     /**
@@ -894,7 +812,7 @@ public class NewTabPage
      * @param disable Whether to disable the animations.
      */
     public void setUrlFocusAnimationsDisabled(boolean disable) {
-        mNewTabPageLayout.setUrlFocusAnimationsDisabled(disable);
+        mNewTabPageCoordinator.setUrlFocusAnimationsDisabled(disable);
     }
 
     private boolean isInSingleUrlBarMode() {
@@ -910,7 +828,7 @@ public class NewTabPage
     private void onSearchEngineUpdated() {
         updateSearchProvider();
 
-        mNewTabPageLayout.setSearchProviderInfo(
+        mNewTabPageCoordinator.setSearchProviderInfo(
                 mSearchProviderHasLogo, mIsDefaultSearchEngineGoogle);
         // TODO(crbug.com/40226731): Remove this call when the Feed position experiment is
         // cleaned up.
@@ -925,7 +843,7 @@ public class NewTabPage
      * @param percent The percentage of the URL bar focus animation.
      */
     public void setUrlFocusChangeAnimationPercent(float percent) {
-        mNewTabPageLayout.setUrlFocusChangeAnimationPercent(percent);
+        mNewTabPageCoordinator.setUrlFocusChangeAnimationPercent(percent);
     }
 
     /**
@@ -936,7 +854,7 @@ public class NewTabPage
      *     to the NewTabPage view.
      */
     public void getSearchBoxBounds(Rect bounds, Point translation) {
-        mNewTabPageLayout.getSearchBoxBounds(bounds, translation, getView());
+        mNewTabPageCoordinator.getSearchBoxBounds(bounds, translation, getView());
     }
 
     /**
@@ -945,7 +863,7 @@ public class NewTabPage
      * @return The vertical inset in pixels.
      */
     public int getSearchBoxBoundsVerticalInset() {
-        return mNewTabPageLayout.getSearchBoxBoundsVerticalInset();
+        return mNewTabPageCoordinator.getSearchBoxBoundsVerticalInset();
     }
 
     /**
@@ -954,7 +872,7 @@ public class NewTabPage
      * @param alpha opacity (alpha) value to use.
      */
     public void setSearchBoxAlpha(float alpha) {
-        mNewTabPageLayout.setSearchBoxAlpha(alpha);
+        mNewTabPageCoordinator.setSearchBoxAlpha(alpha);
     }
 
     /**
@@ -963,7 +881,7 @@ public class NewTabPage
      * @param alpha opacity (alpha) value to use.
      */
     public void setSearchProviderLogoAlpha(float alpha) {
-        mNewTabPageLayout.setSearchProviderLogoAlpha(alpha);
+        mNewTabPageCoordinator.setSearchProviderLogoAlpha(alpha);
     }
 
     /**
@@ -977,14 +895,14 @@ public class NewTabPage
      * @see org.chromium.chrome.browser.omnibox.NewTabPageDelegate#hasCompletedFirstLayout().
      */
     public boolean hasCompletedFirstLayout() {
-        return mNewTabPageLayout.getHeight() > 0;
+        return mNewTabPageCoordinator.getNewTabPageLayout().getHeight() > 0;
     }
 
     /**
      * @return Whether the location bar has been scrolled to top in the NTP.
      */
     public boolean isLocationBarScrolledToTopInNtp() {
-        return mNewTabPageLayout.getToolbarTransitionPercentage() == 1;
+        return mNewTabPageCoordinator.getToolbarTransitionPercentage() == 1;
     }
 
     /**
@@ -993,7 +911,7 @@ public class NewTabPage
      * @param listener The listener to be notified on changes.
      */
     public void setSearchBoxScrollListener(@Nullable OnSearchBoxScrollListener listener) {
-        mNewTabPageLayout.setSearchBoxScrollListener(listener);
+        mNewTabPageCoordinator.setSearchBoxScrollListener(listener);
     }
 
     /** Sets the OmniboxStub that this page interacts with. */
@@ -1003,7 +921,7 @@ public class NewTabPage
             // The toolbar can't get the reference to the native page until its initialization is
             // finished, so we can't cache it here and transfer it to the view later. We pull that
             // state from the location bar when we get a reference to it as a workaround.
-            mNewTabPageLayout.setUrlFocusChangeAnimationPercent(
+            mNewTabPageCoordinator.setUrlFocusChangeAnimationPercent(
                     omniboxStub.isUrlBarFocused() ? 1f : 0f);
 
             FeedReliabilityLogger feedReliabilityLogger =
@@ -1016,7 +934,7 @@ public class NewTabPage
         mVoiceRecognitionHandler = mOmniboxStub.getVoiceRecognitionHandler();
         if (mVoiceRecognitionHandler != null) {
             mVoiceRecognitionHandler.addObserver(this);
-            mNewTabPageLayout.updateActionButtonVisibility();
+            mNewTabPageCoordinator.updateActionButtonVisibility();
         }
     }
 
@@ -1038,7 +956,12 @@ public class NewTabPage
 
     @Override
     public void onVoiceAvailabilityImpacted() {
-        mNewTabPageLayout.updateActionButtonVisibility();
+        mNewTabPageCoordinator.updateActionButtonVisibility();
+    }
+
+    @Override
+    public SnackbarManager getSnackbarManager() {
+        return mNewTabPageManager.getSnackbarManager();
     }
 
     /** Adds an observer to be notified on most visited tile clicks. */
@@ -1059,12 +982,7 @@ public class NewTabPage
         mLastShownTimeNs = System.nanoTime();
         RecordUserAction.record("MobileNTPShown");
         SuggestionsMetrics.recordSurfaceVisible();
-    }
-
-    private void maybeUpdateMagicStack() {
-        if (mIsLoaded && mHomeModulesCoordinator != null) {
-            mHomeModulesCoordinator.updateModules();
-        }
+        GlicHelper.maybeShowGlicTaskInProgressSnackbar(this, mTab.getProfile(), mActivity);
     }
 
     /** Records UMA for the NTP being hidden and the time spent on it. */
@@ -1118,6 +1036,7 @@ public class NewTabPage
 
         mCallbackController.destroy();
 
+        mNewTabPageCoordinator.destroy();
         mNewTabPageManager.onDestroy();
         mTileGroupDelegate.destroy();
         mTemplateUrlService.removeObserver(this);
@@ -1133,20 +1052,6 @@ public class NewTabPage
         mFeedSurfaceProvider.destroy();
         if (mVoiceRecognitionHandler != null) {
             mVoiceRecognitionHandler.removeObserver(this);
-        }
-        if (mSearchResumptionModuleCoordinator != null) {
-            mSearchResumptionModuleCoordinator.destroy();
-        }
-        if (mSingleTabSwitcherCoordinator != null) {
-            destroySingleTabCard();
-        }
-        if (mHomeModulesCoordinator != null) {
-            mHomeModulesCoordinator.destroy();
-        }
-
-        if (mSetupListObserver != null) {
-            SetupListManager.getInstance().removeObserver(mSetupListObserver);
-            mSetupListObserver = null;
         }
 
         if (mTopInsetChangeObserver != null) {
@@ -1243,26 +1148,26 @@ public class NewTabPage
     @Override
     public void reload() {
         mFeedSurfaceProvider.reload();
-        mNewTabPageLayout.reload();
+        mNewTabPageCoordinator.reload();
     }
 
     @Override
     public int getTopInset() {
-        return mNewTabPageLayout.getTopInset();
+        return mNewTabPageCoordinator.getTopInset();
     }
 
     // InvalidationAwareThumbnailProvider
 
     @Override
     public boolean shouldCaptureThumbnail() {
-        return mNewTabPageLayout.shouldCaptureThumbnail()
+        return mNewTabPageCoordinator.shouldCaptureThumbnail()
                 || mFeedSurfaceProvider.shouldCaptureThumbnail()
                 || mSnapshotSingleTabCardChanged;
     }
 
     @Override
     public void captureThumbnail(Canvas canvas) {
-        mNewTabPageLayout.onPreCaptureThumbnail();
+        mNewTabPageCoordinator.onPreCaptureThumbnail();
         mFeedSurfaceProvider.captureThumbnail(canvas);
         mSnapshotSingleTabCardChanged = false;
     }
@@ -1317,149 +1222,13 @@ public class NewTabPage
                 .getActionDelegateForTesting(); // IN-TEST
     }
 
-    @Nullable TabObserver getTabObserverForTesting() {
-        return mTabObserver;
-    }
-
-    private void mayCreateSearchResumptionModule(Profile profile) {
-        // The module is disabled on tablets.
-        if (mIsTablet) return;
-
-        mSearchResumptionModuleCoordinator =
-                SearchResumptionModuleUtils.mayCreateSearchResumptionModule(
-                        mNewTabPageLayout,
-                        mTabModelSelector.getCurrentModel(),
-                        mTab,
-                        profile,
-                        R.id.search_resumption_module_container_stub);
-    }
-
     /**
-     * Shows the home surface UI on this NTP. TODO(crbug.com/40263286): Investigate better solution
-     * to show Home surface UI on NTP upon creation. to show Home surface UI on NTP upon creation.
-     */
-    public void showHomeSurfaceUi(@Nullable Tab mostRecentTab) {
-        if (mSingleTabSwitcherCoordinator == null) {
-            initializeSingleTabCard(mostRecentTab);
-        } else {
-            mSingleTabSwitcherCoordinator.show(mostRecentTab);
-        }
-    }
-
-    /**
-     * Shows the magic stack on the home surface NTP.
+     * Shows the magic stack with the last active Tab if exists on the home surface NTP.
      *
      * @param mostRecentTab The last shown Tab if exists. It is non null for NTP home surface only.
      */
-    public void showMagicStack(@Nullable Tab mostRecentTab) {
-        if (mModuleRegistrySupplier == null || mModuleRegistrySupplier.get() == null) {
-            return;
-        }
-
-        if (mostRecentTab != null && !UrlUtilities.isNtpUrl(mostRecentTab.getUrl())) {
-            mMostRecentTabSupplier.set(mostRecentTab);
-        }
-
-        Profile profile = mTab.getProfile();
-        if (profile != null) {
-            SetupListManager.getInstance().maybePrimeCompletionStatus(profile.getOriginalProfile());
-        }
-
-        if (mHomeModulesCoordinator == null) {
-            initializeMagicStack();
-        }
-        mHomeModulesCoordinator.show(this::onMagicStackShown);
-    }
-
-    /** Show the module when the current new tab page is been used as the home surface. */
-    private void initializeSingleTabCard(@Nullable Tab mostRecentTab) {
-        if (mostRecentTab == null || UrlUtilities.isNtpUrl(mostRecentTab.getUrl())) {
-            return;
-        }
-
-        mSingleTabCardContainer =
-                (FrameLayout)
-                        ((ViewStub)
-                                        mNewTabPageLayout.findViewById(
-                                                R.id.tab_switcher_module_container_stub))
-                                .inflate();
-        mSingleTabSwitcherCoordinator =
-                new SingleTabSwitcherCoordinator(
-                        mActivity,
-                        mSingleTabCardContainer,
-                        mTabModelSelector,
-                        mIsTablet,
-                        mostRecentTab,
-                        this::onSingleTabCardClicked,
-                        /* seeMoreLinkClickedCallback= */ null,
-                        () -> mSnapshotSingleTabCardChanged = true,
-                        assertNonNull(mTabContentManagerSupplier.get())
-                        /* tabContentManager= */ ,
-                        mIsTablet ? mFeedSurfaceProvider.getUiConfig() : null,
-                        /* moduleDelegate= */ null);
-        mSingleTabSwitcherCoordinator.showModule();
-    }
-
-    /**
-     * Initializes the magic stack to show home modules on the current new tab page which is used as
-     * the home surface.
-     */
-    @EnsuresNonNull({"mHomeModulesContainer", "mHomeModulesCoordinator"})
-    private void initializeMagicStack() {
-        mHomeModulesContainer =
-                (ViewGroup)
-                        ((ViewStub)
-                                        mNewTabPageLayout.findViewById(
-                                                R.id.home_modules_recycler_view_stub))
-                                .inflate();
-        MonotonicObservableSupplier<Profile> profileSupplier =
-                ObservableSuppliers.createMonotonic(mTab.getProfile());
-        mHomeModulesCoordinator =
-                new HomeModulesCoordinator(
-                        mActivity,
-                        this,
-                        mNewTabPageLayout,
-                        HomeModulesConfigManager.getInstance(),
-                        profileSupplier,
-                        assertNonNull(assumeNonNull(mModuleRegistrySupplier).get()));
-
-        if (SetupListManager.getInstance().isSetupListActive()) {
-            mSetupListObserver =
-                    () -> {
-                        if (mHomeModulesCoordinator != null) {
-                            mHomeModulesCoordinator.refreshModules();
-                        }
-                    };
-            SetupListManager.getInstance().addObserver(mSetupListObserver);
-        }
-    }
-
-    private void onMagicStackShown(boolean isVisible) {
-        assumeNonNull(mHomeModulesContainer);
-        mHomeModulesContainer.setVisibility(isVisible ? View.VISIBLE : View.GONE);
-    }
-
-    private void onSingleTabCardClicked(int tabId) {
-        onTabClicked(tabId);
-    }
-
-    /**
-     * Opens the selected Tab and closes the current NTP. If the single Tab card which tracks the
-     * last active Tab is selected, updates the mHomeSurfaceTracker too.
-     */
-    private void onTabClicked(int tabId) {
-        TabModelUtils.selectTabById(mTabModelSelector, tabId, TabSelectionType.FROM_USER);
-
-        mTabModelSelector
-                .getModel(false)
-                .getTabRemover()
-                .closeTabs(
-                        TabClosureParams.closeTab(mTab).allowUndo(false).build(),
-                        /* allowDialog= */ false);
-        if (mHomeSurfaceTracker != null) {
-            // Updates the mHomeSurfaceTracker since the Tab of the NTP is closed.
-            mHomeSurfaceTracker.updateHomeSurfaceAndTrackingTabs(null, null);
-        }
+    public void showHomeSurfaceUiOnNtp(@Nullable Tab mostRecentTab) {
+        mNewTabPageCoordinator.showHomeSurfaceUiOnNtp(mostRecentTab);
     }
 
     /** Sets whether the NTP is currently set as edge-to-edge. */
@@ -1471,100 +1240,12 @@ public class NewTabPage
                                 != NtpBackgroundType.DEFAULT;
     }
 
-    public boolean isSingleTabCardVisibleForTesting() {
-        if (mSingleTabSwitcherCoordinator == null) return false;
-
-        return mSingleTabSwitcherCoordinator.isVisible();
-    }
-
     public boolean isMagicStackVisibleForTesting() {
-        if (mHomeModulesContainer == null) return false;
-
-        return mHomeModulesContainer.getVisibility() == View.VISIBLE;
-    }
-
-    /** Destroy the single tab card on the {@link NewTabPageLayout}. */
-    @VisibleForTesting
-    void destroySingleTabCard() {
-        if (mSingleTabCardContainer != null) mSingleTabCardContainer.removeAllViews();
-        if (mSingleTabSwitcherCoordinator != null) {
-            mSingleTabSwitcherCoordinator.hide();
-            mSingleTabSwitcherCoordinator.destroy();
-        }
-        mSingleTabSwitcherCoordinator = null;
+        return mNewTabPageCoordinator.isMagicStackVisibleForTesting(); // IN-TEST
     }
 
     public boolean getSnapshotSingleTabCardChangedForTesting() {
-        return mSnapshotSingleTabCardChanged;
-    }
-
-    @Override
-    public @Nullable Point getContextMenuStartPoint() {
-        return mContextMenuStartPosition;
-    }
-
-    @Override
-    public @Nullable UiConfig getUiConfig() {
-        return mIsTablet ? mFeedSurfaceProvider.getUiConfig() : null;
-    }
-
-    @Override
-    public void onUrlClicked(GURL gurl) {
-        mTab.loadUrl(new LoadUrlParams(gurl));
-    }
-
-    @Override
-    public void onTabSelected(int tabId) {
-        onTabClicked(tabId);
-    }
-
-    @Override
-    public void onCaptureThumbnailStatusChanged() {
-        mSnapshotSingleTabCardChanged = true;
-    }
-
-    @Override
-    public void customizeSettings() {
-        NtpCustomizationCoordinatorFactory.getInstance()
-                .create(
-                        mContext,
-                        mBottomSheetController,
-                        mTab::getProfile,
-                        NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS,
-                        mWindowAndroid,
-                        assumeNonNull(mModuleRegistrySupplier).get())
-                .showBottomSheet();
-    }
-
-    @Override
-    public int getStartMargin() {
-        boolean isInNarrowWindowOnTablet =
-                mIsTablet
-                        && NtpCustomizationUtils.isInNarrowWindowOnTablet(
-                                mIsTablet, mFeedSurfaceProvider.getUiConfig());
-        int marginResourceId =
-                isInNarrowWindowOnTablet
-                        ? R.dimen.ntp_search_box_lateral_margin_narrow_window_tablet
-                        : R.dimen.mvt_container_lateral_margin;
-        return mContext.getResources().getDimensionPixelSize(marginResourceId);
-    }
-
-    @Nullable
-    @Override
-    public Tab getTrackingTab() {
-        var mostRecentTab = mMostRecentTabSupplier.get();
-        if (mostRecentTab == null) {
-            return null;
-        }
-
-        return mMostRecentTabSupplier.get();
-    }
-
-    @Override
-    public boolean isHomeSurface() {
-        // Can only show a local tab to resume if we we have a tracked tab. The presence of the
-        // local tab to resume module is effectively what being a home surface is.
-        return mMostRecentTabSupplier.get() != null;
+        return mNewTabPageCoordinator.getSnapshotSingleTabCardChangedForTesting(); // IN-TEST
     }
 
     @Override
@@ -1582,6 +1263,6 @@ public class NewTabPage
     }
 
     public void enableSearchBoxEditText(boolean enable) {
-        mNewTabPageLayout.enableSearchBoxEditText(enable);
+        mNewTabPageCoordinator.enableSearchBoxEditText(enable);
     }
 }

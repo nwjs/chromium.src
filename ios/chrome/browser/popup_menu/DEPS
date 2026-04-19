@@ -1,5 +1,7 @@
 include_rules = [
   # keep-sorted start
+  "+ios/chrome/browser/assistant/coordinator/assistant_container_commands.h",
+  "+ios/chrome/browser/assistant/ui/assistant_container_detent.h",
   "+ios/chrome/browser/bookmarks/model/bookmark_model_bridge_observer.h",
   "+ios/chrome/browser/bookmarks/model/bookmark_model_factory.h",
   "+ios/chrome/browser/bookmarks/ui_bundled",
@@ -63,11 +65,6 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  # web::HttpServer is deprecated in favor of net::EmbeddedTestServer.
-  # TODO:(crbug.com/891834) Remove this exception.
-  "popup_menu_egtest\.mm": [
-    "+ios/web/public/test/http_server",
-  ],
   # web::HttpServer is deprecated in favor of net::EmbeddedTestServer.
   # TODO:(crbug.com/891834) Remove this exception.
   "request_desktop_mobile_site_egtest\.mm": [

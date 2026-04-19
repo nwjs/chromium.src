@@ -101,6 +101,8 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // CB to be called on the mailbox backing this frame when the frame is
   // destroyed.
   using ReleaseMailboxCB = base::OnceCallback<void(const gpu::SyncToken&)>;
+  using ReleaseMailboxCBWithLostResource =
+      base::OnceCallback<void(const gpu::SyncToken&, bool)>;
 
   // Interface representing client operations on a SyncToken, i.e. insert one in
   // the GPU Command Buffer and wait for it.
@@ -220,6 +222,17 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       gpu::SyncToken sync_token,
       ReleaseMailboxCB shared_image_release_cb,
       const gfx::Size& coded_size,
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      base::TimeDelta timestamp);
+
+  // Overload of above method that does not take coded_size param and instead
+  // passes the coded_size from `shared_image`.
+  static scoped_refptr<VideoFrame> WrapSharedImage(
+      VideoPixelFormat format,
+      scoped_refptr<gpu::ClientSharedImage> shared_image,
+      gpu::SyncToken sync_token,
+      ReleaseMailboxCB shared_image_release_cb,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       base::TimeDelta timestamp);
@@ -652,6 +665,11 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // are still the only owner of this VideoFrame.
   void SetReleaseMailboxCB(ReleaseMailboxCB release_mailbox_cb);
 
+  // Overrides the above with ReleaseMailboxCBWithLostResource. The above method
+  // calls into this one by binding its `release_mailbox_cb` ignoring the lost
+  // resource bool.
+  void SetReleaseMailboxCB(ReleaseMailboxCBWithLostResource release_mailbox_cb);
+
   // Tests whether a mailbox release callback is configured.
   bool HasReleaseMailboxCB() const;
 
@@ -706,6 +724,9 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   // Returns the number of bits per channel.
   size_t BitDepth() const;
+
+  // Sets the `lost_shared_image_resource_` to true.
+  void SetLostSharedImageResource();
 
  protected:
   friend class base::RefCountedThreadSafe<VideoFrame>;
@@ -803,7 +824,14 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   // Sync token associated with the `shared_image_`.
   gpu::SyncToken acquire_sync_token_;
-  ReleaseMailboxCB shared_image_release_cb_;
+  ReleaseMailboxCBWithLostResource shared_image_release_cb_;
+
+  // Tracks whether the SharedImage within VideoFrame which is transported over
+  // a TransferableResource to the Display Compositor is lost, and if such a
+  // VideoFrame can be reused. This is to be read only during VideoFrame
+  // destruction.
+  // TODO(b/495385034): Track this over ClientSharedImage.
+  bool lost_shared_image_resource_ = false;
 
   // Native texture shared image that is only set when the VideoFrame is
   // created via VideoFrame::WrapSharedImage().

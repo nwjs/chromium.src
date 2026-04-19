@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="lo">
 <translation id="1000436330784933699">ທ່ານສາມາດເປີດ Lens ໄດ້ຢູ່ບ່ອນນີ້.</translation>
+<translation id="1005291068154454184">ວິດີໂອແບບເຕັມຈໍກ່ຽວກັບວິທີຕັ້ງຄ່າ Chromium ເປັນຄ່າເລີ່ມຕົ້ນ</translation>
 <translation id="1042296835509784301">ເປີດຕົວຈັດການລະຫັດຜ່ານໃນ Chromium.</translation>
 <translation id="1047130070405668746">ເລືອກ Chromium</translation>
 <translation id="1091252999271033193">ນີ້ໝາຍຄວາມວ່າ Chromium ຈະຮ້ອງຂໍເວັບໄຊມືຖືທຸກເທື່ອ.</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">ກວດສອບ URL ກັບລາຍຊື່ເວັບໄຊທີ່ບໍ່ປອດໄພທີ່ຈັດເກັບໄວ້ໃນ Chromium. ຖ້າມີເວັບໄຊໃດໜຶ່ງພະຍາຍາມລັກເອົາລະຫັດຜ່ານຂອງທ່ານ ຫຼື ເມື່ອທ່ານດາວໂຫຼດໄຟລ໌ອັນຕະລາຍ, Chromium ອາດສົ່ງ URL, ຮວມທັງເນື້ອຫາບາງສ່ວນຂອງໜ້າໄປໃຫ້ Safe Browsing.</translation>
 <translation id="2314220608288760290">Chromium ເປີດລິ້ງ YouTube ແບບບໍ່ເປີດເຜີຍຕົວຕົນໂດຍອັດຕະໂນມັດໃນແບບບໍ່ເປີດເຜີຍຕົວຕົນ.</translation>
 <translation id="231828342043114302">ເພື່ອຮັບເນື້ອຫາແບບປັບແຕ່ງສ່ວນຕົວໂດຍອີງຕາມຄວາມສົນໃຈຂອງທ່ານ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium.</translation>
-<translation id="2326738825692478496">ຂໍ້ມູນ Chromium ບາງສ່ວນຂອງທ່ານຍັງບໍ່ໄດ້ຖືກບັນທຶກໄປໃສ່ໃນບັນຊີ Google ຂອງທ່ານເທື່ອ.
-
-ກະລຸນາລໍຖ້າສອງສາມນາທີກ່ອນອອກຈາກລະບົບ. ຫາກທ່ານອອກຈາກລະບົບຕອນນີ້, ຂໍ້ມູນນີ້ຈະຖືກລຶບ.</translation>
 <translation id="2334943301233020675">ລະບົບບໍ່ໄດ້ນຳເຂົ້າກະແຈຜ່ານຕໍ່ໄປນີ້ໄປໃສ່ຕົວຈັດການລະຫັດຜ່ານ, ເນື່ອງຈາກບໍ່ກົງຕາມຂໍ້ກຳນົດ.</translation>
 <translation id="2337722506862731008">ແບ່ງປັນ Chromium</translation>
 <translation id="2340423701577464731">ເພີ່ມລາຍການຂອງລາຍຊື່ການອ່ານໃສ່ໃນ Chromium</translation>
@@ -103,7 +101,6 @@
 ສຳລັບການຕັ້ງຄ່າເພີ່ມເຕີມທີ່ໃຊ້ຂໍ້ມູນເພື່ອປັບປຸງປະສົບການ Chromium ຂອງທ່ານ, ໃຫ້ເຂົ້າໄປ <ph name="BEGIN_LINK" />ບໍລິການ Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">ຊອກຫາດ້ວຍສຽງໃນ Chromium.</translation>
 <translation id="2843571538056574338">ໃຊ້ Chromium ສຳລັບການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ</translation>
-<translation id="2899085719655668655">ຄຳແນະນຳວິດີໂອແບບການສະແດງຜົນຊ້ອນກັນກ່ຽວກັບວິທີຕັ້ງຄ່າ Chromium ເປັນຄ່າເລີ່ມຕົ້ນ</translation>
 <translation id="2918709798697875261">ອົງການຂອງທ່ານກຳນົດໃຫ້ທ່ານສືບຕໍ່ອອກຈາກລະບົບ Chromium.</translation>
 <translation id="2942241131342758843">ໃຊ້ Chromium ເປັນຄ່າເລີ່ມຕົ້ນເພື່ອເປີດລິ້ງ, ຊອກຫາຈາກວິດເຈັດ ແລະ ການຕື່ມຂໍ້ມູນລະຫັດຜ່ານອັດຕະໂນມັດໃນແອັບອື່ນໆ</translation>
 <translation id="2977470724722393594">Chromium ແມ່ນເວີຊັນໃໝ່ຫຼ້າສຸດແລ້ວ</translation>

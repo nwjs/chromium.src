@@ -30,7 +30,7 @@ class FakePictureLayerImpl : public PictureLayerImpl {
 
   std::unique_ptr<LayerImpl> CreateLayerImpl(
       LayerTreeImpl* tree_impl) const override;
-  void PushPropertiesTo(LayerImpl* layer_impl) override;
+  void CopyPropertiesTo(LayerImpl* layer_impl) const override;
   void AppendQuads(const AppendQuadsContext& context,
                    viz::CompositorRenderPass* render_pass,
                    AppendQuadsData* append_quads_data) override;
@@ -58,7 +58,6 @@ class FakePictureLayerImpl : public PictureLayerImpl {
   using PictureLayerImpl::IsDirectlyCompositedImage;
   using PictureLayerImpl::MinimumContentsScale;
   using PictureLayerImpl::UpdateDirectlyCompositedImageFromRasterSource;
-  using PictureLayerImpl::UpdateRasterSource;
 
   using PictureLayerImpl::MaximumTilingContentsScale;
   using PictureLayerImpl::UpdateIdealScales;
@@ -110,6 +109,8 @@ class FakePictureLayerImpl : public PictureLayerImpl {
   void SetAllTilesReady();
   void SetAllTilesReadyInTiling(PictureLayerTiling* tiling);
   void SetTileReady(Tile* tile);
+  void InitializeTileWithResourceSize(Tile* tile,
+                                      const gfx::Size& resource_size);
   PictureLayerTilingSet* GetTilings() { return tilings_.get(); }
 
   // Add the given tiling as a "used" tiling during AppendQuads. This ensures
@@ -128,10 +129,6 @@ class FakePictureLayerImpl : public PictureLayerImpl {
 
   void ReleaseResources() override;
   void ReleaseTileResources() override;
-
-  bool produced_tile_last_append_quads() const {
-    return produced_tile_last_append_quads_;
-  }
 
   scoped_refptr<const DiscardableImageMap> discardable_image_map() const {
     return discardable_image_map_;

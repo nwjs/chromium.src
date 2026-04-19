@@ -174,6 +174,10 @@ PseudoElement* ElementRareDataVector::GetPseudoElement(
   return data->GetPseudoElement(pseudo_id, document_transition_tag);
 }
 
+bool ElementRareDataVector::HasAnyPseudos() const {
+  return GetField(FieldId::kPseudoElementData);
+}
+
 bool ElementRareDataVector::HasScrollButtonOrMarkerGroupPseudos() const {
   PseudoElementData* data =
       static_cast<PseudoElementData*>(GetField(FieldId::kPseudoElementData));
@@ -370,13 +374,6 @@ DOMTokenList* ElementRareDataVector::GetPart() const {
   return static_cast<DOMTokenList*>(GetField(FieldId::kPart));
 }
 
-ElementRareDataVector* ElementRareDataVector::SetMarker(DOMTokenList* marker) {
-  return SetField(FieldId::kMarker, marker);
-}
-DOMTokenList* ElementRareDataVector::GetMarker() const {
-  return static_cast<DOMTokenList*>(GetField(FieldId::kMarker));
-}
-
 ElementRareDataVector* ElementRareDataVector::SetPartNamesMap(
     const AtomicString part_names) {
   auto [names_map, vec] = EnsureField<NamesMap>(FieldId::kPartNamesMap);
@@ -478,23 +475,43 @@ ElementRareDataVector* ElementRareDataVector::SetRestrictionTargetId(
       FieldId::kRestrictionTargetId, std::move(id));
 }
 
-const TrackedElementRect* ElementRareDataVector::GetTrackedElementRect() const {
-  auto* value = GetWrappedField<std::unique_ptr<TrackedElementRect>>(
-      FieldId::kTrackedElementRect);
-  return value ? value->get() : nullptr;
+const TrackedElementSubRect* ElementRareDataVector::GetTrackedElementSubRect(
+    viz::TrackedElementFeature feature) const {
+  if (auto* map = GetTrackedElementSubRects()) {
+    auto it = map->find(feature);
+    if (it != map->end()) {
+      return &it->second;
+    }
+  }
+  return nullptr;
 }
 
-void ElementRareDataVector::ClearTrackedElementRect() {
-  SetFieldToNullIfExists(FieldId::kTrackedElementRect);
+void ElementRareDataVector::ClearTrackedElementSubRect(
+    viz::TrackedElementFeature feature) {
+  if (auto* map = GetWrappedField<TrackedElementSubRects>(
+          FieldId::kTrackedElementRect)) {
+    map->erase(feature);
+    // If no more features are tracking this element, remove the field entirely.
+    if (map->empty()) {
+      SetFieldToNullIfExists(FieldId::kTrackedElementRect);
+    }
+  }
 }
 
-ElementRareDataVector* ElementRareDataVector::SetTrackedElementRect(
-    std::unique_ptr<TrackedElementRect> rect) {
-  CHECK(!GetTrackedElementRect());
-  CHECK(rect);
-  CHECK(!rect->id.value().is_zero());
-  return SetWrappedField<std::unique_ptr<TrackedElementRect>>(
-      FieldId::kTrackedElementRect, std::move(rect));
+ElementRareDataVector* ElementRareDataVector::SetTrackedElementSubRect(
+    viz::TrackedElementFeature feature,
+    const TrackedElementSubRect& rect) {
+  CHECK(!rect.id.value().is_zero());
+  auto [map, vec] =
+      EnsureWrappedField<TrackedElementSubRects>(FieldId::kTrackedElementRect);
+  auto [_, inserted] = map.get().try_emplace(feature, rect);
+  CHECK(inserted);
+  return vec;
+}
+
+const TrackedElementSubRects* ElementRareDataVector::GetTrackedElementSubRects()
+    const {
+  return GetWrappedField<TrackedElementSubRects>(FieldId::kTrackedElementRect);
 }
 
 ElementRareDataVector::ResizeObserverDataMap*
@@ -596,21 +613,23 @@ ElementRareDataVector::GetScrollMarkerGroupContainerData() const {
 
 ElementRareDataVector* ElementRareDataVector::CacheCSSPseudoElement(
     PseudoId pseudo_id,
+    const AtomicString& pseudo_argument,
     CSSPseudoElement& pseudo_element) {
   auto [data, vec] =
       EnsureField<CSSPseudoElementsCacheData>(FieldId::kCSSPseudoElementData);
-  data.get().CacheCSSPseudoElement(pseudo_id, pseudo_element);
+  data.get().CacheCSSPseudoElement(pseudo_id, pseudo_argument, pseudo_element);
   return vec;
 }
 
 CSSPseudoElement* ElementRareDataVector::GetCSSPseudoElement(
-    PseudoId pseudo_id) const {
+    PseudoId pseudo_id,
+    const AtomicString& pseudo_argument) const {
   auto* data = static_cast<CSSPseudoElementsCacheData*>(
       GetField(FieldId::kCSSPseudoElementData));
   if (!data) {
     return {};
   }
-  return data->GetCSSPseudoElement(pseudo_id);
+  return data->GetCSSPseudoElement(pseudo_id, pseudo_argument);
 }
 
 AnchorPositionScrollData* ElementRareDataVector::GetAnchorPositionScrollData()
@@ -707,9 +726,11 @@ DisplayAdElementMonitor* ElementRareDataVector::GetDisplayAdElementMonitor()
 
 std::pair<std::reference_wrapper<DisplayAdElementMonitor>,
           ElementRareDataVector*>
-ElementRareDataVector::EnsureDisplayAdElementMonitor(Element* element) {
-  return EnsureField<DisplayAdElementMonitor>(FieldId::kDisplayAdElementMonitor,
-                                              element);
+ElementRareDataVector::EnsureDisplayAdElementMonitor(
+    Element* element,
+    AdProvenance ad_provenance) {
+  return EnsureField<DisplayAdElementMonitor>(
+      FieldId::kDisplayAdElementMonitor, element, std::move(ad_provenance));
 }
 
 ElementRareDataVector* ElementRareDataVector::SetFocusgroupLastFocused(

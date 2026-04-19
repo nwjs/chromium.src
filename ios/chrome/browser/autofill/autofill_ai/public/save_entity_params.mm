@@ -15,10 +15,12 @@ SaveEntityParams::SaveEntityParams(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     std::u16string user_email,
+    bool save_is_synchronous,
     AutofillClient::EntityImportPromptResultCallback callback)
     : new_entity(std::move(new_entity)),
       old_entity(std::move(old_entity)),
       user_email(std::move(user_email)),
+      save_is_synchronous(save_is_synchronous),
       callback(std::move(callback)) {}
 
 SaveEntityParams::SaveEntityParams(SaveEntityParams&&) = default;
@@ -56,6 +58,7 @@ std::u16string SaveEntityParams::GetTitleText() const {
                      : IDS_AUTOFILL_AI_SAVE_REDRESS_NUMBER_ENTITY_DIALOG_TITLE);
     case EntityTypeName::kFlightReservation:
     case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
       return l10n_util::GetStringFUTF16(IsUpdate()
                                             ? IDS_IOS_AUTOFILL_AI_UPDATE_PROMPT
                                             : IDS_IOS_AUTOFILL_AI_SAVE_PROMPT,

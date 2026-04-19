@@ -32,6 +32,7 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
+#include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout_types.h"
@@ -260,7 +261,7 @@ class ShellView : public views::BoxLayoutView,
       std::string text = base::UTF16ToUTF8(url_entry_->GetText());
       GURL url(text);
       if (!url.has_scheme()) {
-        url = GURL(std::string("http://") + std::string(text));
+        url = GURL(std::string("http://") + text);
         url_entry_->SetText(base::ASCIIToUTF16(url.spec()));
       }
       shell_->LoadURL(url);
@@ -402,6 +403,12 @@ void ShellPlatformDelegate::SetContents(Shell* shell) {
 
   ShellViewForWidget(shell_data.window_widget)
       ->SetWebContents(shell->web_contents(), shell_data.content_size);
+
+  SkColor bg_color = shell_data.window_widget->GetColorProvider()->GetColor(
+      ui::kColorWindowBackground);
+  views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
+      shell->web_contents(), bg_color);
+
   shell_data.window_widget->GetNativeWindow()->GetHost()->Show();
   shell_data.window_widget->Show();
 }

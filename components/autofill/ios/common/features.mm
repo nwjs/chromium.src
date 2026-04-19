@@ -40,7 +40,7 @@ BASE_FEATURE(kAutofillPaymentsSheetStateless,
 
 BASE_FEATURE(kAutofillPaymentsSheetV2Ios, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAutofillPaymentsSheetV3Ios, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillPaymentsSheetV3Ios, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillRefillForFormsIos, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -52,6 +52,10 @@ BASE_FEATURE(kAutofillReportFormSubmissionErrors,
 // LINT.ThenChange(/components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_report_form_submission_errors)
 
 BASE_FEATURE(kAutofillStickyInfobarIos, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// LINT.IfChange(autofill_support_date_input)
+BASE_FEATURE(kAutofillSupportDateInput, base::FEATURE_DISABLED_BY_DEFAULT);
+// LINT.ThenChange(//components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_support_date_input)
 
 BASE_FEATURE(kAutofillThrottleDocumentFormScanIos,
              base::FEATURE_ENABLED_BY_DEFAULT);

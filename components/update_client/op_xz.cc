@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -73,9 +74,14 @@ base::OnceClosure XzOperation(
     std::unique_ptr<Unzipper> unzipper,
     base::RepeatingCallback<void(base::DictValue)> event_adder,
     base::RepeatingCallback<void(ComponentState)> state_tracker,
+    bool /*is_foreground*/,
     const base::FilePath& in_file,
     base::OnceCallback<void(base::expected<base::FilePath, CategorizedError>)>
         callback) {
+  // `is_foreground` is unused right now since XZ is primarily used in
+  // foreground scenarios. If the unzipper component adds support for background
+  // scenarios in the future, `is_foreground` can be passed through to the
+  // unzipper component.
   state_tracker.Run(ComponentState::kDecompressing);
   base::FilePath dest_file = in_file.DirName().AppendUTF8("decoded_xz");
   Unzipper* unzipper_raw = unzipper.get();

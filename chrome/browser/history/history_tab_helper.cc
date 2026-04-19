@@ -49,6 +49,7 @@
 #else
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #endif
 
 namespace {
@@ -144,19 +145,19 @@ history::VisitContextAnnotations::BrowserType GetBrowserType(
       return history::VisitContextAnnotations::BrowserType::kUnknown;
   }
 #else
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   if (!browser) {
     return history::VisitContextAnnotations::BrowserType::kUnknown;
   }
-  switch (browser->type()) {
-    case Browser::TYPE_NORMAL:
+  switch (browser->GetType()) {
+    case BrowserWindowInterface::Type::TYPE_NORMAL:
       return history::VisitContextAnnotations::BrowserType::kTabbed;
-    case Browser::TYPE_POPUP:
-    case Browser::TYPE_APP:
-    case Browser::TYPE_APP_POPUP:
-    case Browser::TYPE_PICTURE_IN_PICTURE:
+    case BrowserWindowInterface::Type::TYPE_POPUP:
+    case BrowserWindowInterface::Type::TYPE_APP:
+    case BrowserWindowInterface::Type::TYPE_APP_POPUP:
+    case BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE:
       return history::VisitContextAnnotations::BrowserType::kPopup;
-    case Browser::TYPE_DEVTOOLS:
+    case BrowserWindowInterface::Type::TYPE_DEVTOOLS:
       return history::VisitContextAnnotations::BrowserType::kUnknown;
   }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -180,13 +181,11 @@ ConvertSessionsPasswordStateToHistory(
 HistoryTabHelper::HistoryTabHelper(WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
       content::WebContentsUserData<HistoryTabHelper>(*web_contents) {
-#if 0
   // A translate client is not always attached to web contents (e.g. tests).
   if (ChromeTranslateClient* translate_client =
           ChromeTranslateClient::FromWebContents(web_contents)) {
     translate_observation_.Observe(translate_client->GetTranslateDriver());
   }
-#endif
 }
 
 HistoryTabHelper::~HistoryTabHelper() {
@@ -330,7 +329,6 @@ history::HistoryAddPageArgs HistoryTabHelper::CreateHistoryAddPageArgs(
   // Most Visited tiles in the NTP.
   bool visit_source_qualifies_for_ntp_most_visited = true;
   std::optional<int32_t> actor_task_id;
-#if !BUILDFLAG(IS_ANDROID)
   actor_task_id =
       chrome_ui_data && chrome_ui_data->actor_task_id()
           ? std::make_optional(chrome_ui_data->actor_task_id().value())
@@ -338,7 +336,6 @@ history::HistoryAddPageArgs HistoryTabHelper::CreateHistoryAddPageArgs(
   visit_source_qualifies_for_ntp_most_visited =
       !history::IsBrowsingHistoryActorIntegrationM2Enabled() ||
       !actor_task_id.has_value();
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   const bool should_consider_for_ntp_most_visited =
       status_code_qualifies_for_ntp_most_visited &&

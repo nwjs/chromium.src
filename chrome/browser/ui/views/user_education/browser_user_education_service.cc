@@ -19,11 +19,9 @@
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
-#include "chrome/browser/privacy_sandbox/privacy_sandbox_queue_manager.h"
-#include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
-#include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
@@ -1354,11 +1352,29 @@ void MaybeRegisterChromeFeaturePromos(
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForCustomAction(
           feature_engagement::kIPHSignInBenefitsFeature,
+          kToolbarAvatarButtonElementId, IDS_SIGN_IN_BENEFITS_IPH_TEXT,
+          IDS_PROMO_MANAGE_BUTTON,
+          base::BindRepeating(
+              [](ContextPtr ctx,
+                 user_education::FeaturePromoHandle promo_handle) {
+                // Open account settings page.
+                ShowSingletonTab(GetBrowser(ctx),
+                                 GURL(chrome::kChromeUIAccountSettingsURL));
+              }))
+          .SetPromoSubtype(
+              FeaturePromoSpecification::PromoSubtype::kActionableAlert)
+          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+          .SetCustomActionIsDefault(false)
+          .SetMetadata(142, "ddac@google.com",
+                       "Triggered for a signed-in user who hasn't turned on "
+                       "sync yet, after the sync-to-signin migration.")));
+
+  // kIPHSignInBenefitsNewSigninFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForCustomAction(
+          feature_engagement::kIPHSignInBenefitsNewSigninFeature,
           kToolbarAvatarButtonElementId,
-          (syncer::kExplicitSigninForBookmarks.Get() ||
-           syncer::kExplicitSigninForExtensions.Get())
-              ? IDS_SIGN_IN_BENEFITS_WITHOUT_BOOKMARKS_AND_EXTENSIONS_IPH_TEXT
-              : IDS_SIGN_IN_BENEFITS_IPH_TEXT,
+          IDS_SIGN_IN_BENEFITS_WITHOUT_BOOKMARKS_AND_EXTENSIONS_IPH_TEXT,
           IDS_PROMO_MANAGE_BUTTON,
           base::BindRepeating(
               [](ContextPtr ctx,
@@ -1375,17 +1391,6 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered for a signed-in user who hasn't turned on "
                        "sync yet, after the sync-to-signin migration.")));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
-  // kIPHTabOrganizationSuccessFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForToastPromo(
-          feature_engagement::kIPHTabOrganizationSuccessFeature,
-          kTabGroupHeaderElementId, IDS_TAB_ORGANIZATION_SUCCESS_IPH,
-          IDS_TAB_ORGANIZATION_SUCCESS_IPH_SCREENREADER,
-          FeaturePromoSpecification::AcceleratorInfo())
-          .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
-          .SetMetadata(121, "dpenning@chromium.org",
-                       "Triggered when tab organization is accepted.")));
 
   // kIPHTabSearchToolbarButtonFeature:
   registry.RegisterFeature(std::move(
@@ -2242,17 +2247,9 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
                                "Shown in the three dot menu.")));
 
   registry.RegisterFeature(user_education::NewBadgeSpecification(
-      features::kSideBySide,
-      user_education::Metadata(
-          141, "emshack@chromium.org",
-          "Shown in the tab context menu when the user enters or exits split "
-          "view.")));
-
-  registry.RegisterFeature(user_education::NewBadgeSpecification(
-      features::kSideBySideLinkMenuNewBadge,
-      user_education::Metadata(141, "emshack@chromium.org",
-                               "Shown in the link context menu to open the "
-                               "link in a new split tab.")));
+      features::kGlicContextMenu,
+      user_education::Metadata(146, "basiaz@google.com",
+                               "Shown in the contextual menu.")));
 
   registry.RegisterFeature(user_education::NewBadgeSpecification(
       tabs::kVerticalTabsPreviewBadge,
@@ -2300,15 +2297,6 @@ CreateUserEducationResources(UserEducationService& user_education_service) {
       &user_education_service.product_messaging_controller());
   result->Init();
   return result;
-}
-
-void QueueLegalAndPrivacyNotices(Profile* profile) {
-  // Privacy Sandbox Notice
-  if (auto* privacy_sandbox_service =
-          PrivacySandboxServiceFactory::GetForProfile(profile)) {
-    privacy_sandbox_service->GetPrivacySandboxNoticeQueueManager()
-        .MaybeQueueNotice();
-  }
 }
 
 bool DoesEnterprisePolicyBlockPromotions() {

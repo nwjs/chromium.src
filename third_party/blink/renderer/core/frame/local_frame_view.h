@@ -39,14 +39,15 @@
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink-forward.h"
+#include "third_party/blink/renderer/core/ad_tracker/overlay_interstitial_ad_detector.h"
+#include "third_party/blink/renderer/core/ad_tracker/sticky_ad_detector.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/dom/document_resize_options.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
 #include "third_party/blink/renderer/core/frame/layout_subtree_root_list.h"
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
-#include "third_party/blink/renderer/core/frame/overlay_interstitial_ad_detector.h"
-#include "third_party/blink/renderer/core/frame/sticky_ad_detector.h"
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
 #include "third_party/blink/renderer/core/paint/layout_object_counter.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_request_forward.h"
@@ -888,6 +889,8 @@ class CORE_EXPORT LocalFrameView final
   // thread needs to be involved during the animation.
   bool HasRunningAnchorTransformAnimation() const;
 
+  mojom::blink::WebFeature SvgFilterPaintedCounter() const override;
+
  protected:
   void FrameRectsChanged(const gfx::Rect&) override;
   void SelfVisibleChanged() override;
@@ -1006,7 +1009,8 @@ class CORE_EXPORT LocalFrameView final
   // The internal version that does the work after the proper context and checks
   // have passed in the above function call.
   void UpdateLifecyclePhasesInternal(
-      DocumentLifecycle::LifecycleState target_state);
+      DocumentLifecycle::LifecycleState target_state,
+      DocumentUpdateReason reason);
   // Four lifecycle phases helper functions corresponding to StyleAndLayout,
   // Compositing, PrePaint, and Paint phases. If the return value is true, it
   // means further lifecycle phases need to be run. This is used to abort
@@ -1090,7 +1094,9 @@ class CORE_EXPORT LocalFrameView final
   void DeliverSynchronousIntersectionObservations();
 
   // https://drafts.csswg.org/cssom-view/#post-layout-snapshot
-  bool RunSnapshotPostLayoutStateSteps();
+  bool RunSnapshotPostLayoutStateSteps(
+      DocumentLifecycle::LifecycleState target_state,
+      DocumentUpdateReason reason);
 
   bool ShouldDeferLayoutSnap() const;
 
@@ -1321,7 +1327,8 @@ class CORE_EXPORT LocalFrameView final
   // The set of children may be empty if the onpaint event has been requested
   // with `requestPaint`. This map is cleared at the end of the lifecycle
   // update.
-  HeapHashMap<Member<HTMLCanvasElement>, HeapLinkedHashSet<Member<Element>>>
+  HeapHashMap<Member<HTMLCanvasElement>,
+              Member<GCedHeapLinkedHashSet<Member<Element>>>>
       canvas_elements_needing_onpaint_;
   // True if we have canvas work, performed in the post-lifecycle steps, that
   // needs to happen prior to the impl commit. Cleared in DidBeginMainFrame.

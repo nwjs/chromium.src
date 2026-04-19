@@ -21,6 +21,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/load_credentials_state.h"
+#include "components/signin/public/identity_manager/token_binding_info.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
@@ -111,7 +112,8 @@ class ProfileOAuth2TokenServiceDelegate {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Returns true iff (a) a refresh token exists for `account_id`, and (b) the
   // refresh token is bound to a device.
-  virtual bool IsRefreshTokenBound(const CoreAccountId& account_id) const = 0;
+  virtual bool IsRefreshTokenBoundToKey(
+      const CoreAccountId& account_id) const = 0;
 
   // Returns the wrapped binding key of a refresh token associated with
   // `account_id`, if any.
@@ -209,7 +211,7 @@ class ProfileOAuth2TokenServiceDelegate {
       const std::string& refresh_token,
       signin_metrics::SourceForRefreshTokenOperation source =
           signin_metrics::SourceForRefreshTokenOperation::kUnknown,
-      const std::vector<uint8_t>& wrapped_binding_key = std::vector<uint8_t>());
+      const signin::TokenBindingInfo& token_binding_info = {});
 
   // Redirects to `RevokeCredentialsInternal()` which can be overridden by
   // subclasses. Sets the source for the refresh token operation.
@@ -337,9 +339,8 @@ class ProfileOAuth2TokenServiceDelegate {
  private:
   FRIEND_TEST_ALL_PREFIXES(ProfileOAuth2TokenServiceDelegateTest,
                            FireRefreshTokenRevoked);
-  FRIEND_TEST_ALL_PREFIXES(
-      MutableProfileOAuth2TokenServiceDelegateAccessTokenFetchTest,
-      RetryBackoff);
+  FRIEND_TEST_ALL_PREFIXES(MutableProfileOAuth2TokenServiceDelegateTest,
+                           RetryBackoff);
   FRIEND_TEST_ALL_PREFIXES(ProfileOAuth2TokenServiceDelegateChromeOSTest,
                            BackOffIsTriggerredForTransientErrors);
   FRIEND_TEST_ALL_PREFIXES(ProfileOAuth2TokenServiceDelegateTest,
@@ -354,7 +355,7 @@ class ProfileOAuth2TokenServiceDelegate {
   virtual void UpdateCredentialsInternal(
       const CoreAccountId& account_id,
       const std::string& refresh_token,
-      const std::vector<uint8_t>& wrapped_binding_key) {}
+      const signin::TokenBindingInfo& token_binding_info) {}
 
   virtual void RevokeCredentialsInternal(const CoreAccountId& account_id) {}
 
@@ -366,7 +367,13 @@ class ProfileOAuth2TokenServiceDelegate {
 
   // List of observers to notify when refresh token availability changes.
   // Makes sure list is empty on destruction.
-  base::ObserverList<ProfileOAuth2TokenServiceObserver, true> observer_list_;
+  // TODO(crbug.com/484371187): Investigate if reentrancy can be removed.
+  base::ObserverList<
+      ProfileOAuth2TokenServiceObserver,
+      /*check_empty=*/true,
+      /*allow_reentrancy=*/
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>
+      observer_list_;
 
   // The state of the load credentials operation.
   signin::LoadCredentialsState load_credentials_state_ =

@@ -12,7 +12,8 @@ import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/c
 import type {CrLazyRenderLitElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {CrLitElement, nothing, type PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement, nothing} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {SettingsPrefs} from '../content/read_anything_types.js';
 import {DEFAULT_SETTINGS, SettingsOption, ToolbarEvent} from '../content/read_anything_types.js';
@@ -154,7 +155,10 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
       isReadAnythingPinned: {type: Boolean},
       isSpeechActive: {type: Boolean},
       settingsPrefs: {type: Object},
-      currentOpenId_: {type: String, attribute: false},
+      currentOpenId_: {
+        state: true,
+        type: String,
+      },
     };
   }
 
@@ -165,6 +169,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
 
   protected options_: SettingsItem[] = [];
   protected accessor currentOpenId_: string|null = null;
+
   private interceptedEvents_: string[] =
       ['click', 'pointerdown', 'pointermove'];
   private openTimer_: number|null = null;

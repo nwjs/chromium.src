@@ -4,23 +4,34 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
+
+import androidx.annotation.VisibleForTesting;
+
+import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.context_sharing.R;
+import org.chromium.content_public.browser.WebContents;
 
-/** Class responsible for holding the co-browse view and its respective components. */
+/**
+ * Class responsible for holding the co-browse view and its respective components. NOTE: Owner is
+ * responsible for destroying this object.
+ */
 @NullMarked
 public class CoBrowseViews {
     private final @Nullable TabBottomSheetToolbar mToolbar;
     private final @Nullable TabBottomSheetWebUi mWebUi;
     private final @Nullable TabBottomSheetFusebox mFusebox;
     private final View mView;
+    private @Nullable View mPeekView;
 
     /**
      * Constructor for CoBrowseViews.
@@ -41,15 +52,36 @@ public class CoBrowseViews {
         mView = buildView(context);
     }
 
+    /** Sets the touch handler for the Web UI container. */
+    public void setWebUiTouchHandler(TabBottomSheetWebUiContainer.TouchHandler touchHandler) {
+        TabBottomSheetWebUiContainer webUiContainer =
+                assertNonNull(mView.findViewById(R.id.web_ui_container));
+        webUiContainer.setTouchHandler(touchHandler);
+    }
+
+    /** Returns whether the toolbar is present. */
+    public boolean hasToolbar() {
+        return mToolbar != null;
+    }
+
     /** Returns the view for the co-browse content. */
+    @CalledByNative
     public View getView() {
         return mView;
     }
 
-    public void destroy() {
+    public boolean hasPeekView() {
+        return mPeekView != null;
+    }
+
+    /** Destroys the co-browse view and its components. */
+    @CalledByNative
+    @VisibleForTesting
+    void destroy() {
         ViewGroup toolbarContainer = mView.findViewById(R.id.toolbar_container);
         ViewGroup webUiContainer = mView.findViewById(R.id.web_ui_container);
         ViewGroup fuseboxContainer = mView.findViewById(R.id.fusebox_container);
+        ViewGroup peekContainer = mView.findViewById(R.id.actor_control_container);
         if (mToolbar != null) {
             toolbarContainer.removeAllViews();
         }
@@ -61,38 +93,57 @@ public class CoBrowseViews {
             fuseboxContainer.removeAllViews();
             mFusebox.destroy();
         }
-    }
-
-    /** Sets the WebUI container's height. */
-    public void setWebUiContainerHeight(int height) {
-        ViewGroup webUiContainer = mView.findViewById(R.id.web_ui_container);
-        LinearLayout.LayoutParams webUiContainerParams =
-                (LinearLayout.LayoutParams) webUiContainer.getLayoutParams();
-
-        if (webUiContainerParams.height != height) {
-            webUiContainerParams.height = height;
-            webUiContainerParams.weight = 0f;
-            webUiContainer.setLayoutParams(webUiContainerParams);
+        if (mPeekView != null) {
+            peekContainer.removeAllViews();
         }
     }
 
-    /** Sets the ThinWebView's height. */
-    public void setThinWebViewHeight(int height) {
+    /** Attaches the peek view for the co-browse content. */
+    public void attachPeekView(View peekView) {
+        ViewGroup peekContainer = mView.findViewById(R.id.actor_control_container);
+        assert peekContainer.getChildCount() == 0;
+        detachFromParent(peekView);
+        mPeekView = peekView;
+        peekContainer.addView(mPeekView);
+    }
+
+    /** Sets the WebContents of the WebUi. */
+    @CalledByNative
+    public void setWebContents(
+            @Nullable @JniType("content::WebContents*") WebContents webContents) {
         if (mWebUi != null) {
-            View content = mWebUi.getWebUiView();
-            ViewGroup.LayoutParams contentParams = content.getLayoutParams();
-            if (contentParams.height == ViewGroup.LayoutParams.MATCH_PARENT) {
-                contentParams.height = height;
-                content.setLayoutParams(contentParams);
+            View oldView = mWebUi.getWebUiView();
+            mWebUi.setWebContents(webContents);
+            View newView = mWebUi.getWebUiView();
+            if (oldView != newView) {
+                ViewGroup webUiContainer = mView.findViewById(R.id.web_ui_container);
+                webUiContainer.removeAllViews();
+                detachFromParent(newView);
+                webUiContainer.addView(newView);
             }
         }
     }
 
-    /** Sets the ThinWebView's insets. */
-    void setThinWebViewInsets(int top, int left, int bottom, int right) {
-        if (mWebUi != null) {
-            mWebUi.setInsets(top, left, bottom, right);
+    @Nullable WebContents getWebContents() {
+        return mWebUi != null ? mWebUi.getWebContents() : null;
+    }
+
+    /** Sets the sheet's height. */
+    public void setSheetHeight(int height) {
+        ViewGroup sheetContent = mView.findViewById(R.id.expanded_content_group);
+        ViewGroup.LayoutParams sheetContentParams = sheetContent.getLayoutParams();
+
+        if (sheetContentParams.height != height) {
+            sheetContentParams.height = height;
+            sheetContent.setLayoutParams(sheetContentParams);
         }
+    }
+
+    int getToolbarHeight() {
+        if (mToolbar != null) {
+            return mToolbar.getToolbarView().getHeight();
+        }
+        return 0;
     }
 
     int getThinWebViewHeight() {
@@ -109,29 +160,42 @@ public class CoBrowseViews {
         return 0;
     }
 
-    int getToolbarHeight() {
-        if (mToolbar != null) {
-            return mToolbar.getToolbarView().getHeight();
-        }
-        return 0;
-    }
-
     private View buildView(Context context) {
         View view = LayoutInflater.from(context).inflate(R.layout.tab_bottom_sheet, null);
         ViewGroup toolbarContainer = view.findViewById(R.id.toolbar_container);
         ViewGroup webUiContainer = view.findViewById(R.id.web_ui_container);
         ViewGroup fuseboxContainer = view.findViewById(R.id.fusebox_container);
+        ViewGroup peekContainer = view.findViewById(R.id.actor_control_container);
 
         if (mToolbar != null) {
-            toolbarContainer.addView(mToolbar.getToolbarView());
+            View toolbarView = mToolbar.getToolbarView();
+            detachFromParent(toolbarView);
+            toolbarContainer.addView(toolbarView);
         }
         if (mWebUi != null) {
-            webUiContainer.addView(mWebUi.getWebUiView());
+            View webUiView = mWebUi.getWebUiView();
+            detachFromParent(webUiView);
+            webUiContainer.addView(webUiView);
         }
         if (mFusebox != null) {
-            fuseboxContainer.addView(mFusebox.getFuseboxView());
+            View fuseboxView = mFusebox.getFuseboxView();
+            detachFromParent(fuseboxView);
+            fuseboxContainer.addView(fuseboxView);
+        }
+        if (mPeekView != null) {
+            detachFromParent(mPeekView);
+            peekContainer.addView(mPeekView);
         }
 
         return view;
+    }
+
+    private void detachFromParent(View view) {
+        if (view == null) return;
+
+        final ViewGroup parent = (ViewGroup) view.getParent();
+        if (parent == null) return;
+
+        parent.removeView(view);
     }
 }

@@ -485,12 +485,16 @@ class UserSelectionScreen::TpmLockedChecker {
 UserSelectionScreen::UserSelectionScreen(
     PrefService* local_state,
     const ApplicationLocaleStorage* application_locale_storage,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
     const policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
     DisplayedScreen display_type)
     : local_state_(CHECK_DEREF(local_state)),
       application_locale_storage_(CHECK_DEREF(application_locale_storage)),
+      shared_url_loader_factory_(std::move(shared_url_loader_factory)),
       browser_policy_connector_ash_(CHECK_DEREF(browser_policy_connector_ash)),
       display_type_(display_type) {
+  CHECK(shared_url_loader_factory_);
+
   session_manager::SessionManager::Get()->AddObserver(this);
   if (display_type_ != DisplayedScreen::SIGN_IN_SCREEN) {
     return;
@@ -544,7 +548,7 @@ void UserSelectionScreen::Init(const user_manager::UserList& users) {
     online_signin_notifier_->CheckForPolicyEnforcedOnlineSignin();
     sync_token_checkers_ =
         std::make_unique<PasswordSyncTokenCheckersCollection>(
-            &local_state_.get());
+            &local_state_.get(), shared_url_loader_factory_);
     sync_token_checkers_->StartPasswordSyncCheckers(users, this);
   } else {
     sync_token_checkers_.reset();
@@ -636,10 +640,10 @@ void UserSelectionScreen::HandleFocusPod(const AccountId& account_id) {
   }
   CheckUserStatus(account_id);
   lock_screen_utils::SetUserInputMethod(
-      account_id, ime_state_.get(),
+      local_state_.get(), account_id, ime_state_.get(),
       display_type_ ==
           DisplayedScreen::SIGN_IN_SCREEN /* honor_device_policy */);
-  lock_screen_utils::SetKeyboardSettings(account_id);
+  lock_screen_utils::SetKeyboardSettings(local_state_.get(), account_id);
 
   user_manager::KnownUser known_user(&local_state_.get());
   std::optional<bool> use_24hour_clock =
@@ -673,7 +677,8 @@ void UserSelectionScreen::OnAllowedInputMethodsChanged() {
   DCHECK_EQ(display_type_, DisplayedScreen::SIGN_IN_SCREEN);
   if (focused_pod_account_id_.is_valid()) {
     std::string user_input_method_id =
-        lock_screen_utils::GetUserLastInputMethodId(focused_pod_account_id_);
+        lock_screen_utils::GetUserLastInputMethodId(local_state_.get(),
+                                                    focused_pod_account_id_);
     lock_screen_utils::EnforceDevicePolicyInputMethods(user_input_method_id);
   } else {
     lock_screen_utils::EnforceDevicePolicyInputMethods(std::string());

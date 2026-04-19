@@ -26,6 +26,9 @@ namespace net::features {
 
 BASE_FEATURE(kAlpsForHttp2, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAsyncRetryOnTooManyConnectionErrors,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAvoidH2Reprioritization, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCapReferrerToOriginOnCrossOrigin,
@@ -95,7 +98,7 @@ BASE_FEATURE(kEnableIPv6ReachabilityOverride,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMaintainConnectionsOnIpv6TempAddrChange,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableTLS13EarlyData, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -127,6 +130,9 @@ BASE_FEATURE(kSplitCodeCacheByNetworkIsolationKey,
 
 BASE_FEATURE(kPartitionConnectionsByNetworkIsolationKey,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSplitHostCacheByNetworkAnonymizationKey,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSearchEnginePreconnectInterval,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -363,11 +369,6 @@ BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 BASE_FEATURE(kPersistDeviceBoundSessions, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
-                   kDeviceBoundSessionsRequireOriginTrialTokens,
-                   &kDeviceBoundSessions,
-                   "RequireOriginTrialTokens",
-                   false);
-BASE_FEATURE_PARAM(bool,
                    kDeviceBoundSessionsRefreshQuota,
                    &kDeviceBoundSessions,
                    "RefreshQuota",
@@ -413,6 +414,9 @@ BASE_FEATURE_PARAM(std::string,
                    "Value",
                    "");
 
+BASE_FEATURE(kDeviceBoundSessionsForSingleSignOn,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSpdySessionForProxyAdditionalChecks,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -439,6 +443,9 @@ BASE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnforceOneRfc6962CtPolicy, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCertificateTransparencyIgnoreOcspScts,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDiskCacheBackendExperiment, base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<DiskCacheBackend>::Option
@@ -554,8 +561,6 @@ BASE_FEATURE(kHstsTopLevelNavigationsOnly, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kHttpCacheMappedFileFlushWin, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// This feature flag is overridden by WebView. This cannot be removed until the
-// feature is launched on WebView (https://crbug.com/382394774).
 BASE_FEATURE(kHttpCacheNoVarySearch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(size_t,
@@ -577,7 +582,7 @@ BASE_FEATURE_PARAM(bool,
                    true);
 
 BASE_FEATURE(kHttpNoVarySearchDataUseNewAreEquivalent,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHttpCacheSkipUnusableEntry, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -681,12 +686,22 @@ BASE_FEATURE_PARAM(bool,
                    "http_cache_transaction",
                    false);
 
-BASE_FEATURE(kAdditionalDelayMainJob, base::FEATURE_DISABLED_BY_DEFAULT);
+// Since we are seeing consistent wins on Android, enable by default. We are
+// reiterating the experiment on other platforms to gather more data so that we
+// can make a launch decision.
+#if BUILDFLAG(IS_ANDROID)
+inline constexpr auto kDelayMainJob = base::FEATURE_ENABLED_BY_DEFAULT;
+inline constexpr auto kDefaultAdditionalDelay = base::Milliseconds(100);
+#else   // !BUILDFLAG(IS_ANDROID)
+inline constexpr auto kDelayMainJob = base::FEATURE_DISABLED_BY_DEFAULT;
+inline constexpr auto kDefaultAdditionalDelay = base::Milliseconds(0);
+#endif  // BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kAdditionalDelayMainJob, kDelayMainJob);
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kAdditionalDelay,
                    &kAdditionalDelayMainJob,
                    "AdditionalDelay",
-                   base::Milliseconds(0));
+                   kDefaultAdditionalDelay);
 BASE_FEATURE_PARAM(bool,
                    kDelayMainJobWithAvailableSpdySession,
                    &kAdditionalDelayMainJob,
@@ -744,6 +759,18 @@ BASE_FEATURE_PARAM(std::string,
                    "quic_options",
                    "");
 
+BASE_FEATURE(kIgnoreIpMatching, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kNoIPQuicOption,
+                   &kIgnoreIpMatching,
+                   "noip_quic_option",
+                   "");
+BASE_FEATURE_PARAM(bool,
+                   kIgnoreIpMatchingWhenFindingExistingSessions,
+                   &kIgnoreIpMatching,
+                   "ignore_ip_matching_when_finding_existing_sessions",
+                   false);
+
 BASE_FEATURE(kDnsResponseDiscardPartialQuestions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -751,7 +778,9 @@ BASE_FEATURE(kDohFallbackAllowedWithLocalNameservers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAddAutomaticWithDohFallbackMode,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kForceSecureDnsDohFallback, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseQuicProxiesWithoutWaitingForConnectResponse,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -761,20 +790,55 @@ BASE_FEATURE(kEnableBootstrapIPRandomizationForDoh,
 
 BASE_FEATURE(kUseLockFreeX509Verification, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kProbeSecureDnsCanaryDomain, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kProbeSecureDnsCanaryDomain, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(std::string,
                    kSecureDnsCanaryDomainHost,
                    &kProbeSecureDnsCanaryDomain,
                    /*name=*/"canary_domain_host",
-                   /*default_value=*/"");
+                   /*default_value=*/"use-application-dns.net");
 
 #if BUILDFLAG(IS_APPLE)
 BASE_FEATURE(kUseNSURLDataForGURLConversion, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_APPLE)
 
 BASE_FEATURE(kDrainSpdySessionSynchronouslyOnRemoteEndpointDisconnect,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLogicalClearHttpCache, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSQLitePersistentCookieStoreEarlyInit,
+             "SQLitePersistentCookieStoreEarlyInit",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kSQLitePersistentCookieStoreEarlyInitCheckDisk{
+    &kSQLitePersistentCookieStoreEarlyInit, "check_disk", true};
+
+BASE_FEATURE(kEnableErrorCodePropagationForPreconnect,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPermitTcpSocketPoolConnectBackupJobs,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLocalNetworkPermissionCheck, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTcpSocketPoolProxyLimit, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(int,
+                   kTcpSocketPoolProxyLimitNormal,
+                   &kTcpSocketPoolProxyLimit,
+                   "TcpSocketPoolProxyLimitNormal",
+                   32);
+
+BASE_FEATURE_PARAM(int,
+                   kTcpSocketPoolProxyLimitWebSocket,
+                   &kTcpSocketPoolProxyLimit,
+                   "TcpSocketPoolProxyLimitWebSocket",
+                   32);
+
+BASE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressureForDoh,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCookieParseRejectEmptyNameAmbiguous,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace net::features

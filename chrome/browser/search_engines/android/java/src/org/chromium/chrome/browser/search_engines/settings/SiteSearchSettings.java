@@ -4,13 +4,16 @@
 
 package org.chromium.chrome.browser.search_engines.settings;
 
+import android.content.Context;
 import android.os.Bundle;
 
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.R;
 import org.chromium.chrome.browser.search_engines.settings.common.SearchEngineListPreference;
 import org.chromium.chrome.browser.search_engines.settings.custom_search_engine.CustomSearchEngineListCoordinator;
@@ -18,8 +21,10 @@ import org.chromium.chrome.browser.search_engines.settings.custom_site_search.Cu
 import org.chromium.chrome.browser.search_engines.settings.extensions.ExtensionSearchEngineCoordinator;
 import org.chromium.chrome.browser.search_engines.settings.inactive_shortcut.InactiveShortcutCoordinator;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
+import org.chromium.chrome.browser.ui.extensions.ExtensionUi;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 
 /**
@@ -46,58 +51,52 @@ public class SiteSearchSettings extends ChromeBaseSettingsFragment {
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         mPageTitle.set(getString(R.string.manage_search_engines_and_site_search));
+
+        Context context = getContext();
+        Profile profile = getProfile();
+        ModalDialogManager modalDialogManager =
+                ((ModalDialogManagerHolder) getActivity()).getModalDialogManager();
+
         // Keyboard Shortcut
         SettingsUtils.addPreferencesFromResource(this, R.xml.keyboard_shortcut_preferences);
         KeyboardShortcutRadioButtonGroupPreference keyboardShortcutPref =
                 findPreference(KEYBOARD_SHORTCUT_RADIO_GROUP_PREF);
-        keyboardShortcutPref.setProfile(getProfile());
+        keyboardShortcutPref.setProfile(profile);
 
         // Search Engines
         SettingsUtils.addPreferencesFromResource(this, R.xml.custom_search_engine_preferences);
         SearchEngineListPreference customSearchEnginePref =
                 findPreference(CUSTOM_SEARCH_ENGINE_LIST_PREF);
-        if (customSearchEnginePref != null) {
-            if (mSearchEngineCoordinator == null) {
-                mSearchEngineCoordinator =
-                        new CustomSearchEngineListCoordinator(
-                                getContext(),
-                                getProfile(),
-                                customSearchEnginePref,
-                                ((ModalDialogManagerHolder) getActivity()).getModalDialogManager());
-            }
-        }
+        mSearchEngineCoordinator =
+                new CustomSearchEngineListCoordinator(
+                        context, profile, customSearchEnginePref, modalDialogManager);
 
+        // Site Search
         SettingsUtils.addPreferencesFromResource(this, R.xml.custom_site_search_preferences);
         SearchEngineListPreference customSiteSearchPref =
                 findPreference(CUSTOM_SITE_SEARCH_LIST_PREF);
-        if (customSiteSearchPref != null) {
-            if (mSiteSearchCoordinator == null) {
-                mSiteSearchCoordinator =
-                        new CustomSiteSearchCoordinator(
-                                getContext(),
-                                getProfile(),
-                                customSiteSearchPref,
-                                ((ModalDialogManagerHolder) getActivity()).getModalDialogManager());
-            }
-        }
+        mSiteSearchCoordinator =
+                new CustomSiteSearchCoordinator(
+                        context, profile, customSiteSearchPref, modalDialogManager);
 
         // Inactive Shortcuts
         SettingsUtils.addPreferencesFromResource(this, R.xml.inactive_shortcut_preferences);
         SearchEngineListPreference inactiveShortcutPref =
                 findPreference(INACTIVE_SHORTCUT_LIST_PREF);
-        if (mInactiveShortcutCoordinator == null) {
-            mInactiveShortcutCoordinator =
-                    new InactiveShortcutCoordinator(
-                            getContext(), getProfile(), inactiveShortcutPref);
-        }
+        mInactiveShortcutCoordinator =
+                new InactiveShortcutCoordinator(
+                        context, profile, inactiveShortcutPref, modalDialogManager);
 
         // Extensions
-        SettingsUtils.addPreferencesFromResource(this, R.xml.extensions_preferences);
-        SearchEngineListPreference extensionsPref = findPreference(EXTENSIONS_PREF_KEY);
-        if (mExtensionSearchEngineCoordinator == null) {
+        if (ExtensionUi.isEnabled(profile)) {
             mExtensionSearchEngineCoordinator =
-                    new ExtensionSearchEngineCoordinator(
-                            getContext(), getProfile(), extensionsPref);
+                    ServiceLoaderUtil.maybeCreate(ExtensionSearchEngineCoordinator.class);
+            if (mExtensionSearchEngineCoordinator != null) {
+                SettingsUtils.addPreferencesFromResource(this, R.xml.extensions_preferences);
+                SearchEngineListPreference extensionsPref = findPreference(EXTENSIONS_PREF_KEY);
+                mExtensionSearchEngineCoordinator.initialize(
+                        context, profile, extensionsPref, getCustomTabLauncher());
+            }
         }
     }
 
@@ -124,6 +123,10 @@ public class SiteSearchSettings extends ChromeBaseSettingsFragment {
         if (mInactiveShortcutCoordinator != null) {
             mInactiveShortcutCoordinator.destroy();
             mInactiveShortcutCoordinator = null;
+        }
+        if (mExtensionSearchEngineCoordinator != null) {
+            mExtensionSearchEngineCoordinator.destroy();
+            mExtensionSearchEngineCoordinator = null;
         }
         super.onDestroy();
     }

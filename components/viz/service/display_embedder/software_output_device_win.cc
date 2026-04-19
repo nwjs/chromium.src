@@ -6,7 +6,9 @@
 
 #include <utility>
 
+#include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/trace_event/trace_event.h"
 #include "base/win/windows_version.h"
@@ -19,8 +21,8 @@
 #include "services/viz/privileged/mojom/compositing/layered_window_updater.mojom.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"
+#include "base/command_line.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
-#include "ui/display/display.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/win/gdi_util.h"
 #include "ui/gfx/win/hwnd_util.h"
@@ -181,12 +183,63 @@ void SoftwareOutputDeviceWinProxy::DrawAck() {
     std::move(swap_ack_callback_).Run();
 }
 
+// Restored for NW.js: SoftwareOutputDevice implementation that uses layered
+// window API to draw to the provided HWND, enabling alpha click-through.
+class SoftwareOutputDeviceWinLayered : public SoftwareOutputDeviceWinBase {
+ public:
+  explicit SoftwareOutputDeviceWinLayered(HWND hwnd)
+      : SoftwareOutputDeviceWinBase(hwnd) {}
+  ~SoftwareOutputDeviceWinLayered() override = default;
+
+  bool ResizeDelegated(const gfx::Size& viewport_pixel_size) override {
+    canvas_.reset();
+    return true;
+  }
+
+  SkCanvas* BeginPaintDelegated() override {
+    if (!canvas_) {
+      canvas_ = skia::CreatePlatformCanvasWithSharedSection(
+          viewport_pixel_size_.width(), viewport_pixel_size_.height(), true,
+          nullptr, skia::CRASH_ON_FAILURE);
+    }
+    return canvas_.get();
+  }
+
+  void EndPaintDelegated(const gfx::Rect& damage_rect) override {
+    if (!canvas_)
+      return;
+
+    DWORD style = GetWindowLong(hwnd(), GWL_EXSTYLE);
+    if (!(style & WS_EX_LAYERED))
+      SetWindowLong(hwnd(), GWL_EXSTYLE, style | WS_EX_LAYERED);
+
+    RECT wr;
+    GetWindowRect(hwnd(), &wr);
+
+    SIZE size = {viewport_pixel_size_.width(), viewport_pixel_size_.height()};
+    POINT position = {wr.left, wr.top};
+    POINT zero = {0, 0};
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0x00, 0xFF, AC_SRC_ALPHA};
+
+    HDC dib_dc = skia::GetNativeDrawingContext(canvas_.get());
+    UpdateLayeredWindow(hwnd(), nullptr, &position, &size, dib_dc, &zero,
+                        RGB(0xFF, 0xFF, 0xFF), &blend, ULW_ALPHA);
+  }
+
+ private:
+  std::unique_ptr<SkCanvas> canvas_;
+};
+
 std::unique_ptr<SoftwareOutputDevice> CreateSoftwareOutputDeviceWin(
     HWND hwnd,
     OutputDeviceBacking* backing,
     mojom::DisplayClient* display_client,
     HWND& child_hwnd) {
   child_hwnd = NULL;
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("force-cpu-draw")) {
+    return std::make_unique<SoftwareOutputDeviceWinLayered>(hwnd);
+  }
 
   if (features::ShouldRemoveRedirectionBitmap()) {
     return std::make_unique<SoftwareOutputDeviceWinSwapChain>(hwnd, child_hwnd,

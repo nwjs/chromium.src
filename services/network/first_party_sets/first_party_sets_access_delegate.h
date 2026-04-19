@@ -14,7 +14,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/types/optional_ref.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -33,8 +32,6 @@ namespace network {
 class FirstPartySetsAccessDelegate
     : public mojom::FirstPartySetsAccessDelegate {
  public:
-  using EntriesResult = FirstPartySetsManager::EntriesResult;
-
   // Construct a FirstPartySetsAccessDelegate that provides customizations
   // and serves mojo requests for the underlying First-Party Sets info.
   // `*manager` outlives this object.
@@ -70,17 +67,6 @@ class FirstPartySetsAccessDelegate
                               net::FirstPartySetsCacheFilter::MatchInfo)>
           callback);
 
-  // Calls FirstPartySetsManager::FindEntries either asynchronously or
-  // synchronously, once initialization is complete.
-  //
-  // This may return a result synchronously, or asynchronously invoke `callback`
-  // with the result. The callback will be invoked iff the return value is
-  // nullopt; i.e. a result will be provided via return value or callback, but
-  // not both, and not neither.
-  [[nodiscard]] std::optional<EntriesResult> FindEntries(
-      const base::flat_set<net::SchemefulSite>& sites,
-      base::OnceCallback<void(EntriesResult)> callback);
-
  private:
   // Same as `ComputeMetadata`, but plumbs the result into the callback. Must
   // only be called once the instance is fully initialized.
@@ -90,12 +76,6 @@ class FirstPartySetsAccessDelegate
       base::OnceCallback<void(net::FirstPartySetMetadata,
                               net::FirstPartySetsCacheFilter::MatchInfo)>
           callback) const;
-
-  // Same as `FindEntries`, but plumbs the result into the callback. Must only
-  // be called once the instance is fully initialized.
-  void FindEntriesAndInvoke(
-      const base::flat_set<net::SchemefulSite>& sites,
-      base::OnceCallback<void(EntriesResult)> callback) const;
 
   // Runs all pending queries. Must not be called until the instance is fully
   // initialized.
@@ -141,9 +121,6 @@ class FirstPartySetsAccessDelegate
 
   mojo::Receiver<mojom::FirstPartySetsAccessDelegate> receiver_
       GUARDED_BY_CONTEXT(sequence_checker_){this};
-
-  // Timer starting when the instance is constructed. Used for metrics.
-  base::ElapsedTimer construction_timer_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

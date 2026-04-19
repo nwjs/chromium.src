@@ -25,7 +25,6 @@ BubbleView* BubbleViewWithType(
     BubblePageControlPage page = BubblePageControlPageNone) {
   BOOL show_title = NO;
   BOOL show_close_button = NO;
-  BOOL show_snooze_button = NO;
   BOOL show_next_button = NO;
   NSTextAlignment text_alignment = NSTextAlignmentNatural;
 
@@ -39,10 +38,6 @@ BubbleView* BubbleViewWithType(
     case BubbleViewTypeRich:
       show_title = YES;
       break;
-    case BubbleViewTypeRichWithSnooze:
-      show_title = YES;
-      show_snooze_button = YES;
-      break;
     case BubbleViewTypeRichWithNext:
       show_title = YES;
       show_next_button = YES;
@@ -54,7 +49,6 @@ BubbleView* BubbleViewWithType(
                              alignment:alignment
                       showsCloseButton:show_close_button
                                  title:show_title ? title : nil
-                     showsSnoozeButton:show_snooze_button
                        showsNextButton:show_next_button
                                   page:page
                          textAlignment:text_alignment
@@ -105,6 +99,9 @@ BubbleView* BubbleViewWithType(
   self.view = BubbleViewWithType(self.bubbleViewType, self.text, self.title,
                                  self.arrowDirection, self.alignment,
                                  self.delegate, _page);
+  if (self.maximumContentSizeCategory) {
+    self.view.maximumContentSizeCategory = self.maximumContentSizeCategory;
+  }
   // Begin hidden.
   [self.view setAlpha:0.0f];
   [self.view setHidden:YES];
@@ -157,6 +154,14 @@ BubbleView* BubbleViewWithType(
 
 - (void)setBubbleAlignmentOffset:(CGFloat)alignmentOffset {
   self.view.alignmentOffset = alignmentOffset;
+}
+
+- (void)setMaximumContentSizeCategory:
+    (UIContentSizeCategory)maximumContentSizeCategory {
+  _maximumContentSizeCategory = [maximumContentSizeCategory copy];
+  if (self.isViewLoaded) {
+    self.view.maximumContentSizeCategory = maximumContentSizeCategory;
+  }
 }
 
 @end

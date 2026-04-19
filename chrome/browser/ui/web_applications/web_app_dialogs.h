@@ -14,7 +14,6 @@
 #include "base/functional/callback.h"
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/ui_manager/update_dialog_types.h"
-#include "chrome/browser/web_applications/web_app_callback_app_identity.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_uninstall_dialog_user_options.h"
@@ -22,6 +21,7 @@
 #include "components/webapps/common/web_app_id.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_ui_types.h"
 
 static_assert(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
@@ -44,6 +44,10 @@ namespace webapps {
 class MlInstallOperationTracker;
 enum class WebappUninstallSource;
 }  // namespace webapps
+
+namespace views {
+class View;
+}  // namespace views
 
 namespace web_app {
 
@@ -74,23 +78,6 @@ void ShowCreateShortcutDialog(
     std::unique_ptr<webapps::MlInstallOperationTracker> install_tracker,
     AppInstallationAcceptanceCallback callback);
 
-// When an app changes its icon or name, that is considered an app identity
-// change which (for some types of apps) needs confirmation from the user.
-// This function shows that confirmation dialog. |app_id| is the unique id of
-// the app that is updating and |title_change| and |icon_change| specify which
-// piece of information is changing. Can be one or the other, or both (but
-// both cannot be |false|). |old_title| and |new_title|, as well as |old_icon|
-// and |new_icon| show the 'before' and 'after' values. A response is sent
-// back via the |callback|.
-void ShowWebAppIdentityUpdateDialog(const std::string& app_id,
-                                    bool title_change,
-                                    bool icon_change,
-                                    const std::u16string& old_title,
-                                    const std::u16string& new_title,
-                                    const SkBitmap& old_icon,
-                                    const SkBitmap& new_icon,
-                                    content::WebContents* web_contents,
-                                    AppIdentityDialogCallback callback);
 
 // Shows the an app update review dialog that always shows the name, icon, and
 // start url of the before and after states of the app. The user can accept,
@@ -264,6 +251,34 @@ void ShowInstallNotSupportedDialog(content::WebContents* web_contents,
                                    Profile* profile,
                                    NotSupportedReason reason,
                                    base::OnceClosure callback);
+
+// Creates a simple install dialog view that contains
+// WebAppIconNameAndOriginView.
+std::unique_ptr<views::View> CreateSimpleInstallDialogView(
+    gfx::ImageSkia icon_image,
+    const std::u16string& title,
+    const GURL& start_url,
+    bool is_maskable);
+
+// Creates a detailed install dialog view that contains
+// a carousel.
+std::unique_ptr<views::View> CreateDetailedInstallDialogView(
+    gfx::ImageSkia icon_image,
+    const std::u16string& title,
+    const GURL& start_url,
+    bool is_maskable,
+    base::WeakPtr<WebAppScreenshotFetcher> fetcher,
+    const std::u16string& description);
+
+// Creates a view for the DIY install dialog that contains the
+// input dialog.
+std::unique_ptr<views::View> CreateDiyInstallDialogView(
+    gfx::ImageSkia icon_image,
+    const std::u16string& title,
+    const GURL& start_url,
+    content::WebContents* web_contents,
+    base::RepeatingCallback<void(const std::u16string&)>
+        on_textfield_changed_callback);
 
 }  // namespace web_app
 

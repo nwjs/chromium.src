@@ -292,12 +292,12 @@ public class UploadImagePreviewCoordinator implements InsetObserver.WindowInsets
      */
     private void setUpLogo(Activity activity, Profile profile, PropertyModel model) {
         boolean shouldShowLogo = doesDefaultSearchEngineHaveLogo(profile);
-        boolean isGoogleDSE =
+        boolean isGoogleDse =
                 TemplateUrlServiceFactory.getForProfile(profile).isDefaultSearchEngineGoogle();
         Bitmap logoBitmap =
                 NtpCustomizationConfigManager.getInstance().getDefaultSearchEngineLogoBitmap();
 
-        if (!shouldShowLogo || (!isGoogleDSE && logoBitmap == null)) {
+        if (!shouldShowLogo || (!isGoogleDse && logoBitmap == null)) {
             model.set(LOGO_VISIBILITY, View.GONE);
             return;
         }
@@ -314,18 +314,14 @@ public class UploadImagePreviewCoordinator implements InsetObserver.WindowInsets
 
     private void setUpSearchBox(PropertyModel propertyModel, Profile profile) {
         Resources resources = mActivity.getResources();
-        boolean showSearchBoxTall =
-                ComposeplateUtils.isComposeplateEnabled(/* isTablet= */ false, profile);
+        boolean showSearchBoxTall = ComposeplateUtils.isComposeplateEnabled(profile);
 
         propertyModel.set(
                 SEARCH_BOX_HEIGHT,
-                NtpCustomizationUtils.getSearchBoxHeightWithShadows(
-                        resources, showSearchBoxTall, /* hasShadowApplied= */ true));
+                NtpCustomizationUtils.getSearchBoxHeight(resources, showSearchBoxTall));
 
         propertyModel.set(
-                SEARCH_BOX_TOP_MARGIN,
-                NtpCustomizationUtils.getLogoViewBottomMarginPx(
-                        resources, /* applyShadow= */ true));
+                SEARCH_BOX_TOP_MARGIN, NtpCustomizationUtils.getLogoViewBottomMarginPx(resources));
     }
 
     PropertyModel getPropertyModelForTesting() {

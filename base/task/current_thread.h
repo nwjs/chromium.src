@@ -36,7 +36,6 @@ class WebTaskEnvironment;
 namespace base {
 
 class CallbackListSubscription;
-class SingleThreadTaskRunner;
 
 namespace test {
 bool RunUntil(FunctionRef<bool(void)>);
@@ -130,11 +129,6 @@ class BASE_EXPORT CurrentThread {
   // Remove a DestructionObserver.  It is safe to call this method while a
   // DestructionObserver is receiving a notification callback.
   void RemoveDestructionObserver(DestructionObserver* destruction_observer);
-
-  // Forwards to SequenceManager::SetTaskRunner().
-  // DEPRECATED(https://crbug.com/825327): only owners of the SequenceManager
-  // instance should replace its TaskRunner.
-  void SetTaskRunner(scoped_refptr<SingleThreadTaskRunner> task_runner);
 
   // Forwards to SequenceManager::(Add|Remove)TaskObserver.
   // DEPRECATED(https://crbug.com/825327): only owners of the SequenceManager
@@ -282,8 +276,15 @@ class BASE_EXPORT CurrentUIThread : public CurrentThread {
 #endif
 
 #if BUILDFLAG(IS_WIN)
-  void AddMessagePumpObserver(MessagePumpForUI::Observer* observer);
-  void RemoveMessagePumpObserver(MessagePumpForUI::Observer* observer);
+  void RegisterNativeEventObserver(
+      MessagePumpForUI::NativeEventObserver* observer);
+  void UnregisterNativeEventObserver(
+      MessagePumpForUI::NativeEventObserver* observer);
+
+  // For testing only, allows overriding the current observer.
+  // Returns the previous observer.
+  MessagePumpForUI::NativeEventObserver* ResetNativeEventObserverForTesting(
+      MessagePumpForUI::NativeEventObserver* observer);
 #endif
 
  private:

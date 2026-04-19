@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">Umkhiqizo ongaziwa ongu-<ph name="PRODUCT_ID" /> kusukela kumthengisi ongu-<ph name="VENDOR_ID" /> (inombolo yomkhiqizo engu-<ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Yehlulekile ukufaka esikhundleni sefayela le-crx. Hlola ukuze ubone uma ngabe ifayela lisetshenziswa.</translation>
 <translation id="3163201441334626963">Umkhiqizo ongaziwa ongu-<ph name="PRODUCT_ID" /> kusukela kumthengisi ongu-<ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">Ukufinyelela kulesi sandiso kuvinjwe inhlangano yakho.</translation>
 <translation id="3242289508736283383">Izinhelo zokusebenza ezinesibaluli se-manifest se-'kiosk_only' kumele sifakwe kumodi yekhiyoski ye-ChromeOS</translation>
 <translation id="3393440416772303020">I-<ph name="PRODUCT_NAME" /> (inombolo yomkhiqizo engu-<ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397">I-<ph name="PRODUCT_NAME" /> kusukela kumthengisi ongu-<ph name="VENDOR_ID" /> (inombolo yomkhiqizo engu-<ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">Ayikwazi ukungeza uhlelo lokusebenza lwe-"<ph name="TO_INSTALL_APP_NAME" />" ngoba lushayisana ne-"<ph name="INSTALLED_APP_NAME" />".</translation>
 <translation id="388442998277590542">Ayikwazanga ukulayisha ikhasi lezinketho i-'<ph name="OPTIONS_PAGE" />'.</translation>
 <translation id="3984413272403535372">Iphutha ngenkathi isayina isandiso.</translation>
+<translation id="4094452115117798451">Ukufinyelela kulesi sigaba sesandiso kuvinjwe inhlangano yakho.</translation>
 <translation id="4233778200880751280">Ayikwazanga ukulayisha ikhasi elimayelana ne-'<ph name="ABOUT_PAGE" />'.</translation>
 <translation id="424963718355121712">Izinhlelo zokusebenza kumele zinikezwe kusukela kumsingathi ezingamthinta</translation>
 <translation id="4306119971288449206">Izinhlelo zokusebenza kumele zinikezwe ngohlobo lokuqukethwe kwe-"<ph name="CONTENT_TYPE" />"</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">Umkhiqizo ongaziwa ongu-<ph name="PRODUCT_ID" /> kusukela ku-<ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">Ifayela le-manifest alivumelekile</translation>
 <translation id="7217838517480956708">Umlawuli walo mshini udinga ukuthi i-<ph name="EXTENSION_NAME" /> ifakwe. Ayikwazi ukususwa noma iguqulwe.</translation>
+<translation id="7287143125007575591">Ukufinyelela kunqatshelwe.</translation>
 <translation id="7612608473764576263">Inani lokufaka lokhiye wobumfihlo kumele libe ifomethi evumelekile (PKCS#8-ifomethi PEM-ukhiye we-RSA obetheliwe).</translation>
 <translation id="765293928828334535">Izinhlelo zokusebenza, izandiso, namaskripthi omsebenzisi awakwazi ukungezwa kusukela kule webhusayithi</translation>
 <translation id="7876803335449432072">Ayikwazanga ukulayisha ifayela elithi '<ph name="RELATIVE_PATH" />' leskripthi sekhontenti, amashidi esitayela eskripthi sekhontenti singalayishwa kuphela ukusuka kumafayela eshidi lesitayela asekelwayo njengamafayela okuthi .css.</translation>

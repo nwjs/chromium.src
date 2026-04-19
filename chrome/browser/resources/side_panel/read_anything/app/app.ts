@@ -12,13 +12,16 @@ import '../read_aloud/language_toast.js';
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
+import {isRTL} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {ContentController, ContentType} from '../content/content_controller.js';
 import type {ContentListener, ContentState} from '../content/content_controller.js';
-import {LineFocusController, type LineFocusListener} from '../content/line_focus_controller.js';
+import {LineFocusController} from '../content/line_focus_controller.js';
+import type {LineFocusListener} from '../content/line_focus_controller.js';
 import {NodeStore} from '../content/node_store.js';
-import {DEFAULT_SETTINGS, type LineFocusMovement, type LineFocusStyle, LineFocusType, type SettingsPrefs} from '../content/read_anything_types.js';
+import {DEFAULT_SETTINGS, LineFocusType} from '../content/read_anything_types.js';
+import type {LineFocusMovement, LineFocusStyle, SettingsPrefs} from '../content/read_anything_types.js';
 import {SelectionController} from '../content/selection_controller.js';
 import type {LanguageToastElement} from '../read_aloud/language_toast.js';
 import type {Segment} from '../read_aloud/read_aloud_types.js';
@@ -84,7 +87,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       pageLanguage_: {type: String},
       presentationState_: {type: Number},
       lineFocusStyle_: {type: Object},
-      lineFocusMovement_: {type: Object},
+      lineFocusMovement_: {type: Number},
     };
   }
 
@@ -142,7 +145,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected accessor isSpeechActive_: boolean = false;
   protected accessor isAudioCurrentlyPlaying_: boolean = false;
 
-  protected accessor presentationState_: number|undefined = undefined;
+  protected accessor presentationState_: number = 0;
 
   isImmersiveMode(): boolean {
     return this.presentationState_ ===
@@ -193,6 +196,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       });
       this.lineFocusController_.addListener(this);
     }
+
     this.contentController_.addListener(this);
     this.speechController_.addListener(this);
     this.voiceLanguageController_.addListener(this);
@@ -495,6 +499,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.lineFocusStyle_ = this.lineFocusController_.getCurrentLineFocusStyle();
     this.lineFocusMovement_ =
         this.lineFocusController_.getCurrentLineFocusMovement();
+    this.setLineFocus_();
+    this.requestUpdate();
   }
 
   onContentStateChange(): void {
@@ -770,8 +776,48 @@ export class AppElement extends AppElementBase implements SpeechListener,
     }
   }
 
+  protected onScrollerMousemove_(e: MouseEvent) {
+    if (!this.isImmersiveMode()) {
+      return;
+    }
+
+    const target = e.currentTarget as HTMLElement;
+    const scrollbarWidthStr = window.getComputedStyle(target).getPropertyValue(
+        '--immersive-scrollbar-width');
+    const scrollbarWidth = parseInt(scrollbarWidthStr, 10) || 14;
+    const rect = target.getBoundingClientRect();
+    let isOverScrollbarHitbox = false;
+
+    if (isRTL()) {
+      isOverScrollbarHitbox = e.clientX <= rect.left + scrollbarWidth;
+    } else {
+      isOverScrollbarHitbox = e.clientX >= rect.right - scrollbarWidth;
+    }
+
+    if (isOverScrollbarHitbox) {
+      target.classList.add('scrollbar-hovered');
+    } else {
+      target.classList.remove('scrollbar-hovered');
+    }
+  }
+
+  protected onScrollerMouseleave_(e: MouseEvent) {
+    if (!this.isImmersiveMode()) {
+      return;
+    }
+
+    const target = e.currentTarget as HTMLElement;
+    target.classList.remove('scrollbar-hovered');
+  }
+
   protected getImmersiveClass_(): string {
-    return this.isImmersiveEnabled_ ? 'immersive' : '';
+    if (!this.isImmersiveEnabled_) {
+      return '';
+    }
+
+    const immersiveClass = 'immersive';
+    return this.isImmersiveMode() ? `${immersiveClass} full-page` :
+                                    immersiveClass;
   }
 }
 

@@ -5,18 +5,22 @@
 #include "components/wallet/core/browser/network/upsert_private_pass_request.h"
 
 #include "base/check.h"
+#include "base/feature_list.h"
 #include "base/json/json_writer.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "components/version_info/version_info.h"
 #include "components/wallet/core/browser/proto/api_v1.pb.h"
 #include "components/wallet/core/browser/proto/client_info.pb.h"
 #include "components/wallet/core/browser/proto/private_pass.pb.h"
+#include "components/wallet/core/common/wallet_features.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "third_party/abseil-cpp/absl/numeric/int128.h"
 
 namespace wallet {
 namespace {
@@ -64,8 +68,14 @@ std::string BuildEESTokenizationForPass(const PrivatePass& pass) {
 
 UpsertPrivatePassRequest::UpsertPrivatePassRequest(
     PrivatePass pass,
+    std::optional<consent_auditor::ConsentAuditor::SessionId> session_id,
     WalletHttpClient::UpsertPrivatePassCallback callback)
-    : pass_(std::move(pass)), callback_(std::move(callback)) {
+    : pass_(std::move(pass)),
+      session_id_(std::move(session_id)),
+      callback_(std::move(callback)) {
+  // A `session_id_` is only required when upserting a new pass, indicated by
+  // the absence of a pass id.
+  CHECK(pass_.has_pass_id() || session_id_.has_value());
   CHECK(callback_);
 }
 
@@ -78,6 +88,14 @@ std::string UpsertPrivatePassRequest::GetRequestUrlPath() const {
 std::string UpsertPrivatePassRequest::GetRequestContent() const {
   api::UpsertPrivatePassRequest request;
   *request.mutable_private_pass() = pass_;
+  if (session_id_.has_value() &&
+      base::FeatureList::IsEnabled(features::kWalletApiPrivatePassesConsent)) {
+    api::UpsertPrivatePassRequest::SessionId::UUID& uuid =
+        *request.mutable_session_id()->mutable_uuid();
+    absl::uint128 session_id_int = session_id_->AsInteger();
+    uuid.set_most_significant_uuid_bits(absl::Uint128High64(session_id_int));
+    uuid.set_least_significant_uuid_bits(absl::Uint128Low64(session_id_int));
+  }
   *request.mutable_client_info() = BuildClientInfo();
   return request.SerializeAsString();
 }
@@ -93,6 +111,10 @@ net::HttpRequestHeaders UpsertPrivatePassRequest::GetRequestHeaders() const {
 WalletRequest::WalletNetworkRequestType
 UpsertPrivatePassRequest::GetRequestType() const {
   return WalletRequest::WalletNetworkRequestType::kUpsertPrivatePass;
+}
+
+base::TimeDelta UpsertPrivatePassRequest::GetTimeout() const {
+  return base::Milliseconds(6500);
 }
 
 void UpsertPrivatePassRequest::OnResponse(

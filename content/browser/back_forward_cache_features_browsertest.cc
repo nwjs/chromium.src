@@ -243,38 +243,6 @@ IN_PROC_BROWSER_TEST_F(
       web_contents()->GetPrimaryFrameTree().root()->navigation_request());
 }
 
-// Confirms that a page using a dedicated worker with WebTransport is not
-// cached.
-IN_PROC_BROWSER_TEST_F(BackForwardCacheWithDedicatedWorkerBrowserTest,
-                       DoNotCacheWithDedicatedWorkerWithWebTransport) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-
-  EXPECT_TRUE(NavigateToURL(
-      shell(), https_server()->GetURL(
-                   "a.test",
-                   "/back_forward_cache/"
-                   "page_with_dedicated_worker_and_webtransport.html")));
-  // Open a WebTransport.
-  EXPECT_EQ("opened",
-            EvalJs(current_frame_host(),
-                   JsReplace("window.testOpenWebTransport($1);", port())));
-  RenderFrameDeletedObserver delete_observer_rfh(current_frame_host());
-
-  // Navigate away.
-  EXPECT_TRUE(
-      NavigateToURL(shell(), https_server()->GetURL("b.test", "/title1.html")));
-  delete_observer_rfh.WaitUntilDeleted();
-
-  // Go back to the original page. The page was not cached as the worker used
-  // WebTransport.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectNotRestored(
-      {NotRestoredReason::kBlocklistedFeatures},
-      {blink::scheduler::WebSchedulerTrackedFeature::kWebTransport}, {}, {}, {},
-      FROM_HERE);
-}
-
 // Confirms that a page using a dedicated worker with a closed WebTransport is
 // cached as WebTransport is not a sticky feature.
 IN_PROC_BROWSER_TEST_F(BackForwardCacheWithDedicatedWorkerBrowserTest,
@@ -303,61 +271,6 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheWithDedicatedWorkerBrowserTest,
   // not sticky.
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ExpectRestored(FROM_HERE);
-}
-
-// TODO(crbug.com/40823301): Flaky on Linux.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_DoNotCacheWithDedicatedWorkerWithWebTransportAndDocumentWithBlockingFeature \
-  DISABLED_DoNotCacheWithDedicatedWorkerWithWebTransportAndDocumentWithBlockingFeature
-#else
-#define MAYBE_DoNotCacheWithDedicatedWorkerWithWebTransportAndDocumentWithBlockingFeature \
-  DoNotCacheWithDedicatedWorkerWithWebTransportAndDocumentWithBlockingFeature
-#endif
-IN_PROC_BROWSER_TEST_F(
-    BackForwardCacheWithDedicatedWorkerBrowserTest,
-    MAYBE_DoNotCacheWithDedicatedWorkerWithWebTransportAndDocumentWithBlockingFeature) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-
-  EXPECT_TRUE(NavigateToURL(
-      shell(), https_server()->GetURL(
-                   "a.test",
-                   "/back_forward_cache/"
-                   "page_with_dedicated_worker_and_webtransport.html")));
-
-  // Open a WebTransport in the dedicated worker.
-  EXPECT_EQ("opened",
-            EvalJs(current_frame_host(),
-                   JsReplace("window.testOpenWebTransport($1);", port())));
-  // testOpenWebTransport sends the IPC (BackForwardCacheController.
-  // DidChangeBackForwardCacheDisablingFeatures) from a renderer. Run a script
-  // to wait for the IPC reaching to the browser.
-  EXPECT_EQ(42, EvalJs(current_frame_host(), "42;"));
-  EXPECT_TRUE(
-      DedicatedWorkerHostsForDocument::GetOrCreateForCurrentDocument(
-          current_frame_host())
-          ->GetBackForwardCacheDisablingFeatures()
-          .HasAll(
-              {blink::scheduler::WebSchedulerTrackedFeature::kWebTransport}));
-
-  // Use a blocking feature in the frame.
-  EXPECT_TRUE(ExecJs(current_frame_host(), kBlockingScript));
-  RenderFrameDeletedObserver delete_observer_rfh(current_frame_host());
-
-  // Navigate away.
-  EXPECT_TRUE(
-      NavigateToURL(shell(), https_server()->GetURL("b.test", "/title1.html")));
-  delete_observer_rfh.WaitUntilDeleted();
-
-  // Go back to the original page. The page was not cached due to WebTransport
-  // and a broadcast channel, which came from the dedicated worker and the frame
-  // respectively. Confirm both are recorded.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectNotRestored(
-      {NotRestoredReason::kBlocklistedFeatures},
-      {blink::scheduler::WebSchedulerTrackedFeature::kWebTransport,
-       kBlockingReasonEnum},
-      {}, {}, {}, FROM_HERE);
 }
 
 // TODO(crbug.com/40821593): Disabled due to being flaky.
@@ -2236,39 +2149,24 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
 
 // Use a blocklisted feature in multiple locations from an external JavaScript
 // file and make sure all the JavaScript location details are captured.
-// TODO(crbug.com/40241677): WebSocket server is flaky Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_MultipleBlocksFromJavaScriptFile \
-  DISABLED_MultipleBlocksFromJavaScriptFile
-#else
-#define MAYBE_MultipleBlocksFromJavaScriptFile MultipleBlocksFromJavaScriptFile
-#endif
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
-                       MAYBE_MultipleBlocksFromJavaScriptFile) {
+                       MultipleBlocksFromJavaScriptFile) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  // 1) Navigate to a page with multiple WebSocket usage.
+  // 1) Navigate to a page with multiple WebRTC usage.
   GURL url_a(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/page_with_websocket_external_script.html"));
+      "a.com", "/back_forward_cache/page_with_webrtc_external_script.html"));
   GURL url_js(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/websocket_external_script.js"));
+      "a.com", "/back_forward_cache/webrtc_external_script.js"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
   ASSERT_TRUE(NavigateToURL(shell(), url_a));
 
   RenderFrameHostImplWrapper rfh_a(current_frame_host());
-  // Open WebSocket connections.
-  const char kScriptA[] = R"(
-    openWebSocketConnectionA($1);
-  )";
-  const char kScriptB[] = R"(
-    openWebSocketConnectionB($1);
-  )";
-  GURL ws_url = net::test_server::GetWebSocketURL(*embedded_test_server(),
-                                                  "/echo-with-no-extension");
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptA, ws_url)));
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptB, ws_url)));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
+  // Open WebRTC connections.
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionA()"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionB()"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
 
   // Call this to access tree result later.
   rfh_a->GetBackForwardCacheMetrics()->SetObserverForTesting(this);
@@ -2280,116 +2178,86 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ASSERT_EQ(url_a.spec(), current_frame_host()->GetLastCommittedURL());
   ExpectNotRestored({NotRestoredReason::kBlocklistedFeatures},
-                    {blink::scheduler::WebSchedulerTrackedFeature::kWebSocket},
+                    {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC},
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
-  // Only WebSocket should be reported.
+  // Only WebRTC should be reported.
   EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
-      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
+      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC));
   // Both socketA and socketB's JavaScript locations should be reported.
   EXPECT_THAT(
-      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC),
       testing::UnorderedElementsAre(
-          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 10, 15)),
-          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 17, 15))));
+          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 11, 9)),
+          MatchesBlockingDetails(MatchesSourceLocation(url_js, "", 20, 9))));
 }
 
 // Use a blocklisted feature in multiple locations from an external JavaScript
 // file but stop using one of them before navigating away. Make sure that only
 // the one still in use is reported.
-// TODO(crbug.com/40241677): WebSocket server is flaky Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_BlockAndUnblockFromJavaScriptFile \
-  DISABLED_BlockAndUnblockFromJavaScriptFile
-#else
-#define MAYBE_BlockAndUnblockFromJavaScriptFile \
-  BlockAndUnblockFromJavaScriptFile
-#endif
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
-                       MAYBE_BlockAndUnblockFromJavaScriptFile) {
+                       BlockAndUnblockFromJavaScriptFile) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  // 1) Navigate to a page with multiple WebSocket usage.
+  // 1) Navigate to a page with multiple WebRTC usage.
   GURL url_a(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/page_with_websocket_external_script.html"));
+      "a.com", "/back_forward_cache/page_with_webrtc_external_script.html"));
   GURL url_js(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/websocket_external_script.js"));
+      "a.com", "/back_forward_cache/webrtc_external_script.js"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
   ASSERT_TRUE(NavigateToURL(shell(), url_a));
   RenderFrameHostImplWrapper rfh_a(current_frame_host());
   // Call this to access tree result later.
   rfh_a->GetBackForwardCacheMetrics()->SetObserverForTesting(this);
-  // Open WebSocket connections socketA and socketB, but close socketA
-  // immediately..
-  const char kScriptA[] = R"(
-    openWebSocketConnectionA($1);
-  )";
-  const char kScriptB[] = R"(
-    openWebSocketConnectionB($1);
-  )";
-  GURL ws_url = net::test_server::GetWebSocketURL(*embedded_test_server(),
-                                                  "/echo-with-no-extension");
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptA, ws_url)));
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptB, ws_url)));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
-  ASSERT_TRUE(ExecJs(rfh_a.get(), "closeConnection();"));
-  ASSERT_EQ(false, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
+  // Open WebRTC connections pcA and pcB, but close pcA immediately.
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionA()"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionB()"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "closeConnectionA()"));
+  ASSERT_EQ("closed", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
 
   // 2) Navigate to b.com.
   ASSERT_TRUE(NavigateToURL(shell(), url_b));
 
-  // 3) Go back and ensure that the socketB's detail is captured.
+  // 3) Go back and ensure that the pcB's detail is captured.
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ASSERT_EQ(url_a.spec(), current_frame_host()->GetLastCommittedURL());
   ExpectNotRestored({NotRestoredReason::kBlocklistedFeatures},
-                    {blink::scheduler::WebSchedulerTrackedFeature::kWebSocket},
+                    {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC},
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
-  // Only WebSocket should be reported.
+  // Only WebRTC should be reported.
   EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
-      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
-  // Only socketB's JavaScript locations should be reported.
-  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC));
+  // Only pcB's JavaScript locations should be reported.
+  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC),
               testing::UnorderedElementsAre(MatchesBlockingDetails(
-                  MatchesSourceLocation(url_js, "", 17, 15))));
+                  MatchesSourceLocation(url_js, "", 20, 9))));
 }
 
 // Use a blocklisted feature in multiple places from HTML file and make sure all
 // the JavaScript locations detail are captured.
-// TODO(crbug.com/40241677): WebSocket server is flaky Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_MultipleBlocksFromHTMLFile DISABLED_MultipleBlocksFromHTMLFile
-#else
-#define MAYBE_MultipleBlocksFromHTMLFile MultipleBlocksFromHTMLFile
-#endif
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
-                       MAYBE_MultipleBlocksFromHTMLFile) {
+                       MultipleBlocksFromHTMLFile) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  // 1) Navigate to a page with multiple WebSocket usage.
+  // 1) Navigate to a page with multiple WebRTC usage.
   GURL url_a(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/page_with_websocket_inline_script.html"));
+      "a.com", "/back_forward_cache/page_with_webrtc_inline_script.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
   ASSERT_TRUE(NavigateToURL(shell(), url_a));
 
   RenderFrameHostImplWrapper rfh_a(current_frame_host());
-  // Open WebSocket connections.
-  const char kScriptA[] = R"(
-    openWebSocketConnectionA($1);
-  )";
-  const char kScriptB[] = R"(
-    openWebSocketConnectionB($1);
-  )";
-  GURL ws_url = net::test_server::GetWebSocketURL(*embedded_test_server(),
-                                                  "/echo-with-no-extension");
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptA, ws_url)));
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptB, ws_url)));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
+  // Open WebRTC connections.
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionA()"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionB()"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
+
   // Call this to access tree result later.
   rfh_a->GetBackForwardCacheMetrics()->SetObserverForTesting(this);
 
@@ -2400,60 +2268,45 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ASSERT_EQ(url_a.spec(), current_frame_host()->GetLastCommittedURL());
   ExpectNotRestored({NotRestoredReason::kBlocklistedFeatures},
-                    {blink::scheduler::WebSchedulerTrackedFeature::kWebSocket},
+                    {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC},
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
-  // Only WebSocket should be reported.
+  // Only WebRTC should be reported.
   EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
-      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
-  // Both socketA and socketB's JavaScript locations should be reported.
+      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC));
+  // Both pcA and pcB's JavaScript locations should be reported.
   EXPECT_THAT(
-      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC),
       testing::UnorderedElementsAre(
-          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 11, 15)),
-          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 18, 15))));
+          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 12, 9)),
+          MatchesBlockingDetails(MatchesSourceLocation(url_a, "", 21, 9))));
 }
 
 // Use a blocklisted feature in multiple locations from HTML file but stop using
 // one of them before navigating away. Make sure that only the one still in use
 // is reported.
-// TODO(crbug.com/40241677): WebSocket server is flaky Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_BlockAndUnblockFromHTMLFile DISABLED_BlockAndUnblockFromHTMLFile
-#else
-#define MAYBE_BlockAndUnblockFromHTMLFile BlockAndUnblockFromHTMLFile
-#endif
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
-                       MAYBE_BlockAndUnblockFromHTMLFile) {
+                       BlockAndUnblockFromHTMLFile) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
-  // 1) Navigate to a page with multiple broadcast channel usage.
+  // 1) Navigate to a page with multiple WebRTC channel usage.
   GURL url_a(embedded_test_server()->GetURL(
-      "a.com", "/back_forward_cache/page_with_websocket_inline_script.html"));
+      "a.com", "/back_forward_cache/page_with_webrtc_inline_script.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
   ASSERT_TRUE(NavigateToURL(shell(), url_a));
 
   RenderFrameHostImplWrapper rfh_a(current_frame_host());
   // Call this to access tree result later.
   rfh_a->GetBackForwardCacheMetrics()->SetObserverForTesting(this);
-  // Open WebSocket connections socketA and socketB, but close socketA
-  // immediately.
-  const char kScriptA[] = R"(
-    openWebSocketConnectionA($1);
-  )";
-  const char kScriptB[] = R"(
-    openWebSocketConnectionB($1);
-  )";
-  GURL ws_url = net::test_server::GetWebSocketURL(*embedded_test_server(),
-                                                  "/echo-with-no-extension");
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptA, ws_url)));
-  ASSERT_EQ(123, EvalJs(rfh_a.get(), JsReplace(kScriptB, ws_url)));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
-  ASSERT_TRUE(ExecJs(rfh_a.get(), "closeConnection();"));
-  ASSERT_EQ(false, EvalJs(rfh_a.get(), "isSocketAOpen()"));
-  ASSERT_EQ(true, EvalJs(rfh_a.get(), "isSocketBOpen()"));
+  // Open WebRTC connections pcA and pcB, but close pcA immediately.
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionA()"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "openWebRTCConnectionB()"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
+  ASSERT_TRUE(ExecJs(rfh_a.get(), "closeConnectionA()"));
+  ASSERT_EQ("closed", EvalJs(rfh_a.get(), "pcA.signalingState"));
+  ASSERT_EQ("stable", EvalJs(rfh_a.get(), "pcB.signalingState"));
 
   // 2) Navigate to b.com.
   ASSERT_TRUE(NavigateToURL(shell(), url_b));
@@ -2462,28 +2315,22 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ASSERT_EQ(url_a.spec(), current_frame_host()->GetLastCommittedURL());
   ExpectNotRestored({NotRestoredReason::kBlocklistedFeatures},
-                    {blink::scheduler::WebSchedulerTrackedFeature::kWebSocket},
+                    {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC},
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
-  // Only WebSocket should be reported.
+  // Only WebRTC should be reported.
   EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
-      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
-  // Only socketB's JavaScript locations should be reported.
-  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC));
+  // Only pcB's JavaScript locations should be reported.
+  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC),
               testing::UnorderedElementsAre(MatchesBlockingDetails(
-                  MatchesSourceLocation(url_a, "", 18, 15))));
+                  MatchesSourceLocation(url_a, "", 21, 9))));
 }
 
 // Test that details for sticky feature are captured.
-// TODO(crbug.com/40241677): WebSocket server is flaky Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_StickyFeaturesWithDetails DISABLED_StickyFeaturesWithDetails
-#else
-#define MAYBE_StickyFeaturesWithDetails StickyFeaturesWithDetails
-#endif
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
-                       MAYBE_StickyFeaturesWithDetails) {
+                       StickyFeaturesWithDetails) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url_a_no_store(embedded_test_server()->GetURL(
       "a.com", "/set-header?Cache-Control: no-store"));
@@ -2495,16 +2342,15 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   // Call this to access tree result later.
   rfh_a->GetBackForwardCacheMetrics()->SetObserverForTesting(this);
 
-  // Open a WebSocket.
+  // Open a WebRTC connection.
   const char script[] = R"(
       new Promise(resolve => {
-        const socket = new WebSocket($1);
-        socket.addEventListener('open', () => resolve(42));
+        const pc = new RTCPeerConnection();
+        pc.addIceCandidate({ candidate: "test", sdpMLineIndex: 0 }).finally(()=>{
+          resolve(42);
+        });
       });)";
-  ASSERT_EQ(42, EvalJs(rfh_a.get(),
-                       JsReplace(script, net::test_server::GetWebSocketURL(
-                                             *embedded_test_server(),
-                                             "/echo-with-no-extension"))));
+  ASSERT_EQ(42, EvalJs(rfh_a.get(), script));
 
   // 3) Navigate away to `url_b`.
   ASSERT_TRUE(NavigateToURL(shell(), url_b));
@@ -2513,24 +2359,24 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ExpectNotRestored(
       {NotRestoredReason::kBlocklistedFeatures},
-      {blink::scheduler::WebSchedulerTrackedFeature::kWebSocket,
+      {blink::scheduler::WebSchedulerTrackedFeature::kWebRTC,
        blink::scheduler::WebSchedulerTrackedFeature::
            kMainResourceHasCacheControlNoStore,
-       blink::scheduler::WebSchedulerTrackedFeature::kWebSocketSticky},
+       blink::scheduler::WebSchedulerTrackedFeature::kWebRTCSticky},
       {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
   EXPECT_EQ(map.size(), 3u);
   EXPECT_TRUE(
-      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
+      map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC));
   EXPECT_TRUE(map.contains(
-      blink::scheduler::WebSchedulerTrackedFeature::kWebSocketSticky));
-  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket),
+      blink::scheduler::WebSchedulerTrackedFeature::kWebRTCSticky));
+  EXPECT_THAT(map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTC),
               testing::UnorderedElementsAre(MatchesBlockingDetails(
-                  MatchesSourceLocation(GURL::EmptyGURL(), "", 3, 24))));
+                  MatchesSourceLocation(GURL::EmptyGURL(), "", 4, 12))));
   EXPECT_THAT(
-      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebSocketSticky),
+      map.at(blink::scheduler::WebSchedulerTrackedFeature::kWebRTCSticky),
       testing::UnorderedElementsAre(MatchesBlockingDetails(
-          MatchesSourceLocation(GURL::EmptyGURL(), "", 3, 24))));
+          MatchesSourceLocation(GURL::EmptyGURL(), "", 4, 12))));
 }
 
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
@@ -3292,41 +3138,6 @@ class WebTransportBackForwardCacheBrowserTest
   WebTransportSimpleTestServer server_;
 };
 
-// Pages with active WebTransport should not be cached.
-// TODO(yhirano): Update this test once
-// https://github.com/w3c/webtransport/issues/326 is resolved.
-IN_PROC_BROWSER_TEST_F(WebTransportBackForwardCacheBrowserTest,
-                       ActiveWebTransportEvictsPage) {
-  CreateHttpsServer();
-  ASSERT_TRUE(https_server()->Start());
-
-  GURL url_a(https_server()->GetURL("a.test", "/title1.html"));
-  GURL url_b(https_server()->GetURL("b.test", "/title1.html"));
-
-  // 1) Navigate to A.
-  ASSERT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImplWrapper rfh_a(current_frame_host());
-
-  // Establish a WebTransport session.
-  const char script[] = R"(
-      let transport = new WebTransport('https://localhost:$1/echo');
-      )";
-  ASSERT_TRUE(ExecJs(rfh_a.get(), JsReplace(script, port())));
-
-  // 2) Navigate to B.
-  ASSERT_TRUE(NavigateToURL(shell(), url_b));
-
-  // Confirm A is evicted.
-  ASSERT_TRUE(rfh_a.WaitUntilRenderFrameDeleted());
-
-  // 3) Go back.
-  ASSERT_TRUE(HistoryGoBack(web_contents()));
-  ExpectNotRestored(
-      {NotRestoredReason::kBlocklistedFeatures},
-      {blink::scheduler::WebSchedulerTrackedFeature::kWebTransport}, {}, {}, {},
-      FROM_HERE);
-}
-
 // Pages with inactive WebTransport should be cached.
 IN_PROC_BROWSER_TEST_F(WebTransportBackForwardCacheBrowserTest,
                        WebTransportCachedIfClosed) {
@@ -3357,43 +3168,6 @@ IN_PROC_BROWSER_TEST_F(WebTransportBackForwardCacheBrowserTest,
   // 3) Navigate back.
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ExpectRestored(FROM_HERE);
-}
-
-// Disabled on Android, since we have problems starting up the websocket test
-// server in the host
-// TODO(crbug.com/40241677): Re-enable the test after solving the WS server.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_WebSocketNotCached DISABLED_WebSocketNotCached
-#else
-#define MAYBE_WebSocketNotCached WebSocketNotCached
-#endif
-IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest, MAYBE_WebSocketNotCached) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-
-  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
-  GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
-
-  // 1) Navigate to A.
-  ASSERT_TRUE(NavigateToURL(shell(), url_a));
-  RenderFrameHostImpl* rfh_a = current_frame_host();
-  RenderFrameDeletedObserver delete_observer_rfh_a(rfh_a);
-
-  // Open a WebSocket.
-  const char script[] = R"(
-      new Promise(resolve => {
-        const socket = new WebSocket($1);
-        socket.addEventListener('open', () => resolve(42));
-      });)";
-  ASSERT_EQ(42,
-            EvalJs(rfh_a, JsReplace(script, net::test_server::GetWebSocketURL(
-                                                *embedded_test_server(),
-                                                "/echo-with-no-extension"))));
-
-  // 2) Navigate to B.
-  ASSERT_TRUE(NavigateToURL(shell(), url_b));
-
-  // Confirm A is evicted.
-  delete_observer_rfh_a.WaitUntilDeleted();
 }
 
 namespace {

@@ -59,9 +59,13 @@ enum class IOSOverflowMenuDestination {
   kWhatsNew = 8,
   kSpotlightDebugger = 9,
   kPriceNotifications = 10,
-  kMaxValue = kPriceNotifications,
+  kCobalt = 11,
+  kMaxValue = kCobalt,
 };
-// LINT.ThenChange(overflow_menu_constants.h:destination)
+// LINT.ThenChange(
+// /ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_constants.h:destination,
+// /tools/metrics/histograms/metadata/ios/enums.xml:IOSOverflowMenuDestination
+// )
 
 // Returns the correct destination histogram enum value for the given
 // `destination`.
@@ -99,7 +103,8 @@ enum class IOSOverflowMenuAction {
   kShareThisPage = 23,
   kMaxValue = kShareThisPage,
 };
-// LINT.ThenChange(ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_constants.h:actionType)
+// LINT.ThenChange(ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_constants.h:actionType,
+// /tools/metrics/histograms/metadata/ios/enums.xml:IOSOverflowMenuAction)
 
 // Returns the correct action histogram enum value for the given `action_type`.
 IOSOverflowMenuAction HistogramActionFromActionType(

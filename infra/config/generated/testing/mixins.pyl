@@ -9,6 +9,7 @@
 
 {
   '11-x86-emulator': {
+    'description': 'Run with android_30_google_apis_x86',
     'args': [
       '--avd-config=../../tools/android/avd/proto/android_30_google_apis_x86.textpb',
     ],
@@ -155,6 +156,9 @@
       },
     },
   },
+  'ci_only': {
+    'ci_only': True,
+  },
   'crosier-no-arc': {
     'args': [
       '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.reven.chromeos_integration_tests.filter',
@@ -174,6 +178,39 @@
     'fail_if_unused': False,
     'swarming': {
       'dimensions': {
+        'pool': 'chromium.tests.gpu',
+      },
+    },
+  },
+  'gpu_amd_9900x_linux_experimental': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'display_attached': '1',
+        'gpu': '1002:13c0',
+        'os': 'Ubuntu',
+        'pool': 'chromium.tests.gpu.experimental',
+      },
+    },
+  },
+  'gpu_amd_9900x_win_experimental': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'display_attached': '1',
+        'gpu': '1002:13c0',
+        'os': 'Windows-11',
+        'pool': 'chromium.tests.gpu.experimental',
+      },
+    },
+  },
+  'gpu_amd_rx_5500_xt_linux_experimental': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'display_attached': '1',
+        'gpu': '1002:7340-25.0.7',
+        'os': 'Ubuntu-24.04',
         'pool': 'chromium.tests.gpu',
       },
     },
@@ -870,12 +907,10 @@
   },
   'tfc-cq-tast': {
     'skylab': {
-      'cros_test_tags': [
-        'group:mainline',
-        'dep:chrome',
-        'group:cq-medium',
+      'cros_test_names_from_file': [
+        'chromeos/tast_control_cq_tests.txt',
       ],
-      'cros_test_max_in_shard': 10
+      'cros_test_max_in_shard': 20
     },
   },
   'timeout_15m': {

@@ -11,17 +11,29 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/views/page_action/page_action_model.h"
+#include "ui/base/identifier/unique_identifier.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
-#include "ui/views/controls/button/image_button.h"
-#include "ui/views/controls/image_view.h"
+#include "ui/views/controls/button/menu_button_controller.h"
+#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
 
+namespace ui {
+class SimpleMenuModel;
+}
+
 namespace views {
+class ImageButton;
+class ImageView;
+class Label;
+class MenuButton;
 class Widget;
 }
 
 namespace page_actions {
+
+class ChipContainerView;
 
 // AnchoredMessageBubbleView is the view displaying the anchored message for a
 // given page action. It is created and destroyed dynamically.
@@ -29,6 +41,14 @@ class AnchoredMessageBubbleView : public views::BubbleDialogDelegate,
                                   public views::View {
   METADATA_HEADER(AnchoredMessageBubbleView, views::View)
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageBubbleId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageIconId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageLabelId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageChipId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageChipIconId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageChipLabelId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageCloseIconId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAnchoredMessageMenuIconId);
   AnchoredMessageBubbleView(views::BubbleAnchor parent,
                             const PageActionModelInterface& model,
                             base::RepeatingClosure chip_callback,
@@ -44,21 +64,32 @@ class AnchoredMessageBubbleView : public views::BubbleDialogDelegate,
   views::Widget* GetWidget() override;
   const views::Widget* GetWidget() const override;
 
+  void UpdateContent(const PageActionModelInterface& model);
+
+  // views::BubbleDialogDelegate:
+  void OnWidgetDestroying(views::Widget* widget) override;
+
  protected:
   void OnThemeChanged() override;
 
  private:
   void ChipCallback();
+  void MenuButtonPressed();
+  void OnMenuClosed();
 
   raw_ptr<views::Label> label_ = nullptr;
-  raw_ptr<views::View> chip_container_ = nullptr;
+  raw_ptr<ChipContainerView> chip_container_ = nullptr;
   raw_ptr<views::ImageButton> close_button_ = nullptr;
+  raw_ptr<views::MenuButton> menu_button_ = nullptr;
   raw_ptr<views::ImageView> icon_view_ = nullptr;
   std::optional<ui::ImageModel> icon_ = std::nullopt;
-  const std::u16string label_text_;
-  const bool show_close_button_;
+  std::u16string label_text_;
+  bool show_close_button_;
   base::RepeatingClosure chip_callback_;
   base::RepeatingClosure close_callback_;
+  raw_ptr<ui::SimpleMenuModel> menu_model_;
+  std::unique_ptr<views::MenuRunner> menu_runner_;
+  std::unique_ptr<views::MenuButtonController::PressedLock> pressed_lock_;
 };
 
 }  // namespace page_actions

@@ -44,6 +44,7 @@ source_set("impl") {
     "//chrome/browser/page_info",
     "//chrome/browser/privacy_sandbox:headers",
     "//chrome/browser/serial",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/vr",
   ]
 
@@ -63,10 +64,7 @@ source_set("impl") {
       "//chrome/browser/web_applications",
     ]
     if (is_chromeos) {
-      deps += [
-        "//chrome/browser/ash/floating_sso",
-        "//chrome/browser/ui/webui/ash/settings/app_management",
-      ]
+      deps += [ "//chrome/browser/ash/floating_sso" ]
     }
   }
   deps += [

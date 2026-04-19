@@ -20,9 +20,10 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_macros.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/extensions/extension_url_overrides.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
@@ -52,6 +53,7 @@
 #include "extensions/browser/bad_message.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_webkit_preferences.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/renderer_startup_helper.h"
@@ -76,12 +78,6 @@
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "url/origin.h"
-
-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-#include "chrome/browser/extensions/component_loader.h"
-#include "chrome/browser/extensions/extension_url_overrides.h"
-#include "extensions/browser/extension_webkit_preferences.h"
-#endif
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
 #include "components/guest_view/common/guest_view.mojom.h"  // nogncheck
@@ -736,9 +732,6 @@ void ChromeContentBrowserClientExtensionsPart::OverrideURLLoaderFactoryParams(
 bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
-#if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  return false;
-#else
   if (origin.scheme() != kExtensionScheme) {
     return false;
   }
@@ -764,7 +757,6 @@ bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
 
   // Check if the component is a loaded component extension.
   return ComponentLoader::Get(browser_context)->Exists(extension_id);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 // static
@@ -858,7 +850,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // `extension` below, they are not unset when navigating a tab from an
   // extension page to a regular web page. We should clear extension settings in
   // this case.
-  if (!main_frame_site.GetSiteURL().SchemeIs(kExtensionScheme)) {
+  if (!main_frame_site.GetSecurityPrincipal().SchemeIs(kExtensionScheme)) {
     return false;
   }
 
@@ -874,11 +866,9 @@ bool ChromeContentBrowserClientExtensionsPart::
   }
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   const Extension* extension = registry->enabled_extensions().GetByID(
       main_frame_site.GetSiteURL().GetHost());
   extension_webkit_preferences::SetPreferences(extension, web_prefs);
-#endif
   return true;
 }
 
@@ -900,13 +890,11 @@ void ChromeContentBrowserClientExtensionsPart::OverrideWebPreferences(
 
 void ChromeContentBrowserClientExtensionsPart::BrowserURLHandlerCreated(
     BrowserURLHandler* handler) {
-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   handler->AddHandlerPair(&ExtensionUrlOverrides::HandleChromeURLOverride,
                           BrowserURLHandler::null_handler());
   handler->AddHandlerPair(
       BrowserURLHandler::null_handler(),
       &ExtensionUrlOverrides::HandleChromeURLOverrideReverse);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 void ChromeContentBrowserClientExtensionsPart::

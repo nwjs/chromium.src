@@ -16,7 +16,6 @@
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_collection_consumer.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_item_identifier.h"
@@ -51,7 +50,8 @@
                        (id<ComposeboxTabPickerConsumer>)tabPickerConsumer
               tabsAttachmentDelegate:
                   (id<ComposeboxTabsAttachmentDelegate>)tabsAttachmentDelegate {
-  TabGridModeHolder* modeHolder = [[TabGridModeHolder alloc] init];
+  TabGridModeHolder* modeHolder =
+      [[TabGridModeHolder alloc] initWithTabGridState:nil];
   modeHolder.mode = TabGridMode::kSelection;
   self = [super initWithModeHolder:modeHolder];
 
@@ -82,6 +82,8 @@
   [self createGridItemsWithCompletion:^(NSArray<GridItemIdentifier*>* items) {
     [weakSelf populateGridItems:items];
   }];
+
+  [self fetchPageContexts];
 }
 
 - (id<TabCollectionConsumer>)gridConsumer {
@@ -115,9 +117,13 @@
 - (void)userTappedOnItemID:(GridItemIdentifier*)itemID {
   CHECK_EQ(self.modeHolder.mode, TabGridMode::kSelection);
   CHECK_EQ(itemID.type, GridItemType::kTab);
+  Browser* browser = self.browser;
   if ([self attachmentLimitReached:itemID]) {
+    if (!browser) {
+      return;
+    }
     ComposeboxSnackbarPresenter* snackbar =
-        [[ComposeboxSnackbarPresenter alloc] initWithBrowser:self.browser];
+        [[ComposeboxSnackbarPresenter alloc] initWithBrowser:browser];
 
     if (EnableComposeboxServerSideState()) {
       [snackbar showSnackbarForTabAttachmentLimit:[_tabsAttachmentDelegate
@@ -125,42 +131,42 @@
     } else {
       [snackbar showSnackbarForAttachmentLimit:kAttachmentLimit];
     }
+    [snackbar stop];
 
     return;
   }
 
-    web::WebState* webState = GetWebState(
-        self.webStateList,
-        WebStateSearchCriteria{
-            .identifier = itemID.tabSwitcherItem.identifier,
-            .pinned_state = WebStateSearchCriteria::PinnedState::kNonPinned});
-    // If the tab's APC is cached avoid updating the snapshot.
-    BOOL cached =
-        webState && _validAPCwebStatesIDs.contains(base::NumberToString(
-                        webState->GetUniqueIdentifier().identifier()));
-    if (webState && !webState->IsRealized() && !cached) {
-      // If the web state is not realized, force it to realize in order to have
-      // the latest content and updated snapshot.
-      __weak ComposeboxTabPickerMediator* weakSelf = self;
-      [_webStateDeferredExecutor
-                     webState:webState
-          executeOnceRealized:^{
-            [weakSelf
-                cancelPlaceholderForRealizedWebState:webState->GetWeakPtr()];
-          }];
-      // Defer snapshot update and item reconfiguration until the web state is
-      // fully loaded.
-      [_webStateDeferredExecutor webState:webState
-                        executeOnceLoaded:^(BOOL success) {
-                          if (!success) {
-                            [weakSelf handleFailedTabLoad:itemID];
-                            return;
-                          }
-                          [weakSelf
-                              updateSnapshotForWebState:webState->GetWeakPtr()
-                                                 itemID:itemID];
-                        }];
-    }
+  web::WebState* webState = GetWebState(
+      self.webStateList,
+      WebStateSearchCriteria{
+          .identifier = itemID.tabSwitcherItem.identifier,
+          .pinned_state = WebStateSearchCriteria::PinnedState::kNonPinned});
+  // If the tab's APC is cached avoid updating the snapshot.
+  BOOL cached = webState && _validAPCwebStatesIDs.contains(base::NumberToString(
+                                webState->GetUniqueIdentifier().identifier()));
+  if (webState && !webState->IsRealized() && !cached) {
+    // If the web state is not realized, force it to realize in order to have
+    // the latest content and updated snapshot.
+    __weak ComposeboxTabPickerMediator* weakSelf = self;
+    [_webStateDeferredExecutor
+                   webState:webState
+        executeOnceRealized:^{
+          [weakSelf
+              cancelPlaceholderForRealizedWebState:webState->GetWeakPtr()];
+        }];
+    // Defer snapshot update and item reconfiguration until the web state is
+    // fully loaded.
+    [_webStateDeferredExecutor webState:webState
+                      executeOnceLoaded:^(BOOL success) {
+                        if (!success) {
+                          [weakSelf handleFailedTabLoad:itemID];
+                          return;
+                        }
+                        [weakSelf
+                            updateSnapshotForWebState:webState->GetWeakPtr()
+                                               itemID:itemID];
+                      }];
+  }
   [super userTappedOnItemID:itemID];
 }
 
@@ -203,12 +209,11 @@
                             cachedWebStateIDs:cachedWebStateIDs];
 }
 
-#pragma mark - private
+#pragma mark - Private
 
-/// Creates grid items. Depending on the feature flag
-/// `kComposeboxTabPickerVariation` param value, this will either fetch tabs
-/// that have a persisted tab context or create items for all tabs in the web
-/// state list. The completion handler is called with the created items.
+/// Creates grid items for all non-NTP tabs in the web state list, including
+/// those within groups. The completion handler is called with the created
+/// items.
 - (void)createGridItemsWithCompletion:
     (void (^)(NSArray<GridItemIdentifier*>*))completion {
   NSMutableArray<GridItemIdentifier*>* items = [[NSMutableArray alloc] init];
@@ -224,11 +229,13 @@
   if (completion) {
     completion(items);
   }
+}
 
+/// Fetches the page contexts for all web states in the list.
+- (void)fetchPageContexts {
   PersistTabContextBrowserAgent* persistTabContextBrowserAgent =
       PersistTabContextBrowserAgent::FromBrowser(self.browser);
-  if (!IsComposeboxTabPickerCachedAPCEnabled() ||
-      !persistTabContextBrowserAgent) {
+  if (!persistTabContextBrowserAgent) {
     return;
   }
   std::vector<std::string> webStateUniqueIDs;
@@ -242,21 +249,17 @@
   __weak __typeof(self) weakSelf = self;
   persistTabContextBrowserAgent->GetMultipleContextsAsync(
       webStateUniqueIDs,
-      base::BindOnce(^(
-          PersistTabContextBrowserAgent::PageContextMap pageContextMap) {
-        [weakSelf didFetchPageContexts:pageContextMap completion:completion];
-      }));
+      base::BindOnce(
+          ^(PersistTabContextBrowserAgent::PageContextMap pageContextMap) {
+            [weakSelf didFetchPageContexts:pageContextMap];
+          }));
 }
 
 /// Called when the persisted tab contexts have been fetched. This method
-/// filters the web states to only include those with a valid context, creates
-/// grid items for them, and then calls the completion handler.
+/// filters the web states to only include those with a valid context, and
+/// updates `_validAPCwebStatesIDs` with their identifiers.
 - (void)didFetchPageContexts:
-            (PersistTabContextBrowserAgent::PageContextMap&)pageContextMap
-                  completion:
-                      (void (^)(NSArray<GridItemIdentifier*>*))completion {
-  NSMutableArray<GridItemIdentifier*>* items = [[NSMutableArray alloc] init];
-
+    (PersistTabContextBrowserAgent::PageContextMap&)pageContextMap {
   std::set<std::string> validCachedwebStatesIDs;
   for (const auto& [webStateUniqueIDString, pageContext] : pageContextMap) {
     if (pageContext.has_value()) {
@@ -265,18 +268,6 @@
   }
 
   _validAPCwebStatesIDs = validCachedwebStatesIDs;
-  for (int i = 0; i < self.webStateList->count(); ++i) {
-    web::WebState* webState = self.webStateList->GetWebStateAt(i);
-    if (IsVisibleURLNewTabPage(webState)) {
-      continue;
-    }
-    GridItemIdentifier* item = [GridItemIdentifier tabIdentifier:webState];
-    [items addObject:item];
-  }
-
-  if (completion) {
-    completion(items);
-  }
 }
 
 /// Populates the grid consumer with the given `items`. Also pre-selects any
@@ -356,9 +347,13 @@
 
 /// Handles the scenario where a tab fails to load.
 - (void)handleFailedTabLoad:(GridItemIdentifier*)itemID {
-  ComposeboxSnackbarPresenter* snackbar =
-      [[ComposeboxSnackbarPresenter alloc] initWithBrowser:self.browser];
-  [snackbar showCannotReloadTabError];
+  Browser* browser = self.browser;
+  if (browser) {
+    ComposeboxSnackbarPresenter* snackbar =
+        [[ComposeboxSnackbarPresenter alloc] initWithBrowser:self.browser];
+    [snackbar showCannotReloadTabError];
+    [snackbar stop];
+  }
   [_failedLoadedItemIDs addObject:itemID];
   [self removeFromSelectionItemID:itemID];
   [self reconfigureGridItem:itemID];

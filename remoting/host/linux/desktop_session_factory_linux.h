@@ -10,13 +10,15 @@
 #include <string_view>
 
 #include "base/containers/flat_map.h"
+#include "base/files/file_error_or.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/thread_annotations.h"
+#include "base/timer/timer.h"
 #include "base/types/expected.h"
-#include "remoting/host/base/loggable.h"
+#include "remoting/base/loggable.h"
 #include "remoting/host/daemon_process.h"
 #include "remoting/host/desktop_session.h"
 #include "remoting/host/linux/remote_display_session_manager.h"
@@ -55,10 +57,20 @@ class DesktopSessionFactoryLinux final
       DaemonProcess* daemon_process,
       const mojom::DesktopSessionOptions& options);
 
+  // Terminates all active desktop sessions.
+  void TerminateAllSessions(Callback callback);
+
+  // Finds a DesktopSession with the matching UID. With modern GDM, each user
+  // can only have one graphical session. Returns nullptr if not found.
+  DesktopSession* GetSessionByUid(uid_t uid);
+
  private:
   class DesktopSessionLinux;
 
   void OnStartResult(Callback callback, base::expected<void, Loggable> result);
+
+  void OnRemoteDisplaysFileLoaded(Callback callback,
+                                  base::FileErrorOr<std::string> load_result);
 
   void OnCreateRemoteDisplayResult(std::string_view display_name,
                                    base::expected<void, Loggable> result);
@@ -76,6 +88,13 @@ class DesktopSessionFactoryLinux final
   // Finds a DesktopSession with the display name. Return nullptr if not found.
   base::WeakPtr<DesktopSessionLinux> FindSession(std::string_view display_name);
 
+  // Requests that the remote displays file be written to disk. The write is
+  // throttled by a timer.
+  void RequestWriteRemoteDisplaysToFile();
+
+  // Actually writes the remote displays to disk.
+  void WriteRemoteDisplaysToFile();
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_
@@ -83,11 +102,19 @@ class DesktopSessionFactoryLinux final
   RemoteDisplaySessionManager remote_display_session_manager_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
+  base::RetainingOneShotTimer write_remote_displays_timer_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
   // Note that sessions that have been terminated but not yet destroyed are
   // still in this map.
   base::flat_map<std::string /*display_name*/,
                  base::WeakPtr<DesktopSessionLinux>>
       desktop_sessions_ GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // A collection of remote displays that are recovered from the previous CRD
+  // host incarnation.
+  base::flat_map<std::string /*client_id*/, std::string /*display_name*/>
+      recovered_displays_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   base::WeakPtrFactory<DesktopSessionFactoryLinux> weak_ptr_factory_{this};
 };

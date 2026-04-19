@@ -65,7 +65,6 @@
 <translation id="1640672724030957280">Memuat turun...</translation>
 <translation id="1651617469580841801">Apabila anda menggunakan Google Lens, tajuk halaman, URL dan kandungan, termasuk PDF, akan dihantar kepada Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Perihal Chrome OS Flex</translation>
-<translation id="1665867022636014702">Gunakan tetapan penyemak imbas yang disyorkan oleh Google</translation>
 <translation id="1674870198290878346">Buka Pautan dalam Tetingkap Inko&amp;gnito Chrome</translation>
 <translation id="1682634494516646069">Google Chrome tidak dapat membaca atau menulis pada direktori datanya: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">Apabila anda menaip dalam bar alamat atau kotak carian, Chrome akan menghantar perkara yang anda taip kepada alatan carian, AI dan ejen organisasi anda untuk mendapatkan cadangan.</translation>
@@ -183,6 +182,7 @@
 <translation id="2885378588091291677">Pengurus Tugas</translation>
 <translation id="2888126860611144412">Perihal Chrome</translation>
 <translation id="2915996080311180594">Mulakan Semula Kemudian</translation>
+<translation id="2916983411556218750">Mari sediakan Chrome anda</translation>
 <translation id="2926676257163822632">Kata laluan lemah mudah diteka. Biar Chrome <ph name="BEGIN_LINK" />membuat dan mengingat kata laluan kukuh untuk anda<ph name="END_LINK" />.</translation>
 <translation id="2926952073016206995">Chrome memerlukan kebenaran kamera untuk laman ini</translation>
 <translation id="2928420929544864228">Pemasangan selesai.</translation>
@@ -282,7 +282,6 @@
 <translation id="3889417619312448367">Nyahpasang Google Chrome</translation>
 <translation id="3892148308691398805">Salin teks</translation>
 <translation id="3893985792899396936">Petua Chrome: Cari Dengan Lens</translation>
-<translation id="3906096710440765802">Log masuk ke Chrome untuk mendapatkan kata laluan, penanda halaman dan pelbagai lagi pada semua peranti anda</translation>
 <translation id="3941890832296813527">Ralat pemasangan: Nama fail pemasang tidak sah atau tidak disokong.</translation>
 <translation id="395904275706073188">Halaman yang dilindungi tidak dapat dibaca. Cuba halaman yang lain.</translation>
 <translation id="3968962723676998462">Masukkan ungkapan laluan anda untuk menggunakan dan menyimpan data Chrome dalam akaun anda, <ph name="ACCOUNT_EMAIL" /></translation>
@@ -296,6 +295,7 @@
 <translation id="4053720452172726777">Sesuaikan dan kawal Google Chrome</translation>
 <translation id="408393047846373801">Untuk mendapatkan kata laluan anda dan pelbagai lagi pada semua peranti anda, log masuk ke Chrome. Kata laluan ini akan disimpan dalam Google Account anda selepas anda log masuk.</translation>
 <translation id="409936259433005390">Mahu membuat peningkatan kepada Windows 11? Muat turun Pemasang Chrome kepada OneDrive supaya anda bersedia dari awal.</translation>
+<translation id="4102173024714616627">Sambungan ialah alat tambah yang membolehkan anda menyesuaikan Chrome. Daripada kekal teratur kepada memudahkan tugasan harian, sambungan memberi Chrome anda sentuhan tersendiri.</translation>
 <translation id="4110895483821904099">Sediakan profil Chrome baharu anda</translation>
 <translation id="4111566860456076004">Chrome tidak dapat mengesahkan tempat asal sambungan ini, maka tindakan ini mungkin tidak selamat. Alih keluar sambungan ini daripada Chrome supaya sambungan ini tidak dapat melihat dan mengubah data anda pada laman yang anda lawati lagi, termasuk maklumat peribadi.</translation>
 <translation id="4147555960264124640">Anda log masuk menggunakan akaun terurus dan memberikan pentadbirnya kawalan terhadap profil Google Chrome anda. Data Chrome anda, seperti apl, penanda halaman, sejarah, kata laluan dan tetapan anda yang lain akan terikat kepada <ph name="USER_NAME" /> secara kekal. Anda akan dapat memadamkan data ini melalui Papan Pemuka Google Account, tetapi anda tidak akan dapat mengaitkan data ini dengan akaun lain. <ph name="LEARN_MORE" /></translation>
@@ -599,6 +599,7 @@
 <translation id="7161904924553537242">Selamat Datang ke Google Chrome</translation>
 <translation id="7193885263065350793">Organisasi anda menutup Chrome apabila apl tersebut tidak digunakan selama <ph name="TIMEOUT_DURATION" />.</translation>
 <translation id="7242029209006116544">Anda log masuk menggunakan akaun terurus dan memberikan pentadbirnya kawalan terhadap profil Google Chrome anda. Data Chrome anda, seperti apl, penanda halaman, sejarah, kata laluan dan tetapan anda yang lain akan terikat kepada <ph name="USER_NAME" /> secara kekal. Anda akan dapat memadamkan data ini melalui Papan Pemuka Google Account, tetapi anda tidak akan dapat mengaitkan data ini dengan akaun lain. Anda boleh memilih membuat profil baharu untuk mengasingkan data Chrome anda yang sedia ada. <ph name="LEARN_MORE" /></translation>
+<translation id="7274402351400635015">Anda boleh menggunakan Chrome pada bila-bila masa anda mengklik pautan dalam mesej, dokumen dan apl lain. Apl juga akan disematkan pada bar tugas anda.</translation>
 <translation id="7285616922384953075"><ph name="MANAGER" /> mengurus Chrome</translation>
 <translation id="7285990705317078173">Muat turun Chrome pada telefon anda untuk menjejaki harga dan mendapatkan makluman apabila terdapat penurunan harga pada mana-mana laman</translation>
 <translation id="7288567540154601580">Tab &amp; sambungan</translation>
@@ -608,6 +609,7 @@
 <translation id="7308322188646931570">Chrome memerlukan akses storan untuk memuat turun fail</translation>
 <translation id="7339898014177206373">Tetingkap baharu</translation>
 <translation id="7352651011704765696">Kesilapan telah berlaku</translation>
+<translation id="73786666777299047">Buka Gedung Web Chrome</translation>
 <translation id="7386878009611068389">Untuk kekal lebih selamat dalam talian dengan pilihan ibu/bapa anda, beralih kepada profil Chrome anda yang sudah digunakan untuk log masuk sebagai <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="7398801000654795464">Anda telah log masuk ke Chrome sebagai <ph name="USER_EMAIL_ADDRESS" />. Sila gunakan akaun yang sama untuk log masuk lagi.</translation>
 <translation id="7412494426921990001">Klik menu Chrome</translation>
@@ -772,6 +774,7 @@ Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memad
 <translation id="8862326446509486874">Anda tidak mempunyai hak wajar untuk pemasangan peringkat sistem. Cuba jalankan pemasang semula sebagai Pentadbir.</translation>
 <translation id="8865415417596392024">Data Chrome dalam akaun anda</translation>
 <translation id="8883862939660515976">Tanya Google Lens tentang imej ini</translation>
+<translation id="8892956691293410744">Untuk bertanya kepada AI Mode tentang tab anda tanpa meninggalkan halaman, log masuk ke Chrome. Anda juga akan mendapat kata laluan anda dan pelbagai lagi pada semua peranti anda.</translation>
 <translation id="8914504000324227558">Lancarkan semula Chrome</translation>
 <translation id="8922193594870374009">Untuk menghantar nombor daripada <ph name="ORIGIN" /> ke telefon Android anda, log masuk ke Chrome pada kedua-dua peranti.</translation>
 <translation id="8922998289262614701">Alih keluar data apl ini daripada Chrome</translation>
@@ -785,7 +788,6 @@ Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memad
 <translation id="8999208279178790196">{0,plural, =0{Kemas kini Chrome tersedia}=1{Kemas kini Chrome tersedia}other{Kemas kini Chrome telah tersedia selama # hari}}</translation>
 <translation id="9010418943148193727">Enjin carian lalai anda telah ditukar dari luar Chrome. Untuk melindungi anda, Chrome telah menetapkan semula tetapan tersebut.</translation>
 <translation id="9014771989710951291">Berbilang organisasi mengurus Chrome</translation>
-<translation id="9024318700713112071">Tetapkan Chrome sebagai lalai anda</translation>
 <translation id="9066987883552592250">Tutup Gemini dalam Chrome Canary</translation>
 <translation id="9090566250983691233">Ketahui sebab Chrome menyekat sesetengah fail</translation>
 <translation id="9106236359747881194">Pilih teks untuk dicari</translation>

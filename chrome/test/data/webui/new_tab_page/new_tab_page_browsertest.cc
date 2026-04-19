@@ -98,6 +98,10 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, Composebox) {
   RunTest("new_tab_page/composebox/composebox_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxSubmit) {
+  RunTest("new_tab_page/composebox/composebox_submit_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxAutocompleteDropdown) {
   RunTest("new_tab_page/composebox/composebox_autocomplete_test.js",
           "runMochaSuite('NewTabPageComposeboxAutocompleteDropdownTest')");
@@ -187,10 +191,6 @@ using NewTabPageNtpPromoTest = NewTabPageBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(NewTabPageNtpPromoTest, IndividualPromosTest) {
   RunTest("new_tab_page/ntp_promo/individual_promos_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageNtpPromoTest, NtpSetupListTest) {
-  RunTest("new_tab_page/ntp_promo/setup_list_test.js", "mocha.run()");
 }
 
 using NewTabPageModulesTest = NewTabPageBrowserTest;

@@ -64,41 +64,8 @@ void FakeDocumentScanAsh::OpenScanner(const std::string& client_id,
   std::move(callback).Run(std::move(response));
 }
 
-void FakeDocumentScanAsh::GetOptionGroups(const std::string& scanner_handle,
-                                          GetOptionGroupsCallback callback) {
-  if (!open_scanners_.contains(scanner_handle)) {
-    auto response = crosapi::mojom::GetOptionGroupsResponse::New();
-    response->scanner_handle = scanner_handle;
-    response->result = crosapi::mojom::ScannerOperationResult::kInvalid;
-    std::move(callback).Run(std::move(response));
-    return;
-  }
-
-  // The API handler just passes through responses from this function, so always
-  // returning a hardcoded value shouldn't matter.
-  auto response = crosapi::mojom::GetOptionGroupsResponse::New();
-  response->result = crosapi::mojom::ScannerOperationResult::kSuccess;
-  response->scanner_handle = scanner_handle;
-  response->groups.emplace();
-  auto option_group = crosapi::mojom::OptionGroup::New();
-  option_group->title = "title";
-  option_group->members.emplace_back("item1");
-  option_group->members.emplace_back("item2");
-  response->groups->emplace_back(std::move(option_group));
-  std::move(callback).Run(std::move(response));
-}
-
-void FakeDocumentScanAsh::CloseScanner(const std::string& scanner_handle,
-                                       CloseScannerCallback callback) {
-  auto response = crosapi::mojom::CloseScannerResponse::New();
-  response->scanner_handle = scanner_handle;
-  if (open_scanners_.contains(scanner_handle)) {
-    response->result = crosapi::mojom::ScannerOperationResult::kSuccess;
-  } else {
-    response->result = crosapi::mojom::ScannerOperationResult::kInvalid;
-  }
+void FakeDocumentScanAsh::CloseScanner(const std::string& scanner_handle) {
   open_scanners_.erase(scanner_handle);
-  std::move(callback).Run(std::move(response));
 }
 
 void FakeDocumentScanAsh::StartPreparedScan(
@@ -305,29 +272,14 @@ void FakeDocumentScanAsh::SetOptions(
   std::move(callback).Run(std::move(response));
 }
 
-void FakeDocumentScanAsh::CancelScan(const std::string& job_handle,
-                                     CancelScanCallback callback) {
-  auto response = crosapi::mojom::CancelScanResponse::New();
-  response->job_handle = job_handle;
-  // Explicitly set this to kAdfJammed instead of kInvalid since kAdfJammed is
-  // not used in the DocumentScanAPIHandler cancel methods.  If this was
-  // kInvalid the tests may not know if the kInvalid was returned from this fake
-  // (in which case, the test may not be testing what it is intended to test) or
-  // was returned from the DocumentScanAPIHandler object (as expected).
-  response->result = crosapi::mojom::ScannerOperationResult::kAdfJammed;
-
-  // Check all of our open scanners.  If any has this job, cancel it and return
-  // a success result.  If not, return a failure result.
+void FakeDocumentScanAsh::CancelScan(const std::string& job_handle) {
   for (auto& [scanner_handle, state] : open_scanners_) {
     if (state.job_handle.value_or("") == job_handle) {
-      response->result = crosapi::mojom::ScannerOperationResult::kSuccess;
       state.job_handle.reset();
       state.cancelled = true;
       break;
     }
   }
-
-  std::move(callback).Run(std::move(response));
 }
 
 void FakeDocumentScanAsh::SetReadScanDataResponses(

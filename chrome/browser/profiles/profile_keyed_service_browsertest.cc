@@ -28,7 +28,6 @@
 #include "components/keyed_service/core/dependency_graph.h"
 #include "components/keyed_service/core/keyed_service_base_factory.h"
 #include "components/omnibox/common/omnibox_features.h"
-#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/supervised_user/core/common/features.h"
 #include "content/public/common/content_features.h"
@@ -205,10 +204,8 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           extensions_features::kForceWebRequestProxyForTest,
           network::features::kReduceAcceptLanguage,
           features::kMainNodeAnnotations,
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
           omnibox::kOnDeviceTailModel,
           omnibox::kOnDeviceHeadProviderNonIncognito,
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
           switches::kSyncEnableBookmarksInTransportMode,
           contextual_tasks::kContextualTasks,
           supervised_user::kSupervisedUserUseUrlFilteringService,
@@ -405,7 +402,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "BluetoothSocketEventDispatcher",
     "BrowserManagerService",
     "BrowsingDataLifetimeManager",
-    "BrowsingDataRemover",
     "ContextualSearchService",
     "ContextualTasksService",
     "ContextualTasksUiService",
@@ -455,10 +451,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "MediaRouter",
     "MediaRouterUIService",
     "NotificationDisplayService",
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "OnDeviceTailModelService",
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "OneTimePermissionsTrackerKeyedService",
+    "OptimizationGuideGlobalStateHolderKeyedService",
     "OptimizationGuideKeyedService",
     "PermissionDecisionAutoBlocker",
     "PinnedToolbarActionsModel",
@@ -518,7 +513,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "EnterpriseManagementService",
     "FindBarState",
     "HistoryClustersService",
-    "IbanManager",
     "InstantService",
     "LanguageDetectionModelService",
     "MediaEngagementServiceFactory",
@@ -531,7 +525,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif
     "OmniboxInputWatcher",
     "PermissionManagerFactory",
-    "PrivacySandboxService",
     "SafeBrowsingNavigationObserverManager",
     "StatefulSSLHostStateDelegate",
     "StorageAccessAPIService",
@@ -618,9 +611,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "AppWindowRegistry",
     "AudioAPI",
     "AutocompleteActionPredictor",
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "AutocompleteScoringModelService",
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "AutofillClientProvider",
     "AutofillImageFetcher",
     "AutofillPrivateEventRouter",
@@ -776,11 +767,10 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif // BUILDFLAG(IS_CHROMEOS)
     "OmniboxAPI",
     "OmniboxSuggestionsWatcher",
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "OnDeviceTailModelService",
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "OneTimePermissionsTrackerKeyedService",
     "OperationManager",
+    "OptimizationGuideGlobalStateHolderKeyedService",
     "OptimizationGuideKeyedService",
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
@@ -812,6 +802,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ProcessManager",
     "ProcessMap",
     "ProcessesAPI",
+    "ProfileMetricsService",
     "ProfileNetworkContextService",
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     "ProtocolHandlersManager",
@@ -901,7 +892,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
     "WebAppProvider",
 #endif  // !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     "WebAuthenticationProxyAPI",
+#endif
 #if BUILDFLAG(IS_CHROMEOS)
     "WebcamPrivateAPI",
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -912,7 +905,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "WebRtcEventLogManagerKeyedService",
     "WebrtcAudioPrivateEventService",
     "WriteQuotaChecker",
-    "feature_engagement::Tracker",
     "feedback::FeedbackUploaderChrome",
     "sct_reporting::Factory",
 #if !BUILDFLAG(IS_CHROMEOS)

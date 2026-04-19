@@ -100,7 +100,7 @@ void MaybeRecordPreFreezeMetric(std::optional<ByteSize> value,
 
 std::optional<ByteSize> Diff(std::optional<ByteSize> before,
                              std::optional<ByteSize> after) {
-  if (!before.has_value() || !before.has_value()) {
+  if (!before.has_value() || !after.has_value()) {
     return std::nullopt;
   }
 
@@ -301,7 +301,7 @@ void PreFreezeBackgroundMemoryTrimmer::UnregisterMemoryMetric(
 
 void PreFreezeBackgroundMemoryTrimmer::UnregisterMemoryMetricInternal(
     const PreFreezeMetric* metric) {
-  auto it = std::find(metrics_.begin(), metrics_.end(), metric);
+  auto it = std::ranges::find(metrics_, metric);
   CHECK(it != metrics_.end());
   const long index = it - metrics_.begin();
   if (values_before_.size() > 0) {

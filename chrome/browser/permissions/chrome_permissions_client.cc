@@ -111,7 +111,7 @@
 #include "components/user_manager/user_manager.h"
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/common/constants.h"
 #endif
 
@@ -450,9 +450,10 @@ ChromePermissionsClient::DetermineIgnoreReason(
     content::WebContents* web_contents) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  Browser* browser = chrome::FindLastActiveWithProfile(profile);
+  BrowserWindowInterface* const browser =
+      chrome::FindLastActiveWithProfile(profile);
   if (browser) {
-    if (browser->tab_strip_model()->empty()) {
+    if (browser->GetTabStripModel()->empty()) {
       return permissions::PermissionIgnoredReason::WINDOW_CLOSED;
     } else if (web_contents->IsBeingDestroyed()) {
       return permissions::PermissionIgnoredReason::TAB_CLOSED;
@@ -646,7 +647,7 @@ ChromePermissionsClient::GetAutoApprovalStatus(
 bool ChromePermissionsClient::CanBypassEmbeddingOriginCheck(
     const GURL& requesting_origin,
     const GURL& embedding_origin) {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Extensions are excluded from origin checks as currently they can request
   // permission from iframes when embedded in non-secure contexts
   // (https://crbug.com/40435309).
@@ -658,16 +659,20 @@ bool ChromePermissionsClient::CanBypassEmbeddingOriginCheck(
   // New Tab Page:
   // Bypass embedding origin check as the `requesting_origin` will later be
   // transformed to the DSE origin in `GetCanonicalOriginOverride()`.
-  if (embedding_origin.host() == chrome::kChromeUINewTabHost ||
-      embedding_origin.host() == chrome::kChromeUINewTabPageHost) {
+  if (embedding_origin ==
+          GURL(chrome::kChromeUINewTabURL).DeprecatedGetOriginAsURL() ||
+      embedding_origin ==
+          GURL(chrome::kChromeUINewTabPageURL).DeprecatedGetOriginAsURL()) {
     return true;
   }
 
   // Omnibox Popup and Contextual Tasks:
   // Bypass embedding origin check as the `requesting_origin` will later be
   // transformed to the DSE origin in `GetCanonicalOriginOverride()`.
-  if (embedding_origin.host() == chrome::kChromeUIOmniboxPopupHost ||
-      embedding_origin.host() == chrome::kChromeUIContextualTasksHost) {
+  if (embedding_origin ==
+          GURL(chrome::kChromeUIOmniboxPopupURL).DeprecatedGetOriginAsURL() ||
+      embedding_origin == GURL(chrome::kChromeUIContextualTasksURL)
+                              .DeprecatedGetOriginAsURL()) {
     return true;
   }
 
@@ -680,8 +685,10 @@ std::optional<GURL> ChromePermissionsClient::GetCanonicalOriginOverride(
   // New Tab Page:
   // Transform chrome:// origins to the DSE origin so that permissions are
   // stored under and shared with the DSE.
-  if (embedding_origin.host() == chrome::kChromeUINewTabHost) {
-    if (requesting_origin.host() == chrome::kChromeUINewTabPageHost) {
+  if (embedding_origin ==
+      GURL(chrome::kChromeUINewTabURL).DeprecatedGetOriginAsURL()) {
+    if (requesting_origin ==
+        GURL(chrome::kChromeUINewTabPageURL).DeprecatedGetOriginAsURL()) {
       return GURL(UIThreadSearchTermsData().GoogleBaseURLValue())
           .DeprecatedGetOriginAsURL();
     }
@@ -692,13 +699,15 @@ std::optional<GURL> ChromePermissionsClient::GetCanonicalOriginOverride(
   // Transform chrome:// origins to the DSE origin so that permissions are
   // stored under and shared with the DSE.
   if (requesting_origin == embedding_origin &&
-      (requesting_origin.host() == chrome::kChromeUIOmniboxPopupHost ||
-       requesting_origin.host() == chrome::kChromeUIContextualTasksHost)) {
+      (requesting_origin ==
+           GURL(chrome::kChromeUIOmniboxPopupURL).DeprecatedGetOriginAsURL() ||
+       requesting_origin == GURL(chrome::kChromeUIContextualTasksURL)
+                                .DeprecatedGetOriginAsURL())) {
     return GURL(UIThreadSearchTermsData().GoogleBaseURLValue())
         .DeprecatedGetOriginAsURL();
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Note that currently chrome extensions are allowed to use permissions even
   // when in embedded in non-secure contexts. This is unfortunate and we
   // should remove this at some point, but for now always use the requesting
@@ -722,8 +731,10 @@ std::optional<GURL> ChromePermissionsClient::GetEmbeddingOriginOverride(
   // the requesting origin is the NTP (chrome://new-tab-page).
   // Note that the embedding origin is later transformed to the DSE origin via
   // `GetCanonicalOriginOverride()`.
-  if (requesting_origin.host() == chrome::kChromeUINewTabPageHost &&
-      embedding_origin.host() == chrome::kChromeUINewTabHost) {
+  if (requesting_origin ==
+          GURL(chrome::kChromeUINewTabPageURL).DeprecatedGetOriginAsURL() &&
+      embedding_origin ==
+          GURL(chrome::kChromeUINewTabURL).DeprecatedGetOriginAsURL()) {
     return embedding_origin;
   }
 
@@ -732,8 +743,10 @@ std::optional<GURL> ChromePermissionsClient::GetEmbeddingOriginOverride(
   // Note that the embedding origin is later transformed to the DSE origin via
   // `GetCanonicalOriginOverride()`.
   if (requesting_origin == embedding_origin &&
-      (requesting_origin.host() == chrome::kChromeUIOmniboxPopupHost ||
-       requesting_origin.host() == chrome::kChromeUIContextualTasksHost)) {
+      (requesting_origin ==
+           GURL(chrome::kChromeUIOmniboxPopupURL).DeprecatedGetOriginAsURL() ||
+       requesting_origin == GURL(chrome::kChromeUIContextualTasksURL)
+                                .DeprecatedGetOriginAsURL())) {
     return embedding_origin;
   }
 

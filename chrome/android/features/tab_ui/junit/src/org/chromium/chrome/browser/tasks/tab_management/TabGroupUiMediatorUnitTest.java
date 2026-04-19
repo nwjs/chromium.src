@@ -38,7 +38,6 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -94,6 +93,7 @@ import org.chromium.chrome.browser.theme.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider.TintObserver;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator.BottomControlsVisibilityController;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.components.data_sharing.DataSharingService;
@@ -145,6 +145,7 @@ public class TabGroupUiMediatorUnitTest {
     @Mock private TabCreator mTabCreator;
     @Mock private LayoutStateProvider mLayoutManager;
     @Spy private TabModel mTabModel;
+    @Mock private TabModel mIncognitoTabModel;
     @Mock private View mView;
     @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private TabGridDialogMediator.DialogController mTabGridDialogController;
@@ -317,8 +318,8 @@ public class TabGroupUiMediatorUnitTest {
         when(mTabModelSelector.isIncognitoSelected()).thenReturn(false);
         doReturn(mTabModel).when(mTabModel).getComprehensiveModel();
         doReturn(mTabModel).when(mTabModelSelector).getModel(false);
+        doReturn(mIncognitoTabModel).when(mTabModelSelector).getModel(true);
         doReturn(false).when(mTabModel).isIncognito();
-        doReturn(mTabModel).when(mTabModelSelector).getModel(false);
         doReturn(3).when(mTabModel).getCount();
         when(mTabModel.iterator()).thenAnswer(inv -> List.of(mTab1, mTab2, mTab3).iterator());
         doReturn(0).when(mTabModel).index();
@@ -346,10 +347,8 @@ public class TabGroupUiMediatorUnitTest {
         doReturn(true).when(mTabGroupModelFilter).isTabInTabGroup(mTab3);
 
         doReturn(mTabGroupModelFilter).when(mTabModelSelector).getCurrentTabGroupModelFilter();
-        doReturn(mTabGroupModelFilter).when(mTabModelSelector).getTabGroupModelFilter(true);
-        doReturn(mTabGroupModelFilter).when(mTabModelSelector).getTabGroupModelFilter(false);
         doNothing()
-                .when(mTabGroupModelFilter)
+                .when(mTabModel)
                 .addTabGroupObserver(mTabGroupModelFilterObserverArgumentCaptor.capture());
 
         // Set up TabModelSelector.
@@ -919,7 +918,9 @@ public class TabGroupUiMediatorUnitTest {
                 .removeTabGroupModelFilterObserver(mTabModelObserverArgumentCaptor.capture());
         verify(mLayoutManager).removeObserver(mLayoutStateObserverCaptor.capture());
         assertFalse(mTabModelSupplier.hasObservers());
-        verify(mTabGroupModelFilter, times(2))
+        verify(mTabModel)
+                .removeTabGroupObserver(mTabGroupModelFilterObserverArgumentCaptor.capture());
+        verify(mIncognitoTabModel)
                 .removeTabGroupObserver(mTabGroupModelFilterObserverArgumentCaptor.capture());
         verify(mThemeColorProvider).removeThemeColorObserver(mThemeColorObserverCaptor.getValue());
         verify(mThemeColorProvider).removeTintObserver(mTintObserverCaptor.getValue());
@@ -980,29 +981,29 @@ public class TabGroupUiMediatorUnitTest {
     public void backButtonPress_ShouldHandle() {
         initAndAssertProperties(mTab1);
         mDialogControllerSupplier.get();
-        doReturn(true).when(mTabGridDialogController).handleBackPressed();
+        doReturn(BackPressResult.SUCCESS).when(mTabGridDialogController).handleBackPress();
         mTabGridDialogBackPressSupplier.set(true);
         RobolectricUtil.runAllBackgroundAndUi();
 
         var groupUiBackPressSupplier = mTabGroupUiMediator.getHandleBackPressChangedSupplier();
-        Assert.assertEquals(true, groupUiBackPressSupplier.get());
+        assertTrue(groupUiBackPressSupplier.get());
 
-        assertThat(mTabGroupUiMediator.onBackPressed(), equalTo(true));
-        verify(mTabGridDialogController).handleBackPressed();
+        assertEquals(BackPressResult.SUCCESS, mTabGroupUiMediator.handleBackPress());
+        verify(mTabGridDialogController).handleBackPress();
     }
 
     @Test
     public void backButtonPress_ShouldNotHandle() {
         initAndAssertProperties(mTab1);
         mDialogControllerSupplier.get();
-        doReturn(false).when(mTabGridDialogController).handleBackPressed();
+        doReturn(BackPressResult.FAILURE).when(mTabGridDialogController).handleBackPress();
         mTabGridDialogBackPressSupplier.set(false);
         RobolectricUtil.runAllBackgroundAndUi();
         var groupUiBackPressSupplier = mTabGroupUiMediator.getHandleBackPressChangedSupplier();
 
-        assertNotEquals(true, groupUiBackPressSupplier.get());
-        assertThat(mTabGroupUiMediator.onBackPressed(), equalTo(false));
-        verify(mTabGridDialogController).handleBackPressed();
+        assertFalse(groupUiBackPressSupplier.get());
+        assertEquals(BackPressResult.FAILURE, mTabGroupUiMediator.handleBackPress());
+        verify(mTabGridDialogController).handleBackPress();
     }
 
     @Test
@@ -1016,16 +1017,16 @@ public class TabGroupUiMediatorUnitTest {
 
         // Late init.
         mDialogControllerSupplier.get();
-        doReturn(false).when(mTabGridDialogController).handleBackPressed();
+        doReturn(BackPressResult.FAILURE).when(mTabGridDialogController).handleBackPress();
         mTabGridDialogBackPressSupplier.set(false);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        Assert.assertFalse(groupUiBackPressSupplier.get());
+        assertFalse(groupUiBackPressSupplier.get());
 
         mTabGridDialogBackPressSupplier.set(true);
         RobolectricUtil.runAllBackgroundAndUi();
-        doReturn(true).when(mTabGridDialogController).handleBackPressed();
-        Assert.assertTrue(groupUiBackPressSupplier.get());
+        doReturn(BackPressResult.SUCCESS).when(mTabGridDialogController).handleBackPress();
+        assertTrue(groupUiBackPressSupplier.get());
     }
 
     @Test

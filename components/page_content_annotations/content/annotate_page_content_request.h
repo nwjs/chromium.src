@@ -5,10 +5,16 @@
 #ifndef COMPONENTS_PAGE_CONTENT_ANNOTATIONS_CONTENT_ANNOTATE_PAGE_CONTENT_REQUEST_H_
 #define COMPONENTS_PAGE_CONTENT_ANNOTATIONS_CONTENT_ANNOTATE_PAGE_CONTENT_REQUEST_H_
 
+#include <optional>
+#include <vector>
+
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/types/expected.h"
 #include "components/content_extraction/content/browser/inner_text.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/page_content_annotations/core/page_content_extraction_types.h"
 #include "content/public/browser/web_contents.h"
@@ -21,7 +27,8 @@ class PageContextEligibility;
 
 namespace page_content_annotations {
 
-class PageContentExtractionService;
+using GetExtractedPageContentAndEligibilityCallback =
+    PageContentExtractionService::GetExtractedPageContentAndEligibilityCallback;
 
 using FetchPageContextCallback =
     base::RepeatingCallback<void(content::WebContents&,
@@ -65,28 +72,45 @@ class AnnotatedPageContentRequest {
   void OnVisibilityChanged(content::Visibility visibility);
 
   // Returns the cached APC for `page` and whether it is eligible for
-  // server upload. Will return nullopt if not available.
+  // server upload. Will return nullopt if not available or not supported (e.g.
+  // for PDFs).
   std::optional<ExtractedPageContentResult> GetCachedContentAndEligibility();
 
   // Returns whether the cached APC for `page` is eligible for server upload.
   // Will return nullopt if not available.
   std::optional<bool> GetServerUploadEligibility();
 
+  // Extracts a new APC for `page` and computes its eligibility for server
+  // upload, and caches the new result. It will wait for the initial
+  // extraction to complete if there is one pending. For PDFs, it will return
+  // the cached copy instead. If the extraction request is cleared or reset
+  // (e.g. from a navigation or destruction), the callbacks will resolve with
+  // std::nullopt. Extraction is not supported for PDFs and will also result in
+  // nullopt.
+  void RefreshExtractedPageContentAndEligibilityForPage(
+      GetExtractedPageContentAndEligibilityCallback callback);
+
  private:
   void ResetForNewNavigation();
 
-  void MaybeScheduleExtraction();
+  // `on_hide` should be true iff this extraction is being triggered
+  // specifically by the tab transitioning to hidden (as opposed to, say,
+  // completing a page load).
+  void MaybeScheduleExtraction(bool on_hide = false);
+  bool ShouldScheduleExtraction(bool on_hide) const;
 
-  void ExtractPageContent();
+  void OnExtractionTimerFired();
+  void StartExtraction();
   void RequestAnnotatedPageContentSync();
-
-  bool ShouldScheduleExtraction() const;
 
   void OnPageContextFetched(FetchPageContextResultCallbackArg result);
 
   void OnInnerTextReceived(
       base::TimeTicks start_time,
       std::unique_ptr<content_extraction::InnerTextResult> result);
+
+  void ResolveAllCallbacksWith(
+      const std::optional<ExtractedPageContentResult>& result);
 
 #if BUILDFLAG(ENABLE_PDF)
   void RequestPdfPageCount();
@@ -105,30 +129,39 @@ class AnnotatedPageContentRequest {
   const base::TimeDelta delay_;
   const bool include_inner_text_;
 
+  // LINT.IfChange(Lifecycle)
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // Tracks the state of the current extraction.
   enum class Lifecycle {
-    // Indicates that a new navigation occurred and we need to schedule an
-    // extraction. This is async because we need to wait for the page to be
-    // ready.
-    kPending,
+    // Indicates that a new navigation occurred and we may need to schedule an
+    // extraction.
+    kNavigated = 0,
 
-    // The extraction has been scheduled and we are waiting on a response from
-    // the renderer. The IPC to request the content maybe delayed so the page
-    // has reached a stable state.
-    kScheduled,
+    // An extraction has been scheduled and we are waiting for the delay timer
+    // to fire.
+    kScheduled = 1,
 
-    // The extraction finished after page load.
-    kExtractedAtPageLoad,
+    // An extraction is in progress (e.g. after the delay timer fired) and we
+    // are waiting for a response from the renderer.
+    kRunning = 2,
 
-    // All extraction triggers are handled.
-    kFinal
+    // An extraction has occurred and no others are currently scheduled.
+    kExtracted = 3,
+
+    kMaxValue = kExtracted,
   };
-  Lifecycle lifecycle_ = Lifecycle::kFinal;
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/optimization/enums.xml:OptimizationGuideOnDemandExtractionState)
+  Lifecycle lifecycle_ = Lifecycle::kExtracted;
 
   bool waiting_for_load_ = false;
   bool waiting_for_fcp_ = false;
   bool is_hidden_ = false;
 
   std::optional<ExtractedPageContentResult> cached_content_;
+
+  std::vector<GetExtractedPageContentAndEligibilityCallback>
+      on_demand_callbacks_;
 
   FetchPageContextCallback fetch_page_context_callback_;
   GetTabIdCallback get_tab_id_callback_;

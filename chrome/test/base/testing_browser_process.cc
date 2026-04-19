@@ -246,7 +246,13 @@ void TestingBrowserProcess::TearDownGlobalFeaturesForTesting() {
   CHECK(features_);
   features_->PostMainMessageLoopRun();
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extensions_browser_client_->StartTearDown();
+#endif
+
   testing_profile_manager_.reset();
+
+  profile_manager_.reset();
 
   // ResourceCoordinatorParts owns TabLifecycleUnitSource, which depends on a
   // Global Feature (GlobalBrowserCollection). Thus, we need to make sure
@@ -690,6 +696,11 @@ void TestingBrowserProcess::CreateGlobalFeaturesPreProfileManager() {
   // To replace the GlobalFeatures, shutdown the default instance first.
   CHECK(features_);
   features_->PostMainMessageLoopRun();
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extensions_browser_client_->StartTearDown();
+#endif
+
   features_->PostDestroyThreads();
   features_.reset();
 

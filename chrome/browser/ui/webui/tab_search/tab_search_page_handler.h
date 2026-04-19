@@ -9,15 +9,14 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/browser_tab_strip_tracker.h"
-#include "chrome/browser/ui/browser_tab_strip_tracker_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_api/observation/tab_strip_api_batched_observer.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
+#include "components/browser_apis/tab_strip/tab_strip_api.mojom.h"
+#include "components/browser_apis/tab_strip/tab_strip_api_events.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/tabs/public/tab_group.h"
@@ -29,6 +28,20 @@
 
 class Browser;
 class MetricsReporter;
+class Profile;
+
+namespace tabs {
+class TabInterface;
+}
+
+namespace tabs_api {
+class TabStripService;
+class TabStripServiceAggregator;
+namespace mojom {
+class Container;
+using ContainerPtr = mojo::StructPtr<Container>;
+}  // namespace mojom
+}  // namespace tabs_api
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -46,9 +59,9 @@ enum class TabSearchRecentlyClosedToggleAction {
   kMaxValue = kCollapse,
 };
 
-class TabSearchPageHandler : public tab_search::mojom::PageHandler,
-                             public TabStripModelObserver,
-                             public BrowserTabStripTrackerDelegate {
+class TabSearchPageHandler
+    : public tab_search::mojom::PageHandler,
+      public tabs_api::observation::TabStripApiBatchedObserver {
  public:
   TabSearchPageHandler(
       mojo::PendingReceiver<tab_search::mojom::PageHandler> receiver,
@@ -64,7 +77,6 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
   void CloseTab(int32_t tab_id) override;
   void CloseWebUiTab() override;
   void GetProfileData(GetProfileDataCallback callback) override;
-  void GetTabSearchSection(GetTabSearchSectionCallback callback) override;
   void GetIsSplit(GetIsSplitCallback callback) override;
   void SwitchToTab(
       tab_search::mojom::SwitchToTabInfoPtr switch_to_tab_info) override;
@@ -72,21 +84,11 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
   void ReplaceActiveSplitTab(int32_t replacement_tab_id) override;
   void SaveRecentlyClosedExpandedPref(bool expanded) override;
   void StartTabGroupTutorial() override;
-  void TriggerSignIn() override;
   void MaybeShowUI() override;
 
-  // TabStripModelObserver:
-  void OnTabStripModelChanged(
-      TabStripModel* tab_strip_model,
-      const TabStripModelChange& change,
-      const TabStripSelectionChange& selection) override;
-  void OnTabChangedAt(tabs::TabInterface* tab,
-                      int index,
-                      TabChangeType change_type) override;
-  void OnSplitTabChanged(const SplitTabChange& change) override;
-
-  // BrowserTabStripTrackerDelegate:
-  bool ShouldTrackBrowser(BrowserWindowInterface* browser) override;
+  // TabStripApiBatchedObserver:
+  void OnTabEvents(
+      const std::vector<tabs_api::mojom::TabsEventPtr>& events) override;
 
   // Returns true if the WebContents hosting the WebUI is visible to the user
   // (in either a fully visible or partially occluded state).
@@ -110,20 +112,14 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
   // leveraging DedupKey comparisons.
   typedef std::tuple<GURL, std::optional<base::Token>> DedupKey;
 
-  // Encapsulates tab details to facilitate performing an action on a tab.
-  struct TabDetails {
-    explicit TabDetails(tabs::TabInterface* tab) : tab(tab) {}
-
-    int GetIndex() const {
-      return tab->GetBrowserWindowInterface()
-          ->GetTabStripModel()
-          ->GetIndexOfTab(tab);
-    }
-
-    raw_ptr<tabs::TabInterface> tab;
-  };
-
   tab_search::mojom::ProfileDataPtr CreateProfileData();
+
+  // Walk the tab strip tree to collect tab and group data.
+  void WalkContainer(const tabs_api::mojom::ContainerPtr& container,
+                     tab_search::mojom::Window* window,
+                     tab_search::mojom::ProfileData* profile_data,
+                     std::set<DedupKey>& tab_dedup_keys,
+                     std::set<tab_groups::TabGroupId>& tab_group_ids);
 
   // Adds recently closed tabs and tab groups.
   void AddRecentlyClosedEntries(
@@ -146,15 +142,30 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
       std::set<tab_groups::TabGroupId>& tab_group_ids,
       std::vector<tab_search::mojom::TabGroupPtr>& tab_groups);
 
-  tab_search::mojom::TabPtr GetTab(const TabStripModel* tab_strip_model,
-                                   content::WebContents* contents,
-                                   int index) const;
+  tab_search::mojom::TabPtr GetTab(tabs::TabInterface* tab) const;
   tab_search::mojom::RecentlyClosedTabPtr GetRecentlyClosedTab(
       sessions::tab_restore::Tab* tab,
       const base::Time& close_time);
 
-  // Returns tab details required to perform an action on the tab.
-  std::optional<TabDetails> GetTabDetails(int32_t tab_id);
+  tabs_api::TabStripService* GetTabStripService(
+      BrowserWindowInterface* browser) const;
+
+  // Returns the tab associated with the given tab id.
+  tabs::TabInterface* GetTabInterface(int32_t tab_id);
+
+  // Handles updates to tab data and notifies the WebUI page if the change
+  // is relevant.
+  void OnTabDataChanged(const tabs_api::mojom::TabChange& event);
+
+  // Handles the removal of nodes (tabs or tab collections).
+  void OnNodesRemoved(const tabs_api::mojom::OnNodesClosedEventPtr& event);
+
+  // Called by OnNodesRemoved to notify tab closures to the WebUI page.
+  void OnTabsRemoved(std::vector<int> tab_ids,
+                     std::set<SessionID> tab_restore_ids);
+  // Called by OnNodesRemoved to notify the WebUI page that split tab is
+  // removed from split view.
+  void OnSplitTabRemoved();
 
   // Schedule a timer to call TabsChanged() when it times out
   // in order to reduce numbers of RPC.
@@ -163,18 +174,16 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
   // Call TabsChanged() and stop the timer if it's running.
   void NotifyTabsChanged();
 
-  void NotifyTabIndexPrefChanged(const Profile* profile);
-
   // Called when the browser window context for this WebUI has changed.
   void BrowserWindowInterfaceChanged();
 
   mojo::Receiver<tab_search::mojom::PageHandler> receiver_;
   mojo::Remote<tab_search::mojom::Page> page_;
   const raw_ptr<content::WebUI> web_ui_;
+  const raw_ptr<Profile> profile_;
   const raw_ptr<TopChromeWebUIController> webui_controller_;
   raw_ptr<Browser> browser_;
   const raw_ptr<MetricsReporter> metrics_reporter_;
-  BrowserTabStripTracker browser_tab_strip_tracker_{this, this};
   std::unique_ptr<base::RetainingOneShotTimer> debounce_timer_;
   PrefChangeRegistrar pref_change_registrar_;
 
@@ -194,6 +203,8 @@ class TabSearchPageHandler : public tab_search::mojom::PageHandler,
 
   // Notifies this when the browser window context changes.
   base::CallbackListSubscription browser_window_changed_subscription_;
+
+  std::unique_ptr<tabs_api::TabStripServiceAggregator> aggregator_;
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_TAB_SEARCH_TAB_SEARCH_PAGE_HANDLER_H_

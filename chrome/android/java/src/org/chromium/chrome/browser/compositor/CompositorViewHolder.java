@@ -51,6 +51,7 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
@@ -82,6 +83,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
+import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -184,6 +186,7 @@ public class CompositorViewHolder extends FrameLayout
 
     private TabModelSelector mTabModelSelector;
     private @Nullable BrowserControlsManager mBrowserControlsManager;
+    private @Nullable OneshotSupplier<SideUiStateProvider> mSideUiStateProviderSupplier;
     private @Nullable SideUiStateProvider mSideUiStateProvider;
     @VisibleForTesting @Nullable View mAccessibilityView;
     private @Nullable CompositorAccessibilityProvider mNodeProvider;
@@ -720,6 +723,9 @@ public class CompositorViewHolder extends FrameLayout
         if (mContentView != null) {
             mContentView.removeOnHierarchyChangeListener(this);
         }
+        if (mSideUiStateProvider != null) {
+            mSideUiStateProvider.removeObserver(this);
+        }
     }
 
     /** This is called when the native library are ready. */
@@ -775,8 +781,8 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public void addTouchEventObserver(TouchEventObserver o) {
-        mTouchEventObservers.addObserver(o);
-        if (o.mayInterceptTouchSequenceInWebContents()) {
+        boolean added = mTouchEventObservers.addObserver(o);
+        if (added && o.mayInterceptTouchSequenceInWebContents()) {
             mActiveTouchInterceptors += 1;
             if (mActiveTouchInterceptors == 1) {
                 mCompositorView.setHasActiveTouchInterceptors(true);
@@ -786,8 +792,8 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public void removeTouchEventObserver(TouchEventObserver o) {
-        mTouchEventObservers.removeObserver(o);
-        if (o.mayInterceptTouchSequenceInWebContents()) {
+        boolean removed = mTouchEventObservers.removeObserver(o);
+        if (removed && o.mayInterceptTouchSequenceInWebContents()) {
             mActiveTouchInterceptors -= 1;
             if (mActiveTouchInterceptors == 0) {
                 mCompositorView.setHasActiveTouchInterceptors(false);
@@ -1012,7 +1018,7 @@ public class CompositorViewHolder extends FrameLayout
         // The view size takes into account side-anchored UI whose width should be subtracted from
         // the view if they are visible, therefore shrinking the Blink-side view size.
         int horizontalViewportInsets = 0;
-        if (ChromeFeatureList.sEnableAndroidSidePanel.isEnabled() && mSideUiStateProvider != null) {
+        if (AndroidSidePanelEnabledFn.isEnabled() && mSideUiStateProvider != null) {
             SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
             horizontalViewportInsets =
                     sideUiSpecs.mStartContainerWidth + sideUiSpecs.mEndContainerWidth;
@@ -1260,12 +1266,32 @@ public class CompositorViewHolder extends FrameLayout
                         ? sideUiSpecs.mEndContainerWidth
                         : sideUiSpecs.mStartContainerWidth;
         mLayoutManager.setContentOffsetX(contentOffsetX);
+        repositionTabViewForSideUi();
         onViewportChanged();
         // TODO(crbug.com/483748424): Update #getWindowViewport and #getVisibleViewport through
         //  #onViewportChanged as well. This change is not trivial, since other items, such as
         //  the tab strip, infer their bounds from the viewport. For SidePanel, however, we only
         //  want to resize the WebContents, and not the tab strip. As such, we need to decouple
         //  the viewport bounds from these items.
+    }
+
+    private void repositionTabViewForSideUi() {
+        Tab currentTab = getCurrentTab();
+        if (mSideUiStateProvider == null || mView == null || currentTab == null) return;
+
+        // Only reposition custom views and native pages. Do not reposition ContentView.
+        if (!currentTab.isShowingCustomView() && !currentTab.isNativePage()) return;
+
+        SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
+        MarginLayoutParams layoutParams = (MarginLayoutParams) mView.getLayoutParams();
+        // Layout parameters can be null if the view is not yet attached to the view hierarchy
+        // or fully initialized (e.g. during tab reparenting).
+        // TODO(b/496307238): verify if need to explicitly trigger repositionTabViewForSideUi again
+        // after layout params are set.
+        if (layoutParams == null) return;
+        layoutParams.setMarginStart(sideUiSpecs.mStartContainerWidth);
+        layoutParams.setMarginEnd(sideUiSpecs.mEndContainerWidth);
+        mView.setLayoutParams(layoutParams);
     }
 
     // View.OnHierarchyChangeListener implementation
@@ -1491,14 +1517,22 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     /**
-     * Sets the {@link SideUiStateProvider}. Will only be called if the related feature flag is
-     * enabled.
+     * Sets the {@link OneshotSupplier} for {@link SideUiStateProvider}. Will only be called if the
+     * EnableAndroidSidePanel feature flag is enabled.
      *
-     * @param sideUiStateProvider The {@link SideUiStateProvider}.
+     * <p>TODO(crbug.com/493289413): Update JavaDoc after feature is launched.
+     *
+     * @param sideUiStateProviderSupplier The {@link OneshotSupplier} for {@link
+     *     SideUiStateProvider}.
      */
-    public void setSideUiStateProvider(SideUiStateProvider sideUiStateProvider) {
-        mSideUiStateProvider = sideUiStateProvider;
-        mSideUiStateProvider.addObserver(this);
+    public void setSideUiStateProviderSupplier(
+            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier) {
+        mSideUiStateProviderSupplier = sideUiStateProviderSupplier;
+        mSideUiStateProviderSupplier.onAvailable(
+                (sideUiStateProvider) -> {
+                    mSideUiStateProvider = sideUiStateProvider;
+                    mSideUiStateProvider.addObserver(this);
+                });
     }
 
     public int getTopControlsHeightPixels() {
@@ -1626,6 +1660,7 @@ public class CompositorViewHolder extends FrameLayout
             // CompositorView always has index of 0.
             // TODO(crbug.com/40770763): Look into enforcing the z-order of the views.
             addView(mView, 1);
+            repositionTabViewForSideUi();
             updateFocusability(false, /* blockDescendants= */ false);
 
             // Claim focus for the new view unless the user is currently using the URL bar.

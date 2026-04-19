@@ -27,7 +27,7 @@ using blink::WebString;
 blink::Vector<gfx::Size> ParseSizes(const blink::String& sizes) {
   std::vector<gfx::Size> parsed_sizes =
       blink::WebIconSizesParser::ParseIconSizes(
-          WebString::FromASCII(sizes.Ascii()));
+          WebString::FromAscii(sizes.Ascii()));
   blink::HashSet<std::pair<int, int>,
                  blink::PairHashTraits<blink::IntWithZeroKeyHashTraits<int>,
                                        blink::IntWithZeroKeyHashTraits<int>>>
@@ -55,7 +55,7 @@ blink::Vector<Purpose> ParsePurpose(const blink::String& purpose) {
   results.ReserveInitialCapacity(2u);
 
   blink::Vector<blink::String> split_purposes =
-      purpose.LowerASCII().SplitSkippingEmpty(' ');
+      purpose.ToAsciiLower().SplitSkippingEmpty(' ');
 
   for (const blink::String& lowercase_purpose : split_purposes) {
     Purpose purpose_enum;

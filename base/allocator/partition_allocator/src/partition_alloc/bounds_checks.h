@@ -8,35 +8,16 @@
 // Herein are utilities that let callers determine whether two pointers
 // belong to the same (PartitionAlloc) allocation.
 
+#include <cstddef>
 #include <cstdint>
 
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
-#include "partition_alloc/partition_alloc_constants.h"
-#include "partition_alloc/slot_start.h"
+#include "partition_alloc/partition_alloc_base/numerics/checked_math.h"
+#include "partition_alloc/partition_alloc_base/numerics/safe_conversions.h"
 
 namespace partition_alloc {
-
-struct PA_COMPONENT_EXPORT(PARTITION_ALLOC) SlotAddressAndSize {
-  internal::UntaggedSlotStart slot_start = {};
-  size_t size = 0u;
-
-  // Gets the start address and size of the allocated slot. The input |address|
-  // can point anywhere in the slot, including the slot start as well as
-  // immediately past the slot.
-  //
-  // This isn't a general purpose function, it is used specifically for
-  // obtaining BackupRefPtr's in-slot metadata. The caller is responsible for
-  // ensuring that the in-slot metadata is in place for this allocation.
-  static SlotAddressAndSize From(uintptr_t address, internal::pool_handle pool);
-
-  // Terse BRP-specific version of `From()`. Caller must ensure that
-  // `address` lies in the BRP pool.
-  PA_ALWAYS_INLINE static SlotAddressAndSize FromBRPPool(uintptr_t address) {
-    return From(address, internal::pool_handle::kBRPPoolHandle);
-  }
-};
 
 // Return values to indicate where a pointer is pointing relative to the bounds
 // of an allocation.
@@ -65,23 +46,43 @@ PtrPosWithinAlloc IsPtrWithinSameAllocInBRPPool(uintptr_t orig_address,
                                                 uintptr_t test_address,
                                                 size_t type_size);
 
-// Similar to the above, but pool-agnostic and with different semantics.
-// Used to support Checked Span (https://crbug.com/484171909).
+// Prefer to use the templated version below this function.
 //
-// Note that this simply returns `false` for memory not managed by
-// PartitionAlloc.
-#if PA_BUILDFLAG(CHECKED_SPAN)
+// Pool-agnostic version of `IsPtrWithinSameAllocInBRPPool()`. Primarily
+// used to support Checked Span (https://crbug.com/484171909).
+//
+// Note:
+//
+// *  This function returns `false` for memory not managed by
+//    PartitionAlloc.
+//
+// *  TODO(crbug.com/484171909): This function currently only supports
+//    64-bit platforms. It always returns `false` on 32-bit.
+//
+// *  TODO(crbug.com/484171909): This function must be used after
+//    PartitionAlloc (specifically, the AddressPoolManager) is
+//    initialized. Data races will occur if this function is called too
+//    early. (See the TSan trybots on https://crrev.com/c/7673121 for
+//    examples.)
 PA_COMPONENT_EXPORT(PARTITION_ALLOC)
 bool IsExtentOutOfBounds(const void* ptr,
                          size_t extent_bytes,
                          size_t type_size);
-#else
-PA_ALWAYS_INLINE constexpr bool IsExtentOutOfBounds(const void* ptr,
-                                                    size_t extent_bytes,
-                                                    size_t type_size) {
-  return false;
+
+// Suitable for external callers. Has the same caveats as
+// `IsExtentOutOfBounds()` (but inverted).
+//
+// Given a `T* elems` and a max `index`, call
+// ```
+// CHECK(IsExtentInBounds(elems, index));
+// ```
+template <typename T>
+bool IsExtentInBounds(const T* ptr,
+                      internal::base::StrictNumeric<size_t> index) {
+  internal::base::CheckedNumeric<size_t> size_bytes = index;
+  size_bytes *= sizeof(T);
+  return !IsExtentOutOfBounds(ptr, size_bytes.ValueOrDie(), sizeof(T));
 }
-#endif  // PA_BUILDFLAG(CHECKED_SPAN)
 
 }  // namespace partition_alloc
 

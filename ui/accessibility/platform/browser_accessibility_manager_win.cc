@@ -128,10 +128,22 @@ AXTreeUpdate BrowserAccessibilityManagerWin::GetEmptyDocument() {
 }
 
 HWND BrowserAccessibilityManagerWin::GetParentHWND() const {
-  AXPlatformTreeManagerDelegate* delegate = GetDelegateFromRootManager();
-  if (!delegate)
-    return NULL;
-  return delegate->AccessibilityGetAcceleratedWidget();
+  if (!delegate()) {
+    return nullptr;
+  }
+
+  // For non-web-content sources (e.g., Views), the delegate directly provides
+  // the HWND. For web content, we must walk up to the root frame manager to
+  // find the HWND, because child frames (iframes) share the top-level HWND.
+  if (!delegate()->AccessibilityIsWebContentSource()) {
+    return delegate()->AccessibilityGetAcceleratedWidget();
+  }
+
+  AXPlatformTreeManagerDelegate* root_delegate = GetDelegateFromRootManager();
+  if (!root_delegate) {
+    return nullptr;
+  }
+  return root_delegate->AccessibilityGetAcceleratedWidget();
 }
 
 void BrowserAccessibilityManagerWin::UserIsReloading() {
@@ -171,8 +183,15 @@ void BrowserAccessibilityManagerWin::FireAriaNotificationEvent(
     provider = ToBrowserAccessibilityWin(parent)->GetCOM();
     node = parent;
   }
+  // Skip the event listener check for Views (non-web) content.
+  // UIA only calls AdviseEventAdded on fragment roots it has
+  // already discovered, so transient HWNDs (e.g. popup menus)
+  // have empty listener maps and HasEventListenerForEvent
+  // returns false even when a client is listening. Views event
+  // volume is low enough that always firing is acceptable.
   if (!provider ||
-      !provider->HasEventListenerForEvent(UIA_NotificationEventId)) {
+      (delegate()->AccessibilityIsWebContentSource() &&
+       !provider->HasEventListenerForEvent(UIA_NotificationEventId))) {
     return;
   }
 
@@ -299,6 +318,15 @@ void BrowserAccessibilityManagerWin::FireSourceEvent(
       // which will fire generated text-changed events.
       if (!node->IsWebContent())
         EnqueueTextChangedEvent(*node);
+      break;
+    case ax::mojom::Event::kTooltipClosed:
+      FireWinAccessibilityEvent(EVENT_OBJECT_HIDE, node);
+      FireUiaAccessibilityEvent(UIA_ToolTipClosedEventId, node);
+      break;
+    case ax::mojom::Event::kTooltipOpened:
+      // SUBTREE_CREATED already fires EVENT_OBJECT_SHOW for the new tooltip
+      // node, so only fire the UIA-specific tooltip event here.
+      FireUiaAccessibilityEvent(UIA_ToolTipOpenedEventId, node);
       break;
     default:
       break;
@@ -720,6 +748,12 @@ void BrowserAccessibilityManagerWin::FireUiaAccessibilityEvent(
         // ignored state may hide/show a popup by exposing it to the tree or
         // not.
         break;
+      case UIA_ToolTipOpenedEventId:
+      case UIA_ToolTipClosedEventId:
+        // Don't suppress ToolTipOpened/ToolTipClosed events since tooltip
+        // widgets transition from invisible (ignored) to visible (unignored)
+        // when they appear, and assistive technologies rely on these events.
+        break;
       default:
         return;
     }
@@ -1121,6 +1155,11 @@ void BrowserAccessibilityManagerWin::FinalizeSelectionEvents(
 void BrowserAccessibilityManagerWin::HandleAriaPropertiesChangedEvent(
     BrowserAccessibility& node) {
   DCHECK_IN_ON_ACCESSIBILITY_EVENTS();
+  // ARIA properties are a web concept; skip for non-web-content sources
+  // (e.g. Views-sourced managers via WidgetAXManager).
+  if (delegate_ && !delegate_->AccessibilityIsWebContentSource()) {
+    return;
+  }
   aria_properties_events_.insert(&node);
 }
 
@@ -1139,12 +1178,17 @@ void BrowserAccessibilityManagerWin::EnqueueSelectionChangedEvent(
 
 gfx::Rect BrowserAccessibilityManagerWin::GetViewBoundsInScreenCoordinates()
     const {
-  AXPlatformTreeManagerDelegate* delegate = GetDelegateFromRootManager();
-  if (!delegate) {
+  // For views-sourced managers, use own delegate directly (no root-frame
+  // hierarchy).  For web content, walk up to the root frame manager.
+  AXPlatformTreeManagerDelegate* target_delegate =
+      (delegate() && !delegate()->AccessibilityIsWebContentSource())
+          ? delegate()
+          : GetDelegateFromRootManager();
+  if (!target_delegate) {
     return gfx::Rect();
   }
 
-  gfx::Rect bounds = delegate->AccessibilityGetViewBounds();
+  gfx::Rect bounds = target_delegate->AccessibilityGetViewBounds();
 
   // On Windows, we cannot directly multiply the bounds in screen DIPs by the
   // display's scale factor to get screen physical coordinates like we can on

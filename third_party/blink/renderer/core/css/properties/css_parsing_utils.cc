@@ -14,6 +14,7 @@
 
 #include "base/notreached.h"
 #include "third_party/blink/renderer/core/css/counter_style_map.h"
+#include "third_party/blink/renderer/core/css/css_alpha_color_value.h"
 #include "third_party/blink/renderer/core/css/css_axis_value.h"
 #include "third_party/blink/renderer/core/css/css_basic_shape_values.h"
 #include "third_party/blink/renderer/core/css/css_border_image.h"
@@ -2108,6 +2109,95 @@ CSSValue* ConsumeColorMixFunction(
   return result;
 }
 
+// https://drafts.csswg.org/css-color-5/#relative-alpha
+CSSValue* ConsumeAlphaColorFunction(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    CSSParserLocalContext& local_context,
+    const ColorParserContext& color_parser_context) {
+  CHECK(RuntimeEnabledFeatures::CSSAlphaColorFunctionEnabled());
+  DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kAlpha);
+
+  CSSParserLocalContext::FunctionLocalContext function_context(
+      CSSValueID::kAlpha, local_context);
+
+  CSSParserTokenStream::RestoringBlockGuard guard(stream);
+  stream.ConsumeWhitespace();
+
+  // "from" keyword is required.
+  if (!ConsumeIdent<CSSValueID::kFrom>(stream)) {
+    return nullptr;
+  }
+
+  CSSValue* origin_color = ConsumeColorInternal(stream, context, local_context,
+                                                /*accept_quirky_colors=*/false,
+                                                color_parser_context);
+  if (!origin_color) {
+    return nullptr;
+  }
+
+  // Optional: / <alpha-value>
+  CSSValue* alpha = nullptr;
+  if (ConsumeSlashIncludingWhitespace(stream)) {
+    // The alpha value can be a number, percentage, none, or the `alpha`
+    // channel keyword (or a calc() expression using `alpha`).
+    if (ConsumeIdent<CSSValueID::kNone>(stream)) {
+      alpha = CSSIdentifierValue::Create(CSSValueID::kNone);
+    } else if (CSSValue* number =
+                   ConsumeNumber(stream, context, local_context,
+                                 CSSPrimitiveValue::ValueRange::kAll)) {
+      alpha = number;
+    } else if (CSSValue* percent =
+                   ConsumePercent(stream, context, local_context,
+                                  CSSPrimitiveValue::ValueRange::kAll)) {
+      alpha = percent;
+    } else {
+      // Try to parse as the `alpha` channel keyword or a calc() expression
+      // referencing the `alpha` keyword.
+      CSSColorChannelMap color_channel_map = {
+          {CSSValueID::kAlpha, std::nullopt},
+      };
+      const CSSParserToken token = stream.Peek();
+      if (token.GetType() == kFunctionToken) {
+        using enum CSSMathExpressionNode::Flag;
+        using Flags = CSSMathExpressionNode::Flags;
+        CSSParserTokenStream::RestoringBlockGuard calc_guard(stream);
+        stream.ConsumeWhitespace();
+        CSSMathFunctionValue* calc_value = CSSMathFunctionValue::Create(
+            CSSMathExpressionNode::ParseMathFunction(
+                token.FunctionId(), stream, context, local_context,
+                Flags({AllowPercent}), kCSSAnchorQueryTypesNone,
+                color_channel_map),
+            CSSPrimitiveValue::ValueRange::kAll);
+        if (calc_value) {
+          const CalculationResultCategory category = calc_value->Category();
+          if (category != kCalcNumber && category != kCalcPercent) {
+            return nullptr;
+          }
+          calc_guard.Release();
+          stream.ConsumeWhitespace();
+          alpha = calc_value;
+        }
+      } else if (color_channel_map.Contains(token.Id())) {
+        alpha = ConsumeIdent(stream);
+      }
+    }
+    if (!alpha) {
+      return nullptr;
+    }
+  }
+
+  if (!stream.AtEnd()) {
+    return nullptr;
+  }
+
+  guard.Release();
+  stream.ConsumeWhitespace();
+
+  return MakeGarbageCollected<cssvalue::CSSAlphaColorValue>(origin_color,
+                                                            alpha);
+}
+
 // https://www.w3.org/TR/css-color-5/#contrast-color
 CSSValue* ConsumeContrastColorFunction(
     CSSParserTokenStream& stream,
@@ -2205,6 +2295,12 @@ CSSValue* ConsumeColorInternal(CSSParserTokenStream& stream,
     CSSValue* color = ConsumeColorMixFunction(stream, context, local_context,
                                               color_parser_context);
     return color;
+  }
+
+  if (RuntimeEnabledFeatures::CSSAlphaColorFunctionEnabled() &&
+      stream.Peek().FunctionId() == CSSValueID::kAlpha) {
+    return ConsumeAlphaColorFunction(stream, context, local_context,
+                                     color_parser_context);
   }
 
   if (RuntimeEnabledFeatures::CSSContrastColorEnabled() &&
@@ -3656,13 +3752,19 @@ CSSValue* ConsumeImage(
         IsGeneratedImage(id)) {
       return ConsumeGeneratedImage(stream, context, local_context);
     }
-    if (IsUASheetBehavior(context.Mode())) {
-      return ConsumeLightDark(
-          static_cast<
-              CSSValue* (*)(CSSParserTokenStream&, const CSSParserContext&,
-                            CSSParserLocalContext&, const ColorParserContext&)>(
-              ConsumeImageOrNone),
-          stream, context, local_context, ColorParserContext());
+    if (IsUASheetBehavior(context.Mode()) ||
+        RuntimeEnabledFeatures::CSSLightDarkImageEnabled()) {
+      if (CSSLightDarkValuePair* value = ConsumeLightDark(
+              static_cast<
+                  CSSValue* (*)(CSSParserTokenStream&, const CSSParserContext&,
+                                CSSParserLocalContext&,
+                                const ColorParserContext&)>(ConsumeImageOrNone),
+              stream, context, local_context, ColorParserContext())) {
+        if (!IsUASheetBehavior(context.Mode())) {
+          context.Count(WebFeature::kCSSLightDarkImage);
+        }
+        return value;
+      }
     }
   }
   return nullptr;
@@ -4147,11 +4249,21 @@ bool IsCSSWideKeyword(StringView keyword) {
   // This function should match the overload before it.
 }
 
-bool IsInvalidFontFamily(const AtomicString& string) {
+bool FontFamilyNeedsQuoting(const AtomicString& string) {
+  // Returns true if the font family name must be quoted when serialized.
+  // Names that are CSS-wide keywords, 'default', generic families, or not
+  // valid CSS identifiers need quoting.
+  // When CSSFontFamilySerialization is enabled, use the ident-sequence
+  // check so that multi-word family names like "Twisty Tie" serialize as
+  // unquoted space-separated idents per w3c/csswg-drafts#5846.
+  bool can_serialize_unquoted =
+      RuntimeEnabledFeatures::CSSFontFamilySerializationEnabled()
+          ? IsCSSTokenizerIdentSequence(string)
+          : IsCSSTokenizerIdentifier(string);
   return (IsCSSWideKeyword(string) || IsDefaultKeyword(string) ||
           FontFamily::InferredTypeFor(string) ==
               FontFamily::Type::kGenericFamily ||
-          !IsCSSTokenizerIdentifier(string));
+          !can_serialize_unquoted);
 }
 
 // https://drafts.csswg.org/css-cascade/#default
@@ -4847,9 +4959,44 @@ CSSValue* ConsumeBackgroundBox(CSSParserTokenStream& stream) {
                       CSSValueID::kContentBox>(stream);
 }
 
-CSSValue* ConsumeBackgroundBoxOrText(CSSParserTokenStream& stream) {
-  return ConsumeIdent<CSSValueID::kBorderBox, CSSValueID::kPaddingBox,
-                      CSSValueID::kContentBox, CSSValueID::kText>(stream);
+// <bg-clip> = <visual-box> | [ border-area || text ]
+CSSValue* ConsumeBackgroundClip(CSSParserTokenStream& stream,
+                                AllowBorderAreaValue allow_border_area) {
+  if (auto* value =
+          ConsumeIdent<CSSValueID::kBorderBox, CSSValueID::kPaddingBox,
+                       CSSValueID::kContentBox>(stream)) {
+    return value;
+  }
+  bool border_area_allowed =
+      allow_border_area == AllowBorderAreaValue::kAllow &&
+      RuntimeEnabledFeatures::CSSBackgroundClipBorderAreaEnabled();
+  // Parse [ border-area || text ]: either or both, in any order.
+  CSSIdentifierValue* text_value = nullptr;
+  CSSIdentifierValue* border_area_value = nullptr;
+  if (auto* value = ConsumeIdent<CSSValueID::kText>(stream)) {
+    text_value = value;
+  }
+  if (border_area_allowed) {
+    if (auto* value = ConsumeIdent<CSSValueID::kBorderArea>(stream)) {
+      border_area_value = value;
+    }
+  }
+  if (!text_value) {
+    if (auto* value = ConsumeIdent<CSSValueID::kText>(stream)) {
+      text_value = value;
+    }
+  }
+  if (text_value && border_area_value) {
+    return MakeGarbageCollected<CSSValuePair>(
+        border_area_value, text_value, CSSValuePair::kDropIdenticalValues);
+  }
+  if (text_value) {
+    return text_value;
+  }
+  if (border_area_value) {
+    return border_area_value;
+  }
+  return nullptr;
 }
 
 CSSValue* ConsumeMaskComposite(CSSParserTokenStream& stream) {
@@ -5006,7 +5153,7 @@ CSSValue* ConsumeBackgroundComponent(CSSPropertyID resolved_property,
                                      CSSParserLocalContext& local_context) {
   switch (resolved_property) {
     case CSSPropertyID::kBackgroundClip:
-      return ConsumeBackgroundBoxOrText(stream);
+      return ConsumeBackgroundClip(stream);
     case CSSPropertyID::kBackgroundAttachment:
       return ConsumeBackgroundAttachment(stream);
     case CSSPropertyID::kBackgroundOrigin:
@@ -5075,6 +5222,7 @@ bool ParseBackgroundOrMask(bool important,
   do {
     std::array<bool, 10> parsed_longhand = {false};
     CSSValue* origin_value = nullptr;
+    CSSValue* clip_value = nullptr;
     bool found_property;
     bool found_any = false;
     do {
@@ -5121,6 +5269,9 @@ bool ParseBackgroundOrMask(bool important,
               property.IDEquals(CSSPropertyID::kMaskOrigin)) {
             origin_value = value;
           }
+          if (property.IDEquals(CSSPropertyID::kBackgroundClip)) {
+            clip_value = value;
+          }
           parsed_longhand[i] = true;
           found_property = true;
           found_any = true;
@@ -5159,6 +5310,30 @@ bool ParseBackgroundOrMask(bool important,
             origin_value) {
           longhands[i].push_back(origin_value);
           continue;
+        }
+
+        // Per https://drafts.csswg.org/css-backgrounds-4/#propdef-background,
+        // "if a value is set that is only valid in background-clip, then it
+        // sets background-clip to that value and background-origin to
+        // border-box."
+        // See also
+        // https://github.com/w3c/csswg-drafts/issues/11167#issuecomment-2474360495
+        if (property.IDEquals(CSSPropertyID::kBackgroundOrigin) &&
+            !origin_value && clip_value) {
+          bool is_border_area_clip = false;
+          if (const auto* clip_ident =
+                  DynamicTo<CSSIdentifierValue>(clip_value)) {
+            is_border_area_clip =
+                clip_ident->GetValueID() == CSSValueID::kBorderArea;
+          } else if (IsA<CSSValuePair>(clip_value)) {
+            // [ border-area || text ] combined value.
+            is_border_area_clip = true;
+          }
+          if (is_border_area_clip) {
+            longhands[i].push_back(
+                CSSIdentifierValue::Create(CSSValueID::kBorderBox));
+            continue;
+          }
         }
 
         if (shorthand_id == CSSPropertyID::kMask) {
@@ -6405,7 +6580,7 @@ CSSValue* ParseFontLanguageOverrideString(CSSParserTokenStream& stream) {
   while (end >= 0 && IsCSSSpace(language_override[end])) {
     --end;
   }
-  language_override = language_override.Substring(0, end + 1);
+  language_override = language_override.substr(0, end + 1);
 
   // "All tags are four-character strings composed of a limited set of ASCII
   // characters" per
@@ -6484,6 +6659,8 @@ bool IsSupportedKeywordTech(CSSValueID keyword) {
     case CSSValueID::kVariations:
     case CSSValueID::kPalettes:
       return true;
+    case CSSValueID::kAvar2:
+      return RuntimeEnabledFeatures::FontFormatAvar2Enabled();
     case CSSValueID::kFeaturesGraphite:
     case CSSValueID::kColorSVG:
     case CSSValueID::kIncremental:
@@ -7659,7 +7836,7 @@ bool ConsumeGapDecorationsShorthandRepeatFunction(
 }
 
 // Consuming the `*-rule-edge-inset` and `*-rule-interior-inset` shorthands
-// with syntax <length-percentage> <length-percentage>?
+// with syntax [ overlap-join | <length-percentage> ]
 bool ConsumeGapDecorationsRuleEdgeInteriorInsetShorthand(
     bool important,
     const CSSParserContext& context,
@@ -7672,7 +7849,7 @@ bool ConsumeGapDecorationsRuleEdgeInteriorInsetShorthand(
   rule_start_inset = nullptr;
   rule_end_inset = nullptr;
 
-  // Consume the first <length-percentage> value (required).
+  // Consume the first value (required).
   if (!ConsumeGapDecorationsRuleInsetStartEndShorthand(
           important, context, local_context, stream, rule_start_inset)) {
     return false;
@@ -7691,7 +7868,7 @@ bool ConsumeGapDecorationsRuleEdgeInteriorInsetShorthand(
 }
 
 // Consuming the `*-rule-inset-start` and `*-rule-inset-end` shorthands
-// with syntax <length-percentage>
+// with syntax overlap-join | <length-percentage>
 bool ConsumeGapDecorationsRuleInsetStartEndShorthand(
     bool important,
     const CSSParserContext& context,
@@ -7700,14 +7877,20 @@ bool ConsumeGapDecorationsRuleInsetStartEndShorthand(
     CSSValue*& rule_inset_value) {
   CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
 
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    rule_inset_value = ConsumeIdent(stream);
+    return true;
+  }
   rule_inset_value = ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
   return rule_inset_value != nullptr;
 }
 
 // Consuming the `rule-inset`, `column-rule-inset`, `row-rule-inset`
-// shorthands with syntax <length-percentage> <length-percentage>?
-// [ / <length-percentage> <length-percentage>?]?
+// shorthands with syntax [ overlap-join | <length-percentage> ]
+// [ overlap-join | <length-percentage> ]?
+// [ / [ overlap-join | <length-percentage> ]
+// [ overlap-join | <length-percentage> ]? ]?
 bool ConsumeGapDecorationsRuleInsetShorthand(
     bool important,
     const CSSParserContext& context,
@@ -7739,9 +7922,9 @@ bool ConsumeGapDecorationsRuleInsetShorthand(
       continue;
     }
 
-    CSSValue* value = ConsumeLengthOrPercent(
-        stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
-    if (!value) {
+    CSSValue* value = nullptr;
+    if (!ConsumeGapDecorationsRuleInsetStartEndShorthand(
+            important, context, local_context, stream, value)) {
       return false;
     }
 
@@ -9367,11 +9550,11 @@ bool ShouldLowerCaseCounterStyleNameOnParse(const AtomicString& name,
                                             const CSSParserContext& context) {
   if (context.Mode() == kUASheetMode) {
     // Names in UA sheet should be already in lower case.
-    DCHECK_EQ(name, name.LowerASCII());
+    DCHECK_EQ(name, name.ToAsciiLower());
     return false;
   }
   return CounterStyleMap::GetUACounterStyleMap()->FindCounterStyleAcrossScopes(
-      name.LowerASCII());
+      name.ToAsciiLower());
 }
 
 CSSCustomIdentValue* ConsumeCounterStyleName(CSSParserTokenStream& stream,
@@ -9387,7 +9570,7 @@ CSSCustomIdentValue* ConsumeCounterStyleName(CSSParserTokenStream& stream,
 
   AtomicString name(name_token.Value().ToString());
   if (ShouldLowerCaseCounterStyleNameOnParse(name, context)) {
-    name = name.LowerASCII();
+    name = name.ToAsciiLower();
   }
   return MakeGarbageCollected<CSSCustomIdentValue>(name);
 }
@@ -9415,7 +9598,7 @@ AtomicString ConsumeCounterStyleNameInPrelude(CSSParserTokenStream& stream,
 
   AtomicString name(name_token.Value().ToString());
   if (ShouldLowerCaseCounterStyleNameOnParse(name, context)) {
-    name = name.LowerASCII();
+    name = name.ToAsciiLower();
   }
   stream.ConsumeIncludingWhitespace();
   return name;
@@ -9685,46 +9868,6 @@ struct PositionAreaKeyword {
 
 namespace {
 
-std::optional<PositionAreaKeyword> ConsumeLegacyPositionAreaKeyword(
-    CSSParserTokenStream& stream) {
-  CHECK(RuntimeEnabledFeatures::PositionAreaXYSelfEnabled());
-  PositionAreaKeyword::Type type = PositionAreaKeyword::kHorizontal;
-  CSSValueID value_id = stream.ConsumeIncludingWhitespace().Id();
-  switch (value_id) {
-    case CSSValueID::kXSelfStart:
-      value_id = CSSValueID::kSelfXStart;
-      break;
-    case CSSValueID::kXSelfEnd:
-      value_id = CSSValueID::kSelfXEnd;
-      break;
-    case CSSValueID::kSpanXSelfStart:
-      value_id = CSSValueID::kSpanSelfXStart;
-      break;
-    case CSSValueID::kSpanXSelfEnd:
-      value_id = CSSValueID::kSpanSelfXEnd;
-      break;
-    case CSSValueID::kYSelfStart:
-      value_id = CSSValueID::kSelfYStart;
-      type = PositionAreaKeyword::kVertical;
-      break;
-    case CSSValueID::kYSelfEnd:
-      value_id = CSSValueID::kSelfYEnd;
-      type = PositionAreaKeyword::kVertical;
-      break;
-    case CSSValueID::kSpanYSelfStart:
-      value_id = CSSValueID::kSpanSelfYStart;
-      type = PositionAreaKeyword::kVertical;
-      break;
-    case CSSValueID::kSpanYSelfEnd:
-      value_id = CSSValueID::kSpanSelfYEnd;
-      type = PositionAreaKeyword::kVertical;
-      break;
-    default:
-      NOTREACHED();
-  }
-  return PositionAreaKeyword(CSSIdentifierValue::Create(value_id), type);
-}
-
 }  // namespace
 
 std::optional<PositionAreaKeyword> ConsumePositionAreaKeyword(
@@ -9805,18 +9948,6 @@ std::optional<PositionAreaKeyword> ConsumePositionAreaKeyword(
     case CSSValueID::kSpanSelfEnd:
       type = PositionAreaKeyword::kSelfStartEnd;
       break;
-    case CSSValueID::kXSelfStart:
-    case CSSValueID::kXSelfEnd:
-    case CSSValueID::kSpanXSelfStart:
-    case CSSValueID::kSpanXSelfEnd:
-    case CSSValueID::kYSelfStart:
-    case CSSValueID::kYSelfEnd:
-    case CSSValueID::kSpanYSelfStart:
-    case CSSValueID::kSpanYSelfEnd:
-      if (RuntimeEnabledFeatures::PositionAreaXYSelfEnabled()) {
-        return ConsumeLegacyPositionAreaKeyword(stream);
-      }
-      return std::nullopt;
     default:
       return std::nullopt;
   }

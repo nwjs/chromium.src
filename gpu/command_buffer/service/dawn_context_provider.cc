@@ -59,6 +59,8 @@
 
 #if BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES)
 #include "third_party/dawn/include/dawn/native/OpenGLBackend.h"
+#include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_context.h"
 #include "ui/gl/gl_surface_egl.h"
 #endif
 
@@ -137,6 +139,15 @@ std::vector<const char*> GetDisabledToggles(
   for (const auto& toggle : gpu_preferences.disabled_dawn_features_list) {
     disabled_toggles.push_back(toggle.c_str());
   }
+
+  // TODO(crbug.com/486866985): Remove this once dynamic rendering perf
+  // regressions are investigated.
+  disabled_toggles.push_back("vulkan_use_dynamic_rendering");
+
+  if (features::kSkiaGraphiteDawnSkipValidation.Get()) {
+    disabled_toggles.push_back("enable_spirv_validation");
+  }
+
   return disabled_toggles;
 }
 
@@ -277,6 +288,7 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
       // backend on Android.
       wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer,
       wgpu::FeatureName::SharedFenceSyncFD,
+      wgpu::FeatureName::RenderPassRenderArea,
 
       // The following features are always supported by the the D3D backends.
       wgpu::FeatureName::SharedTextureMemoryD3D11Texture2D,
@@ -287,9 +299,6 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
       wgpu::FeatureName::SharedBufferMemoryD3D12Resource,
 
       wgpu::FeatureName::TransientAttachments,
-
-      wgpu::FeatureName::DawnLoadResolveTexture,
-      wgpu::FeatureName::DawnPartialLoadResolveTexture,
       wgpu::FeatureName::DawnTexelCopyBufferRowAlignment,
       wgpu::FeatureName::FlexibleTextureViews,
   };
@@ -299,12 +308,17 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
       continue;
     }
     features.push_back(feature);
+  }
 
-    // Enabling MSAARenderToSingleSampled causes performance regression without
-    // TransientAttachments support.
-    if (feature == wgpu::FeatureName::TransientAttachments &&
-        adapter.HasFeature(wgpu::FeatureName::MSAARenderToSingleSampled)) {
-      features.push_back(wgpu::FeatureName::MSAARenderToSingleSampled);
+  // Both MSAARenderToSingleSampled and DawnLoadResolveTexture are used to
+  // unresolve a single-sampled texture for multi-sampled rendering.
+  // We prefer the former if it's available,
+  if (adapter.HasFeature(wgpu::FeatureName::MSAARenderToSingleSampled)) {
+    features.push_back(wgpu::FeatureName::MSAARenderToSingleSampled);
+  } else if (adapter.HasFeature(wgpu::FeatureName::DawnLoadResolveTexture)) {
+    features.push_back(wgpu::FeatureName::DawnLoadResolveTexture);
+    if (adapter.HasFeature(wgpu::FeatureName::DawnPartialLoadResolveTexture)) {
+      features.push_back(wgpu::FeatureName::DawnPartialLoadResolveTexture);
     }
   }
 
@@ -834,6 +848,8 @@ bool DawnSharedContext::Initialize(
 #if BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES)
   dawn::native::opengl::RequestAdapterOptionsGetGLProc
       adapter_options_get_gl_proc = {};
+  dawn::native::opengl::RequestAdapterOptionsAngleVirtualizationGroup group =
+      {};
   if (adapter_options.backendType == wgpu::BackendType::OpenGLES) {
     adapter_options_get_gl_proc.getProc = gl::GetGLProcAddress;
     gl::GLDisplayEGL* gl_display = gl::GLSurfaceEGL::GetGLDisplayEGL();
@@ -844,6 +860,12 @@ bool DawnSharedContext::Initialize(
     }
     adapter_options_get_gl_proc.nextInChain = adapter_options.nextInChain;
     adapter_options.nextInChain = &adapter_options_get_gl_proc;
+    if (gl_display->ext->b_EGL_ANGLE_context_virtualization) {
+      group.angleVirtualizationGroup = static_cast<GLuint>(
+          gl::AngleContextVirtualizationGroup::kGraphiteDawnSharedContext);
+      group.nextInChain = adapter_options.nextInChain;
+      adapter_options.nextInChain = &group;
+    }
   }
 #endif
 
@@ -1055,15 +1077,6 @@ void DawnSharedContext::OnError(wgpu::ErrorType error_type,
 
   DumpWithoutCrashingOnError(error_type,
                              static_cast<std::string_view>(message));
-
-#if !DCHECK_IS_ON()
-  // Do not provoke context loss on validation failures for non-DCHECK builds.
-  // We want to capture the above dump on validation errors, but not necessarily
-  // restart the GPU process unless we also have a device loss.
-  if (error_type == wgpu::ErrorType::Validation) {
-    return;
-  }
-#endif
 
   error::ContextLostReason reason = error::kUnknown;
   switch (error_type) {

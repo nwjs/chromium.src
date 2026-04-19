@@ -24,13 +24,13 @@ namespace safe_browsing {
 // them to the ExperimentalFeaturesList below to start displaying their status
 // on the chrome://safe-browsing page.
 //
-// These keep-sorted instructions group blocks without newlines, and then sort
-// those blocks by their BASE_FEATURE. It's strongly recommended to keep a
-// FeatureParam associated with the Feature by removing and newlines between
-// them.
+// These options group together non-empty lines, then sorts by the name
+// of the feature in each block. It's recommended to keep all
+// FeatureParams for a given Feature in the same group as as the Feature
+// declaration.
 //
 // clang-format off
-// keep-sorted start allow_yaml_lists=yes sticky_prefixes=[""] group_prefixes=["#if", "#else", "#endif", "constexpr base::FeatureParam", "//", "BASE_FEATURE", "BASE_FEATURE_PARAM", ");"] by_regex=["BASE_FEATURE\\(.*,"] skip_lines=2
+// keep-sorted start group_end_regex=^$ allow_yaml_lists=yes by_regex=["BASE_FEATURE\\(.*,"] skip_lines=2 newline_separated=true sticky_comments=false
 // clang-format on
 
 BASE_FEATURE(kAdSamplerTriggerFeature,
@@ -77,7 +77,6 @@ constexpr base::FeatureParam<int> kCsdClipboardCopyApiMinLength{
 const base::FeatureParam<bool> kCSDClipboardCopyApiProcessPayload{
     &kClientSideDetectionClipboardCopyApi, "ProcessPayload",
     /*default_value=*/false};
-
 const base::FeatureParam<bool> kCSDClipboardCopyApiIncludeFullPayload{
     &kClientSideDetectionClipboardCopyApi, "IncludeFullPayload",
     /*default_value=*/false};
@@ -117,7 +116,7 @@ const base::FeatureParam<bool> kCsdCreditCardFormEnableReferringAppFilter{
     /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionDeprecateDOMModel,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -142,6 +141,9 @@ constexpr base::FeatureParam<double> kCsdClassificationDelay{
 BASE_FEATURE(kClientSideDetectionOnDeviceModelLazyDownloadAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kClientSideDetectionOnlyESBClassification,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -179,7 +181,7 @@ BASE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid,
 #endif
 
 BASE_FEATURE(kClientSideDetectionSkipErrorPage,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kConditionalImageResize, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -241,6 +243,9 @@ BASE_FEATURE(kExtensionTelemetryConfiguration,
              "SafeBrowsingExtensionTelemetryConfiguration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kExtensionTelemetryEnterpriseShortReportingInterval,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kExtensionTelemetrySearchHijackingSignal,
              "SafeBrowsingExtensionTelemetrySearchHijackingSignal",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -255,8 +260,6 @@ constexpr base::FeatureParam<int>
 BASE_FEATURE(kExternalAppRedirectTelemetry,
              "SafeBrowsingExternalAppRedirectTelemetry",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kForceSecureDnsDohFallback, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGeminiAntiscamProtectionForMetricsCollection,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -293,6 +296,17 @@ constexpr base::FeatureParam<std::string> kHashPrefixRealTimeLookupsKeyFetchUrl{
     "SafeBrowsingHashPrefixRealTimeLookupsKeyFetchUrl",
     /*default_value=*/
     "https://safebrowsingohttpgateway.googleapis.com/v1/ohttp/hpkekeyconfig"};
+constexpr base::FeatureParam<std::string>
+    kHashPrefixRealTimeLookupsKeyFetchKeyTypeHeader{
+        &kHashPrefixRealTimeLookups,
+        "SafeBrowsingHashPrefixRealTimeLookupsKeyFetchKeyTypeHeader",
+        /*default_value=*/
+        "X-OhttpPublickey-Fst"};
+constexpr base::FeatureParam<std::string>
+    kHashPrefixRealTimeLookupsKeyFetchCustomHeader{
+        &kHashPrefixRealTimeLookups,
+        "SafeBrowsingHashPrefixRealTimeLookupsKeyFetchCustomHeader",
+        /*default_value=*/""};
 
 BASE_FEATURE(kHashPrefixRealTimeLookupsSamplePing,
              "SafeBrowsingHashPrefixRealTimeLookupsSamplePing",
@@ -445,7 +459,6 @@ base::ListValue GetFeatureStatusList() {
       &kEnterprisePasswordReuseUiRefresh,
       &kEsbAsASyncedSetting,
       &kExternalAppRedirectTelemetry,
-      &kForceSecureDnsDohFallback,
       &kHashPrefixRealTimeLookups,
       &kLocalListsUseSBv5,
       &kMigrateEnhancedSbUserToEnhancedBundle,

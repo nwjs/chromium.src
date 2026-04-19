@@ -78,6 +78,13 @@ BASE_DECLARE_FEATURE(kBoundSessionCredentialsKillSwitch);
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
 #if BUILDFLAG(IS_IOS)
+// Feature flag to build the External Privacy Context, which is used to provide
+// the capability service with device signals.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kBuildExternalPrivacyContext);
+#endif
+
+#if BUILDFLAG(IS_IOS)
 // Feature flag to enable caching identities in ios_internal.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kCacheIdentityListInChrome);
@@ -197,14 +204,6 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 // The iOS version is kDisableU18FeedbackIos flag.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kDisableU18FeedbackDesktop);
-enum class U18FeedbackDesktopState {
-  kEnabled,
-  // Simulates U18 user.
-  kForced,
-};
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<U18FeedbackDesktopState>
-    kDisableU18FeedbackDesktopState;
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -254,6 +253,11 @@ BASE_DECLARE_FEATURE(kEnableFakeCapabilityForTesting);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableMtlsTokenBinding);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableOAuthMultiloginCookiesBinding);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -298,6 +302,9 @@ extern const base::FeatureParam<SeamlessSigninPromoType>
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableSearchAIModeSigninPromo);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const base::FeatureParam<base::TimeDelta>
+    kSearchAIModePromoPageLoadDelay;
 #endif
 
 #if BUILDFLAG(IS_IOS)
@@ -336,11 +343,21 @@ BASE_DECLARE_FEATURE(kFirstRunDesktopRefresh);
 // instead.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kFirstRunDesktopChoiceScreenRefresh);
+// Controls whether the First Run animations are disabled or not. If the feature
+// is enabled, animations in the First Run are disabled, otherwise they're
+// enabled. It should be only used for the testing purposes (e.g. pixel tests)
+// and always disabled by default.
+//
+// NOTE: The tests must setup this feature in advance before the First Run flow
+// starts, otherwise the animations will start.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kDisableFirstRunAnimationsForTesting);
 // A helper function to determine if the first run desktop refresh is enabled
 // (see `kFirstRunDesktopRefresh` and `kFirstRunDesktopChoiceScreenRefresh`
 // flags).
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsFirstRunDesktopRefreshEnabled(bool is_in_search_engine_choice_region);
+// LINT.IfChange(FirstRunDesktopSignInPromoVariation)
 enum class FirstRunDesktopSignInPromoVariation {
   // Default sign-in promo containing both sign-in and don't sign-in buttons
   // next to each other on the promo page.
@@ -353,9 +370,20 @@ enum class FirstRunDesktopSignInPromoVariation {
   // don't sign in button is moved to the Gaia page.
   kDontSignInOnGaiaPage = 2,
 };
+// LINT.ThenChange(//chrome/browser/resources/intro/sign_in_promo_refresh.ts:Variation)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<FirstRunDesktopSignInPromoVariation>
     kFirstRunDesktopSignInPromoVariation;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// A HaTS survey flag for the survey to gather user feedback after the changes
+// introduced with `kFirstRunDesktopRefresh`.
+//
+// NOTE: Only signed-in (excluding enterprise) users are eligible for this
+// survey.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kFirstRunDesktopRefreshSurvey);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -374,11 +402,6 @@ BASE_DECLARE_FEATURE(kForceHistoryOptInScreen);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceStartupSigninPromo);
 #endif
-
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kFRESignInAlternativeSecondaryButtonText);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 // TODO(crbug.com/408962000): This feature is going to be used after clients
@@ -402,6 +425,12 @@ BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
 // Follow-ups to EnableIdentityInAuthError.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kIdentityInAuthErrorFollowUps);
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag to ignore invalid grant errors in AuthenticationService.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kIgnoreInvalidGrantError);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -595,11 +624,6 @@ BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
 // flag is enabled by default on Windows/Mac/Linux.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kBookmarksMigrateUiChanges);
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kUseIssueTokenToFetchAccessTokens);
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // If enabled, buttons for sign-in promos / intercepts will use consistent
 // primary - tonal button class pattern.

@@ -23,6 +23,7 @@
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "components/image_fetcher/core/fake_image_decoder.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/signin/internal/identity_manager/account_fetcher_service.h"
 #include "components/signin/internal/identity_manager/account_tracker_service.h"
 #include "components/signin/internal/identity_manager/accounts_cookie_mutator_impl.h"
@@ -35,7 +36,6 @@
 #include "components/signin/internal/identity_manager/primary_account_manager.h"
 #include "components/signin/internal/identity_manager/primary_account_mutator_impl.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
-#include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/list_accounts_test_utils.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
@@ -284,7 +284,6 @@ class IdentityManagerTest : public testing::Test {
     IdentityManager::RegisterLocalStatePrefs(pref_service_.registry());
 
     RecreateIdentityManager(
-        AccountConsistencyMethod::kDisabled,
         PrimaryAccountManagerSetup::kWithAuthenticatedAccout);
     primary_account_id_ =
         identity_manager_->PickAccountIdForAccount(kTestGaiaId, kTestEmail);
@@ -325,7 +324,6 @@ class IdentityManagerTest : public testing::Test {
   // performing some other setup.
   void RecreateIdentityManager() {
     RecreateIdentityManager(
-        AccountConsistencyMethod::kDisabled,
         PrimaryAccountManagerSetup::kNoAuthenticatedAccount);
   }
 
@@ -335,7 +333,6 @@ class IdentityManagerTest : public testing::Test {
   // IdentityManager and its dependencies, then remakes them. Dependencies that
   // outlive PrimaryAccountManager (e.g. SigninClient) will be reused.
   void RecreateIdentityManager(
-      AccountConsistencyMethod account_consistency,
       PrimaryAccountManagerSetup primary_account_manager_setup) {
     // Remove observers first, otherwise IdentityManager destruction might
     // trigger a DCHECK because there are still living observers.
@@ -388,15 +385,16 @@ class IdentityManagerTest : public testing::Test {
             &signin_client_);
 
     auto account_fetcher_service = std::make_unique<AccountFetcherService>();
+    auto account_fetcher_factory = std::make_unique<FakeAccountFetcherFactory>(
+        *token_service.get(), signin_client_);
     account_fetcher_service->Initialize(
         &signin_client_, token_service.get(), account_tracker_service.get(),
         std::make_unique<image_fetcher::FakeImageDecoder>(),
-        std::make_unique<FakeAccountFetcherFactory>());
+        std::move(account_fetcher_factory));
 
-    DCHECK_EQ(account_consistency, AccountConsistencyMethod::kDisabled)
-        << "AccountConsistency is not used by PrimaryAccountManager";
     auto primary_account_manager = std::make_unique<PrimaryAccountManager>(
-        &signin_client_, token_service.get(), account_tracker_service.get());
+        &signin_client_, token_service.get(), account_tracker_service.get(),
+        &profile_metrics_service_);
 
     // Passing this switch ensures that the new PrimaryAccountManager starts
     // with a clean slate. Otherwise PrimaryAccountManager::Initialize will use
@@ -503,6 +501,7 @@ class IdentityManagerTest : public testing::Test {
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   TestSigninClient signin_client_;
+  metrics::ProfileMetricsService profile_metrics_service_;
   std::unique_ptr<IdentityManager> identity_manager_;
   std::unique_ptr<TestIdentityManagerObserver> identity_manager_observer_;
   std::unique_ptr<TestIdentityManagerDiagnosticsObserver>
@@ -1184,7 +1183,9 @@ TEST_F(IdentityManagerTest,
   SetRefreshTokenForAccount(
       identity_manager(),
       identity_manager()->GetPrimaryAccountId(ConsentLevel::kSignin),
-      "refresh_token_1", primary_account_wrapped_binding_key);
+      "refresh_token_1",
+      signin::TokenBindingInfo(primary_account_wrapped_binding_key,
+                               /*mtls_token_binding=*/false));
   // Add a secondary account and set a refresh token for it.
   account_tracker()->SeedAccountInfo(kTestGaiaId2, kTestEmail2);
   // NOTE: This should NOT happen in production as all accounts are supposed to
@@ -1193,7 +1194,9 @@ TEST_F(IdentityManagerTest,
   SetRefreshTokenForAccount(
       identity_manager(),
       account_tracker()->FindAccountInfoByGaiaId(kTestGaiaId2).account_id,
-      "refresh_token_2", secondary_account_wrapped_binding_key);
+      "refresh_token_2",
+      signin::TokenBindingInfo(secondary_account_wrapped_binding_key,
+                               /*mtls_token_binding=*/false));
 
   EXPECT_EQ(identity_manager()->GetWrappedBindingKey(),
             primary_account_wrapped_binding_key);
@@ -1212,7 +1215,9 @@ TEST_F(IdentityManagerTest,
   SetRefreshTokenForAccount(
       identity_manager(),
       account_tracker()->FindAccountInfoByGaiaId(kTestGaiaId2).account_id,
-      "refresh_token_2", secondary_account_wrapped_binding_key);
+      "refresh_token_2",
+      signin::TokenBindingInfo(secondary_account_wrapped_binding_key,
+                               /*mtls_token_binding=*/false));
 
   EXPECT_EQ(identity_manager()->GetWrappedBindingKey(),
             secondary_account_wrapped_binding_key);
@@ -2170,7 +2175,8 @@ TEST_F(IdentityManagerTest, CallbackSentOnAccountsCookieDeletedByUserAction) {
   auto cookie = net::CanonicalCookie::CreateUnsafeCookieForTesting(
       "SAPISID", std::string(), ".google.com", "/", base::Time(), base::Time(),
       base::Time(), base::Time(), /*secure=*/true, false,
-      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT);
+      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT,
+      net::CookieSourceType::kOther);
   SimulateCookieDeletedByUser(identity_manager()->GetGaiaCookieManagerService(),
                               *cookie);
   run_loop.Run();
@@ -2202,7 +2208,8 @@ TEST_F(IdentityManagerTest, OnNetworkInitialized) {
   auto cookie = net::CanonicalCookie::CreateUnsafeCookieForTesting(
       "SAPISID", std::string(), ".google.com", "/", base::Time(), base::Time(),
       base::Time(), base::Time(), /*secure=*/true, false,
-      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT);
+      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT,
+      net::CookieSourceType::kOther);
   test_cookie_manager_ptr->DispatchCookieChange(net::CookieChangeInfo(
       *cookie, net::CookieAccessResult(), net::CookieChangeCause::EXPLICIT));
   run_loop.Run();

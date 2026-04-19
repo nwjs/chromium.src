@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.settings;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
@@ -22,6 +20,7 @@ import org.chromium.chrome.browser.autofill.options.AutofillOptionsCoordinator;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillCreditCardEditor;
 import org.chromium.chrome.browser.autofill.settings.AutofillLocalIbanEditor;
+import org.chromium.chrome.browser.autofill.settings.HomeOfTransactionsFragment;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsController;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsSettings;
@@ -71,7 +70,7 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
     // refactored.
     private final Activity mActivity;
     private final Profile mProfile;
-    private final MonotonicObservableSupplier<WindowAndroid> mWindowAndroidSupplier;
+    private final OneshotSupplier<WindowAndroid> mWindowAndroidSupplier;
     private final ActivityResultTracker mActivityResultTracker;
 
     // Here are UI dependencies, i.e. objects referencing UI objects (e.g. Views). They are
@@ -86,7 +85,7 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
     public FragmentDependencyProvider(
             Activity activity,
             Profile profile,
-            MonotonicObservableSupplier<WindowAndroid> windowAndroidSupplier,
+            OneshotSupplier<WindowAndroid> windowAndroidSupplier,
             ActivityResultTracker activityResultTracker,
             OneshotSupplier<SnackbarManager> snackbarManagerSupplier,
             OneshotSupplier<BottomSheetController> bottomSheetControllerSupplier,
@@ -131,7 +130,13 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
 
         // Settings screen specific attachments.
         if (fragment instanceof MainSettings) {
-            ((MainSettings) fragment).setModalDialogManagerSupplier(mModalDialogManagerSupplier);
+            MainSettings mainSettings = (MainSettings) fragment;
+            mainSettings.setDependencies(
+                    mModalDialogManagerSupplier,
+                    mWindowAndroidSupplier,
+                    mActivityResultTracker,
+                    mBottomSheetControllerSupplier,
+                    mSnackbarManagerSupplier);
         }
         if (fragment instanceof BaseSiteSettingsFragment) {
             BaseSiteSettingsFragment baseSiteSettingsFragment =
@@ -219,14 +224,14 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
         if (fragment instanceof SafetyHubFragment safetyHubFragment) {
             safetyHubFragment.setDelegate(
                     new SafetyHubModuleDelegateImpl(
-                            assumeNonNull(mWindowAndroidSupplier.get()),
+                            mWindowAndroidSupplier,
                             mActivity,
                             mActivityResultTracker,
                             DeviceLockActivityLauncherImpl.get(),
                             mProfile,
-                            assumeNonNull(mSnackbarManagerSupplier.get()),
+                            mSnackbarManagerSupplier,
                             mBottomSheetControllerSupplier,
-                            mModalDialogManagerSupplier.asNonNull(),
+                            mModalDialogManagerSupplier,
                             SigninAndHistorySyncActivityLauncherImpl.get(),
                             new SettingsCustomTabLauncherImpl()));
         }
@@ -243,6 +248,10 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
         }
         if (fragment instanceof SafetyHubBaseFragment) {
             ((SafetyHubBaseFragment) fragment).setSnackbarManagerSupplier(mSnackbarManagerSupplier);
+        }
+        if (fragment instanceof HomeOfTransactionsFragment) {
+            ((HomeOfTransactionsFragment) fragment)
+                    .setModalDialogManagerSupplier(mModalDialogManagerSupplier);
         }
     }
 }

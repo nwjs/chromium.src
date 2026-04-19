@@ -201,11 +201,51 @@ base::TimeDelta GetMinimumThresholdSinceLastShownTime(
   }
 }
 
+base::TimeDelta GetMinimumThresholdSinceLastEventTime(
+    ProfileMenuAvatarButtonPromoInfo::Type promo_type) {
+  switch (promo_type) {
+    case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::
+        kBatchUploadWindows10DepreciationPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
+      NOTREACHED() << "The promo does not support last event time checking.";
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
+      // Explicitly uses the same value as the threshold last shown time to
+      // simulate bumping the delay because of a similar event.
+      return GetMinimumThresholdSinceLastShownTime(promo_type);
+  }
+}
+
+std::optional<base::Time> MaybeGetLastExternalEventTime(
+    ProfileMenuAvatarButtonPromoInfo::Type promo_type,
+    const SigninPrefs& signin_prefs,
+    GaiaId gaia) {
+  switch (promo_type) {
+    case ProfileMenuAvatarButtonPromoInfo::Type::kHistorySyncPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kBatchUploadBookmarksPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::
+        kBatchUploadWindows10DepreciationPromo:
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo:
+      // These promos does not support external event time checking.
+      return std::nullopt;
+    case ProfileMenuAvatarButtonPromoInfo::Type::kSigninPromo:
+      return gaia.empty()
+                 ? std::nullopt
+                 : signin_prefs
+                       .GetChromeSigninInterceptionLastBubbleDeclineTime(gaia);
+  }
+}
+
 struct PromoUsageInfo {
   int shown_count = 0;
   int used_count = 0;
   // Optional as not every promo type supports it.
   std::optional<base::Time> last_shown_time = std::nullopt;
+  // Optional as not every promo type supports it.
+  std::optional<base::Time> last_external_event_time = std::nullopt;
 };
 
 PromoUsageInfo GetPromoUsageInfo(
@@ -238,6 +278,9 @@ PromoUsageInfo GetPromoUsageInfo(
     }
   }
 
+  usage_info.last_external_event_time =
+      MaybeGetLastExternalEventTime(promo_type, signin_prefs, gaia);
+
   return usage_info;
 }
 
@@ -263,8 +306,7 @@ ProfileMenuAvatarButtonPromoInfo
 ComputeProfileMenuAvatarButtonPromoInfoWithBatchUploadResult(
     Profile* profile,
     std::map<syncer::DataType, syncer::LocalDataDescription> local_map_result) {
-  CHECK(
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  CHECK(syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
@@ -475,62 +517,6 @@ bool ShouldShowPromoBasedOnImpressionOrDismissalCount(Profile& profile,
          dismiss_count < kSigninPromoDismissedThreshold;
 }
 
-// Performs base checks for whether the sign in promos should be shown.
-// Needs additional checks depending on the type of the promo (see
-// `ShouldShowAddressSignInPromo` and `ShouldShowPasswordSignInPromo`).
-// `profile` is the profile of the tab the promo would be shown on.
-bool ShouldShowSignInPromoCommon(Profile& profile, SignInPromoType type) {
-  if (profile.IsOffTheRecord()) {
-    return false;
-  }
-
-  // Don't show the promo if it does not pass the sync base checks.
-  if (!signin::ShouldShowSyncPromo(profile)) {
-    return false;
-  }
-
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(&profile);
-
-  // Don't show the promo if the sync service is not available, e.g. if the
-  // profile is off-the-record.
-  if (!sync_service) {
-    return false;
-  }
-
-  syncer::DataType data_type = GetDataTypeFromSignInPromoType(type);
-
-  // Don't show the promo if policies disallow account storage.
-  if (sync_service->GetUserSettings()->IsTypeManagedByPolicy(
-          GetUserSelectableTypeFromDataType(data_type).value()) ||
-      !sync_service->GetDataTypesForTransportOnlyMode().Has(data_type)) {
-    return false;
-  }
-
-  SignedInState signed_in_state = signin_util::GetSignedInState(
-      IdentityManagerFactory::GetForProfile(&profile));
-
-  switch (signed_in_state) {
-    case signin_util::SignedInState::kSignedIn:
-    case signin_util::SignedInState::kSyncing:
-    case signin_util::SignedInState::kSyncPaused:
-      // Don't show the promo if the user is already signed in or syncing.
-      return false;
-    case signin_util::SignedInState::kSignInPending:
-      // Always show the promo in sign in pending state.
-      return true;
-    case signin_util::SignedInState::kSignedOut:
-    case signin_util::SignedInState::kWebOnlySignedIn:
-      break;
-  }
-
-  return ShouldShowPromoBasedOnImpressionOrDismissalCount(profile, type);
-}
-
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-}  // namespace
-
 #if !BUILDFLAG(IS_ANDROID)
 bool ShouldShowSyncPromo(Profile& profile) {
 #if BUILDFLAG(IS_CHROMEOS)
@@ -586,6 +572,62 @@ bool ShouldShowSyncPromo(Profile& profile) {
 #endif
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+// Performs base checks for whether the sign in promos should be shown.
+// Needs additional checks depending on the type of the promo (see
+// `ShouldShowAddressSignInPromo` and `ShouldShowPasswordSignInPromo`).
+// `profile` is the profile of the tab the promo would be shown on.
+bool ShouldShowSignInPromoCommon(Profile& profile, SignInPromoType type) {
+  if (profile.IsOffTheRecord()) {
+    return false;
+  }
+
+  // Don't show the promo if it does not pass the sync base checks.
+  if (!signin::ShouldShowSyncPromo(profile)) {
+    return false;
+  }
+
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(&profile);
+
+  // Don't show the promo if the sync service is not available, e.g. if the
+  // profile is off-the-record.
+  if (!sync_service) {
+    return false;
+  }
+
+  syncer::DataType data_type = GetDataTypeFromSignInPromoType(type);
+
+  // Don't show the promo if policies disallow account storage.
+  if (sync_service->GetUserSettings()->IsTypeManagedByPolicy(
+          GetUserSelectableTypeFromDataType(data_type).value()) ||
+      !sync_service->GetDataTypesForTransportOnlyMode().Has(data_type)) {
+    return false;
+  }
+
+  SignedInState signed_in_state = signin_util::GetSignedInState(
+      IdentityManagerFactory::GetForProfile(&profile));
+
+  switch (signed_in_state) {
+    case signin_util::SignedInState::kSignedIn:
+    case signin_util::SignedInState::kSyncing:
+    case signin_util::SignedInState::kSyncPaused:
+      // Don't show the promo if the user is already signed in or syncing.
+      return false;
+    case signin_util::SignedInState::kSignInPending:
+      // Always show the promo in sign in pending state.
+      return true;
+    case signin_util::SignedInState::kSignedOut:
+    case signin_util::SignedInState::kWebOnlySignedIn:
+      break;
+  }
+
+  return ShouldShowPromoBasedOnImpressionOrDismissalCount(profile, type);
+}
+
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+}  // namespace
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 bool ShouldShowExtensionSignInPromo(Profile& profile,
@@ -652,11 +694,6 @@ bool ShouldShowAddressSignInPromo(Profile& profile,
 
 bool ShouldShowBookmarkSignInPromo(Profile& profile) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  if (!base::FeatureList::IsEnabled(
-          switches::kSyncEnableBookmarksInTransportMode)) {
-    return false;
-  }
-
   if (!ShouldShowSignInPromoCommon(profile, SignInPromoType::kBookmark)) {
     return false;
   }
@@ -697,17 +734,18 @@ bool IsBubbleSigninPromo(signin_metrics::AccessPoint access_point) {
 }
 
 bool IsSignInPromo(signin_metrics::AccessPoint access_point) {
-  if (IsBubbleSigninPromo(access_point)) {
+  if (
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+      // Remove this condition when `syncer::kUnoPhase2FollowUp` is launched as
+      // it is already checked in `IsBubbleSigninPromo()`.
+      access_point == signin_metrics::AccessPoint::kBookmarkBubble ||
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+      IsBubbleSigninPromo(access_point)) {
     return true;
   }
 
   if (access_point == signin_metrics::AccessPoint::kExtensionInstallBubble) {
     return switches::IsExtensionsExplicitBrowserSigninEnabled();
-  }
-
-  if (access_point == signin_metrics::AccessPoint::kBookmarkBubble) {
-    return base::FeatureList::IsEnabled(
-        switches::kSyncEnableBookmarksInTransportMode);
   }
 
   return false;
@@ -853,8 +891,7 @@ void ComputeProfileMenuAvatarButtonPromoInfo(
     Profile& profile,
     base::OnceCallback<void(ProfileMenuAvatarButtonPromoInfo)>
         result_callback) {
-  if (base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
+  if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     BatchUploadService* batch_upload =
         BatchUploadServiceFactory::GetForProfile(&profile);
     if (!batch_upload) {
@@ -934,7 +971,8 @@ bool AvatarButtonPromoManager::ShouldShowPromo(
 
   const AccountInfo account =
       signin_ui_util::GetSingleAccountForPromos(identity_manager_);
-  auto [promo_shown_count, promo_used_count, promo_last_shown_time] =
+  auto [promo_shown_count, promo_used_count, promo_last_shown_time,
+        last_external_event_time] =
       GetPromoUsageInfo(*pref_service_.get(), *signin_prefs_.get(), promo_type,
                         account.gaia);
 
@@ -942,6 +980,13 @@ bool AvatarButtonPromoManager::ShouldShowPromo(
   if (promo_last_shown_time.has_value() &&
       (base::Time::Now() - promo_last_shown_time.value()) <
           GetMinimumThresholdSinceLastShownTime(promo_type)) {
+    return false;
+  }
+
+  // Only check the `last_external_event_time` for eligible `promo_type`.
+  if (last_external_event_time.has_value() &&
+      (base::Time::Now() - last_external_event_time.value() <
+       GetMinimumThresholdSinceLastEventTime(promo_type))) {
     return false;
   }
 

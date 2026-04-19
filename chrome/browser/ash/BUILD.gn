@@ -18,8 +18,6 @@ source_set("unit_tests") {
     "../extensions/api/enterprise_platform_keys/enterprise_platform_keys_api_unittest.cc",
     "../extensions/api/enterprise_platform_keys_private/enterprise_platform_keys_private_api_unittest.cc",
     "../extensions/updater/local_extension_cache_unittest.cc",
-    "../memory/memory_kills_monitor_unittest.cc",
-    "../memory/oom_kills_monitor_unittest.cc",
     "../metrics/chromeos_system_profile_provider_unittest.cc",
     "../metrics/cros_healthd_metrics_provider_unittest.cc",
     "../metrics/perf/cpu_identity_unittest.cc",
@@ -54,6 +52,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui",
     "//chrome/browser/ui/ash/multi_user",
     "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
     "//chromeos/ash/components/dbus/attestation:attestation_proto",
     "//chromeos/ash/components/dbus/concierge",
     "//chromeos/ash/components/dbus/constants",
@@ -233,6 +232,8 @@ source_set("unit_tests") {
     "//chrome/browser/ash/usb:unit_tests",
     "//chrome/browser/ash/video_conference:unit_tests",
     "//chrome/browser/ash/wallpaper_handlers:unit_tests",
+    "//chrome/browser/memory:unit_tests",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/views/select_file_dialog_extension:unit_tests",
 
     # TODO(crbug.com/410983208): This is for FakeOwnerSettingsService.
@@ -298,6 +299,7 @@ group("browser_tests") {
     "//chrome/browser/ash/file_system_provider:browser_tests",
     "//chrome/browser/ash/first_party_sets:browser_tests",
     "//chrome/browser/ash/floating_sso:browser_tests",
+    "//chrome/browser/ash/frozen_update:browser_tests",
     "//chrome/browser/ash/geolocation:browser_tests",
     "//chrome/browser/ash/guest_os:browser_tests",
     "//chrome/browser/ash/input_device_settings:browser_tests",

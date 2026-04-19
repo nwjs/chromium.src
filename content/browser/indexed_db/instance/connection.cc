@@ -153,7 +153,7 @@ Connection::Connection(BucketContext& bucket_context,
                        base::UnguessableToken client_token,
                        int scheduling_priority)
     : id_(g_next_indexed_db_connection_id++),
-      bucket_context_handle_(bucket_context),
+      bucket_context_(&bucket_context),
       database_(std::move(database)),
       on_version_change_ignored_(std::move(on_version_change_ignored)),
       on_close_(std::move(on_close)),
@@ -163,8 +163,8 @@ Connection::Connection(BucketContext& bucket_context,
       scheduling_priority_(scheduling_priority) {
   IncrementNumConnections();
 
-  bucket_context_handle_->quota_manager()->NotifyBucketAccessed(
-      bucket_context_handle_->bucket_locator(), base::Time::Now());
+  bucket_context_->quota_manager()->NotifyBucketAccessed(
+      bucket_context_->bucket_locator(), base::Time::Now());
 }
 
 Connection::~Connection() {
@@ -175,8 +175,7 @@ Connection::~Connection() {
     return;
   }
 
-  AbortTransactionsAndClose(CloseErrorHandling::kAbortAllReturnLastError,
-                            "The connection is destroyed.");
+  AbortTransactionsAndClose("The connection is destroyed.");
 }
 
 bool Connection::IsConnected() const {
@@ -193,8 +192,8 @@ Transaction* Connection::CreateVersionChangeTransaction(
       blink::mojom::IDBTransactionMode::VersionChange);
   return (transactions_[id] = std::make_unique<Transaction>(
               id, this, scope, blink::mojom::IDBTransactionMode::VersionChange,
-              blink::mojom::IDBTransactionDurability::Strict,
-              bucket_context_handle_, std::move(backing_store_transaction)))
+              blink::mojom::IDBTransactionDurability::Strict, *bucket_context_,
+              std::move(backing_store_transaction)))
       .get();
 }
 
@@ -258,7 +257,7 @@ void Connection::RemoveTransaction(int64_t id) {
     base::UmaHistogramTimes("IndexedDB.RemoveTransactionLongTimes", duration);
     base::UmaHistogramCounts100000(
         "IndexedDB.RemoveTransactionRequestQueueSize",
-        bucket_context_handle_->lock_manager().RequestsWaitingForMetrics());
+        bucket_context_->lock_manager().RequestsWaitingForMetrics());
     base::UmaHistogramCounts100000(
         "IndexedDB.RemoveTransactionConnectionTxnCount", transactions_.size());
   }
@@ -271,25 +270,12 @@ void Connection::RemoveTransaction(int64_t id) {
   }
 }
 
-void Connection::AbortTransactionAndTearDownOnError(
-    Transaction* transaction,
-    const DatabaseError& error) {
-  TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "txn.id",
-               transaction->id());
-  Status status = transaction->Abort(error);
-  if (!status.ok()) {
-    bucket_context_handle_->OnDatabaseError(database_.get(), status, {});
-  }
-}
-
 void Connection::CloseAndReportForceClose(const std::string& message) {
   if (!IsConnected()) {
     return;
   }
 
-  AbortTransactionsAndClose(CloseErrorHandling::kAbortAllReturnLastError,
-                            message)
-      ->OnForcedClose();
+  AbortTransactionsAndClose(message)->OnForcedClose();
 }
 
 void Connection::RenameObjectStore(int64_t transaction_id,
@@ -353,7 +339,7 @@ void Connection::CreateTransaction(
   Transaction* transaction =
       (transactions_[transaction_id] = std::make_unique<Transaction>(
            transaction_id, this, std::move(scope), mode, durability,
-           bucket_context_handle_,
+           *bucket_context_,
            database_->backing_store_db()->CreateTransaction(durability, mode)))
           .get();
 
@@ -694,9 +680,10 @@ void Connection::Abort(int64_t transaction_id) {
     return;
   }
 
-  AbortTransactionAndTearDownOnError(
-      transaction, DatabaseError(blink::mojom::IDBException::kAbortError,
-                                 "Transaction aborted by user."));
+  TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "transaction.id",
+               transaction->id());
+  transaction->Abort(DatabaseError(blink::mojom::IDBException::kAbortError,
+                                   "Transaction aborted by user."));
 }
 
 void Connection::DidBecomeInactive() {
@@ -727,13 +714,11 @@ void Connection::UpdatePriority(int new_priority) {
 }
 
 const storage::BucketInfo& Connection::GetBucketInfo() {
-  CHECK(bucket_context());
-  return bucket_context()->bucket_info();
+  return bucket_context_->bucket_info();
 }
 
 storage::BucketLocator Connection::GetBucketLocator() {
-  CHECK(bucket_context());
-  return bucket_context()->bucket_locator();
+  return bucket_context_->bucket_locator();
 }
 
 Transaction* Connection::GetTransaction(int64_t id) const {
@@ -789,7 +774,6 @@ Connection::GetTransactionAndVerifyState(
 }
 
 std::unique_ptr<DatabaseCallbacks> Connection::AbortTransactionsAndClose(
-    CloseErrorHandling error_handling,
     const std::string& message) {
   if (!IsConnected()) {
     return {};
@@ -800,56 +784,23 @@ std::unique_ptr<DatabaseCallbacks> Connection::AbortTransactionsAndClose(
   // Finish up any transaction, in case there were any running.
   DatabaseError error(blink::mojom::IDBException::kUnknownError,
                       "Connection is closing because of: " + message);
-  Status status;
-  switch (error_handling) {
-    case CloseErrorHandling::kReturnOnFirstError:
-      status = AbortAllTransactions(error);
-      break;
-    case CloseErrorHandling::kAbortAllReturnLastError:
-      status = AbortAllTransactionsAndIgnoreErrors(error);
-      break;
-  }
+  AbortAllTransactions(error);
 
   std::unique_ptr<DatabaseCallbacks> callbacks = std::move(callbacks_);
-  std::move(on_close_).Run(*this);
   for (auto& remotes : client_keep_active_remotes_) {
     remotes.reset();
   }
-  bucket_context_handle_->quota_manager()->NotifyBucketAccessed(
-      bucket_context_handle_->bucket_locator(), base::Time::Now());
-  if (!status.ok()) {
-    bucket_context_handle_->OnDatabaseError(database_.get(), status, {});
-  }
-  bucket_context_handle_.Release();
+  bucket_context_->quota_manager()->NotifyBucketAccessed(
+      bucket_context_->bucket_locator(), base::Time::Now());
+  bucket_context_ = nullptr;
+  std::move(on_close_).Run(*this);
   return callbacks;
 }
 
-Status Connection::AbortAllTransactionsAndIgnoreErrors(
-    const DatabaseError& error) {
-  Status last_error;
-  for (const auto& pair : transactions_) {
-    auto& transaction = pair.second;
-    if (transaction->state() != Transaction::FINISHED) {
-      TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "transaction.id",
-                   transaction->id());
-      Status status = transaction->Abort(error);
-      if (!status.ok()) {
-        last_error = status;
-      }
-    }
-  }
-  return last_error;
-}
-
-Status Connection::AbortAllTransactions(const DatabaseError& error) {
+void Connection::AbortAllTransactions(const DatabaseError& error) {
   for (auto& [_, transaction] : transactions_) {
-    if (transaction->state() != Transaction::FINISHED) {
-      TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "transaction.id",
-                   transaction->id());
-      IDB_RETURN_IF_ERROR(transaction->Abort(error));
-    }
+    transaction->Abort(error);
   }
-  return Status::OK();
 }
 
 bool Connection::IsHoldingLocks(

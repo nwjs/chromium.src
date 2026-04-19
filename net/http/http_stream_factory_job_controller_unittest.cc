@@ -119,7 +119,11 @@ const std::string_view kHttpTestUrls[] = {"http://www.example.com",
 
 // The default delay for main job defined in QuicSessionPool::
 // GetTimeDelayForWaitingJob().
+#if BUILDFLAG(IS_ANDROID)
+const int kDefaultDelayMilliSecsForWaitingJob = 400;
+#else
 const int kDefaultDelayMilliSecsForWaitingJob = 300;
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // Phases in which errors will happen for HTTP, HTTPS and SOCKS5 tests.
 enum class TcpErrorPhase {
@@ -333,11 +337,11 @@ class HttpStreamFactoryJobControllerTestBase : public TestWithTaskEnvironment {
  public:
   explicit HttpStreamFactoryJobControllerTestBase(
       bool happy_eyeballs_v3_enabled,
-      std::vector<base::test::FeatureRef> enabled_features = {})
+      std::vector<base::test::FeatureRef> enabled_features = {},
+      std::vector<base::test::FeatureRef> disabled_features = {})
       : TestWithTaskEnvironment(
             base::test::TaskEnvironment::TimeSource::MOCK_TIME),
         happy_eyeballs_v3_enabled_(happy_eyeballs_v3_enabled) {
-    std::vector<base::test::FeatureRef> disabled_features;
     if (happy_eyeballs_v3_enabled_) {
       enabled_features.emplace_back(features::kHappyEyeballsV3);
     } else {
@@ -691,7 +695,7 @@ TEST_P(HttpStreamFactoryJobControllerDualPathTest, PreconnectSyncOk) {
   } else {
     TransportClientSocketPool* socket_pool =
         reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-            HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+            HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
     EXPECT_EQ(socket_pool->IdleSocketCount(), 1u);
   }
 }
@@ -717,7 +721,7 @@ TEST_P(HttpStreamFactoryJobControllerDualPathTest, PreconnectAsyncOk) {
   } else {
     TransportClientSocketPool* socket_pool =
         reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-            HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+            HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
     EXPECT_EQ(socket_pool->IdleSocketCount(), 1u);
   }
 }
@@ -781,13 +785,13 @@ TEST_P(HttpStreamFactoryJobControllerDualPathTest,
   EXPECT_TRUE(HttpStreamFactoryPeer::IsJobControllerDeleted(factory_));
 
   // There should be no H1/H2 connection.
-  ClientSocketPool::GroupId group_id(server, PRIVACY_MODE_DISABLED,
-                                     NetworkAnonymizationKey(),
-                                     SecureDnsPolicy::kAllow,
-                                     /*disable_cert_network_fetches=*/false);
+  ClientSocketPool::GroupId group_id(
+      server, PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
+      SecureDnsPolicy::kAllow,
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   TransportClientSocketPool* socket_pool =
       reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-          HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+          HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
   EXPECT_FALSE(socket_pool->HasGroupForTesting(group_id));
 
   // There should be a QUIC session.
@@ -831,13 +835,13 @@ TEST_P(HttpStreamFactoryJobControllerDualPathTest,
   EXPECT_TRUE(HttpStreamFactoryPeer::IsJobControllerDeleted(factory_));
 
   // There should be no H1/H2 connection.
-  ClientSocketPool::GroupId group_id(server, PRIVACY_MODE_DISABLED,
-                                     NetworkAnonymizationKey(),
-                                     SecureDnsPolicy::kAllow,
-                                     /*disable_cert_network_fetches=*/false);
+  ClientSocketPool::GroupId group_id(
+      server, PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
+      SecureDnsPolicy::kAllow,
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   TransportClientSocketPool* socket_pool =
       reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-          HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+          HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
   EXPECT_FALSE(socket_pool->HasGroupForTesting(group_id));
 
   // There should be a QUIC session.
@@ -889,13 +893,13 @@ TEST_P(HttpStreamFactoryJobControllerDualPathTest,
   EXPECT_TRUE(request_delegate_->WaitForHttpStream());
 
   // There should be no H1/H2 connection.
-  ClientSocketPool::GroupId group_id(server, PRIVACY_MODE_DISABLED,
-                                     NetworkAnonymizationKey(),
-                                     SecureDnsPolicy::kAllow,
-                                     /*disable_cert_network_fetches=*/false);
+  ClientSocketPool::GroupId group_id(
+      server, PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
+      SecureDnsPolicy::kAllow,
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   TransportClientSocketPool* socket_pool =
       reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-          HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+          HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
   EXPECT_FALSE(socket_pool->HasGroupForTesting(group_id));
 
   // There should be a QUIC session.
@@ -1244,6 +1248,7 @@ class JobControllerReconsiderProxyAfterErrorTest
         /*cert_verify_flags=*/0, quic_config,
         std::make_unique<TestQuicCryptoClientConfigHandle>(&crypto_config),
         "CONNECTION_UNKNOWN", base::TimeTicks::Now(), base::TimeTicks::Now(),
+        /*resolution_details=*/std::nullopt,
         base::DefaultTickClock::GetInstance(),
         base::SingleThreadTaskRunner::GetCurrentDefault().get(),
         /*socket_performance_watcher=*/nullptr, ConnectionEndpointMetadata(),
@@ -1497,7 +1502,7 @@ TEST_P(JobControllerReconsiderProxyAfterErrorHttpProxyTest, Test) {
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
     auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+        HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
     EXPECT_EQ(1, socket_pool->IdleSocketCount());
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -1705,7 +1710,7 @@ TEST_P(JobControllerReconsiderProxyAfterErrorHttpsProxyTest, Test) {
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
     auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+        HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
     EXPECT_EQ(1, socket_pool->IdleSocketCount());
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -1886,7 +1891,7 @@ TEST_P(JobControllerReconsiderProxyAfterErrorHttpsProxyTest,
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
     auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+        HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
     EXPECT_EQ(socket_pool->IdleSocketCount(), 1);
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -2125,8 +2130,9 @@ TEST_P(JobControllerReconsiderProxyAfterErrorFirstNestedHttpsProxyTest, Test) {
     // The idle socket should have been added back to the socket pool. Close it,
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
-    auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, kDirectIpProtectionProxyChain);
+    auto* socket_pool =
+        session_->GetSocketPool(HttpNetworkSession::SocketPoolType::kNormal,
+                                kDirectIpProtectionProxyChain);
     EXPECT_EQ(1, socket_pool->IdleSocketCount());
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -2367,8 +2373,9 @@ TEST_P(JobControllerReconsiderProxyAfterErrorSecondNestedHttpsProxyTest, Test) {
     // The idle socket should have been added back to the socket pool. Close it,
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
-    auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, kDirectIpProtectionProxyChain);
+    auto* socket_pool =
+        session_->GetSocketPool(HttpNetworkSession::SocketPoolType::kNormal,
+                                kDirectIpProtectionProxyChain);
     EXPECT_EQ(1, socket_pool->IdleSocketCount());
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -2623,7 +2630,7 @@ TEST_P(JobControllerReconsiderProxyAfterErrorSocks5ProxyTest, Test) {
     // so the next loop iteration creates a new socket instead of reusing the
     // idle one.
     auto* socket_pool = session_->GetSocketPool(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+        HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
     EXPECT_EQ(1, socket_pool->IdleSocketCount());
     socket_pool->CloseIdleSockets("Close socket reason");
   }
@@ -4359,6 +4366,11 @@ TEST_F(HttpStreamFactoryJobControllerTest, InvalidPortForQuic) {
 // Verifies that the main job is not resumed until after the alt job completes
 // host resolution.
 TEST_F(HttpStreamFactoryJobControllerTest, HostResolutionHang) {
+  // Explicitly disable the kAdditionalDelayMainJob feature, since this would
+  // add a delay to the main job and cause the test to fail.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(net::features::kAdditionalDelayMainJob);
+
   auto hanging_resolver = std::make_unique<MockHostResolver>();
   hanging_resolver->set_ondemand_mode(true);
   hanging_resolver->rules()->AddRule("www.google.com", "1.2.3.4");
@@ -4368,6 +4380,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, HostResolutionHang) {
   request_info.method = "GET";
   request_info.url = GURL("https://www.google.com");
 
+  SetNotDelayMainJobWithAvailableSpdySession();
   Initialize(request_info);
 
   // handshake will fail asynchronously after mock data is unpaused.
@@ -5224,19 +5237,19 @@ TEST_F(JobControllerLimitMultipleH2Requests,
   }
   TransportClientSocketPool* socket_pool =
       reinterpret_cast<TransportClientSocketPool*>(session_->GetSocketPool(
-          HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct()));
+          HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct()));
   ClientSocketPool::GroupId group_id0(
       url::SchemeHostPort(request_info.url), request_info.privacy_mode,
       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
-      /*disable_cert_network_fetches=*/false);
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   ClientSocketPool::GroupId group_id1(
       url::SchemeHostPort(request_info.url), request_info.privacy_mode,
       kNetworkAnonymizationKey1, SecureDnsPolicy::kAllow,
-      /*disable_cert_network_fetches=*/false);
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   ClientSocketPool::GroupId group_id2(
       url::SchemeHostPort(request_info.url), request_info.privacy_mode,
       kNetworkAnonymizationKey2, SecureDnsPolicy::kAllow,
-      /*disable_cert_network_fetches=*/false);
+      /*disable_cert_network_fetches=*/false, handles::kInvalidNetworkHandle);
   EXPECT_EQ(static_cast<uint32_t>(kNumRequests),
             socket_pool->NumConnectJobsInGroupForTesting(group_id0));
   EXPECT_EQ(1u, socket_pool->NumConnectJobsInGroupForTesting(group_id1));
@@ -5925,11 +5938,12 @@ TEST_F(HttpStreamFactoryJobControllerTest, QuicHostAllowlist) {
 class HttpStreamFactoryJobControllerDnsHttpsAlpnTest
     : public HttpStreamFactoryJobControllerTestBase {
  protected:
-  explicit HttpStreamFactoryJobControllerDnsHttpsAlpnTest(
-      std::vector<base::test::FeatureRef> enabled_features = {})
+  explicit HttpStreamFactoryJobControllerDnsHttpsAlpnTest()
       : HttpStreamFactoryJobControllerTestBase(
             /*happy_eyeballs_v3_enabled=*/false,
-            std::move(enabled_features)) {}
+            /*enabled_features=*/{},
+            /*disabled_features=*/
+            {features::kPermitTcpSocketPoolConnectBackupJobs}) {}
 
   void SetUp() override { SkipCreatingJobController(); }
 
@@ -7811,6 +7825,7 @@ class HttpStreamFactoryJobControllerWsOverH3Test
         /*cert_verify_flags=*/0, quic_config,
         std::make_unique<TestQuicCryptoClientConfigHandle>(&crypto_config_),
         "CONNECTION_UNKNOWN", base::TimeTicks::Now(), base::TimeTicks::Now(),
+        /*resolution_details=*/std::nullopt,
         base::DefaultTickClock::GetInstance(),
         base::SingleThreadTaskRunner::GetCurrentDefault().get(),
         /*socket_performance_watcher=*/nullptr, ConnectionEndpointMetadata(),

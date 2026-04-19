@@ -22,6 +22,7 @@
 #include "base/values.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/browser/render_process_host_observer.h"
+#include "content/public/common/child_process_id.h"
 #include "extensions/browser/event_listener_map.h"
 #include "extensions/browser/events/event_ack_data.h"
 #include "extensions/browser/events/lazy_event_dispatch_util.h"
@@ -160,10 +161,10 @@ class EventRouter : public KeyedService,
                              mojom::EventFilteringInfoPtr info);
 
   static void BindForRenderer(
-      int process_id,
+      content::ChildProcessId process_id,
       mojo::PendingAssociatedReceiver<mojom::EventRouter> receiver);
 
-  void SwapReceiverForTesting(int render_process_id,
+  void SwapReceiverForTesting(content::ChildProcessId render_process_id,
                               mojom::EventRouter* new_impl);
 
   // An EventRouter is shared between `browser_context` and its associated
@@ -365,6 +366,7 @@ class EventRouter : public KeyedService,
   friend class SystemInfoAPITest;
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest,
                            AddLazyListenerForUnloadedExtension);
+  FRIEND_TEST_ALL_PREFIXES(EventRouterTest, RemovesOrphanedWebRequestEvents);
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest, MultipleEventRouterObserver);
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest, DispatchPendingEvent_NullContext);
   FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest, TestDispatch);
@@ -440,6 +442,12 @@ class EventRouter : public KeyedService,
   void SetRegisteredEvents(const ExtensionId& extension_id,
                            const std::set<std::string>& events,
                            RegisteredEventType type);
+
+  // TODO(crbug.com/474558883): Remove this after webRequest listener
+  // persistence is stable for a few milestones.
+  void RemoveOrphanedWebRequestEvents(const ExtensionId& extension_id,
+                                      std::set<std::string>& events,
+                                      RegisteredEventType type);
 
   // ExtensionRegistryObserver implementation.
   void OnExtensionLoaded(content::BrowserContext* browser_context,
@@ -572,7 +580,7 @@ class EventRouter : public KeyedService,
 
   // All the Mojo receivers for the EventRouter. Keeps track of the render
   // process id.
-  mojo::AssociatedReceiverSet<mojom::EventRouter, int /*render_process_id*/>
+  mojo::AssociatedReceiverSet<mojom::EventRouter, content::ChildProcessId>
       receivers_;
 
   base::WeakPtrFactory<EventRouter> weak_factory_{this};
@@ -669,10 +677,11 @@ struct Event {
   // If specified, this is called after dispatching an event to each target.
   DidDispatchCallback did_dispatch_callback;
 
-  // Called if the event cannot be dispatched to a lazy listener. This happens
-  // if e.g. the extension registers an event listener from a lazy context
-  // asynchronously, which results in the active listener not being registered
-  // at the time the lazy context is spun back up.
+  // Called when the event cannot be delivered to a matching listener. This can
+  // happen if no matching listener is registered when dispatch begins, or if a
+  // lazy listener's context fails to start or starts without that listener
+  // still registered, e.g. because the extension registers event listeners
+  // asynchronously from the lazy context.
   CannotDispatchCallback cannot_dispatch_callback;
 
   // TODO(lazyboy): This sets `restrict_to_browser_context` to nullptr, this
@@ -729,7 +738,7 @@ struct EventListenerInfo {
                     const GURL& listener_url,
                     const base::DictValue* filter,
                     content::BrowserContext* browser_context,
-                    int render_process_id,
+                    content::ChildProcessId render_process_id,
                     int worker_thread_id,
                     int64_t service_worker_version_id,
                     bool is_lazy);
@@ -743,7 +752,7 @@ struct EventListenerInfo {
   const GURL listener_url;
   const std::optional<base::DictValue> filter;
   const raw_ptr<content::BrowserContext> browser_context;
-  const int render_process_id;
+  const content::ChildProcessId render_process_id;
   const int worker_thread_id;
   const int64_t service_worker_version_id;
   const bool is_lazy;

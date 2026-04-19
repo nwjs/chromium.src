@@ -14,8 +14,10 @@ import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
+import {ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 
 import {GlifAnimationState, recordBoolean} from './common.js';
 import {getCss} from './contextual_entrypoint_button.css.js';
@@ -60,11 +62,9 @@ export class ContextualEntrypointButtonElement extends
   accessor hasPopupFocus: boolean = false;
   protected accessor windowWidthBelowThreshold_: boolean = false;
 
+  private showContextMenuDescriptionEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxShowContextMenuDescription');
   private metricsSource_: string = loadTimeData.getString('composeboxSource');
-  private usePecApi_: boolean =
-      loadTimeData.valueExists('contextualMenuUsePecApi') ?
-      loadTimeData.getBoolean('contextualMenuUsePecApi') :
-      false;
   private eventTracker_: EventTracker = new EventTracker();
 
   constructor() {
@@ -83,6 +83,17 @@ export class ContextualEntrypointButtonElement extends
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.eventTracker_.removeAll();
+  }
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('inputState') && this.inputState) {
+      const inToolMode = this.inputState.activeTool !== ToolMode.kUnspecified;
+      if (this.showContextMenuDescriptionEnabled_) {
+        this.showContextMenuDescription = !inToolMode;
+      }
+    }
   }
 
   protected onEntrypointClick_(e: Event) {
@@ -128,16 +139,6 @@ export class ContextualEntrypointButtonElement extends
     return this.glifAnimationState !== GlifAnimationState.INELIGIBLE ?
         'glow-container' :
         '';
-  }
-
-  protected hasAllowedInputs_(): boolean {
-    if (!this.usePecApi_) {
-      return true;
-    }
-    return !!this.inputState &&
-        (this.inputState.allowedModels.length > 0 ||
-         this.inputState.allowedTools.length > 0 ||
-         this.inputState.allowedInputTypes.length > 0);
   }
 }
 

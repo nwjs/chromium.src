@@ -606,7 +606,8 @@ SharedTabGroupDataSyncBridge::ApplyIncrementalSyncChanges(
   CHECK(!ongoing_write_batch_);
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
       CreateWriteBatchWithDestroyClosure(
-          /*store_write_batch_on_destroy=*/false);
+          /*store_write_batch_on_destroy=*/false,
+          std::move(metadata_change_list));
   CHECK(ongoing_write_batch_);
 
   std::vector<std::unique_ptr<syncer::EntityChange>> delete_changes;
@@ -625,7 +626,8 @@ SharedTabGroupDataSyncBridge::ApplyIncrementalSyncChanges(
           if (std::optional<syncer::ModelError> error = AddGroupToLocalStorage(
                   change->data().specifics.shared_tab_group_data(),
                   change->data().collaboration_metadata.value(),
-                  change->data().creation_time, metadata_change_list.get(),
+                  change->data().creation_time,
+                  ongoing_write_batch_->GetMetadataChangeList(),
                   *ongoing_write_batch_)) {
             return error;
           }
@@ -680,8 +682,8 @@ SharedTabGroupDataSyncBridge::ApplyIncrementalSyncChanges(
   for (const std::unique_ptr<syncer::EntityChange>& change : tab_updates) {
     if (std::optional<syncer::ModelError> error = ApplyRemoteTabUpdate(
             change->data().specifics.shared_tab_group_data(),
-            metadata_change_list.get(), *ongoing_write_batch_,
-            tab_ids_with_pending_model_update,
+            ongoing_write_batch_->GetMetadataChangeList(),
+            *ongoing_write_batch_, tab_ids_with_pending_model_update,
             change->data().collaboration_metadata.value(),
             change->data().creation_time, change->data().modification_time)) {
       return error;
@@ -694,13 +696,10 @@ SharedTabGroupDataSyncBridge::ApplyIncrementalSyncChanges(
 
   // Note that ResolveTabsMissingGroups() must be called after all the tab
   // updates are applied to the model to correctly handle unique positions.
-  if (std::optional<syncer::ModelError> error =
-          ResolveTabsMissingGroups(*metadata_change_list)) {
+  if (std::optional<syncer::ModelError> error = ResolveTabsMissingGroups(
+          *ongoing_write_batch_->GetMetadataChangeList())) {
     return error;
   }
-
-  ongoing_write_batch_->TakeMetadataChangesFrom(
-      std::move(metadata_change_list));
 
   // Successfully applied all the changes. Explicitly destroy the write batch
   // and store data to the store.
@@ -951,7 +950,8 @@ void SharedTabGroupDataSyncBridge::SavedTabGroupAddedLocally(
   CHECK(group->is_shared_tab_group());
 
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
   CHECK(group->collaboration_id().has_value());
 
@@ -1011,7 +1011,8 @@ void SharedTabGroupDataSyncBridge::SavedTabGroupUpdatedLocally(
   CHECK(group->is_shared_tab_group());
 
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
   if (tab_guid.has_value()) {
     // The tab has been updated, added or removed.
@@ -1044,7 +1045,8 @@ void SharedTabGroupDataSyncBridge::SavedTabGroupRemovedLocally(
   CHECK(removed_group.is_shared_tab_group());
 
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
 
   RemoveEntitySpecifics(removed_group.saved_guid(), *ongoing_write_batch_);
@@ -1065,7 +1067,8 @@ void SharedTabGroupDataSyncBridge::ProcessTabGroupLocalIdChanged(
   }
 
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
 
   const SavedTabGroup* const group = model_wrapper_->GetGroup(group_guid);
@@ -1078,7 +1081,8 @@ void SharedTabGroupDataSyncBridge::ProcessTabGroupLocalIdChanged(
 void SharedTabGroupDataSyncBridge::UntrackEntitiesForCollaboration(
     const syncer::CollaborationId& collaboration_id) {
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
 
   for (const SavedTabGroup* group : model_wrapper_->GetTabGroups()) {
@@ -1176,7 +1180,8 @@ void SharedTabGroupDataSyncBridge::
     FixLocalTabGroupIDsForSharedGroupsDuringFeatureEnabling(
         std::vector<proto::SharedTabGroupData>& stored_entries) {
   base::ScopedClosureRunner write_batch_scoped_destroy_closure =
-      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true);
+      CreateWriteBatchWithDestroyClosure(/*store_write_batch_on_destroy=*/true,
+                                         /*metadata_change_list=*/nullptr);
   CHECK(ongoing_write_batch_);
 
   for (proto::SharedTabGroupData& proto : stored_entries) {
@@ -1224,7 +1229,8 @@ SharedTabGroupDataSyncBridge::AddGroupToLocalStorage(
 
   CHECK(specifics.has_tab_group());
 
-  if (!model_wrapper_->GetGroup(group_guid)) {
+  const SavedTabGroup* existing_group = model_wrapper_->GetGroup(group_guid);
+  if (!existing_group) {
     // This is a new remotely created group. Add the group from sync into local
     // storage. Note that on some platforms new remote groups may open in the
     // tab strip, and associate its local group ID. This is currently prevented
@@ -1238,20 +1244,6 @@ SharedTabGroupDataSyncBridge::AddGroupToLocalStorage(
     return std::nullopt;
   }
 
-  // Update the existing group with remote data.
-  const SavedTabGroup* existing_group =
-      model_wrapper_->MergeRemoteGroupMetadata(
-          group_guid, base::UTF8ToUTF16(specifics.tab_group().title()),
-          SyncColorToTabGroupColor(specifics.tab_group().color()),
-          /*position=*/std::nullopt,
-          /*creator_cache_guid=*/std::nullopt,
-          /*last_updater_cache_guid=*/std::nullopt,
-          TimeFromWindowsEpochMicros(
-              specifics.update_time_windows_epoch_micros()),
-          collaboration_metadata.last_updated_by());
-  CHECK(existing_group);
-
-  // TODO(crbug.com/381540386): move this check before the merge.
   if (existing_group->collaboration_id() !=
       collaboration_metadata.collaboration_id()) {
     // Shared tab groups should never change collaboration IDs.
@@ -1259,6 +1251,17 @@ SharedTabGroupDataSyncBridge::AddGroupToLocalStorage(
         FROM_HERE, syncer::ModelError::Type::
                        kSharedTabGroupUnexpectedCollaborationIdForGroup);
   }
+
+  // Update the existing group with remote data.
+  existing_group = model_wrapper_->MergeRemoteGroupMetadata(
+      group_guid, base::UTF8ToUTF16(specifics.tab_group().title()),
+      SyncColorToTabGroupColor(specifics.tab_group().color()),
+      /*position=*/std::nullopt,
+      /*creator_cache_guid=*/std::nullopt,
+      /*last_updater_cache_guid=*/std::nullopt,
+      TimeFromWindowsEpochMicros(specifics.update_time_windows_epoch_micros()),
+      collaboration_metadata.last_updated_by());
+  CHECK(existing_group);
 
   // Create new specifics in case some fields were merged.
   sync_pb::SharedTabGroupDataSpecifics updated_specifics =
@@ -1523,16 +1526,23 @@ size_t SharedTabGroupDataSyncBridge::PositionToInsertRemoteTab(
 
 base::ScopedClosureRunner
 SharedTabGroupDataSyncBridge::CreateWriteBatchWithDestroyClosure(
-    bool store_write_batch_on_destroy) {
+    bool store_write_batch_on_destroy,
+    std::unique_ptr<syncer::MetadataChangeList> metadata_change_list) {
   if (ongoing_write_batch_) {
     // There is an ongoing write batch, hence do not create a new one and do not
     // destroy the existing one in the current scope.
+
+    if (metadata_change_list) {
+      ongoing_write_batch_->TakeMetadataChangesFrom(
+          std::move(metadata_change_list));
+    }
     return base::ScopedClosureRunner(base::DoNothing());
   }
 
   // This is not a reentrant call, create a new write batch and return a scoped
   // closure runner that will destroy it when it goes out of scope.
-  ongoing_write_batch_ = store_->CreateWriteBatch();
+  ongoing_write_batch_ =
+      store_->CreateWriteBatch(std::move(metadata_change_list));
   return base::ScopedClosureRunner(base::BindOnce(
       &SharedTabGroupDataSyncBridge::DestroyOngoingWriteBatch,
       weak_ptr_factory_.GetWeakPtr(), store_write_batch_on_destroy));

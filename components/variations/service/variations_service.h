@@ -225,7 +225,6 @@ class VariationsService
   // Wrapper around VariationsFieldTrialCreator::SetUpFieldTrials().
   bool SetUpFieldTrials(
       const std::vector<std::string>& variation_ids,
-      const std::string& command_line_variation_ids,
       const std::vector<base::FeatureList::FeatureOverrideInfo>&
           extra_overrides,
       std::unique_ptr<base::FeatureList> feature_list,
@@ -238,6 +237,8 @@ class VariationsService
 
   // The seed type used.
   SeedType GetSeedType() const;
+
+  VariationsSource GetVariationsSource() const;
 
   int request_count() const { return request_count_; }
 
@@ -285,6 +286,7 @@ class VariationsService
   virtual void StoreSeed(std::string seed_data,
                          std::string seed_signature,
                          std::string country_code,
+                         std::string geo_level1,
                          base::Time date_fetched,
                          bool is_delta_compressed,
                          bool is_gzip_compressed);

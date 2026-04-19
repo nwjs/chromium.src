@@ -161,7 +161,7 @@ TEST_F(ContentSettingImageModelTest, Update) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::IMAGES);
+          ContentSettingImageModel::ImageType::kImages);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -177,7 +177,7 @@ TEST_F(ContentSettingImageModelTest, RPHUpdate) {
       std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::PROTOCOL_HANDLERS);
+          ContentSettingImageModel::ImageType::kProtocolHandlers);
   content_setting_image_model->Update(web_contents());
   EXPECT_FALSE(content_setting_image_model->is_visible());
 
@@ -202,13 +202,14 @@ TEST_F(ContentSettingImageModelTest, CookieAccessed) {
       ContentSettingsType::COOKIES, CONTENT_SETTING_ALLOW);
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::COOKIES);
+          ContentSettingImageModel::ImageType::kCookies);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
   GURL origin("http://google.com");
   std::unique_ptr<net::CanonicalCookie> cookie(
-      net::CanonicalCookie::CreateForTesting(origin, "A=B", base::Time::Now()));
+      net::CanonicalCookie::CreateForTesting(origin, "A=B", base::Time::Now(),
+                                             net::CookieSourceType::kOther));
   ASSERT_TRUE(cookie);
   PageSpecificContentSettings::GetForFrame(
       web_contents()->GetPrimaryMainFrame())
@@ -231,7 +232,7 @@ TEST_F(ContentSettingImageModelTest, ThirdPartyCookieAccessed) {
                                  CONTENT_SETTING_ALLOW);
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::COOKIES);
+          ContentSettingImageModel::ImageType::kCookies);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -239,7 +240,8 @@ TEST_F(ContentSettingImageModelTest, ThirdPartyCookieAccessed) {
   GURL third_party_url("https://example.com");
   std::unique_ptr<net::CanonicalCookie> cookie(
       net::CanonicalCookie::CreateForTesting(
-          third_party_url, "A=B;SameSite=None;Secure", base::Time::Now()));
+          third_party_url, "A=B;SameSite=None;Secure", base::Time::Now(),
+          net::CookieSourceType::kOther));
   ASSERT_TRUE(cookie);
 
   // A blocked third-party cookie access, should not cause the indicator to be
@@ -289,7 +291,7 @@ TEST_F(ContentSettingImageModelTest, SensorAccessed) {
 
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::SENSORS);
+          ContentSettingImageModel::ImageType::kSensors);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -377,7 +379,7 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
 
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::GEOLOCATION);
+          ContentSettingImageModel::ImageType::kGeolocation);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -446,7 +448,7 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsUndetermined) {
 
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::GEOLOCATION);
+          ContentSettingImageModel::ImageType::kGeolocation);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -488,7 +490,7 @@ TEST_F(ContentSettingImageModelTest, SensorAccessPermissionsChanged) {
 
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::SENSORS);
+          ContentSettingImageModel::ImageType::kSensors);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -595,7 +597,7 @@ TEST_F(ContentSettingImageModelTest, NULLPageSpecificContentSettings) {
                          web_contents()->GetPrimaryMainFrame()));
   // Should not crash.
   ContentSettingImageModel::CreateForContentType(
-      ContentSettingImageModel::ImageType::IMAGES)
+      ContentSettingImageModel::ImageType::kImages)
       ->Update(web_contents());
 }
 
@@ -608,7 +610,7 @@ TEST_F(ContentSettingImageModelTest, SubresourceFilter) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::ADS);
+          ContentSettingImageModel::ImageType::kAds);
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
@@ -627,7 +629,7 @@ TEST_F(ContentSettingImageModelTest, NotificationsIconVisibility) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::NOTIFICATIONS);
+          ContentSettingImageModel::ImageType::kNotifications);
 
   HostContentSettingsMapFactory::GetForProfile(profile())
       ->SetDefaultContentSetting(ContentSettingsType::NOTIFICATIONS,
@@ -655,7 +657,7 @@ TEST_F(ContentSettingImageModelTest, NotificationsIconSystemPermission) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::NOTIFICATIONS);
+          ContentSettingImageModel::ImageType::kNotifications);
 
   const webapps::AppId app_id = web_app::test::InstallDummyWebApp(
       profile(), "Web App Title", GURL("http://www.google.com"));
@@ -711,7 +713,7 @@ TEST_F(ContentSettingImageModelTest,
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::NOTIFICATIONS);
+          ContentSettingImageModel::ImageType::kNotifications);
 
   const webapps::AppId app_id = web_app::test::InstallDummyWebApp(
       browser()->profile(), "Web App Title", GURL("http://www.google.com"));
@@ -737,7 +739,7 @@ TEST_F(ContentSettingImageModelTest,
 TEST_F(ContentSettingImageModelTest, StorageAccess) {
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::STORAGE_ACCESS);
+          ContentSettingImageModel::ImageType::kStorageAccess);
   EXPECT_FALSE(content_setting_image_model->is_visible());
 
   auto* content_settings = PageSpecificContentSettings::GetForFrame(
@@ -788,7 +790,7 @@ TEST_F(ContentSettingImageModelTest, StorageAccess) {
 TEST_F(ContentSettingImageModelTest, SmartCard) {
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::SMART_CARD);
+          ContentSettingImageModel::ImageType::kSmartCard);
   EXPECT_FALSE(content_setting_image_model->is_visible());
 
   auto* content_settings = PageSpecificContentSettings::GetForFrame(
@@ -826,7 +828,7 @@ TEST_F(ContentSettingImageModelTest, ProtectedMediaIdentifier_Allowed) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::PROTECTED_MEDIA_IDENTIFIER);
+          ContentSettingImageModel::ImageType::kProtectedMediaIdentifier);
 
   // Guard
   EXPECT_FALSE(content_setting_image_model->is_visible());
@@ -857,7 +859,7 @@ TEST_F(ContentSettingImageModelTest, ProtectedMediaIdentifier_Blocked) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::PROTECTED_MEDIA_IDENTIFIER);
+          ContentSettingImageModel::ImageType::kProtectedMediaIdentifier);
 
   // Guard
   EXPECT_FALSE(content_setting_image_model->is_visible());
@@ -901,7 +903,7 @@ TEST_F(ContentSettingImageModelTest, ProtectedMediaIdentifier_Reconciled) {
           web_contents()->GetPrimaryMainFrame());
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
-          ContentSettingImageModel::ImageType::PROTECTED_MEDIA_IDENTIFIER);
+          ContentSettingImageModel::ImageType::kProtectedMediaIdentifier);
 
   // Guard
   map->SetContentSettingDefaultScope(host, host, type, CONTENT_SETTING_ALLOW);

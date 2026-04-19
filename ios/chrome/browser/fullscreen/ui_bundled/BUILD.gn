@@ -9,7 +9,6 @@ source_set("ui_bundled") {
     "fullscreen_controller.h",
     "fullscreen_controller_observer.h",
     "fullscreen_controller_observer.mm",
-    "fullscreen_reason.h",
     "fullscreen_ui_updater.h",
     "scoped_fullscreen_disabler.h",
     "scoped_fullscreen_disabler.mm",
@@ -23,21 +22,8 @@ source_set("ui_bundled") {
     "//base",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/common",
-  ]
-}
-
-source_set("coordinators") {
-  sources = [
-    "chrome_coordinator+fullscreen_disabling.h",
-    "chrome_coordinator+fullscreen_disabling.mm",
-  ]
-
-  deps = [
-    ":ui_bundled",
-    "//base",
-    "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
-    "//ios/chrome/browser/shared/model/browser",
   ]
 }
 
@@ -49,8 +35,6 @@ source_set("internal") {
     "fullscreen_content_adjustment_util.mm",
     "fullscreen_controller_impl.h",
     "fullscreen_controller_impl.mm",
-    "fullscreen_mediator.h",
-    "fullscreen_mediator.mm",
     "fullscreen_model.h",
     "fullscreen_model.mm",
     "fullscreen_model_observer.h",
@@ -66,6 +50,8 @@ source_set("internal") {
     "fullscreen_web_view_proxy_observer.mm",
     "fullscreen_web_view_resizer.h",
     "fullscreen_web_view_resizer.mm",
+    "legacy_fullscreen_mediator.h",
+    "legacy_fullscreen_mediator.mm",
   ]
 
   deps = [
@@ -110,16 +96,18 @@ source_set("ui") {
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "fullscreen_mediator_unittest.mm",
+    "fullscreen_metrics_unittest.mm",
     "fullscreen_model_unittest.mm",
     "fullscreen_ui_updater_unittest.mm",
     "fullscreen_web_state_list_observer_unittest.mm",
     "fullscreen_web_state_observer_unittest.mm",
     "fullscreen_web_view_resizer_unittest.mm",
+    "legacy_fullscreen_mediator_unittest.mm",
   ]
 
   deps = [
     ":internal",
+    ":metrics",
     ":ui",
     ":ui_bundled",
     "//base/test:test_support",
@@ -153,7 +141,9 @@ source_set("eg2_tests") {
     "//base/test:test_support",
     "//components/omnibox/browser:pref_names",
     "//components/translate/core/browser:translate_pref_names",
+    "//ios/chrome/app/strings",
     "//ios/chrome/browser/fullscreen/ui_bundled/test:eg_test_support+eg2",
+    "//ios/chrome/browser/popup_menu/public",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/util",
@@ -163,6 +153,7 @@ source_set("eg2_tests") {
     "//ios/web/common",
     "//ios/web/public/test/http_server",
     "//net:test_support",
+    "//ui/base",
     "//url",
   ]
   frameworks = [ "UIKit.framework" ]

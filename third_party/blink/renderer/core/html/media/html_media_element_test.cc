@@ -54,6 +54,12 @@ namespace blink {
 
 namespace {
 
+// Helper to simulate a Mojo IPC message from the Browser process.
+void SimulateRequestPlay(HTMLMediaElement* element, bool triggered_by_user) {
+  static_cast<media::mojom::blink::MediaPlayer*>(element)->RequestPlay(
+      triggered_by_user);
+}
+
 enum class TestURLScheme {
   kHttp,
   kHttps,
@@ -85,8 +91,11 @@ AtomicString SrcSchemeToURL(TestURLScheme scheme) {
 
 class MockWebMediaPlayer : public EmptyWebMediaPlayer {
  public:
+  MOCK_METHOD0(Play, void());
+  MOCK_METHOD0(UnlockBackgroundPlayback, void());
   MOCK_METHOD1(Pause, void(PauseReason));
   MOCK_METHOD0(OnTimeUpdate, void());
+  MOCK_CONST_METHOD0(Paused, bool());
   MOCK_CONST_METHOD0(Seekable, WebTimeRanges());
   MOCK_METHOD0(OnFrozen, void());
   MOCK_CONST_METHOD0(HasAudio, bool());
@@ -325,7 +334,8 @@ class HTMLMediaElementTest : public testing::TestWithParam<MediaTestParam> {
  protected:
   void SetUp() override {
     // Sniff the media player pointer to facilitate mocking.
-    auto mock_media_player = std::make_unique<MockWebMediaPlayer>();
+    auto mock_media_player =
+        std::make_unique<testing::NiceMock<MockWebMediaPlayer>>();
     media_player_weak_ = mock_media_player->AsWeakPtr();
     media_player_ = mock_media_player.get();
 
@@ -1807,6 +1817,43 @@ TEST_P(HTMLMediaElementTest, PlayedWithoutUserActivation) {
   Media()->Play();
 }
 
+TEST_P(HTMLMediaElementTest, RequestPlay_UserTriggered) {
+  Media()->SetSrc(SrcSchemeToURL(TestURLScheme::kHttp));
+  test::RunPendingTasks();
+  SetReadyState(HTMLMediaElement::kHaveEnoughData);
+  test::RunPendingTasks();
+
+  // It should just play directly when triggered by the user.
+  EXPECT_CALL(*MockMediaPlayer(),
+              SetWasPlayedWithUserActivationAndHighMediaEngagement(testing::_));
+  EXPECT_CALL(*MockMediaPlayer(), Paused()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*MockMediaPlayer(), Play());
+  SimulateRequestPlay(Media(), /*triggered_by_user=*/true);
+
+  // The frame should be granted transient user activation.
+  EXPECT_TRUE(LocalFrame::HasTransientUserActivation(
+      Media()->GetDocument().GetFrame()));
+}
+
+TEST_P(HTMLMediaElementTest, RequestPlay_SystemTriggered) {
+  Media()->SetSrc(SrcSchemeToURL(TestURLScheme::kHttp));
+  test::RunPendingTasks();
+  SetReadyState(HTMLMediaElement::kHaveEnoughData);
+  test::RunPendingTasks();
+
+  // It should call UnlockBackgroundPlayback when triggered by the system.
+  EXPECT_CALL(*MockMediaPlayer(),
+              SetWasPlayedWithUserActivationAndHighMediaEngagement(testing::_));
+  EXPECT_CALL(*MockMediaPlayer(), UnlockBackgroundPlayback());
+  EXPECT_CALL(*MockMediaPlayer(), Paused()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*MockMediaPlayer(), Play());
+  SimulateRequestPlay(Media(), /*triggered_by_user=*/false);
+
+  // The frame should NOT be granted transient user activation.
+  EXPECT_FALSE(LocalFrame::HasTransientUserActivation(
+      Media()->GetDocument().GetFrame()));
+}
+
 TEST_P(HTMLMediaElementTest, PlayedWithUserActivation) {
   Media()->SetSrc(SrcSchemeToURL(TestURLScheme::kHttp));
   test::RunPendingTasks();
@@ -2644,6 +2691,19 @@ TEST_P(HTMLMediaElementTest, StartVideoWithDoubleTrackSelection) {
   EXPECT_TRUE(Media()->audioTracks().AnonymousIndexedGetter(2)->enabled());
   if (!audio_only) {
     EXPECT_TRUE(Media()->videoTracks().AnonymousIndexedGetter(0)->selected());
+  }
+}
+
+// crbug.com/497011407. AddTrack() crashed by invalid UTF-8.
+TEST_P(HTMLMediaElementTest, AddTrackCrash) {
+  auto* element = Media();
+  element->AddTrackForTesting(media::MediaTrack::CreateAudioTrack(
+      "audio1", media::MediaTrack::AudioKind::kMain, "label\x80", "lang\x80",
+      true, 0));
+  if (GetParam() == MediaTestParam::kVideo) {
+    element->AddTrackForTesting(media::MediaTrack::CreateVideoTrack(
+        "video1", media::MediaTrack::VideoKind::kMain, "label\x80", "lang\x80",
+        true, 0));
   }
 }
 

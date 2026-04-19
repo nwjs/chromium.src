@@ -84,6 +84,49 @@ std::optional<mojom::ModelUnavailableReason> AvailabilityFromEligibilityReason(
   }
 }
 
+std::optional<mojom::ModelNotSupportedDetailedReason>
+NotSupportedDetailedReasonFromEligibilityReason(
+    OnDeviceModelEligibilityReason reason) {
+  switch (reason) {
+    // NotSupported errors.
+    case OnDeviceModelEligibilityReason::kDeprecatedModelNotAvailable:
+      NOTREACHED();
+    case OnDeviceModelEligibilityReason::kFeatureNotEnabled:
+      return mojom::ModelNotSupportedDetailedReason::kFeatureNotEnabled;
+    case OnDeviceModelEligibilityReason::kGpuBlocked:
+      return mojom::ModelNotSupportedDetailedReason::kGpuBlocked;
+    case OnDeviceModelEligibilityReason::kTooManyRecentCrashes:
+      return mojom::ModelNotSupportedDetailedReason::kTooManyRecentCrashes;
+    case OnDeviceModelEligibilityReason::kSafetyConfigNotAvailableForFeature:
+      return mojom::ModelNotSupportedDetailedReason::
+          kSafetyConfigNotAvailableForFeature;
+    case OnDeviceModelEligibilityReason::kFeatureExecutionNotEnabled:
+      return mojom::ModelNotSupportedDetailedReason::
+          kFeatureExecutionNotEnabled;
+    case OnDeviceModelEligibilityReason::kValidationFailed:
+      return mojom::ModelNotSupportedDetailedReason::kValidationFailed;
+    case OnDeviceModelEligibilityReason::kModelNotEligible:
+      return mojom::ModelNotSupportedDetailedReason::kModelNotEligible;
+    case OnDeviceModelEligibilityReason::kInsufficientDiskSpace:
+      return mojom::ModelNotSupportedDetailedReason::kInsufficientDiskSpace;
+    case OnDeviceModelEligibilityReason::kModelAdaptationNotAvailable:
+      return mojom::ModelNotSupportedDetailedReason::
+          kModelAdaptationNotAvailable;
+    case OnDeviceModelEligibilityReason::kUnknown:
+    case OnDeviceModelEligibilityReason::kSuccess:
+      return std::nullopt;
+    case OnDeviceModelEligibilityReason::kNoOnDeviceFeatureUsed:
+    case OnDeviceModelEligibilityReason::kConfigNotAvailableForFeature:
+    case OnDeviceModelEligibilityReason::kSafetyModelNotAvailable:
+    case OnDeviceModelEligibilityReason::kLanguageDetectionModelNotAvailable:
+    case OnDeviceModelEligibilityReason::kValidationPending:
+    case OnDeviceModelEligibilityReason::kModelToBeInstalled:
+      CHECK_NE(AvailabilityFromEligibilityReason(reason).value(),
+               mojom::ModelUnavailableReason::kNotSupported);
+      return std::nullopt;
+  };
+}
+
 OptimizationGuideModelStreamingExecutionResult::
     OptimizationGuideModelStreamingExecutionResult() = default;
 
@@ -106,6 +149,13 @@ OptimizationGuideModelStreamingExecutionResult::
 OnDeviceCapability::OnDeviceCapability() = default;
 OnDeviceCapability::~OnDeviceCapability() = default;
 
+mojo::PendingRemote<mojom::ModelBroker>
+OnDeviceCapability::BindAndPassRemoteBroker() {
+  mojo::PendingRemote<mojom::ModelBroker> remote;
+  BindModelBroker(remote.InitWithNewPipeAndPassReceiver());
+  return remote;
+}
+
 std::unique_ptr<OnDeviceSession> OnDeviceCapability::StartSession(
     mojom::OnDeviceFeature feature,
     const SessionConfigParams& config_params,
@@ -121,10 +171,6 @@ void OnDeviceCapability::RemoveOnDeviceModelAvailabilityChangeObserver(
     mojom::OnDeviceFeature feature,
     OnDeviceModelAvailabilityObserver* observer) {}
 
-on_device_model::Capabilities OnDeviceCapability::GetOnDeviceCapabilities() {
-  return {};
-}
-
 OnDeviceModelEligibilityReason OnDeviceCapability::GetOnDeviceModelEligibility(
     mojom::OnDeviceFeature feature) {
   return OnDeviceModelEligibilityReason::kFeatureNotEnabled;
@@ -137,13 +183,4 @@ void OnDeviceCapability::GetOnDeviceModelEligibilityAsync(
   std::move(callback).Run(OnDeviceModelEligibilityReason::kFeatureNotEnabled);
 }
 
-std::optional<SamplingParamsConfig> OnDeviceCapability::GetSamplingParamsConfig(
-    mojom::OnDeviceFeature feature) {
-  return std::nullopt;
-}
-
-std::optional<const optimization_guide::proto::Any>
-OnDeviceCapability::GetFeatureMetadata(mojom::OnDeviceFeature feature) {
-  return std::nullopt;
-}
 }  // namespace optimization_guide

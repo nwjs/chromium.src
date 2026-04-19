@@ -32,10 +32,13 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "net/base/idempotency.h"
 #include "net/base/ip_address.h"
+#include "net/base/isolation_info.h"
 #include "net/base/port_util.h"
 #include "net/base/upload_bytes_element_reader.h"
 #include "net/base/url_util.h"
@@ -48,6 +51,7 @@
 #include "net/dns/dns_server_iterator.h"
 #include "net/dns/dns_session.h"
 #include "net/dns/dns_test_util.h"
+#include "net/dns/host_resolver_internal_result_test_util.h"
 #include "net/dns/public/dns_over_https_config.h"
 #include "net/dns/public/dns_over_https_server_config.h"
 #include "net/dns/public/dns_protocol.h"
@@ -71,7 +75,24 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "net/dns/mock_dns_platform_android_attempt_delegate.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
+using net::test::IsError;
 using net::test::IsOk;
+using ::testing::_;
+using ::testing::AllOf;
+using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Ne;
+
+using ::testing::IsEmpty;
+using ::testing::Pointee;
+using ::testing::Property;
+using ::testing::Return;
+using ::testing::SizeIs;
+using ::testing::StrEq;
 
 namespace net {
 
@@ -668,26 +689,47 @@ class DnsTransactionTestBase : public testing::Test {
   // HTTPResponse.
   void ConfigureDohServers(bool use_post,
                            size_t num_doh_servers = 1,
-                           bool make_available = true) {
-    GURL url(URLRequestMockDohJob::GetMockHttpsUrl("doh_test"));
+                           bool make_available = true,
+                           bool use_doh_fallback_upgrade = false) {
+    GURL url;
+    if (use_doh_fallback_upgrade) {
+      CHECK_EQ(config_.secure_dns_mode, SecureDnsMode::kAutomatic);
+      config_.should_perform_doh_fallback_upgrade = true;
+      config_.fallback_doh_nameservers = {
+          IPEndPoint(IPAddress(8, 8, 8, 8), 53)};
+      config_.doh_config =
+          DnsOverHttpsConfig(GetDohUpgradeServersFromNameservers(
+              config_.fallback_doh_nameservers));
+      // When using DoH fallback we don't have an easy way to switch between
+      // GET and POST since it's just based on what's in the hardcoded config,
+      // but we can at least ensure the parameter value provided matches what
+      // will actually be used.
+      CHECK_EQ(use_post, config_.doh_config.servers()[0].use_post());
+      url = GURL(GetURLFromTemplateWithoutParameters(
+          config_.doh_config.servers()[0].server_template()));
+    } else {
+      CHECK_LE(num_doh_servers, 255u);
+      std::vector<string> templates;
+      templates.reserve(num_doh_servers);
+      for (size_t i = 0; i < num_doh_servers; ++i) {
+        templates.push_back(URLRequestMockDohJob::GetMockHttpsUrl(
+                                base::StringPrintf("doh_test_%zu", i)) +
+                            (use_post ? "" : "{?dns}"));
+      }
+      config_.doh_config =
+          *DnsOverHttpsConfig::FromTemplatesForTesting(std::move(templates));
+      url = GURL(URLRequestMockDohJob::GetMockHttpsUrl("doh_test"));
+    }
+
     URLRequestFilter* filter = URLRequestFilter::GetInstance();
     filter->AddHostnameInterceptor(url.GetScheme(), url.GetHost(),
                                    std::make_unique<DohJobInterceptor>(this));
-    CHECK_LE(num_doh_servers, 255u);
-    std::vector<string> templates;
-    templates.reserve(num_doh_servers);
-    for (size_t i = 0; i < num_doh_servers; ++i) {
-      templates.push_back(URLRequestMockDohJob::GetMockHttpsUrl(
-                              base::StringPrintf("doh_test_%zu", i)) +
-                          (use_post ? "" : "{?dns}"));
-    }
-    config_.doh_config =
-        *DnsOverHttpsConfig::FromTemplatesForTesting(std::move(templates));
+
     ConfigureFactory();
 
     if (make_available) {
-      for (size_t server_index = 0; server_index < num_doh_servers;
-           ++server_index) {
+      for (size_t server_index = 0;
+           server_index < config_.doh_config.servers().size(); ++server_index) {
         resolve_context_->RecordServerSuccess(
             server_index, true /* is_doh_server */, session_.get());
       }
@@ -880,21 +922,10 @@ class DnsTransactionTestBase : public testing::Test {
     }
     EXPECT_TRUE(server_found);
 
-    EXPECT_TRUE(
-        request->isolation_info().network_isolation_key().IsTransient());
-
-    // All DoH requests for the same ResolveContext should use the same
-    // IsolationInfo, so network objects like sockets can be reused between
-    // requests.
-    if (!expect_multiple_isolation_infos_) {
-      if (!isolation_info_) {
-        isolation_info_ =
-            std::make_unique<IsolationInfo>(request->isolation_info());
-      } else {
-        EXPECT_TRUE(
-            isolation_info_->IsEqualForTesting(request->isolation_info()));
-      }
-    }
+    // All DoH requests should use the same IsolationInfo, so network objects
+    // like sockets can be reused between requests.
+    EXPECT_TRUE(DnsHTTPAttempt::GetDohIsolationInfo().IsEqualForTesting(
+        request->isolation_info()));
 
     EXPECT_FALSE(request->allow_credentials());
     EXPECT_EQ(SecureDnsPolicy::kBootstrap, request->secure_dns_policy());
@@ -957,6 +988,11 @@ class DnsTransactionTestBase : public testing::Test {
     config_.fallback_period = kFallbackPeriod;
     auto context_builder = CreateTestURLRequestContextBuilder();
     socket_factory_ = std::make_unique<TestSocketFactory>();
+#if BUILDFLAG(IS_ANDROID)
+    context_builder->set_dns_platform_attempt_factory(
+        DnsPlatformAttemptFactoryAndroid::CreateForTesting(
+            &mock_dns_platform_android_attempt_delegate_));
+#endif
     context_builder->set_client_socket_factory_for_testing(
         socket_factory_.get());
     request_context_ = context_builder->Build();
@@ -976,11 +1012,6 @@ class DnsTransactionTestBase : public testing::Test {
     filter->ClearHandlers();
   }
 
-  void set_expect_multiple_isolation_infos(
-      bool expect_multiple_isolation_infos) {
-    expect_multiple_isolation_infos_ = expect_multiple_isolation_infos;
-  }
-
  protected:
   int GetNextId(int min, int max) {
     EXPECT_FALSE(transaction_ids_.empty());
@@ -997,6 +1028,10 @@ class DnsTransactionTestBase : public testing::Test {
 
   base::circular_deque<int> transaction_ids_;
   std::unique_ptr<TestSocketFactory> socket_factory_;
+#if BUILDFLAG(IS_ANDROID)
+  MockAndroidDnsPlatformAttemptDelegate
+      mock_dns_platform_android_attempt_delegate_;
+#endif
   std::unique_ptr<URLRequestContext> request_context_;
   std::unique_ptr<ResolveContext> resolve_context_;
   scoped_refptr<DnsSession> session_;
@@ -1004,15 +1039,6 @@ class DnsTransactionTestBase : public testing::Test {
   ResponseModifierCallback response_modifier_;
   UrlRequestStartedCallback on_start_;
   DohJobMakerCallback doh_job_maker_;
-
-  // Whether multiple IsolationInfos should be expected (due to there being
-  // multiple RequestContexts in use).
-  bool expect_multiple_isolation_infos_ = false;
-
-  // IsolationInfo used by DoH requests. Populated on first DoH request, and
-  // compared to IsolationInfo used by all subsequent requests, unless
-  // |expect_multiple_isolation_infos_| is true.
-  std::unique_ptr<IsolationInfo> isolation_info_;
 };
 
 class DnsTransactionTest : public DnsTransactionTestBase,
@@ -2461,7 +2487,8 @@ TEST_F(DnsTransactionTest, HttpsPostTestNoCookies) {
   GURL cookie_url(GetURLFromTemplateWithoutParameters(
       config_.doh_config.servers()[0].server_template()));
   auto cookie = CanonicalCookie::CreateForTesting(
-      cookie_url, "test-cookie=you-still-fail", base::Time::Now());
+      cookie_url, "test-cookie=you-still-fail", base::Time::Now(),
+      CookieSourceType::kOther);
   request_context_->cookie_store()->SetCanonicalCookieAsync(
       std::move(cookie), cookie_url, CookieOptions(),
       base::BindOnce(&CookieCallback::SetCookieCallback,
@@ -3462,6 +3489,163 @@ TEST_F(DnsTransactionTestWithMockTime, ProbeUntilSuccess) {
   EXPECT_EQ(doh_itr->GetNextAttemptIndex(), 0u);
 }
 
+TEST_F(DnsTransactionTestWithMockTime, ProbeSuppressedByContext) {
+  config_.secure_dns_mode = SecureDnsMode::kAutomatic;
+  ConfigureDohServers(/*use_post=*/false, /*num_doh_servers=*/1,
+                      /*make_available=*/false,
+                      /*use_doh_fallback_upgrade=*/true);
+  ASSERT_FALSE(config_.doh_config.servers().empty());
+
+  resolve_context_->set_doh_fallback_upgrade_allowed(false);
+
+  size_t url_requests_started = 0;
+  SetUrlRequestStartedCallback(
+      base::BindLambdaForTesting([&] { url_requests_started++; }));
+
+  std::unique_ptr<DnsProbeRunner> runner =
+      transaction_factory_->CreateDohProbeRunner(resolve_context_.get());
+  runner->Start(/*network_change=*/false);
+
+  // Even after backoff delay, next attempts are suppressed.
+  FastForwardBy(runner->GetDelayUntilNextProbeForTest(0));
+  EXPECT_EQ(url_requests_started, 0u);
+  CheckServerOrder({});
+}
+
+TEST_F(DnsTransactionTestWithMockTime, ProbeSuppressionChange) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kForceSecureDnsDohFallback);
+
+  config_.secure_dns_mode = SecureDnsMode::kAutomatic;
+  ConfigureDohServers(/*use_post=*/false, /*num_doh_servers=*/1,
+                      /*make_available=*/false,
+                      /*use_doh_fallback_upgrade=*/true);
+  ASSERT_FALSE(config_.doh_config.servers().empty());
+
+  // Initially suppressed.
+  resolve_context_->set_doh_fallback_upgrade_allowed(false);
+
+  size_t url_requests_started = 0;
+  SetUrlRequestStartedCallback(
+      base::BindLambdaForTesting([&] { url_requests_started++; }));
+
+  std::unique_ptr<DnsProbeRunner> runner =
+      transaction_factory_->CreateDohProbeRunner(resolve_context_.get());
+  runner->Start(/*network_change=*/false);
+
+  FastForwardBy(runner->GetDelayUntilNextProbeForTest(0));
+  EXPECT_EQ(url_requests_started, 0u);
+
+  // Change allowance.
+  resolve_context_->set_doh_fallback_upgrade_allowed(true);
+
+  // Still 0 even after backoff, because probes were not rescheduled while
+  // suppressed.
+  FastForwardBy(runner->GetDelayUntilNextProbeForTest(0));
+  EXPECT_EQ(url_requests_started, 0u);
+
+  // After a simulated network change (re-starting), the probe should finally go
+  // out.
+  AddQueryAndResponse(/*id=*/0, kT4HostName, kT4Qtype, kT4ResponseDatagram,
+                      ASYNC, Transport::HTTPS, /*opt_rdata=*/nullptr,
+                      DnsQuery::PaddingStrategy::BLOCK_LENGTH_128,
+                      /*enqueue_transaction_id=*/false);
+
+  runner->Start(/*network_change=*/true);
+  EXPECT_TRUE(base::test::RunUntil([&] { return url_requests_started == 1u; }));
+
+  EXPECT_TRUE(resolve_context_->GetDohServerAvailability(0, session_.get()));
+  CheckServerOrder({session_->config().nameservers.size()});
+}
+
+TEST_F(DnsTransactionTestWithMockTime,
+       ProbeNotSuppressedWithoutFallbackConfig) {
+  config_.secure_dns_mode = SecureDnsMode::kAutomatic;
+  ConfigureDohServers(/*use_post=*/true, /*num_doh_servers=*/1,
+                      /*make_available=*/false,
+                      /*use_doh_fallback_upgrade=*/false);
+  ASSERT_FALSE(config_.doh_config.servers().empty());
+
+  // Even if false, standard DoH probes should NOT be suppressed.
+  resolve_context_->set_doh_fallback_upgrade_allowed(false);
+
+  AddQueryAndResponse(/*id=*/0, kT4HostName, kT4Qtype, kT4ResponseDatagram,
+                      ASYNC, Transport::HTTPS, /*opt_rdata=*/nullptr,
+                      DnsQuery::PaddingStrategy::BLOCK_LENGTH_128,
+                      /*enqueue_transaction_id=*/false);
+
+  size_t url_requests_started = 0;
+  SetUrlRequestStartedCallback(
+      base::BindLambdaForTesting([&] { url_requests_started++; }));
+
+  std::unique_ptr<DnsProbeRunner> runner =
+      transaction_factory_->CreateDohProbeRunner(resolve_context_.get());
+  runner->Start(/*network_change=*/false);
+
+  // The first probe attempt should NOT be suppressed.
+  EXPECT_TRUE(base::test::RunUntil([&] { return url_requests_started == 1u; }));
+  CheckServerOrder({session_->config().nameservers.size()});
+}
+
+TEST_F(DnsTransactionTestWithMockTime,
+       ProbeAllowedInitiallyWithFallbackConfig) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kForceSecureDnsDohFallback);
+
+  config_.secure_dns_mode = SecureDnsMode::kAutomatic;
+  ConfigureDohServers(/*use_post=*/false, /*num_doh_servers=*/1,
+                      /*make_available=*/false,
+                      /*use_doh_fallback_upgrade=*/true);
+  ASSERT_FALSE(config_.doh_config.servers().empty());
+
+  // Initially allowed.
+  resolve_context_->set_doh_fallback_upgrade_allowed(true);
+
+  AddQueryAndResponse(/*id=*/0, kT4HostName, kT4Qtype, kT4ResponseDatagram,
+                      ASYNC, Transport::HTTPS, /*opt_rdata=*/nullptr,
+                      DnsQuery::PaddingStrategy::BLOCK_LENGTH_128,
+                      /*enqueue_transaction_id=*/false);
+
+  size_t url_requests_started = 0;
+  SetUrlRequestStartedCallback(
+      base::BindLambdaForTesting([&] { url_requests_started++; }));
+
+  std::unique_ptr<DnsProbeRunner> runner =
+      transaction_factory_->CreateDohProbeRunner(resolve_context_.get());
+  runner->Start(/*network_change=*/false);
+
+  // The first probe attempt should NOT be suppressed.
+  EXPECT_TRUE(base::test::RunUntil([&] { return url_requests_started == 1u; }));
+  CheckServerOrder({session_->config().nameservers.size()});
+}
+
+TEST_F(DnsTransactionTestWithMockTime,
+       ProbeSuppressedWithFallbackConfigAndFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kForceSecureDnsDohFallback);
+
+  config_.secure_dns_mode = SecureDnsMode::kAutomatic;
+  ConfigureDohServers(/*use_post=*/false, /*num_doh_servers=*/1,
+                      /*make_available=*/false,
+                      /*use_doh_fallback_upgrade=*/true);
+  ASSERT_FALSE(config_.doh_config.servers().empty());
+
+  // Probes should be suppressed if the feature flag is DISABLED,
+  // even if fallback upgrade is ALLOWED.
+  resolve_context_->set_doh_fallback_upgrade_allowed(true);
+
+  size_t url_requests_started = 0;
+  SetUrlRequestStartedCallback(
+      base::BindLambdaForTesting([&] { url_requests_started++; }));
+
+  std::unique_ptr<DnsProbeRunner> runner =
+      transaction_factory_->CreateDohProbeRunner(resolve_context_.get());
+  runner->Start(/*network_change=*/false);
+
+  FastForwardBy(runner->GetDelayUntilNextProbeForTest(0));
+  EXPECT_EQ(url_requests_started, 0u);
+}
+
 TEST_F(DnsTransactionTestWithMockTime, ProbeCreationTriggersSuccessMetric) {
   config_.secure_dns_mode = SecureDnsMode::kAutomatic;
   ConfigureDohServers(/*use_post=*/true, /*num_doh_servers=*/1,
@@ -3733,11 +3917,6 @@ TEST_F(DnsTransactionTestWithMockTime, MultipleProbeRunners) {
 }
 
 TEST_F(DnsTransactionTestWithMockTime, MultipleProbeRunners_SeparateContexts) {
-  // Each RequestContext uses its own transient IsolationInfo. Since there's
-  // typically only one RequestContext per URLRequestContext, there's no
-  // advantage in using the same IsolationInfo across RequestContexts.
-  set_expect_multiple_isolation_infos(true);
-
   ConfigureDohServers(true /* use_post */, 1 /* num_doh_servers */,
                       false /* make_available */);
   AddQueryAndResponse(0 /* id */, kT4HostName, kT4Qtype, kT4ResponseDatagram,
@@ -4291,6 +4470,118 @@ TEST_F(DnsTransactionTestWithMockTime, HttpsConnectionRefusedAfterFallback) {
   EXPECT_TRUE(helper0.has_completed());
 }
 
+#if BUILDFLAG(IS_ANDROID)
+
+const std::vector<uint8_t> successful_dns_response = {
+    // Header
+    0x00, 0x00, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+    // Question section
+    0x03, 0x77, 0x77, 0x77, 0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03,
+    0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01,
+    // Answer section
+    0xc0, 0x0c, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x04,
+    0xc0, 0xa8, 0x01, 0x01};
+
+TEST_F(DnsTransactionTest, PlatformAttemptSuccess) {
+  if (__builtin_available(android 29, *)) {
+    base::ScopedFD fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
+
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                      dns_protocol::kTypeA))
+        .WillOnce(Return(fd.get()));
+
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Result(fd.get(), _, _))
+        .WillOnce([&](int, int* rcode, base::span<uint8_t> answer) {
+          *rcode = dns_protocol::kRcodeNOERROR;
+          std::ranges::copy(successful_dns_response, answer.begin());
+          return successful_dns_response.size();
+        });
+
+    TransactionHelper helper(/*expected_answer_count=*/1);
+    helper.StartTransaction(
+        transaction_factory_.get(), "www.google.com", dns_protocol::kTypeA,
+        DnsTransactionFactory::AttemptMode::kPlatform, resolve_context_.get());
+    EXPECT_FALSE(helper.has_completed());
+    helper.RunUntilComplete();
+    ASSERT_TRUE(helper.has_completed());
+    EXPECT_EQ(helper.response()->rcode(), dns_protocol::kRcodeNOERROR);
+  } else {
+    GTEST_SKIP_("Skip test on Android version below 29.");
+  }
+}
+
+TEST_F(DnsTransactionTestWithMockTime, PlatformAttemptTimeout) {
+  if (__builtin_available(android 29, *)) {
+    base::ScopedFD fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithNoData();
+
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                      dns_protocol::kTypeA))
+        .WillOnce(Return(fd.get()));
+
+    TransactionHelper helper(ERR_DNS_TIMED_OUT);
+    helper.StartTransaction(
+        transaction_factory_.get(), "www.google.com", dns_protocol::kTypeA,
+        DnsTransactionFactory::AttemptMode::kPlatform, resolve_context_.get());
+    EXPECT_FALSE(helper.has_completed());
+    FastForwardBy(features::kDnsMinTransactionTimeout.Get());
+    helper.RunUntilComplete();
+    ASSERT_TRUE(helper.has_completed());
+  } else {
+    GTEST_SKIP_("Skip test on Android version below 29.");
+  }
+}
+
+TEST_F(DnsTransactionTest, PlatformAttemptUsesSuffixSearchList) {
+  if (__builtin_available(android 29, *)) {
+    config_.search.push_back("com");
+    config_.ndots = 1;
+    ConfigureFactory();
+    base::ScopedFD first_query_fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
+    EXPECT_CALL(
+        mock_dns_platform_android_attempt_delegate_,
+        Query(NETWORK_UNSPECIFIED, StrEq("www.google"), dns_protocol::kTypeA))
+        .WillOnce(Return(first_query_fd.get()));
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Result(first_query_fd.get(), _, _))
+        .WillOnce([&](int, int* rcode, base::span<uint8_t> answer) {
+          *rcode = dns_protocol::kRcodeNXDOMAIN;
+          return 0;
+        });
+
+    base::ScopedFD second_query_fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                      dns_protocol::kTypeA))
+        .WillOnce(Return(second_query_fd.get()));
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Result(second_query_fd.get(), _, _))
+        .WillOnce([&](int, int* rcode, base::span<uint8_t> answer) {
+          *rcode = dns_protocol::kRcodeNOERROR;
+          std::ranges::copy(successful_dns_response, answer.begin());
+          return successful_dns_response.size();
+        });
+
+    TransactionHelper helper(/*expected_answer_count=*/1);
+    helper.StartTransaction(
+        transaction_factory_.get(), "www.google", dns_protocol::kTypeA,
+        DnsTransactionFactory::AttemptMode::kPlatform, resolve_context_.get());
+    EXPECT_FALSE(helper.has_completed());
+    helper.RunUntilComplete();
+    ASSERT_TRUE(helper.has_completed());
+    EXPECT_EQ(helper.response()->rcode(), dns_protocol::kRcodeNOERROR);
+  } else {
+    GTEST_SKIP_("Skip test on Android version below 29.");
+  }
+}
+
+#endif  // BUILDFLAG(IS_ANDROID)
 }  // namespace
 
 }  // namespace net

@@ -347,15 +347,6 @@ struct OpenScannerResponse {
   map<string, ScannerOption>? options@3;
 };
 
-// The response from calling `CloseScanner()`.
-struct CloseScannerResponse {
-  // Same scanner_handle value passed to `CloseScanner()`.
-  string scanner_handle@0;
-
-  // Backend result of closing the scanner handle.
-  ScannerOperationResult result@1;
-};
-
 // Options for `StartPreparedScan()` that are not already specified via a
 // `ScannerOption`.  These tend to cover how the scanning framework itself works
 // as opposed to how a scanner works.
@@ -455,15 +446,6 @@ struct GetOptionGroupsResponse {
   array<OptionGroup>? groups@2;
 };
 
-// The response from calling `CancelScan`.
-struct CancelScanResponse {
-  // The same job handle that was passed to `CancelScan()`.
-  string job_handle@0;
-
-  // The backend's cancel result.
-  ScannerOperationResult result@1;
-};
-
 // This interface is used to access scanners.
 // Next version: 6
 // Next method id: 10
@@ -472,15 +454,14 @@ interface DocumentScan {
   // Deprecated@1 (crbug.com/317056194)
   // GetScannerNames@0 was removed.
   // GetScannerList@2 was removed.
+  // CancelScan@9 was removed.
+  // GetOptionGroups@8 was removed.
+  // CloseScanner@4 was removed.
 
   // Open an exclusive handle to a scanner returned from `GetScannerList()`.
   [MinVersion=2]
   OpenScanner@3(string client_id, string scanner_id)
       => (OpenScannerResponse response);
-
-  // Close a scanner handle opened by `OpenScanner()`.
-  [MinVersion=2]
-  CloseScanner@4(string scanner_handle) => (CloseScannerResponse response);
 
   // Starts a scan on a scanner opened by `OpenScanner()`.  The scanner's
   // current options, set via `SetOptions()`, are used along with the `options`
@@ -498,13 +479,4 @@ interface DocumentScan {
   [MinVersion=4]
   SetOptions@7(string scanner_handle, array<OptionSetting> options)
       => (SetOptionsResponse response);
-
-  // Get the option groups for a scanner opened by `OpenScanner()`.
-  [MinVersion=4]
-  GetOptionGroups@8(string scanner_handle)
-      => (GetOptionGroupsResponse response);
-
-  // Cancel a scan using the handle returned from `StartPreparedScan()`.
-  [MinVersion=5]
-  CancelScan@9(string job_handle) => (CancelScanResponse response);
 };

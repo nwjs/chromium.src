@@ -11,6 +11,7 @@
 #include "base/base64url.h"
 #include "base/command_line.h"
 #include "base/containers/span.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
@@ -292,7 +293,8 @@ void RequestService::RequestToken(
     MediationRequirement requirement,
     NavigationHandle* navigation_handle,
     RequestTokenCallback callback) {
-  if (ShouldTerminateRequest(idp_get_params_ptrs, requirement)) {
+  if (ShouldTerminateRequest(idp_get_params_ptrs, requirement,
+                             navigation_handle)) {
     return;
   }
   bool intercept = false;
@@ -345,14 +347,18 @@ void RequestService::RequestToken(
     return;
   }
 
-  can_accept_redirect_to_ =
-      force_allow_redirect_to_for_testing_ ||
-      (IsNavigationInterceptionEnabled() && navigation_handle != nullptr);
+  can_accept_redirect_to_ = force_allow_redirect_to_for_testing_ ||
+                            ((IsNavigationInterceptionEnabled() ||
+                              HasEmbedderLoginRequest(&render_frame_host())) &&
+                             navigation_handle != nullptr);
 
   had_transient_user_activation_ =
       (navigation_handle &&
        DidNavigationHandleHaveActivation(navigation_handle)) ||
       render_frame_host().HasTransientUserActivation();
+  if (navigation_handle) {
+    intercepted_url_ = navigation_handle->GetURL();
+  }
 
   // Store the previous `idp_order_` value from this class. Note that this is {}
   // unless there is a pending request from the same RFH. In particular, this is
@@ -591,6 +597,14 @@ void RequestService::RequestToken(
 void RequestService::RequestUserInfo(
     blink::mojom::IdentityProviderConfigPtr provider,
     RequestUserInfoCallback callback) {
+  // Enforce identity-credentials-get Permissions Policy browser-side.
+  // The renderer checks this, but a compromised renderer can bypass it.
+  if (!render_frame_host().IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
+    ReportBadMessage("identity-credentials-get permissions policy not enabled");
+    return;
+  }
+
   if (!render_frame_host().GetPage().IsPrimary()) {
     ReportBadMessage("FedCM should not be allowed in nested frame trees.");
     return;
@@ -628,20 +642,13 @@ void RequestService::CancelTokenRequest() {
 
 void RequestService::ResolveTokenRequest(
     const std::optional<std::string>& account_id,
-    blink::mojom::FedCmRedirectMethod method,
-    const std::optional<GURL>& redirect_to,
-    const std::string& request_body,
-    base::Value token,
+    blink::mojom::ResolveTokenParamsPtr params,
     ResolveTokenRequestCallback callback) {
-  if (redirect_to) {
-    // GET must not have a body; POST must have a body.
-    if (method == blink::mojom::FedCmRedirectMethod::kGet &&
-        !request_body.empty()) {
-      ReportBadMessage("GET redirects must not have a body");
-      return;
-    }
-    if (method == blink::mojom::FedCmRedirectMethod::kPost &&
-        request_body.empty()) {
+  if (params->is_redirect_to()) {
+    const blink::mojom::RedirectParamsPtr& redirect_to =
+        params->get_redirect_to();
+    if (redirect_to->is_post() &&
+        redirect_to->get_post()->request_body.empty()) {
       ReportBadMessage("POST redirects must have a body");
       return;
     }
@@ -652,8 +659,8 @@ void RequestService::ResolveTokenRequest(
     return;
   }
 
-  bool accepted = identity_registry_->NotifyResolve(
-      origin(), account_id, method, redirect_to, request_body, token);
+  bool accepted = identity_registry_->NotifyResolve(origin(), account_id,
+                                                    std::move(params));
   std::move(callback).Run(accepted);
 }
 
@@ -716,11 +723,6 @@ void RequestService::RegisterIdP(const GURL& idp,
     return;
   }
 
-  if (!render_frame_host().HasTransientUserActivation()) {
-    std::move(callback).Run(RegisterIdpStatus::kErrorNoTransientActivation);
-    return;
-  }
-
   if (!network_manager_) {
     network_manager_ = CreateNetworkManager();
   }
@@ -743,25 +745,8 @@ void RequestService::OnIdpRegistrationConfigFetched(
     return;
   }
 
-  if (!request_dialog_controller_) {
-    request_dialog_controller_ = CreateDialogController();
-  }
-
-  request_dialog_controller_->RequestIdPRegistrationPermision(
-      origin(),
-      base::BindOnce(&RequestService::OnRegisterIdPPermissionResponse,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback), idp));
-}
-
-void RequestService::OnRegisterIdPPermissionResponse(
-    RegisterIdPCallback callback,
-    const GURL& idp,
-    bool accepted) {
-  if (accepted) {
-    permission_delegate_->RegisterIdP(idp);
-  }
-  std::move(callback).Run(accepted ? RegisterIdpStatus::kSuccess
-                                   : RegisterIdpStatus::kErrorDeclined);
+  permission_delegate_->RegisterIdP(idp);
+  std::move(callback).Run(RegisterIdpStatus::kSuccess);
 }
 
 void RequestService::UnregisterIdP(const GURL& idp,
@@ -943,7 +928,7 @@ bool RequestService::CanShowContinueOnPopup() const {
   if (identity_selection_type_ == kExplicit) {
     return true;
   }
-  DCHECK_EQ(identity_selection_type_, kAutoPassive);
+
   return had_transient_user_activation_;
 }
 
@@ -1380,6 +1365,13 @@ void RequestService::NotifyAutofillSuggestionAccepted(
   // approved_clients array). We should figure out how to reconcile these two
   // modes.
   auto get_info_it = token_request_get_infos_.find(idp);
+  if (get_info_it == token_request_get_infos_.end()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(token_received_callback_for_autofill_),
+                       false));
+    return;
+  }
 
   // TODO(crbug.com/412640661): Currently, in order to skip the account chooser
   // and go straight to the disclosure UI, we have to call ShowLoadingDialog()
@@ -1584,7 +1576,7 @@ void RequestService::OnAccountSelected(const GURL& idp_config_url,
       weak_ptr_factory_.GetWeakPtr(), idp_info.provider->Clone());
 
   IdpNetworkRequestManager::RedirectToCallback redirect_to;
-  if (IsNavigationInterceptionEnabled()) {
+  if (can_accept_redirect_to_) {
     redirect_to = base::BindOnce(&RequestService::OnRedirectToResponseReceived,
                                  weak_ptr_factory_.GetWeakPtr(),
                                  idp_info.provider->Clone());
@@ -1650,7 +1642,7 @@ void RequestService::OnDismissFailureDialog(
       dismiss_reason == IdentityRequestDialogController::DismissReason::kSwipe;
   fedcm_metrics_->RecordCancelReason(dismiss_reason);
 
-  should_embargo &= rp_mode_ == RpMode::kPassive;
+  should_embargo &= rp_mode_ == RpMode::kPassive && !IsUsingAmbient();
   if (should_embargo) {
     api_permission_delegate_->RecordDismissAndEmbargo(GetEmbeddingOrigin());
   }
@@ -1710,7 +1702,7 @@ void RequestService::OnDialogDismissed(
   }
   fedcm_metrics_->RecordCancelReason(dismiss_reason);
 
-  should_embargo &= rp_mode_ == RpMode::kPassive;
+  should_embargo &= rp_mode_ == RpMode::kPassive && !IsUsingAmbient();
   if (should_embargo) {
     api_permission_delegate_->RecordDismissAndEmbargo(GetEmbeddingOrigin());
   }
@@ -1822,14 +1814,14 @@ void RequestService::OnContinueOnResponseReceived(
 void RequestService::OnRedirectToResponseReceived(
     IdentityProviderRequestOptionsPtr idp,
     FetchStatus status,
-    blink::mojom::FedCmRedirectMethod method,
+    blink::mojom::RedirectParams::Tag method,
     const GURL& redirect_to,
     const std::string& request_body) {
   RedirectTo(idp->config->config_url, method, redirect_to, request_body);
 }
 
 void RequestService::RedirectTo(const GURL& idp_config_url,
-                                blink::mojom::FedCmRedirectMethod method,
+                                blink::mojom::RedirectParams::Tag method,
                                 const GURL& redirect_to,
                                 const std::string& request_body) {
   // Navigate the top-level frame to the URL specified by the IdP.
@@ -1848,8 +1840,8 @@ void RequestService::RedirectTo(const GURL& idp_config_url,
   // can_accept_redirect_to_ is only true for primary main frames.
   DCHECK(render_frame_host().IsInPrimaryMainFrame());
 
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(&render_frame_host());
+  WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
+      content::WebContents::FromRenderFrameHost(&render_frame_host()));
 
   if (!web_contents) {
     CompleteRequestWithError(FederatedAuthRequestResult::kError,
@@ -1860,9 +1852,27 @@ void RequestService::RedirectTo(const GURL& idp_config_url,
 
   content::NavigationController::LoadURLParams params(redirect_to);
   params.transition_type = ui::PAGE_TRANSITION_LINK;
-  if (method == blink::mojom::FedCmRedirectMethod::kPost) {
+  params.initiator_frame_token = render_frame_host().GetFrameToken();
+  params.initiator_process_id =
+      render_frame_host().GetProcess()->GetID().value();
+  params.initiator_origin = origin();
+  params.source_site_instance = render_frame_host().GetSiteInstance();
+  params.referrer =
+      Referrer(intercepted_url_, network::mojom::ReferrerPolicy::kDefault);
+  // Pretend this was renderer initiated like the load we intercepted.
+  params.is_renderer_initiated = true;
+  params.has_user_gesture = had_transient_user_activation_;
+  // This is used for "Request Desktop Site" on Android.
+  if (web_contents->ShouldOverrideUserAgentForRendererInitiatedNavigation()) {
+    params.override_user_agent = NavigationController::UA_OVERRIDE_TRUE;
+  } else {
+    params.override_user_agent = NavigationController::UA_OVERRIDE_FALSE;
+  }
+  if (method == blink::mojom::RedirectParams::Tag::kPost) {
     params.transition_type = ui::PAGE_TRANSITION_FORM_SUBMIT;
     params.load_type = NavigationController::LOAD_TYPE_HTTP_POST;
+    // It is very important that we only allow bytes in the post data, so that
+    // it is not possible to trigger file uploads that bypass security checks.
     params.post_data = network::ResourceRequestBody::CreateFromCopyOfBytes(
         base::as_byte_span(request_body));
     params.extra_headers =
@@ -2267,6 +2277,7 @@ void RequestService::CleanUp() {
   identity_selection_type_ = kExplicit;
   had_transient_user_activation_ = false;
   rp_mode_ = RpMode::kPassive;
+  intercepted_url_ = GURL();
   complete_request_delayed_ = false;
 }
 
@@ -2402,10 +2413,7 @@ void RequestService::OnClose() {
 
 bool RequestService::OnResolve(GURL idp_config_url,
                                const std::optional<std::string>& account_id,
-                               blink::mojom::FedCmRedirectMethod method,
-                               const std::optional<GURL>& redirect_to,
-                               const std::string& request_body,
-                               const base::Value& token) {
+                               blink::mojom::ResolveTokenParamsPtr params) {
   // Close the pop-up window post user permission.
   if (!request_dialog_controller_) {
     return false;
@@ -2432,12 +2440,27 @@ bool RequestService::OnResolve(GURL idp_config_url,
       idp_infos_[idp_config_url]->provider;
   DCHECK(provider);
 
-  if (redirect_to && redirect_to->is_valid() &&
-      IsNavigationInterceptionEnabled()) {
-    RedirectTo(idp_config_url, method, *redirect_to, request_body);
+  if (params->is_redirect_to() && can_accept_redirect_to_) {
+    const auto& redirect_to = params->get_redirect_to();
+    if (redirect_to->is_get()) {
+      RedirectTo(idp_config_url, blink::mojom::RedirectParams::Tag::kGet,
+                 redirect_to->get_get()->url, "");
+    } else {
+      DCHECK(redirect_to->is_post());
+      RedirectTo(idp_config_url, blink::mojom::RedirectParams::Tag::kPost,
+                 redirect_to->get_post()->url,
+                 redirect_to->get_post()->request_body);
+    }
     return true;
   }
 
+  if (!params->is_token()) {
+    // This could happen if we get a redirect request but interception is
+    // disabled, for example when we have no active embedder initiated login.
+    return false;
+  }
+
+  const base::Value& token = params->get_token();
   if (provider->format && *provider->format == blink::mojom::Format::kSdJwt) {
     if (token.is_string()) {
       federated_sdjwt_handler_->ProcessSdJwt(token.GetString());
@@ -2779,6 +2802,14 @@ void RequestService::PreventSilentAccess(PreventSilentAccessCallback callback) {
 void RequestService::Disconnect(
     blink::mojom::IdentityCredentialDisconnectOptionsPtr options,
     DisconnectCallback callback) {
+  // Enforce identity-credentials-get Permissions Policy browser-side.
+  // The renderer checks this, but a compromised renderer can bypass it.
+  if (!render_frame_host().IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
+    ReportBadMessage("identity-credentials-get permissions policy not enabled");
+    return;
+  }
+
   std::unique_ptr<Metrics> disconnect_metrics = CreateFedCmMetrics();
   if (disconnect_request_) {
     // Since we do not send any fetches in this case, consider the request to be
@@ -2853,7 +2884,19 @@ bool RequestService::IsNewlyLoggedIn(const IdentityRequestAccount& account) {
 
 bool RequestService::ShouldTerminateRequest(
     const std::vector<IdentityProviderGetParametersPtr>& idp_get_params_ptrs,
-    const MediationRequirement& requirement) {
+    const MediationRequirement& requirement,
+    NavigationHandle* navigation_handle) {
+  // Enforce identity-credentials-get Permissions Policy browser-side.
+  // The renderer checks this, but a compromised renderer can bypass it.
+  // Navigation interception calls pass a non-null navigation_handle and are
+  // browser-initiated, so the check only applies to Mojo calls.
+  if (!navigation_handle &&
+      !render_frame_host().IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
+    ReportBadMessage("identity-credentials-get permissions policy not enabled");
+    return true;
+  }
+
   // idp_get_params_ptrs sent from the renderer should be of size 1.
   if (idp_get_params_ptrs.size() != 1u) {
     ReportBadMessage("idp_get_params_ptrs should be of size 1.");
@@ -2971,6 +3014,22 @@ bool RequestService::HandlePendingRequestAndCancelNewRequest(
   idp_order_ = std::move(new_idp_order);
 
   return false;
+}
+
+bool RequestService::IsUsingAmbient() const {
+  if (!IsFedCmAmbientUIEnabled() || rp_mode_ != RpMode::kPassive ||
+      idp_order_.size() != 1u) {
+    return false;
+  }
+
+  size_t accounts_count = accounts_.size();
+
+  // Currently, the Ambient UI only supports single accounts, for returning
+  // users and new users. As we develop it, we'll allow more cases to be
+  // handled by the Ambient UI, such as multiple accounts, multiple IdPs and
+  // mismatch cases.
+
+  return accounts_count == 1u;
 }
 
 RelyingPartyData RequestService::CreateRpData(

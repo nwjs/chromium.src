@@ -193,6 +193,15 @@ class AIProofreaderTest : public AITestUtils::AITestBase {
     // Return Proofreader's response without the final empty string chunk.
     return responder.responses_without_last();
   }
+
+  void EnsureModelIsReady() {
+    TestCreateProofreaderClient proofreader_client;
+    GetAIManagerRemote()->CreateProofreader(
+        proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+
+    auto result = proofreader_client.result().Take();
+    EXPECT_OK(result);
+  }
 };
 
 TEST_F(AIProofreaderTest, CreateProofreaderNoService) {
@@ -209,76 +218,40 @@ TEST_F(AIProofreaderTest, CreateProofreaderNoService) {
           blink::mojom::AIManagerCreateClientError::kUnableToCreateSession));
 }
 
-TEST_F(AIProofreaderTest, CanCreateWaitsForEligibility) {
-  base::test::TestFuture<base::OnceCallback<void(
-      optimization_guide::OnDeviceModelEligibilityReason)>>
-      eligibility_future;
-
-  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibilityAsync(_, _, _))
-      .WillOnce([&](auto feature, auto capabilities, auto callback) {
-        eligibility_future.SetValue(std::move(callback));
-      });
-
-  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult>
-      result_future;
-  GetAIManagerInterface()->CanCreateProofreader(GetDefaultOptions(),
-                                                result_future.GetCallback());
-  // Session should not be ready until eligibility callback has run.
-  EXPECT_FALSE(result_future.IsReady());
-  eligibility_future.Take().Run(
-      optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
-  EXPECT_EQ(result_future.Get(),
-            blink::mojom::ModelAvailabilityCheckResult::kAvailable);
-}
-
-TEST_F(AIProofreaderTest, CanCreateUnavailableWhenAdaptationNotAvailable) {
-  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibilityAsync(_, _, _))
-      .WillOnce([&](auto feature, auto capabilities, auto callback) {
-        std::move(callback).Run(
-            optimization_guide::OnDeviceModelEligibilityReason::
-                kModelAdaptationNotAvailable);
-      });
-
-  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult>
-      result_future;
-  GetAIManagerInterface()->CanCreateProofreader(GetDefaultOptions(),
-                                                result_future.GetCallback());
-  EXPECT_EQ(result_future.Get(), blink::mojom::ModelAvailabilityCheckResult::
-                                     kUnavailableModelAdaptationNotAvailable);
-}
-
 TEST_F(AIProofreaderTest, CanCreateDefaultOptions) {
-  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibilityAsync(_, _, _))
-      .WillOnce([](auto feature, auto capabilities, auto callback) {
-        std::move(callback).Run(
-            optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
-      });
-  base::MockCallback<AIManager::CanCreateProofreaderCallback> callback;
-  EXPECT_CALL(callback,
-              Run(blink::mojom::ModelAvailabilityCheckResult::kAvailable));
-  GetAIManagerInterface()->CanCreateProofreader(GetDefaultOptions(),
-                                                callback.Get());
+  {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    GetAIManagerInterface()->CanCreateProofreader(GetDefaultOptions(),
+                                                  future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+  }
+
+  // After model is ready, `CanCreateProofreader` should return available.
+  EnsureModelIsReady();
+
+  {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    GetAIManagerInterface()->CanCreateProofreader(GetDefaultOptions(),
+                                                  future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kAvailable);
+  }
 }
 
 TEST_F(AIProofreaderTest, CanCreateIsLanguagesSupported) {
-  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibilityAsync(_, _, _))
-      .WillOnce([](auto feature, auto capabilities, auto callback) {
-        std::move(callback).Run(
-            optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
-      });
+  EnsureModelIsReady();
+
   auto options = GetDefaultOptions();
   options->correction_explanation_language = AILanguageCode::New("en");
   options->expected_input_languages =
       AITestUtils::ToMojoLanguageCodes({"en-US", ""});
-  base::MockCallback<AIManager::CanCreateProofreaderCallback> callback;
-  EXPECT_CALL(callback,
-              Run(blink::mojom::ModelAvailabilityCheckResult::kAvailable));
+
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
   GetAIManagerInterface()->CanCreateProofreader(std::move(options),
-                                                callback.Get());
+                                                future.GetCallback());
+  EXPECT_EQ(future.Get(),
+            blink::mojom::ModelAvailabilityCheckResult::kAvailable);
 }
 
 TEST_F(AIProofreaderTest, CanCreateUnIsLanguagesSupported) {
@@ -566,11 +539,102 @@ TEST_F(AIProofreaderTest, ServiceCrash) {
   fake_broker_->CrashService();
 
   EXPECT_FALSE(responder.WaitForCompletion());
-  EXPECT_EQ(responder.error_status(),
-            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
+  // TODO(crbug.com/494980521): Crashes should be yield kErrorSessionDestroyed.
+  EXPECT_EQ(
+      responder.error_status(),
+      blink::mojom::ModelStreamingResponseStatus::kErrorFailedToCountTokens);
 
   proofreader_remote = GetAIProofreaderRemote();
   EXPECT_THAT(Proofread(*proofreader_remote, kInputString), ElementsAre("hi"));
+}
+
+TEST_F(AIProofreaderTest, DynamicConstraints) {
+  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
+      CreateConfig();
+
+  optimization_guide::proto::ProofreaderApiMetadata metadata;
+  metadata.mutable_constraints()->mutable_label_mode_constraint()->set_regex(
+      "^Correction type.*");
+
+  auto* feature_metadata = config.mutable_feature_metadata();
+  feature_metadata->set_type_url(
+      "type.googleapis.com/optimization_guide.proto.ProofreaderApiMetadata");
+  feature_metadata->set_value(metadata.SerializeAsString());
+
+  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
+  fake_broker_->UpdateModelAdaptation(fake_asset);
+
+  fake_broker_->settings().set_execute_result({"Correction type: Spelling"});
+
+  auto options = GetDefaultOptions();
+  options->include_correction_types = true;
+
+  mojo::Remote<blink::mojom::AIProofreader> proofreader_remote =
+      GetAIProofreaderRemote(std::move(options));
+
+  AITestUtils::TestStreamingResponder responder;
+  proofreader_remote->GetCorrectionType(
+      kInputStringWithError, kCorrectedInputWithCorrection,
+      kCorrectionInstruction, responder.BindRemote());
+  EXPECT_TRUE(responder.WaitForCompletion());
+  EXPECT_THAT(responder.responses_without_last(),
+              ElementsAreArray({"Constraint: regex ^Correction type.*",
+                                "Correction type: Spelling"}));
+}
+
+TEST_F(AIProofreaderTest, NoConstraints) {
+  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
+      CreateConfig();
+
+  optimization_guide::proto::ProofreaderApiMetadata metadata;
+
+  auto* feature_metadata = config.mutable_feature_metadata();
+  feature_metadata->set_type_url(
+      "type.googleapis.com/optimization_guide.proto.ProofreaderApiMetadata");
+  feature_metadata->set_value(metadata.SerializeAsString());
+
+  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
+  fake_broker_->UpdateModelAdaptation(fake_asset);
+
+  fake_broker_->settings().set_execute_result({"Correction type: Spelling"});
+
+  auto options = GetDefaultOptions();
+  options->include_correction_types = true;
+
+  mojo::Remote<blink::mojom::AIProofreader> proofreader_remote =
+      GetAIProofreaderRemote(std::move(options));
+
+  AITestUtils::TestStreamingResponder responder;
+  proofreader_remote->GetCorrectionType(
+      kInputStringWithError, kCorrectedInputWithCorrection,
+      kCorrectionInstruction, responder.BindRemote());
+  EXPECT_TRUE(responder.WaitForCompletion());
+  EXPECT_THAT(responder.responses_without_last(),
+              ElementsAreArray({"Correction type: Spelling"}));
+}
+
+TEST_F(AIProofreaderTest, NoMetadata) {
+  optimization_guide::proto::OnDeviceModelExecutionFeatureConfig config =
+      CreateConfig();
+
+  optimization_guide::FakeAdaptationAsset fake_asset({.config = config});
+  fake_broker_->UpdateModelAdaptation(fake_asset);
+
+  fake_broker_->settings().set_execute_result({"Correction type: Spelling"});
+
+  auto options = GetDefaultOptions();
+  options->include_correction_types = true;
+
+  mojo::Remote<blink::mojom::AIProofreader> proofreader_remote =
+      GetAIProofreaderRemote(std::move(options));
+
+  AITestUtils::TestStreamingResponder responder;
+  proofreader_remote->GetCorrectionType(
+      kInputStringWithError, kCorrectedInputWithCorrection,
+      kCorrectionInstruction, responder.BindRemote());
+  EXPECT_TRUE(responder.WaitForCompletion());
+  EXPECT_THAT(responder.responses_without_last(),
+              ElementsAreArray({"Correction type: Spelling"}));
 }
 
 }  // namespace

@@ -5,6 +5,7 @@
 #import <memory>
 
 #import "base/check_op.h"
+#import "base/debug/dump_without_crashing.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/keyed_service/ios/browser_state_dependency_manager.h"
 #import "google_apis/google_api_keys.h"
@@ -61,6 +62,10 @@
   google_apis::InitializeAndOverrideAPIKeyAndOAuthClient(
       base::SysNSStringToUTF8(googleAPIKey), base::SysNSStringToUTF8(clientID),
       base::SysNSStringToUTF8(clientSecret));
+}
+
+- (void)setDumpWithoutCrashingHandler:(void (*)(void))handler {
+  base::debug::SetDumpWithoutCrashingFunction(handler);
 }
 
 - (BOOL)isStarted {

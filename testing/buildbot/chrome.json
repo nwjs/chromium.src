@@ -125,14 +125,16 @@
       {
         "cros_board": "betty",
         "cros_ctp_suite_name": "chrome-uprev-hw",
-        "cros_test_max_in_shard": 10,
+        "cros_test_max_in_shard": 20,
         "cros_test_names_exclude_from_file": [
           "chromeos/tast_control_disabled_tests.txt"
         ],
+        "cros_test_names_from_file": [
+          "chromeos/tast_control_cq_tests.txt"
+        ],
         "cros_test_tags": [
           "group:mainline",
-          "dep:chrome",
-          "group:cq-medium"
+          "dep:chrome"
         ],
         "cros_test_tags_exclude": [
           "informational",
@@ -372,6 +374,7 @@
           "libfake"
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,
@@ -645,6 +648,7 @@
           "--gtest_filter=\"VaapiTest.*\""
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,
@@ -873,6 +877,7 @@
           "libfake"
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,
@@ -1146,6 +1151,7 @@
           "--gtest_filter=\"VaapiTest.*\""
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,
@@ -1546,6 +1552,7 @@
           "libfake"
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,
@@ -1819,6 +1826,7 @@
           "--gtest_filter=\"VaapiTest.*\""
         ],
         "autotest_name": "chromium",
+        "ci_only": true,
         "cros_board": "betty",
         "dut_pool": "vmlab",
         "experiment_percentage": 100,

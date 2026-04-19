@@ -27,6 +27,7 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
@@ -377,10 +378,29 @@ public class TabbedModeTabPersistencePolicy implements TabPersistencePolicy {
     @Override
     public void cleanupUnusedFiles(Callback<TabPersistenceFileInfo> tabDataToDelete) {
         synchronized (CLEAN_UP_TASK_LOCK) {
-            if (sCleanupTask != null) sCleanupTask.cancel(true);
+            // ClearAllWindowsExceptForTask has priority over CleanUpTabStateDataTask.
+            if (sCleanupTask instanceof CleanUpTabStateDataTask) {
+                sCleanupTask.cancel(true);
+            } else if (sCleanupTask != null) {
+                return;
+            }
             sCleanupTask =
                     new CleanUpTabStateDataTask(
                             tabDataToDelete, () -> getOtherTabsId(getMetadataFileName()));
+            sCleanupTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        }
+    }
+
+    @Override
+    public void clearAllWindowsExceptFor(List<String> windowTags) {
+        if (!ChromeFeatureList.sScheduleWindowCleaning.isEnabled()) return;
+        synchronized (CLEAN_UP_TASK_LOCK) {
+            if (sCleanupTask != null) sCleanupTask.cancel(true);
+            List<String> metadataFileNamesToKeep = new ArrayList<>();
+            for (String windowTag : windowTags) {
+                metadataFileNamesToKeep.add(TabMetadataFileManager.getMetadataFileName(windowTag));
+            }
+            sCleanupTask = new ClearAllWindowsExceptForTask(metadataFileNamesToKeep);
             sCleanupTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
         }
     }
@@ -400,7 +420,12 @@ public class TabbedModeTabPersistencePolicy implements TabPersistencePolicy {
             }
         }
         synchronized (CLEAN_UP_TASK_LOCK) {
-            if (sCleanupTask != null) sCleanupTask.cancel(true);
+            // ClearAllWindowsExceptForTask has priority over CleanUpTabStateDataTask.
+            if (sCleanupTask instanceof CleanUpTabStateDataTask) {
+                sCleanupTask.cancel(true);
+            } else if (sCleanupTask != null) {
+                return;
+            }
             sCleanupTask =
                     new CleanUpTabStateDataTask(
                             tabDataToDelete,
@@ -465,6 +490,51 @@ public class TabbedModeTabPersistencePolicy implements TabPersistencePolicy {
     public void destroy() {
         mTabContentManager = null;
         mDestroyed = true;
+    }
+
+    /**
+     * Asynchronous task to clear the persistent state for all windows, except for those whose
+     * window tags are provided. Deletes only metadata files, leaving tab state files to be cleaned
+     * up by the {@link CleanUpTabStateDataTask}.
+     */
+    private class ClearAllWindowsExceptForTask extends AsyncTask<Void> {
+        private final List<String> mExcludedFileNames;
+
+        ClearAllWindowsExceptForTask(List<String> excludedFileNames) {
+            mExcludedFileNames = excludedFileNames;
+        }
+
+        @Override
+        protected Void doInBackground() {
+            if (mDestroyed) return null;
+            File stateDirectory = getOrCreateStateDirectory();
+            File[] stateFiles = stateDirectory.listFiles();
+            if (stateFiles == null) return null;
+
+            for (File stateFile : stateFiles) {
+                if (!TabMetadataFileManager.isMetadataFile(stateFile.getName())) {
+                    continue;
+                }
+                if (mExcludedFileNames.contains(stateFile.getName())) continue;
+                TabMetadataFileManager.deleteMetadataFile(stateFile);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void unused) {
+            synchronized (CLEAN_UP_TASK_LOCK) {
+                sCleanupTask = null;
+            }
+        }
+
+        @Override
+        protected void onCancelled(@Nullable Void result) {
+            super.onCancelled(null);
+            synchronized (CLEAN_UP_TASK_LOCK) {
+                sCleanupTask = null;
+            }
+        }
     }
 
     private class CleanUpTabStateDataTask extends AsyncTask<Void> {

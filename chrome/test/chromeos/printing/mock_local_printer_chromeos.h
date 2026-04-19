@@ -15,11 +15,6 @@ class MockLocalPrinter : public FakeLocalPrinter {
   MockLocalPrinter();
   ~MockLocalPrinter() override;
 
-  MOCK_METHOD(void, GetPrinters, (GetPrintersCallback callback), (override));
-  MOCK_METHOD(void,
-              GetCapability,
-              (const std::string& printer_id, GetCapabilityCallback callback),
-              (override));
   MOCK_METHOD(void,
               AddPrintJobObserver,
               (mojo::PendingRemote<crosapi::mojom::PrintJobObserver> remote,
@@ -43,10 +38,6 @@ class MockLocalPrinter : public FakeLocalPrinter {
                CancelPrintJobCallback callback),
               (override));
   MOCK_METHOD(void, GetPolicies, (GetPoliciesCallback callback), (override));
-  MOCK_METHOD(void,
-              GetEulaUrl,
-              (const std::string& destination_id, GetEulaUrlCallback callback),
-              (override));
 };
 
 #endif  // CHROME_TEST_CHROMEOS_PRINTING_MOCK_LOCAL_PRINTER_CHROMEOS_H_

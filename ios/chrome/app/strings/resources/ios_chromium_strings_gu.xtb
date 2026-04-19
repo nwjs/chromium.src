@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="gu">
 <translation id="1000436330784933699">તમે અહીં Lens ખોલી શકો છો.</translation>
+<translation id="1005291068154454184">Chromiumને ડિફૉલ્ટ તરીકે સેટ કરવાની રીતનો પૂર્ણ સ્ક્રીન વીડિયો</translation>
 <translation id="1042296835509784301">Chromiumમાં Password Manager ખોલે છે.</translation>
 <translation id="1047130070405668746">Chromium પસંદ કરો</translation>
 <translation id="1091252999271033193">આનો અર્થ છે કે Chromium દરેક વખતે મોબાઇલ સાઇટની વિનંતી કરશે.</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">URLsને Chromiumમાં સંગ્રહિત અસુરક્ષિત સાઇટની સૂચિ સાથે ચેક કરે છે. જો કોઈ સાઇટ તમારો પાસવર્ડ ચોરી કરવાનો પ્રયાસ કરે અથવા તમે કોઈ નુકસાનકારક ફાઇલ ડાઉનલોડ કરો, ત્યારે Chromium પેજ કન્ટેન્ટના બિટની સાથોસાથ URLs પણ Safe Browsingને મોકલી શકે છે.</translation>
 <translation id="2314220608288760290">Chromium ઑટોમૅટિક રીતે YouTube છૂપા મોડની લિંકને છૂપા મોડમાં ખોલે છે.</translation>
 <translation id="231828342043114302">તમારી રુચિઓના આધારે મનગમતું બનાવેલું કન્ટેન્ટ મેળવવા માટે, Chromiumમાં સાઇન ઇન કરો.</translation>
-<translation id="2326738825692478496">Chromiumનો તમારો અમુક ડેટા હજી સુધી તમારા Google એકાઉન્ટમાં સાચવવામાં આવ્યો નથી.
-
-સાઇન આઉટ કરતા પહેલાં થોડી મિનિટ રાહ જોવાનો પ્રયાસ કરી જુઓ. જો તમે હમણાં જ સાઇન આઉટ કરશો, તો આ ડેટા ડિલીટ કરવામાં આવશે.</translation>
 <translation id="2334943301233020675">નીચેની પાસકી Password Manager પર આયાત કરવામાં આવી ન હતી, કારણ કે તે જરૂરી શરતો સાથે મેળ ખાતી નથી.</translation>
 <translation id="2337722506862731008">Chromium શેર કરો</translation>
 <translation id="2340423701577464731">Chromiumમાં વાંચન સૂચિની આઇટમ ઉમેરો</translation>
@@ -103,7 +101,6 @@
 તમારા Chromiumના અનુભવને બહેતર બનાવવા માટે ડેટાનો ઉપયોગ કરતા વધુ સેટિંગ માટે, <ph name="BEGIN_LINK" />Googleની સેવાઓ<ph name="END_LINK" /> પર જાઓ.</translation>
 <translation id="2832168932648876507">Chromiumમાં વૉઇસની સુવિધા વડે શોધો.</translation>
 <translation id="2843571538056574338">ઑટોમૅટિક રીતે ભરવાની સુવિધા માટે Chromiumનો ઉપયોગ કરો</translation>
-<translation id="2899085719655668655">Chromiumને ડિફૉલ્ટ તરીકે સેટ કરવાની રીતની, ચિત્ર-માં-ચિત્રની સુવિધાવાળી વીડિયો સૂચનાઓ</translation>
 <translation id="2918709798697875261">તમારી સંસ્થા માટે જરૂરી છે કે તમે Chromiumમાં સાઇન આઉટ કરીને રાખો.</translation>
 <translation id="2942241131342758843">લિંક ખોલવા, વિજેટથી શોધવા અને અન્ય ઍપમાં પાસવર્ડ ઑટોમૅટિક રીતે ભરવાની સુવિધા માટે ડિફૉલ્ટ તરીકે Chromiumનો ઉપયોગ કરો</translation>
 <translation id="2977470724722393594">Chromium અપ ટૂ ડેટ છે</translation>

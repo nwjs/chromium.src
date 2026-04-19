@@ -11,7 +11,10 @@
 #include <string>
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/location.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/extensions/browser_window_util.h"
@@ -335,6 +338,11 @@ ExtensionActionSetTitleFunction::RunExtensionAction() {
   EXTENSION_FUNCTION_VALIDATE(details_);
   const std::string* title = details_->FindString("title");
   EXTENSION_FUNCTION_VALIDATE(title);
+  // Log title length to determine future length limit.
+  // TODO(crbug.com/492555224): After determining suitable length limit, remove
+  // histogram and add handling for excessively long action titles.
+  base::UmaHistogramCounts10000("Extensions.Action.SetTitleLength",
+                               title->length());
   extension_action_->SetTitle(tab_id_, *title);
   NotifyChange();
   return RespondNow(NoArguments());
@@ -372,6 +380,12 @@ ExtensionActionSetBadgeTextFunction::RunExtensionAction() {
   } else {
     extension_action_->ClearBadgeText(tab_id_);
   }
+
+  // Log badge text length to determine future length limit.
+  // TODO(crbug.com/491158086): After determining suitable length limit, remove
+  // histogram and add special case handling of excessively long badges.
+  base::UmaHistogramCounts1000("Extensions.Action.SetBadgeTextLength",
+                               badge_text ? badge_text->length() : 0);
 
   NotifyChange();
   return RespondNow(NoArguments());

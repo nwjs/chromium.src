@@ -5,9 +5,6 @@
 import("//chrome/common/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
-assert(is_win || is_mac || is_linux || is_chromeos,
-       "This target is only supported on Windows, Mac, Linux, or ChromeOS.")
-
 mojom("mojo_bindings") {
   sources = [ "skills.mojom" ]
   webui_module_path = "/"
@@ -50,6 +47,7 @@ source_set("skills") {
     "//chrome/browser/skills:public",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/webui",
+    "//chrome/browser/ui/webui/sanitized_image:sanitized_image_source",
     "//chrome/common",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/signin/public/identity_manager",
@@ -63,9 +61,11 @@ source_set("skills") {
     "//ui/base/interaction",
     "//ui/views",
     "//ui/views/controls/webview",
-    "//ui/web_dialogs",
     "//ui/webui",
   ]
+  if (!is_android) {
+    deps += [ "//ui/web_dialogs" ]
+  }
 }
 
 source_set("unit_tests") {

@@ -10,9 +10,9 @@
 
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
-#include "base/run_loop.h"
+#include "base/task/thread_pool.h"
 #include "base/test/task_environment.h"
-#include "base/threading/thread.h"
+#include "base/test/test_future.h"
 #include "remoting/host/security_key/security_key_message.h"
 #include "remoting/host/setup/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,10 +40,6 @@ class SecurityKeyMessageWriterImplTest : public testing::Test {
   // output stream and returns the result.
   std::string ReadMessage(int payload_length_bytes);
 
-  // Called back once the read operation has completed.
-  void OnReadComplete(base::OnceClosure done_callback,
-                      const std::string& result);
-
  protected:
   // testing::Test interface.
   void SetUp() override;
@@ -52,6 +48,8 @@ class SecurityKeyMessageWriterImplTest : public testing::Test {
   // they were written correctly.
   void WriteMessageToOutput(const std::string& payload);
 
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::MainThreadType::IO};
   std::unique_ptr<SecurityKeyMessageWriter> writer_;
   base::File read_file_;
   base::File write_file_;
@@ -80,13 +78,6 @@ std::string SecurityKeyMessageWriterImplTest::ReadMessage(
   return message_header + message_type + message_data;
 }
 
-void SecurityKeyMessageWriterImplTest::OnReadComplete(
-    base::OnceClosure done_callback,
-    const std::string& result) {
-  message_result_ = result;
-  std::move(done_callback).Run();
-}
-
 void SecurityKeyMessageWriterImplTest::SetUp() {
   ASSERT_TRUE(MakePipe(&read_file_, &write_file_));
   writer_ =
@@ -95,24 +86,12 @@ void SecurityKeyMessageWriterImplTest::SetUp() {
 
 void SecurityKeyMessageWriterImplTest::WriteMessageToOutput(
     const std::string& payload) {
-  // Thread used for blocking IO operations.
-  base::Thread reader_thread("ReaderThread");
-
-  base::Thread::Options options;
-  options.message_pump_type = base::MessagePumpType::IO;
-  reader_thread.StartWithOptions(std::move(options));
-
-  // Used to block until the read complete callback is triggered.
-  base::test::SingleThreadTaskEnvironment task_environment(
-      base::test::SingleThreadTaskEnvironment::MainThreadType::IO);
-  base::RunLoop run_loop;
-
-  ASSERT_TRUE(reader_thread.task_runner()->PostTaskAndReplyWithResult(
-      FROM_HERE,
+  base::test::TestFuture<std::string> future;
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
       base::BindOnce(&SecurityKeyMessageWriterImplTest::ReadMessage,
                      base::Unretained(this), payload.size()),
-      base::BindOnce(&SecurityKeyMessageWriterImplTest::OnReadComplete,
-                     base::Unretained(this), run_loop.QuitClosure())));
+      future.GetCallback());
 
   if (payload.size()) {
     ASSERT_TRUE(writer_->WriteMessageWithPayload(kTestMessageType, payload));
@@ -120,7 +99,7 @@ void SecurityKeyMessageWriterImplTest::WriteMessageToOutput(
     ASSERT_TRUE(writer_->WriteMessage(kTestMessageType));
   }
 
-  run_loop.Run();
+  message_result_ = future.Take();
 
   size_t total_size = SecurityKeyMessage::kHeaderSizeBytes +
                       SecurityKeyMessage::kMessageTypeSizeBytes +
@@ -129,7 +108,7 @@ void SecurityKeyMessageWriterImplTest::WriteMessageToOutput(
 
   SecurityKeyMessageType type =
       SecurityKeyMessage::MessageTypeFromValue(message_result_[4]);
-  ASSERT_EQ(kTestMessageType, type);
+  ASSERT_EQ(type, kTestMessageType);
 
   if (payload.size()) {
     ASSERT_EQ(message_result_.substr(5), payload);
@@ -169,7 +148,7 @@ TEST_F(SecurityKeyMessageWriterImplTest, WriteMultipleMessages) {
     int length;
     ASSERT_TRUE(
         read_file_.ReadAtCurrentPosAndCheck(base::byte_span_from_ref(length)));
-    ASSERT_EQ(SecurityKeyMessage::kMessageTypeSizeBytes, length);
+    ASSERT_EQ(length, SecurityKeyMessage::kMessageTypeSizeBytes);
 
     // Retrieve and verify the message type.
     std::string message_type(length, '\0');
@@ -179,9 +158,9 @@ TEST_F(SecurityKeyMessageWriterImplTest, WriteMultipleMessages) {
     SecurityKeyMessageType type =
         SecurityKeyMessage::MessageTypeFromValue(message_type[0]);
     if (i % 2 == 0) {
-      ASSERT_EQ(SecurityKeyMessageType::CONNECT, type);
+      ASSERT_EQ(type, SecurityKeyMessageType::CONNECT);
     } else {
-      ASSERT_EQ(SecurityKeyMessageType::REQUEST, type);
+      ASSERT_EQ(type, SecurityKeyMessageType::REQUEST);
     }
   }
 

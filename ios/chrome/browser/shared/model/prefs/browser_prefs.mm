@@ -40,6 +40,7 @@
 #import "components/lens/lens_overlay_permission_utils.h"
 #import "components/metrics/demographics/user_demographics.h"
 #import "components/metrics/metrics_pref_names.h"
+#import "components/metrics/metrics_reporting_level.h"
 #import "components/network_time/network_time_tracker.h"
 #import "components/ntp_tiles/custom_links_manager_impl.h"
 #import "components/ntp_tiles/most_visited_sites.h"
@@ -147,14 +148,6 @@
 #endif  // !BUILDFLAG(IS_IOS_MACCATALYST)
 
 namespace {
-
-// Deprecated 05/2025.
-inline constexpr char kSyncCacheGuid[] = "sync.cache_guid";
-inline constexpr char kSyncBirthday[] = "sync.birthday";
-inline constexpr char kSyncBagOfChips[] = "sync.bag_of_chips";
-inline constexpr char kSyncLastSyncedTime[] = "sync.last_synced_time";
-inline constexpr char kSyncLastPollTime[] = "sync.last_poll_time";
-inline constexpr char kSyncPollInterval[] = "sync.short_poll_interval";
 
 // Deprecated 06/2025.
 inline constexpr char kVariationsLimitedEntropySyntheticTrialSeed[] =
@@ -385,6 +378,11 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
                                std::string());
   registry->RegisterBooleanPref(prefs::kEulaAccepted, false);
   registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingEnabled,
+                                false);
+  registry->RegisterIntegerPref(
+      metrics::prefs::kMetricsReportingLevel,
+      static_cast<int>(metrics::MetricsReportingLevel::kNone));
+  registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingMigrationDone,
                                 false);
 
   // Deprecated 07/2025 (migrated to profile prefs).
@@ -928,6 +926,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       prefs::kIOSBwgConsent, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kIOSGeminiLiveConsent, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kIOSBWGPreciseLocationSetting, false);
   registry->RegisterBooleanPref(prefs::kIOSBWGPageContentSetting, true);
   registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
@@ -951,14 +952,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // Prefs for the Synced Set Up Feature.
   registry->RegisterIntegerPref(prefs::kSyncedSetUpImpressionCount, 0);
-
-  // Deprecated 05/2025.
-  registry->RegisterStringPref(kSyncCacheGuid, std::string());
-  registry->RegisterStringPref(kSyncBirthday, std::string());
-  registry->RegisterStringPref(kSyncBagOfChips, std::string());
-  registry->RegisterTimePref(kSyncLastSyncedTime, base::Time());
-  registry->RegisterTimePref(kSyncLastPollTime, base::Time());
-  registry->RegisterTimeDeltaPref(kSyncPollInterval, base::TimeDelta());
 
   // Deprecated 06/2025.
   registry->RegisterDoublePref(kGaiaCookiePeriodicReportTimeDeprecated, 0);
@@ -1089,14 +1082,6 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   // Added 09/2024.
   browsing_data::prefs::MaybeMigrateToQuickDeletePrefValues(prefs);
 
-  // Added 05/2025.
-  prefs->ClearPref(kSyncCacheGuid);
-  prefs->ClearPref(kSyncBirthday);
-  prefs->ClearPref(kSyncBagOfChips);
-  prefs->ClearPref(kSyncLastSyncedTime);
-  prefs->ClearPref(kSyncLastPollTime);
-  prefs->ClearPref(kSyncPollInterval);
-
   // Added 06/2025.
   prefs->ClearPref(kGaiaCookiePeriodicReportTimeDeprecated);
 
@@ -1189,4 +1174,13 @@ void MigrateObsoleteUserDefault() {
   [defaults removeObjectForKey:@"SpecialTabUseCount"];
   [defaults removeObjectForKey:@"OmniboxUseCount"];
   [defaults removeObjectForKey:@"BookmarkUseCount"];
+
+  // Added 03/2026
+  [defaults removeObjectForKey:@"fre_timestamp_migration_done"];
+  [defaults removeObjectForKey:@"promo_interest_event_migration_done"];
+  [defaults removeObjectForKey:@"promo_impressions_migration_done"];
+  [defaults removeObjectForKey:@"lastSignificantUserEvent"];
+  [defaults removeObjectForKey:@"lastSignificantUserEventMadeForIOS"];
+  [defaults removeObjectForKey:@"lastSignificantUserEventAllTabs"];
+  [defaults removeObjectForKey:@"lastSignificantUserEventStaySafe"];
 }

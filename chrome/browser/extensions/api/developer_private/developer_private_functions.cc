@@ -42,9 +42,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
-#include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/browser/ui/extensions/extensions_dialogs.h"
 #include "chrome/browser/ui/safety_hub/menu_notification_service_factory.h"
+#include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -93,11 +93,11 @@
 #include "base/types/expected.h"
 #include "base/uuid.h"
 #include "chrome/browser/extensions/mv2_experiment_stage.h"
-#include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -2113,16 +2113,17 @@ ExtensionFunction::ResponseAction DeveloperPrivateOpenDevToolsFunction::Run() {
   }
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // Once we open the inspector, we focus on the appropriate tab...
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
 
   // ... but some pages (popups and apps) don't have tabs, and some (background
   // pages) don't have an associated browser. For these, the inspector opens in
   // a new window, and our work is done.
-  if (!browser || !browser->is_type_normal()) {
+  if (!browser ||
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
     return RespondNow(NoArguments());
   }
 
-  TabStripModel* tab_strip = browser->tab_strip_model();
+  TabStripModel* tab_strip = browser->GetTabStripModel();
   tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(
       web_contents));  // Not through direct user gesture.
 #endif                 // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -2591,7 +2592,7 @@ DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction::Run() {
         return AlreadyResponded();
       }
 
-      Browser* browser = chrome::FindLastActiveWithProfile(
+      BrowserWindowInterface* const browser = chrome::FindLastActiveWithProfile(
           Profile::FromBrowserContext(browser_context()));
       if (!browser) {
         return RespondNow(Error(kCouldNotFindWebContentsError));

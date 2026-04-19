@@ -28,12 +28,12 @@
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_event_router.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_event_router_factory.h"
 #include "chrome/browser/extensions/profile_util.h"
-#include "chrome/browser/password_manager/account_password_store_factory.h"
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
 #include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
+#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
-#include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -320,6 +320,27 @@ webauthn::PasskeyModel* MaybeGetPasskeyModel(Profile* profile) {
   return PasskeyModelFactory::GetInstance()->GetForProfile(profile);
 }
 
+extensions::api::passwords_private::PasswordManagerActionableError
+ToActionableApiError(password_manager::ActionableError error) {
+  using extensions::api::passwords_private::PasswordManagerActionableError;
+  switch (error) {
+    case password_manager::ActionableError::kNoError:
+      return PasswordManagerActionableError::kNoError;
+    case password_manager::ActionableError::kInactionable:
+      return PasswordManagerActionableError::kInactionable;
+    case password_manager::ActionableError::kInactionableTemporaryError:
+      return PasswordManagerActionableError::kInactionableTemporaryError;
+    case password_manager::ActionableError::kSignInNeeded:
+      return PasswordManagerActionableError::kSignInNeeded;
+    case password_manager::ActionableError::kKeychainError:
+      return PasswordManagerActionableError::kKeychainError;
+    case password_manager::ActionableError::kTrustedVaultKeyNeeded:
+      return PasswordManagerActionableError::kTrustedVaultKeyNeeded;
+    case password_manager::ActionableError::kNeedsPassphrase:
+      return PasswordManagerActionableError::kNeedsPassphrase;
+  }
+}
+
 }  // namespace
 
 namespace extensions {
@@ -352,6 +373,15 @@ PasswordsPrivateDelegateImpl::PasswordsPrivateDelegateImpl(Profile* profile)
                           weak_ptr_factory_.GetWeakPtr()));
   saved_passwords_presenter_.AddObserver(this);
   saved_passwords_presenter_.Init();
+
+  if (auto profile_store = ProfilePasswordStoreFactory::GetForProfile(
+          profile_, ServiceAccessType::EXPLICIT_ACCESS)) {
+    profile_password_store_observation_.Observe(profile_store.get());
+  }
+  if (auto account_store = AccountPasswordStoreFactory::GetForProfile(
+          profile_, ServiceAccessType::EXPLICIT_ACCESS)) {
+    account_password_store_observation_.Observe(account_store.get());
+  }
 
   if (syncer::SyncService* service =
           SyncServiceFactory::GetForProfile(profile_)) {
@@ -934,10 +964,11 @@ void PasswordsPrivateDelegateImpl::SwitchBiometricAuthBeforeFillingState(
 
 void PasswordsPrivateDelegateImpl::ShowAddShortcutDialog(
     content::WebContents* web_contents) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   DCHECK(browser);
   web_app::CreateWebAppFromCurrentWebContents(
-      browser, web_app::WebAppInstallFlow::kInstallSite);
+      browser->GetBrowserForMigrationOnly(),
+      web_app::WebAppInstallFlow::kInstallSite);
   base::UmaHistogramEnumeration(
       "PasswordManager.ShortcutMetric",
       password_manager::metrics_util::PasswordManagerShortcutMetric::
@@ -947,14 +978,14 @@ void PasswordsPrivateDelegateImpl::ShowAddShortcutDialog(
 void PasswordsPrivateDelegateImpl::ShowExportedFileInShell(
     content::WebContents* web_contents,
     std::string file_path) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   DCHECK(browser);
 #if !BUILDFLAG(IS_WIN)
   base::FilePath path(file_path);
 #else
   base::FilePath path(base::UTF8ToWide(file_path));
 #endif
-  platform_util::ShowItemInFolder(browser->profile(), path);
+  platform_util::ShowItemInFolder(browser->GetProfile(), path);
 }
 
 void PasswordsPrivateDelegateImpl::ChangePasswordManagerPin(
@@ -1001,6 +1032,26 @@ bool PasswordsPrivateDelegateImpl::IsConnectedToCloudAuthenticator(
   }
 
   return enclave_manager->IsRegistered();
+}
+
+password_manager::ActionableError
+PasswordsPrivateDelegateImpl::GetActionableError() {
+  auto profile_store = ProfilePasswordStoreFactory::GetForProfile(
+      profile_, ServiceAccessType::EXPLICIT_ACCESS);
+  auto account_store = AccountPasswordStoreFactory::GetForProfile(
+      profile_, ServiceAccessType::EXPLICIT_ACCESS);
+
+  // Only propagate profile errors if there aren't any account store errors.
+  password_manager::ActionableError error =
+      password_manager::ActionableError::kNoError;
+  if (account_store) {
+    error = account_store->GetError();
+  }
+  if (error == password_manager::ActionableError::kNoError && profile_store) {
+    error = profile_store->GetError();
+  }
+
+  return error;
 }
 
 void PasswordsPrivateDelegateImpl::DeleteAllPasswordManagerData(
@@ -1078,8 +1129,9 @@ void PasswordsPrivateDelegateImpl::MaybeShowPasswordShareButtonIPH(
   if (!web_contents) {
     return;
   }
-  Browser* browser = chrome::FindBrowserWithTab(web_contents.get());
-  if (!browser || !browser->window()) {
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithTab(web_contents.get());
+  if (!browser || !browser->GetWindow()) {
     return;
   }
   BrowserUserEducationInterface::From(browser)->MaybeShowFeaturePromo(
@@ -1250,6 +1302,24 @@ void PasswordsPrivateDelegateImpl::OnReauthCompleted(bool authenticated) {
 void PasswordsPrivateDelegateImpl::OnSavedPasswordsChanged(
     const password_manager::PasswordStoreChangeList& changes) {
   SetCredentials(saved_passwords_presenter_.GetSavedCredentials());
+}
+
+void PasswordsPrivateDelegateImpl::OnLoginsChanged(
+    password_manager::PasswordStoreInterface*,
+    const password_manager::PasswordStoreChangeList&) {}
+
+void PasswordsPrivateDelegateImpl::OnLoginsRetained(
+    password_manager::PasswordStoreInterface*,
+    const std::vector<password_manager::PasswordForm>&) {}
+
+void PasswordsPrivateDelegateImpl::OnErrorStateChanged(
+    password_manager::PasswordStoreInterface* store,
+    password_manager::ActionableError error) {
+  if (PasswordsPrivateEventRouter* router =
+          PasswordsPrivateEventRouterFactory::GetForProfile(profile_)) {
+    router->OnPasswordManagerActionableErrorChanged(
+        ToActionableApiError(GetActionableError()));
+  }
 }
 
 void PasswordsPrivateDelegateImpl::OnWebAppInstalledWithOsHooks(

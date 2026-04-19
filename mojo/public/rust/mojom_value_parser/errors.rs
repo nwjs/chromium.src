@@ -2,9 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-//! Errors that the parser might return. User-visible.
-//! FOR_RELEASE: Docs
+//! This module defines errors that the parser might return.
+//!
+//! These errors are user-visible. However, they unavoidably refer to internal
+//! details of the parser, so it is not expected that the typical developer will
+//! interact with them. Most of the time, if one of these errors occurs, the
+//! process will be terminated and the error description will only appear in an
+//! error log.
 
+/// This is the return type of most parsing functions.
 pub type ParsingResult<T> = Result<T, ParsingError>;
 impl std::error::Error for ParsingError {}
 
@@ -43,7 +49,7 @@ pub enum ParsingErrorType {
     /// non-extensible enum or union type
     /// We don't carry the expected values because there isn't an easy way to
     /// show them to the user
-    InvalidDiscriminant { value: u32 },
+    InvalidDiscriminant { value: i32 },
     /// Indicates that a sized array had an incorrect number of elements
     WrongArraySize { expected: usize, actual: usize },
     /// Indicates that the bytes in a string weren't UTF-8 encoded
@@ -99,7 +105,7 @@ impl ParsingError {
         ParsingError { offset, ty: ParsingErrorType::WrongSize { expected_size, actual_size } }
     }
 
-    pub fn invalid_discriminant(offset: usize, value: u32) -> ParsingError {
+    pub fn invalid_discriminant(offset: usize, value: i32) -> ParsingError {
         ParsingError { offset, ty: ParsingErrorType::InvalidDiscriminant { value } }
     }
 

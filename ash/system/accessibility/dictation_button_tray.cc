@@ -29,7 +29,6 @@
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/paint_vector_icon.h"
-#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/image_view.h"
 
@@ -62,7 +61,14 @@ bool IsDictationActive() {
 DictationButtonTray::DictationButtonTray(
     Shelf* shelf,
     TrayBackgroundViewCatalogName catalog_name)
-    : TrayBackgroundView(shelf, catalog_name), download_progress_(0) {
+    : ImagedTrayIcon(shelf,
+                     ui::ImageModel(),
+                     /*tooltip=*/
+                     IDS_ASH_STATUS_TRAY_ACCESSIBILITY_DICTATION,
+                     /*accessibility_name=*/
+                     IDS_ASH_DICTATION_BUTTON_ACCESSIBLE_NAME,
+                     catalog_name),
+      download_progress_(0) {
   SetCallback(base::BindRepeating(
       &DictationButtonTray::OnDictationButtonPressed, base::Unretained(this)));
 
@@ -78,25 +84,12 @@ DictationButtonTray::DictationButtonTray(
   SetEnabled(in_text_input_);
   SetIsActive(false);
 
-  const ui::ImageModel icon_image =
-      GetIconImage(/*active=*/false, /*enabled=*/GetEnabled());
-  const int vertical_padding = (kTrayItemSize - icon_image.Size().height()) / 2;
-  const int horizontal_padding =
-      (kTrayItemSize - icon_image.Size().height()) / 2;
-  auto icon = std::make_unique<views::ImageView>();
-  icon->SetImage(icon_image);
-  icon->SetBorder(views::CreateEmptyBorder(
-      gfx::Insets::VH(vertical_padding, horizontal_padding)));
-  icon->SetTooltipText(
-      l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_ACCESSIBILITY_DICTATION));
-  icon_ = tray_container()->AddChildView(std::move(icon));
+  image_view()->SetImage(
+      GetIconImage(/*active=*/false, /*enabled=*/GetEnabled()));
 
   shell->AddShellObserver(this);
   shell->accessibility_controller()->AddObserver(this);
   shell->session_controller()->AddObserver(this);
-
-  GetViewAccessibility().SetName(
-      l10n_util::GetStringUTF16(IDS_ASH_DICTATION_BUTTON_ACCESSIBLE_NAME));
 }
 
 DictationButtonTray::~DictationButtonTray() {
@@ -151,11 +144,6 @@ void DictationButtonTray::UpdateTrayItemColor(bool is_active) {
   }
 }
 
-void DictationButtonTray::HandleLocaleChange() {
-  icon_->SetTooltipText(
-      l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_ACCESSIBILITY_DICTATION));
-}
-
 void DictationButtonTray::HideBubbleWithView(
     const TrayBubbleView* bubble_view) {
   // This class has no bubbles to hide.
@@ -195,10 +183,10 @@ void DictationButtonTray::UpdateOnSpeechRecognitionDownloadChanged(
       download_progress > 0 && download_progress < 100;
   const bool is_dictation_enabled = !download_in_progress && in_text_input_;
   UpdateStateAndIcon(IsDictationActive(), is_dictation_enabled);
-  icon_->SetTooltipText(l10n_util::GetStringUTF16(
+  SetTooltip(
       download_in_progress
           ? IDS_ASH_ACCESSIBILITY_DICTATION_BUTTON_TOOLTIP_SODA_DOWNLOADING
-          : IDS_ASH_STATUS_TRAY_ACCESSIBILITY_DICTATION));
+          : IDS_ASH_STATUS_TRAY_ACCESSIBILITY_DICTATION);
 
   // Progress indicator.
   download_progress_ = download_progress;
@@ -261,7 +249,8 @@ void DictationButtonTray::UpdateStateAndIcon(bool is_dictation_active,
   SetEnabled(is_dictation_enabled);
 
   if (should_update_icon) {
-    icon_->SetImage(GetIconImage(is_dictation_active, is_dictation_enabled));
+    image_view()->SetImage(
+        GetIconImage(is_dictation_active, is_dictation_enabled));
   }
 }
 

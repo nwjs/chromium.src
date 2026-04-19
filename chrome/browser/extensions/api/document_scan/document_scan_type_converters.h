@@ -9,6 +9,29 @@
 #include "chromeos/crosapi/mojom/document_scan.mojom.h"
 #include "mojo/public/cpp/bindings/type_converter.h"
 
+namespace lorgnette {
+class CancelScanResponse;
+class CloseScannerResponse;
+class GetCurrentConfigResponse;
+enum OperationResult : int;
+}  // namespace lorgnette
+
+namespace extensions::api::document_scan {
+
+OperationResult ConvertLorgnetteOperationResult(
+    lorgnette::OperationResult result);
+
+CancelScanResponse ConvertLorgnetteCancelScanResponse(
+    const lorgnette::CancelScanResponse& response);
+
+CloseScannerResponse ConvertLorgnetteCloseScannerResponse(
+    const lorgnette::CloseScannerResponse& response);
+
+GetOptionGroupsResponse ConvertLorgnetteGetCurrentConfigResponse(
+    const lorgnette::GetCurrentConfigResponse& response);
+
+}  // namespace extensions::api::document_scan
+
 namespace mojo {
 
 template <>
@@ -47,13 +70,6 @@ struct TypeConverter<extensions::api::document_scan::GetOptionGroupsResponse,
 };
 
 template <>
-struct TypeConverter<extensions::api::document_scan::CloseScannerResponse,
-                     crosapi::mojom::CloseScannerResponsePtr> {
-  static extensions::api::document_scan::CloseScannerResponse Convert(
-      const crosapi::mojom::CloseScannerResponsePtr& input);
-};
-
-template <>
 struct TypeConverter<crosapi::mojom::OptionSettingPtr,
                      extensions::api::document_scan::OptionSetting> {
   static crosapi::mojom::OptionSettingPtr Convert(
@@ -79,13 +95,6 @@ struct TypeConverter<extensions::api::document_scan::StartScanResponse,
                      crosapi::mojom::StartPreparedScanResponsePtr> {
   static extensions::api::document_scan::StartScanResponse Convert(
       const crosapi::mojom::StartPreparedScanResponsePtr& input);
-};
-
-template <>
-struct TypeConverter<extensions::api::document_scan::CancelScanResponse,
-                     crosapi::mojom::CancelScanResponsePtr> {
-  static extensions::api::document_scan::CancelScanResponse Convert(
-      const crosapi::mojom::CancelScanResponsePtr& input);
 };
 
 template <>

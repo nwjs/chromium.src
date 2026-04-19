@@ -26,7 +26,13 @@ BASE_FEATURE(kAutofillDisableBnplCountryCheckForTesting,
 // When enabled, Chrome will extract the checkout amount from the checkout
 // page using server-side AI.
 BASE_FEATURE(kAutofillEnableAiBasedAmountExtraction,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 // When enabled, Chrome will extract the checkout amount from the checkout page
 // of the allowlisted merchant websites.
@@ -136,16 +142,6 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
 BASE_FEATURE(kAutofillEnableCardInfoRuntimeRetrieval,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, we will store CVC for both local and server credit cards. This
-// will also allow the users to autofill their CVCs on checkout pages.
-BASE_FEATURE(kAutofillEnableCvcStorageAndFilling,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, will enhance CVV storage project. Provide better suggestion,
-// resolve conflict with COF project and add logging.
-BASE_FEATURE(kAutofillEnableCvcStorageAndFillingEnhancement,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, this will enhance the CVV storage project. The enhancement will
 // enable CVV storage suggestions for standalone CVC fields.
 BASE_FEATURE(kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement,
@@ -204,6 +200,10 @@ BASE_FEATURE(kAutofillEnableNewFopDisplayAndroid,
 // downstream.
 BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, an "Autofill payments" omnibox chip will appear for relevant
+// payment checkout forms.
+BASE_FEATURE(kAutofillEnableOmniboxAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, Chrome will use the Pay Now Pay Later tabs UI for payments
 // autofill when buy now pay later options are available for the merchant
@@ -266,6 +266,11 @@ BASE_FEATURE(kAutofillEnableVirtualCardJavaPaymentsDataManager,
 // Payments, and Google Pay will instead reference Google Wallet.
 BASE_FEATURE(kAutofillEnableWalletBranding, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, further brings certain strings and images referencing Google
+// Pay and Google Wallet into consistency with branding requirements.
+BASE_FEATURE(kAutofillEnableWalletBrandingV2,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, Payments Autofill Buy Now Pay Later (BNPL) will use each
 // corresponding issuer's blocklist instead of allowlist to check for website
 // eligibility.
@@ -290,10 +295,6 @@ BASE_FEATURE(kAutofillPrioritizeSaveCardOverMandatoryReauth,
 BASE_FEATURE(kAutofillRetryImageFetchOnFailure,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, we will store autofill server card data in shared storage.
-BASE_FEATURE(kAutofillSharedStorageServerCardData,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Kill switch, when enabled, will prevent the display of the save card bubble
 // within a tab modal pop-up window.
 BASE_FEATURE(kAutofillSkipSaveCardForTabModalPopup,
@@ -307,10 +308,6 @@ BASE_FEATURE(kAutofillSyncEwalletAccounts, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillTouchToFillShowManualFillForVcnFix,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// When enabled, adds a timeout on the network request for Unmask requests.
-BASE_FEATURE(kAutofillUnmaskCardRequestTimeout,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls offering credit card upload to Google Payments. Cannot ever be
 // ENABLED_BY_DEFAULT because the feature state depends on the user's country.

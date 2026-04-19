@@ -21,6 +21,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &ui::kAndroidUseCorrectWindowBounds,
     &ui::kAndroidUseDisplayTopology,
     &ui::kAndroidWindowOcclusion,
+    &ui::kBlockMouseEventsOnView,
     &ui::kCheckIntentCallerPermission,
     &ui::kDeprecatedExternalPickerFunction,
     &ui::kDisablePhotoPickerForVideoCapture,
@@ -28,6 +29,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &ui::kReportBottomOverscrolls,
     &ui::kRequireLeadingInTextViewWithLeading,
     &ui::kSelectFileOpenDocument,
+    &ui::kSupportKeyboard,
     &ui::kAndroidTouchpadOverscrollHistoryNavigation,
 };
 

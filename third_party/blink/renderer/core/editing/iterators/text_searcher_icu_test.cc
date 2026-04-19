@@ -14,7 +14,7 @@ namespace blink {
 namespace {
 
 String MakeUTF16(const char* str) {
-  String utf16_string = String::FromUTF8(str);
+  String utf16_string = String::FromUtf8(str);
   utf16_string.Ensure16Bit();
   return utf16_string;
 }
@@ -34,7 +34,7 @@ TEST(TextSearcherICUTest, FindSubstring) {
   EXPECT_NE(0u, result->start);
   EXPECT_NE(0u, result->length);
   ASSERT_LT(result->length, text.length());
-  EXPECT_EQ(pattern, text.Substring(result->start, result->length));
+  EXPECT_EQ(pattern, text.substr(result->start, result->length));
 
   EXPECT_FALSE(searcher.NextMatchResult());
 }
@@ -53,7 +53,7 @@ TEST(TextSearcherICUTest, FindIgnoreCaseSubstring) {
   EXPECT_NE(0u, result->length);
   ASSERT_LT(result->length, text.length());
   EXPECT_EQ(pattern,
-            text.Substring(result->start, result->length).DeprecatedLower());
+            text.substr(result->start, result->length).DeprecatedLower());
 
   searcher.SetPattern(pattern, FindOptions());
   searcher.SetOffset(0u);

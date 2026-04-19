@@ -33,7 +33,6 @@
 <translation id="1324107359134968521">O Chromium precisa de acesso ao Bluetooth para explorar 
  dispositivos Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Detetar idioma</translation>
-<translation id="1330742950061766891">Usar as definições do navegador recomendadas pelo Chromium</translation>
 <translation id="1342274909142618978">Eliminar também dados do Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Fixado! Pode aceder novamente à Pesquisa de imagens através do novo botão na barra de ferramentas</translation>
 <translation id="1356661055722410047">Novo! Pode traduzir texto e imagens no ecrã</translation>
@@ -55,8 +54,10 @@
 <translation id="1594928384848033697">O Chromium quer eliminar os seus dados do Gestor de Palavras-passe. Escreva a sua palavra-passe do Windows para permitir esta ação.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{O seu administrador necessita que reinicie o Chromium para aplicar uma atualização.}=1{O seu administrador necessita que reinicie o Chromium para aplicar uma atualização. Não é possível reabrir a sua janela de navegação anónima.}other{O seu administrador necessita que reinicie o Chromium para aplicar uma atualização. Não é possível reabrir as suas # janelas de navegação anónima.}}</translation>
 <translation id="1625909126243026060">Reveja os principais controlos de privacidade e segurança no Chromium</translation>
+<translation id="1639380494700489405">Para perguntar ao Modo IA sobre o seu separador sem sair da página, inicie sessão no Chromium. Também tem acesso às suas palavras-passe e muito mais em todos os seus dispositivos.</translation>
 <translation id="1640672724030957280">A transferir...</translation>
 <translation id="1680687534629375545">Pergunte à pesquisa de imagens acerca desta página</translation>
+<translation id="1708414395296835197">Pode usar o Chromium sempre que clicar em links de mensagens, documentos e outras apps. Também vai ser afixado à barra de tarefas.</translation>
 <translation id="1709772298389099340">Oferece privilégios elevados para o navegador <ph name="BROWSER_NAME" />.</translation>
 <translation id="1715127912119967311">Para ajudar a melhorar estas funcionalidades, o Chromium envia as suas interações com as funcionalidades para a Google. Estes dados podem ser lidos, processados e anotados por revisores humanos.</translation>
 <translation id="1722488837206509557">Isto permite-lhe selecionar entre os dispositivos disponíveis e apresentar conteúdo nestes.</translation>
@@ -196,6 +197,7 @@
 <translation id="3045032126857188731">Idioma traduzido: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Fechar caixa de diálogo de feedback</translation>
 <translation id="3068187312562070417">Outros perfis do Chromium</translation>
+<translation id="3068290154869370196">As extensões são suplementos que lhe permitem personalizar o Chromium. Desde manter a organização a simplificar tarefas diárias, as extensões ajudam a personalizar o Chromium.</translation>
 <translation id="3068515742935458733">Ajudar a melhorar o Chromium ao enviar relatórios de falhas e <ph name="UMA_LINK" /> à Google</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Uma ou mais extensões do Chromium estavam a aceder a 1 dispositivo USB}=1{Uma ou mais extensões do Chromium estão a aceder a 1 dispositivo USB}other{Uma ou mais extensões do Chromium estão a aceder a # dispositivos USB}}</translation>
 <translation id="3095811995836568724">Histórico do Chromium</translation>
@@ -226,7 +228,6 @@
 <translation id="3313189106987092621">O Chromium envia-lhe um aviso antes de carregar qualquer site através de uma ligação insegura</translation>
 <translation id="3316771292331273802">A sua sessão é terminada na maioria dos sites quando fecha todas as janelas do Chromium, exceto na sua Conta Google se tiver sessão iniciada no Chromium. Para permitir que os sites se lembrem de si, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3322413454779348750">O seu motor de pesquisa predefinido foi alterado fora do Chromium. Para sua proteção, o Chromium repôs a definição.</translation>
-<translation id="3331557257666250900">Inicie sessão no Chromium para ter as suas palavras-passe, marcadores e muito mais em todos os dispositivos</translation>
 <translation id="3352986031709923790">canto superior direito da área de pesquisa: direita <ph name="RIGHT" />%, parte superior <ph name="TOP" />%</translation>
 <translation id="3366305173356742781">Dados do Chromium na sua conta</translation>
 <translation id="3369405342922656244">Pesquise esta página com a pesquisa de imagens</translation>
@@ -437,6 +438,7 @@
 <translation id="5895138241574237353">Reiniciar</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Início de sessão na rede</translation>
 <translation id="5924017743176219022">A ligar à Internet…</translation>
+<translation id="5939553720811388432">Vamos preparar o Chromium</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="5949225980829865667">Para ter este marcador e muito mais em todos os seus dispositivos, inicie sessão no Chromium</translation>
 <translation id="5953657885167112863">Personalize o Chromium</translation>
@@ -590,6 +592,7 @@ O Chromium não consegue recuperar as suas definições.</translation>
 <translation id="7352651011704765696">Algo correu mal</translation>
 <translation id="7368826207863345663">Para receber atualizações futuras do Chromium, precisa do macOS 13 ou posterior. Este computador está a usar o macOS 12.</translation>
 <translation id="7376384068949534168">Não visitou o site recentemente. O Chromium removeu <ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" />.</translation>
+<translation id="73786666777299047">Abrir a Web Store do Chrome</translation>
 <translation id="7384121030444253939">Esta extensão já não é suportada. O Chromium recomenda que a remova.</translation>
 <translation id="7413153308467572558">Continue a partir de onde ficou: o Chromium restaura os seus separadores sempre que reinicia. Para desativar esta opção, aceda às</translation>
 <translation id="7427879960656355200">Importe palavras-passe para o Chromium</translation>

@@ -18,7 +18,6 @@
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/service/glic_ui_types.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -131,7 +130,7 @@ class GlicTabSubMenuModelTest : public InProcessBrowserTest {
       return nullptr;
     }
     return static_cast<GlicInstanceCoordinatorImpl*>(
-        &service->window_controller());
+        &service->instance_coordinator());
   }
 
   base::test::ScopedFeatureList feature_list_;
@@ -302,15 +301,14 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, SwitchToRecentConversation) {
   // Create 5 conversations by adding 5 tabs and activating the side panel for
   // each tab.
   for (int i = 1; i <= 5; ++i) {
-    ASSERT_TRUE(
-        AddTabAtIndex(i, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
+    ASSERT_TRUE(AddTabAtIndex(i, GURL("about:blank"),
+                              ui::PAGE_TRANSITION_AUTO_TOPLEVEL));
     tab_strip_model->ActivateTabAt(i);
     tabs::TabInterface* current_tab = tab_strip_model->GetTabAtIndex(i);
 
     glic_instance_coordinator->Toggle(
         browser(),
-        /*prevent_close=*/false,
-        glic::mojom::InvocationSource::kTopChromeButton,
+        /*prevent_close=*/true, glic::mojom::InvocationSource::kTopChromeButton,
         /*prompt_suggestion=*/std::nullopt,
         /*auto_send=*/false,
         /*conversation_id=*/std::nullopt);
@@ -482,7 +480,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, UnshareCommandShown) {
   glic::GlicTabPinningWaiter waiter(&service->sharing_manager(),
                                     handles_to_wait_for);
 
-  service->window_controller().CreateNewConversationForTabs({tab});
+  service->instance_coordinator().CreateNewConversationForTabs({tab});
   waiter.Wait();
 
   // Select both tabs and open the context menu.
@@ -538,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab0->GetHandle()};
     glic::GlicTabPinningWaiter waiter(&service->sharing_manager(),
                                       handles_to_wait_for);
-    service->window_controller().CreateNewConversationForTabs({tab0});
+    service->instance_coordinator().CreateNewConversationForTabs({tab0});
     waiter.Wait();
   }
 
@@ -548,7 +546,7 @@ IN_PROC_BROWSER_TEST_F(
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab1->GetHandle()};
     glic::GlicTabPinningWaiter waiter(&service->sharing_manager(),
                                       handles_to_wait_for);
-    service->window_controller().CreateNewConversationForTabs({tab1});
+    service->instance_coordinator().CreateNewConversationForTabs({tab1});
     waiter.Wait();
   }
 
@@ -648,7 +646,7 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest,
     std::vector<tabs::TabHandle> handles_to_wait_for = {tab->GetHandle()};
     glic::GlicTabPinningWaiter waiter(&service->sharing_manager(),
                                       handles_to_wait_for);
-    service->window_controller().CreateNewConversationForTabs({tab});
+    service->instance_coordinator().CreateNewConversationForTabs({tab});
     waiter.Wait();
   }
   EXPECT_TRUE(service->sharing_manager().IsTabPinned(tab->GetHandle()));

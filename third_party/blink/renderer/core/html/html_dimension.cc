@@ -46,7 +46,7 @@ static HTMLDimension ParseDimension(
   // HTML5's split removes leading and trailing spaces so we need to skip the
   // leading spaces here.
   const size_t digits_start =
-      SkipWhile<CharacterType, IsASCIISpace>(characters, 0);
+      SkipWhile<CharacterType, IsAsciiSpace>(characters, 0);
 
   // This is Step 5.5. in the algorithm. Going to the last step would make the
   // code less readable.
@@ -55,7 +55,7 @@ static HTMLDimension ParseDimension(
   }
 
   size_t position =
-      SkipWhile<CharacterType, IsASCIIDigit>(characters, digits_start);
+      SkipWhile<CharacterType, IsAsciiDigit>(characters, digits_start);
 
   double value = 0.;
   if (position > digits_start) {
@@ -70,10 +70,11 @@ static HTMLDimension ParseDimension(
     if (SkipExactly<CharacterType>(characters, '.', position)) {
       Vector<CharacterType> fraction_numbers;
       while (position < characters.size() &&
-             (IsASCIIDigit(characters[position]) ||
-              IsASCIISpace(characters[position]))) {
-        if (IsASCIIDigit(characters[position]))
+             (IsAsciiDigit(characters[position]) ||
+              IsAsciiSpace(characters[position]))) {
+        if (IsAsciiDigit(characters[position])) {
           fraction_numbers.push_back(characters[position]);
+        }
         ++position;
       }
 
@@ -89,7 +90,7 @@ static HTMLDimension ParseDimension(
     }
   }
 
-  position = SkipWhile<CharacterType, IsASCIISpace>(characters, position);
+  position = SkipWhile<CharacterType, IsAsciiSpace>(characters, position);
 
   HTMLDimension::HTMLDimensionType type = HTMLDimension::kAbsolute;
   if (position < characters.size()) {
@@ -147,15 +148,15 @@ static bool ParseDimensionValue(base::span<const CharacterType> characters,
   size_t current = SkipWhile<CharacterType, IsHTMLSpace>(characters, 0);
   // Deviation: HTML allows '+' here.
   const size_t number_start = current;
-  if (!SkipExactly<CharacterType, IsASCIIDigit>(characters, current)) {
+  if (!SkipExactly<CharacterType, IsAsciiDigit>(characters, current)) {
     return false;
   }
-  current = SkipWhile<CharacterType, IsASCIIDigit>(characters, current);
+  current = SkipWhile<CharacterType, IsAsciiDigit>(characters, current);
   if (SkipExactly<CharacterType>(characters, '.', current)) {
     // Deviation: HTML requires a digit after the full stop to be able to treat
     // the value as a percentage (if not, the '.' will considered "garbage",
     // yielding a regular length.) Gecko and Edge does not.
-    current = SkipWhile<CharacterType, IsASCIIDigit>(characters, current);
+    current = SkipWhile<CharacterType, IsAsciiDigit>(characters, current);
   }
   bool ok;
   double value = CSSValueClampingUtils::ClampDouble(CharactersToDouble(

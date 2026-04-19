@@ -55,6 +55,12 @@ struct ProfileEnablement {
   // Whether the user has passed the FRE.
   bool not_consented;
 
+  // Whether disallowed by country filtering.
+  bool disallowed_by_country_filter;
+
+  // Whether disallowed by locale filtering.
+  bool disallowed_by_locale_filter;
+
   // Whether the user has consented to actuation.
   bool actuation_not_consented;
 
@@ -83,6 +89,9 @@ struct ConfigInfo {
   url.mojom.Url staging_guest_url;
   url.mojom.Url preprod_guest_url;
   url.mojom.Url prod_guest_url;
+
+  // User configured preset URL for web continuity.
+  url.mojom.Url web_continuity_originating_host_url;
 };
 
 // Consolidated data payload to populate the Glic internals page.
@@ -165,7 +174,8 @@ interface GlicPreloadHandlerFactory {
 interface PageHandlerFactory {
   // Creates the PageHandler for chrome://glic.
   CreatePageHandler(
-      pending_receiver<PageHandler> receiver, pending_remote<Page> page);
+      pending_receiver<PageHandler> receiver, pending_remote<Page> page)
+      => (string instance_id);
 };
 
 // It is used in the Glic.PanelWebUiState.FinishState histogram.
@@ -201,6 +211,8 @@ enum WebUiState {
   kGuestError = 11,
   // Similar to kUnavailable, but the admin has explicitly disabled Glic.
   kDisabledByAdmin = 12,
+  // Created for background warming, not yet displayed or fully initialized.
+  kWarmed = 13,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:WebUiState)
@@ -226,6 +238,44 @@ enum PrepareForClientResult {
   kErrorResyncingCookies,
   // The account state is paused, and requires sign in.
   kRequiresSignIn,
+};
+
+// Use ongoing conversation for the tab if it exists. Otherwise, fall back
+// to the default behavior for opening the UI (typically a new conversation).
+struct DefaultConversation {};
+
+// Always invoke into a new conversation.
+struct NewConversation {};
+
+// Defines the conversation an invocation targets.
+union InvokeConversationSelection {
+  DefaultConversation default_conversation;
+  NewConversation new_conversation;
+  string conversation_id;
+};
+
+// The level of in-flight navigation events allowed without canceling the
+// invocation.
+enum AllowedInflightNavigation {
+  kNone,
+  kSameDomain,
+  kAll,
+};
+
+// Configuration options for invoking Glic from the internals page.
+struct TriggerInvokeFromInternalsOptions {
+  InvocationSource invocation_source;
+  array<string> prompts;
+  AdditionalContext? additional_context;
+  InvokeConversationSelection conversation;
+  FeatureMode? feature_mode;
+  bool disable_zss;
+  string? skill_id;
+  string? error_message;
+  mojo_base.mojom.TimeDelta? timeout;
+  AllowedInflightNavigation allowed_inflight_navigation;
+  bool auto_submit;
+  FreOverride fre_override = kUnspecified;
 };
 
 // Page handler for the glic WebUI.
@@ -265,7 +315,10 @@ interface PageHandler {
 
   // Notifies the PageHandler that the state of the WebUI has changed.
   WebUiStateChanged(WebUiState new_state);
+};
 
+// Page handler for the glic internals WebUI.
+interface InternalsPageHandler {
   // Called by the internals WebUI page to get the data it will present.
   GetInternalsDataPayload() => (InternalsDataPayload internals_data);
 
@@ -274,6 +327,22 @@ interface PageHandler {
                      url.mojom.Url staging,
                      url.mojom.Url preprod,
                      url.mojom.Url prod);
+
+  // Triggers an invocation for testing from the internals page.
+  TriggerInvokeFromInternalsAction(
+      TriggerInvokeFromInternalsOptions options)
+      => (bool success, string error_message);
+
+  // Sets the web continuity originating host URL preset for the internals page.
+  SetWebContinuityOriginatingHostUrlPreset(
+      url.mojom.Url web_continuity_originating_host_url);
+};
+
+// Factory for InternalsPageHandler used in chrome://glic/internals.
+interface InternalsPageHandlerFactory {
+  // Creates the InternalsPageHandler for chrome://glic/internals.
+  CreateInternalsPageHandler(
+      pending_receiver<InternalsPageHandler> receiver);
 };
 
 // @generate glic_api
@@ -303,6 +372,10 @@ enum CreateTaskErrorReason {
 
   // The user's browser policy or account settings prevent creating actor tasks.
   [MinVersion=2] kBlockedByPolicy = 3,
+
+  // CreateTask was called on a Glic instance which does not have a registered
+  // conversation.
+  [MinVersion=3] kConversationNotRegistered = 4,
 };
 
 // @generate glic_api
@@ -345,6 +418,27 @@ enum ActorTaskStopReason {
   [MinVersion=2] kUserStartedNewChat = 3,
   // Actor task was stopped by choosing a previous conversation.
   [MinVersion=2] kUserLoadedPreviousChat = 4,
+};
+
+// @generate glic_api
+// The reason/source of why an actor task was interrupted.
+[Stable, Extensible]
+enum ActorTaskInterruptReason {
+  // Actor task is interrupted for an unknown reason.
+  [Default] kUnknownReason = 0,
+  // Actor task is complete.
+  kTaskComplete = 1,
+  // Actor task was waiting for user input.
+  kWaitingUserInput = 2,
+  // Actor task was waiting for user to provide clarifications on the current
+  // task.
+  kWaitingUserClarification = 3,
+  // Actor task was waiting for user to confirm an action.
+  kWaitingUserConfirmation = 4,
+  // Actor task was waiting for user to take over.
+  kWaitingUserTakeOver = 5,
+  // Actor task was waiting for irrelevant user input.
+  kWaitingIrrelevantUserInput = 6,
 };
 
 // @generate glic_api
@@ -487,6 +581,8 @@ struct WebClientInitialState {
   bool onboarding_completed;
   // Whether the skills feature is enabled.
   bool enable_skills;
+  // Whether glic API getTabFaviconById is enabled.
+  bool enable_get_tab_favicon_by_id;
 };
 
 // @generate glic_api
@@ -689,9 +785,8 @@ enum SkillSource {
   [MinVersion=1] kDerivedFromFirstParty = 3,
 };
 
-// clang-format off
-// LINT.ThenChange(//components/skills/public/skill.mojom:SkillSource, //components/sync/protocol/skill_specifics.proto:SkillSource)
-// clang-format on
+// LINT.ThenChange(//components/skills/public/skill.mojom:SkillSource,
+// //components/sync/protocol/skill_specifics.proto:SkillSource)
 
 // LINT.IfChange(Skill)
 // A single skill preview.
@@ -706,6 +801,8 @@ struct SkillPreview {
   SkillSource source;
   // The description of the skill.
   string description;
+  // The image URL to use when rendering this skill.
+  url.mojom.Url? image_url;
 };
 
 // A single skill.
@@ -719,9 +816,9 @@ struct Skill {
   string? source_skill_id;
 };
 
-// clang-format off
-// LINT.ThenChange(//components/skills/public/skill.mojom:Skill, //components/skills/public/skill.h:Skill, //chrome/browser/resources/glic/glic_api/glic_api.ts:Skill)
-// clang-format on
+// LINT.ThenChange(//components/skills/public/skill.mojom:Skill,
+// //components/skills/public/skill.h:Skill,
+// //chrome/browser/resources/glic/glic_api/glic_api.ts:Skill)
 
 // Request to create a skill.
 struct CreateSkillRequest {
@@ -781,6 +878,7 @@ enum SkillsWebClientEvent {
   // Skill Builder Step 3: User clicked save on the generated draft.
   kSkillBuilderClickedSaveAsSkill = 22,
 };
+
 // LINT.ThenChange(
 //  //tools/metrics/histograms/metadata/glic/enums.xml:SkillsWebClientEvent
 // )
@@ -973,7 +1071,6 @@ interface WebClientHandler {
   // `tab_context_result` is null if tab content could not be captured.
   // This may fail if the tab is navigated while collecting data, or closed
   // before data is collected.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   GetContextFromTab(int32 tab_id, GetTabContextOptions options)
       => (GetContextResult result);
 
@@ -988,24 +1085,20 @@ interface WebClientHandler {
   // effective limit is returned. The returned number may also differ from the
   // requested number if the current number of pinned tabs exceeds the requested
   // amount.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   SetMaximumNumberOfPinnedTabs(uint32 requested_max)
       => (uint32 effective_max);
 
   // Pins the given tabs. Can fail if the tabs cannot be found, if the number of
   // pinned tabs exceeds the allowed limit or if the tabs are already pinned.
   // Returns true if all the given tabs were pinned.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   PinTabs(array<int32> tab_ids, PinTabsOptions? options) => (bool pinned_all);
 
   // Unpins the given tabs. Can fail if the tabs cannot be found, or if some of
   // the given tabs aren't pinned.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   UnpinTabs(array<int32> tab_ids, UnpinTabsOptions? options)
       => (bool unpinned_all);
 
   // Unpins all currently pinned tabs.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   UnpinAllTabs(UnpinTabsOptions? options);
 
   // Initiates the creation of a skill by opening a modal dialog. It returns a
@@ -1028,12 +1121,13 @@ interface WebClientHandler {
   RecordSkillsWebClientEvent(SkillsWebClientEvent event);
 
   // Subscribes to receive updates on pin candidates.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   SubscribeToPinCandidates(GetPinCandidatesOptions options,
                            pending_remote<PinCandidatesObserver> observer);
 
   // Creates a new task in the actor framework and returns the new task's ID.
-  // `task_options` contains information used to initialize the task.
+  // `task_options` contains information used to initialize the task. A
+  // conversation must have been registered using RegisterConversation prior to
+  // creating an actor task.
   CreateTask(actor.webui.mojom.TaskOptions? task_options)
       => result<int32, CreateTaskErrorReason>;
 
@@ -1076,10 +1170,12 @@ interface WebClientHandler {
 
   // Interrupts the task associated with the given id. This is
   // different than pausing a task since this still prevents user
-  // interaction.
+  // interaction. The interrupt_reason indicates the reason for why the
+  // interrupt was initiated.
   // No-op if a task with the given id does not exist.
   // No-op if the state of the task not in the reflecting state.
-  InterruptActorTask(int32 task_id);
+  InterruptActorTask(
+      int32 task_id, ActorTaskInterruptReason? interrupt_reason);
 
   // Indicates the task associated with the given id is no longer waiting
   // on user input.
@@ -1263,6 +1359,10 @@ interface WebClientHandler {
   // Called when the user receives a response with closed captions showing.
   OnClosedCaptionsShown();
 
+  // Called when the web client sends a browser actuation result over the
+  // network.
+  OnActionSubmitted(bool is_retry);
+
   // Scrolls to and (optionally) highlights content specified by `params`. Only
   // one highlight is active at a time. Returns an error reason if the scroll
   // fails, or null otherwise.
@@ -1327,12 +1427,23 @@ interface WebClientHandler {
   // Request updates from a tab. The receiver is closed when the tab is closed,
   // or if the tab is not found.
   SubscribeToTabData(int32 tab_id, pending_remote<TabDataHandler> receiver);
+
+  // Request favicon updates from a tab. The receiver is closed when the tab is
+  // closed, or if the tab is not found.
+  SubscribeToTabFavicon(
+      int32 tab_id, pending_remote<TabFaviconHandler> receiver);
 };
 
 // Receives updates for a specific tab.
 interface TabDataHandler {
   // Tab data has changed for this tab.
   OnTabDataChanged(TabData tab_data);
+};
+
+// Receives favicon updates for a specific tab.
+interface TabFaviconHandler {
+  // Tab favicon has changed for this tab.
+  OnTabFaviconChanged(skia.mojom.BitmapN32? favicon);
 };
 
 // Information about a conversation.
@@ -1345,6 +1456,9 @@ struct ConversationInfo {
   // TODO(crbug.com/370820145): Replace ByteString with a more appropriate type
   // for opaque binary data once available.
   mojo_base.mojom.ByteString? client_data;
+  // Optional turn ID to open this conversation at. Empty or invalid turn IDs
+  // will result in the conversation being opened at the most recent turn.
+  string? turn_id;
 };
 
 // @generate glic_api
@@ -1396,6 +1510,9 @@ struct PanelOpeningData {
   //   `registerConversation` or `switchConversation` calls.
   //
   ConversationInfo conversation_info;
+
+  // The FRE override, if any.
+  FreOverride fre_override = kUnspecified;
 };
 
 // @generate glic_api
@@ -1414,6 +1531,19 @@ struct PanelState {
   PanelStateKind kind;
   // Present when attached, indicates to which window the panel is attached.
   int32? window_id;
+};
+
+// @generate glic_api
+// Represents an override of the First Run Experience (FRE).
+[Stable, Extensible]
+enum FreOverride {
+  [Default] kUnspecified = 0,
+  // Variation that requires text input from the user to unlock full client.
+  kTrustFirstText = 1,
+  // Variation that requires mouse click from the user to unlock full client.
+  kTrustFirstClick = 2,
+  // Variation that starts with full client unlocked and shows inline consent.
+  kTrustFirstInline = 3,
 };
 
 // @generate glic_api
@@ -1467,9 +1597,13 @@ enum InvocationSource {
   [MinVersion=12] kCaptureRegionHotkey = 20,
   // From the in-product-help (IPH) entrypoint.
   [MinVersion=13] kIph = 21,
+  // User clicked an anchored contextual cue chip.
+  [MinVersion=14] kAnchoredContextualCue = 22,
+  // From the context menu.
+  [MinVersion=15] kWebContentsContextMenu = 23,
 };
 
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource, //chrome/browser/glic/glic_metrics.h:ResponseSegmentation)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource, //chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation, //chrome/browser/glic/service/metrics/metrics_types.h:GlicEntrypoint)
 
 // @generate glic_api
 // Mode for specific feature behaviors.
@@ -1689,11 +1823,9 @@ interface WebClient {
   NotifyClosedCaptioningSettingChanged(bool enabled);
 
   // Notify that the collection of shared tabs has changed.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   NotifyPinnedTabsChanged(array<TabData> tab_data);
 
   // Notify that the TabData for a pinned tab has changed.
-  [RuntimeFeature=glic.mojom.features.kGlicMultiTab]
   NotifyPinnedTabDataChanged(TabData tab_data);
 
   // Notify that a skill has been deleted.
@@ -2010,4 +2142,17 @@ enum HostCapability {
   kPdfZeroState = 7,
   // Indicates that the host supports the invoke mechanism.
   kInvoke = 8,
+  // Indicates that the host does not support Live Mode.
+  kNoLiveMode = 9,
+  // Indicates that the host supports auto browse attempting login using Sign in
+  // with Google.
+  kAutoLoginSignInWithGoogle = 10,
+};
+
+// @generate glic_api
+// Lists capabilities that the glic web client may support.
+enum ClientCapabilities {
+  // The glic web client does not use favicons in TabData, so they can
+  // be omitted from TabData.
+  kIgnoresTabDataFavicons = 0,
 };

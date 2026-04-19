@@ -7,17 +7,36 @@
 
 #import <UIKit/UIKit.h>
 
-@class AssistantContainerViewController;
+@protocol AssistantContainerAnimatable;
+@protocol AssistantContainerProvider;
 
 @interface AssistantContainerAnimator : NSObject
 
 // Animates the presentation of the assistant container (Slide Up from bottom).
-- (void)animatePresentation:(AssistantContainerViewController*)viewController
+- (void)animatePresentation:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
                  completion:(void (^)(void))completion;
 
 // Animates the dismissal of the assistant container (Slide Down to bottom).
-- (void)animateDismissal:(AssistantContainerViewController*)viewController
+- (void)animateDismissal:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
               completion:(void (^)(void))completion;
+
+// Animates the presentation of the assistant container side panel.
+- (void)animateSidePanelPresentation:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
+                  baseViewController:
+                      (UIViewController<AssistantContainerProvider>*)
+                          baseViewController
+                          completion:(void (^)(void))completion;
+
+// Animates the dismissal of the assistant container side panel.
+- (void)animateSidePanelDismissal:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
+               baseViewController:
+                   (UIViewController<AssistantContainerProvider>*)
+                       baseViewController
+                       completion:(void (^)(void))completion;
 
 @end
 

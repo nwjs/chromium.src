@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_quad.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_rect.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_dom_rect_read_only.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_element_image.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_fenced_frame_config.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_file.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_file_list.h"
@@ -57,6 +58,7 @@
 #include "third_party/blink/renderer/core/geometry/dom_quad.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect_read_only.h"
+#include "third_party/blink/renderer/core/html/canvas/element_image.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/fenced_frame_config.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
@@ -217,8 +219,10 @@ v8::Local<v8::Value> V8ScriptValueDeserializer::Deserialize() {
   }
 
   bool read_header;
-  if (!deserializer_.ReadHeader(context).To(&read_header))
+  if (!deserializer_.ReadHeader(context).To(&read_header)) {
+    has_error_ = true;
     return v8::Null(isolate);
+  }
   DCHECK(read_header);
 
   // If there was no Blink envelope earlier, Blink shares the wire format
@@ -230,8 +234,11 @@ v8::Local<v8::Value> V8ScriptValueDeserializer::Deserialize() {
   Transfer();
 
   v8::Local<v8::Value> value;
-  if (!deserializer_.ReadValue(context).ToLocal(&value))
+  if (!deserializer_.ReadValue(context).ToLocal(&value)) {
+    has_error_ = true;
     return v8::Null(isolate);
+  }
+
   if (slow_mode_ && value->IsObject()) {
     // TODO(caseq): consider additionally gating this on payload size.
     MaskDeserializationTimings(value.As<v8::Object>());
@@ -401,7 +408,7 @@ bool V8ScriptValueDeserializer::ReadUTF8String(String* string) {
       !ReadRawBytesToSpan(utf8_length, &utf8_data)) {
     return false;
   }
-  *string = String::FromUTF8(utf8_data);
+  *string = String::FromUtf8(utf8_data);
 
   // Decoding must have failed; this encoding does not distinguish between null
   // and empty strings.
@@ -558,6 +565,17 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
       if (!ReadUint32(&index) || index >= transferred_image_bitmaps.size())
         return nullptr;
       return transferred_image_bitmaps[index].Get();
+    }
+    case kElementImageTransferTag: {
+      uint32_t index = 0;
+      if (!unpacked_value_) {
+        return nullptr;
+      }
+      const auto& transferred_element_images = unpacked_value_->ElementImages();
+      if (!ReadUint32(&index) || index >= transferred_element_images.size()) {
+        return nullptr;
+      }
+      return transferred_element_images[index].Get();
     }
     case kImageDataTag: {
       SerializedPredefinedColorSpace predefined_color_space =
@@ -1049,6 +1067,8 @@ bool V8ScriptValueDeserializer::ExecutionContextExposesInterface(
     case kImageBitmapTag:
     case kImageBitmapTransferTag:
       return V8ImageBitmap::IsExposed(execution_context);
+    case kElementImageTransferTag:
+      return V8ElementImage::IsExposed(execution_context);
     case kImageDataTag:
       return V8ImageData::IsExposed(execution_context);
     case kDOMPointTag:

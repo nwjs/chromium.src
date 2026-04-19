@@ -26,6 +26,7 @@
 #import "base/task/bind_post_task.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/timer/timer.h"
+#import "base/values.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/component_updater/component_updater_service.h"
 #import "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
@@ -44,6 +45,7 @@
 #import "components/previous_session_info/previous_session_info.h"
 #import "components/sync/service/sync_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
+#import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/app/app_metrics_app_state_agent.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/memory_warning_helper.h"
@@ -56,7 +58,6 @@
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/deferred_initialization_task_names.h"
 #import "ios/chrome/app/enterprise_app_agent.h"
-#import "ios/chrome/app/fast_app_terminate_buildflags.h"
 #import "ios/chrome/app/launch_screen_view_controller.h"
 #import "ios/chrome/app/memory_monitor.h"
 #import "ios/chrome/app/profile/profile_controller.h"
@@ -72,6 +73,7 @@
 #import "ios/chrome/app/startup/register_experimental_settings.h"
 #import "ios/chrome/app/startup/setup_debugging.h"
 #import "ios/chrome/app/startup_tasks.h"
+#import "ios/chrome/app/task_orchestrator.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/app/variations_app_state_agent.h"
 #import "ios/chrome/browser/accessibility/model/window_accessibility_change_notifier_app_agent.h"
@@ -172,11 +174,6 @@
 #endif  // !BUILDFLAG(IS_IOS_MACCATALYST)
 
 namespace {
-
-#if BUILDFLAG(FAST_APP_TERMINATE_ENABLED)
-// Skip chromeMain.reset() on shutdown, see crbug.com/1328891 for details.
-BASE_FEATURE(kFastApplicationWillTerminate, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(FAST_APP_TERMINATE_ENABLED)
 
 // Constants for deferring memory debugging tools startup.
 NSString* const kMemoryDebuggingToolsStartup = @"MemoryDebuggingToolsStartup";
@@ -328,6 +325,7 @@ void RecordDiscardSceneStillConnected(NSSet<UISceneSession*>* scene_sessions,
 
 // Possible choices for which profile to use for a scene.
 enum class ProfileChoice {
+  kProfileFromTask,
   kProfileForScene,
   kProfileFromActivity,
   kLastUsedProfile,
@@ -338,6 +336,7 @@ enum class ProfileChoice {
 // Returns the available ProfileChoices.
 base::span<const ProfileChoice> GetProfileChoices() {
   static constexpr auto kProfileChoices = std::to_array<ProfileChoice>({
+      ProfileChoice::kProfileFromTask,
       ProfileChoice::kProfileForScene,
       ProfileChoice::kProfileFromActivity,
       ProfileChoice::kLastUsedProfile,
@@ -347,14 +346,43 @@ base::span<const ProfileChoice> GetProfileChoices() {
   return kProfileChoices;
 }
 
+// Returns the profile name associated with a pending task for `scene_state` in
+// `orchestrator`, if any.
+std::string GetProfileNameFromTask(SceneState* scene_state,
+                                   TaskOrchestrator* orchestrator) {
+  if (!orchestrator) {
+    return std::string();
+  }
+  NSString* gaia_id = [orchestrator gaiaIDForScene:scene_state.sceneSessionID];
+  if (!gaia_id) {
+    return std::string();
+  }
+
+  if ([gaia_id isEqualToString:app_group::kNoAccount]) {
+    return GetApplicationContext()
+        ->GetAccountProfileMapper()
+        ->GetPersonalProfileName();
+  }
+
+  std::optional<std::string> profile_name =
+      GetApplicationContext()
+          ->GetAccountProfileMapper()
+          ->FindProfileNameForGaiaID(GaiaId(base::SysNSStringToUTF8(gaia_id)));
+
+  return profile_name.value_or(std::string());
+}
+
 // Returns the name of the profile for `choice`. May be empty in some cases,
 // e.g. when a corresponding pref isn't set yet.
 std::string GetProfileNameForChoice(ProfileChoice choice,
                                     SceneState* scene_state,
+                                    TaskOrchestrator* orchestrator,
                                     ProfileManagerIOS* manager,
                                     ProfileAttributesStorageIOS* storage,
                                     PrefService* local_state) {
   switch (choice) {
+    case ProfileChoice::kProfileFromTask:
+      return GetProfileNameFromTask(scene_state, orchestrator);
     case ProfileChoice::kProfileFromActivity: {
       for (NSUserActivity* activity in scene_state.connectionOptions
                .userActivities) {
@@ -1230,68 +1258,6 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   // down, so there is no point in running them).
   [_appState.deferredRunner cancelAllBlocks];
 
-#if BUILDFLAG(FAST_APP_TERMINATE_ENABLED)
-  // _chromeMain.reset() is a blocking call that regularly causes
-  // applicationWillTerminate to fail after a 5s delay. Experiment with skipping
-  // this shutdown call. See: crbug.com/1328891
-  if (base::FeatureList::IsEnabled(kFastApplicationWillTerminate)) {
-    // Expected number of time the `closure` defined below needs to
-    // be called before it signal the semaphore. This corresponds to the
-    // number of services that needs to be waited for.
-    uint32_t expectedCount = 0;
-
-    // MetricsService doesn't depend on a profile.
-    metrics::MetricsService* metrics =
-        GetApplicationContext()->GetMetricsService();
-    if (metrics) {
-      expectedCount += 1;
-    }
-
-    const std::vector<ProfileIOS*> loadedProfiles =
-        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
-    for (ProfileIOS* profile : loadedProfiles) {
-      expectedCount += 1;
-      if (profile->HasOffTheRecordProfile()) {
-        expectedCount += 1;
-      }
-    }
-
-    // `dispatch_semaphore_signal` is called only once when `closure` is called
-    // `expectedCount` times.
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    base::RepeatingClosure closure =
-        base::BarrierClosure(expectedCount, base::BindOnce(^{
-                               dispatch_semaphore_signal(semaphore);
-                             }));
-
-    for (ProfileIOS* profile : loadedProfiles) {
-      SessionRestorationServiceFactory::GetForProfile(profile)
-          ->InvokeClosureWhenBackgroundProcessingDone(closure);
-
-      if (profile->HasOffTheRecordProfile()) {
-        ProfileIOS* otrBrowserState = profile->GetOffTheRecordProfile();
-        SessionRestorationServiceFactory::GetForProfile(otrBrowserState)
-            ->InvokeClosureWhenBackgroundProcessingDone(closure);
-      }
-    }
-
-    if (metrics) {
-      metrics->Stop();
-      // MetricsService::Stop() depends on a committed local state, and does
-      // so asynchronously. To avoid losing metrics, this minimum wait is
-      // required. This will introduce a wait that will likely be the source
-      // of a number of watchdog kills, but it should still be fewer than the
-      // number of kills `_chromeMain.reset()` is responsible for.
-      GetApplicationContext()->GetLocalState()->CommitPendingWrite({}, closure);
-    }
-
-    dispatch_time_t dispatchTime =
-        dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC);
-    dispatch_semaphore_wait(semaphore, dispatchTime);
-
-    return;
-  }
-#endif  // BUILDFLAG(FAST_APP_TERMINATE_ENABLED)
 
 #if BUILDFLAG(ENABLE_RLZ)
   if (_rlzTrackerInitialized) {
@@ -1861,12 +1827,14 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 
   // Determine which profile to use. The logic is to take the first valid
   // profile (i.e. the value is set and the profile is known) amongst the
-  // following value: the profile configured for the scene, the last used
-  // profile, the personal profile, or as a last resort a new profile.
+  // following value: the profile required by the intent, the profile configured
+  // for the scene, the last used profile, the personal profile, or as a last
+  // resort a new profile.
   std::string profileName;
   for (ProfileChoice choice : GetProfileChoices()) {
-    profileName = GetProfileNameForChoice(choice, sceneState, manager, storage,
-                                          localState);
+    profileName = GetProfileNameForChoice(choice, sceneState,
+                                          self.appState.taskOrchestrator,
+                                          manager, storage, localState);
 
     // Pick the first valid profile name found.
     if (storage->HasProfileWithName(profileName)) {

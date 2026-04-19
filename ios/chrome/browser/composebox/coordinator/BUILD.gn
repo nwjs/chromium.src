@@ -61,6 +61,8 @@ source_set("entrypoint") {
 
 source_set("input_plate") {
   sources = [
+    "composebox_cobrowse_omnibox_client.h",
+    "composebox_cobrowse_omnibox_client.mm",
     "composebox_input_plate_coordinator.h",
     "composebox_input_plate_coordinator.mm",
     "composebox_input_plate_mediator.h",
@@ -79,6 +81,7 @@ source_set("input_plate") {
   public_deps = [
     ":availability",
     ":entrypoint",
+    ":mode_holder",
   ]
   deps = [
     ":aim_deps",
@@ -87,7 +90,6 @@ source_set("input_plate") {
     ":intelligence_deps",
     ":lens_deps",
     ":location_bar_deps",
-    ":mode_holder",
     ":ntp_deps",
     ":omnibox_deps",
     ":search_deps",
@@ -99,9 +101,11 @@ source_set("input_plate") {
     "//components/favicon/ios",
     "//components/feature_engagement/public",
     "//components/prefs",
+    "//components/security_state/ios",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/autocomplete/model",
+    "//ios/chrome/browser/cobrowse/model",
     "//ios/chrome/browser/composebox/debugger",
     "//ios/chrome/browser/composebox/model",
     "//ios/chrome/browser/composebox/public",
@@ -245,10 +249,10 @@ group("location_bar_deps") {
 group("omnibox_deps") {
   visibility = [ ":*" ]
   public_deps = [
+    "//components/contextual_search/internal/ios",
     "//components/omnibox/browser",
     "//components/omnibox/browser:location_bar",
     "//components/omnibox/common",
-    "//components/omnibox/composebox/ios",
     "//ios/chrome/browser/omnibox/coordinator",
     "//ios/chrome/browser/omnibox/coordinator/popup",
     "//ios/chrome/browser/omnibox/model",
@@ -301,10 +305,11 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/contextual_search:public",
+    "//components/contextual_search:test_support",
     "//components/contextual_search/internal:test_support",
+    "//components/contextual_search/internal/ios",
     "//components/omnibox/browser",
     "//components/omnibox/browser:test_support",
-    "//components/omnibox/composebox/ios",
     "//components/search_engines",
     "//components/search_engines:test_support",
     "//components/signin/public/identity_manager",

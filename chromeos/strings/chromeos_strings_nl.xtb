@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Voer een prompt in</translation>
 <translation id="115705039208660697">ananassen</translation>
 <translation id="1164939766849482256">Screensaver Van dageraad tot donker</translation>
-<translation id="1167755866710282443">Open het menu om sleutels aan te passen. Sleep het menu om te verplaatsen.</translation>
 <translation id="1171349345463658120">lagune met zandstrand</translation>
 <translation id="1174073918202301297">Snelkoppeling toegevoegd</translation>
 <translation id="11743817593307477">Gebruik de pijltoetsen om dit bedieningselement naar de gewenste game-actie te verplaatsen. Druk op Enter om het bedieningselement te plaatsen. Druk op Escape om te annuleren.</translation>
@@ -273,7 +272,6 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="200669432486043882">Bestand vervangen</translation>
 <translation id="2006864819935886708">Connectiviteit</translation>
 <translation id="2008685064673031089">Priemgetallen zoeken</translation>
-<translation id="2011174342667534258">SDK-versie:</translation>
 <translation id="2016697457005847575">Probeer de stappen voor probleemoplossing</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">bestek</translation>
@@ -508,7 +506,6 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="3211671540163313381">D-pad voor toetstoewijzing</translation>
 <translation id="3217462202230355157">Zorg dat je microfoon is aangesloten of start je <ph name="DEVICE_TYPE" /> opnieuw op</translation>
 <translation id="3226405216343213872">Zoeken naar scanners</translation>
-<translation id="3226657629376379887">Actiemenu voor indeling</translation>
 <translation id="3227186760713762082">Deel de waarde voor <ph name="CATEGORY_TEXT" /> door <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">digitale kunst</translation>
 <translation id="3246869037381808805">Afdruktaken ouder dan 1 dag worden verwijderd</translation>
@@ -523,7 +520,6 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="3291996639387199448">Sleutelrichting</translation>
 <translation id="3294437725009624529">Gast</translation>
 <translation id="3303855915957856445">Geen zoekresultaten gevonden</translation>
-<translation id="3305294846493618482">meer</translation>
 <translation id="3310640316857623290">DNS-latentie aanzienlijk langer dan toelaatbare drempel</translation>
 <translation id="3316495615885967552">Download van model voor het maken van overzichten en titels afgerond</translation>
 <translation id="3321030238473337787">Afspeelsnelheid</translation>
@@ -582,6 +578,7 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="3577473026931028326">Er is iets misgegaan. Probeer het opnieuw.</translation>
 <translation id="357889014807611375">wifi met datalimiet</translation>
 <translation id="3583278742022654445">Zwak signaal. Ga dichter bij de wifi-signaalbron staan.</translation>
+<translation id="3586931643579894722">Details verbergen</translation>
 <translation id="3588034708467091142">Zorg dat je verbonden bent met internet en probeer het opnieuw.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> is de gebruiksvriendelijke naam voor <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Batterij is vol</translation>
@@ -702,7 +699,6 @@ Generatieve AI is experimenteel, in vroege ontwikkeling en op dit moment beperkt
 <translation id="4126551873361000548">10 seconden terug</translation>
 <translation id="4128271910628504223">Voer een prompt in, zoals 'teken een mistig bos'</translation>
 <translation id="4130035430755296270">Plaats de cursor voor meer lay-outopties.</translation>
-<translation id="4130750466177569591">Ik ga akkoord</translation>
 <translation id="4131410914670010031">Zwart/wit</translation>
 <translation id="4137700675046373159">op zaterdag</translation>
 <translation id="4139326893730851150">Firmware-updates</translation>
@@ -1051,7 +1047,6 @@ Generatieve AI kan fouten maken, ook in informatie over mensen, dus dubbelcheck 
 <translation id="5606865426897221650">Tab</translation>
 <translation id="5612205513582918357">Tools voor lesgroepen deelt je scherm met <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Je bent uitgelogd</translation>
-<translation id="5620281292257375798">Alleen voor intern gebruik</translation>
 <translation id="5628106863521633649">Beschikbare talen</translation>
 <translation id="5630438231335788050">bauhaus</translation>
 <translation id="5631759159893697722">uittreksel</translation>
@@ -1167,6 +1162,7 @@ Generatieve AI kan fouten maken, ook in informatie over mensen, dus dubbelcheck 
 <translation id="6136285399872347291">Backspace</translation>
 <translation id="6137614725462089991">cyberpunk</translation>
 <translation id="6137767437444130246">Gebruikerscertificaat</translation>
+<translation id="6140948187512243695">Details tonen</translation>
 <translation id="6146993107019042706">Geef je nieuwe wachtwoord opnieuw op om te voltooien</translation>
 <translation id="6147514244879357420">Png</translation>
 <translation id="6149015141270619212">Kan geen verbinding maken met internet</translation>
@@ -1412,10 +1408,8 @@ Generatieve AI kan fouten maken, ook in informatie over mensen, dus dubbelcheck 
 <translation id="7177485034254901881">Dit <ph name="DEVICE_TYPE" /> wordt beheerd door <ph name="MANAGER" />. Beheerders kunnen het apparaat op afstand instellen.</translation>
 <translation id="7180611975245234373">Vernieuwen</translation>
 <translation id="7180865173735832675">Aanpassen</translation>
-<translation id="7184043045742675738">Klik op een toets om je knop aan te passen. Verplaats de toets met de muis of de pijltoetsen.</translation>
 <translation id="7187669805838282391">op woensdag</translation>
 <translation id="7205318498545665455">Kies je microfoon</translation>
-<translation id="7206979415662233817">Servicevoorwaarden</translation>
 <translation id="7210635925306941239">cyaan</translation>
 <translation id="7212547870105584639">Beheer de APN-instellingen voor het netwerk. APN's maken verbinding tussen een mobiel netwerk en internet. <ph name="BEGIN_LINK_LEARN_MORE" />Meer informatie<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Firmware-updates voor externe apparaten</translation>
@@ -1446,11 +1440,6 @@ Generatieve AI kan fouten maken, ook in informatie over mensen, dus dubbelcheck 
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">groen en groenblauw</translation>
 <translation id="7328475450575141167">paradijsvogel­bloem</translation>
-<translation id="7331297744262591636">Je moet minstens 18 jaar oud zijn en ermee akkoord gaan dat je gebruik van AI-achtergronden valt onder de <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Servicevoorwaarden van Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> en de <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Aanvullende Servicevoorwaarden voor generatieve AI<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-<ph name="LINE_BREAK" />
-Je kunt alleen achtergronden met AI maken voor persoonlijk, niet-commercieel gebruik. Als je hulp voor de achtergrond krijgt, wordt er tekst naar de AI-servers van Google gestuurd om achtergrondsuggesties te genereren, in overeenstemming met het <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Privacybeleid van Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Meer informatie<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; druk op de knop Zoeken en de spatiebalk om het resultaat te bekijken in Google Zoeken</translation>
 <translation id="7343649194310845056">Netwerkapparaten</translation>
 <translation id="7344788170842919262">aards</translation>
 <translation id="7346768383111016081">Plaats een bedieningselement op de game-actie om te spelen met je toetsenbord</translation>
@@ -1507,7 +1496,6 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="7590883480672980941">Invoerinstellingen</translation>
 <translation id="7595982850646262331">Nog <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">De beheerder van <ph name="MANAGER" /> heeft ingesteld wanneer dit <ph name="DEVICE_TYPE" /> kan worden gebruikt.</translation>
-<translation id="7613724632293948900">Verplaats met de muis of pijltoetsen.</translation>
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> selecteren</translation>
 <translation id="7618774594543487847">Neutraal</translation>
 <translation id="7620771111601174153">Meer informatie in het Helpcentrum</translation>
@@ -1641,6 +1629,7 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="819278132617411009">AI van Google gebruiken om productiever te zijn</translation>
 <translation id="8200772114523450471">Doorgaan</translation>
 <translation id="8206859287963243715">Mobiel</translation>
+<translation id="8208043093301544621">Home</translation>
 <translation id="8208861521865154048">Speciale voordelen</translation>
 <translation id="8226628635270268143">Kies je favoriete foto's en albums</translation>
 <translation id="8227119283605456246">Bestand bijvoegen</translation>
@@ -1838,7 +1827,6 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Deze video gebruiken</translation>
-<translation id="9087578468327036362">Deze zoekopdracht melden</translation>
 <translation id="9088306295921699330">Huidig gebruik</translation>
 <translation id="9088994563996376283">Vereenvoudigen</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@ Download het transcriptiemodel (maximaal 100 MB) om deze transcripties te krijg
 <translation id="921080052717160800">Afbeelding ingesteld als camera-achtergrond</translation>
 <translation id="9211490828691860325">Alle bureaus</translation>
 <translation id="9218016617214286986">Bekende APN's tonen</translation>
-<translation id="932327136139879170">Homepage</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Feedback sturen</translation>
 <translation id="950520315903467048">De toets ontbreekt voor <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

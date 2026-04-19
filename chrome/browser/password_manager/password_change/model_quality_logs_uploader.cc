@@ -54,13 +54,11 @@ std::string GetPageDomain(const GURL& page_url) {
 
 std::string GetPageLanguage(content::WebContents* web_contents) {
   CHECK(web_contents);
-#if 0
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents);
   if (translate_manager) {
     return translate_manager->GetLanguageState()->source_language();
   }
-#endif
   return std::string();
 }
 

@@ -46,6 +46,39 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Notification Action Click"/>
 </enum>
 
+<!-- LINT.IfChange(ChromeFindsOptInEvent) -->
+
+<enum name="ChromeFindsOptInEvent">
+  <int value="0" label="Shown"/>
+  <int value="1" label="First time opt-in"/>
+  <int value="2" label="Re-opt-in accepted"/>
+  <int value="3" label="Declined"/>
+  <int value="4" label="Snackbar action clicked"/>
+  <int value="5" label="Dismissed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/finds/android/java/src/org/chromium/chrome/browser/finds/FindsMetrics.java:ChromeFindsOptInEvent) -->
+
+<!-- LINT.IfChange(FindsNotificationUserInteraction) -->
+
+<enum name="FindsNotificationUserInteraction">
+  <int value="0" label="Click"/>
+  <int value="1" label="Dismiss"/>
+  <int value="2" label="Open in Chrome button click"/>
+  <int value="3" label="Not interested button click"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/finds/core/finds_metrics.h:FindsNotificationUserInteraction) -->
+
+<!-- LINT.IfChange(FindsOptInTriggerReason) -->
+
+<enum name="FindsOptInTriggerReason">
+  <int value="0" label="Theme URL Visit Count"/>
+  <int value="1" label="SRP Back Navigation Count"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/finds/core/finds_metrics.h:FindsOptInTriggerReason) -->
+
 <enum name="NotificationActionType">
   <int value="0" label="Unknown"/>
   <int value="1" label="Notification added"/>

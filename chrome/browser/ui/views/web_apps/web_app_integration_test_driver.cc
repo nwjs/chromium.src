@@ -14,6 +14,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/extend.h"
@@ -102,7 +103,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/link_capturing_features.h"
-#include "chrome/browser/web_applications/manifest_update_manager.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_registration.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
@@ -116,7 +116,6 @@
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
-#include "chrome/browser/web_applications/web_app_callback_app_identity.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -142,6 +141,7 @@
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/isolated_web_apps/test_support/test_signed_web_bundle_builder.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -1024,7 +1024,7 @@ void WebAppIntegrationTestDriver::SetUpOnMainThread() {
       content::WebUIDataSource::CreateAndAdd(browser()->profile(),
                                              "webapps_integration_tests");
   valid_chrome_url_for_webapps_registration_ =
-      AddValidWebAppChromeUrlHostForTesting("webapps_integration_tests");
+      webapps::AddValidChromeUrlHostForTesting("webapps_integration_tests");
   data_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::DefaultSrc,
       "default-src * 'unsafe-eval' 'unsafe-inline'; ");
@@ -4260,29 +4260,11 @@ void WebAppIntegrationTestDriver::AfterStateCheckAction() {
 void WebAppIntegrationTestDriver::AwaitManifestUpdateStartedPostNavigation(
     content::WebContents* web_contents) {
   CHECK(provider());
-
-  // Wait till pending manifest update processes have finished loading the page
-  // to start the manifest update.
-  ManifestUpdateManager& manifest_update_manager =
-      provider()->manifest_update_manager();
-  WebAppCommandManager& command_manager = provider()->command_manager();
-  // TODO(crbug.com/40873503): Figure out a better way of streamlining
-  //  the waiting instead of doing it separately for manifest updates
-  //  and commands. This fails WebAppIntegrationTestDriver::CloseCustomToolbar()
-  //  because DidFinishLoad() is not triggered for a backwards navigation, thus
-  //  a manifest update is triggered but is stuck.
-  while (manifest_update_manager.HasUpdatesPendingLoadFinishForTesting()) {
-    base::RunLoop loop_for_load_finish;
-    manifest_update_manager.SetLoadFinishedCallbackForTesting(
-        loop_for_load_finish.QuitClosure());
-    loop_for_load_finish.Run();
-  }
   test::WaitForLoadCompleteAndMaybeManifestSeen(*web_contents);
-
   // Wait till all manifest silent update command has completed. This will
   // either cause an update to happen, or the pending update to be stored on
   // the web app.
-  command_manager.AwaitAllCommandsCompleteForTesting();
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
 }
 
 webapps::AppId GetAppIdForIsolatedSite(Site site) {
@@ -4679,8 +4661,6 @@ Browser* WebAppIntegrationTestDriver::GetAppBrowserForSite(
     return nullptr;
   }
   Browser* browser = LaunchWebAppBrowserAndWait(profile(), app_state->id);
-  provider()->manifest_update_manager().ResetManifestThrottleForTesting(
-      GetAppIdBySiteMode(site));
   return browser;
 }
 
@@ -4980,7 +4960,6 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   // TODO(b/313492499): Update test driver to work with new intent picker UI.
   enabled_features.push_back(features::kPwaNavigationCapturing);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-  enabled_features.push_back(features::kWebAppPredictableAppUpdating);
   enabled_features.push_back(blink::features::kWebAppMigrationApi);
 
   scoped_feature_list_.InitWithFeatures(enabled_features, {});

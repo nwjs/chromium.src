@@ -9,12 +9,13 @@ import static org.chromium.net.impl.HttpEngineNativeProvider.EXT_VERSION;
 
 import android.net.Network;
 import android.net.http.HttpEngine;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresExtension;
 
+import org.chromium.base.Log;
 import org.chromium.net.BidirectionalStream;
 import org.chromium.net.CronetEngine;
 import org.chromium.net.RequestFinishedInfo;
@@ -37,6 +38,9 @@ import java.util.Map.Entry;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+// Note we specify both RequiresApi and RequiresExtension because some older linters may only
+// recognize the former.
+@RequiresApi(EXT_API_LEVEL)
 @RequiresExtension(extension = EXT_API_LEVEL, version = EXT_VERSION)
 class AndroidHttpEngineWrapper extends CronetEngineBase {
     private static final String TAG = "HttpEngineWrapper";
@@ -249,7 +253,7 @@ class AndroidHttpEngineWrapper extends CronetEngineBase {
             requestBuilder.setTrafficStatsTag(trafficStatsTag);
         }
         if (trafficStatsUidSet) {
-            requestBuilder.setTrafficStatsTag(trafficStatsUid);
+            requestBuilder.setTrafficStatsUid(trafficStatsUid);
         }
         requestBuilder.bindToNetwork(getNetwork(networkHandle));
         requestBuilder.setHttpMethod(method);

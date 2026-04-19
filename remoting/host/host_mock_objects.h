@@ -159,6 +159,14 @@ class MockClientSessionEvents : public ClientSessionEvents {
 
   MOCK_METHOD(void, OnDesktopAttached, (std::uint32_t session_id), (override));
   MOCK_METHOD(void, OnDesktopDetached, (), (override));
+  MOCK_METHOD(void,
+              OnSecurityKeyConnection,
+              (mojo::PendingReceiver<mojom::SecurityKeyForwarder>),
+              (override));
+  MOCK_METHOD(void,
+              OnSessionServicesClientConnected,
+              (mojo::PendingReceiver<mojom::ChromotingSessionServices>),
+              (override));
 };
 
 class MockClientSessionEventHandler : public ClientSession::EventHandler {
@@ -290,12 +298,10 @@ class MockSecurityKeyAuthHandler : public SecurityKeyAuthHandler {
               (),
               (const, override));
   MOCK_METHOD(void, SetRequestTimeoutForTest, (base::TimeDelta), (override));
-#if BUILDFLAG(IS_WIN)
   MOCK_METHOD(void,
               BindSecurityKeyForwarder,
               (mojo::PendingReceiver<mojom::SecurityKeyForwarder>),
               (override));
-#endif
 
   void SetSendMessageCallback(
       const SecurityKeyAuthHandler::SendMessageCallback& callback) override;

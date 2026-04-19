@@ -22,6 +22,10 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/size_f.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "content/browser/media/capture/android_cursor_renderer.h"
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ui/aura/client/cursor_shape_client.h"
 #include "ui/wm/core/cursor_loader.h"  // nogncheck
@@ -95,6 +99,13 @@ class MouseCursorOverlayControllerBrowserTest : public ContentBrowserTest {
     aura::client::SetCursorShapeClient(cursor_loader_.get());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_ANDROID)
+    // Save the target size so that Android's
+    // ComputeRelativeBoundsForOverlay has a fallback when the view is
+    // disconnected as done below by DisconnectFromToolkitForTesting().
+    controller_.SetTargetSize(GetAbsoluteViewSize());
+#endif
+
     controller_.SetTargetView(shell()->web_contents()->GetNativeView());
     controller_.DisconnectFromToolkitForTesting();
     base::RunLoop().RunUntilIdle();
@@ -125,10 +136,14 @@ class MouseCursorOverlayControllerBrowserTest : public ContentBrowserTest {
     timer.Stop();
   }
 
-  void SimulateMouseCoordinatesUpdated(gfx::Point coordinates) {
+  void SendMouseCoordinatesUpdated(gfx::Point coordinates) {
     if (controller_.ShouldSendMouseEvents()) {
       controller_.OnMouseCoordinatesUpdated(coordinates);
     }
+  }
+
+  void SimulateMouseCoordinatesUpdated(gfx::Point coordinates) {
+    SendMouseCoordinatesUpdated(coordinates);
     base::RunLoop().RunUntilIdle();
   }
 
@@ -141,7 +156,7 @@ class MouseCursorOverlayControllerBrowserTest : public ContentBrowserTest {
         .WillOnce([&quit_closure](const gfx::Point&) {
           std::move(quit_closure).Run();
         });
-    SimulateMouseCoordinatesUpdated(coordinates);
+    SendMouseCoordinatesUpdated(coordinates);
     run_loop.Run();
   }
 
@@ -229,10 +244,19 @@ class MouseCursorOverlayControllerBrowserTest : public ContentBrowserTest {
 
   gfx::SizeF GetExpectedOverlaySize() const {
     const gfx::Size& view_size = GetAbsoluteViewSize();
+#if BUILDFLAG(IS_ANDROID)
+    // On Android, ComputeRelativeBoundsForOverlay uses the logical cursor size
+    // scaled by dip_scale. For the test, the fallback dip_scale is 1.0f, so the
+    // expected size is just the logical cursor size.
+    const gfx::SizeF image_size =
+        gfx::SizeF(AndroidCursorRenderer::GetCursorSize());
+#else
     const SkBitmap image =
         controller_.GetCursorImage(controller_.GetCurrentCursorOrDefault());
-    return gfx::SizeF(static_cast<float>(image.width()) / view_size.width(),
-                      static_cast<float>(image.height()) / view_size.height());
+    const gfx::SizeF image_size(image.width(), image.height());
+#endif
+    return gfx::SizeF(image_size.width() / view_size.width(),
+                      image_size.height() / view_size.height());
   }
 
   void DoSquareDance(float x, float y, float distance_x, float distance_y) {
@@ -424,7 +448,6 @@ IN_PROC_BROWSER_TEST_F(MouseCursorOverlayControllerBrowserTest,
   // p1 dispatched less than kMinWaitInterval ago, so p2 is buffered.
   test_clock.Advance(kMinWaitInterval / 2);
   SimulateMouseCoordinatesUpdated(p2);
-  base::RunLoop().RunUntilIdle();
 
   // p1 dispatched less than kMinWaitInterval ago, so p3 is buffered too,
   // overriding p2.
@@ -436,8 +459,7 @@ IN_PROC_BROWSER_TEST_F(MouseCursorOverlayControllerBrowserTest,
         callback3_called = true;
         std::move(quit_closure_3).Run();
       });
-  SimulateMouseCoordinatesUpdated(p3);
-  base::RunLoop().RunUntilIdle();
+  SendMouseCoordinatesUpdated(p3);
   EXPECT_FALSE(callback3_called);
 
   // No events dispatched less than kMinWaitInterval ago, so p3 is dispatched.
@@ -457,7 +479,6 @@ IN_PROC_BROWSER_TEST_F(MouseCursorOverlayControllerBrowserTest,
   // p4 dispatched less than kMinWaitInterval ago, so p5 is buffered.
   test_clock.Advance(kMinWaitInterval / 2);
   SimulateMouseCoordinatesUpdated(p5);
-  base::RunLoop().RunUntilIdle();
 
   // p4 dispatched less than kMinWaitInterval ago, so p6 is buffered too,
   // overriding p5.
@@ -469,8 +490,7 @@ IN_PROC_BROWSER_TEST_F(MouseCursorOverlayControllerBrowserTest,
         callback6_called = true;
         std::move(quit_closure_6).Run();
       });
-  SimulateMouseCoordinatesUpdated(p6);
-  base::RunLoop().RunUntilIdle();
+  SendMouseCoordinatesUpdated(p6);
   EXPECT_FALSE(callback6_called);
 
   // No events dispatched less than kMinWaitInterval ago, so p6 is dispatched.

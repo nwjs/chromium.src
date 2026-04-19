@@ -5,8 +5,6 @@
 #ifndef CHROME_RENDERER_CHROME_RENDER_FRAME_OBSERVER_H_
 #define CHROME_RENDERER_CHROME_RENDER_FRAME_OBSERVER_H_
 
-#pragma clang diagnostic ignored "-Wunused-private-field"
-
 #include <memory>
 #include <string>
 #include <vector>

@@ -101,7 +101,7 @@ bool SetGaiaCookieForProfile(Profile* profile) {
       "SAPISID", std::string(), "." + google_url.GetHost(), "/", base::Time(),
       base::Time(), base::Time(), base::Time(),
       /*secure=*/true, false, net::CookieSameSite::NO_RESTRICTION,
-      net::COOKIE_PRIORITY_DEFAULT);
+      net::COOKIE_PRIORITY_DEFAULT, net::CookieSourceType::kOther);
 
   base::test::TestFuture<net::CookieAccessResult> set_cookie_future;
   network::mojom::CookieManager* cookie_manager =
@@ -215,7 +215,7 @@ void CreateLocalStorageForKey(Profile* profile, const blink::StorageKey& key) {
   {
     base::test::TestFuture<bool> put_future;
     area->Put({'k', 'e', 'y'}, {'v', 'a', 'l', 'u', 'e'}, std::nullopt,
-              "source", put_future.GetCallback());
+              /*source=*/nullptr, put_future.GetCallback());
     ASSERT_TRUE(put_future.Get());
   }
 }

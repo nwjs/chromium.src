@@ -391,10 +391,7 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   virtual gfx::Rect GetTransformedRootWindowBoundsFromPixelSize(
       const gfx::Size& size_in_pixels) const;
 
-  base::ObserverList<WindowTreeHostObserver,
-                     /*check_empty=*/false,
-                     base::ObserverListReentrancyPolicy::kAllowReentrancy>&
-  observers() {
+  base::ReentrantObserverList<WindowTreeHostObserver>& observers() {
     return observers_;
   }
 
@@ -472,10 +469,7 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   std::optional<bool> on_current_workspace_;
 
   // Allow reentrancy because OnHostMoved can be called within OnHostResized.
-  base::ObserverList<WindowTreeHostObserver,
-                     /*check_empty=*/false,
-                     base::ObserverListReentrancyPolicy::kAllowReentrancy>
-      observers_;
+  base::ReentrantObserverList<WindowTreeHostObserver> observers_;
 
   display::ScopedDisplayObserver display_observer_{this};
 

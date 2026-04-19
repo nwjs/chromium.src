@@ -31,6 +31,12 @@ bool GetInstalledBinaryPath(const base::FilePath::StringType& binary,
 const mojo::NamedPlatformChannel::ServerName&
 GetChromotingHostServicesServerName();
 
+#if BUILDFLAG(IS_LINUX)
+// Returns the server name for the legacy single-process Linux host.
+const mojo::NamedPlatformChannel::ServerName&
+GetLegacyChromotingHostServicesServerName();
+#endif
+
 #if BUILDFLAG(IS_MAC)
 // Message pipe ID used for AgentProcessBroker.
 extern const char kAgentProcessBrokerMessagePipeId[];
@@ -46,6 +52,12 @@ extern const char kLoginSessionReporterMessagePipeId[];
 // Returns the server name for the login session reporter.
 const mojo::NamedPlatformChannel::ServerName&
 GetLoginSessionReporterServerName();
+
+// Message pipe ID used for LoginSessionInfo.
+extern const char kLoginSessionServerMessagePipeId[];
+
+// Returns the server name for LoginSessionServer.
+const mojo::NamedPlatformChannel::ServerName& GetLoginSessionServerName();
 #endif  // BUILDFLAG(IS_LINUX)
 
 }  // namespace remoting

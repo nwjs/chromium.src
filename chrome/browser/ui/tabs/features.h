@@ -27,17 +27,25 @@ BASE_DECLARE_FEATURE(kVerticalTabs);
 // version.
 BASE_DECLARE_FEATURE(kVerticalTabsLaunch);
 
+BASE_DECLARE_FEATURE_PARAM(bool, kVerticalTabsToggleInTabContextMenu);
+
 BASE_DECLARE_FEATURE(kVerticalTabsPreviewBadge);
 
 BASE_DECLARE_FEATURE(kVerticalTabsNewBadge);
+
+BASE_DECLARE_FEATURE(kVerticalTabsExpandOnHover);
 
 BASE_DECLARE_FEATURE(kTabSelectionByPointer);
 
 BASE_DECLARE_FEATURE(kBackToOpener);
 
 BASE_DECLARE_FEATURE(kHorizontalTabStripComboButton);
+extern const base::FeatureParam<bool>
+    kHorizontalTabStripComboButtonShowStartOnly;
 
 bool IsVerticalTabsFeatureEnabled();
+
+bool IsVerticalTabsExpandOnHoverFeatureEnabled();
 
 }  // namespace tabs
 

@@ -4,8 +4,11 @@
 
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_table_view_controller.h"
 
+#import <algorithm>
+
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
+#import "base/containers/to_vector.h"
 #import "base/i18n/message_formatter.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
@@ -21,6 +24,7 @@
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #import "components/autofill/core/browser/data_quality/addresses/profile_requirement_utils.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
+#import "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/autofill_prefs.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
@@ -33,13 +37,19 @@
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_user_settings.h"
+#import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
 #import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_observer_bridge.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/address_editor/autofill_edit_profile_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/settings_autofill_edit_profile_bottom_sheet_handler.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/coordinator/autofill_ai_entity_edit_coordinator.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/coordinator/autofill_ai_entity_edit_coordinator_delegate.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_add_entities_menu_builder.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_item.h"
 #import "ios/chrome/browser/settings/autofill/utils/autofill_settings_ui_util.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_edit_coordinator.h"
@@ -113,7 +123,8 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierVerificationSwitch,
   SectionIdentifierWalletPromo,
   SectionIdentifierIdentityDocs,
-  SectionIdentifierTravel
+  SectionIdentifierTravel,
+  SectionIdentifierOther
 };
 
 typedef NS_ENUM(NSInteger, ItemType) {
@@ -132,7 +143,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeIdentityDoc,
   ItemTypeIdentityDocHeader,
   ItemTypeTravel,
-  ItemTypeTravelHeader
+  ItemTypeTravelHeader,
+  ItemTypeOther,
+  ItemTypeOtherHeader
 };
 
 // Returns the fallback detail text for a local profile when its detail text is
@@ -162,11 +175,49 @@ bool CanDeleteItemType(NSInteger itemType) {
          itemType == ItemTypeTravel;
 }
 
+ItemType ItemTypeForEntitySection(SectionIdentifier section_identifier) {
+  switch (section_identifier) {
+    case SectionIdentifierIdentityDocs:
+      return ItemTypeIdentityDoc;
+    case SectionIdentifierTravel:
+      return ItemTypeTravel;
+    case SectionIdentifierOther:
+    default:
+      return ItemTypeOther;
+  }
+}
+
+NSString* HeaderTextForEntitySection(SectionIdentifier section_identifier) {
+  switch (section_identifier) {
+    case SectionIdentifierIdentityDocs:
+      return l10n_util::GetNSString(IDS_AUTOFILL_IDENTITY_DOCS_TITLE);
+    case SectionIdentifierTravel:
+      return l10n_util::GetNSString(IDS_AUTOFILL_TRAVEL_TITLE);
+    case SectionIdentifierOther:
+    default:
+      return l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_OTHER_TITLE);
+  }
+}
+
+ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
+  switch (section_identifier) {
+    case SectionIdentifierIdentityDocs:
+      return ItemTypeIdentityDocHeader;
+    case SectionIdentifierTravel:
+      return ItemTypeTravelHeader;
+    case SectionIdentifierOther:
+    default:
+      return ItemTypeOtherHeader;
+  }
+}
+
 }  // namespace
 
 #pragma mark - AutofillProfileTableViewController
 
 @interface AutofillProfileTableViewController () <
+    AutofillAIAddEntitiesMenuDelegate,
+    AutofillAIEntityEditCoordinatorDelegate,
     AutofillProfileEditCoordinatorDelegate,
     PersonalDataManagerObserver,
     PrefObserverDelegate,
@@ -227,6 +278,9 @@ bool CanDeleteItemType(NSInteger itemType) {
 
   // Reauthentication module.
   ReauthenticationModule* _reauthenticationModule;
+
+  // Coordinator to view/edit entity details.
+  AutofillAIEntityEditCoordinator* _autofillAiEntityEditCoordinator;
 }
 
 @property(nonatomic, getter=isAutofillProfileEnabled)
@@ -256,6 +310,10 @@ bool CanDeleteItemType(NSInteger itemType) {
           autofill::IOSAutofillEntityDataManagerObserverBridge>(
           _entityDataManager, self);
     }
+
+    _reauthenticationModule =
+        ReauthenticationServiceFactory::GetForProfile(_browser->GetProfile())
+            ->GetReauthModule();
 
     _prefChangeRegistrar.Init(_browser->GetProfile()->GetPrefs());
     _prefObserverBridge.emplace(self);
@@ -341,53 +399,21 @@ bool CanDeleteItemType(NSInteger itemType) {
 
   std::vector<const autofill::EntityInstance*> identityDocs;
   std::vector<const autofill::EntityInstance*> travelDocs;
+  std::vector<const autofill::EntityInstance*> other;
 
-  for (const autofill::EntityInstance& instance : instances) {
+  for (const auto& instance : instances) {
     if (kIdentityDocs.contains(instance.type().name())) {
       identityDocs.push_back(&instance);
     } else if (kTravel.contains(instance.type().name())) {
       travelDocs.push_back(&instance);
+    } else {
+      other.push_back(&instance);
     }
   }
 
-  TableViewModel* model = self.tableViewModel;
-  const std::string& locale =
-      GetApplicationContext()->GetApplicationLocaleStorage()->Get();
-  if (!identityDocs.empty()) {
-    [model addSectionWithIdentifier:SectionIdentifierIdentityDocs];
-    [model setHeader:[self identityDocsSectionHeader]
-        forSectionWithIdentifier:SectionIdentifierIdentityDocs];
-
-    std::vector<autofill::EntityLabel> labels = autofill::GetLabelsForEntities(
-        identityDocs, /*attribute_types_to_ignore=*/{},
-        /*only_disambiguating_types=*/true, /*obfuscate_sensitive_types=*/true,
-        locale);
-
-    for (size_t i = 0; i < identityDocs.size(); ++i) {
-      [model addItem:[self itemForEntityInstance:*identityDocs[i]
-                                       withLabel:labels[i]
-                                            type:ItemTypeIdentityDoc]
-          toSectionWithIdentifier:SectionIdentifierIdentityDocs];
-    }
-  }
-
-  if (!travelDocs.empty()) {
-    [model addSectionWithIdentifier:SectionIdentifierTravel];
-    [model setHeader:[self travelSectionHeader]
-        forSectionWithIdentifier:SectionIdentifierTravel];
-
-    std::vector<autofill::EntityLabel> labels = autofill::GetLabelsForEntities(
-        travelDocs, /*attribute_types_to_ignore=*/{},
-        /*only_disambiguating_types=*/true, /*obfuscate_sensitive_types=*/true,
-        locale);
-
-    for (size_t i = 0; i < travelDocs.size(); ++i) {
-      [model addItem:[self itemForEntityInstance:*travelDocs[i]
-                                       withLabel:labels[i]
-                                            type:ItemTypeTravel]
-          toSectionWithIdentifier:SectionIdentifierTravel];
-    }
-  }
+  [self addEntities:identityDocs toSection:SectionIdentifierIdentityDocs];
+  [self addEntities:travelDocs toSection:SectionIdentifierTravel];
+  [self addEntities:other toSection:SectionIdentifierOther];
 }
 
 - (TableViewItem*)itemForEntityInstance:
@@ -401,29 +427,14 @@ bool CanDeleteItemType(NSInteger itemType) {
       base::SysUTF16ToNSString(instance.type().GetNameForI18n());
   item.guid = instance.guid();
 
-  if (instance.record_type() ==
-      autofill::EntityInstance::RecordType::kServerWallet) {
+  if (instance.IsServerInstance()) {
     item.isServerWalletItem = YES;
-    // TODO(crbug.com/480934103): handled in upcoming CLs
+    item.trailingText = l10n_util::GetNSString(IDS_IOS_AUTOFILL_WALLET_TEXT);
   }
 
-  item.icon = DefaultSymbolTemplateWithPointSize(kPersonCropCircleSymbol,
-                                                 kEntityIconPointSize);
+  item.icon = autofill::DefaultIconForAutofillAiEntityType(
+      instance.type().name(), kEntityIconPointSize);
   return item;
-}
-
-- (TableViewHeaderFooterItem*)identityDocsSectionHeader {
-  TableViewTextHeaderFooterItem* header = [[TableViewTextHeaderFooterItem alloc]
-      initWithType:ItemTypeIdentityDocHeader];
-  header.text = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_IDENTITY_DOCS_TITLE);
-  return header;
-}
-
-- (TableViewHeaderFooterItem*)travelSectionHeader {
-  TableViewTextHeaderFooterItem* header =
-      [[TableViewTextHeaderFooterItem alloc] initWithType:ItemTypeTravelHeader];
-  header.text = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_TRAVEL_TITLE);
-  return header;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -604,6 +615,18 @@ bool CanDeleteItemType(NSInteger itemType) {
                                         .empty();
 }
 
+// Checks if there are any local entities.
+- (BOOL)hasLocalEntities {
+  if (_settingsAreDismissed || !_entityDataManager) {
+    return NO;
+  }
+  return std::ranges::any_of(
+      _entityDataManager->GetEntityInstances(), [](const auto& instance) {
+        return instance.record_type() !=
+               autofill::EntityInstance::RecordType::kServerWallet;
+      });
+}
+
 #pragma mark - LoadModel Helpers for Enhanced Autofill
 
 // Populates the Verification and Wallet related section.
@@ -649,9 +672,10 @@ bool CanDeleteItemType(NSInteger itemType) {
       l10n_util::GetNSString(IDS_IOS_AUTOFILL_VERIFICATION_INFO_LABEL);
   switchItem.on = autofill::prefs::IsAutofillAiReauthBeforeFillingEnabled(
       _browser->GetProfile()->GetPrefs());
-  switchItem.enabled = [self.reauthenticationModule canAttemptReauth];
+  switchItem.enabled = [_reauthenticationModule canAttemptReauth];
   switchItem.target = self;
   switchItem.selector = @selector(verificationSwitchChanged:);
+  switchItem.accessibilityIdentifier = kAutofillVerificationSwitchTableViewId;
   return switchItem;
 }
 
@@ -687,15 +711,6 @@ bool CanDeleteItemType(NSInteger itemType) {
   return item;
 }
 
-- (ReauthenticationModule*)reauthenticationModule {
-  // TODO(crbug.com/480934776): Add scoped reauth module override for EG tests.
-
-  if (!_reauthenticationModule) {
-    _reauthenticationModule = [[ReauthenticationModule alloc] init];
-  }
-  return _reauthenticationModule;
-}
-
 #pragma mark - SettingsControllerProtocol
 
 - (void)reportDismissalUserAction {
@@ -712,6 +727,7 @@ bool CanDeleteItemType(NSInteger itemType) {
   [self stopAutofillAddProfileCoordinator];
 
   [self stopAutofillProfileEditCoordinator];
+  [self stopAutofillAIEntityEditCoordinator];
   [self dismissDeletionSheet];
 
   // Remove pref changes registrations.
@@ -733,7 +749,9 @@ bool CanDeleteItemType(NSInteger itemType) {
 #pragma mark - SettingsRootTableViewController
 
 - (BOOL)editButtonEnabled {
-  return [self localProfilesExist];
+  // Entities stored in Google Wallet are not editable by the app.
+  // So, here only local entities are considered.
+  return [self localProfilesExist] || [self hasLocalEntities];
 }
 
 - (BOOL)shouldHideToolbar {
@@ -895,23 +913,23 @@ bool CanDeleteItemType(NSInteger itemType) {
       [self.navigationController pushViewController:controller animated:YES];
       return;
     }
+    case ItemTypeWalletPromoButton: {
+      [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
+      [self openGoogleWallet];
+      return;
+    }
+    case ItemTypeIdentityDoc:
+    case ItemTypeTravel:
+    case ItemTypeOther: {
+      AutofillAIEntityItem* item =
+          base::apple::ObjCCastStrict<AutofillAIEntityItem>(
+              [self.tableViewModel itemAtIndexPath:indexPath]);
+      [self startAutofillAIEntityEditCoordinatorWithEntityID:item.guid];
+      [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
+      return;
+    }
     default:
       break;
-  }
-
-  if ([self.tableViewModel itemTypeForIndexPath:indexPath] ==
-      ItemTypeWalletPromoButton) {
-    [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
-    [self openGoogleWallet];
-    return;
-  }
-
-  if ([self.tableViewModel itemTypeForIndexPath:indexPath] ==
-          ItemTypeIdentityDoc ||
-      [self.tableViewModel itemTypeForIndexPath:indexPath] == ItemTypeTravel) {
-    // TODO(crbug.com/480934103): handled in upcoming CLs
-    [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
-    return;
   }
 
   if (![self isItemTypeForIndexPathAddress:indexPath]) {
@@ -1035,11 +1053,17 @@ bool CanDeleteItemType(NSInteger itemType) {
   BOOL switchOn = [switchView isOn];
   [self setSwitchItemOn:switchOn itemType:ItemTypeAutofillAddressSwitch];
   [self setAutofillProfileEnabled:switchOn];
-  _addButtonInToolbar.enabled = switchOn;
+
+  if ([self shouldShowAddMenu]) {
+    _addButtonInToolbar.menu =
+        [self buildAddEntitiesMenuWithProfileEnabled:switchOn];
+  } else {
+    _addButtonInToolbar.enabled = switchOn;
+  }
 }
 
 - (void)verificationSwitchChanged:(UISwitch*)switchView {
-  if (![self.reauthenticationModule canAttemptReauth]) {
+  if (![_reauthenticationModule canAttemptReauth]) {
     // This should normally not happen: the switch should not even be enabled.
     // Early return to fallback gracefully just in case.
     return;
@@ -1057,10 +1081,9 @@ bool CanDeleteItemType(NSInteger itemType) {
     [weakSelf onReauthCompletedForVerificationSwitch:switchView result:result];
   };
 
-  [self.reauthenticationModule
-      attemptReauthWithLocalizedReason:reauthReason
-                  canReusePreviousAuth:YES
-                               handler:completionHandler];
+  [_reauthenticationModule attemptReauthWithLocalizedReason:reauthReason
+                                       canReusePreviousAuth:YES
+                                                    handler:completionHandler];
 }
 
 // Called when the reauthentication process is completed for the Enhanced
@@ -1186,7 +1209,15 @@ bool CanDeleteItemType(NSInteger itemType) {
   if (!_addButtonInToolbar) {
     _addButtonInToolbar =
         [self addButtonWithAction:@selector(handleAddAddress)];
-    _addButtonInToolbar.enabled = [self isAutofillProfileEnabled];
+    bool isAutofillProfileEnabled = [self isAutofillProfileEnabled];
+    if ([self shouldShowAddMenu]) {
+      _addButtonInToolbar.action = nil;
+      _addButtonInToolbar.target = nil;
+      _addButtonInToolbar.menu = [self
+          buildAddEntitiesMenuWithProfileEnabled:isAutofillProfileEnabled];
+    } else {
+      _addButtonInToolbar.enabled = isAutofillProfileEnabled;
+    }
   }
   return _addButtonInToolbar;
 }
@@ -1224,11 +1255,59 @@ bool CanDeleteItemType(NSInteger itemType) {
   [self stopAutofillProfileEditCoordinator];
 }
 
+#pragma mark - AutofillAIEntityEditCoordinatorDelegate
+
+- (void)autofillAIEntityEditCoordinatorDidFinish:
+    (AutofillAIEntityEditCoordinator*)coordinator {
+  [self stopAutofillAIEntityEditCoordinator];
+}
+
+#pragma mark - AutofillAIAddEntitiesMenuDelegate
+
+- (void)didSelectAddAutofillProfile {
+  [self handleAddAddress];
+}
+
+// Called when an entity type is selected to be added.
+- (void)didSelectAddEntityWithType:(autofill::EntityType)type {
+  [self startAutofillAIEntityEditCoordinatorWithEntityType:type];
+}
+
 #pragma mark - Private
 
 - (void)dismissDeletionSheet {
   [_deletionSheetCoordinator stop];
   _deletionSheetCoordinator = nil;
+}
+
+- (void)startAutofillAIEntityEditCoordinatorWithEntityID:
+    (autofill::EntityInstance::EntityId)entityID {
+  [self stopAutofillAIEntityEditCoordinator];
+  _autofillAiEntityEditCoordinator = [[AutofillAIEntityEditCoordinator alloc]
+      initWithBaseNavigationController:self.navigationController
+                               browser:_browser
+                              entityID:entityID];
+  _autofillAiEntityEditCoordinator.delegate = self;
+
+  [_autofillAiEntityEditCoordinator start];
+}
+
+- (void)startAutofillAIEntityEditCoordinatorWithEntityType:
+    (autofill::EntityType)entityType {
+  [self stopAutofillAIEntityEditCoordinator];
+  _autofillAiEntityEditCoordinator = [[AutofillAIEntityEditCoordinator alloc]
+      initWithBaseNavigationController:self.navigationController
+                               browser:_browser
+                            entityType:entityType];
+  _autofillAiEntityEditCoordinator.delegate = self;
+
+  [_autofillAiEntityEditCoordinator start];
+}
+
+- (void)stopAutofillAIEntityEditCoordinator {
+  [_autofillAiEntityEditCoordinator stop];
+  _autofillAiEntityEditCoordinator.delegate = nil;
+  _autofillAiEntityEditCoordinator = nil;
 }
 
 - (void)stopAutofillProfileEditCoordinator {
@@ -1542,6 +1621,74 @@ bool CanDeleteItemType(NSInteger itemType) {
                          browser:_browser
                          handler:_addProfileBottomSheetHandler];
   [_autofillAddProfileCoordinator start];
+}
+
+// Returns whether to show the add menu with addresses and entities.
+- (bool)shouldShowAddMenu {
+  return _entityDataManager != nullptr;
+}
+
+// Returns whether it is allowed to add entities. When adding entities is not
+// allowed, menu items on the add menu are disabled.
+- (bool)canAddEntities {
+  if (!_entityDataManager) {
+    return false;
+  }
+
+  return base::FeatureList::IsEnabled(
+             autofill::features::kAutofillAiAvailableByDefault)
+             ? autofill::CanPerformAutofillAiAction(
+                   _browser->GetProfile(),
+                   autofill::AutofillAiAction::kEnableOrDisable)
+             : autofill::CanPerformAutofillAiAction(
+                   _browser->GetProfile(),
+                   autofill::AutofillAiAction::kOptIn) &&
+                   autofill::IsEnhancedAutofillEnabled(_browser->GetProfile());
+}
+
+- (UIMenu*)buildAddEntitiesMenuWithProfileEnabled:(BOOL)profileEnabled {
+  std::vector<autofill::EntityType> writableTypes =
+      base::ToVector(autofill::GetWritableEntityTypes(
+          _entityDataManager->GetVariationCountryCode()));
+  return [AutofillAIAddEntitiesMenuBuilder
+      buildMenuWithTypes:std::move(writableTypes)
+          profileEnabled:profileEnabled
+         entitiesEnabled:[self canAddEntities]
+                delegate:self];
+}
+
+// Adds the given `instances` to the table view model under the given
+// `sectionIdentifier`.
+- (void)addEntities:
+            (const std::vector<const autofill::EntityInstance*>&)instances
+          toSection:(SectionIdentifier)sectionIdentifier {
+  if (instances.empty()) {
+    return;
+  }
+
+  TableViewModel* model = self.tableViewModel;
+  [model addSectionWithIdentifier:sectionIdentifier];
+
+  TableViewTextHeaderFooterItem* header = [[TableViewTextHeaderFooterItem alloc]
+      initWithType:ItemTypeForEntitySectionHeader(sectionIdentifier)];
+  header.text = HeaderTextForEntitySection(sectionIdentifier);
+  [model setHeader:header forSectionWithIdentifier:sectionIdentifier];
+
+  const std::string& locale =
+      GetApplicationContext()->GetApplicationLocaleStorage()->Get();
+
+  std::vector<autofill::EntityLabel> labels = autofill::GetLabelsForEntities(
+      instances, /*attribute_types_to_ignore=*/{},
+      /*only_disambiguating_types=*/true, /*obfuscate_sensitive_types=*/true,
+      locale);
+
+  ItemType itemType = ItemTypeForEntitySection(sectionIdentifier);
+  for (size_t i = 0; i < instances.size(); ++i) {
+    [model addItem:[self itemForEntityInstance:*instances[i]
+                                     withLabel:labels[i]
+                                          type:itemType]
+        toSectionWithIdentifier:sectionIdentifier];
+  }
 }
 
 @end

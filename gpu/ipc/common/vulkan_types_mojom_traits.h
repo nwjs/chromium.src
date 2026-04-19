@@ -11,6 +11,8 @@
 #ifndef GPU_IPC_COMMON_VULKAN_TYPES_MOJOM_TRAITS_H_
 #define GPU_IPC_COMMON_VULKAN_TYPES_MOJOM_TRAITS_H_
 
+#include <algorithm>
+#include <cstddef>
 #include <string_view>
 
 #include "base/containers/span.h"
@@ -20,11 +22,22 @@
 
 namespace mojo {
 
+template <size_t DeducedExtent>
+std::string_view SafelyRetrieveStringView(
+    base::span<const char, DeducedExtent> field) {
+  if (std::find(field.begin(), field.end(), '\0') != field.end()) {
+    // A NUL byte exists somewhere in the run of this char array.
+    // We can safely construct a `string_view` from this.
+    return std::string_view(field.data());
+  };
+  return std::string_view(field);
+}
+
 template <>
 struct StructTraits<gpu::mojom::VkExtensionPropertiesDataView,
                     VkExtensionProperties> {
   static std::string_view extensionName(const VkExtensionProperties& input) {
-    return input.extensionName;
+    return SafelyRetrieveStringView(base::span(input.extensionName));
   }
 
   static uint32_t specVersion(const VkExtensionProperties& input) {
@@ -38,7 +51,7 @@ struct StructTraits<gpu::mojom::VkExtensionPropertiesDataView,
 template <>
 struct StructTraits<gpu::mojom::VkLayerPropertiesDataView, VkLayerProperties> {
   static std::string_view layerName(const VkLayerProperties& input) {
-    return input.layerName;
+    return SafelyRetrieveStringView(base::span(input.layerName));
   }
 
   static uint32_t specVersion(const VkLayerProperties& input) {
@@ -50,7 +63,7 @@ struct StructTraits<gpu::mojom::VkLayerPropertiesDataView, VkLayerProperties> {
   }
 
   static std::string_view description(const VkLayerProperties& input) {
-    return input.description;
+    return SafelyRetrieveStringView(base::span(input.description));
   }
 
   static bool Read(gpu::mojom::VkLayerPropertiesDataView data,
@@ -82,7 +95,7 @@ struct StructTraits<gpu::mojom::VkPhysicalDevicePropertiesDataView,
   }
 
   static std::string_view deviceName(const VkPhysicalDeviceProperties& input) {
-    return input.deviceName;
+    return SafelyRetrieveStringView(base::span(input.deviceName));
   }
 
   static base::span<const uint8_t> pipelineCacheUUID(
@@ -123,24 +136,19 @@ struct EnumTraits<gpu::mojom::VkPhysicalDeviceType, VkPhysicalDeviceType> {
     }
   }
 
-  static bool FromMojom(gpu::mojom::VkPhysicalDeviceType input,
-                        VkPhysicalDeviceType* out) {
+  static VkPhysicalDeviceType FromMojom(
+      gpu::mojom::VkPhysicalDeviceType input) {
     switch (input) {
       case gpu::mojom::VkPhysicalDeviceType::OTHER:
-        *out = VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_OTHER;
-        return true;
+        return VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_OTHER;
       case gpu::mojom::VkPhysicalDeviceType::INTEGRATED_GPU:
-        *out = VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
-        return true;
+        return VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
       case gpu::mojom::VkPhysicalDeviceType::DISCRETE_GPU:
-        *out = VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-        return true;
+        return VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
       case gpu::mojom::VkPhysicalDeviceType::VIRTUAL_GPU:
-        *out = VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
-        return true;
+        return VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
       case gpu::mojom::VkPhysicalDeviceType::CPU:
-        *out = VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_CPU;
-        return true;
+        return VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_CPU;
       case gpu::mojom::VkPhysicalDeviceType::INVALID_VALUE:
         NOTREACHED();
     }

@@ -34,6 +34,7 @@ FirstPartySkillsMap Translate1PSkillsMap(
     translated_skill.icon = skill.icon();
     translated_skill.prompt = skill.prompt();
     translated_skill.description = skill.description();
+    translated_skill.image_url = GURL(skill.image_url());
     translated_skill.source = sync_pb::SkillSource::SKILL_SOURCE_FIRST_PARTY;
     translated_map[skill.category()].push_back(std::move(translated_skill));
   }
@@ -47,6 +48,21 @@ bool IsServiceReady(const SkillsService* service) {
     RecordSkillsManagementError(SkillsManagementError::kSkillsServiceNotReady);
   }
   return is_ready;
+}
+
+std::optional<std::vector<skills::Skill>> GetSortedUserSkills(
+    Profile* profile) {
+  auto* service =
+      SkillsServiceFactory::GetForProfile(base::to_address(profile));
+  if (!IsServiceReady(service)) {
+    return std::nullopt;
+  }
+
+  std::vector<skills::Skill> skills;
+  for (const auto& skill : service->GetSkills()) {
+    skills.push_back(*skill);
+  }
+  return skills;
 }
 
 }  // namespace
@@ -98,19 +114,14 @@ void SkillsPageHandler::OpenSkillsDialog(
 
 void SkillsPageHandler::GetInitialUserSkills(
     GetInitialUserSkillsCallback callback) {
-  std::vector<skills::Skill> skills;
   auto scoped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), std::vector<skills::Skill>());
-  auto* service =
-      SkillsServiceFactory::GetForProfile(base::to_address(profile_));
-  if (!IsServiceReady(service)) {
+  std::optional<std::vector<skills::Skill>> skills =
+      GetSortedUserSkills(base::to_address(profile_));
+  if (!skills) {
     return;
   }
-
-  for (const auto& skill : service->GetSkills()) {
-    skills.push_back(*skill);
-  }
-  std::move(scoped_callback).Run(std::move(skills));
+  std::move(scoped_callback).Run(std::move(skills.value()));
 }
 
 void SkillsPageHandler::DeleteSkill(const std::string& skill_id) {
@@ -134,9 +145,17 @@ void SkillsPageHandler::OnTemporarySkillDisplay(
     case SkillsService::DisplayState::kReshown:
       if (auto* service =
               SkillsServiceFactory::GetForProfile(base::to_address(profile_))) {
+        // The skill must exist at this point since we should not have deleted
+        // it yet.
         const auto* skill = service->GetSkillById(skill_id);
         CHECK(skill);
-        page_->UpdateSkill(*skill);
+        std::optional<std::vector<skills::Skill>> skills =
+            GetSortedUserSkills(base::to_address(profile_));
+        // This means the service is not ready, so we can't update the skills.
+        if (!skills) {
+          return;
+        }
+        page_->UpdateSkills(skills.value());
       }
       break;
     default:
@@ -152,8 +171,16 @@ void SkillsPageHandler::OnSkillUpdated(
           SkillsServiceFactory::GetForProfile(base::to_address(profile_))) {
     const auto* skill = service->GetSkillById(skill_id);
     if (skill) {
-      // If the skill exists, this means the skill was either added or updated.
-      page_->UpdateSkill(*skill);
+      // If the skill exists, this means a skill was either added or updated.
+      // We need to update the entire list of skills since the order may have
+      // changed.
+      std::optional<std::vector<skills::Skill>> skills =
+          GetSortedUserSkills(base::to_address(profile_));
+      // This means the service is not ready, so we can't update the skills.
+      if (!skills) {
+        return;
+      }
+      page_->UpdateSkills(skills.value());
     } else {
       // If the skill no longer exists, this means the skill was deleted.
       page_->RemoveSkill(std::string(skill_id));
@@ -165,6 +192,10 @@ void SkillsPageHandler::OnSkillsServiceShuttingDown() {
   first_party_download_timer_.Stop();
   On1PDownloadTimeout();
   service_observation_.Reset();
+}
+
+bool SkillsPageHandler::Require1PSkillRefresh() {
+  return true;
 }
 
 void SkillsPageHandler::Request1PSkills() {

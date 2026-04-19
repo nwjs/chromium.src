@@ -23,6 +23,7 @@
 #include "chrome/browser/component_updater/crowd_deny_component_installer.h"
 #include "chrome/browser/component_updater/first_party_sets_component_installer.h"
 #include "chrome/browser/component_updater/hyphenation_component_installer.h"
+#include "chrome/browser/component_updater/indigo_component_installer.h"
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
 #include "chrome/browser/component_updater/pki_metadata_component_installer.h"
 #include "chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/component_updater/trust_token_key_commitments_component_installer.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/component_updater/component_updater_service.h"
@@ -56,10 +58,11 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/component_updater/actor_safety_lists_component_installer.h"
+#include "chrome/browser/actor/safety_list_manager.h"
 #include "chrome/browser/component_updater/iwa_key_distribution_component_installer.h"
 #include "chrome/browser/component_updater/zxcvbn_data_component_installer.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
+#include "components/component_updater/installer_policies/actor_safety_lists_component_installer.h"
 #include "media/base/media_switches.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -107,7 +110,6 @@ namespace {
 // Runs in the thread pool, may block.
 void DeleteOldComponents(const base::FilePath& user_data_dir) {
   for (const base::FilePath::StringType& dir : {
-           FILE_PATH_LITERAL("MaskedDomainListPreloaded"),  // Remove in M146+
            FILE_PATH_LITERAL("DesktopSharingHub"),          // Remove in M146+
            FILE_PATH_LITERAL("CookieReadinessList"),        // Remove in M146+
            FILE_PATH_LITERAL("OpenCookieDatabase"),         // Remove in M146+
@@ -160,6 +162,8 @@ void RegisterComponentsForUpdate() {
   }
   RegisterSSLErrorAssistantComponent(cus);
 
+  RegisterIndigoComponent(cus);
+
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   RegisterFileTypePoliciesComponent(cus);
 #endif
@@ -192,7 +196,15 @@ void RegisterComponentsForUpdate() {
 #if !BUILDFLAG(IS_ANDROID)
   RegisterIwaKeyDistributionComponent(cus);
   RegisterZxcvbnDataComponent(cus);
-  RegisterActorSafetyListsComponent(cus, base::OnceClosure());
+  RegisterActorSafetyListsComponent(
+      cus,
+      base::BindRepeating([](const std::optional<std::string>& raw_metadata) {
+        if (raw_metadata.has_value()) {
+          actor::SafetyListManager::GetInstance()->ParseSafetyLists(
+              *raw_metadata);
+        }
+      }),
+      base::OnceClosure());
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)

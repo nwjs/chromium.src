@@ -11,7 +11,8 @@
 @protocol IOSPasskeyClientCommands
 
 // Shows the passkey creation bottom sheet.
-- (void)showPasskeyCreationBottomSheet:(const std::string&)requestID;
+- (void)showPasskeyCreationBottomSheet:
+    (webauthn::IOSPasskeyClient::RequestInfo)requestInfo;
 
 // Shows the passkey suggestion bottom sheet.
 - (void)showPasskeySuggestionBottomSheet:
@@ -31,6 +32,11 @@
 - (void)showPasskeyIncognitoInterstitial:
     (webauthn::IOSPasskeyClient::InterstitialCallback)callback;
 - (void)dismissPasskeyIncognitoInterstitial;
+
+// Cancels the passkey request matching the given `requestInfo`, dismissing any
+// active passkey UI.
+- (void)cancelPasskeyRequest:
+    (webauthn::IOSPasskeyClient::RequestInfo)requestInfo;
 
 @end
 

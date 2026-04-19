@@ -105,20 +105,36 @@ BASE_DECLARE_FEATURE(kWebAuthnEnclaveAttestation);
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnSignalApiHidePasskeys);
 
-// Enables rate limiting of immediate requests based on eTLD+1.
+// Enables rate limiting of immediate requests based on main frame's eTLD+1.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnImmediateRequestRateLimit);
 
 // Parameter controlling the maximum number of immediate requests allowed per
-// origin (eTLD+1) within the time window.
-COMPONENT_EXPORT(FIDO_PUBLIC)
-BASE_DECLARE_FEATURE_PARAM(int, kWebAuthnImmediateRequestRateLimitMaxRequests);
-
-// Parameter controlling the time window (in seconds) for the immediate request
-// rate limit.
+// origin (eTLD+1) within the time window. This applies to the longer of the
+// two rate limiters.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE_PARAM(int,
-                           kWebAuthnImmediateRequestRateLimitWindowSeconds);
+                           kWebAuthnImmediateRequestLongRateLimitMaxRequests);
+
+// Parameter controlling the time window (in seconds) for the immediate request
+// rate limit. This applies to the longer of the two rate limiters.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE_PARAM(int,
+                           kWebAuthnImmediateRequestLongRateLimitWindowSeconds);
+
+// Parameter controlling the maximum number of immediate requests allowed per
+// origin (eTLD+1) within the time window. This applies to the shorter of the
+// two rate limiters.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE_PARAM(int,
+                           kWebAuthnImmediateRequestShortRateLimitMaxRequests);
+
+// Parameter controlling the time window (in seconds) for the immediate request
+// rate limit. This applies to the shorter of the two rate limiters.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kWebAuthnImmediateRequestShortRateLimitWindowSeconds);
 
 // Enables the immediate mediation for `navigator.credentials.get` requests.
 COMPONENT_EXPORT(FIDO_PUBLIC)
@@ -128,10 +144,6 @@ BASE_DECLARE_FEATURE(kWebAuthnImmediateGet);
 // mediation timeout.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE_PARAM(int, kWebAuthnImmediateMediationTimeoutMilliseconds);
-
-// Enables autoselecting the single mechanism in immediate mediation requests.
-COMPONENT_EXPORT(FIDO_PUBLIC)
-BASE_DECLARE_FEATURE(kWebAuthnImmediateGetAutoselect);
 
 // Sends a PIN generation number to the enclave on a PIN wrapping request.
 COMPONENT_EXPORT(FIDO_PUBLIC)
@@ -152,6 +164,13 @@ BASE_DECLARE_FEATURE(kWebAuthnNewRefreshFlow);
 // Enables to save keys from out of context ("opportunistic") retrieval.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_DECLARE_FEATURE(kWebAuthnOpportunisticRetrieval);
+
+// Enables the fix of the logic for handling identity change (the new logic
+// might decide to not terminate the running state machine in some cases,
+// whereas the previous logic was always terminating the state machine).
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_DECLARE_FEATURE(
+    kWebAuthnDoNotAlwaysTerminateStateMachineDuringIdentityChange);
 
 // Parameter controlling the time window (in seconds) for keeping the cached
 // opportunistically retrieved key in case its Gaia Id doesn't match to primary

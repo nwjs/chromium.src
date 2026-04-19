@@ -24,14 +24,10 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.hub.DelegateButtonData;
-import org.chromium.chrome.browser.hub.DisplayButtonData;
-import org.chromium.chrome.browser.hub.FullButtonData;
 import org.chromium.chrome.browser.hub.HubColorScheme;
 import org.chromium.chrome.browser.hub.Pane;
 import org.chromium.chrome.browser.hub.PaneHubController;
 import org.chromium.chrome.browser.hub.PaneId;
-import org.chromium.chrome.browser.hub.ResourceButtonData;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager.IncognitoReauthCallback;
 import org.chromium.chrome.browser.tab.Tab;
@@ -41,6 +37,10 @@ import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.ui.actions.button.DelegateButtonData;
+import org.chromium.chrome.browser.ui.actions.button.DisplayButtonData;
+import org.chromium.chrome.browser.ui.actions.button.FullButtonData;
+import org.chromium.chrome.browser.ui.actions.button.ResourceButtonData;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.tab_ui.R;
@@ -192,12 +192,10 @@ public class IncognitoTabSwitcherPane extends TabSwitcherPaneBase {
                         R.string.button_new_incognito_tab,
                         R.drawable.new_tab_icon);
         mEnabledNewTabButtonData =
-                new DelegateButtonData(
-                        newTabButtonData,
-                        () -> {
-                            newTabButtonClickListener.onClick(null);
-                        });
-        mDisabledNewTabButtonData = new DelegateButtonData(newTabButtonData, null);
+                new DelegateButtonData.Builder(newTabButtonData)
+                        .setOnPress(newTabButtonClickListener::onClick)
+                        .build();
+        mDisabledNewTabButtonData = new DelegateButtonData.Builder(newTabButtonData).build();
 
         if (incognitoReauthControllerSupplier != null) {
             mCallbackController = new CallbackController();

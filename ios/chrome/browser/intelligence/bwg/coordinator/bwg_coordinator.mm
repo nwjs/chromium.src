@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_coordinator.h"
 
+#import "base/check.h"
+#import "base/not_fatal_until.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/prefs/pref_service.h"
@@ -12,10 +14,10 @@
 #import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_mediator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_mediator_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
-#import "ios/chrome/browser/intelligence/bwg/ui/bwg_fre_wrapper_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_fre_wrapper_view_controller.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -47,12 +49,12 @@ const CGFloat kPromoMaxImpressionCount = 3;
   BWGMediator* _mediator;
 
   // Wrapper view controller for the First Run Experience (FRE) UI.
-  BWGFREWrapperViewController* _FREWrapperViewController;
+  GeminiFREWrapperViewController* _FREWrapperViewController;
 
   // Handler for sending BWG commands.
   id<BWGCommands> _BWGCommandsHandler;
 
-  // Returns the `_entryPoint` the coordinator was intialized from.
+  // The `gemini::EntryPoint` the coordinator was initialized from.
   gemini::EntryPoint _entryPoint;
 
   // Handler for sending IPH commands.
@@ -78,11 +80,17 @@ const CGFloat kPromoMaxImpressionCount = 3;
 #pragma mark - ChromeCoordinator
 
 - (void)start {
+  GeminiBrowserAgent* geminiBrowserAgent =
+      GeminiBrowserAgent::FromBrowser(self.browser);
+  if (!geminiBrowserAgent) {
+    CHECK(geminiBrowserAgent, base::NotFatalUntil::M152);
+    return;
+  }
+
   __weak BWGCoordinator* weakSelf = self;
-  GeminiBrowserAgent::FromBrowser(self.browser)
-      ->DismissGeminiFromOtherWindows(base::BindOnce(^{
-        [weakSelf startCoordinator];
-      }));
+  geminiBrowserAgent->DismissGeminiFromOtherWindows(base::BindOnce(^{
+    [weakSelf startCoordinator];
+  }));
 }
 
 - (void)stop {
@@ -94,7 +102,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
 - (void)stopWithCompletion:(ProceduralBlock)completion {
   BwgTabHelper* BWGTabHelper = [self activeWebStateBWGTabHelper];
   if (BWGTabHelper) {
-    BWGTabHelper->SetBwgUiShowing(false);
     BWGTabHelper->SetPreventContextualPanelEntryPoint(NO);
   }
   ios::provider::ResetGemini();
@@ -148,14 +155,14 @@ const CGFloat kPromoMaxImpressionCount = 3;
     }
   }
 
-  _FREWrapperViewController = [[BWGFREWrapperViewController alloc]
+  _FREWrapperViewController = [[GeminiFREWrapperViewController alloc]
          initWithPromo:showPromo
-      isAccountManaged:[self isManagedAccount]];
+      isAccountManaged:[self isManagedAccount]
+               FREType:GeminiFREType::kNewUser];
   _FREWrapperViewController.sheetPresentationController.delegate = self;
   _FREWrapperViewController.mutator = _mediator;
 
-  BOOL shouldAnimatePresentation =
-      BWGTabHelper ? !BWGTabHelper->GetIsBwgSessionActiveInBackground() : YES;
+  BOOL shouldAnimatePresentation = YES;
 
   [self.baseViewController presentViewController:_FREWrapperViewController
                                         animated:shouldAnimatePresentation
@@ -163,10 +170,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
                                         // Record FRE was shown.
                                         RecordFREShown();
                                       }];
-
-  if (BWGTabHelper) {
-    BWGTabHelper->SetBwgUiShowing(true);
-  }
 
   return YES;
 }
@@ -220,7 +223,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
              webStateList:self.browser->GetWebStateList()
        baseViewController:self.baseViewController
                entryPoint:_entryPoint
-            geminiService:BwgServiceFactory::GetForProfile(self.profile)
+            geminiService:GeminiServiceFactory::GetForProfile(self.profile)
        geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(self.browser)
                   tracker:_tracker];
   _mediator.sceneHandler =
@@ -270,8 +273,8 @@ const CGFloat kPromoMaxImpressionCount = 3;
   return BwgTabHelper::FromWebState(activeWebState);
 }
 
-// Attemps to present the entry point IPH the user hasn't used the AI Hub entry
-// point yet.
+// Attempts to present the entry point IPH if the user hasn't used the AI Hub
+// entry point yet.
 - (void)presentPageActionMenuIPH {
   if (_entryPoint != gemini::EntryPoint::AIHub) {
     [_helpCommandsHandler

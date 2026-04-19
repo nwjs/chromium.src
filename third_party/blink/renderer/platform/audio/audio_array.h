@@ -91,7 +91,7 @@ class AudioArray final {
 #if defined(ARCH_CPU_X86_FAMILY)
     const unsigned kAlignment = 32;
 #else
-    const unsigned kAlignment = 16;
+    constexpr unsigned kAlignment = 16;
 #endif
 
     allocation_ = {};
@@ -148,29 +148,12 @@ class AudioArray final {
     std::ranges::fill(as_span().subspan(start, end - start), 0);
   }
 
-  void CopyToRange(const T* source_data, unsigned start, unsigned end) {
-    bool is_safe = (start <= end) && (end <= size());
-    DCHECK(is_safe);
-    if (!is_safe) {
-      return;
-    }
-
-    // This expression cannot overflow because end - start cannot be
-    // greater than `size_`, which is safe due to the check in Allocate().
-    as_span()
-        .subspan(start, end - start)
-        .copy_from(
-            // SAFETY: `is_safe` ensures `source_data` and `end - start` are
-            // safe.
-            UNSAFE_BUFFERS(base::span(source_data, end - start)));
-  }
-
  private:
   PartitionHeapArray allocation_;
 };
 
-typedef AudioArray<float> AudioFloatArray;
-typedef AudioArray<double> AudioDoubleArray;
+using AudioFloatArray = AudioArray<float>;
+using AudioDoubleArray = AudioArray<double>;
 
 }  // namespace blink
 

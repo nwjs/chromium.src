@@ -4,6 +4,92 @@
 
 #include "chrome/browser/extensions/api/document_scan/document_scan_type_converters.h"
 
+#include "base/notreached.h"
+#include "chromeos/ash/components/dbus/lorgnette/lorgnette_service.pb.h"
+
+namespace extensions::api::document_scan {
+
+OperationResult ConvertLorgnetteOperationResult(
+    lorgnette::OperationResult input) {
+  switch (input) {
+    case lorgnette::OPERATION_RESULT_UNKNOWN:
+      return OperationResult::kUnknown;
+    case lorgnette::OPERATION_RESULT_SUCCESS:
+      return OperationResult::kSuccess;
+    case lorgnette::OPERATION_RESULT_UNSUPPORTED:
+      return OperationResult::kUnsupported;
+    case lorgnette::OPERATION_RESULT_CANCELLED:
+      return OperationResult::kCancelled;
+    case lorgnette::OPERATION_RESULT_DEVICE_BUSY:
+      return OperationResult::kDeviceBusy;
+    case lorgnette::OPERATION_RESULT_INVALID:
+      return OperationResult::kInvalid;
+    case lorgnette::OPERATION_RESULT_WRONG_TYPE:
+      return OperationResult::kWrongType;
+    case lorgnette::OPERATION_RESULT_EOF:
+      return OperationResult::kEof;
+    case lorgnette::OPERATION_RESULT_ADF_JAMMED:
+      return OperationResult::kAdfJammed;
+    case lorgnette::OPERATION_RESULT_ADF_EMPTY:
+      return OperationResult::kAdfEmpty;
+    case lorgnette::OPERATION_RESULT_COVER_OPEN:
+      return OperationResult::kCoverOpen;
+    case lorgnette::OPERATION_RESULT_IO_ERROR:
+      return OperationResult::kIoError;
+    case lorgnette::OPERATION_RESULT_ACCESS_DENIED:
+      return OperationResult::kAccessDenied;
+    case lorgnette::OPERATION_RESULT_NO_MEMORY:
+      return OperationResult::kNoMemory;
+    case lorgnette::OPERATION_RESULT_UNREACHABLE:
+      return OperationResult::kUnreachable;
+    case lorgnette::OPERATION_RESULT_MISSING:
+      return OperationResult::kMissing;
+    case lorgnette::OPERATION_RESULT_INTERNAL_ERROR:
+      return OperationResult::kInternalError;
+    case lorgnette::OperationResult_INT_MIN_SENTINEL_DO_NOT_USE_:
+    case lorgnette::OperationResult_INT_MAX_SENTINEL_DO_NOT_USE_:
+      break;
+  }
+  NOTREACHED();
+}
+
+CancelScanResponse ConvertLorgnetteCancelScanResponse(
+    const lorgnette::CancelScanResponse& input) {
+  CancelScanResponse output;
+  output.job = input.job_handle().token();
+  output.result = ConvertLorgnetteOperationResult(input.result());
+  return output;
+}
+
+CloseScannerResponse ConvertLorgnetteCloseScannerResponse(
+    const lorgnette::CloseScannerResponse& input) {
+  CloseScannerResponse output;
+  output.scanner_handle = input.scanner().token();
+  output.result = ConvertLorgnetteOperationResult(input.result());
+  return output;
+}
+
+GetOptionGroupsResponse ConvertLorgnetteGetCurrentConfigResponse(
+    const lorgnette::GetCurrentConfigResponse& input) {
+  GetOptionGroupsResponse output;
+  output.scanner_handle = input.scanner().token();
+  output.result = ConvertLorgnetteOperationResult(input.result());
+  if (output.result == OperationResult::kSuccess) {
+    output.groups.emplace();
+    output.groups->reserve(input.config().option_groups_size());
+    for (const lorgnette::OptionGroup& group_in :
+         input.config().option_groups()) {
+      OptionGroup& group_out = output.groups->emplace_back();
+      group_out.title = group_in.title();
+      group_out.members = std::vector<std::string>(group_in.members().begin(),
+                                                   group_in.members().end());
+    }
+  }
+  return output;
+}
+
+}  // namespace extensions::api::document_scan
+
 namespace mojo {
 
 namespace document_scan = extensions::api::document_scan;
@@ -447,16 +533,6 @@ TypeConverter<extensions::api::document_scan::GetOptionGroupsResponse,
   return output;
 }
 
-extensions::api::document_scan::CloseScannerResponse
-TypeConverter<extensions::api::document_scan::CloseScannerResponse,
-              crosapi::mojom::CloseScannerResponsePtr>::
-    Convert(const crosapi::mojom::CloseScannerResponsePtr& input) {
-  document_scan::CloseScannerResponse output;
-  output.scanner_handle = input->scanner_handle;
-  output.result = ConvertTo<document_scan::OperationResult>(input->result);
-  return output;
-}
-
 mojom::OptionSettingPtr
 TypeConverter<mojom::OptionSettingPtr,
               extensions::api::document_scan::OptionSetting>::
@@ -512,16 +588,6 @@ TypeConverter<extensions::api::document_scan::StartScanResponse,
   if (input->job_handle.has_value()) {
     output.job = input->job_handle.value();
   }
-  return output;
-}
-
-extensions::api::document_scan::CancelScanResponse
-TypeConverter<extensions::api::document_scan::CancelScanResponse,
-              crosapi::mojom::CancelScanResponsePtr>::
-    Convert(const crosapi::mojom::CancelScanResponsePtr& input) {
-  document_scan::CancelScanResponse output;
-  output.job = input->job_handle;
-  output.result = ConvertTo<document_scan::OperationResult>(input->result);
   return output;
 }
 

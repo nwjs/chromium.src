@@ -427,10 +427,9 @@ TEST(CredentialManagerTypeConvertersTest,
   const char attestation_format[] = "format";
   supplemental_pub_keys->setAttestation("indirect");
   supplemental_pub_keys->setAttestationFormats(
-      Vector({blink::String::FromUTF8(attestation_format)}));
+      Vector({blink::String::FromUtf8(attestation_format)}));
   supplemental_pub_keys->setScopes(
-      Vector({blink::String::FromUTF8("device"),
-              blink::String::FromUTF8("provider")}));
+      Vector<blink::String>({"device", "provider"}));
   blink_type->setSupplementalPubKeys(supplemental_pub_keys);
 
   blink::mojom::blink::AuthenticationExtensionsClientInputsPtr mojo_type =
@@ -441,7 +440,7 @@ TEST(CredentialManagerTypeConvertersTest,
       /*device_scope_requested=*/true,
       /*provider_scope_requested=*/true,
       blink::mojom::blink::AttestationConveyancePreference::INDIRECT,
-      Vector<blink::String>({blink::String::FromUTF8(attestation_format)}));
+      Vector<blink::String>({blink::String::FromUtf8(attestation_format)}));
   ASSERT_EQ(*(mojo_type->supplemental_pub_keys), *expected);
 }
 

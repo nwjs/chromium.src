@@ -92,8 +92,19 @@ def main(ctx, **kwargs) -> int:
 
   target_cache: target_finder.TargetCache = target_finder.TargetCache(out_dir)
 
-  if not config.run_changed and not config.files and not config.name:
-    raise click.UsageError('Specify a file to test or use --run-changed')
+  if (not config.run_changed and not config.run_related and not config.files
+      and not config.name and not config.target):
+    raise click.UsageError(
+        'Specify a file to test or use --run-changed or --run-related')
+
+  direct_suites = []
+  if config.suite:
+    for f in config.files:
+      direct_suites.append(f)
+    config.files = tuple()
+    config.run_changed = False
+    if config.name:
+      config.name = None
 
   # Cog is almost unusable with local search, so turn on remote_search.
   use_remote_search: bool = config.remote_search
@@ -106,9 +117,8 @@ def main(ctx, **kwargs) -> int:
   # Don't try to search if rg is not installed, and use the old behavior.
   if not use_remote_search and not shutil.which('rg'):
     if not config.quiet:
-      click.echo(
-          'rg command not found. Install ripgrep to enable running tests by name.'
-      )
+      click.echo('rg command not found. '
+                 'Install ripgrep to enable running tests by name.')
     files_to_test = list(config.files)
     test_names = []
   else:
@@ -128,6 +138,12 @@ def main(ctx, **kwargs) -> int:
 
   if config.run_changed:
     files_to_test.extend(file_finder.GetChangedTestFiles())
+
+  if config.run_related:
+    files_to_test.extend(file_finder.GetRelatedTestFiles(use_remote_search))
+
+  # Ensure duplicates are removed.
+  if config.run_changed or config.run_related:
     files_to_test = list(set(files_to_test))
 
   filenames: list[str] = []
@@ -136,18 +152,30 @@ def main(ctx, **kwargs) -> int:
         file_finder.FindMatchingTestFiles(f, use_remote_search,
                                           config.path_index))
 
-  if not filenames:
-    command.ExitWithMessage('No associated test files found.')
+  if config.target:
+    targets = [t.removeprefix('//') for t in config.target]
+    used_cache = False
+  else:
+    if not filenames and not direct_suites:
+      command.ExitWithMessage('No associated test files found.')
 
-  targets, used_cache = target_finder.FindTestTargets(target_cache, out_dir,
-                                                      filenames, config.run_all,
-                                                      config.run_changed,
-                                                      config.target_index)
+    targets = []
+    used_cache = False
+    if filenames:
+      targets, used_cache = target_finder.FindTestTargets(
+          target_cache, out_dir, filenames, config.run_all, config.run_changed
+          or config.run_related, config.target_index)
 
-  if not current_gtest_filter:
+  # Add any direct suites
+  for suite in direct_suites:
+    target_name = suite.removeprefix('//')
+    if target_name not in targets:
+      targets.append(target_name)
+
+  if not current_gtest_filter and not config.suite:
     current_gtest_filter = filters.BuildTestFilter(filenames, config.line)
 
-  if not current_gtest_filter:
+  if not current_gtest_filter and not config.suite:
     command.ExitWithMessage('Failed to derive a gtest filter')
 
   pref_mapping_filter: str | None = config.test_policy_to_pref_mappings_filter
@@ -156,10 +184,10 @@ def main(ctx, **kwargs) -> int:
 
   assert targets
 
+  build_ok: bool = True
   if not config.no_build:
-    build_ok: bool = test_executor.BuildTestTargets(out_dir, targets,
-                                                    config.dry_run,
-                                                    config.quiet, False)
+    build_ok = test_executor.BuildTestTargets(out_dir, targets, config.dry_run,
+                                              config.quiet, False)
 
     # If we used the target cache, it's possible we chose the wrong target
     # because a gn file was changed. The build step above will check for gn
@@ -167,10 +195,9 @@ def main(ctx, **kwargs) -> int:
     # cache is still valid.
     if used_cache and not target_cache.IsStillValid():
       target_cache = target_finder.TargetCache(out_dir)
-      new_targets, _ = target_finder.FindTestTargets(target_cache, out_dir,
-                                                     filenames, config.run_all,
-                                                     config.run_changed,
-                                                     config.target_index)
+      new_targets, _ = target_finder.FindTestTargets(
+          target_cache, out_dir, filenames, config.run_all, config.run_changed
+          or config.run_related, config.target_index)
       if targets != new_targets:
         # Note that this can happen, for example, if you rename a test target.
         click.echo('gn config was changed, trying to build again', err=True)
@@ -178,18 +205,23 @@ def main(ctx, **kwargs) -> int:
         build_ok = test_executor.BuildTestTargets(out_dir, targets,
                                                   config.dry_run, config.quiet,
                                                   True)
-    telemetry.RecordMainAttributes(targets, current_gtest_filter, used_cache,
-                                   out_dir)
 
-    if not build_ok:
-      return 1
+  telemetry.RecordMainAttributes(targets, current_gtest_filter or '*',
+                                 used_cache, out_dir)
 
-  return test_executor.RunTestTargets(out_dir, targets, current_gtest_filter,
-                                      pref_mapping_filter, config.extras,
+  if not build_ok:
+    return 1
+
+  return test_executor.RunTestTargets(out_dir,
+                                      targets,
+                                      current_gtest_filter,
+                                      pref_mapping_filter,
+                                      config.extras,
                                       config.dry_run,
                                       config.no_try_android_wrappers,
                                       config.no_fast_local_dev,
-                                      config.no_single_variant)
+                                      config.no_single_variant,
+                                      is_suite=config.suite)
 
 if __name__ == '__main__':
   telemetry.telemetry.initialize('chromium.tools.autotest')

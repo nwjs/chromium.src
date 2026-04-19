@@ -8,7 +8,7 @@
 chrome.test.runTests([
   function history() {
     try {
-      var query = { 'text': '', 'maxResults': 1 };
+      const query = { text: '', maxResults: 1 };
       chrome.history.search(query, function(results) {
         chrome.test.fail();
       });
@@ -32,27 +32,15 @@ chrome.test.runTests([
   // Tabs functionality should be enabled even if the tabs permissions are not
   // present.
   function tabs() {
-    // TODO(crbug.com/371432155): Port to desktop Android when chrome.tabs API
-    // is available.
-    const getPlatformInfo = new Promise((resolve) => {
-      chrome.runtime.getPlatformInfo(info => resolve(info.os == 'android'));
-    });
-    getPlatformInfo.then(isAndroid => {
-      if (isAndroid) {
+    try {
+      chrome.tabs.create({url: '1'}, function(tab) {
+        // Tabs strip sensitive data without permissions.
+        chrome.test.assertFalse('url' in tab);
         chrome.test.succeed();
-        return;
-      } else {
-        try {
-          chrome.tabs.create({'url': '1'}, function(tab) {
-            // Tabs strip sensitive data without permissions.
-            chrome.test.assertFalse('url' in tab);
-            chrome.test.succeed();
-          });
-        } catch (e) {
-          chrome.test.fail();
-        }
-      }
-    });
+      });
+    } catch (e) {
+      chrome.test.fail();
+    }
   },
 
   function idle() {

@@ -35,6 +35,10 @@ class CORE_EXPORT HTMLMeterElement final : public HTMLElement {
   explicit HTMLMeterElement(Document&);
   ~HTMLMeterElement() override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLMeterElement;
+  }
+
   enum GaugeRegion {
     kGaugeRegionOptimum,
     kGaugeRegionSuboptimal,

@@ -53,6 +53,7 @@
 <translation id="1399511500114202393">Ez erabili erabiltzaile-ziurtagiririk</translation>
 <translation id="1403008701842173542">Edonon</translation>
 <translation id="1404323374378969387">Norvegiarra</translation>
+<translation id="1412476183660741812">Sinatutako web-sorta</translation>
 <translation id="1433628812591023318">Fitxategiak Parallels Desktop-en jaregin ahal izateko, Windows-eko fitxategien karpetara eraman behar dira lehendabizi.</translation>
 <translation id="1435838927755162558">Partekatu karpeta Parallels Desktop aplikazioarekin</translation>
 <translation id="1439919885608649279">Pertsona bat loreekin</translation>
@@ -220,6 +221,7 @@
 <translation id="2708477391501452176">BÉPO frantsesa</translation>
 <translation id="2719020180254996569"><ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" /> sarea. <ph name="NETWORK_NAME" /> (<ph name="CONNECTION_STATUS" />). Xehetasunak.</translation>
 <translation id="2724954091494693138">Turkiarra (F teklatua)</translation>
+<translation id="2727633948226935816">Ez gogorarazi berriro</translation>
 <translation id="2728450421877450246">Frantsesa</translation>
 <translation id="2732288874651063549">Kudeatu <ph name="VM_NAME" /> makina birtualarekin partekatzen dituzun elementuak</translation>
 <translation id="2732839045120506979">Vietnamdarra (VNI)</translation>
@@ -470,6 +472,7 @@
 <translation id="4788401404269709922"><ph name="NUMBER_OF_KB" /> kB</translation>
 <translation id="4789067489790477934">Eman Google Drive-ko fitxategiak erabiltzeko baimena Parallels Desktop-i. Aldaketak beste gailuekin sinkronizatuko dira.</translation>
 <translation id="4790766916287588578">Hindia, InScript teklatuarekin</translation>
+<translation id="4798645114741131062">Laster, ChromeOS Flex-eko gailuak eguneratzeak jasotzeari utziko dio. ChromeOS-eko gailu batera aldatzea gomendatzen dizugu.</translation>
 <translation id="4801956050125744859">Mantendu biak</translation>
 <translation id="4802185962157240723">Hungariarra</translation>
 <translation id="4804827417948292437">Ahuakatea</translation>
@@ -619,6 +622,7 @@
 <translation id="5819442873484330149">3. hangul-karaktere sorta (azkena)</translation>
 <translation id="5832976493438355584">Blokeatuta</translation>
 <translation id="5833610766403489739">Fitxategia beste nonbaitera joan da. Egiaztatu deskargetarako ezarri duzun kokapena eta saiatu berriro.</translation>
+<translation id="5833859326857395309">Azken eguneratzea</translation>
 <translation id="5838451609423551646">Kendu dira sarrera guztiak hautapenetik.</translation>
 <translation id="5845721951356578987">Erizaina</translation>
 <translation id="5858478190805449225">Aktibatu da bateria-aurreztailearen modua. Saiatu berriro bateria-aurreztailearen modua desaktibatzen denean.</translation>

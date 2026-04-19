@@ -15,13 +15,18 @@ import './pin_keyboard.js';
 
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
-import {ConfigureResult, PinFactorEditor} from 'chrome://resources/mojo/chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom-webui.js';
+import {AuthFactorConfig, ConfigureResult, LocalAuthFactorsComplexity, PinComplexity, PinFactorEditor} from 'chrome://resources/mojo/chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom-webui.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {LockScreenProgress, recordLockScreenProgress} from './lock_screen_constants.js';
 import type {PinKeyboardElement} from './pin_keyboard.js';
 import {getTemplate} from './setup_pin_keyboard.html.js';
 import {fireAuthTokenInvalidEvent} from './utils.js';
+
+import CredentialCheck = chrome.quickUnlockPrivate.CredentialCheck;
+import CredentialProblem = chrome.quickUnlockPrivate.CredentialProblem;
+import CredentialRequirements = chrome.quickUnlockPrivate.CredentialRequirements;
+import QuickUnlockMode = chrome.quickUnlockPrivate.QuickUnlockMode;
 
 /**
  * Keep in sync with the string keys provided by settings.
@@ -33,12 +38,23 @@ export enum MessageType {
   CONTAINS_NONDIGIT = 'configurePinNondigit',
   MISMATCH = 'configurePinMismatched',
   INTERNAL_ERROR = 'internalError',
+  COMPLEXITY_NONE = 'configurePinComplexityErrorNone',
+  COMPLEXITY_LOW = 'configurePinComplexityErrorLow',
+  COMPLEXITY_MEDIUM = 'configurePinComplexityErrorMedium',
+  COMPLEXITY_HIGH = 'configurePinComplexityErrorHigh',
 }
 
 export enum ProblemType {
   WARNING = 'warning',
   ERROR = 'error',
 }
+
+const ComplexityErrorMap = {
+  [LocalAuthFactorsComplexity.kNone]: MessageType.COMPLEXITY_NONE,
+  [LocalAuthFactorsComplexity.kLow]: MessageType.COMPLEXITY_LOW,
+  [LocalAuthFactorsComplexity.kMedium]: MessageType.COMPLEXITY_MEDIUM,
+  [LocalAuthFactorsComplexity.kHigh]: MessageType.COMPLEXITY_HIGH,
+} as Record<LocalAuthFactorsComplexity, MessageType>;
 
 const SetupPinKeyboardElementBase = I18nMixin(PolymerElement);
 
@@ -60,9 +76,12 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
   static get properties() {
     return {
       /**
-       * The token to be used to call into the PinFactorEditor mojo service.
+       * Auth token for making mojo calls into the backend.
        */
-      authToken: String,
+      authToken: {
+        type: String,
+        observer: 'fetchLocalAuthFactorsComplexity_',
+      },
 
       /**
        * The current PIN keyboard value.
@@ -109,16 +128,6 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
         notify: true,
         type: Boolean,
         value: false,
-      },
-
-      /**
-       * writeUma is a function that handles writing uma stats.
-       */
-      writeUma: {
-        type: Object,
-        value() {
-          return function() {};
-        },
       },
 
       /**
@@ -172,37 +181,39 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
         type: Boolean,
         value: false,
       },
+
+      localAuthFactorsComplexity_: {
+        type: LocalAuthFactorsComplexity,
+        value: LocalAuthFactorsComplexity.kUnset,
+      },
     };
   }
 
-  private pinKeyboardValue_: string;
-  private initialPin_: string;
-  private problemMessageId_: string;
-  private problemMessageParameters_: string;
-  private problemClass_: string|undefined;
-  private pinHasPassedMinimumLength_: boolean;
-  private isSetPinCallPending_: boolean;
   authToken: string|undefined;
   enableSubmit: boolean;
-  writeUma: (progress: LockScreenProgress) => void;
   isConfirmStep: boolean;
   useRecoveryModeApi: boolean;
   quickUnlockPrivate: typeof chrome.quickUnlockPrivate;
   enablePlaceholder: boolean;
   enableVisibilityIcon: boolean;
 
+  private pinKeyboardValue_: string;
+  private initialPin_: string;
+  private problemMessageId_: MessageType|'';
+  private problemMessageParameters_: string;
+  private problemClass_: ProblemType|''|undefined;
+  private pinHasPassedMinimumLength_: boolean;
+  private isSetPinCallPending_: boolean;
+  private localAuthFactorsComplexity_: LocalAuthFactorsComplexity;
+  private credentialRequirements_: CredentialRequirements|undefined;
+
   override focus(): void {
     this.$.pinKeyboard.focusInput();
   }
 
   override connectedCallback(): void {
+    this.fetchCredentialRequirements_();
     this.resetState();
-
-    // Show the pin is too short error when first displaying the PIN dialog.
-    this.problemClass_ = ProblemType.WARNING;
-    chrome.quickUnlockPrivate.getCredentialRequirements(
-        chrome.quickUnlockPrivate.QuickUnlockMode.PIN,
-        this.processPinRequirements_.bind(this, MessageType.TOO_SHORT));
   }
 
   /**
@@ -215,46 +226,7 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
     this.isConfirmStep = false;
     this.pinHasPassedMinimumLength_ = false;
     this.useRecoveryModeApi = false;
-    this.hideProblem_();
-    this.onPinChange_(
-        new CustomEvent('pin-change', {detail: {pin: this.pinKeyboardValue_}}));
-  }
-
-  /**
-   * Returns true if the PIN is ready to be changed to a new value.
-   */
-  private canSubmit_(): boolean {
-    return this.initialPin_ === this.pinKeyboardValue_;
-  }
-
-  /**
-   * Handles writing the appropriate message to |problemMessageId_| &&
-   * |problemMessageParameters_|.
-   * @param messageId
-   * @param requirements
-   *     The requirements received from getCredentialRequirements.
-   */
-  private processPinRequirements_(
-      messageId: MessageType,
-      requirements: chrome.quickUnlockPrivate.CredentialRequirements): void {
-    let additionalInformation = '';
-    switch (messageId) {
-      case MessageType.TOO_SHORT:
-        additionalInformation = requirements.minLength.toString();
-        break;
-      case MessageType.TOO_LONG:
-        additionalInformation = (requirements.maxLength + 1).toString();
-        break;
-      case MessageType.TOO_WEAK:
-      case MessageType.CONTAINS_NONDIGIT:
-      case MessageType.MISMATCH:
-      case MessageType.INTERNAL_ERROR:
-        break;
-      default:
-        assertNotReached();
-    }
-    this.problemMessageId_ = messageId;
-    this.problemMessageParameters_ = additionalInformation;
+    this.showProblem_(MessageType.TOO_SHORT, ProblemType.WARNING);
   }
 
   /**
@@ -262,12 +234,18 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
    */
   private showProblem_(messageId: MessageType, problemClass: ProblemType):
       void {
-    this.quickUnlockPrivate.getCredentialRequirements(
-        chrome.quickUnlockPrivate.QuickUnlockMode.PIN,
-        this.processPinRequirements_.bind(this, messageId));
+    this.problemMessageId_ = messageId;
     this.problemClass_ = problemClass;
-    this.enableSubmit = problemClass !== ProblemType.ERROR &&
-        messageId !== MessageType.TOO_SHORT;
+
+    let params = '';
+    if (this.credentialRequirements_ !== undefined) {
+      if (messageId === MessageType.TOO_SHORT) {
+        params = this.credentialRequirements_.minLength.toString();
+      } else if (messageId === MessageType.TOO_LONG) {
+        params = (this.credentialRequirements_.maxLength + 1).toString();
+      }
+    }
+    this.problemMessageParameters_ = params;
   }
 
   private hideProblem_(): void {
@@ -279,49 +257,66 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
    * Processes the message received from the quick unlock api and hides/shows
    * the problem based on the message.
    */
-  private processPinProblems_(message:
-                                  chrome.quickUnlockPrivate.CredentialCheck) {
-    if (!message.errors.length && !message.warnings.length) {
-      this.hideProblem_();
+  private onQuickUnlockPrivateCheckCredential_({errors, warnings}:
+                                                   CredentialCheck) {
+    if (errors.length === 0) {
+      // Enable submission since there are no errors.
       this.enableSubmit = true;
       this.pinHasPassedMinimumLength_ = true;
+
+      if (warnings.length > 0) {
+        assert(warnings[0] === CredentialProblem.TOO_WEAK);
+        this.showProblem_(MessageType.TOO_WEAK, ProblemType.WARNING);
+        return;
+      }
+
+      // No errors or warnings, hide the problem text.
+      this.hideProblem_();
       return;
     }
 
-    if (!message.errors.length ||
-        message.errors[0] !==
-            chrome.quickUnlockPrivate.CredentialProblem.TOO_SHORT) {
+    // Disable submission since we have an error.
+    this.enableSubmit = false;
+    if (errors[0] !== CredentialProblem.TOO_SHORT) {
       this.pinHasPassedMinimumLength_ = true;
     }
 
-    if (message.warnings.length) {
-      assert(
-          message.warnings[0] ===
-          chrome.quickUnlockPrivate.CredentialProblem.TOO_WEAK);
-      this.showProblem_(MessageType.TOO_WEAK, ProblemType.WARNING);
+    switch (errors[0]) {
+      case CredentialProblem.TOO_SHORT:
+        this.showProblem_(
+            MessageType.TOO_SHORT,
+            this.pinHasPassedMinimumLength_ ? ProblemType.ERROR :
+                                              ProblemType.WARNING);
+        break;
+      case CredentialProblem.TOO_LONG:
+        this.showProblem_(MessageType.TOO_LONG, ProblemType.ERROR);
+        break;
+      case CredentialProblem.TOO_WEAK:
+        this.showProblem_(MessageType.TOO_WEAK, ProblemType.ERROR);
+        break;
+      case CredentialProblem.CONTAINS_NONDIGIT:
+        this.showProblem_(MessageType.CONTAINS_NONDIGIT, ProblemType.ERROR);
+        break;
+      default:
+        assertNotReached();
     }
+  }
 
-    if (message.errors.length) {
-      switch (message.errors[0]) {
-        case chrome.quickUnlockPrivate.CredentialProblem.TOO_SHORT:
-          this.showProblem_(
-              MessageType.TOO_SHORT,
-              this.pinHasPassedMinimumLength_ ? ProblemType.ERROR :
-                                                ProblemType.WARNING);
-          break;
-        case chrome.quickUnlockPrivate.CredentialProblem.TOO_LONG:
-          this.showProblem_(MessageType.TOO_LONG, ProblemType.ERROR);
-          break;
-        case chrome.quickUnlockPrivate.CredentialProblem.TOO_WEAK:
-          this.showProblem_(MessageType.TOO_WEAK, ProblemType.ERROR);
-          break;
-        case chrome.quickUnlockPrivate.CredentialProblem.CONTAINS_NONDIGIT:
-          this.showProblem_(MessageType.CONTAINS_NONDIGIT, ProblemType.ERROR);
-          break;
-        default:
-          assertNotReached();
-      }
-    }
+  /**
+   * Sends the PIN to the backend for validation.
+   * Includes a safeguard to drop stale callbacks if the user's input changes.
+   */
+  private quickUnlockPrivateCheckCredential_(pin: string): void {
+    this.quickUnlockPrivate.checkCredential(
+        QuickUnlockMode.PIN, pin, (credentialCheck) => {
+          // If the current input no longer matches the one we sent to the
+          // backend, this is a stale callback. Ignore it to prevent UI
+          // flakiness.
+          if (this.pinKeyboardValue_ !== pin) {
+            return;
+          }
+          this.onQuickUnlockPrivateCheckCredential_(credentialCheck);
+        });
   }
 
   /**
@@ -329,21 +324,22 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
    */
   private onPinChange_(e: CustomEvent<{pin: string}>): void {
     const newPin = e.detail.pin;
+
+    // Initial PIN setup.
     if (!this.isConfirmStep) {
-      if (newPin) {
-        this.quickUnlockPrivate.checkCredential(
-            chrome.quickUnlockPrivate.QuickUnlockMode.PIN, newPin,
-            this.processPinProblems_.bind(this));
-      } else {
-        this.enableSubmit = false;
-        this.showProblem_(
-            MessageType.TOO_SHORT,
-            this.pinHasPassedMinimumLength_ ? ProblemType.ERROR :
-                                              ProblemType.WARNING);
+      // Use the new flow if AuthFactorsComplexity policy is set.
+      if (this.localAuthFactorsComplexity_ !==
+          LocalAuthFactorsComplexity.kUnset) {
+        this.checkPinComplexity_(newPin);
+        return;
       }
+
+      // Old quickUnlockPrivate flow.
+      this.quickUnlockPrivateCheckCredential_(newPin);
       return;
     }
 
+    // PIN confirmation.
     this.hideProblem_();
     this.enableSubmit = newPin.length > 0;
   }
@@ -353,25 +349,40 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
     this.dispatchEvent(new Event('pin-submit'));
   }
 
-  /** This is called by container object when user initiated submit. */
+  /** This is called by the container object when user initiates submit. */
   async doSubmit(): Promise<void> {
     if (!this.isConfirmStep) {
-      if (!this.enableSubmit) {
-        return;
-      }
-      this.initialPin_ = this.pinKeyboardValue_;
-      this.pinKeyboardValue_ = '';
-      this.isConfirmStep = true;
-      this.$.pinKeyboard.resetPinVisibility();
-      this.onPinChange_(new CustomEvent(
-          'pin-change', {detail: {pin: this.pinKeyboardValue_}}));
-      this.$.pinKeyboard.focusInput();
-      recordLockScreenProgress(LockScreenProgress.ENTER_PIN);
+      this.handleInitialPinSubmit_();
+    } else {
+      this.handleConfirmPinSubmit_();
+    }
+  }
+
+  private handleInitialPinSubmit_(): void {
+    if (!this.enableSubmit) {
       return;
     }
-    // onPinSubmit gets called if the user hits enter on the PIN keyboard.
-    // The PIN is not guaranteed to be valid in that case.
-    if (!this.canSubmit_()) {
+    this.enableSubmit = false;
+    this.initialPin_ = this.pinKeyboardValue_;
+    // `isConfirmStep` MUST be set to true BEFORE clearing `pinKeyboardValue_`.
+    // Clearing the PIN triggers a synchronous framework observer:
+    // * `pinKeyboardValue_` is bound to `value` for pin-keyboard (.html file),
+    // * which has an observer which fires a 'pin-change' event,
+    // * which ends up calling `onPinChange_` here.
+    // If `isConfirmStep` is still false when that observer fires, it sends a
+    // request to the backend to validate an empty string. When that callback
+    // eventually returns, it disables the submit button and causes tests to
+    // timeout.
+    this.isConfirmStep = true;
+    this.pinKeyboardValue_ = '';
+    this.$.pinKeyboard.resetPinVisibility();
+    this.hideProblem_();
+    this.$.pinKeyboard.focusInput();
+    recordLockScreenProgress(LockScreenProgress.ENTER_PIN);
+  }
+
+  private async handleConfirmPinSubmit_(): Promise<void> {
+    if (this.pinKeyboardValue_ !== this.initialPin_) {
       this.showProblem_(MessageType.MISMATCH, ProblemType.ERROR);
       this.enableSubmit = false;
       // Focus the PIN keyboard and highlight the entire PIN.
@@ -379,23 +390,28 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
       return;
     }
 
+    await this.submitPinToBackend_();
+  }
+
+  private async submitPinToBackend_(): Promise<void> {
     if (typeof this.authToken !== 'string') {
       fireAuthTokenInvalidEvent(this);
       return;
     }
 
-    this.isSetPinCallPending_ = true;
     this.enableSubmit = false;
-    let result: any;
-    if (this.useRecoveryModeApi) {
-      ({result} = await PinFactorEditor.getRemote().updatePin(
-           this.authToken, this.pinKeyboardValue_));
-    } else {
-      ({result} = await PinFactorEditor.getRemote().setPin(
-           this.authToken, this.pinKeyboardValue_));
-    }
+    this.isSetPinCallPending_ = true;
+    const {result} = await (this.useRecoveryModeApi ?
+                                PinFactorEditor.getRemote().updatePin(
+                                    this.authToken, this.pinKeyboardValue_) :
+                                PinFactorEditor.getRemote().setPin(
+                                    this.authToken, this.pinKeyboardValue_));
     this.isSetPinCallPending_ = false;
 
+    this.handleBackendResult_(result);
+  }
+
+  private handleBackendResult_(result: ConfigureResult): void {
     switch (result) {
       case ConfigureResult.kSuccess:
         break;
@@ -419,14 +435,93 @@ export class SetupPinKeyboardElement extends SetupPinKeyboardElementBase {
     recordLockScreenProgress(LockScreenProgress.CONFIRM_PIN);
   }
 
+  private async checkPinComplexity_(pin: string): Promise<void> {
+    if (typeof this.authToken !== 'string') {
+      fireAuthTokenInvalidEvent(this);
+      return;
+    }
+
+    let pinComplexity: PinComplexity;
+    try {
+      pinComplexity = await PinFactorEditor.getRemote().checkPinComplexity(
+          this.authToken, pin);
+    } catch (e) {
+      switch (e) {
+        case ConfigureResult.kInvalidTokenError:
+          fireAuthTokenInvalidEvent(this);
+          return;
+        default:
+          // The only error this API should return is `kInvalidTokenError`.
+          assertNotReached();
+      }
+    }
+
+    if (pinComplexity === PinComplexity.kOk) {
+      this.enableSubmit = true;
+      this.hideProblem_();
+      return;
+    }
+
+    this.enableSubmit = false;
+    const messageId = ComplexityErrorMap[this.localAuthFactorsComplexity_];
+    this.showProblem_(messageId, ProblemType.ERROR);
+  }
+
+  private async fetchLocalAuthFactorsComplexity_(): Promise<void> {
+    if (typeof this.authToken !== 'string') {
+      fireAuthTokenInvalidEvent(this);
+      return;
+    }
+
+    try {
+      const newValue =
+          await AuthFactorConfig.getRemote().getLocalAuthFactorsComplexity(
+              this.authToken!);
+      if (newValue === this.localAuthFactorsComplexity_) {
+        return;
+      }
+      this.localAuthFactorsComplexity_ = newValue;
+
+      const messageId = ComplexityErrorMap[this.localAuthFactorsComplexity_];
+      this.showProblem_(messageId, ProblemType.WARNING);
+    } catch (e) {
+      switch (e) {
+        case ConfigureResult.kInvalidTokenError:
+          fireAuthTokenInvalidEvent(this);
+          break;
+        default:
+          // The only error this API should return is `kInvalidTokenError`.
+          assertNotReached();
+      }
+    }
+  }
+
+  /**
+   * Fetches the PIN credential requirements and caches them locally.
+   * Re-evaluates any pending problem messages once the fetch completes.
+   *
+   * Note: Caching these values means that if the policy updates while the
+   * PIN dialog is already displayed, the messaging will continue to use the
+   * old requirements. We accept this highly unlikely edge case.
+   */
+  private fetchCredentialRequirements_(): void {
+    this.quickUnlockPrivate.getCredentialRequirements(
+        QuickUnlockMode.PIN, (requirements: CredentialRequirements) => {
+          this.credentialRequirements_ = requirements;
+
+          // If we are currently showing an error/warning, re-trigger it now
+          // that we have the requirements to format the string properly.
+          if (this.problemMessageId_ && this.problemClass_) {
+            this.showProblem_(this.problemMessageId_, this.problemClass_);
+          }
+        });
+  }
+
   private hasError_(problemMessageId: string, problemClass: ProblemType):
       boolean {
     return !!problemMessageId && problemClass === ProblemType.ERROR;
   }
 
-  /**
-   * Format problem message
-   */
   private formatProblemMessage_(
       locale: string, messageId: string|undefined,
       messageParameters: string): string {

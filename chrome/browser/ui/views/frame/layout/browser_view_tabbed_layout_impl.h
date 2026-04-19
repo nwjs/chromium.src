@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_LAYOUT_BROWSER_VIEW_TABBED_LAYOUT_IMPL_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_LAYOUT_BROWSER_VIEW_TABBED_LAYOUT_IMPL_H_
 
-#include <optional>
 #include <utility>
 
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
@@ -96,12 +95,16 @@ class BrowserViewTabbedLayoutImpl : public BrowserViewLayoutImpl {
 
   // Describes how to render the top of the vertical tab strip.
   struct VerticalTabStripAnimation {
+    // Is the vertical tab strip animating?
+    bool is_animating = false;
     // The y-value of the top of the tab strip.
     int top_offset = 0;
-    // The relative size of the top outside corner.
-    double top_outside_corner_percent = 0.0;
-    // The relative size of the top inside corner.
-    double top_inside_corner_percent = 0.0;
+    // The relative size of the top corner.
+    double top_corner = 0.0;
+    // The relative size of the bottom corner.
+    double bottom_corner = 0.0;
+    // How much of the expand-on-hover is shown.
+    double expand_on_hover = 0.0;
   };
   VerticalTabStripAnimation CalculateVerticalTabStripAnimation(
       const BrowserLayoutParams& params) const;
@@ -137,6 +140,14 @@ class BrowserViewTabbedLayoutImpl : public BrowserViewLayoutImpl {
   // Returns the leading margin for the horizontal tab strip region.
   int GetHorizontalTabStripLeadingMargin(
       const BrowserLayoutParams& params) const;
+
+  // These cached values serve as a starting point when an expand-on-hover state
+  // for the vertical tab strip is animated directly to the expanded state. They
+  // are cached every time the animation state is calculated except during the
+  // expand animation, so that they can be used as starting points for the
+  // expand animation.
+  mutable double last_expand_on_hover_ = 0.0;
+  mutable double last_bottom_corner_value_ = 1.0;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_LAYOUT_BROWSER_VIEW_TABBED_LAYOUT_IMPL_H_

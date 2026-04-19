@@ -14,7 +14,6 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/demo_mode/demo_mode_idle_handler.h"
@@ -32,7 +31,11 @@ class PrefService;
 
 namespace base {
 class OneShotTimer;
-}
+}  // namespace base
+
+namespace component_updater {
+class ComponentManagerAsh;
+}  // namespace component_updater
 
 namespace ash {
 
@@ -104,7 +107,7 @@ class DemoSession : public session_manager::SessionManagerObserver,
   // //chromeos/ash/components/demo_mode.
 
   // Returns current demo mode configuration.
-  static DemoModeConfig GetDemoConfig();
+  static DemoModeConfig GetDemoConfig(const PrefService& local_state);
 
   // Sets demo mode configuration for tests. Should be cleared by calling
   // ResetDemoConfigForTesting().
@@ -120,9 +123,12 @@ class DemoSession : public session_manager::SessionManagerObserver,
   // `local_state` and `application_locale_storage` must be non-null and must
   // outlive the created DemoSession. (I.e., they must be valid until
   // `ShutDownIfInitialized` is called.)
+  // `component_manager_ash` must be non-null.
   static DemoSession* StartIfInDemoMode(
       PrefService* local_state,
-      const ApplicationLocaleStorage* application_locale_storage);
+      const ApplicationLocaleStorage* application_locale_storage,
+      scoped_refptr<component_updater::ComponentManagerAsh>
+          component_manager_ash);
 
   // Deletes the global DemoSession instance if it was previously created.
   static void ShutDownIfInitialized();
@@ -149,7 +155,8 @@ class DemoSession : public session_manager::SessionManagerObserver,
   // `value`: The ISO country code.
   // `title`: The display name of the country in the current locale.
   // `selected`: Whether the country is currently selected.
-  static base::ListValue GetCountryList();
+  static base::ListValue GetCountryList(PrefService& local_state,
+                                        const std::string& application_locale);
 
   // Records the launch of an app in Demo mode from the specified source.
   static void RecordAppLaunchSource(AppLaunchSource source);
@@ -197,19 +204,17 @@ class DemoSession : public session_manager::SessionManagerObserver,
  private:
   // `local_state` and `application_locale_storage` must be non-null and must
   // outlive `this`.
+  // `component_manager_ash` must be non-null.
   DemoSession(PrefService* local_state,
-              const ApplicationLocaleStorage* application_locale_storage);
+              const ApplicationLocaleStorage* application_locale_storage,
+              scoped_refptr<component_updater::ComponentManagerAsh>
+                  component_manager_ash);
   ~DemoSession() override;
 
   // DemoModeIdleHandler::Observer:
   void OnLocalFilesCleanupCompleted() override;
 
   void OnDemoAppComponentLoaded();
-
-  // Get country code and full name in current language pair sorted by their
-  // full name in currently selected language.
-  static std::vector<CountryCodeAndFullNamePair>
-  GetSortedCountryCodeAndNamePairList();
 
   // Installs resources for Demo Mode from the offline demo mode resources, such
   // as photos and other media.
@@ -233,6 +238,8 @@ class DemoSession : public session_manager::SessionManagerObserver,
 
   const raw_ref<PrefService> local_state_;
   const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
+  const scoped_refptr<component_updater::ComponentManagerAsh>
+      component_manager_ash_;
 
   // Whether demo session has been started.
   bool started_ = false;

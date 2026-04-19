@@ -4,6 +4,8 @@
 
 source_set("content_annotator") {
   sources = [
+    "content_annotation_validator.cc",
+    "content_annotation_validator.h",
     "content_annotator_classifier_rules_parser.cc",
     "content_annotator_classifier_rules_parser.h",
     "content_annotator_rule_based_classifier.cc",
@@ -31,6 +33,7 @@ source_set("content_annotator") {
     "//components/page_content_annotations/content:page_embeddings",
     "//components/page_content_annotations/core",
     "//components/passage_embeddings/core:passage_embeddings_types",
+    "//components/sessions",
     "//components/translate/core/common",
     "//components/url_matcher",
     "//components/variations",
@@ -43,6 +46,7 @@ source_set("content_annotator") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "content_annotation_validator_unittest.cc",
     "content_annotator_classifier_rules_parser_unittest.cc",
     "content_annotator_rule_based_classifier_unittest.cc",
     "content_annotator_semantic_match_classifier_unittest.cc",
@@ -56,6 +60,7 @@ source_set("unit_tests") {
     "//components/accessibility_annotator/core:features",
     "//components/accessibility_annotator/core/storage",
     "//components/history/core/browser",
+    "//components/history/core/test",
     "//components/optimization_guide/core:model_execution_test_support",
     "//components/optimization_guide/core:test_support",
     "//components/page_content_annotations/content",

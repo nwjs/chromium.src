@@ -6,25 +6,6 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 
-void FakeLocalPrinter::GetPrinters(GetPrintersCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::GetCapability(const std::string& printer_id,
-                                     GetCapabilityCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::GetEulaUrl(const std::string& printer_id,
-                                  GetEulaUrlCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::GetStatus(const std::string& printer_id,
-                                 GetStatusCallback callback) {
-  FAIL();
-}
-
 void FakeLocalPrinter::ShowSystemPrintSettings(
     ShowSystemPrintSettingsCallback callback) {
   FAIL();
@@ -62,10 +43,6 @@ void FakeLocalPrinter::GetPolicies(GetPoliciesCallback callback) {
   FAIL();
 }
 
-void FakeLocalPrinter::GetUsernamePerPolicy(
-    GetUsernamePerPolicyCallback callback) {
-  FAIL();
-}
 
 void FakeLocalPrinter::GetPrinterTypeDenyList(
     GetPrinterTypeDenyListCallback callback) {
@@ -85,13 +62,4 @@ void FakeLocalPrinter::AddLocalPrintersObserver(
   FAIL();
 }
 
-void FakeLocalPrinter::GetOAuthAccessToken(
-    const std::string& printer_id,
-    GetOAuthAccessTokenCallback callback) {
-  FAIL();
-}
 
-void FakeLocalPrinter::GetIppClientInfo(const std::string& printer_id,
-                                        GetIppClientInfoCallback callback) {
-  FAIL();
-}

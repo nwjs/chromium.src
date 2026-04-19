@@ -7,12 +7,12 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
@@ -24,26 +24,17 @@
 
 namespace glic {
 
-class GlicProfileManagerUiTest : public test::InteractiveGlicTest,
-                                 public testing::WithParamInterface<bool> {
+// TODO(b/445924847): This test does not work with multi-instance, which is now
+// launched. It needs updated if we want to pursue launching the GlicWarming
+// feature.
+class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
  public:
-  GlicProfileManagerUiTest() {
+  DISABLED_GlicProfileManagerUiTest() {
     std::vector<base::test::FeatureRefAndParams> enabled = {
         {features::kGlicWarming,
          {{features::kGlicWarmingDelayMs.name, "0"},
           {features::kGlicWarmingJitterMs.name, "0"}}}};
-    std::vector<base::test::FeatureRef> disabled = {
-        // TODO(b/453696965): These tests need fixed to
-        // work with kGlicMultiInstance.
-        features::kGlicMultiInstance};
-
-    if (ShouldWarmMultiple()) {
-      enabled.push_back({features::kGlicWarmMultiple, {}});
-    } else {
-      disabled.push_back(features::kGlicWarmMultiple);
-    }
-
-    feature_list_.InitWithFeaturesAndParameters(enabled, disabled);
+    feature_list_.InitWithFeaturesAndParameters(enabled, {});
   }
 
   void SetUp() override {
@@ -88,8 +79,6 @@ class GlicProfileManagerUiTest : public test::InteractiveGlicTest,
     test::InteractiveGlicTest::TearDownOnMainThread();
   }
 
-  bool ShouldWarmMultiple() const { return GetParam(); }
-
   GlicKeyedService* GetService(bool primary) {
     return GlicKeyedServiceFactory::GetGlicKeyedService(
         primary ? browser()->profile() : GetSecondProfile());
@@ -103,10 +92,13 @@ class GlicProfileManagerUiTest : public test::InteractiveGlicTest,
 
   std::string WarmedAndSizedStatus(GlicKeyedService* service) {
     const bool warmed =
-        service->GetSingleInstanceWindowController().IsWarmed() ||
+        service->web_contents_warming_pool().HasWarmedContainerForTesting() ||
         service->IsWindowOrFreShowing();
     if (!warmed) {
       return "Not warmed";
+    }
+    if (service->web_contents_warming_pool().HasWarmedContainerForTesting()) {
+      return "warmed and sized";
     }
     auto* instance = service->GetInstanceForActiveTab(nullptr);
     if (!instance) {
@@ -180,7 +172,7 @@ class GlicProfileManagerUiTest : public test::InteractiveGlicTest,
   base::test::ScopedFeatureList feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, ConsistentPreload) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, ConsistentPreload) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -196,7 +188,7 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, ConsistentPreload) {
       // client, so it should not yet be warmed).
       CheckWarmedAndSized(true, false),
       // This stores a pointer to the web client contents so that we can check
-      // that the the shown contents match (otherwise, we've warmed for no
+      // that the shown contents match (otherwise, we've warmed for no
       // reason).
       CacheClientContents(/*primary_profile=*/true),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached),
@@ -204,7 +196,7 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, ConsistentPreload) {
       CheckCachedClientContents(/*primary_profile=*/true));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, PreloadMutex) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, PreloadMutex) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -222,12 +214,11 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, PreloadMutex) {
       // Warming the secondary profile will cause another web client
       // to come into existence.
       CreateAndWarmGlic(/*primary_profile=*/false),
-      // The first service should only remain warmed if we have the
-      // feature `kGlicWarmMultiple` enabled.
-      CheckWarmedAndSized(ShouldWarmMultiple(), true));
+      // The first service should remain warmed.
+      CheckWarmedAndSized(true, true));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, ShowMutex) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, ShowMutex) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -245,12 +236,11 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, ShowMutex) {
         SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
       }),
       DeprecatedOpenGlicWindow(GlicWindowMode::kAttached),
-      // The first service should only remain warmed if we have the
-      // feature `kGlicWarmMultiple` enabled.
-      CheckWarmedAndSized(true, ShouldWarmMultiple()));
+      // The first service should remain warmed.
+      CheckWarmedAndSized(true, true));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, FreMutex) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest, FreMutex) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -268,12 +258,12 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, FreMutex) {
         SetFRECompletion(browser()->profile(), prefs::FreStatus::kCompleted);
       }),
       ToggleGlicWindow(GlicWindowMode::kAttached),
-      // The first service should only remain warmed if we have the
-      // feature `kGlicWarmMultiple` enabled.
-      CheckWarmedAndSized(true, ShouldWarmMultiple()));
+      // The first service should remain warmed.
+      CheckWarmedAndSized(true, true));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, DoNotWarmWhenShowing) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
+                       DoNotWarmWhenShowing) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -288,12 +278,13 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, DoNotWarmWhenShowing) {
       CheckWarmedAndSized(true, false),
       // Attempt to preload for the secondary profile.
       CreateAndWarmGlic(/*primary_profile=*/false),
-      // If kGlicWarmMultiple is enabled, we should warm the secondary profile
-      // even if the primary one is showing.
-      CheckWarmedAndSized(true, ShouldWarmMultiple()));
+      // We should warm the secondary profile even if the primary one is
+      // showing.
+      CheckWarmedAndSized(true, true));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, MemPressureClearsCache) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
+                       MemPressureClearsCache) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -311,7 +302,8 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, MemPressureClearsCache) {
       CheckWarmedAndSized(false, false));
 }
 
-IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, MemPressureDoesNotClearShown) {
+IN_PROC_BROWSER_TEST_F(DISABLED_GlicProfileManagerUiTest,
+                       MemPressureDoesNotClearShown) {
   RunTestSequence(
       WaitForShow(kGlicButtonElementId),
       // Since we've disabled preloading, nothing should be preloaded yet.
@@ -330,13 +322,5 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerUiTest, MemPressureDoesNotClearShown) {
       // should not be cleared.
       SendMemoryPressureSignal(), CheckWarmedAndSized(true, false));
 }
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         GlicProfileManagerUiTest,
-                         testing::Bool(),
-                         [](const testing::TestParamInfo<bool>& info) {
-                           return info.param ? "WarmMultiple"
-                                             : "DoNotWarmMultiple";
-                         });
 
 }  // namespace glic

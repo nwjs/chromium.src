@@ -54,6 +54,7 @@
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/ash/login/login_display_host_common.h"
@@ -188,20 +189,24 @@ LoginDisplayHostMojo::AuthState::~AuthState() = default;
 LoginDisplayHostMojo::LoginDisplayHostMojo(
     PrefService* local_state,
     ApplicationLocaleStorage* application_locale_storage,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
     policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
     DisplayedScreen displayed_screen,
     bool update_geolocation_usage_allowed)
     : LoginDisplayHostCommon(local_state,
                              application_locale_storage,
+                             shared_url_loader_factory,
                              browser_policy_connector_ash,
                              update_geolocation_usage_allowed),
       user_selection_screen_(std::make_unique<ChromeUserSelectionScreen>(
           local_state,
           application_locale_storage,
+          std::move(shared_url_loader_factory),
           browser_policy_connector_ash,
           displayed_screen)),
       auth_performer_(UserDataAuthClient::Get()),
-      system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>()) {
+      system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>(
+          browser_policy_connector_ash)) {
   CHECK(!g_login_display_host_mojo);
   g_login_display_host_mojo = this;
 
@@ -912,7 +917,9 @@ void LoginDisplayHostMojo::EnsureOobeDialogLoaded() {
   // TODO(crbug.com/404133029): Avoid using g_browser_process.
   wizard_controller_ = std::make_unique<WizardController>(
       &local_state_.get(), &application_locale_storage_.get(),
-      g_browser_process->shared_url_loader_factory(), GetWizardContext());
+      g_browser_process->shared_url_loader_factory(),
+      g_browser_process->platform_part()->component_manager_ash(),
+      GetWizardContext());
 
   GetLoginScreenCertProviderService()->pin_dialog_manager()->AddPinDialogHost(
       &security_token_pin_dialog_host_login_impl_);
@@ -1005,7 +1012,8 @@ void LoginDisplayHostMojo::StopObservingOobeUI() {
 
 void LoginDisplayHostMojo::CreateExistingUserController() {
   existing_user_controller_ = std::make_unique<ExistingUserController>(
-      &local_state_.get(), &application_locale_storage_.get());
+      &local_state_.get(), &application_locale_storage_.get(),
+      shared_url_loader_factory_);
 
   // We need auth attempt results to notify views-based login screen.
   existing_user_controller_->AddLoginStatusConsumer(this);

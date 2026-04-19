@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_feature.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
+#include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 #include "chrome/browser/ui/webui_browser/bookmark_bar_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
@@ -29,6 +30,7 @@
 #include "chrome/grit/webui_browser_resources_map.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "components/guest_contents/browser/guest_contents_host_impl.h"
 #include "components/surface_embed/buildflags/buildflags.h"
 #include "content/public/browser/browser_context.h"
@@ -95,6 +97,7 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
                               /*enable_chrome_histograms=*/true) {
   WebUIBrowserWindow* webui_browser_window =
       WebUIBrowserWindow::FromWebShellWebContents(web_ui->GetWebContents());
+  Profile* profile = Profile::FromWebUI(web_ui);
   browser_ = webui_browser_window->browser();
 
   // Set up the chrome://webui-browser source.
@@ -117,7 +120,8 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   };
   source->AddLocalizedStrings(kStrings);
 
-  SearchboxHandler::SetupWebUIDataSource(source, Profile::FromWebUI(web_ui));
+  source->AddLocalizedStrings(
+      SearchboxHandler::GetWebUIDataSourceDict(profile));
 
 #if BUILDFLAG(ENABLE_SURFACE_EMBED)
   source->AddBoolean(
@@ -140,6 +144,10 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   // source->AddString(
   //     "resultChangedToPaintMetricName",
   //     "Omnibox.Popup.WebUI.ResultChangedToRepaintLatency.ToPaint");
+
+  content::URLDataSource::Add(
+      profile, std::make_unique<FaviconSource>(
+                   profile, chrome::FaviconUrlFormat::kFavicon2));
 }
 
 WebUIBrowserUI::~WebUIBrowserUI() = default;
@@ -246,7 +254,8 @@ WebUIBrowserUI::GetKnownElementIdentifiers() const {
   static const std::vector<ui::ElementIdentifier> kKnownElementIdentifiers{
       kContentsContainerViewElementId, kExtensionsMenuButtonElementId,
       kLocationBarElementId,           kLocationIconElementId,
-      kToolbarAppMenuButtonElementId,  kToolbarAvatarButtonElementId};
+      kToolbarAppMenuButtonElementId,  kToolbarAvatarButtonElementId,
+      kToolbarBackButtonElementId,     kToolbarForwardButtonElementId};
   return kKnownElementIdentifiers;
 }
 

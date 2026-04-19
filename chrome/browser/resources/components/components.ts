@@ -47,7 +47,8 @@ function renderTemplate(componentsData: ComponentsData) {
  * components.
  */
 function requestComponentsData() {
-  sendWithPromise('requestComponentsData').then(returnComponentsData);
+  sendWithPromise<ComponentsData>('requestComponentsData')
+      .then(returnComponentsData);
 }
 
 /**
@@ -140,11 +141,11 @@ function onComponentEvent(event: ComponentEvent) {
  *     update.
  */
 function handleCheckUpdate(node: HTMLElement) {
-  getRequiredElement('status-' + String(node.id)).textContent =
+  getRequiredElement('status-' + node.id).textContent =
       loadTimeData.getString('checkingLabel');
 
   // Tell the C++ ComponentssDOMHandler to check for update.
-  chrome.send('checkUpdate', [String(node.id)]);
+  chrome.send('checkUpdate', [node.id]);
 }
 
 // Get data and have it displayed upon loading.

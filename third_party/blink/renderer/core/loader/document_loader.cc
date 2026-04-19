@@ -54,6 +54,7 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/client_hints.h"
 #include "services/network/public/cpp/header_util.h"
+#include "services/network/public/cpp/no_vary_search_header_parser.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/url_response_head.mojom-shared.h"
@@ -1207,6 +1208,7 @@ void DocumentLoader::SetHistoryItemStateForCommit(
 
   history_item_->SetURL(UrlForHistory());
   history_item_->SetReferrer(referrer_.GetString());
+  history_item_->SetRequestorOrigin(requestor_origin_);
   if (EqualIgnoringAsciiCase(http_method_, "POST")) {
     // FIXME: Eventually we have to make this smart enough to handle the case
     // where we have a stream for the body to handle the "data interspersed with
@@ -1858,8 +1860,8 @@ void DocumentLoader::CommitSameDocumentNavigationInternal(
             [](Frame* frame) {
               // The delay might mean the frame is no longer attached to the
               // owner (e.g., iframe detach).
-              if (auto* owner = frame->Owner()) {
-                owner->DispatchLoad();
+              if (frame && frame->Owner()) {
+                frame->Owner()->DispatchLoad();
               }
             },
             WrapWeakPersistent(frame_.Get())),
@@ -2557,7 +2559,8 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
 
 bool ShouldReuseDOMWindow(LocalDOMWindow* window,
                           SecurityOrigin* security_origin,
-                          bool window_anonymous_matching) {
+                          bool window_anonymous_matching,
+                          const AgentClusterKey& agent_cluster_key) {
   if (!window) {
     return false;
   }
@@ -2573,7 +2576,27 @@ bool ShouldReuseDOMWindow(LocalDOMWindow* window,
   }
 
   // The new origin must match the origin of the initial empty document.
-  return window->GetSecurityOrigin()->CanAccess(security_origin);
+  if (!window->GetSecurityOrigin()->CanAccess(security_origin)) {
+    return false;
+  }
+
+  // The cross-origin isolation status of the window and the navigation should
+  // match.
+  const auto* window_coi_key =
+      window->GetAgent()->GetAgentClusterKey().GetCrossOriginIsolationKey();
+  const auto* navigation_coi_key =
+      agent_cluster_key.GetCrossOriginIsolationKey();
+
+  // If both are null, they match.
+  if (!window_coi_key && !navigation_coi_key) {
+    return true;
+  }
+  // If only one is null, they do not match.
+  if (!window_coi_key || !navigation_coi_key) {
+    return false;
+  }
+  // If both are present, compare their underlying values.
+  return *window_coi_key == *navigation_coi_key;
 }
 
 namespace {
@@ -2732,16 +2755,12 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
   // LocalDOMWindow to the Document that results from the network load. See also
   // Document::IsSecureTransitionTo.
   if (!ShouldReuseDOMWindow(frame_->DomWindow(), security_origin.get(),
-                            window_anonymous_matching)) {
+                            window_anonymous_matching, agent_cluster_key)) {
     auto* agent =
         GetWindowAgentForAgentClusterKey(frame_.Get(), agent_cluster_key);
     frame_->SetDOMWindow(MakeGarbageCollected<LocalDOMWindow>(*frame_, agent));
 
-    // No need to sync this back to the browser, since it just came from the
-    // browser.
-    frame_->DomWindow()->SetStorageAccessApiStatus(
-        storage_access_api_status_,
-        LocalDOMWindow::StorageAccessApiNotifyEmbedder::kNone);
+    frame_->DomWindow()->SetStorageAccessApiStatus(storage_access_api_status_);
     inherited_has_storage_access = [this]() -> bool {
       switch (storage_access_api_status_) {
         case net::StorageAccessApiStatus::kNone:
@@ -3287,9 +3306,14 @@ void DocumentLoader::CreateParserPostCommit() {
 
   // Links with media values need more information (like viewport information).
   // This happens after the first chunk is parsed in HTMLDocumentParser.
-  DispatchLinkHeaderPreloads(nullptr /* viewport */,
-                             PreloadHelper::LoadLinksFromHeaderMode::
-                                 kDocumentAfterCommitWithoutViewport);
+  // Skip for MediaDocument: StopLoading() is called immediately after, which
+  // cancels and removes these preloads. Dispatching them serves no purpose.
+  // See https://crbug.com/482088906 for the discussion behind this change.
+  if (!frame_->GetDocument()->IsMediaDocument()) {
+    DispatchLinkHeaderPreloads(nullptr /* viewport */,
+                               PreloadHelper::LoadLinksFromHeaderMode::
+                                   kDocumentAfterCommitWithoutViewport);
+  }
 
   // Initializing origin trials might force window proxy initialization,
   // which later triggers CHECK when swapping in via WebFrame::Swap().
@@ -3538,8 +3562,17 @@ void DocumentLoader::RecordUseCountersForCommit() {
     CountUse(WebFeature::kRequireDocumentPolicyHeader);
   }
 
-  if (!response_.HttpHeaderField(http_names::kNoVarySearch).IsNull()) {
+  if (const AtomicString& value =
+          response_.HttpHeaderField(http_names::kNoVarySearch);
+      !value.IsNull()) {
     CountUse(WebFeature::kNoVarySearch);
+    // Structured headers are actually required to be ASCII, but converting a
+    // String to Latin1() is cheaper and the structured headers parser will do
+    // the ASCII check for us.
+    if (value.contains("params") &&
+        network::NoVarySearchHasBooleanParamsMember(value.Latin1())) {
+      CountUse(WebFeature::kNoVarySearchWithBooleanParams);
+    }
   }
 
   if (frame_->IsOutermostMainFrame() &&

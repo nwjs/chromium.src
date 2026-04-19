@@ -29,7 +29,7 @@ struct OutOfFlowItemPlacement {
 struct CORE_EXPORT GridItemData : public GarbageCollected<GridItemData> {
   GridItemData() = default;
   GridItemData(const GridItemData&) = default;
-  GridItemData& operator=(const GridItemData&) = default;
+  GridItemData& operator=(const GridItemData&) = delete;
 
   GridItemData(BlockNode item_node,
                const ComputedStyle& parent_grid_style,
@@ -230,6 +230,28 @@ struct CORE_EXPORT GridItemData : public GarbageCollected<GridItemData> {
         .HasProperty(TrackSpanProperties::kHasFixedMaximumTrack);
   }
 
+  // Returns the track direction in this subgrid's coordinate system relative
+  // to its parent grid's `track_direction`.
+  GridTrackSizingDirection RelativeDirectionInSubgrid(
+      GridTrackSizingDirection track_direction) const {
+    DCHECK(IsSubgrid());
+    const bool is_for_columns =
+        is_parallel_with_root_grid == (track_direction == kForColumns);
+    return is_for_columns ? kForColumns : kForRows;
+  }
+
+  // Returns the relative direction this subgrid's coordinate system. If
+  // `opt_track_direction` has no value, returns std::nullopt.
+  std::optional<GridTrackSizingDirection> RelativeDirectionFilterInSubgrid(
+      const std::optional<GridTrackSizingDirection>& opt_track_direction)
+      const {
+    DCHECK(IsSubgrid());
+    if (opt_track_direction) {
+      return RelativeDirectionInSubgrid(*opt_track_direction);
+    }
+    return std::nullopt;
+  }
+
   void EncompassContributionSize(MinMaxSizes sizes) {
     if (contribution_sizes) {
       contribution_sizes->min_max_contribution.Encompass(sizes);
@@ -392,9 +414,7 @@ struct CORE_EXPORT GridItemData : public GarbageCollected<GridItemData> {
   std::optional<VirtualItemContributions> contribution_sizes;
 };
 
-class CORE_EXPORT GridItems {
-  DISALLOW_NEW();
-
+class CORE_EXPORT GridItems : public GarbageCollected<GridItems> {
  public:
   using GridItemDataVector = HeapVector<Member<GridItemData>, 16>;
 
@@ -462,14 +482,11 @@ class CORE_EXPORT GridItems {
   };
 
   GridItems() = default;
-  GridItems(GridItems&&) = default;
-  GridItems& operator=(GridItems&&) = default;
 
-  GridItems(const GridItems& other);
-
-  GridItems& operator=(const GridItems& other) {
-    return *this = GridItems(other);
-  }
+  GridItems(const GridItems&) = delete;
+  GridItems& operator=(const GridItems&) = delete;
+  GridItems(GridItems&&) = delete;
+  GridItems& operator=(GridItems&&) = delete;
 
   Iterator<false> begin() { return {&item_data_, 0}; }
   Iterator<false> end() { return {&item_data_, first_subgridded_item_index_}; }

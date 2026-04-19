@@ -4,7 +4,6 @@
 
 #include "media/base/android/jni_hdr_metadata.h"
 
-#include "media/base/video_color_space.h"
 #include "ui/gfx/hdr_metadata.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -14,14 +13,13 @@ namespace media {
 
 namespace {
 
-constexpr gfx::HdrMetadataCta861_3 kDefault861_3;
-constexpr gfx::HdrMetadataSmpteSt2086 kDefault2086;
+constexpr skhdr::ContentLightLevelInformation kDefaultCLLI;
+constexpr skhdr::MasteringDisplayColorVolume kDefaultMDCV;
 
 }  // namespace
 
-JniHdrMetadata::JniHdrMetadata(const VideoColorSpace& color_space,
-                               const gfx::HDRMetadata& hdr_metadata)
-    : color_space_(color_space), hdr_metadata_(hdr_metadata) {
+JniHdrMetadata::JniHdrMetadata(const gfx::HDRMetadata& hdr_metadata)
+    : hdr_metadata_(hdr_metadata) {
   JNIEnv* env = base::android::AttachCurrentThread();
   jobject_ = Java_HdrMetadata_create(env, reinterpret_cast<int64_t>(this));
   base::android::CheckException(env);
@@ -32,66 +30,68 @@ JniHdrMetadata::~JniHdrMetadata() {
   Java_HdrMetadata_close(env, obj());
 }
 
-int32_t JniHdrMetadata::Primaries(JNIEnv* env) {
-  return static_cast<int>(color_space_->primaries);
-}
-
-int32_t JniHdrMetadata::ColorTransfer(JNIEnv* env) {
-  return static_cast<int>(color_space_->transfer);
-}
-
-int32_t JniHdrMetadata::Range(JNIEnv* env) {
-  return static_cast<int>(color_space_->range);
-}
-
 float JniHdrMetadata::PrimaryRChromaticityX(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fRX;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fRX;
 }
 
 float JniHdrMetadata::PrimaryRChromaticityY(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fRY;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fRY;
 }
 
 float JniHdrMetadata::PrimaryGChromaticityX(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fGX;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fGX;
 }
 
 float JniHdrMetadata::PrimaryGChromaticityY(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fGY;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fGY;
 }
 
 float JniHdrMetadata::PrimaryBChromaticityX(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fBX;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fBX;
 }
 
 float JniHdrMetadata::PrimaryBChromaticityY(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fBY;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fBY;
 }
 
 float JniHdrMetadata::WhitePointChromaticityX(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fWX;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fWX;
 }
 
 float JniHdrMetadata::WhitePointChromaticityY(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).primaries.fWY;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fDisplayPrimaries.fWY;
 }
 
 float JniHdrMetadata::MaxColorVolumeLuminance(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).luminance_max;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fMaximumDisplayMasteringLuminance;
 }
 
 float JniHdrMetadata::MinColorVolumeLuminance(JNIEnv* env) {
-  return hdr_metadata_->smpte_st_2086.value_or(kDefault2086).luminance_min;
+  return (hdr_metadata_->HasMDCV() ? hdr_metadata_->GetMDCV() : kDefaultMDCV)
+      .fMinimumDisplayMasteringLuminance;
 }
 
 int32_t JniHdrMetadata::MaxContentLuminance(JNIEnv* env) {
-  return hdr_metadata_->cta_861_3.value_or(kDefault861_3)
-      .max_content_light_level;
+  if (hdr_metadata_->HasCLLI()) {
+    return hdr_metadata_->GetCLLI().getUint16MaxCLL();
+  }
+  return kDefaultCLLI.getUint16MaxCLL();
 }
 
 int32_t JniHdrMetadata::MaxFrameAverageLuminance(JNIEnv* env) {
-  return hdr_metadata_->cta_861_3.value_or(kDefault861_3)
-      .max_frame_average_light_level;
+  if (hdr_metadata_->HasCLLI()) {
+    return hdr_metadata_->GetCLLI().getUint16MaxFALL();
+  }
+  return kDefaultCLLI.getUint16MaxFALL();
 }
 
 }  // namespace media

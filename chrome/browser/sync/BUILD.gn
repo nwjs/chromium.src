@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//chrome/common/features.gni")
+import("//components/spellcheck/spellcheck_build_features.gni")
 import("//components/supervised_user/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 
@@ -92,6 +93,7 @@ source_set("sync") {
     "//chrome/browser/collaboration",
     "//chrome/browser/consent_auditor",
     "//chrome/browser/data_sharing",
+    "//chrome/browser/trusted_vault",
 
     # TODO(crbug.com/483063966) Investigate why putting contextual_tasks
     # dependency behind !is_android leads to failures on android-binary-size.
@@ -103,6 +105,7 @@ source_set("sync") {
     "//chrome/browser/password_manager/factories",
     "//chrome/browser/plus_addresses",
     "//chrome/browser/signin",
+    "//chrome/browser/skills",
     "//chrome/browser/subscription_eligibility",
     "//chrome/browser/ui/sync",
     "//chrome/browser/ui/toolbar",
@@ -110,15 +113,18 @@ source_set("sync") {
     "//chrome/browser/webdata_services",
 
     # TODO(crbug.com/374910357): Investigate for a better dependency injection.
+    "//chrome/browser/account_settings",
     "//chrome/browser/autofill",
     "//chrome/browser/desktop_to_mobile_promos:utils",
     "//chrome/browser/favicon",
     "//chrome/browser/prefs:util",
     "//chrome/browser/profiles",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/reading_list",
     "//chrome/browser/search_engines",
     "//chrome/browser/tab_group_sync:utils",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/undo",
     "//chrome/common",
     "//chrome/common:buildflags",
     "//chrome/common:channel_info",
@@ -165,6 +171,10 @@ source_set("sync") {
 
   allow_circular_includes_from = []
 
+  if (enable_spellcheck) {
+    deps += [ "//chrome/browser/spellchecker" ]
+  }
+
   if (enable_extensions) {
     deps += [ "//chrome/browser/web_applications" ]
   }
@@ -205,7 +215,6 @@ source_set("sync") {
     ]
     deps += [
       "//chrome/browser/accessibility/tree_fixing:prefs",
-      "//chrome/browser/skills",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
     ]

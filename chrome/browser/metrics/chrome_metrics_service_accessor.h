@@ -66,6 +66,7 @@ class ChromeOnDeviceModelServiceController;
 namespace safe_browsing {
 class ChromeSafeBrowsingUIManagerDelegate;
 class DownloadUrlSBClient;
+class ExtensionTelemetryService;
 class IncidentReportingService;
 class ServicesDelegateDesktop;
 
@@ -139,7 +140,6 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class ChromeBrowserMainParts;
   friend class ChromeContentBrowserClient;
   friend class ChromeMetricsServicesManagerClient;
-  friend class ChromeSigninClient;
   friend class browser_sync::ChromeSyncClient;
   friend class ChromeDomainReliabilityDelegate;
   friend class domain_reliability::TestDomainReliabilityServiceDelegate;
@@ -149,12 +149,17 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
       bool,
       OnMetricsReportingCallbackType,
       ChangeMetricsReportingStateCalledFrom);
+  friend void ChangeMetricsReportingLevelWithReply(
+      metrics::MetricsReportingLevel,
+      OnMetricsReportingLevelCallbackType,
+      ChangeMetricsReportingLevelCalledFrom);
   friend void ApplyMetricsReportingPolicy();
   friend class ash::settings::PerSessionSettingsUserActionTracker;
   friend class settings::MetricsReportingHandler;
   friend class UmaSessionStats;
   friend class safe_browsing::ChromeSafeBrowsingUIManagerDelegate;
   friend class safe_browsing::DownloadUrlSBClient;
+  friend class safe_browsing::ExtensionTelemetryService;
   friend class safe_browsing::IncidentReportingService;
   friend class safe_browsing::ServicesDelegateDesktop;
   friend class safe_browsing::internal::ReporterRunner;
@@ -202,6 +207,12 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class metrics::CrOSPreConsentMetricsManagerTest;
   FRIEND_TEST_ALL_PREFIXES(ChromeMetricsServiceAccessorTest,
                            MetricsReportingEnabled);
+  FRIEND_TEST_ALL_PREFIXES(
+      ChromeMetricsServiceAccessorTest,
+      MetricsReportingEnabled_RestructureMetricsConsentSettings_FeatureOff);
+  FRIEND_TEST_ALL_PREFIXES(
+      ChromeMetricsServiceAccessorTest,
+      MetricsReportingEnabled_RestructureMetricsConsentSettings);
   FRIEND_TEST_ALL_PREFIXES(ChromeMetricsServicesManagerClientTest,
                            ForceTrialsDisablesReporting);
 

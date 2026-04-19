@@ -16,6 +16,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/child_process_id.h"
 #include "extensions/browser/api/automation_internal/automation_event_router_interface.h"
 #include "extensions/common/api/automation_internal.h"
 #include "extensions/common/extension_id.h"
@@ -29,10 +30,6 @@
 #include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_updates_and_events.h"
-
-namespace content {
-class BrowserContext;
-}  // namespace content
 
 namespace ui {
 struct AXActionData;
@@ -56,18 +53,9 @@ class AutomationEventRouter
       public ui::AXActionHandlerObserver,
       public extensions::mojom::RendererAutomationRegistry {
  public:
-  using RenderProcessHostId = int;
+  using RenderProcessHostId = content::ChildProcessId;
 
   static AutomationEventRouter* GetInstance();
-
-  // Indicates that the listener at |listener_rph_id| wants to receive
-  // automation events from the accessibility tree indicated by
-  // |source_ax_tree_id|. Automation events are forwarded from now on until the
-  // listener process dies.
-  void RegisterListenerForOneTree(const ExtensionId& extension_id,
-                                  const RenderProcessHostId& listener_rph_id,
-                                  content::WebContents* web_contents,
-                                  ui::AXTreeID source_ax_tree_id);
 
   // Indicates that the listener at |listener_rph_id| wants to receive
   // automation events from all accessibility trees because it has Desktop
@@ -106,10 +94,7 @@ class AutomationEventRouter
       const ui::AXTreeID& tree_id,
       const ui::AXScrollChange& details) override;
   void DispatchTreeDestroyedEvent(ui::AXTreeID tree_id) override;
-  void DispatchActionResult(
-      const ui::AXActionData& data,
-      bool result,
-      content::BrowserContext* browser_context = nullptr) override;
+  void DispatchActionResult(const ui::AXActionData& data, bool result) override;
   void DispatchGetTextLocationDataResult(
       const ui::AXActionData& data,
       const std::optional<gfx::Rect>& rect) override;

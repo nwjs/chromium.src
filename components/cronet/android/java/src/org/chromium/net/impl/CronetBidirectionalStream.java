@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Process;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
@@ -942,6 +943,7 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
         mRequestContext.onRequestFinished();
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private CronetTrafficInfo buildCronetTrafficInfo(
             @RequestFinishedInfoImpl.FinishedReason int finishedReason,
             boolean quicConnectionMigrationAttempted,
@@ -1075,6 +1077,10 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
 
     private static boolean doesMethodAllowWriteData(String methodName) {
         return !methodName.equals("GET") && !methodName.equals("HEAD");
+    }
+
+    long getTargetNetworkHandle() {
+        return mNetworkHandle;
     }
 
     private static ArrayList<Map.Entry<String, String>> headersListFromStrings(String[] headers) {

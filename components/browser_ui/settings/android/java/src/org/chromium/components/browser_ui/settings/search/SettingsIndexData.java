@@ -12,28 +12,40 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
 import java.text.Normalizer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Data from Preferences used for settings search. This is a collection of data to be indexed. */
 @NullMarked
 public class SettingsIndexData {
+    private static final String TAG = "SettingsIndexData";
 
     /* Scores given to the entries having matches with a query */
     public static final int EXACT_TITLE_MATCH = 10;
     public static final int PARTIAL_TITLE_MATCH = 5;
     public static final int PARTIAL_SUMMARY_MATCH = 3;
+    public static final int PARTIAL_KEYWORD_MATCH = 2;
 
     // Regular expression to remove diacritics.
     private static final Pattern STRIP_ACCENTS_PATTERN = Pattern.compile("\\p{M}");
@@ -70,6 +82,7 @@ public class SettingsIndexData {
 
     public static void reset() {
         sInstance = null;
+        sNeedsIndexing = true;
     }
 
     /**
@@ -112,6 +125,9 @@ public class SettingsIndexData {
         /** Package path name if the entry is Fragment. Otherwise {@code null}. */
         public final @Nullable String fragment;
 
+        /** List of keywords relevant to the preference entry. */
+        public final @Nullable String @Nullable [] keywords;
+
         /** Key of the preference/fragment to highlight if it is not the same as {@code key}. */
         public final @Nullable String highlightKey;
 
@@ -130,6 +146,9 @@ public class SettingsIndexData {
         /** Extra arguments needed to launch a pref. */
         public final Bundle extras;
 
+        /** Boolean flag indicating the entry's searchability. */
+        public final boolean isSearchable;
+
         private final @Nullable String mTitleNormalized;
         private final @Nullable String mSummaryNormalized;
 
@@ -140,10 +159,12 @@ public class SettingsIndexData {
                 @Nullable String header,
                 @Nullable String summary,
                 @Nullable String fragment,
+                @Nullable String @Nullable [] keywords,
                 @Nullable String highlightKey,
                 int subViewPos,
                 Bundle extras,
                 String parentFragment,
+                boolean isSearchable,
                 @Nullable String titleNormalized,
                 @Nullable String summaryNormalized) {
             this.id = id;
@@ -152,10 +173,12 @@ public class SettingsIndexData {
             this.header = header;
             this.summary = summary;
             this.fragment = fragment;
+            this.keywords = keywords;
             this.highlightKey = highlightKey;
             this.subViewPos = subViewPos;
             this.extras = extras;
             this.parentFragment = parentFragment;
+            this.isSearchable = isSearchable;
             mTitleNormalized = titleNormalized;
             mSummaryNormalized = summaryNormalized;
         }
@@ -167,6 +190,7 @@ public class SettingsIndexData {
             title = in.readString();
             summary = in.readString();
             fragment = in.readString();
+            keywords = in.createStringArray();
             highlightKey = in.readString();
             subViewPos = in.readInt();
             header = in.readString();
@@ -174,8 +198,111 @@ public class SettingsIndexData {
             // Bundles require a ClassLoader to unparcel custom classes inside them
             Bundle inExtras = in.readBundle(getClass().getClassLoader());
             extras = inExtras != null ? inExtras : new Bundle();
+            isSearchable = in.readByte() != 0;
             mTitleNormalized = in.readString();
             mSummaryNormalized = in.readString();
+        }
+
+        /**
+         * Returns the entry in JSON object format. This is primarily used to store the entry to
+         * disk.
+         */
+        public @Nullable JSONObject toJsonObject() {
+            try {
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("id", id);
+                jsonObject.put("key", key);
+                jsonObject.put("title", title);
+                jsonObject.put("summary", summary);
+                jsonObject.put("fragment", fragment);
+                jsonObject.put("highlightKey", highlightKey);
+                jsonObject.put("subViewPos", subViewPos);
+                jsonObject.put("extras", extrasToString(extras));
+                jsonObject.put("parentFragment", parentFragment);
+                return jsonObject;
+            } catch (JSONException e) {
+                Log.e(TAG, "Error converting Entry to JSON object.");
+            }
+            return null;
+        }
+
+        /** Build {@link Entry} from a given JSON object. */
+        public static @Nullable Entry fromJson(JSONObject obj) {
+            try {
+                String id = obj.getString("id");
+                String key = obj.getString("key");
+                String title = obj.optString("title", null);
+                String summary = obj.optString("summary", null);
+                String fragment = obj.optString("fragment", null);
+                String highlightKey = obj.optString("highlightKey", null);
+                int subViewPos = obj.optInt("subViewPos", -1);
+                Bundle extras = stringToExtras(obj.optString("extras", ""));
+                String parentFragment = obj.optString("parentFragment", null);
+                var builder =
+                        new SettingsIndexData.Entry.Builder(id, key, title, parentFragment)
+                                .setSummary(summary)
+                                .setFragment(fragment);
+                if (subViewPos >= 0) builder.setSubViewPos(subViewPos);
+                if (highlightKey != null) builder.setHighlightKey(highlightKey);
+                if (extras != null) builder.setArguments(extras);
+                return builder.build();
+            } catch (JSONException e) {
+                Log.e(TAG, "Error building Entry from JSON object.");
+            }
+            return null;
+        }
+
+        private static @Nullable String extrasToString(@Nullable Bundle extras) {
+            if (extras == null) return null;
+            JSONObject json = new JSONObject();
+
+            for (String key : extras.keySet()) {
+                try {
+                    json.put(key, extras.get(key));
+                } catch (JSONException e) {
+                    Log.e(TAG, "Error converting extras to JSON.");
+                }
+            }
+            return json.toString();
+        }
+
+        private static @Nullable Bundle stringToExtras(String jsonString)
+                throws IllegalArgumentException {
+            JSONObject json;
+            try {
+                json = new JSONObject(jsonString);
+            } catch (JSONException e) {
+                Log.e(TAG, "Error restoring Bundle from JSON string.");
+                return null;
+            }
+            Iterator<String> keys = json.keys();
+            Bundle bundle = new Bundle();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                try {
+                    Object value = json.get(key);
+                    if (value instanceof Integer) {
+                        bundle.putInt(key, (Integer) value);
+                    } else if (value instanceof Long) {
+                        bundle.putLong(key, (Long) value);
+                    } else if (value instanceof Double) {
+                        bundle.putDouble(key, (Double) value);
+                    } else if (value instanceof Boolean) {
+                        bundle.putBoolean(key, (Boolean) value);
+                    } else if (value instanceof String) {
+                        bundle.putString(key, (String) value);
+                    } else {
+                        // Complex types are not expected in the Bundle object used for extras.
+                        // Report the exception if it actually occurs.
+                        throw new IllegalArgumentException(
+                                "Unsupported complex type in extras: " + key);
+                    }
+                } catch (JSONException e) {
+                    // Skip restoring the element that causes an exception.
+                    Log.e(TAG, "Error restoring Bundle from JSON string.");
+                }
+            }
+            return bundle;
         }
 
         @Override
@@ -185,11 +312,13 @@ public class SettingsIndexData {
             dest.writeString(title);
             dest.writeString(summary);
             dest.writeString(fragment);
+            dest.writeStringArray(keywords);
             dest.writeString(highlightKey);
             dest.writeInt(subViewPos);
             dest.writeString(header);
             dest.writeString(parentFragment);
             dest.writeBundle(extras);
+            dest.writeByte((byte) (isSearchable ? 1 : 0));
             dest.writeString(mTitleNormalized);
             dest.writeString(mSummaryNormalized);
         }
@@ -223,10 +352,12 @@ public class SettingsIndexData {
             private @Nullable String mHeader;
             private @Nullable String mSummary;
             private @Nullable String mFragment;
+            private @Nullable String @Nullable [] mKeywords;
             private @Nullable String mHighlightKey;
             private int mSubViewPos;
             private Bundle mExtras;
             private final String mParentFragment;
+            private boolean mIsSearchable = true;
 
             /**
              * Constructs a builder with the minimum required fields for creating a new {@link
@@ -257,10 +388,12 @@ public class SettingsIndexData {
                 mHeader = original.header;
                 mSummary = original.summary;
                 mFragment = original.fragment;
+                mKeywords = original.keywords;
                 mHighlightKey = original.highlightKey;
                 mSubViewPos = original.subViewPos;
                 mExtras = original.extras;
                 mParentFragment = original.parentFragment;
+                mIsSearchable = original.isSearchable;
             }
 
             public Builder setTitle(@Nullable String title) {
@@ -284,6 +417,14 @@ public class SettingsIndexData {
                 return this;
             }
 
+            public Builder setKeywords(@Nullable String keywords) {
+                mKeywords =
+                        keywords != null
+                                ? assumeNonNull(normalizeString(keywords)).split("\\s*,\\s*")
+                                : null;
+                return this;
+            }
+
             public Builder setHighlightKey(String key) {
                 mHighlightKey = key;
                 return this;
@@ -296,6 +437,11 @@ public class SettingsIndexData {
 
             public Builder setArguments(Bundle extras) {
                 mExtras = extras;
+                return this;
+            }
+
+            public Builder setIsSearchable(boolean isSearchable) {
+                mIsSearchable = isSearchable;
                 return this;
             }
 
@@ -315,10 +461,12 @@ public class SettingsIndexData {
                         mHeader,
                         mSummary,
                         mFragment,
+                        mKeywords,
                         mHighlightKey,
                         mSubViewPos,
                         mExtras,
                         mParentFragment,
+                        mIsSearchable,
                         titleNormalized,
                         summaryNormalized);
             }
@@ -652,7 +800,6 @@ public class SettingsIndexData {
      * @param rootFragmentName The class name of the root fragment (e.g., MainSettings).
      */
     public void resolveIndex(String rootFragmentName) {
-        Map<String, String> resolvedHeaderCache = new HashMap<>();
         List<String> entriesToRemove = new ArrayList<>();
 
         for (Entry entry : mEntries.values()) {
@@ -666,14 +813,29 @@ public class SettingsIndexData {
                 continue;
             }
 
-            String header =
-                    findVisibleHeader(entry.parentFragment, resolvedHeaderCache, rootFragmentName);
-            if (header != null) {
-                Entry updatedEntry = new Entry.Builder(entry).setHeader(header).build();
-                updateEntry(entry.id, updatedEntry);
-            } else {
-                // This entry is an orphan, we mark it for removal.
+            // Orphan Check (Pass null args for basic connectivity)
+            List<Entry> path =
+                    getBreadcrumbEntries(
+                            entry.parentFragment, /* arguments= */ null, rootFragmentName);
+            if (path == null && !entry.parentFragment.equals(rootFragmentName)) {
                 entriesToRemove.add(entry.id);
+                continue;
+            }
+
+            String header = (path == null || path.isEmpty()) ? null : path.get(0).title;
+
+            boolean effectivelySearchable =
+                    entry.isSearchable
+                            && hasSearchablePathToRoot(entry.parentFragment, rootFragmentName);
+
+            if (!TextUtils.equals(header, entry.header)
+                    || entry.isSearchable != effectivelySearchable) {
+                Entry updated =
+                        new Entry.Builder(entry)
+                                .setHeader(header)
+                                .setIsSearchable(effectivelySearchable)
+                                .build();
+                updateEntry(entry.id, updated);
             }
         }
 
@@ -687,67 +849,144 @@ public class SettingsIndexData {
         resolveIndex(sMainSettingsClassName);
     }
 
-    /**
-     * Finds the header for a given fragment by searching upwards through its possible parents to
-     * find a visible top-level setting.
-     *
-     * <p>This method uses a cache to avoid re-computing results for the same fragment and to
-     * prevent infinite loops. A path is considered valid only if all its ancestor preferences still
-     * exist in the index after the pruning phase.
-     *
-     * @param fragmentName The fragment to find the header for.
-     * @param cache A map to store results of this traversal, preventing redundant work.
-     * @param rootFragmentName The fragment that acts as the root of the settings hierarchy
-     *     (MainSettings).
-     * @return The title of the top-level preference that leads to this fragment, or {@code null} if
-     *     no valid path back to the root can be found (i.e., the fragment is an orphan).
-     */
-    private @Nullable String findVisibleHeader(
-            String fragmentName, Map<String, String> cache, String rootFragmentName) {
-        if (cache.containsKey(fragmentName)) {
-            return cache.get(fragmentName);
-        }
-
-        if (fragmentName.equals(rootFragmentName)) {
-            return null; // The root has no parent header.
-        }
-
+    private boolean hasSearchablePathToRoot(String fragmentName, String rootFragmentName) {
+        if (fragmentName.equals(rootFragmentName)) return true;
         List<String> parentKeys = mChildFragmentToParentKeys.get(fragmentName);
-        if (parentKeys == null) {
-            cache.put(fragmentName, null); // No registered parent.
-            return null;
+        if (parentKeys == null) return false;
+
+        for (String parentKey : parentKeys) {
+            Entry parent = mEntries.get(parentKey);
+            if (parent != null && parent.isSearchable) {
+                if (hasSearchablePathToRoot(parent.parentFragment, rootFragmentName)) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Calculates the shortest path from the root settings screen to the target fragment using a
+     * Breadth-First Search traversal of the preference graph.
+     *
+     * <p>This method traverses upwards from the target fragment to the root. If a fragment is
+     * reachable via multiple parents (e.g., {@code SingleCategorySettings} is used for Camera,
+     * Microphone, Cookies, etc.), it resolves the ambiguity by evaluating the target's runtime
+     * arguments against the preference key definitions in the index to select the correct parent.
+     *
+     * <p>The resulting path is utilized both for constructing interactive UI breadcrumbs on deep
+     * links and for verifying graph connectivity when pruning orphans during index resolution.
+     *
+     * @param fragmentClass The full class name of the target fragment to calculate the path for.
+     * @param arguments The runtime arguments (Bundle) of the target fragment. Used to identify the
+     *     correct parent when a fragment class is reused across multiple preferences. Can be {@code
+     *     null}.
+     * @return A list of {@link Entry} objects representing the path, ordered from the top-level
+     *     entry down to the immediate parent of the target. Returns {@code null} if no valid path
+     *     to the root exists (i.e., the fragment is an orphan or its parent is disabled). Returns
+     *     an empty list if the target is the root itself.
+     */
+    public @Nullable List<Entry> getBreadcrumbEntries(
+            String fragmentClass, @Nullable Bundle arguments, String rootFragmentName) {
+        if (rootFragmentName.equals(fragmentClass)) return new ArrayList<>();
+
+        Queue<List<Entry>> queue = new ArrayDeque<>();
+        Set<String> visited = new HashSet<>();
+        visited.add(fragmentClass);
+
+        List<String> immediateKeys = mChildFragmentToParentKeys.get(fragmentClass);
+        if (immediateKeys == null) return null;
+
+        List<Entry> validEntries = new ArrayList<>();
+        for (String key : immediateKeys) {
+            Entry entry = mEntries.get(key);
+            if (entry != null && TextUtils.equals(entry.fragment, fragmentClass)) {
+                validEntries.add(entry);
+            }
         }
 
-        // Find the valid parent preference that is still enabled. Given how our settings are
-        // structured, a preference only has one valid parent at run-time. Otherwise, this would be
-        // the first valid path.
-        for (String parentKey : parentKeys) {
-            Entry parentEntry = mEntries.get(parentKey);
-            if (parentEntry != null) {
-                // We have two scenarios here:
-                // 1- This is a top-level preference under the main view. Then the title is the
-                // header.
-                // 2- This is not a top-level preference. We need to traverse up to find our
-                // top-level preference that serves as an entry point for this pref.
-                if (parentEntry.parentFragment.equals(rootFragmentName)) {
-                    String header = parentEntry.title;
-                    cache.put(fragmentName, header);
-                    return header;
-                } else {
-                    String header =
-                            findVisibleHeader(parentEntry.parentFragment, cache, rootFragmentName);
-                    if (header != null) {
-                        cache.put(fragmentName, header);
-                        return header;
+        if (validEntries.isEmpty()) return null;
+
+        boolean isAmbiguous = validEntries.size() > 1;
+
+        // Find the first matching parent
+        for (Entry entry : validEntries) {
+            if (isMatchingEntry(entry, arguments, isAmbiguous)) {
+                List<Entry> path = new ArrayList<>();
+                path.add(entry);
+                queue.add(path);
+            }
+        }
+
+        while (!queue.isEmpty()) {
+            List<Entry> currentPath = queue.poll();
+            Entry lastEntry = currentPath.get(currentPath.size() - 1);
+            String parentFragment = lastEntry.parentFragment;
+
+            if (rootFragmentName.equals(parentFragment)) {
+                Collections.reverse(currentPath);
+                return currentPath;
+            }
+
+            if (!visited.contains(parentFragment)) {
+                visited.add(parentFragment);
+                List<String> parentKeys = mChildFragmentToParentKeys.get(parentFragment);
+                if (parentKeys != null) {
+                    for (String parentKey : parentKeys) {
+                        Entry parentEntry = mEntries.get(parentKey);
+                        if (parentEntry != null) {
+                            List<Entry> newPath = new ArrayList<>(currentPath);
+                            newPath.add(parentEntry);
+                            queue.add(newPath);
+                        }
                     }
                 }
             }
         }
-
-        // We assign null here to track that we did query this and it resulted in no header. This
-        // helps us avoid going up this path again.
-        cache.put(fragmentName, null);
         return null;
+    }
+
+    public @Nullable List<Entry> getBreadcrumbEntries(
+            String fragmentClass, @Nullable Bundle arguments) {
+        return getBreadcrumbEntries(fragmentClass, arguments, sMainSettingsClassName);
+    }
+
+    /**
+     * Evaluates whether a candidate parent entry from the index matches the runtime arguments of
+     * the target fragment.
+     *
+     * <p>This acts as a heuristic to disambiguate the correct parent when a single fragment class
+     * is launched by multiple different preferences. It relies on the common Android Settings
+     * pattern where the parent or the invoker injects its Preference Key into the fragment's
+     * arguments bundle to dictate what content to display.
+     *
+     * @param indexEntry The candidate parent {@link Entry} being evaluated.
+     * @param targetArgs The runtime arguments (Bundle) of the target fragment.
+     * @param isAmbiguous {@code true} if the target fragment has multiple potential parents in the
+     *     index, requiring strict key-value verification.
+     * @return {@code true} if the entry is a valid parent for the given arguments, {@code false}
+     *     otherwise.
+     */
+    private boolean isMatchingEntry(
+            Entry indexEntry, @Nullable Bundle targetArgs, boolean isAmbiguous) {
+        if (isAmbiguous) {
+            // If targetArgs is null, we are performing a connectivity check during indexing
+            // (resolveIndex) rather than resolving a specific deep link, so any valid parent path
+            // is acceptable.
+            if (targetArgs == null || targetArgs.isEmpty()) return true;
+
+            String entryKey = indexEntry.key;
+            if (entryKey != null) {
+                for (String key : targetArgs.keySet()) {
+                    Object value = targetArgs.getString(key);
+                    // Match found: Entry Key ("camera") equals Argument Value ("camera")
+                    if (value instanceof String && TextUtils.equals(entryKey, (String) value)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -856,6 +1095,8 @@ public class SettingsIndexData {
         }
 
         for (Entry entry : mEntries.values()) {
+            if (!entry.isSearchable) continue;
+
             if (entry.mTitleNormalized != null && entry.mTitleNormalized.contains(query)) {
                 int score =
                         TextUtils.equals(entry.mTitleNormalized, query)
@@ -867,6 +1108,16 @@ public class SettingsIndexData {
 
             if (entry.mSummaryNormalized != null && entry.mSummaryNormalized.contains(query)) {
                 results.addItem(entry, PARTIAL_SUMMARY_MATCH);
+                continue;
+            }
+
+            if (entry.keywords != null) {
+                for (String keyword : entry.keywords) {
+                    if (keyword != null && keyword.contains(query)) {
+                        results.addItem(entry, PARTIAL_KEYWORD_MATCH);
+                        break;
+                    }
+                }
             }
         }
         return results;

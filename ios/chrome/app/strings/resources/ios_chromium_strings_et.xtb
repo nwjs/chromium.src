@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="et">
 <translation id="1000436330784933699">Siit saate Lensi avada.</translation>
+<translation id="1005291068154454184">Täisekraanil video Chromiumi vaikebrauseriks määramisest</translation>
 <translation id="1042296835509784301">Avab Chromiumis paroolihalduri.</translation>
 <translation id="1047130070405668746">Valige Chromium</translation>
 <translation id="1091252999271033193">See tähendab, et Chromium taotleb iga kord mobiilisaiti.</translation>
@@ -70,9 +71,6 @@ Uusi järjehoidjaid ei saa teie kontole salvestada, enne kui mõned kustutate. K
 <translation id="2313870531055795960">Kontrollib URL-e Chromiumi talletatud ohtlike saitide loendi alusel. Kui sait üritab teie parooli varastada või laadite alla kahjuliku faili, võib Chromium saata URL-id ja lehe sisu osad teenusesse Google'i ohutu sirvimine.</translation>
 <translation id="2314220608288760290">Chromium avab YouTube'i inkognito lingid automaatselt inkognito režiimis.</translation>
 <translation id="231828342043114302">Huvide põhjal loodud isikupärastatud sisu saamiseks logige Chromiumisse sisse.</translation>
-<translation id="2326738825692478496">Teatud Chromiumi andmeid pole veel teie Google’i kontole salvestatud.
-
-Oodake enne väljalogimist paar minutit. Kui logite kohe välja, siis need andmed kustutatakse.</translation>
 <translation id="2334943301233020675">Järgmisi pääsuvõtmeid ei imporditud paroolihaldurisse, kuna need ei vasta nõuetele.</translation>
 <translation id="2337722506862731008">Chromiumi jagamine</translation>
 <translation id="2340423701577464731">Lisa Chromiumi lugemisloendi üksus</translation>
@@ -103,7 +101,6 @@ Oodake enne väljalogimist paar minutit. Kui logite kohe välja, siis need andme
 Kui soovite näha veel seadeid, mis kasutavad andmeid, et parandada teie Chromiumi kasutuskogemust, avage <ph name="BEGIN_LINK" />Google'i teenused<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Chromiumis hääle abil otsimine.</translation>
 <translation id="2843571538056574338">Automaattäite jaoks Chromiumi kasutamine</translation>
-<translation id="2899085719655668655">Pilt pildis videojuhised Chromiumi vaikebrauseriks määramiseks</translation>
 <translation id="2918709798697875261">Teie organisatsioon nõuab, et jääksite Chromiumist väljalogituks.</translation>
 <translation id="2942241131342758843">Kasutage linkide avamiseks, vidinatest otsimiseks ja muudes rakendustes paroolide automaatselt täitmiseks vaikimisi Chromiumi</translation>
 <translation id="2977470724722393594">Chromium on ajakohane</translation>

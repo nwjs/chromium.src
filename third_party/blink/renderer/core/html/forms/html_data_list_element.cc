@@ -181,12 +181,31 @@ void HTMLDataListElement::MoveActiveOption(Direction direction) {
     HTMLOptionElement* next_option = option_list->Item(index);
     CHECK(next_option);
     if (next_option->SupportsActiveOptionPseudo()) {
+      HTMLOptionElement* old_active_option = active_option_;
       active_option_ = next_option;
+      old_active_option->PseudoStateChanged(CSSSelector::kPseudoActiveOption);
       active_option_->PseudoStateChanged(CSSSelector::kPseudoActiveOption);
-      next_option->PseudoStateChanged(CSSSelector::kPseudoActiveOption);
+      active_option_->scrollIntoViewIfNeeded(/*center_if_needed=*/false);
       return;
     }
   }
+}
+
+HTMLInputElement* HTMLDataListElement::ComboboxInput() {
+  if (!RuntimeEnabledFeatures::CustomizableComboboxEnabled()) {
+    return nullptr;
+  }
+
+  if (PopoverData* popover_data = GetPopoverData()) {
+    if (auto* input = DynamicTo<HTMLInputElement>(popover_data->invoker())) {
+      if (input->DataList() == this && IsAppearanceBase() &&
+          input->IsAppearanceBase()) {
+        return input;
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 }  // namespace blink

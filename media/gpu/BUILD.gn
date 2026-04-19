@@ -385,6 +385,13 @@ source_set("common") {
     ]
   }
 
+  if (enable_platform_dolby_vision) {
+    sources += [
+      "dolby_vision_metadata.cc",
+      "dolby_vision_metadata.h",
+    ]
+  }
+
   configs += [
     "//build/config/compiler:wexit_time_destructors",
     "//build/config/compiler:wglobal_constructors",
@@ -425,12 +432,13 @@ source_set("common") {
       "svc_layers.cc",
       "svc_layers.h",
     ]
-    if (enable_hevc_parser_and_hw_decoder) {
-      sources += [
-        "h265_builder.cc",
-        "h265_builder.h",
-      ]
-    }
+  }
+
+  if (enable_hevc_parser_and_hw_decoder) {
+    sources += [
+      "h265_builder.cc",
+      "h265_builder.h",
+    ]
   }
 
   if (use_av1_hw_decoder) {
@@ -647,6 +655,9 @@ source_set("unit_tests") {
   if (enable_hevc_parser_and_hw_decoder) {
     sources += [ "h265_decoder_unittest.cc" ]
   }
+  if (enable_platform_dolby_vision) {
+    sources += [ "dolby_vision_metadata_unittest.cc" ]
+  }
   if (is_linux || is_chromeos) {
     sources += [ "buffer_validation_unittest.cc" ]
 
@@ -733,6 +744,7 @@ if (enable_hevc_parser_and_hw_decoder) {
       ":gpu",
       "//base",
       "//media:test_support",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
   }
 }
@@ -743,6 +755,7 @@ fuzzer_test("media_h264_decoder_fuzzer") {
     ":gpu",
     "//base",
     "//media:test_support",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
   seed_corpuses = [ "//media/test/data" ]
 }
@@ -756,6 +769,7 @@ if (use_v4l2_codec || use_vaapi) {
       ":gpu",
       "//base",
       "//media:test_support",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
     seed_corpuses = [ "//media/test/data" ]
   }
@@ -792,13 +806,28 @@ fuzzer_test("media_vp9_decoder_fuzzer") {
     ":gpu",
     "//base",
     "//media:test_support",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
   seed_corpuses = [ "//media/test/data" ]
 }
 
 if (is_win || use_vaapi) {
+  fuzzer_test("media_h264_parser_structural_fuzzer") {
+    sources = [ "fuzzers/h264_parser_structural_fuzzer.cc" ]
+    deps = [
+      ":common",
+      ":gpu",
+      "//base",
+      "//media",
+      "//media:test_support",
+    ]
+  }
+
   group("stream_builder_fuzzers") {
     testonly = true
-    public_deps = [ "//media/gpu/fuzzers/av1_builder:av1_builder_fuzzer" ]
+    public_deps = [
+      ":media_h264_parser_structural_fuzzer",
+      "//media/gpu/fuzzers/av1_builder:av1_builder_fuzzer",
+    ]
   }
 }

@@ -18,7 +18,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/autofill/autofill_context_menu_manager.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
-#include "chromeos/ui/clipboard_history/clipboard_history_types.h"
 #include "components/compose/buildflags.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/lens/buildflags.h"
@@ -27,7 +26,6 @@
 #include "components/renderer_context_menu/render_view_context_menu_base.h"
 #include "components/renderer_context_menu/render_view_context_menu_observer.h"
 #include "components/renderer_context_menu/render_view_context_menu_proxy.h"
-#include "components/search_engines/template_url.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/common/buildflags.h"
@@ -45,6 +43,10 @@
 #include "chrome/browser/extensions/menu_manager.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/ui/clipboard_history/clipboard_history_types.h"
+#endif
+
 class AccessibilityLabelsMenuObserver;
 class Browser;
 #if BUILDFLAG(ENABLE_COMPOSE)
@@ -57,6 +59,7 @@ class Profile;
 class ReadWriteCardObserver;
 class SpellingMenuObserver;
 class SpellingOptionsSubMenuObserver;
+class TemplateURL;
 class ToastController;
 
 namespace content {
@@ -117,12 +120,15 @@ class RenderViewContextMenu
 
   RenderViewContextMenu(content::RenderFrameHost& render_frame_host,
                         const content::ContextMenuParams& params,
-                        bool is_paste_enabled);
+                        bool is_paste_enabled,
+                        bool is_paste_and_match_style_enabled);
 
   RenderViewContextMenu(const RenderViewContextMenu&) = delete;
   RenderViewContextMenu& operator=(const RenderViewContextMenu&) = delete;
 
   ~RenderViewContextMenu() override;
+
+  void MenuClosed(ui::SimpleMenuModel* source) override;
 
   // Adds the spell check service item to the context menu.
   static void AddSpellCheckServiceItem(ui::SimpleMenuModel* menu,
@@ -222,6 +228,8 @@ class RenderViewContextMenu
                                bool started_from_context_menu) override;
 
  private:
+  void ExecGlic();
+
   friend class RenderViewContextMenuTest;
   friend class TestRenderViewContextMenu;
   friend class FormatUrlForClipboardTest;
@@ -327,7 +335,6 @@ class RenderViewContextMenu
   void AppendRegionSearchItem();
   void AppendLiveCaptionItem();
   void AppendSendTabToSelfItem(bool add_separator);
-  void AppendUserNotesItems();
   bool AppendQRCodeGeneratorItem(bool for_image,
                                  bool draw_icon,
                                  bool add_separator);
@@ -443,6 +450,8 @@ class RenderViewContextMenu
   void CheckSupervisedUserURLFilterAndSaveLinkAs();
   void OnSupervisedUserURLFilterChecked(
       supervised_user::WebFilteringResult result);
+
+  void MaybeAppendOpenGlicItem();
 
   // Opens the Lens overlay to search a region defined by the given bounds of
   // the view and the image to be searched. Tab bounds and view bounds are
@@ -568,6 +577,9 @@ class RenderViewContextMenu
   // Whether the "Paste" menu item should be enabled.
   const bool is_paste_enabled_;
 
+  // Whether the "Paste and Match Style" menu item should be enabled.
+  const bool is_paste_and_match_style_enabled_;
+
   // Fenced frame can disable its untrusted network in exchange for access to
   // unpartitioned cross-site data. To prevent cross-site data from leaking out
   // of fenced frame, context menu commands should be gated on untrusted network
@@ -607,9 +619,16 @@ class RenderViewContextMenu
            IDC_CONTENT_CONTEXT_LOAD_IMAGE,
            IDC_CONTENT_CONTEXT_OPEN_ORIGINAL_IMAGE_NEW_TAB,
 
+           // Opening Glic
+           IDC_CONTENT_CONTEXT_GLIC,
+
            // Autofill commands.
            IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY});
   // LINT.ThenChange(//chrome/app/chrome_command_ids.h:ChromeCommandIds)
+
+  //  Used for CTR metrics of menu item for opening Glic.
+  bool glic_item_shown_ = false;
+  bool glic_item_executed_ = false;
 
   base::WeakPtrFactory<RenderViewContextMenu> weak_pointer_factory_{this};
 };

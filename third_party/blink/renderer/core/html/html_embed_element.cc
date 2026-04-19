@@ -95,10 +95,10 @@ void HTMLEmbedElement::CollectStyleForPresentationAttribute(
 void HTMLEmbedElement::ParseAttribute(
     const AttributeModificationParams& params) {
   if (params.name == html_names::kTypeAttr) {
-    SetServiceType(params.new_value.LowerASCII());
+    SetServiceType(params.new_value.ToAsciiLower());
     wtf_size_t pos = service_type_.find(';');
     if (pos != kNotFound)
-      SetServiceType(service_type_.Left(pos));
+      SetServiceType(service_type_.substr(0, pos));
     SetDisposeView();
     if (GetLayoutObject()) {
       SetNeedsPluginUpdate(true);

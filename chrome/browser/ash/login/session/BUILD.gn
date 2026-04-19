@@ -67,13 +67,18 @@ static_library("session") {
     "//chrome/browser/ash/login/saml",
     "//chrome/browser/ash/plugin_vm",
     "//chrome/browser/ash/policy/core",
+    "//chrome/browser/ash/policy/remote_commands",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/ash/settings",
     "//chrome/browser/ash/tpm",
     "//chrome/browser/google",
+    "//chrome/browser/manta",
+    "//chrome/browser/manta:impl",
     "//chrome/browser/prefs:util",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/screen_ai:screen_ai_dlc_installer",
     "//chrome/browser/signin",
+    "//chrome/browser/trusted_vault",
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/webui/ash/shimless_rma_dialog",
     "//chrome/common",
@@ -101,6 +106,7 @@ static_library("session") {
     "//chromeos/ash/experiences/arc:arc_features",
     "//chromeos/ash/experiences/arc:prefs",
     "//chromeos/ash/experiences/arc/session:arc_base_enums",
+    "//chromeos/ash/experiences/frozen_update",
     "//chromeos/ash/services/cros_safety",
     "//chromeos/constants",
     "//chromeos/dbus/tpm_manager",
@@ -150,7 +156,10 @@ static_library("session") {
   ]
 
   if (enable_rlz) {
-    deps += [ "//components/rlz" ]
+    deps += [
+      "//chrome/browser/rlz",
+      "//components/rlz",
+    ]
   }
 }
 

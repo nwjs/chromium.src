@@ -10,6 +10,7 @@
 #include <string>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -38,7 +39,6 @@
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/ui/ash/login/fake_login_display_host.h"
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/network/network_handler_test_helper.h"
@@ -91,8 +91,10 @@ class EnrollmentScreenBaseTest : public testing::Test {
 
  protected:
   EnrollmentScreenBaseTest()
-      : mock_error_screen_(mock_error_view_.AsWeakPtr()) {
-    policy::EnrollmentRequisitionManager::Initialize();
+      : mock_error_screen_(TestingBrowserProcess::GetGlobal()->local_state(),
+                           mock_error_view_.AsWeakPtr()) {
+    policy::EnrollmentRequisitionManager::Initialize(
+        CHECK_DEREF(TestingBrowserProcess::GetGlobal()->local_state()));
     TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
         test_url_loader_factory_.GetSafeWeakWrapper());
   }
@@ -105,6 +107,7 @@ class EnrollmentScreenBaseTest : public testing::Test {
   // Creates the EnrollmentScreen and sets required parameters.
   void SetUpEnrollmentScreen(const policy::EnrollmentConfig& config) {
     enrollment_screen_ = std::make_unique<EnrollmentScreen>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
         TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
         TestingBrowserProcess::GetGlobal()
             ->platform_part()
@@ -463,7 +466,7 @@ TEST_P(EnrollmentScreenManualFlowTest, ShouldFinishEnrollmentScreen) {
   ShowEnrollmentScreen();
 
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 TEST_P(EnrollmentScreenManualFlowTest, OobeConfigSkipEnrollmentSuccessScreen) {
@@ -481,7 +484,7 @@ TEST_P(EnrollmentScreenManualFlowTest, OobeConfigSkipEnrollmentSuccessScreen) {
   ShowEnrollmentScreen();
 
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 TEST_P(EnrollmentScreenManualFlowTest, ShouldNotAutomaticallyRetryEnrollment) {
@@ -532,7 +535,7 @@ TEST_P(EnrollmentScreenManualFlowTest, ShouldRetryEnrollmentOnUserAction) {
 
   EXPECT_EQ(GetEnrollmentScreenRetries(), 1);
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -736,7 +739,7 @@ TEST_P(EnrollmentScreenAttestationFlowTest, ShouldFinishEnrollmentScreen) {
   ShowEnrollmentScreen();
 
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 TEST_P(EnrollmentScreenAttestationFlowTest,
@@ -788,7 +791,7 @@ TEST_P(EnrollmentScreenAttestationFlowTest, ShouldRetryEnrollmentOnUserAction) {
 
   EXPECT_EQ(GetEnrollmentScreenRetries(), 1);
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 // The add user flow is expected to only affect the manual enrollment.
@@ -831,13 +834,14 @@ class EnrollmentScreenAttestationFlowWithManualFallbackTest
     : public EnrollmentScreenAttestationFlowTest {
  protected:
   policy::EnrollmentConfig GetEnrollmentConfigForManualFallback() {
-    return GetEnrollmentConfig().GetManualFallbackConfig();
+    return CHECK_DEREF(GetEnrollmentConfig().GetManualFallbackConfig());
   }
 };
 
 TEST_P(EnrollmentScreenAttestationFlowWithManualFallbackTest,
        ShouldAutomaticallyFallbackToManuallEnrollment) {
   const policy::EnrollmentConfig initial_config = GetEnrollmentConfig();
+  ASSERT_TRUE(initial_config.is_mode_with_manual_fallback());
   const policy::EnrollmentConfig fallback_config =
       GetEnrollmentConfigForManualFallback();
   {
@@ -863,12 +867,13 @@ TEST_P(EnrollmentScreenAttestationFlowWithManualFallbackTest,
   ShowEnrollmentScreen();
 
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 TEST_P(EnrollmentScreenAttestationFlowWithManualFallbackTest,
        ShouldFallbackToManualEnrollmentOnUserAction) {
   const policy::EnrollmentConfig initial_config = GetEnrollmentConfig();
+  ASSERT_TRUE(initial_config.is_mode_with_manual_fallback());
   const policy::EnrollmentConfig fallback_config =
       GetEnrollmentConfigForManualFallback();
   {
@@ -900,7 +905,7 @@ TEST_P(EnrollmentScreenAttestationFlowWithManualFallbackTest,
   UserCancel();
 
   EXPECT_EQ(last_screen_result(), EnrollmentScreen::Result::COMPLETED);
-  EXPECT_EQ(local_state().GetInteger(prefs::kDeviceRegistered), 1);
+  EXPECT_EQ(local_state().GetInteger(ash::prefs::kDeviceRegistered), 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -928,7 +933,7 @@ class EnrollmentScreenTokenBasedEnrollmentTest
   }
 
   policy::EnrollmentConfig GetEnrollmentConfigForManualFallback() {
-    return GetEnrollmentConfig().GetManualFallbackConfig();
+    return CHECK_DEREF(GetEnrollmentConfig().GetManualFallbackConfig());
   }
 
   system::ScopedFakeStatisticsProvider statistics_provider_;
@@ -1106,6 +1111,7 @@ TEST_F(EnrollmentScreenTokenBasedEnrollmentTest,
 TEST_F(EnrollmentScreenTokenBasedEnrollmentTest,
        ShouldFallbackToManualEnrollmentOnUserAction) {
   const policy::EnrollmentConfig initial_config = GetEnrollmentConfig();
+  ASSERT_TRUE(initial_config.is_mode_with_manual_fallback());
   const policy::EnrollmentConfig fallback_config =
       GetEnrollmentConfigForManualFallback();
   {
@@ -1143,8 +1149,9 @@ TEST_F(EnrollmentScreenTokenBasedEnrollmentTest,
        RemoteDeploymentShouldFallbackToManualEnrollmentOnUserAction) {
   const policy::EnrollmentConfig initial_config = GetEnrollmentConfig(
       policy::EnrollmentConfig::MODE_REMOTE_DEPLOYMENT_SERVER_FORCED);
+  ASSERT_TRUE(initial_config.is_mode_with_manual_fallback());
   const policy::EnrollmentConfig fallback_config =
-      initial_config.GetManualFallbackConfig();
+      initial_config.GetManualFallbackConfig().value();
   EXPECT_TRUE(fallback_config.is_manual_fallback());
   {
     testing::InSequence s;

@@ -14,9 +14,13 @@
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/live_node_list.h"
+#include "third_party/blink/renderer/core/dom/node_traversal.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
+#include "third_party/blink/renderer/core/html/forms/base_text_input_type.h"
+#include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -27,7 +31,9 @@
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/forms/step_range.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
+#include "third_party/blink/renderer/platform/bindings/script_regexp.h"
 #include "third_party/blink/renderer/platform/file_metadata.h"
 #include "third_party/blink/renderer/platform/json/json_parser.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -85,7 +91,8 @@ bool ToBoolean(const JSONValue& value, bool& out) {
 }
 
 bool IsAccessibleFile(const JSONValue& value, HTMLFormElement& form) {
-  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+      form.GetExecutionContext()));
   ExecutionContext* execution_context =
       form.GetDocument().GetExecutionContext();
   if (!execution_context) {
@@ -248,7 +255,8 @@ bool FormMCPSchema::ValidateParameterData(const String& name,
     return true;
   }
   if (IsFile(*controls_for_name)) {
-    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+        form_->GetExecutionContext()));
     return ValidateFileData(*controls_for_name, value);
   }
 
@@ -384,7 +392,8 @@ bool FormMCPSchema::ValidateSelectData(const ControlVector& controls_for_name,
 
 bool FormMCPSchema::ValidateFileData(const ControlVector& controls_for_name,
                                      const JSONValue& value) {
-  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+      form_->GetExecutionContext()));
   if (controls_for_name.size() != 1u) {
     return false;
   }
@@ -437,7 +446,8 @@ void FormMCPSchema::FillParameterData(const String& name,
   } else if (IsCustomElement(*controls_for_name)) {
     FillCustomElementData(*controls_for_name, value);
   } else if (IsFile(*controls_for_name)) {
-    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+        form_->GetExecutionContext()));
     FillFileData(*controls_for_name, value);
   }
 }
@@ -493,7 +503,8 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeParameterSchema(
     return ComputeCustomElementParameterSchema(*controls_for_name, required);
   }
   if (IsFile(*controls_for_name)) {
-    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+        form_->GetExecutionContext()));
     return ComputeFileParameterSchema(*controls_for_name, required);
   }
 
@@ -509,8 +520,8 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeTextParameterSchema(
       To<HTMLFormControlElement>(controls_for_name.front()->ToHTMLElement());
   auto schema = std::make_unique<JSONObject>();
   schema->SetString("type", "string");
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddPattern(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -526,8 +537,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeDateParameterSchema(
   schema->SetString("format", "date");
   // Note that the "minimum" and "maximum" fields must contains numbers;
   // they cannot be used for dates.
-  AddTitle(element, *schema);
-  AddDescription(element, *schema,
+  AddDescription(controls_for_name, *schema,
                  "Dates MUST be provided in 'YYYY-MM-DD' format.");
   required = element.IsRequired();
   return schema;
@@ -575,8 +585,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeDatetimeLocalParameterSchema(
                       "T([01][0-9]|2[0-3]):[0-5][0-9]"     // Thh:mm
                       "$");
   }
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -592,8 +601,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeMonthParameterSchema(
   // The regex format is based on the valid time microsyntax in HTML:
   // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#months
   schema->SetString("format", "^[0-9]{4}-(0[1-9]|1[0-2])$");
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -609,8 +617,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeWeekParameterSchema(
   // The regex format is based on the valid time microsyntax in HTML:
   // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#weeks
   schema->SetString("format", "^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$");
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -646,8 +653,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeTimeParameterSchema(
     // Allow HH:MM only
     schema->SetString("format", "^([01][0-9]|2[0-3]):[0-5][0-9]$");
   }
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -676,8 +682,8 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeNumberParameterSchema(
       schema->SetDouble("multipleOf", step.ToDouble());
     }
   }
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddPattern(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -705,18 +711,17 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeSelectParameterSchema(
     schema->SetString("type", "array");
     auto items_schema = std::make_unique<JSONObject>();
     items_schema->SetString("type", "string");
-    items_schema->SetArray("oneOf", std::move(one_of));
+    items_schema->SetArray("anyOf", std::move(one_of));
     items_schema->SetArray("enum", std::move(enum_array));
     schema->SetObject("items", std::move(items_schema));
     schema->SetBoolean("uniqueItems", true);
   } else {
     schema->SetString("type", "string");
-    schema->SetArray("oneOf", std::move(one_of));
+    schema->SetArray("anyOf", std::move(one_of));
     schema->SetArray("enum", std::move(enum_array));
   }
 
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
 
   required = element.IsRequired();
 
@@ -743,8 +748,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeRangeParameterSchema(
   if (step_range.StepBase().Remainder(step).IsZero()) {
     schema->SetDouble("multipleOf", step.ToDouble());
   }
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -777,16 +781,14 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeCheckboxParameterSchema(
   items_schema->SetString("type", "string");
   std::unique_ptr<JSONArray> enum_array;
   items_schema->SetArray(
-      "oneOf", ComputeOneOfArray(controls_for_name, enum_array, required));
+      "anyOf", ComputeAnyOfArray(controls_for_name, enum_array, required));
   items_schema->SetArray("enum", std::move(enum_array));
   // Each checkbox value must at most appear *once* in the input.
 
   schema->SetObject("items", std::move(items_schema));
   schema->SetBoolean("uniqueItems", true);
 
-  // Add title/description from the first control for now.
-  AddTitleAndDescriptionFromToolAttributesOnly(*controls_for_name.front(),
-                                               *schema);
+  AddDescription(controls_for_name, *schema);
 
   return schema;
 }
@@ -799,16 +801,14 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeRadioParameterSchema(
   schema->SetString("type", "string");
 
   std::unique_ptr<JSONArray> enum_array;
-  schema->SetArray("oneOf",
-                   ComputeOneOfArray(controls_for_name, enum_array, required));
+  schema->SetArray("anyOf",
+                   ComputeAnyOfArray(controls_for_name, enum_array, required));
   schema->SetArray("enum", std::move(enum_array));
-  // Add title/description from the first control for now.
-  AddTitleAndDescriptionFromToolAttributesOnly(*controls_for_name.front(),
-                                               *schema);
+  AddDescription(controls_for_name, *schema);
   return schema;
 }
 
-std::unique_ptr<JSONArray> FormMCPSchema::ComputeOneOfArray(
+std::unique_ptr<JSONArray> FormMCPSchema::ComputeAnyOfArray(
     const ControlVector& controls_for_name,
     std::unique_ptr<JSONArray>& enum_array,
     bool& required) {
@@ -842,8 +842,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeColorParameterSchema(
   // TODO: With the runtime feature ColorInputAcceptsCSSColors enabled, we may
   // support more color syntaxes.
   schema->SetString("format", "^#[0-9a-zA-Z]{6}$");
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -859,8 +858,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeCustomElementParameterSchema(
   // Note that the above ParseJSON() call (and conversion to JSONObject)
   // is guaranteed to succeed by IsCustomElement().
   CHECK(schema);
-  AddTitle(element_internals, *schema);
-  AddDescription(element_internals, *schema);
+  AddDescription(controls_for_name, *schema);
   required = false;
   return schema;
 }
@@ -868,7 +866,8 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeCustomElementParameterSchema(
 std::unique_ptr<JSONObject> FormMCPSchema::ComputeFileParameterSchema(
     const ControlVector& controls_for_name,
     bool& required) {
-  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+      form_->GetExecutionContext()));
   HTMLInputElement& element =
       To<HTMLInputElement>(controls_for_name.front()->ToHTMLElement());
   auto schema = std::make_unique<JSONObject>();
@@ -880,8 +879,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeFileParameterSchema(
   } else {
     schema->SetString("type", "string");
   }
-  AddTitle(element, *schema);
-  AddDescription(element, *schema);
+  AddDescription(controls_for_name, *schema);
   required = element.IsRequired();
   return schema;
 }
@@ -897,10 +895,12 @@ void FormMCPSchema::FillTextData(const ControlVector& controls_for_name,
   }
   if (auto* input = DynamicTo<HTMLInputElement>(
           controls_for_name.front()->ToHTMLElement())) {
-    input->SetValue(string);
+    input->SetValue(string,
+                    TextFieldEventBehavior::kDispatchInputAndChangeEvent);
   } else if (auto* textarea = DynamicTo<HTMLTextAreaElement>(
                  controls_for_name.front()->ToHTMLElement())) {
-    textarea->SetValue(string);
+    textarea->SetValue(string,
+                       TextFieldEventBehavior::kDispatchInputAndChangeEvent);
   }
 }
 
@@ -911,7 +911,8 @@ void FormMCPSchema::FillNumberData(const ControlVector& controls_for_name,
     String number_string;
     bool success = ToString(value, number_string);
     CHECK(success) << "ValidateNumberData should be called first";
-    input->SetValue(number_string);
+    input->SetValue(number_string,
+                    TextFieldEventBehavior::kDispatchInputAndChangeEvent);
   }
 }
 
@@ -920,8 +921,13 @@ void FormMCPSchema::FillCheckboxData(const ControlVector& controls_for_name,
   if (controls_for_name.size() == 1u) {
     bool checked;
     CHECK(ToBoolean(value, checked));
-    To<HTMLInputElement>(controls_for_name.front()->ToHTMLElement())
-        .SetChecked(checked);
+    HTMLInputElement& input =
+        To<HTMLInputElement>(controls_for_name.front()->ToHTMLElement());
+    input.SetChecked(checked,
+                     TextFieldEventBehavior::kDispatchInputAndChangeEvent);
+    // SetChecked only dispatches `input`. Usually, `change` is dispatched by
+    // CheckboxInputType::RunInputActivationBehavior.
+    input.DispatchChangeEvent();
     return;
   }
 
@@ -943,7 +949,11 @@ void FormMCPSchema::FillCheckboxData(const ControlVector& controls_for_name,
   // Check (or uncheck) each value.
   for (ListedElement* control : controls_for_name) {
     HTMLInputElement& input = To<HTMLInputElement>(control->ToHTMLElement());
-    input.SetChecked(checked_values.Contains(input.Value()));
+    input.SetChecked(checked_values.Contains(input.Value()),
+                     TextFieldEventBehavior::kDispatchInputAndChangeEvent);
+    // SetChecked only dispatches `input`. Usually, `change` is dispatched by
+    // CheckboxInputType::RunInputActivationBehavior.
+    input.DispatchChangeEvent();
   }
 }
 
@@ -956,7 +966,11 @@ void FormMCPSchema::FillRadioData(const ControlVector& controls_for_name,
   for (ListedElement* control : controls_for_name) {
     HTMLInputElement& input = To<HTMLInputElement>(control->ToHTMLElement());
     if (input.Value() == string) {
-      input.SetChecked(true, TextFieldEventBehavior::kDispatchChangeEvent);
+      input.SetChecked(true,
+                       TextFieldEventBehavior::kDispatchInputAndChangeEvent);
+      // SetChecked only dispatches `input`. Usually, `change` is dispatched by
+      // RadioInputType::RunInputActivationBehavior.
+      input.DispatchChangeEvent();
     }
   }
 }
@@ -1008,7 +1022,8 @@ void FormMCPSchema::FillCustomElementData(
 void FormMCPSchema::FillFileData(const ControlVector& controls_for_name,
                                  const JSONValue& value) {
   // TODO(crbug.com/481211432): NEEDS PRIVACY REVIEW BEFORE SHIPPING
-  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled());
+  CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+      form_->GetExecutionContext()));
   Vector<String> paths;
   auto& file_input =
       To<HTMLInputElement>(controls_for_name.front()->ToHTMLElement());
@@ -1034,16 +1049,10 @@ void FormMCPSchema::FillFileData(const ControlVector& controls_for_name,
   file_input.SetFilesFromPaths(paths);
 }
 
-void FormMCPSchema::AddTitle(ListedElement& control, JSONObject& obj) {
-  if (String title = ToolParamTitleAttribute(control); !title.empty()) {
-    obj.SetString("title", title);
-  }
-}
-
-void FormMCPSchema::AddDescription(ListedElement& control,
+void FormMCPSchema::AddDescription(const ControlVector& controls,
                                    JSONObject& obj,
                                    String extra_context) {
-  String description = ComputeDescription(control);
+  String description = ComputeDescription(controls);
   if (!extra_context.empty()) {
     if (!description.empty()) {
       description = description + " (" + extra_context + ")";
@@ -1056,49 +1065,118 @@ void FormMCPSchema::AddDescription(ListedElement& control,
   }
 }
 
-void FormMCPSchema::AddTitleAndDescriptionFromToolAttributesOnly(
-    ListedElement& control,
-    JSONObject& obj) {
-  if (String title = ToolParamTitleAttribute(control); !title.empty()) {
-    obj.SetString("title", title);
+void FormMCPSchema::AddPattern(HTMLFormControlElement& form_control,
+                               JSONObject& obj) {
+  auto* input_element = DynamicTo<HTMLInputElement>(form_control);
+  if (!input_element) {
+    return;
   }
-  if (String description = ToolParamDescriptionAttribute(control);
-      !description.empty()) {
-    obj.SetString("description", description);
+
+  const AtomicString& raw_pattern =
+      input_element->FastGetAttribute(html_names::kPatternAttr);
+
+  // Only consider the `pattern` HTML attribute if it is provided, and if it
+  // compiles to a proper regular expression. Non-null but empty patterns still
+  // contribute to form validation, so they must be included so that the model
+  // can consider it.
+  if (raw_pattern.IsNull()) {
+    return;
   }
+
+  v8::Isolate* isolate = input_element->GetDocument().GetAgent().isolate();
+  ScriptRegexp* raw_regexp = MakeGarbageCollected<ScriptRegexp>(
+      isolate, raw_pattern, kTextCaseSensitive,
+      MultilineMode::kMultilineDisabled, UnicodeMode::kUnicodeSets);
+  if (!raw_regexp->IsValid()) {
+    input_element->GetDocument().AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::blink::ConsoleMessageSource::kRendering,
+            mojom::blink::ConsoleMessageLevel::kError,
+            StrCat({"Pattern attribute value ", raw_pattern,
+                    " is not a valid regular expression: ",
+                    raw_regexp->ExceptionMessage()})));
+    return;
+  }
+
+  obj.SetString("pattern", raw_pattern);
 }
 
-String FormMCPSchema::ToolParamTitleAttribute(ListedElement& control) const {
-  return control.ToHTMLElement().FastGetAttribute(
-      html_names::kToolparamtitleAttr);
+String FormMCPSchema::ComputeDescription(const ControlVector& controls) {
+  CHECK(!controls.empty());
+
+  // For parameters backed by a single control, the description is sourced
+  // from that element.
+  if (controls.size() == 1) {
+    ListedElement& control = *controls.front();
+    // Prefer 'toolparamdescription' when present.
+    if (String description = ToolParamDescriptionAttribute(control);
+        !description.empty()) {
+      return description;
+    }
+
+    // Absent a 'toolparamdescription' attribute, use concatenated label text.
+    if (String label_text = LabelText(control); !label_text.empty()) {
+      return label_text;
+    }
+
+    // Last resort: aria-description.
+    if (String description = control.ToHTMLElement().FastGetAttribute(
+            html_names::kAriaDescriptionAttr);
+        !description.empty()) {
+      return description;
+    }
+
+    return g_null_atom;
+  }
+
+  // Otherwise, this is a parameter backed by more than one control,
+  // e.g. a radio group, or multiple checkboxes. This parameter is described
+  // by the `toolparamdescription` attribute on the nearest <fieldset> element
+  // in the common ancestor chain.
+  if (const HTMLFieldSetElement* common_ancestor_fieldset =
+          ComputeCommonAncestorFieldSet(controls)) {
+    if (String description =
+            ToolParamDescriptionAttribute(*common_ancestor_fieldset);
+        !description.empty()) {
+      return description;
+    }
+  }
+
+  // Fall back to the `toolparamdescription` of the first control in the group.
+  if (String description = ToolParamDescriptionAttribute(*controls.front());
+      !description.empty()) {
+    return description;
+  }
+
+  return g_empty_string;
+}
+
+const HTMLFieldSetElement* FormMCPSchema::ComputeCommonAncestorFieldSet(
+    const ControlVector& controls) {
+  CHECK_GT(controls.size(), 1u);
+
+  // First find the nearest common ancestor node (of any type).
+  const Node* common_ancestor = &controls.front()->ToHTMLElement();
+  for (wtf_size_t i = 1; i < controls.size(); ++i) {
+    common_ancestor = common_ancestor->CommonAncestor(
+        controls[i]->ToHTMLElement(), NodeTraversal::Parent);
+  }
+
+  // Then look for a <fieldset> in ancestor chain.
+  for (const Node* node = common_ancestor; node && node != form_;
+       node = NodeTraversal::Parent(*node)) {
+    if (auto* fieldset = DynamicTo<HTMLFieldSetElement>(node)) {
+      return fieldset;
+    }
+  }
+
+  return nullptr;
 }
 
 String FormMCPSchema::ToolParamDescriptionAttribute(
-    ListedElement& control) const {
+    const ListedElement& control) const {
   return control.ToHTMLElement().FastGetAttribute(
       html_names::kToolparamdescriptionAttr);
-}
-
-String FormMCPSchema::ComputeDescription(ListedElement& control) {
-  // Prefer 'toolparamdescription' when present.
-  if (String description = ToolParamDescriptionAttribute(control);
-      !description.empty()) {
-    return description;
-  }
-
-  // Absent a 'toolparamdescription' attribute, use concatenated label text.
-  if (String label_text = LabelText(control); !label_text.empty()) {
-    return label_text;
-  }
-
-  // Last resort: aria-description.
-  if (String description = control.ToHTMLElement().FastGetAttribute(
-          html_names::kAriaDescriptionAttr);
-      !description.empty()) {
-    return description;
-  }
-
-  return g_null_atom;
 }
 
 String FormMCPSchema::LabelText(ListedElement& control) {
@@ -1162,8 +1240,7 @@ bool FormMCPSchema::IsText(ListedElement& control) const {
       case FormControlType::kInputPassword:
         return true;
       case FormControlType::kInputHidden:
-        return !ToolParamTitleAttribute(control).empty() ||
-               !ToolParamDescriptionAttribute(control).empty();
+        return !ToolParamDescriptionAttribute(control).empty();
       default:
         break;
     }
@@ -1240,7 +1317,8 @@ bool FormMCPSchema::IsCustomElement(ListedElement& control) const {
 }
 
 bool FormMCPSchema::IsFile(ListedElement& control) const {
-  if (!RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled()) {
+  if (!RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+          form_->GetExecutionContext())) {
     return false;
   }
   auto* input = DynamicTo<HTMLInputElement>(control.ToHTMLElement());
@@ -1316,7 +1394,8 @@ bool FormMCPSchema::IsCustomElement(
 }
 
 bool FormMCPSchema::IsFile(const ControlVector& controls_for_name) const {
-  return RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled() &&
+  return RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+             form_->GetExecutionContext()) &&
          controls_for_name.size() == 1u && IsFile(*controls_for_name.front());
 }
 

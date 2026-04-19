@@ -190,12 +190,6 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   // Disable context menu and related features.
   html_source->AddBoolean("composeboxShowContextMenu", false);
   html_source->AddBoolean("composeboxShowContextMenuDescription", true);
-  // Send event when escape is pressed.
-  html_source->AddBoolean("composeboxCloseByEscape", true);
-  html_source->AddBoolean("composeboxShowLensSearchChip", false);
-  html_source->AddBoolean("composeboxShowRecentTabChip", false);
-  // Enable submit button.
-  html_source->AddBoolean("composeboxShowSubmit", true);
   // Enables a fix that causes no flickering when transitioning between ZPS and
   // typed suggestions.
   html_source->AddBoolean("composeboxNoFlickerSuggestionsFix", true);
@@ -220,8 +214,8 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddResourcePaths(kLensSharedResources);
 
   // Add required resources for the searchbox.
-  SearchboxHandler::SetupWebUIDataSource(html_source,
-                                         Profile::FromWebUI(web_ui));
+  html_source->AddLocalizedStrings(
+      SearchboxHandler::GetWebUIDataSourceDict(Profile::FromWebUI(web_ui)));
   html_source->AddString(
       "searchboxDefaultIcon",
       lens::features::GetVisualSelectionUpdatesEnableGradientSuperG()

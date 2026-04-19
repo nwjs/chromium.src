@@ -12,6 +12,12 @@ import type * as mojomActor from '../actor_webui.mojom-webui.js';
 import type * as glicApi from '../glic_api/glic_api.js';
 
 export function enumToClient(
+  val: mojomGlic.ActorTaskInterruptReason):
+    glicApi.ActorTaskInterruptReason;
+export function enumToClient(
+  val: mojomGlic.ActorTaskInterruptReason | null):
+    glicApi.ActorTaskInterruptReason | undefined;
+export function enumToClient(
   val: mojomGlic.ActorTaskPauseReason):
     glicApi.ActorTaskPauseReason;
 export function enumToClient(
@@ -54,6 +60,12 @@ export function enumToClient(
   val: mojomGlic.CaptureScreenshotErrorReason | null):
     glicApi.CaptureScreenshotErrorReason | undefined;
 export function enumToClient(
+  val: mojomGlic.ClientCapabilities):
+    glicApi.ClientCapabilities;
+export function enumToClient(
+  val: mojomGlic.ClientCapabilities | null):
+    glicApi.ClientCapabilities | undefined;
+export function enumToClient(
   val: mojomGlic.CreateTaskErrorReason):
     glicApi.CreateTaskErrorReason;
 export function enumToClient(
@@ -77,6 +89,12 @@ export function enumToClient(
 export function enumToClient(
   val: mojomGlic.FormFactor | null):
     glicApi.FormFactor | undefined;
+export function enumToClient(
+  val: mojomGlic.FreOverride):
+    glicApi.FreOverride;
+export function enumToClient(
+  val: mojomGlic.FreOverride | null):
+    glicApi.FreOverride | undefined;
 export function enumToClient(
   val: mojomGlic.HostCapability):
     glicApi.HostCapability;
@@ -180,6 +198,12 @@ export function enumToClient(
   val: mojomGlic.SwitchConversationErrorReason | null):
     glicApi.SwitchConversationErrorReason | undefined;
 export function enumToClient(
+  val: mojomActor.TaskDuration):
+    glicApi.TaskDuration;
+export function enumToClient(
+  val: mojomActor.TaskDuration | null):
+    glicApi.TaskDuration | undefined;
+export function enumToClient(
   val: mojomGlic.UnpinTrigger):
     glicApi.UnpinTrigger;
 export function enumToClient(
@@ -213,6 +237,12 @@ export function enumToClient(val: any): any {
   return val ?? undefined;
 }
 
+export function enumFromClient(
+  val: glicApi.ActorTaskInterruptReason):
+    mojomGlic.ActorTaskInterruptReason;
+export function enumFromClient(
+  val: glicApi.ActorTaskInterruptReason | undefined):
+    mojomGlic.ActorTaskInterruptReason | null;
 export function enumFromClient(
   val: glicApi.ActorTaskPauseReason):
     mojomGlic.ActorTaskPauseReason;
@@ -256,6 +286,12 @@ export function enumFromClient(
   val: glicApi.CaptureScreenshotErrorReason | undefined):
     mojomGlic.CaptureScreenshotErrorReason | null;
 export function enumFromClient(
+  val: glicApi.ClientCapabilities):
+    mojomGlic.ClientCapabilities;
+export function enumFromClient(
+  val: glicApi.ClientCapabilities | undefined):
+    mojomGlic.ClientCapabilities | null;
+export function enumFromClient(
   val: glicApi.CreateTaskErrorReason):
     mojomGlic.CreateTaskErrorReason;
 export function enumFromClient(
@@ -279,6 +315,12 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.FormFactor | undefined):
     mojomGlic.FormFactor | null;
+export function enumFromClient(
+  val: glicApi.FreOverride):
+    mojomGlic.FreOverride;
+export function enumFromClient(
+  val: glicApi.FreOverride | undefined):
+    mojomGlic.FreOverride | null;
 export function enumFromClient(
   val: glicApi.HostCapability):
     mojomGlic.HostCapability;
@@ -381,6 +423,12 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.SwitchConversationErrorReason | undefined):
     mojomGlic.SwitchConversationErrorReason | null;
+export function enumFromClient(
+  val: glicApi.TaskDuration):
+    mojomActor.TaskDuration;
+export function enumFromClient(
+  val: glicApi.TaskDuration | undefined):
+    mojomActor.TaskDuration | null;
 export function enumFromClient(
   val: glicApi.UnpinTrigger):
     mojomGlic.UnpinTrigger;

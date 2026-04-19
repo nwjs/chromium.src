@@ -336,10 +336,8 @@ public class TabGroupUiMediator implements BackPressHandler {
                     }
                 };
 
-        assumeNonNull(tabModelSelector.getTabGroupModelFilter(false))
-                .addTabGroupObserver(mTabGroupModelFilterObserver);
-        assumeNonNull(tabModelSelector.getTabGroupModelFilter(true))
-                .addTabGroupObserver(mTabGroupModelFilterObserver);
+        tabModelSelector.getModel(false).addTabGroupObserver(mTabGroupModelFilterObserver);
+        tabModelSelector.getModel(true).addTabGroupObserver(mTabGroupModelFilterObserver);
 
         mOmniboxFocusObserver = isFocus -> resetTabStrip();
         mOmniboxFocusStateSupplier.addSyncObserverAndPostIfNonNull(mOmniboxFocusObserver);
@@ -555,18 +553,10 @@ public class TabGroupUiMediator implements BackPressHandler {
         mOnSnapshotTokenChange.onResult(token);
     }
 
-    public boolean onBackPressed() {
-        @Nullable DialogController controller = getTabGridDialogControllerIfExists();
-        return controller != null ? controller.handleBackPressed() : false;
-    }
-
     @Override
     public @BackPressResult int handleBackPress() {
         @Nullable DialogController controller = getTabGridDialogControllerIfExists();
-        if (controller != null) {
-            return controller.handleBackPress();
-        }
-        return BackPressResult.FAILURE;
+        return controller != null ? controller.handleBackPress() : BackPressResult.FAILURE;
     }
 
     @Override
@@ -580,9 +570,11 @@ public class TabGroupUiMediator implements BackPressHandler {
             mTabModelSelector.removeTabGroupModelFilterObserver(mTabModelObserver);
             mTabModelSelector.getCurrentTabModelSupplier().removeObserver(mCurrentTabModelObserver);
             if (mTabGroupModelFilterObserver != null) {
-                assumeNonNull(mTabModelSelector.getTabGroupModelFilter(false))
+                mTabModelSelector
+                        .getModel(false)
                         .removeTabGroupObserver(mTabGroupModelFilterObserver);
-                assumeNonNull(mTabModelSelector.getTabGroupModelFilter(true))
+                mTabModelSelector
+                        .getModel(true)
                         .removeTabGroupObserver(mTabGroupModelFilterObserver);
             }
         }

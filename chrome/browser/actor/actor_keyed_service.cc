@@ -336,30 +336,35 @@ void ActorKeyedService::ResetForTesting() {
 }
 
 TaskId ActorKeyedService::CreateTask(
+    const TaskSourceInfo& source_info,
     const EnterprisePolicyUrlChecker* policy_checker) {
-  return CreateTaskWithOptions(policy_checker, nullptr, nullptr);
+  return CreateTaskWithOptions(source_info, policy_checker, nullptr, nullptr);
 }
 
 TaskId ActorKeyedService::CreateTaskWithOptions(
+    const TaskSourceInfo& source_info,
     const EnterprisePolicyUrlChecker* policy_checker,
     webui::mojom::TaskOptionsPtr options,
     base::WeakPtr<ActorTaskDelegate> delegate) {
   return CreateTaskImpl(ui::NewUiEventDispatcher(GetActorUiStateManager()),
-                        policy_checker, std::move(options),
+                        source_info, policy_checker, std::move(options),
                         std::move(delegate));
 }
 
 TaskId ActorKeyedService::CreateTaskForTesting(
     std::unique_ptr<actor::ui::UiEventDispatcher> ui_event_dispatcher,
+    const TaskSourceInfo& source_info,
     const EnterprisePolicyUrlChecker* policy_checker,
     webui::mojom::TaskOptionsPtr options,
     base::WeakPtr<ActorTaskDelegate> delegate) {
-  return CreateTaskImpl(std::move(ui_event_dispatcher), policy_checker,
-                        std::move(options), std::move(delegate));
+  return CreateTaskImpl(std::move(ui_event_dispatcher), source_info,
+                        policy_checker, std::move(options),
+                        std::move(delegate));
 }
 
 TaskId ActorKeyedService::CreateTaskImpl(
     std::unique_ptr<actor::ui::UiEventDispatcher> ui_event_dispatcher,
+    const TaskSourceInfo& source_info,
     const EnterprisePolicyUrlChecker* policy_checker,
     webui::mojom::TaskOptionsPtr options,
     base::WeakPtr<ActorTaskDelegate> delegate) {
@@ -369,12 +374,11 @@ TaskId ActorKeyedService::CreateTaskImpl(
   const TaskId task_id = next_task_id_.GenerateNextId();
   auto actor_task = std::make_unique<ActorTask>(
       base::PassKey<ActorKeyedService>(), *this, task_id,
-      std::move(ui_event_dispatcher), std::move(options), policy_checker,
-      std::move(delegate));
+      std::move(ui_event_dispatcher), std::move(options), source_info,
+      policy_checker, std::move(delegate));
 
-  const ActorTask::State task_state = actor_task->GetState();
   active_tasks_[task_id] = std::move(actor_task);
-  NotifyTaskStateChanged(task_id, task_state);
+  NotifyTaskStateChanged(*active_tasks_[task_id]);
   return task_id;
 }
 
@@ -383,15 +387,12 @@ base::CallbackListSubscription ActorKeyedService::AddTaskStateChangedCallback(
   return task_state_change_callback_list_.Add(std::move(callback));
 }
 
-void ActorKeyedService::NotifyTaskStateChanged(TaskId task_id,
-                                               ActorTask::State state) {
-  task_state_change_callback_list_.Notify(task_id, state);
-
-  if (ActorTask::IsCompletedState(state)) {
+void ActorKeyedService::NotifyTaskStateChanged(ActorTask& task) {
+  if (task.IsCompleted()) {
     // Remove a stopped task from the active_tasks_ list. Post this since this
     // call comes from the ActorTask so we don't want to delete it while it's on
     // the stack.
-    auto node = active_tasks_.extract(task_id);
+    auto node = active_tasks_.extract(task.id());
     if (!node.empty()) {
       pending_delete_tasks_.insert(std::move(node));
 
@@ -402,9 +403,11 @@ void ActorKeyedService::NotifyTaskStateChanged(TaskId task_id,
             }
             self->pending_delete_tasks_.erase(task_id);
           },
-          GetWeakPtr(), task_id));
+          GetWeakPtr(), task.id()));
     }
   }
+
+  task_state_change_callback_list_.Notify(task);
 }
 
 void ActorKeyedService::RequestTabObservation(
@@ -532,9 +535,9 @@ void ActorKeyedService::PerformActions(
                          .Add("task_id", task_id)
                          .AddError("Invalid Task")
                          .Build());
-    RunLater(base::BindOnce(std::move(callback),
-                            mojom::ActionResultCode::kTaskWentAway,
-                            std::nullopt, std::move(empty_results)));
+    RunLater(base::BindOnce(
+        std::move(callback),
+        MakeResultVector(mojom::ActionResultCode::kTaskWentAway)));
     return;
   }
 
@@ -542,9 +545,9 @@ void ActorKeyedService::PerformActions(
     GetJournal().Log(
         GURL(), task_id, "ActorKeyedService::PerformActions",
         JournalDetailsBuilder().AddError("Empty Actions List").Build());
-    RunLater(base::BindOnce(std::move(callback),
-                            mojom::ActionResultCode::kEmptyActionSequence,
-                            std::nullopt, std::move(empty_results)));
+    RunLater(base::BindOnce(
+        std::move(callback),
+        MakeResultVector(mojom::ActionResultCode::kEmptyActionSequence)));
     return;
   }
 
@@ -558,22 +561,16 @@ void ActorKeyedService::PerformActions(
 
 void ActorKeyedService::OnActionsFinished(
     PerformActionsCallback callback,
-    mojom::ActionResultPtr result,
-    std::optional<size_t> index_of_failed_action,
     std::vector<ActionResultWithLatencyInfo> action_results) {
   TRACE_EVENT0("actor", "ActorKeyedService::OnActionsFinished");
-  // If the result if Ok then we must not have a failed action.
-  CHECK(!IsOk(*result) || !index_of_failed_action);
 
   if (base::FeatureList::IsEnabled(
           actor::kGlicPerformActionsReturnsBeforeStateChange)) {
-    std::move(callback).Run(result->code, index_of_failed_action,
-                            std::move(action_results));
+    std::move(callback).Run(std::move(action_results));
   } else {
     // RunLater is load bearing. See:
     // https://chromium-review.googlesource.com/c/chromium/src/+/7552225/comment/b0b7f011_71da3233/
-    RunLater(base::BindOnce(std::move(callback), result->code,
-                            index_of_failed_action, std::move(action_results)));
+    RunLater(base::BindOnce(std::move(callback), std::move(action_results)));
   }
 }
 

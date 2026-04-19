@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ash/constants/ash_paths.h"
+#include "ash/constants/ash_pref_names.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
@@ -73,9 +74,7 @@ void WriteFile(const base::FilePath& path, const std::string& blob) {
 
 DeviceStateMixin::DeviceStateMixin(InProcessBrowserTestMixinHost* host,
                                    State initial_state)
-    : InProcessBrowserTestMixin(host),
-      state_(initial_state),
-      local_state_mixin_(host, this) {
+    : InProcessBrowserTestMixin(host), state_(initial_state) {
   DCHECK(!g_instance_created);
   g_instance_created = true;
 }
@@ -105,25 +104,26 @@ void DeviceStateMixin::SetUpInProcessBrowserTestFixture() {
   }
 }
 
-void DeviceStateMixin::SetUpLocalState() {
-  PrefService* local_state = g_browser_process->local_state();
+void DeviceStateMixin::SetUpLocalStatePrefService(PrefService* local_state) {
+  InProcessBrowserTestMixin::SetUpLocalStatePrefService(local_state);
+
   switch (state_) {
     case DeviceStateMixin::State::OOBE_COMPLETED_CLOUD_ENROLLED:
     case DeviceStateMixin::State::OOBE_COMPLETED_ACTIVE_DIRECTORY_ENROLLED:
     case DeviceStateMixin::State::OOBE_COMPLETED_CONSUMER_OWNED:
     case DeviceStateMixin::State::OOBE_COMPLETED_DEMO_MODE:
       local_state->SetBoolean(prefs::kOobeComplete, true);
-      local_state->SetInteger(::prefs::kDeviceRegistered, 1);
-      local_state->SetBoolean(::prefs::kEnrollmentRecoveryRequired, false);
+      local_state->SetInteger(ash::prefs::kDeviceRegistered, 1);
+      local_state->SetBoolean(ash::prefs::kEnrollmentRecoveryRequired, false);
       break;
     case DeviceStateMixin::State::OOBE_COMPLETED_UNOWNED:
     case DeviceStateMixin::State::OOBE_COMPLETED_PERMANENTLY_UNOWNED:
       local_state->SetBoolean(prefs::kOobeComplete, true);
-      local_state->SetInteger(::prefs::kDeviceRegistered, 0);
-      local_state->SetBoolean(::prefs::kEnrollmentRecoveryRequired, false);
+      local_state->SetInteger(ash::prefs::kDeviceRegistered, 0);
+      local_state->SetBoolean(ash::prefs::kEnrollmentRecoveryRequired, false);
       break;
     case DeviceStateMixin::State::BEFORE_OOBE:
-      local_state->SetInteger(::prefs::kDeviceRegistered, 0);
+      local_state->SetInteger(ash::prefs::kDeviceRegistered, 0);
       break;
   }
 }

@@ -4185,12 +4185,11 @@ TEST_P(PaintArtifactCompositorTest, LayerRasterInvalidationWithClip) {
   {
     cc::LayerTreeImpl::DiscardableImageMapUpdater updater(
         host_impl.sync_tree());
-    layer->PushPropertiesTo(
-        layer_impl.get(),
-        *const_cast<const cc::LayerTreeHost&>(GetLayerTreeHost())
-             .pending_commit_state(),
-        const_cast<const cc::LayerTreeHost&>(GetLayerTreeHost())
-            .thread_unsafe_commit_state());
+    GetLayerTreeHost().pending_commit_state()->layer_update_rects.insert(
+        std::make_pair(layer->id(), layer->update_rect()));
+    layer->ResetUpdateRect();
+    layer->PushPropertiesTo(layer_impl.get(),
+                            *GetLayerTreeHost().pending_commit_state());
   }
   Update(artifact2);
   ASSERT_EQ(1u, LayerCount());
@@ -4216,12 +4215,11 @@ TEST_P(PaintArtifactCompositorTest, LayerRasterInvalidationWithClip) {
   {
     cc::LayerTreeImpl::DiscardableImageMapUpdater updater(
         host_impl.sync_tree());
-    layer->PushPropertiesTo(
-        layer_impl.get(),
-        *const_cast<const cc::LayerTreeHost&>(GetLayerTreeHost())
-             .pending_commit_state(),
-        const_cast<const cc::LayerTreeHost&>(GetLayerTreeHost())
-            .thread_unsafe_commit_state());
+    GetLayerTreeHost().pending_commit_state()->layer_update_rects.insert(
+        std::make_pair(layer->id(), layer->update_rect()));
+    layer->ResetUpdateRect();
+    layer->PushPropertiesTo(layer_impl.get(),
+                            *GetLayerTreeHost().pending_commit_state());
   }
   Update(artifact3);
   ASSERT_EQ(1u, LayerCount());
@@ -5059,17 +5057,19 @@ TEST_P(PaintArtifactCompositorTest, DirectlySetScrollOffset) {
 
   auto& host = GetLayerTreeHost();
   host.CompositeForTest(base::TimeTicks::Now(), true, base::OnceClosure());
-  ASSERT_FALSE(const_cast<const cc::LayerTreeHost&>(host)
-                   .pending_commit_state()
-                   ->layers_that_should_push_properties.contains(scroll_layer));
+  ASSERT_FALSE(
+      const_cast<const cc::LayerTreeHost&>(host)
+          .pending_commit_state()
+          ->layer_ids_that_should_push_properties.contains(scroll_layer->id()));
   ASSERT_FALSE(host.CommitRequested());
   ASSERT_FALSE(transform_tree.needs_update());
 
   ASSERT_TRUE(GetPaintArtifactCompositor().DirectlySetScrollOffset(
       scroll_element_id, gfx::PointF(-10, -20)));
-  EXPECT_TRUE(const_cast<const cc::LayerTreeHost&>(host)
-                  .pending_commit_state()
-                  ->layers_that_should_push_properties.contains(scroll_layer));
+  EXPECT_TRUE(
+      const_cast<const cc::LayerTreeHost&>(host)
+          .pending_commit_state()
+          ->layer_ids_that_should_push_properties.contains(scroll_layer->id()));
   EXPECT_TRUE(host.CommitRequested());
   EXPECT_EQ(gfx::PointF(-10, -20),
             scroll_tree.current_scroll_offset(scroll_element_id));

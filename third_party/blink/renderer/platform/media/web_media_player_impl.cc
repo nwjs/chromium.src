@@ -115,7 +115,6 @@
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
 #include "media/filters/hls_data_source_provider_impl.h"
-#include "third_party/blink/renderer/platform/media/multi_buffer_data_source_factory.h"
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -697,7 +696,6 @@ void WebMediaPlayerImpl::Shutdown() {
   media_log_->OnWebMediaPlayerDestroyed();
 
   demuxer_manager_->StopAndResetClient();
-  demuxer_manager_->InvalidateWeakPtrs();
 
   // Disconnect from the surface layer. We still preserve the `bridge_` until
   // after pipeline shutdown to ensure any pending frames are painted for tests.
@@ -945,7 +943,7 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
 
   // Do a truncation to kMaxUrlLength+1 at most; we can add ellipsis later.
   media_log_->AddEvent<MediaLogEvent::kLoad>(
-      String(url).Substring(0, media::kMaxUrlLength + 1).Utf8());
+      url.GetString().GetString().subview(0, media::kMaxUrlLength + 1).Utf8());
   load_start_time_ = base::TimeTicks::Now();
 
   media_metrics_provider_->Initialize(
@@ -1008,13 +1006,21 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
       &WebMediaPlayerImpl::MultiBufferDataSourceInitialized, weak_this_));
 }
 
+void WebMediaPlayerImpl::UnlockBackgroundPlayback() {
+  DVLOG(1) << __func__;
+  DCHECK(main_task_runner_->BelongsToCurrentThread());
+
+  // Authorized system resume unlocks background video playback.
+  allow_background_video_playback_ = true;
+}
+
 void WebMediaPlayerImpl::Play() {
   DVLOG(1) << __func__;
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
   // User initiated play unlocks background video playback.
   if (frame_->HasTransientUserActivation())
-    video_locked_when_paused_when_hidden_ = false;
+    allow_background_video_playback_ = true;
 
   // TODO(sandersd): Do we want to reset the idle timer here?
   delegate_->SetIdle(delegate_id_, false);
@@ -1065,7 +1071,7 @@ void WebMediaPlayerImpl::Pause(PauseReason pause_reason) {
 
   // User initiated pause locks background videos.
   if (frame_->HasTransientUserActivation())
-    video_locked_when_paused_when_hidden_ = true;
+    allow_background_video_playback_ = false;
 
   pipeline_controller_->SetPlaybackRate(0.0);
 
@@ -1735,7 +1741,7 @@ WebMediaPlayerImpl::GetHlsDataSourceProvider() {
   auto media_log = std::make_unique<media::NullMediaLog>();
   return base::SequenceBound<media::HlsDataSourceProviderImpl>(
       main_task_runner_,
-      std::make_unique<MultiBufferDataSourceFactory>(
+      std::make_unique<MultiBufferDataSource::Factory>(
           media_log.get(),
           blink::BindRepeating(&WebMediaPlayerImpl::GetUrlData,
                                weak_factory_.GetWeakPtr()),
@@ -2298,17 +2304,25 @@ void WebMediaPlayerImpl::OnProgress() {
 }
 
 bool WebMediaPlayerImpl::CanPlayThrough() {
-  if (!base::FeatureList::IsEnabled(media::kSpecCompliantCanPlayThrough))
+  if (!base::FeatureList::IsEnabled(media::kSpecCompliantCanPlayThrough)) {
     return true;
-  if (GetDemuxerType() == media::DemuxerType::kChunkDemuxer)
-    return true;
+  }
+  switch (GetDemuxerType().value_or(media::DemuxerType::kUnknownDemuxer)) {
+    case media::DemuxerType::kChunkDemuxer:
+    case media::DemuxerType::kManifestDemuxer:
+      return true;
+    default:
+      break;
+  }
   if (demuxer_manager_->DataSourceFullyBuffered()) {
     return true;
   }
   // If we're not currently downloading, we have as much buffer as
   // we're ever going to get, which means we say we can play through.
-  if (network_state_ == WebMediaPlayer::kNetworkStateIdle)
+  if (network_state_ == WebMediaPlayer::kNetworkStateIdle) {
     return true;
+  }
+
   return buffered_data_source_host_->CanPlayThrough(
       base::Seconds(CurrentTime()), base::Seconds(Duration()),
       playback_rate_ == 0.0 ? 1.0 : playback_rate_);
@@ -2618,7 +2632,7 @@ void WebMediaPlayerImpl::OnPageHidden() {
 
   // Backgrounding a video requires a user gesture to resume playback.
   if (IsPageHidden()) {
-    video_locked_when_paused_when_hidden_ = true;
+    allow_background_video_playback_ = false;
   }
 
   if (watch_time_reporter_)
@@ -2655,7 +2669,7 @@ void WebMediaPlayerImpl::OnPageShown() {
   background_pause_timer_.Stop();
 
   // Foreground videos don't require user gesture to continue playback.
-  video_locked_when_paused_when_hidden_ = false;
+  allow_background_video_playback_ = true;
 
   was_suspended_for_frame_closed_or_frozen_ = false;
 
@@ -2715,7 +2729,7 @@ void WebMediaPlayerImpl::OnFrameShown() {
   background_pause_timer_.Stop();
 
   // Foreground videos don't require user gesture to continue playback.
-  video_locked_when_paused_when_hidden_ = false;
+  allow_background_video_playback_ = true;
 
   was_suspended_for_frame_closed_or_frozen_ = false;
 
@@ -2737,7 +2751,7 @@ void WebMediaPlayerImpl::OnFrameHidden() {
 
   // Backgrounding a video requires a user gesture to resume playback.
   if (IsFrameHidden()) {
-    video_locked_when_paused_when_hidden_ = true;
+    allow_background_video_playback_ = false;
   }
 
   if (watch_time_reporter_) {
@@ -3055,21 +3069,12 @@ void WebMediaPlayerImpl::StartPipeline() {
           CrossThreadBindOnce(base::BindPostTaskToCurrentDefault(
               ConvertToBaseOnceCallback(CrossThreadBindOnce(
                   &WebMediaPlayerImpl::OnFirstFrame, weak_this_))))));
-  base::flat_map<std::string, std::string> headers;
-  // Referer is the right spelling of the HTTP header, not Referrer.
-  headers[net::HttpRequestHeaders::kReferer] =
-      net::URLRequestJob::ComputeReferrerForPolicy(
-          frame_->GetDocument().GetReferrerPolicy(),
-          GURL(frame_->GetDocument().OutgoingReferrer().Utf8()),
-          demuxer_manager_->LoadedUrl())
-          .spec();
 
   // Unretained(this) is safe here, since `CreateDemuxer` calls the bound
   // method directly and immediately.
   auto create_demuxer_error = demuxer_manager_->CreateDemuxer(
       load_type_ == kLoadTypeMediaSource, preload_, needs_first_frame_,
-      BindOnce(&WebMediaPlayerImpl::OnDemuxerCreated, Unretained(this)),
-      std::move(headers));
+      BindOnce(&WebMediaPlayerImpl::OnDemuxerCreated, Unretained(this)));
 
   if (!create_demuxer_error.is_ok()) {
     return OnError(std::move(create_demuxer_error));
@@ -3759,7 +3764,7 @@ bool WebMediaPlayerImpl::ShouldPausePlaybackWhenHidden() const {
   // in the background.
   if (IsBackgroundSuspendEnabled(this)) {
     return !preserve_audio || (IsResumeBackgroundVideosEnabled() &&
-                               video_locked_when_paused_when_hidden_);
+                               !allow_background_video_playback_);
   }
 
   if (HasVideo() && IsVideoBeingCaptured())
@@ -4137,6 +4142,13 @@ void WebMediaPlayerImpl::RegisterFrameSinkHierarchy() {
 void WebMediaPlayerImpl::UnregisterFrameSinkHierarchy() {
   if (bridge_)
     bridge_->UnregisterFrameSinkHierarchy();
+}
+
+void WebMediaPlayerImpl::ReparentFrameSinkHierarchy(
+    const viz::FrameSinkId& new_parent_frame_sink_id) {
+  if (bridge_) {
+    bridge_->ReparentFrameSinkHierarchy(new_parent_frame_sink_id);
+  }
 }
 
 void WebMediaPlayerImpl::RecordVideoOcclusionState(

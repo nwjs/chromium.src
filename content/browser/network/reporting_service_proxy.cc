@@ -32,7 +32,7 @@ namespace {
 class ReportingServiceProxyImpl : public blink::mojom::ReportingServiceProxy {
  public:
   ReportingServiceProxyImpl(
-      int render_process_id,
+      ChildProcessId render_process_id,
       const base::UnguessableToken& reporting_source,
       const net::NetworkAnonymizationKey& network_anonymization_key)
       : render_process_id_(render_process_id),
@@ -89,19 +89,22 @@ class ReportingServiceProxyImpl : public blink::mojom::ReportingServiceProxy {
     QueueReport(url, "default", "deprecation", std::move(body));
   }
 
-  void QueueCspViolationReport(const GURL& url,
-                               const std::string& group,
-                               const std::string& document_url,
-                               const std::optional<std::string>& referrer,
-                               const std::optional<std::string>& blocked_url,
-                               const std::string& effective_directive,
-                               const std::string& original_policy,
-                               const std::optional<std::string>& source_file,
-                               const std::optional<std::string>& script_sample,
-                               const std::string& disposition,
-                               uint16_t status_code,
-                               int line_number,
-                               int column_number) override {
+  void QueueCspViolationReport(
+      const GURL& url,
+      const std::string& group,
+      const std::string& document_url,
+      const std::optional<std::string>& referrer,
+      const std::optional<std::string>& blocked_url,
+      const std::string& effective_directive,
+      const std::string& original_policy,
+      const std::optional<std::string>& source_file,
+      const std::optional<std::string>& script_sample,
+      const std::string& disposition,
+      uint16_t status_code,
+      int line_number,
+      int column_number,
+      const std::optional<std::string>& url_hash,
+      const std::optional<std::string>& eval_hash) override {
     base::DictValue body;
     body.Set("documentURL", document_url);
     if (referrer)
@@ -120,6 +123,12 @@ class ReportingServiceProxyImpl : public blink::mojom::ReportingServiceProxy {
       body.Set("lineNumber", line_number);
     if (column_number)
       body.Set("columnNumber", column_number);
+    if (url_hash) {
+      body.Set("url-hash", *url_hash);
+    }
+    if (eval_hash) {
+      body.Set("eval-hash", *eval_hash);
+    }
     QueueReport(url, group, "csp-violation", std::move(body));
   }
 
@@ -234,7 +243,7 @@ class ReportingServiceProxyImpl : public blink::mojom::ReportingServiceProxy {
     QueueReport(url, endpoint, "csp-hash", std::move(body));
   }
 
-  int render_process_id() const { return render_process_id_; }
+  ChildProcessId render_process_id() const { return render_process_id_; }
 
  private:
   void QueueReport(const GURL& url,
@@ -249,7 +258,7 @@ class ReportingServiceProxyImpl : public blink::mojom::ReportingServiceProxy {
         std::move(body));
   }
 
-  const int render_process_id_;
+  const ChildProcessId render_process_id_;
   const base::UnguessableToken reporting_source_;
   const net::NetworkAnonymizationKey network_anonymization_key_;
 };
@@ -262,7 +271,7 @@ void CreateReportingServiceProxyForFrame(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<ReportingServiceProxyImpl>(
-          render_frame_host->GetProcess()->GetDeprecatedID(),
+          render_frame_host->GetProcess()->GetID(),
           render_frame_host->GetReportingSource(),
           render_frame_host->GetIsolationInfoForSubresources()
               .network_anonymization_key()),
@@ -287,7 +296,7 @@ void CreateReportingServiceProxyForSharedWorker(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<ReportingServiceProxyImpl>(
-          shared_worker_host->GetProcessHost()->GetDeprecatedID(),
+          shared_worker_host->GetProcessHost()->GetID(),
           shared_worker_host->GetReportingSource(),
           shared_worker_host->GetNetworkAnonymizationKey()),
       std::move(receiver));
@@ -299,7 +308,7 @@ void CreateReportingServiceProxyForDedicatedWorker(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<ReportingServiceProxyImpl>(
-          dedicated_worker_host->GetProcessHost()->GetDeprecatedID(),
+          dedicated_worker_host->GetProcessHost()->GetID(),
           dedicated_worker_host->GetReportingSource(),
           dedicated_worker_host->GetNetworkAnonymizationKey()),
       std::move(receiver));
@@ -318,7 +327,7 @@ void CreateReportingServiceProxyForSharedStorageWorklet(
   }
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<ReportingServiceProxyImpl>(
-          shared_storage_worklet_host->GetProcessHost()->GetDeprecatedID(),
+          shared_storage_worklet_host->GetProcessHost()->GetID(),
           shared_storage_worklet_host->GetWorkletToken(),
           net::NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
               network_isolation_key)),

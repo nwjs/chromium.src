@@ -34,12 +34,12 @@
 #include "content/public/test/fake_render_widget_host.h"
 #include "content/public/test/frame_load_waiter.h"
 #include "content/public/test/policy_container_utils.h"
+#include "content/public/test/test_content_client.h"
 #include "content/renderer/mock_agent_scheduling_group.h"
 #include "content/renderer/render_process.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/renderer_blink_platform_impl.h"
 #include "content/renderer/renderer_main_platform_delegate.h"
-#include "content/test/test_content_client.h"
 #include "content/test/test_render_frame.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -59,7 +59,6 @@
 #include "third_party/blink/public/mojom/frame/frame_replication_state.mojom.h"
 #include "third_party/blink/public/mojom/leak_detector/leak_detector.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
-#include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
@@ -256,35 +255,41 @@ class RenderFrameWasShownWaiter : public RenderFrameObserver {
   base::RunLoop run_loop_;
 };
 
-RenderViewTest::RendererBlinkPlatformImplTestOverride::
-    RendererBlinkPlatformImplTestOverride() {
-  InitializeMojo();
-}
+RenderViewTest::CustomTaskEnvironment::CustomTaskEnvironment()
+    : base::test::TaskEnvironment(CreateTaskEnvironmentWithPriorities(
+          blink::scheduler::WebThreadScheduler::
+              CreatePrioritySettingsForTesting(),
+          SubclassCreatesDefaultTaskRunner{},
+          base::test::TaskEnvironment::TimeSource::MOCK_TIME)) {}
 
-RenderViewTest::RendererBlinkPlatformImplTestOverride::
-    ~RendererBlinkPlatformImplTestOverride() = default;
+RenderViewTest::CustomTaskEnvironment::~CustomTaskEnvironment() = default;
 
 RendererBlinkPlatformImpl*
-RenderViewTest::RendererBlinkPlatformImplTestOverride::Get() const {
+RenderViewTest::CustomTaskEnvironment::blink_platform() {
   return blink_platform_impl_.get();
 }
 
-void RenderViewTest::RendererBlinkPlatformImplTestOverride::Initialize() {
+void RenderViewTest::CustomTaskEnvironment::SetUp() {
   blink::Platform::InitializeBlink();
+
   main_thread_scheduler_ =
-      blink::scheduler::WebThreadScheduler::CreateMainThreadScheduler();
+      blink::scheduler::WebThreadScheduler::CreateMainThreadSchedulerForTesting(
+          sequence_manager());
   blink_platform_impl_ =
       std::make_unique<RendererBlinkPlatformImplTestOverrideImpl>(
           main_thread_scheduler_.get());
+
+  DeferredInitFromSubclass(
+      main_thread_scheduler_->DeprecatedDefaultTaskRunner());
 }
 
-void RenderViewTest::RendererBlinkPlatformImplTestOverride::Shutdown() {
+void RenderViewTest::CustomTaskEnvironment::TearDown() {
   main_thread_scheduler_->Shutdown();
   blink_platform_impl_->Shutdown();
 }
 
-RenderViewTest::RenderViewTest(bool hook_render_frame_creation)
-    : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
+RenderViewTest::RenderViewTest(bool hook_render_frame_creation) {
+  InitializeMojo();
   // Overrides creation of RenderFrameImpl. Subclasses may wish to do this
   // themselves and it can only be done once.
   if (hook_render_frame_creation)
@@ -314,7 +319,7 @@ bool RenderViewTest::ExecuteJavaScriptAndReturnIntValue(
     int* int_result) {
   v8::HandleScope handle_scope(Isolate());
   v8::Local<v8::Value> result = GetMainFrame()->ExecuteScriptAndReturnValue(
-      WebScriptSource(blink::WebString::FromUTF16(script)));
+      WebScriptSource(blink::WebString::FromUtf16(script)));
   if (result.IsEmpty() || !result->IsInt32())
     return false;
 
@@ -329,7 +334,7 @@ bool RenderViewTest::ExecuteJavaScriptAndReturnNumberValue(
     double* number_result) {
   v8::HandleScope handle_scope(Isolate());
   v8::Local<v8::Value> result = GetMainFrame()->ExecuteScriptAndReturnValue(
-      WebScriptSource(blink::WebString::FromUTF16(script)));
+      WebScriptSource(blink::WebString::FromUtf16(script)));
   if (result.IsEmpty() || !result->IsNumber())
     return false;
 
@@ -448,9 +453,9 @@ void RenderViewTest::SetUp() {
 
   // Blink needs to be initialized before calling CreateContentRendererClient()
   // because it uses Blink internally.
-  blink_platform_impl_.Initialize();
-  blink::Initialize(blink_platform_impl_.Get(), &binders_,
-                    blink_platform_impl_.GetMainThreadScheduler());
+  task_environment_.SetUp();
+  blink::Initialize(task_environment_.blink_platform(), &binders_,
+                    task_environment_.main_thread_scheduler());
 
   content_browser_client_.reset(CreateContentBrowserClient());
   content_renderer_client_.reset(CreateContentRendererClient());
@@ -533,8 +538,7 @@ void RenderViewTest::SetUp() {
   RenderFrameWasShownWaiter waiter(
       RenderFrame::FromWebFrame(web_view_->MainFrame()->ToWebLocalFrame()));
   render_widget_host_->widget_remote_for_testing()->WasShown(
-      /*was_evicted=*/false,
-      blink::mojom::RecordContentToVisibleTimeRequestPtr());
+      /*was_evicted=*/false, std::nullopt);
   waiter.Wait();
 }
 
@@ -590,7 +594,7 @@ void RenderViewTest::TearDown() {
     run_loop.Run();
   }
 
-  blink_platform_impl_.Shutdown();
+  task_environment_.TearDown();
   platform_->PlatformUninitialize();
   platform_.reset();
   params_.reset();

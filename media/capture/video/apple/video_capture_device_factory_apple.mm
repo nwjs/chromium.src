@@ -2,20 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/capture/video/apple/video_capture_device_factory_apple.h"
 
 #include <stddef.h>
+
 #include <memory>
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -24,7 +24,6 @@
 #include "media/capture/video/apple/video_capture_device_apple.h"
 #import "media/capture/video/apple/video_capture_device_avfoundation.h"
 #import "media/capture/video/apple/video_capture_device_avfoundation_utils.h"
-
 #if BUILDFLAG(IS_MAC)
 #import <IOKit/audio/IOAudioTypes.h>
 
@@ -85,8 +84,9 @@ bool IsDeviceBlockedForAVFoundation(const std::string& device_id) {
   bool is_device_blocked = false;
   for (size_t i = 0;
        !is_device_blocked && i < std::size(kBlockedCamerasIdSignature); ++i) {
-    is_device_blocked = base::EndsWith(device_id, kBlockedCamerasIdSignature[i],
-                                       base::CompareCase::INSENSITIVE_ASCII);
+    is_device_blocked =
+        base::EndsWith(device_id, UNSAFE_TODO(kBlockedCamerasIdSignature[i]),
+                       base::CompareCase::INSENSITIVE_ASCII);
   }
   return is_device_blocked;
 }

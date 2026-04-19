@@ -81,9 +81,6 @@ Dikkate alınması gereken noktalar:
 <translation id="2703746758996815929">Faydalı Chrome ipuçları almak için iOS ayarlarınızdan bildirimleri açın.</translation>
 <translation id="2728851697704606655">Google Lens ile Çevirin</translation>
 <translation id="2736805085127235148">Chrome bildirimleri cihaz ayarlarınızda devre dışı bırakılmış.</translation>
-<translation id="2754428955276778271">Chrome verilerinizden bazıları henüz Google Hesabınıza kaydedilmedi.
-
-Oturumunuzu kapatmadan önce birkaç dakika bekleyin. Oturumu şimdi kapatırsanız bu veriler silinir.</translation>
 <translation id="2767464022270041271">Kaydedilen şifre yok. Google Şifre Yöneticisi, kaydetmeniz halinde şifrelerinizi kontrol edebilir.</translation>
 <translation id="2788811701191021538">Chrome'daki ödeme yöntemi ayarları sayfasını açar.</translation>
 <translation id="2876628302275096482"><ph name="BEGIN_LINK" />Chrome'un verilerinizi nasıl gizli tuttuğu<ph name="END_LINK" /> hakkında daha fazla bilgi edinin</translation>
@@ -188,6 +185,7 @@ Oturumunuzu kapatmadan önce birkaç dakika bekleyin. Oturumu şimdi kapatırsan
 <translation id="5395376160638294582">Google Hesabınızdaki Chrome verilerini her zaman kullanabildiğinizden emin olun</translation>
 <translation id="5404252374083197467">Chrome varsayılan olarak ayarlansın mı?</translation>
 <translation id="5439191312780166229">Standart korumaya ek olarak sitelerden alınmış daha fazla veriyi analiz ederek Google'ın daha önce bilmedikleri de dahil olmak üzere tehlikeli siteler hakkında sizi uyarır. Chrome uyarılarını atlamayı seçebilirsiniz.</translation>
+<translation id="5453077102022695084">Chrome'u varsayılan tarayıcı olarak ayarlama talimatlarının yer aldığı tam ekran video</translation>
 <translation id="5460571915754665838">4. Chrome'u seçin</translation>
 <translation id="5492504007368565877">Google Şifre Yöneticisi, şifrelerinizi kontrol edemiyor.</translation>
 <translation id="5525095647255982834">Bu sekmeyi başka bir cihaza göndermek için ilgili cihazda Chrome'da oturum açın.</translation>
@@ -374,7 +372,6 @@ Verileriniz <ph name="TIME" /> tarihinde parolanızla şifrelendi. Chrome verile
 <translation id="9176561303811134420">Chrome'daki ödeme yöntemlerini yönet</translation>
 <translation id="9181628561061032322">Chrome'daki Son Sekmeleri Açar.</translation>
 <translation id="924447568950697217">Chrome'u varsayılan tarayıcınız yapma</translation>
-<translation id="93622496651329736">Chrome'u varsayılan tarayıcı olarak ayarlama talimatlarının yer aldığı pencere içinde pencere videosu</translation>
 <translation id="948597495737267756">Chrome geçmişi sayfanızı açar.</translation>
 <translation id="954347330803595209">Şifreleriniz, geçmişiniz, yer işaretleriniz ve kredi kartlarınızı Chrome'da kullanmak için verilerinizi içe aktarın</translation>
 <translation id="97300214378190234">Diğer uygulamalardaki bağlantılara her dokunduğunuzda Chrome'u kullanın.</translation>

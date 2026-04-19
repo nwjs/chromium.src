@@ -20,6 +20,7 @@
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
 extern NSString* const kGeminiFullSymbol;
 extern NSString* const kGeminiBrandedLogoSymbol;
+extern NSString* const kGeminiLiveLogoSymbol;
 extern NSString* const kGoogleDriveSymbol;
 extern NSString* const kGoogleFullSymbol;
 extern NSString* const kGoogleIconSymbol;
@@ -27,7 +28,9 @@ extern NSString* const kGoogleShieldSymbol;
 extern NSString* const kGoogleMapsSymbol;
 extern NSString* const kGooglePaySymbol;
 extern NSString* const kGooglePhotosSymbol;
+extern NSString* const kGoogleWalletIconSymbol;
 extern NSString* const kGoogleWalletSymbol;
+extern NSString* const kGPayPillIconSymbol;
 extern NSString* const kMulticolorChromeballSymbol;
 extern NSString* const kPageInsightsSymbol;
 #else
@@ -104,6 +107,7 @@ extern NSString* const kChartLineDowntrendXYAxisSymbol;
 extern NSString* const kCircleSymbol;
 extern NSString* const kCircleFillSymbol;
 extern NSString* const kPhotoSymbol;
+extern NSString* const kPaperclipSymbol;
 extern NSString* const kPhotoBadgeArrowDownSymbol;
 extern NSString* const kTabGroupsSymbol;
 extern NSString* const kCropSymbol;
@@ -308,6 +312,9 @@ extern NSString* const kArrowDownToLineSymbol;
 extern NSString* const kPhotoOnRectangleAngled;
 extern NSString* const kSparklesSymbol;
 extern NSString* const kSparkles2Symbol;
+extern NSString* const kEnvelopeSymbol;
+extern NSString* const kSquareAndPencilSymbol;
+extern NSString* const kCreditCardFinderActionSymbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

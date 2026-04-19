@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "base/command_line.h"
-#include "base/containers/enum_set.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file.h"
@@ -86,7 +85,6 @@
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/accept_ch_frame_interceptor.h"
-#include "services/network/ad_heuristic_cookie_overrides.h"
 #include "services/network/cookie_settings.h"
 #include "services/network/devtools_durable_msg_writer.h"
 #include "services/network/file_opener_for_upload.h"

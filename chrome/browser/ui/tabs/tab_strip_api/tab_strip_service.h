@@ -42,7 +42,7 @@ class TabStripService {
   virtual mojom::TabStripService::CreateTabAtResult CreateTabAt(
       const std::optional<tabs_api::Position>& pos,
       const std::optional<GURL>& url) = 0;
-  virtual mojom::TabStripService::CloseTabsResult CloseTabs(
+  virtual mojom::TabStripService::CloseNodesResult CloseNodes(
       const std::vector<tabs_api::NodeId>& ids) = 0;
   virtual mojom::TabStripService::ActivateTabResult ActivateTab(
       const tabs_api::NodeId& id) = 0;
@@ -61,6 +61,10 @@ class TabStripService {
   virtual mojom::TabStripExperimentService::UpdateTabGroupVisualResult
   UpdateTabGroupVisual(const tabs_api::NodeId& id,
                        const tab_groups::TabGroupVisualData& visual_data) = 0;
+  virtual mojom::TabStripExperimentService::ReplaceTabInSplitResult
+  ReplaceTabInSplit(const tabs_api::NodeId& tab_to_replace,
+                    const tabs_api::NodeId& tab_to_insert) = 0;
+
   virtual mojom::TabStripExperimentService::ShowTabContextMenuResult
   ShowTabContextMenu(const tabs_api::NodeId& tab_id,
                      const gfx::Point& location) = 0;

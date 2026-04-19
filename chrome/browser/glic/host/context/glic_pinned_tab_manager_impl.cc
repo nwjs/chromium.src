@@ -24,6 +24,7 @@
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/glic/host/context/glic_tab_data.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -289,7 +290,7 @@ class GlicPinnedTabManagerImpl::UpdateThrottler {
 
 GlicPinnedTabManagerImpl::GlicPinnedTabManagerImpl(
     Profile* profile,
-    GlicInstance::UIDelegate* ui_delegate,
+    GlicInstance::UiDelegate* ui_delegate,
     GlicMetrics* metrics)
     : profile_(profile),
       ui_delegate_(ui_delegate),

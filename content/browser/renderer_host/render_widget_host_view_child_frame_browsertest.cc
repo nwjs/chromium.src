@@ -4,6 +4,8 @@
 
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 
+#include <vector>
+
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -24,15 +26,16 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/test_content_browser_client.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
-#include "content/test/test_content_browser_client.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/page/content_to_visible_time_request.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace content {
@@ -406,13 +409,11 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewChildFrameBrowserTest,
     // Hide the frame and make it visible again, to force it to record the
     // tab-switch time, which is generated from presentation-feedback.
     child_rwh_impl->WasHidden();
-    child_rwh_impl->WasShown(
-        blink::mojom::RecordContentToVisibleTimeRequest::New(
-            base::TimeTicks::Now(),
-            /*destination_is_loaded=*/true,
-            /*show_reason_tab_switching=*/true,
-            /*show_reason_bfcache_restore=*/false,
-            /*show_reason_unfold=*/false));
+    child_rwh_impl->WasShown(blink::RecordContentToVisibleTimeRequest{
+        .events = {blink::VisibleTimeEvent{
+            .event_start_time = base::TimeTicks::Now(),
+            .reason = blink::VisibleTimeEvent::TabSwitchReason{
+                .destination_is_loaded = true}}}});
     // Force the child to submit a new frame.
     return ExecJs(root->child_at(0)->current_frame_host(),
                   "document.write('Force a new frame.');");

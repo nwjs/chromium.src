@@ -10,7 +10,6 @@
 #include <optional>
 #include <utility>
 
-#include "base/containers/lru_cache.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -50,7 +49,7 @@ struct ResourceRequest;
 // use or introduce a corresponding enum to content::PreloadingEligibility or
 // ChromePreloadingEligibility.
 //
-// LINT.IfChange
+// LINT.IfChange(SearchPrefetchEligibilityReason)
 enum class SearchPrefetchEligibilityReason {
   // The prefetch was started.
   kPrefetchStarted = 0,
@@ -73,9 +72,13 @@ enum class SearchPrefetchEligibilityReason {
   kThrottled = 8,
   // The prefetch was suppressed because the network is too slow.
   kSlowNetwork = 9,
-  kMaxValue = kSlowNetwork,
+  // The prefetch was suppressed because Data Saver is enabled.
+  kDataSaverEnabled = 10,
+  // The prefetch was suppressed because Battery Saver is enabled.
+  kBatterySaverEnabled = 11,
+  kMaxValue = kBatterySaverEnabled,
 };
-// LINT.ThenChange(/tools/metrics/histograms/enums.xml:SearchPrefetchEligibilityReason)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:SearchPrefetchEligibilityReason)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -87,7 +90,7 @@ enum class SearchPrefetchEligibilityReason {
 // or if you are not a Googler, please file an FYI bug on https://crbug.new with
 // component Internals>Preload.
 //
-// LINT.IfChange
+// LINT.IfChange(SearchPrefetchServingReason)
 enum class SearchPrefetchServingReason {
   // The prefetch was started.
   kServed = 0,
@@ -113,7 +116,7 @@ enum class SearchPrefetchServingReason {
   kRequestInFlightNotReady = 11,
   kMaxValue = kRequestInFlightNotReady,
 };
-// LINT.ThenChange()
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:SearchPrefetchServingReason)
 
 class SearchPrefetchService : public KeyedService,
                               public TemplateURLServiceObserver {
@@ -220,16 +223,13 @@ class SearchPrefetchService : public KeyedService,
   friend class PrerenderOmniboxSearchSuggestionBrowserTest;
   friend class SearchPrefetchServiceEnabledBrowserTest;
 
-  struct RealNaivigationServingResult {
-    bool served_from_prefetch_cache = false;
-    base::Time last_navigation_time;
-  };
 
   // Returns whether the prefetch started or not.
   bool MaybePrefetchURL(const GURL& url,
                         bool navigation_prefetch,
                         content::WebContents* web_contents,
-                        content::PreloadingPredictor predictor);
+                        content::PreloadingPredictor predictor,
+                        bool should_ignore_saver_modes);
 
   // Adds |this| as an observer of |template_url_service| if not added already.
   void ObserveTemplateURLService(TemplateURLService* template_url_service);
@@ -271,10 +271,6 @@ class SearchPrefetchService : public KeyedService,
                                        TemplateURLService* template_url_service,
                                        const GURL& canonical_search_url);
 
-  void RecordInterceptionMetrics(const std::u16string& search_terms,
-                                 SearchPrefetchServingReason serving_status);
-  void RecordPotentialDuplicateSearchTermsAheadOfNavigationalPrefetch(
-      const std::u16string& search_terms);
 
   // Prefetches that are started are stored using search terms as a key. Only
   // one prefetch should be started for a given search term until the old
@@ -300,8 +296,6 @@ class SearchPrefetchService : public KeyedService,
   // serving time of the response.
   std::map<GURL, std::pair<GURL, base::Time>> prefetch_cache_;
 
-  base::LRUCache<std::u16string, RealNaivigationServingResult>
-      search_terms_cache_{50};
 
   base::WeakPtrFactory<SearchPrefetchService> weak_factory_{this};
 };

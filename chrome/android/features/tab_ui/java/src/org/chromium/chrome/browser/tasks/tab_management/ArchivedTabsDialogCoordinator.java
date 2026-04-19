@@ -14,7 +14,6 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
-import android.content.res.Resources;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -25,7 +24,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.core.util.Function;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.Callback;
@@ -35,6 +33,8 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.EnsuresNonNull;
@@ -70,11 +70,13 @@ import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManage
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.ParentOverrideSlot;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.SavedTabGroupUndoBarController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.ActionConfirmationDialog;
+import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.ConfirmationDialogParams;
 import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.DialogDismissType;
 import org.chromium.components.browser_ui.widget.FadingShadow;
 import org.chromium.components.browser_ui.widget.FadingShadowView;
@@ -91,7 +93,6 @@ import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.util.TokenHolder;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -360,7 +361,11 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                 @Override
                 public void willHide() {
                     mDialogRecyclerView.removeOnScrollListener(mRecyclerScrollListener);
-                    mSnackbarManager.popParentViewFromOverrideStack(mSnackbarOverrideToken);
+                    if (mHasSnackbarOverride) {
+                        mSnackbarManager.popParentViewOverride(
+                                ParentOverrideSlot.ARCHIVED_TABS_DIALOG);
+                        mHasSnackbarOverride = false;
+                    }
                     // In case we were hidden by TabListEditor in some other case, force the
                     // animation to finish.
                     animateOut(
@@ -397,6 +402,9 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                 }
             };
 
+    private final SettableNonNullObservableSupplier<Integer> mSnackbarMarginSupplier =
+            ObservableSuppliers.createNonNull(0);
+
     private final Activity mActivity;
     private final ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     private final TabModel mArchivedTabModel;
@@ -430,7 +438,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
     private @Nullable TabListEditorCoordinator mTabListEditorCoordinator;
     private @Nullable OnTabSelectingListener mOnTabSelectingListener;
     private @Nullable PropertyModel mIphMessagePropertyModel;
-    private int mSnackbarOverrideToken;
+    private boolean mHasSnackbarOverride;
     private boolean mIsOpeningLastItem;
     private boolean mIsShowing;
 
@@ -527,6 +535,13 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         if (mTabGroupSyncService != null) {
             mTabGroupSyncService.addObserver(mTabGroupSyncObserver);
         }
+
+        int closeAllTabsContainerHeight =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.archived_tabs_dialog_bottom_button_container_height);
+        mSnackbarMarginSupplier.set(closeAllTabsContainerHeight);
     }
 
     /** Hides the dialog. */
@@ -619,7 +634,11 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         mBackPressManager.addHandler(controller, BackPressHandler.Type.ARCHIVED_TABS_DIALOG);
 
         FrameLayout snackbarContainer = mDialogView.findViewById(R.id.snackbar_container);
-        mSnackbarOverrideToken = mSnackbarManager.pushParentViewToOverrideStack(snackbarContainer);
+        mHasSnackbarOverride = true;
+        mSnackbarManager.pushParentViewOverride(
+                ParentOverrideSlot.ARCHIVED_TABS_DIALOG,
+                snackbarContainer,
+                mSnackbarMarginSupplier);
         // View is obscured by the TabListEditorCoordinator, so it needs to be brought to the front.
         mDialogView.findViewById(R.id.close_all_tabs_button_container).bringToFront();
         snackbarContainer.bringToFront();
@@ -745,7 +764,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         mBackPressManager.removeHandler(mTabListEditorCoordinator.getController());
         mTabArchiveSettings.removeObserver(mTabArchiveSettingsObserver);
         mArchivedTabModelOrchestrator.getTabCountSupplier().removeObserver(mTabCountObserver);
-        mSnackbarOverrideToken = TokenHolder.INVALID_TOKEN;
+        mHasSnackbarOverride = false;
         mIsShowing = false;
         TabListRecyclerView recyclerView = mTabSwitcherRecyclerView.get();
         if (recyclerView != null) {
@@ -847,25 +866,23 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
      */
     private void showCloseAllArchivedTabsConfirmation(
             int tabCount, List<String> archivedTabGroupSyncIds, Runnable onConfirmRunnable) {
-        Function<Resources, String> titleResolver =
-                (res) -> {
-                    return res.getQuantityString(
-                            R.plurals.archive_dialog_close_all_inactive_tabs_confirmation_title,
-                            tabCount,
-                            tabCount);
-                };
-        Function<Resources, String> descriptionResolver =
-                (res) -> {
-                    return res.getString(
-                            R.string
-                                    .archive_dialog_close_all_inactive_tabs_confirmation_description);
-                };
+        String title =
+                mActivity
+                        .getResources()
+                        .getQuantityString(
+                                R.plurals.archive_dialog_close_all_inactive_tabs_confirmation_title,
+                                tabCount,
+                                tabCount);
         mActionConfirmationDialog.show(
-                titleResolver,
-                descriptionResolver,
-                R.string.archive_dialog_close_all_inactive_tabs_confirmation,
-                R.string.cancel,
-                /* supportStopShowing= */ false,
+                new ConfirmationDialogParams(mActivity)
+                        .withTitle(title)
+                        .withDescription(
+                                R.string
+                                        .archive_dialog_close_all_inactive_tabs_confirmation_description)
+                        .withPositiveButton(
+                                R.string.archive_dialog_close_all_inactive_tabs_confirmation)
+                        .withNegativeButton(R.string.cancel)
+                        .withSupportStopShowing(false),
                 (dismissHandler, buttonClickResult, stopShowing) -> {
                     if (buttonClickResult == ButtonClickResult.POSITIVE) {
                         mArchivedTabModel

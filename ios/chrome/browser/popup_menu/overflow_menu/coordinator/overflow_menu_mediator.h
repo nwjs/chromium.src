@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/browser_content/ui_bundled/browser_content_consumer.h"
+#import "ios/chrome/browser/policy/model/browser_management_service.h"
 #import "ios/chrome/browser/popup_menu/overflow_menu/public/overflow_menu_action_provider.h"
 #import "ios/chrome/browser/popup_menu/overflow_menu/ui/ui_swift.h"
 
@@ -50,6 +51,7 @@ class ReadingListModel;
 @protocol SettingsCommands;
 class TabBasedIPHBrowserAgent;
 @protocol TabGroupsCommands;
+@protocol CobaltCommands;
 class TemplateURLService;
 @protocol TextZoomCommands;
 class WebNavigationBrowserAgent;
@@ -93,6 +95,7 @@ class WebStateList;
 @property(nonatomic, weak) id<ReaderModeCommands> readerModeHandler;
 @property(nonatomic, weak) id<BWGCommands> BWGHandler;
 @property(nonatomic, weak) id<TabGroupsCommands> tabGroupsHandler;
+@property(nonatomic, weak) id<CobaltCommands> cobaltHandler;
 
 // Navigation agent for reloading pages.
 @property(nonatomic, assign) WebNavigationBrowserAgent* navigationAgent;
@@ -151,6 +154,10 @@ class WebStateList;
 
 // TemplateURLService to observe default search engine change.
 @property(nonatomic, assign) TemplateURLService* templateURLService;
+
+// Browser management service to determine if the browser is managed.
+@property(nonatomic, assign)
+    policy::BrowserManagementService* browserManagementService;
 
 // If settings destination has a blue dot.
 @property(nonatomic, assign) bool hasSettingsBlueDot;

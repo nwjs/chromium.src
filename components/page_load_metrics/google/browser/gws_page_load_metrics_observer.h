@@ -30,8 +30,13 @@ extern const char kHistogramGWSNavigationStartToFirstLoaderCallback[];
 extern const char kHistogramGWSNavigationStartToOnComplete[];
 extern const char kHistogramGWSAcceptCHFrameReceived[];
 extern const char kHistogramGWSOnConnectedCalled[];
+extern const char kHistogramGWSMaxStreamLimitPendingDelay[];
 
 extern const char kHistogramGWSConnectTimingFirstRequestDomainLookupDelay[];
+extern const char
+    kHistogramGWSConnectTimingFirstRequestDomainLookupDelaySecureDns[];
+extern const char
+    kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns[];
 extern const char kHistogramGWSConnectTimingFirstRequestConnectDelay[];
 extern const char kHistogramGWSConnectTimingFirstRequestSslDelay[];
 extern const char kHistogramGWSConnectTimingFinalRequestDomainLookupDelay[];
@@ -47,6 +52,7 @@ extern const char kHistogramGWSParseStart[];
 extern const char kHistogramGWSConnectStart[];
 extern const char kHistogramGWSDomainLookupStart[];
 extern const char kHistogramGWSDomainLookupEnd[];
+extern const char kHistogramGWSBeforeUnloadExecutionMode[];
 
 extern const char kHistogramServiceWorkerParseStartSearch[];
 extern const char kHistogramServiceWorkerFirstContentfulPaintSearch[];

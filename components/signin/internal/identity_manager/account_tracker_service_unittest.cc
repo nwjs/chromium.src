@@ -402,8 +402,8 @@ class AccountTrackerServiceTest : public testing::Test {
         &AccountTrackerServiceTest::OnAccountRemoved, base::Unretained(this)));
 
     account_tracker_->Initialize(&pref_service_, std::move(path));
-    auto account_fetcher_factory =
-        std::make_unique<FakeAccountFetcherFactory>();
+    auto account_fetcher_factory = std::make_unique<FakeAccountFetcherFactory>(
+        *token_service(), *signin_client());
     fake_account_fetcher_factory_ = account_fetcher_factory.get();
     account_fetcher_->Initialize(
         signin_client(), token_service(), account_tracker_.get(),
@@ -586,8 +586,6 @@ TEST_F(AccountTrackerServiceTest, TokenAvailable_UserInfo_ImageSuccess) {
             AccountKeyToPictureURLWithSize(kAccountKeyAlpha));
   histogram_tester.ExpectTotalCount(
       "Signin.AccountFetcher.AccountUserInfoFetchTime", 1);
-  histogram_tester.ExpectTotalCount(
-      "Signin.AccountFetcher.AccountAvatarFetchTime", 1);
 }
 
 TEST_F(AccountTrackerServiceTest, TokenAvailable_UserInfo_ImageFailure) {
@@ -612,8 +610,6 @@ TEST_F(AccountTrackerServiceTest, TokenAvailable_UserInfo_ImageFailure) {
   EXPECT_FALSE(account_info.GetLastDownloadedAvatarUrlWithSize().has_value());
   histogram_tester.ExpectTotalCount(
       "Signin.AccountFetcher.AccountUserInfoFetchTime", 1);
-  histogram_tester.ExpectTotalCount(
-      "Signin.AccountFetcher.AccountAvatarFetchTime", 0);
 }
 
 TEST_F(AccountTrackerServiceTest, TokenAvailable_UserInfo_Revoked) {
@@ -641,8 +637,6 @@ TEST_F(AccountTrackerServiceTest, TokenAvailable_UserInfoFailed) {
   EXPECT_TRUE(CheckAccountTrackerEvents({}));
   histogram_tester.ExpectTotalCount(
       "Signin.AccountFetcher.AccountInfoFetchTime", 0);
-  histogram_tester.ExpectTotalCount(
-      "Signin.AccountFetcher.AccountAvatarFetchTime", 0);
 }
 
 TEST_F(AccountTrackerServiceTest, TokenAvailable_AccountCapabilitiesSuccess) {

@@ -9,6 +9,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
@@ -38,15 +39,18 @@ struct GPU_COMMAND_BUFFER_CLIENT_EXPORT ImageInfo {
   GrSurfaceOrigin surface_origin = kTopLeft_GrSurfaceOrigin;
   SkAlphaType alpha_type = kPremul_SkAlphaType;
   std::optional<gfx::BufferUsage> buffer_usage = std::nullopt;
+  bool is_software = false;
 
   ImageInfo(gfx::Size size,
             viz::SharedImageFormat format,
             SharedImageUsageSet usage,
-            std::optional<gfx::BufferUsage> buffer_usage = std::nullopt)
+            std::optional<gfx::BufferUsage> buffer_usage = std::nullopt,
+            bool is_software = false)
       : size(size),
         format(format),
         usage(usage),
-        buffer_usage(std::move(buffer_usage)) {}
+        buffer_usage(std::move(buffer_usage)),
+        is_software(is_software) {}
 
   ImageInfo(gfx::Size size,
             viz::SharedImageFormat format,
@@ -54,20 +58,24 @@ struct GPU_COMMAND_BUFFER_CLIENT_EXPORT ImageInfo {
             gfx::ColorSpace color_space,
             GrSurfaceOrigin surface_origin,
             SkAlphaType alpha_type,
-            std::optional<gfx::BufferUsage> buffer_usage = std::nullopt)
+            std::optional<gfx::BufferUsage> buffer_usage = std::nullopt,
+            bool is_software = false)
       : size(size),
         format(format),
         usage(usage),
         color_space(color_space),
         surface_origin(surface_origin),
         alpha_type(alpha_type),
-        buffer_usage(std::move(buffer_usage)) {}
+        buffer_usage(std::move(buffer_usage)),
+        is_software(is_software) {}
 
   bool operator==(const ImageInfo& other) const {
     return size == other.size && format == other.format &&
            usage == other.usage && color_space == other.color_space &&
            surface_origin == other.surface_origin &&
-           alpha_type == other.alpha_type && buffer_usage == other.buffer_usage;
+           alpha_type == other.alpha_type &&
+           buffer_usage == other.buffer_usage &&
+           is_software == other.is_software;
   }
 };
 
@@ -79,6 +87,7 @@ struct GPU_COMMAND_BUFFER_CLIENT_EXPORT ImageInfo {
 class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientImage
     : public base::RefCountedThreadSafe<ClientImage> {
  public:
+  REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
   explicit ClientImage(scoped_refptr<ClientSharedImage> shared_image);
 
   // Returns the reference on the underlying shared image. Note that clients
@@ -96,6 +105,10 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientImage
   // Only used for testing purposes.
   const SharedImagePoolId& GetPoolIdForTesting() const;
 
+  // Dumps memoy allocation. Caller specified `parent_path` cannot be empty.
+  virtual void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd,
+                            const std::string& parent_path) const;
+
  protected:
   friend class base::RefCountedThreadSafe<ClientImage>;
   friend class SharedImagePoolBase;
@@ -104,6 +117,10 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientImage
   template <typename ClientImageType>
   friend class SharedImagePool;
   virtual ~ClientImage();
+
+  // Subclasses can set this to true if they have more complex logic if managing
+  // destruction sync token.
+  bool subclass_manages_destruction_sync_token_ = false;
 
  private:
   scoped_refptr<ClientSharedImage> shared_image_;
@@ -161,8 +178,8 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImagePoolBase {
   // Interface to the GPU process for creating shared images.
   const scoped_refptr<SharedImageInterface> sii_;
 
-  // Optional maximum size of the pool. It defaults to 0 which means there is no
-  // limit on the size of the pool.
+  // Optional maximum size of the pool. If unset, there is no limit on the size
+  // of the pool.
   const std::optional<uint8_t> max_pool_size_;
 
   const std::optional<base::TimeDelta> unused_resource_expiration_time_;
@@ -262,6 +279,13 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImagePool
       result += image->GetSharedImage()->EstimatedSizeInBytes();
     }
     return result;
+  }
+
+  void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd,
+                    const std::string& parent_path) const {
+    for (const auto& image : image_pool_) {
+      image->OnMemoryDump(pmd, parent_path);
+    }
   }
 
   // Returns a weak pointer to this pool, allowing for safe reference without

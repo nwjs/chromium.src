@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
@@ -101,8 +102,9 @@ void AutofillAiImportDataControllerImpl::ShowPrompt(
   // Don't show the bubble if it's already visible.
   if (bubble_view() || !MaySetUpBubble()) {
     if (!prompt_result_callback.is_null()) {
+      // TODO(crbug.com/489354073): Pass the correct UI context.
       std::move(prompt_result_callback)
-          .Run(AutofillClient::AutofillAiBubbleResult::kUnknown);
+          .Run(AutofillClient::AutofillAiBubbleResult::kUnknown, {});
     }
     return;
   }
@@ -127,8 +129,9 @@ void AutofillAiImportDataControllerImpl::OnSaveButtonClicked() {
   if (GetSaveUpdateState().close_on_accept) {
     OnBubbleClosed(AutofillClient::AutofillAiBubbleResult::kAccepted);
   } else if (!GetSaveUpdateState().prompt_result_callback.is_null()) {
+    // TODO(crbug.com/489354073): Pass the correct UI context.
     std::move(GetSaveUpdateState().prompt_result_callback)
-        .Run(AutofillClient::AutofillAiBubbleResult::kAccepted);
+        .Run(AutofillClient::AutofillAiBubbleResult::kAccepted, {});
   }
 }
 
@@ -167,9 +170,15 @@ bool AutofillAiImportDataControllerImpl::IsWalletableEntity() const {
 }
 
 void AutofillAiImportDataControllerImpl::OnGoToWalletLinkClicked() {
-  if (Browser* browser = chrome::FindBrowserWithTab(web_contents())) {
+  if (BrowserWindowInterface* browser =
+          chrome::FindBrowserWithTab(web_contents())) {
     reopen_bubble_when_web_contents_becomes_visible_ = true;
-    ShowSingletonTab(browser, GURL(chrome::kWalletPassesPageURL));
+    const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
+    bool is_private_pass =
+        IsMaskedStorageSupported(new_entity.type(), new_entity.record_type());
+    ShowSingletonTab(
+        browser, GURL(is_private_pass ? chrome::kWalletPrivatePassHelpCenterURL
+                                      : chrome::kWalletPassesPageURL));
   }
 }
 
@@ -222,16 +231,18 @@ AutofillAiImportDataControllerImpl::GetPageActionIconType() {
 
 void AutofillAiImportDataControllerImpl::DoShowBubble() {
   auto get_bubble = [this]() -> AutofillBubbleBase& {
-    Browser* browser = chrome::FindBrowserWithTab(web_contents());
+    BrowserWindowInterface* browser =
+        chrome::FindBrowserWithTab(web_contents());
+    auto* bubble_handler = browser->GetBrowserForMigrationOnly()
+                               ->window()
+                               ->GetAutofillBubbleHandler();
     if (IsSaveUpdatePrompt()) {
-      return *browser->window()
-          ->GetAutofillBubbleHandler()
-          ->ShowSaveAutofillAiDataBubble(web_contents(), this);
+      return *bubble_handler->ShowSaveAutofillAiDataBubble(web_contents(),
+                                                           this);
     }
     if (IsLocalSaveNotification()) {
-      return *browser->window()
-                  ->GetAutofillBubbleHandler()
-                  ->ShowAutofillAiLocalSaveNotification(web_contents(), this);
+      return *bubble_handler->ShowAutofillAiLocalSaveNotification(
+          web_contents(), this);
     }
     NOTREACHED();
   };
@@ -276,6 +287,9 @@ int AutofillAiImportDataControllerImpl::
     case EntityTypeName::kOrder:
       NOTREACHED()
           << "Entity is read only and doesn't support saving/updating.";
+    case EntityTypeName::kShipment:
+      NOTREACHED()
+          << "Entity is read only and doesn't support saving/updating.";
   }
   NOTREACHED();
 }
@@ -293,7 +307,8 @@ void AutofillAiImportDataControllerImpl::MaybeRunSaveUpdateCallback(
     AutofillClient::AutofillAiBubbleResult result) {
   if (IsSaveUpdatePrompt() &&
       !GetSaveUpdateState().prompt_result_callback.is_null()) {
-    std::move(GetSaveUpdateState().prompt_result_callback).Run(result);
+    // TODO(crbug.com/489354073): Pass the correct UI context.
+    std::move(GetSaveUpdateState().prompt_result_callback).Run(result, {});
   }
 }
 

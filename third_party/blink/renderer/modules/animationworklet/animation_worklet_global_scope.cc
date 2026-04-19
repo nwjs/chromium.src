@@ -22,7 +22,6 @@
 #include "third_party/blink/renderer/platform/bindings/callback_method_retriever.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/platform/bindings/v8_object_constructor.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "v8/include/v8.h"
@@ -98,7 +97,7 @@ void AnimationWorkletGlobalScope::UpdateAnimatorsList(
   for (const auto& animation : input.added_and_updated_animations) {
     int id = animation.worklet_animation_id.animation_id;
     DCHECK(!animators_.Contains(id));
-    const String name = String::FromUTF8(animation.name);
+    const String name = String::FromUtf8(animation.name);
 
     WorkletAnimationOptions options(nullptr);
     // Down casting to blink type to access the serialized value.

@@ -9,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
@@ -687,16 +688,11 @@ std::optional<double> AddressFieldParserNG::FindScoreOfBestMatchingRule(
     case FLIGHT_RESERVATION_FLIGHT_NUMBER:
     case FLIGHT_RESERVATION_TICKET_NUMBER:
     case FLIGHT_RESERVATION_CONFIRMATION_CODE:
-    case FLIGHT_RESERVATION_ARRIVAL_AIRPORT:
-    case FLIGHT_RESERVATION_DEPARTURE_AIRPORT:
     case FLIGHT_RESERVATION_DEPARTURE_DATE:
     case ORDER_ID:
     case ORDER_DATE:
     case ORDER_MERCHANT_NAME:
-    case ORDER_MERCHANT_DOMAIN:
-    case ORDER_PRODUCT_NAMES:
-    case ORDER_ACCOUNT:
-    case ORDER_GRAND_TOTAL:
+    case SHIPMENT_TRACKING_NUMBER:
     case MAX_VALID_FIELD_TYPE:
       return std::nullopt;
   }

@@ -15,6 +15,10 @@ namespace base {
 class TimeDelta;
 }  // namespace base
 
+namespace metrics {
+class ProfileMetricsService;
+}  // namespace metrics
+
 namespace signin_metrics {
 
 // Track all the ways a profile can become signed out as a histogram.
@@ -146,8 +150,11 @@ enum class ProfileSignout {
   // User tapped 'Undo' in a snackbar that is shown right after sign-in through
   // recent tabs promo. Android only.
   kUserTappedUndoRightAfterSignInFromRecentTabs = 44,
+  // A forced sign-out when the account capability CanSignInToChrome restricts
+  // signin.
+  kSignoutFromCanSignInToChromeCapability = 45,
   // Keep this as the last enum.
-  kMaxValue = kUserTappedUndoRightAfterSignInFromRecentTabs,
+  kMaxValue = kSignoutFromCanSignInToChromeCapability,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
@@ -228,7 +235,7 @@ enum class AccessPoint : int {
   // Restore primary account info in case it was lost.
   kRestorePrimaryAccountOnProfileLoad = 55,
   // Access point for the tab organization UI within the tab search bubble.
-  kTabOrganization = 56,
+  // kTabOrganization = 56, no longer used.
   // Access point for the Save to Drive feature on iOS.
   kSaveToDriveIos = 57,
   // Access point for the Tips Notification on iOS.
@@ -328,14 +335,15 @@ enum class AccessPoint : int {
   // Avatar pill button expands to show a sign in promo. Access point is
   // propagated to the Profile Menu sign in button.
   kAvatarPillExpandPromo = 97,
-  // Add values above this line with a corresponding label to the
-  // "SigninAccessPoint" enum in
-  // tools/metrics/histograms/metadata/signin/enums.xml.
   kSearchAIModeBubble = 98,
+  // Sign in from IOS app bar.
+  kIosAppBar = 99,
+  // Sign in from the Page Action Menu.
+  kIosPageActionMenu = 100,
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
   // tools/metrics/histograms/metadata/signin/enums.xml.
-  kMaxValue = kSearchAIModeBubble,  // This must be last.
+  kMaxValue = kIosPageActionMenu,  // This must be last.
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
@@ -685,7 +693,8 @@ void LogSignInOffered(AccessPoint access_point, PromoAction promo_action);
 // Logs sign in start events and their associated access points. The
 // completion events are automatically logged when the primary account state
 // changes, see `signin::PrimaryAccountMutator`.
-void LogSignInStarted(AccessPoint access_point);
+void LogSignInStarted(AccessPoint access_point,
+                      metrics::ProfileMetricsService& profile_metrics_service);
 
 // Logs that sign in was offered when the user is in SigninPending state.
 void LogSigninPendingOffered(AccessPoint access_point);

@@ -21,7 +21,7 @@ import sys
 #                            test as recommended by presubmit docs:
 # https://www.chromium.org/developers/how-tos/depottools/presubmit-scripts/
 sys.path.append('.')
-import setup_modules
+import setup_modules  # pylint: disable=unused-import
 
 sys.path.remove('.')
 
@@ -112,7 +112,7 @@ def _CheckForHashConflicts(actions_xml_path: str, input_api: Any,
   actions_dict, _, _ = action_utils.ParseActionFile(data)
   expanded_actions = action_utils.CreateActionsFromVariants(actions_dict)
 
-  name_by_hash = {}
+  name_by_hash: dict[int, str] = {}
   errors = []
 
   for action_name in expanded_actions.keys():

@@ -75,7 +75,7 @@
             var wrapper = wrappers[wrapperParam.name];
             keysToWrapParameters.filter((param) => Object.keys(keys).includes(param.algorithm.name)).forEach(function(toWrapParam) {
                 var keyData = keys[toWrapParam.algorithm.name];
-                ["raw", "spki", "pkcs8"].filter((fmt) => Object.keys(keyData).includes(fmt)).forEach(function(keyDataFormat) {
+                ["raw", "raw-secret", "spki", "pkcs8"].filter((fmt) => Object.keys(keyData).includes(fmt)).forEach(function(keyDataFormat) {
                     var toWrap = keyData[keyDataFormat];
                     [keyDataFormat, "jwk"].forEach(function(format) {
                         if (wrappingIsPossible(toWrap.originalExport[format], wrapper.parameters.name)) {
@@ -114,7 +114,7 @@
                               }));
             } else if (params.name === "ChaCha20-Poly1305") {
                 var algorithm = {name: params.name};
-                promises.push(subtle.importKey("raw", wrappingKeyData["SYMMETRIC256"].raw, algorithm, true, ["wrapKey", "unwrapKey"])
+                promises.push(subtle.importKey("raw-secret", wrappingKeyData["SYMMETRIC256"].raw, algorithm, true, ["wrapKey", "unwrapKey"])
                               .then(function(key) {
                                   wrappers[params.name] = {wrappingKey: key, unwrappingKey: key, parameters: params};
                               }));
@@ -165,7 +165,7 @@
                 promises.push(importAndExport("pkcs8", keyData.pkcs8, params.algorithm, params.privateUsages, "private key "));
             } else if (params.algorithm.name === "ChaCha20-Poly1305") {
                 keys[params.algorithm.name] = {};
-                promises.push(importAndExport("raw", toWrapKeyData["SYMMETRIC256"].raw, params.algorithm, params.usages, ""));
+                promises.push(importAndExport("raw-secret", toWrapKeyData["SYMMETRIC256"].raw, params.algorithm, params.usages, ""));
             } else {
                 keys[params.algorithm.name] = {};
                 promises.push(importAndExport("raw", toWrapKeyData["SYMMETRIC128"].raw, params.algorithm, params.usages, ""));
@@ -305,79 +305,6 @@
         } else {
             return equalJwk(originalExport, roundTripExport);
         }
-    }
-
-    // Are two array buffers the same?
-    function equalBuffers(a, b) {
-        if (a.byteLength !== b.byteLength) {
-            return false;
-        }
-
-        var aBytes = new Uint8Array(a);
-        var bBytes = new Uint8Array(b);
-
-        for (var i=0; i<a.byteLength; i++) {
-            if (aBytes[i] !== bBytes[i]) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // Are two Jwk objects "the same"? That is, does the object returned include
-    // matching values for each property that was expected? It's okay if the
-    // returned object has extra methods; they aren't checked.
-    function equalJwk(expected, got) {
-        var fields = Object.keys(expected);
-        var fieldName;
-
-        for(var i=0; i<fields.length; i++) {
-            fieldName = fields[i];
-            if (!(fieldName in got)) {
-                return false;
-            }
-            if (objectToString(expected[fieldName]) !== objectToString(got[fieldName])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // Character representation of any object we may use as a parameter.
-    function objectToString(obj) {
-        var keyValuePairs = [];
-
-        if (Array.isArray(obj)) {
-            return "[" + obj.map(function(elem){return objectToString(elem);}).join(", ") + "]";
-        } else if (typeof obj === "object") {
-            Object.keys(obj).sort().forEach(function(keyName) {
-                keyValuePairs.push(keyName + ": " + objectToString(obj[keyName]));
-            });
-            return "{" + keyValuePairs.join(", ") + "}";
-        } else if (typeof obj === "undefined") {
-            return "undefined";
-        } else {
-            return obj.toString();
-        }
-
-        var keyValuePairs = [];
-
-        Object.keys(obj).sort().forEach(function(keyName) {
-            var value = obj[keyName];
-            if (typeof value === "object") {
-                value = objectToString(value);
-            } else if (typeof value === "array") {
-                value = "[" + value.map(function(elem){return objectToString(elem);}).join(", ") + "]";
-            } else {
-                value = value.toString();
-            }
-
-            keyValuePairs.push(keyName + ": " + value);
-        });
-
-        return "{" + keyValuePairs.join(", ") + "}";
     }
 
     // Can we compare key values by using them

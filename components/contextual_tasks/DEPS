@@ -1,9 +1,11 @@
 include_rules = [
+  "+components/contextual_search",
   "+components/favicon_base",
   "+components/favicon/core",
   "+components/keyed_service",
   "+components/lens",
   "+components/omnibox/browser",
+  "+components/prefs",
   "+components/sessions/core",
   "+components/signin/public",
   "+components/sync/base",

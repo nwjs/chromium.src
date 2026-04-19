@@ -50,12 +50,6 @@ BASE_FEATURE_PARAM(bool,
                    "data_block_io_scheduler",
                    true);
 
-// Controls ACTION_BOOT_COMPLETED broadcast for third party applications on ARC.
-// When disabled, third party apps will not receive this broadcast.
-BASE_FEATURE(kBootCompletedBroadcastFeature,
-             "ArcBootCompletedBroadcast",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Defers the ARC actvation until the user session start up tasks
 // are completed to give more resources to critical tasks for user session
 // starting.
@@ -228,15 +222,6 @@ BASE_FEATURE(kPerAppLanguage, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kResizeCompat,
              "ArcResizeCompat",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls ARCVM real time vcpu feature on a device with 3+ logical cores
-// online.
-// When you change the default, you also need to modify the chromeExtraAgas
-// in tast-tests/src/chromiumos/tast/local/bundles/cros/arc/cpu_set.go to
-// add ArcRtVcpuQuadCore there. Otherwise, the test will start failing.
-BASE_FEATURE(kRtVcpuQuadCore,
-             "ArcRtVcpuQuadCore",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, tracing raw files are saved in order to help debug failures.

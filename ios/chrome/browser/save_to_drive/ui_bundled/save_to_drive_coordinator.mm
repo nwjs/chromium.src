@@ -13,6 +13,10 @@
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_coordinator.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_coordinator_delegate.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_logger.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/download/model/download_manager_tab_helper.h"
 #import "ios/chrome/browser/drive/model/drive_metrics.h"
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
@@ -53,6 +57,8 @@
   AccountPickerCoordinator* _accountPickerCoordinator;
   FileDestinationPickerViewController* _destinationPicker;
   UIAlertController* _alertController;
+  SigninCoordinator* _signinCoordinator;
+  BOOL _shouldShowSignIn;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -133,6 +139,8 @@
   _alertController = nil;
   [_accountPickerCoordinator stop];
   _accountPickerCoordinator = nil;
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
 }
 
 #pragma mark - AccountPickerCoordinatorDelegate
@@ -141,6 +149,22 @@
             (AccountPickerCoordinator*)accountPickerCoordinator
                didSelectIdentity:(id<SystemIdentity>)identity
                     askEveryTime:(BOOL)askEveryTime {
+  if (base::FeatureList::IsEnabled(kIOSSaveToDriveSignedOut)) {
+    if ([_mediator selectedFileDestinationRequiresSignin]) {
+      _shouldShowSignIn = YES;
+      [_accountPickerCoordinator stopAnimated:YES];
+      base::UmaHistogramEnumeration(
+          kSaveToDriveSignInStatus,
+          [_mediator hasIdentitiesOnDevice]
+              ? SaveToDriveSignInStatus::kSignedOutWithAccountOnDevice
+              : SaveToDriveSignInStatus::kSignedOutWithoutAccountOnDevice);
+      return;
+    }
+  }
+  if ([_mediator isSignedIn]) {
+    base::UmaHistogramEnumeration(kSaveToDriveSignInStatus,
+                                  SaveToDriveSignInStatus::kSignedIn);
+  }
   [_mediator saveWithSelectedIdentity:identity];
 }
 
@@ -157,6 +181,13 @@
 - (void)accountPickerCoordinatorDidStop:
     (AccountPickerCoordinator*)accountPickerCoordinator {
   _accountPickerCoordinator = nil;
+  if (base::FeatureList::IsEnabled(kIOSSaveToDriveSignedOut)) {
+    if (_shouldShowSignIn) {
+      _shouldShowSignIn = NO;
+      [self openSignIn];
+      return;
+    }
+  }
   id<SaveToDriveCommands> saveToDriveCommandsHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SaveToDriveCommands);
   [saveToDriveCommandsHandler hideSaveToDrive];
@@ -223,11 +254,17 @@
   [_alertController addAction:manageStorageAction];
   [_alertController addAction:cancelAction];
   [_alertController setPreferredAction:manageStorageAction];
-  CHECK(_accountPickerCoordinator.viewController);
-  [_accountPickerCoordinator.viewController
-      presentViewController:_alertController
-                   animated:YES
-                 completion:nil];
+  UIViewController* presenter;
+  if (base::FeatureList::IsEnabled(kIOSSaveToDriveSignedOut) &&
+      _accountPickerCoordinator == nil) {
+    presenter = self.baseViewController;
+  } else {
+    presenter = _accountPickerCoordinator.viewController;
+  }
+  CHECK(presenter);
+  [presenter presentViewController:_alertController
+                          animated:YES
+                        completion:nil];
 }
 
 - (void)didTapManageStorageForIdentity:(id<SystemIdentity>)identity {
@@ -238,16 +275,76 @@
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
   id<GoogleOneCommands> googleOneHandler =
       HandlerForProtocol(dispatcher, GoogleOneCommands);
+  UIViewController* presenter;
+  if (base::FeatureList::IsEnabled(kIOSSaveToDriveSignedOut) &&
+      _accountPickerCoordinator == nil) {
+    presenter = self.baseViewController;
+  } else {
+    presenter = _accountPickerCoordinator.viewController;
+  }
   [googleOneHandler
       showGoogleOneForIdentity:identity
                     entryPoint:GoogleOneEntryPoint::kSaveToDriveAlert
-            baseViewController:_accountPickerCoordinator.viewController];
+            baseViewController:presenter];
 }
 
 #pragma mark - AccountPickerCommands
 
 - (void)hideAccountPickerAnimated:(BOOL)animated {
   [_accountPickerCoordinator stopAnimated:animated];
+}
+
+#pragma mark - Private
+
+- (void)openSignIn {
+  if (_signinCoordinator.viewWillPersist) {
+    return;
+  }
+  [_signinCoordinator stop];
+  __weak __typeof(self) weakSelf = self;
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperation::kSigninOnly
+               identity:nil
+            accessPoint:signin_metrics::AccessPoint::kSaveToDriveIos
+            promoAction:signin_metrics::PromoAction::
+                            PROMO_ACTION_NO_SIGNIN_PROMO
+             completion:^(SigninCoordinator* coordinator,
+                          SigninCoordinatorResult result,
+                          id<SystemIdentity> identity) {
+               [weakSelf doSigninCompletionWithResult:result identity:identity];
+             }];
+
+  _signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
+                                              browser:self.browser
+                                   baseViewController:self.baseViewController];
+  [_signinCoordinator start];
+}
+
+- (void)doSigninCompletionWithResult:(SigninCoordinatorResult)result
+                            identity:(id<SystemIdentity>)identity {
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
+  switch (result) {
+    case SigninCoordinatorResultSuccess:
+      base::UmaHistogramEnumeration(kSaveToDriveSignInResult,
+                                    SaveToDriveSignInResult::kSignInSuccess);
+      [_mediator saveWithSelectedIdentity:identity];
+      break;
+    case SigninCoordinatorResultCanceledByUser:
+      base::UmaHistogramEnumeration(kSaveToDriveSignInResult,
+                                    SaveToDriveSignInResult::kSignInCanceled);
+      break;
+    case SigninCoordinatorProfileSwitch:
+      base::UmaHistogramEnumeration(
+          kSaveToDriveSignInResult,
+          SaveToDriveSignInResult::kSignInSuccessWithProfileSwitch);
+      break;
+    default:
+      base::UmaHistogramEnumeration(kSaveToDriveSignInResult,
+                                    SaveToDriveSignInResult::kSignInFailed);
+      break;
+  }
 }
 
 @end

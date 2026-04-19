@@ -34,6 +34,10 @@ class CORE_EXPORT HTMLParagraphElement final : public HTMLElement {
  public:
   explicit HTMLParagraphElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLParagraphElement;
+  }
+
  private:
   void CollectStyleForPresentationAttribute(
       const QualifiedName&,

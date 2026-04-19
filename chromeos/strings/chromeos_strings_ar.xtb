@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">أدخِل طلبًا</translation>
 <translation id="115705039208660697">أناناس</translation>
 <translation id="1164939766849482256">شاشة استراحة تعرض منظرًا من الفجر إلى الليل</translation>
-<translation id="1167755866710282443">افتح القائمة لتخصيص المفاتيح. اسحب القائمة لنقلها.</translation>
 <translation id="1171349345463658120">بحيرة ساحلية رملية</translation>
 <translation id="1174073918202301297">تمت إضافة الاختصار</translation>
 <translation id="11743817593307477">‏استخدِم مفاتيح الأسهم لنقل عنصر التحكّم هذا إلى الإجراء الذي تريده في اللعبة. استخدِم مفتاح Enter لوضع عنصر التحكّم. واستخدِم مفتاح Esc للإلغاء.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">استبدال ملف</translation>
 <translation id="2006864819935886708">إمكانية التوصيل</translation>
 <translation id="2008685064673031089">البحث الأوّلي</translation>
-<translation id="2011174342667534258">‏إصدار حزمة تطوير البرامج (SDK):</translation>
 <translation id="2016697457005847575">تجربة خطوات تحديد المشاكل وحلّها</translation>
 <translation id="202500043506723828">‏معرّف شريحة SIM المضمّنة (EID)</translation>
 <translation id="2045814230297767491">أدوات مائدة</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">لوحة التحكّم في تحديد المفاتيح</translation>
 <translation id="3217462202230355157">يُرجى التأكّد من توصيل الميكروفون أو محاولة إعادة تشغيل <ph name="DEVICE_TYPE" /></translation>
 <translation id="3226405216343213872">جارٍ البحث عن أجهزة مسح ضوئي</translation>
-<translation id="3226657629376379887">قائمة إجراءات التصميم</translation>
 <translation id="3227186760713762082">قسمة قيمة <ph name="CATEGORY_TEXT" /> على <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">فن رقمي</translation>
 <translation id="3246869037381808805">ستتم إزالة طلبات الطباعة التي مرَّ عليها أكثر من يوم.</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">اتجاه المفتاح</translation>
 <translation id="3294437725009624529">ضيف</translation>
 <translation id="3303855915957856445">لم يتم العثور على أي نتائج بحث</translation>
-<translation id="3305294846493618482">عرض المزيد</translation>
 <translation id="3310640316857623290">وقت استجابة "نظام أسماء النطاقات" أعلى بكثير من الحدّ الأقصى المسموح به.</translation>
 <translation id="3316495615885967552">اكتمل تنزيل نموذج إنشاء الملخّص والعنوان</translation>
 <translation id="3321030238473337787">سرعة التشغيل</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">حدث خطأ. يُرجى إعادة المحاولة.</translation>
 <translation id="357889014807611375">‏شبكة Wi-Fi تفرض تكلفة استخدام</translation>
 <translation id="3583278742022654445">‏قوة الإشارة ضعيفة. يُرجى الاقتراب من مصدر إشارة شبكة Wi-Fi.</translation>
+<translation id="3586931643579894722">إخفاء التفاصيل</translation>
 <translation id="3588034708467091142">يُرجى التأكّد من اتصالك بالإنترنت وإعادة المحاولة.</translation>
 <translation id="3594280220611906414">‫"<ph name="USER_FRIENDLY_APN_NAME" />" هو اسم سهل الاستخدام لـ "<ph name="APN_NAME" />".</translation>
 <translation id="3595596368722241419">البطارية ممتلئة</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">ترجيع بمقدار 10 ثوانٍ</translation>
 <translation id="4128271910628504223">يُرجى إدخال طلب، مثل "رسم غابة مليئة بالضباب"</translation>
 <translation id="4130035430755296270">استمِر في تمرير مؤشر الماوس هنا للاطّلاع على المزيد من خيارات التنسيق.</translation>
-<translation id="4130750466177569591">أوافق</translation>
 <translation id="4131410914670010031">أبيض وأسود</translation>
 <translation id="4137700675046373159">يوم السبت</translation>
 <translation id="4139326893730851150">تحديثات البرامج الثابتة</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">‏مفتاح Tab</translation>
 <translation id="5612205513582918357">تتم مشاركة شاشتك مع "<ph name="RECEIVER_NAME" />" من خلال "أدوات الدراسة"</translation>
 <translation id="5613201299517339763">لقد سجّلت الخروج</translation>
-<translation id="5620281292257375798">داخلي فقط</translation>
 <translation id="5628106863521633649">اللغات المتاحة</translation>
 <translation id="5630438231335788050">فن الباوهاوس</translation>
 <translation id="5631759159893697722">نبذة مختصرة</translation>
@@ -1112,7 +1107,7 @@
 <translation id="5908813850962688338">سيستغرق تثبيت هذا التحديث بضع دقائق. يُرجى إبقاء الجهاز متصلاً بمقبس الكهرباء وقيد التشغيل أثناء تنزيل التحديث. وقد تتم إعادة تشغيل جهازك عدة مرات أو قد تظهر شاشة سوداء أثناء هذه العملية. سُيطلب منك إعادة تشغيل جهازك لإكمال عملية التثبيت.</translation>
 <translation id="5915794087373112615">سيطّلع مُعلّمك على شاشتك بعد <ph name="NUM_SECONDS" /> من الثواني</translation>
 <translation id="5916084858004523819">محظورة</translation>
-<translation id="5916664084637901428">مفعّل</translation>
+<translation id="5916664084637901428">الإعداد مفعّل</translation>
 <translation id="5921506667911082617">{COUNT,plural, =1{تم بنجاح مسح الملف ضوئيًا وحفظه في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}zero{تم بنجاح مسح الملفات ضوئيًا وحفظها في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}two{تم بنجاح مسح الملفين ضوئيًا وحفظهما في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}few{تم بنجاح مسح الملفات ضوئيًا وحفظها في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}many{تم بنجاح مسح الملفات ضوئيًا وحفظها في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}other{تم بنجاح مسح الملفات ضوئيًا وحفظها في <ph name="LINK_BEGIN" /><ph name="FOLDER_NAME" /><ph name="LINK_END" />.}}</translation>
 <translation id="5928411637936685857">زر حذف <ph name="ACCELERATOR_INFO" /></translation>
 <translation id="5930669310554144537">منظر خيالي</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">مسافة للخلف</translation>
 <translation id="6137614725462089991">الخيال العلمي المستقبلي</translation>
 <translation id="6137767437444130246">شهادة المستخدم</translation>
+<translation id="6140948187512243695">عرض التفاصيل</translation>
 <translation id="6146993107019042706">يُرجى إدخال كلمة مرور جديدة لإنهاء الإجراء.</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">يتعذّر الاتصال بالإنترنت.</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">يدير <ph name="MANAGER" /> جهاز <ph name="DEVICE_TYPE" /> هذا. ويمكن للمشرفين إعداد هذا الجهاز عن بُعد.</translation>
 <translation id="7180611975245234373">إعادة التحميل</translation>
 <translation id="7180865173735832675">تخصيص</translation>
-<translation id="7184043045742675738">انقر على أي مفتاح لتخصيص الزر. غيِّر موضع المفتاح باستخدام الماوس أو مفاتيح الأسهم.</translation>
 <translation id="7187669805838282391">يوم الأربعاء</translation>
 <translation id="7205318498545665455">اختيار الميكروفون</translation>
-<translation id="7206979415662233817">بنود الخدمة</translation>
 <translation id="7210635925306941239">سماوي</translation>
 <translation id="7212547870105584639">يمكنك إدارة إعدادات اسم نقطة الوصول للشبكة. وتُنشئ أسماء نقاط الوصول اتصالاً بين شبكة الجوّال والإنترنت. <ph name="BEGIN_LINK_LEARN_MORE" />مزيد من المعلومات<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">تحديثات البرامج الثابتة للأجهزة الخارجية</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">الأخضر والأزرق المخضر</translation>
 <translation id="7328475450575141167">عصفور الجنة</translation>
-<translation id="7331297744262591636">‏يجب ألا يقلّ عمرك عن 18 عامًا وأن توافق على أنّ استخدامك للخلفيات القائمة على الذكاء الاصطناعي يخضع <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />لبنود خدمة Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> و<ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />بنود الخدمة الإضافية الخاصة بالذكاء الاصطناعي التوليدي<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          يمكنك فقط إنشاء خلفيات باستخدام الذكاء الاصطناعي (AI) للاستخدام الشخصي وغير التجاري. وعند الحصول على مساعدة بشأن الخلفيات، يتم إرسال النص إلى خوادم تكنولوجيات الذكاء الاصطناعي من Google لإنشاء خلفيات مقترحة، وذلك بموجب <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />سياسة خصوصية Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />مزيد من المعلومات<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942">‏<ph name="QUERY_TEXT" />، <ph name="RESULT_TEXT" />، اضغط على مفتاحَي البحث والمسافة لعرض النتائج في "بحث Google".</translation>
 <translation id="7343649194310845056">أجهزة الشبكات</translation>
 <translation id="7344788170842919262">ترابية</translation>
 <translation id="7346768383111016081">خصِّص لكل إجراء في اللعبة مفتاحًا معيّنًا لتلعب باستخدام لوحة المفاتيح</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">إعدادات الإدخال</translation>
 <translation id="7595982850646262331">الوقت المتبقّي: <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">ضبطَ مشرف <ph name="MANAGER" /> وقتًا لاستخدام جهاز <ph name="DEVICE_TYPE" /> خلاله.</translation>
-<translation id="7613724632293948900">غيِّر الموضع باستخدام الماوس أو مفاتيح الأسهم.</translation>
 <translation id="7618216277886673749">اختيار <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">معتدل</translation>
 <translation id="7620771111601174153">مزيد من المعلومات في "مركز المساعدة"</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">‏استخدام تكنولوجيات الذكاء الاصطناعي من Google لتعزيز إنتاجيتك</translation>
 <translation id="8200772114523450471">استئناف</translation>
 <translation id="8206859287963243715">خلوي</translation>
+<translation id="8208043093301544621">الصفحة الرئيسية</translation>
 <translation id="8208861521865154048">المزايا</translation>
 <translation id="8226628635270268143">اختيار صورك وألبوماتك المفضَّلة</translation>
 <translation id="8227119283605456246">إرفاق ملف</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">‏بروتوكول مصادقة كلمات المرور (PAP)</translation>
 <translation id="9074739597929991885">بلوتوث</translation>
 <translation id="9082718469794970195">استخدام هذا الفيديو</translation>
-<translation id="9087578468327036362">الإبلاغ عن هذا الطلب</translation>
 <translation id="9088306295921699330">الاستخدام الحالي</translation>
 <translation id="9088994563996376283">تبسيط</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">تم ضبط الصورة كخلفية للكاميرا</translation>
 <translation id="9211490828691860325">جميع أسطح المكتب</translation>
 <translation id="9218016617214286986">‏عرض أسماء نقاط الوصول (APN) المعروفة</translation>
-<translation id="932327136139879170">المنزل</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">إرسال ملاحظات</translation>
 <translation id="950520315903467048">لم يتم تخصيص مفتاح لـ <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

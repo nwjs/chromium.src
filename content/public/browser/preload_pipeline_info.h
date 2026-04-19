@@ -20,14 +20,14 @@ namespace content {
 // Ownership: Only the followings are allowed to own this:
 //
 // - Pipelines triggering associated preloads
-// - `PrefetchContainer`
-// - `PerrenderAttributes`, which is owned by `PrerenderHost`.
+// - `PrefetchRequest`, which is owned by `PrefetchContainer`.
+// - `PrerenderAttributes`, which is owned by `PrerenderHost`.
 // - (Exception: Paths transferring it to start preloads.)
 //
 // Note that this can be moved from a `PrefetchContainer` to another
 // `PrefetchContainer`. See `PrefetchContainer::MigrateNewlyAdded()`.
 class CONTENT_EXPORT PreloadPipelineInfo
-    : public base::RefCounted<PreloadPipelineInfo> {
+    : public base::RefCountedThreadSafe<PreloadPipelineInfo> {
  public:
   // Creates `PreloadPipelineInfo`.
   //
@@ -45,7 +45,7 @@ class CONTENT_EXPORT PreloadPipelineInfo
       PreloadingType planned_max_preloading_type);
 
  protected:
-  friend class base::RefCounted<PreloadPipelineInfo>;
+  friend class base::RefCountedThreadSafe<PreloadPipelineInfo>;
 
   virtual ~PreloadPipelineInfo() = default;
 };

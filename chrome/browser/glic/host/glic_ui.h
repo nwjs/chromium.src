@@ -24,6 +24,7 @@
 namespace glic {
 class GlicPreloadHandler;
 class GlicPageHandler;
+class GlicInternalsPageHandler;
 class GlicFrePageHandler;
 class GlicUI;
 class Host;
@@ -32,6 +33,9 @@ class GlicUIConfig : public content::DefaultWebUIConfig<GlicUI> {
  public:
   GlicUIConfig();
   bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
+  std::unique_ptr<content::WebUIController> CreateWebUIController(
+      content::WebUI* web_ui,
+      const GURL& url) override;
 };
 
 // The WebUI for chrome://glic
@@ -40,6 +44,7 @@ class GlicUI : public ui::MojoWebUIController,
                public guest_view::SlimWebViewPageHandlerFactory,
 #endif
                public glic::mojom::PageHandlerFactory,
+               public glic::mojom::InternalsPageHandlerFactory,
                public glic::mojom::FrePageHandlerFactory,
                public glic::mojom::GlicPreloadHandlerFactory {
  public:
@@ -56,6 +61,9 @@ class GlicUI : public ui::MojoWebUIController,
 
   void BindInterface(
       mojo::PendingReceiver<glic::mojom::PageHandlerFactory> receiver);
+
+  void BindInterface(
+      mojo::PendingReceiver<glic::mojom::InternalsPageHandlerFactory> receiver);
 
   void BindInterface(
       mojo::PendingReceiver<glic::mojom::FrePageHandlerFactory> receiver);
@@ -75,14 +83,18 @@ class GlicUI : public ui::MojoWebUIController,
  private:
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   using SlimWebViewPageHandlerFactory::CreatePageHandler;
-
-  // guest_view::SlimWebViewPageHandlerFactory implementation.
-  content::RenderFrameHost* GetWebUiRenderFrameHost() override;
 #endif
+
+  bool IsProfileEligible();
 
   void CreatePageHandler(
       mojo::PendingReceiver<glic::mojom::PageHandler> receiver,
-      mojo::PendingRemote<glic::mojom::Page> page) override;
+      mojo::PendingRemote<glic::mojom::Page> page,
+      CreatePageHandlerCallback callback) override;
+
+  void CreateInternalsPageHandler(
+      mojo::PendingReceiver<glic::mojom::InternalsPageHandler> receiver)
+      override;
 
   void CreatePreloadHandler(
       mojo::PendingReceiver<glic::mojom::GlicPreloadHandler> receiver,
@@ -93,9 +105,12 @@ class GlicUI : public ui::MojoWebUIController,
 
   std::unique_ptr<GlicPreloadHandler> preload_handler_;
   std::unique_ptr<GlicPageHandler> page_handler_;
+  std::unique_ptr<GlicInternalsPageHandler> internals_page_handler_;
   std::unique_ptr<GlicFrePageHandler> fre_page_handler_;
 
   mojo::Receiver<glic::mojom::PageHandlerFactory> page_factory_receiver_{this};
+  mojo::Receiver<glic::mojom::InternalsPageHandlerFactory>
+      internals_page_factory_receiver_{this};
   mojo::Receiver<glic::mojom::FrePageHandlerFactory> fre_page_factory_receiver_{
       this};
   mojo::Receiver<glic::mojom::GlicPreloadHandlerFactory>
@@ -118,6 +133,7 @@ class GlicUI : public ui::MojoWebUIController,
 
   mojo::PendingReceiver<glic::mojom::PageHandler> pending_receiver_;
   mojo::PendingRemote<glic::mojom::Page> pending_page_;
+  CreatePageHandlerCallback pending_callback_;
 
   static bool simulate_no_connection_;
 

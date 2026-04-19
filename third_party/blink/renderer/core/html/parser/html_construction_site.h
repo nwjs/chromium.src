@@ -99,6 +99,7 @@ class Document;
 class Element;
 class HTMLFormElement;
 class HTMLParserReentryPermit;
+class ParserRootInsertionPoint;
 class StreamingSanitizer;
 
 class HTMLConstructionSite final {
@@ -113,7 +114,8 @@ class HTMLConstructionSite final {
                        ContainerNode*,
                        Element*,
                        CustomElementRegistry*,
-                       StreamingSanitizer*);
+                       StreamingSanitizer*,
+                       ParserRootInsertionPoint*);
   HTMLConstructionSite(const HTMLConstructionSite&) = delete;
   HTMLConstructionSite& operator=(const HTMLConstructionSite&) = delete;
   ~HTMLConstructionSite();
@@ -162,7 +164,9 @@ class HTMLConstructionSite final {
   void InsertFormattingElement(AtomicHTMLToken*);
   void InsertHTMLHeadElement(AtomicHTMLToken*);
   void InsertHTMLBodyElement(AtomicHTMLToken*);
-  void InsertHTMLFormElement(AtomicHTMLToken*, bool is_demoted = false);
+  void InsertHTMLFormElement(AtomicHTMLToken*,
+                             bool is_demoted,
+                             bool is_parsing_template_contents);
   void InsertScriptElement(AtomicHTMLToken*);
   void InsertTextNode(const StringView&,
                       WhitespaceMode = WhitespaceMode::kWhitespaceUnknown);
@@ -254,6 +258,14 @@ class HTMLConstructionSite final {
   };
 
  private:
+  struct InsertionLocation {
+    STACK_ALLOCATED();
+
+   public:
+    ContainerNode* parent;
+    Node* next_child = nullptr;
+  };
+
   // In the common case, this queue will have only one task because most tokens
   // produce only one DOM mutation.
   typedef HeapVector<HTMLConstructionSiteTask, 1> TaskQueue;
@@ -263,9 +275,18 @@ class HTMLConstructionSite final {
                                        const String& public_id,
                                        const String& system_id);
 
-  void AttachLater(ContainerNode* parent,
+  void AttachLater(InsertionLocation location,
                    Node* child,
                    bool self_closing = false);
+  void AttachLater(ContainerNode* parent,
+                   Node* child,
+                   bool self_closing = false) {
+    AttachLater({parent, nullptr}, child, self_closing);
+  }
+
+  InsertionLocation CurrentInsertionLocation();
+  void AdjustInsertionLocation(HTMLConstructionSiteTask& task,
+                               HTMLStackItem* stack_item);
 
   void FindFosterSite(HTMLConstructionSiteTask&);
 
@@ -275,7 +296,7 @@ class HTMLConstructionSite final {
   void MergeAttributesFromTokenIntoElement(AtomicHTMLToken*, Element*);
 
   void ExecuteTask(HTMLConstructionSiteTask&);
-  void QueueTask(const HTMLConstructionSiteTask&, bool flush_pending_text);
+  void QueueTask(HTMLConstructionSiteTask&, bool flush_pending_text);
   bool SanitizeIfNeeded(HTMLConstructionSiteTask&);
 
   void SetAttributes(Element* element, AtomicHTMLToken* token);
@@ -287,6 +308,8 @@ class HTMLConstructionSite final {
   // constructed nodes. It points to a DocumentFragment when parsing fragments
   // and a Document in all other cases.
   Member<ContainerNode> attachment_root_;
+
+  Member<ParserRootInsertionPoint> root_insertion_point_;
 
   // https://html.spec.whatwg.org/C/#head-element-pointer
   Member<HTMLStackItem> head_;

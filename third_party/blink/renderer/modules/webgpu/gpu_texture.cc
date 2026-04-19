@@ -6,6 +6,7 @@
 
 #include "base/containers/heap_array.h"
 #include "gpu/command_buffer/client/webgpu_interface.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_feature_name.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_view_descriptor.h"
@@ -27,14 +28,14 @@ namespace blink {
 
 namespace {
 
-bool ConvertToDawn(const GPUTextureDescriptor* in,
-                   wgpu::TextureDescriptor* out,
-                   wgpu::TextureBindingViewDimensionDescriptor*
-                       out_texture_binding_view_dimension,
-                   std::string* label,
-                   base::HeapArray<wgpu::TextureFormat>* view_formats,
-                   GPUDevice* device,
-                   ExceptionState& exception_state) {
+bool ConvertToDawn(
+    const GPUTextureDescriptor* in,
+    wgpu::TextureDescriptor* out,
+    wgpu::TextureBindingViewDimension* out_texture_binding_view_dimension,
+    std::string* label,
+    base::HeapArray<wgpu::TextureFormat>* view_formats,
+    GPUDevice* device,
+    ExceptionState& exception_state) {
   DCHECK(in);
   DCHECK(out);
   DCHECK(out_texture_binding_view_dimension);
@@ -185,8 +186,7 @@ GPUTexture* GPUTexture::Create(GPUDevice* device,
   DCHECK(webgpu_desc);
 
   wgpu::TextureDescriptor dawn_desc;
-  wgpu::TextureBindingViewDimensionDescriptor
-      texture_binding_view_dimension_desc;
+  wgpu::TextureBindingViewDimension texture_binding_view_dimension_desc;
 
   std::string label;
   base::HeapArray<wgpu::TextureFormat> view_formats;
@@ -220,7 +220,7 @@ GPUTexture* GPUTexture::Create(GPUDevice* device,
 
   return MakeGarbageCollected<GPUTexture>(
       device, device->GetHandle().CreateTexture(desc),
-      String::FromUTF8(desc->label));
+      String::FromUtf8(desc->label));
 }
 
 // static
@@ -230,7 +230,7 @@ GPUTexture* GPUTexture::CreateError(GPUDevice* device,
   DCHECK(desc);
   return MakeGarbageCollected<GPUTexture>(
       device, device->GetHandle().CreateErrorTexture(desc),
-      String::FromUTF8(desc->label));
+      String::FromUtf8(desc->label));
 }
 
 GPUTexture::GPUTexture(GPUDevice* device,
@@ -338,16 +338,16 @@ V8GPUTextureDimension GPUTexture::dimension() const {
   return FromDawnEnum(GetHandle().GetDimension());
 }
 
-V8UnionGPUTextureViewDimensionOrUndefined*
-GPUTexture::textureBindingViewDimension() const {
+V8UnionGPUTextureViewDimensionOrUndefined::Ret
+GPUTexture::textureBindingViewDimension(ScriptState* script_state) const {
   wgpu::TextureViewDimension viewDimension =
       GetHandle().GetTextureBindingViewDimension();
   if (viewDimension == wgpu::TextureViewDimension::Undefined) {
-    return MakeGarbageCollected<V8UnionGPUTextureViewDimensionOrUndefined>(
-        ToV8UndefinedGenerator());
+    return V8UnionGPUTextureViewDimensionOrUndefined::Ret(
+        script_state, ToV8UndefinedGenerator());
   } else {
-    return MakeGarbageCollected<V8UnionGPUTextureViewDimensionOrUndefined>(
-        FromDawnEnum(viewDimension));
+    return V8UnionGPUTextureViewDimensionOrUndefined::Ret(
+        script_state, FromDawnEnum(viewDimension));
   }
 }
 

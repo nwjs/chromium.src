@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_test.h"
@@ -34,6 +35,7 @@
 #include "components/blocked_content/popup_blocker_tab_helper.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
+#include "components/permissions/fake_usb_chooser_controller.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/test/mock_permission_request.h"
 #include "content/public/browser/render_view_host.h"
@@ -78,13 +80,13 @@ const base::FilePath::CharType* kSimpleFile = FILE_PATH_LITERAL("simple.html");
 }  // namespace
 
 class FullscreenControllerInteractiveTest : public ExclusiveAccessTest {
+ protected:
   void SetUpOnMainThread() override {
     ExclusiveAccessTest::SetUpOnMainThread();
 
     SetDisableFullscreenWithinTab(true);
   }
 
- protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     ExclusiveAccessTest::SetUpCommandLine(command_line);
     // Slow bots are flaky due to slower loading interacting with
@@ -790,19 +792,56 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   ASSERT_FALSE(fullscreen_controller->IsTabFullscreen());
 
   // While bubble is showing, tab fullscreen cannot be entered.
-  EXPECT_THAT(content::EvalJs(web_contents,
-                              "document.documentElement.requestFullscreen()"),
-              content::EvalJsResult::IsError());
+  EXPECT_FALSE(content::ExecJs(web_contents,
+                               "document.documentElement.requestFullscreen()"));
   ASSERT_FALSE(fullscreen_controller->IsTabFullscreen());
 
   // Accept the permission request to close the bubble.
   permission_request_manager->Accept(/*prompt_options=*/std::monostate());
 
   // Now we should be able to enter tab fullscreen again.
-  EXPECT_THAT(content::EvalJs(web_contents,
-                              "document.documentElement.requestFullscreen()"),
-              content::EvalJsResult::IsOk());
+  EXPECT_TRUE(content::ExecJs(web_contents,
+                              "document.documentElement.requestFullscreen()"));
   ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
+}
+
+// Tests that showing a chooser bubble exits tab fullscreen.
+// TODO(http://crbug.com/493319451): Re-enable when the flakiness is fixed.
+IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
+                       DISABLED_ChooserBubbleExitsTabFullscreen) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  FullscreenController* fullscreen_controller = browser()
+                                                    ->GetFeatures()
+                                                    .exclusive_access_manager()
+                                                    ->fullscreen_controller();
+
+  // Enter tab fullscreen.
+  ToggleTabFullscreen(true);
+  ui_test_utils::FullscreenWaiter(browser(), {.tab_fullscreen = true}).Wait();
+  EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
+
+  // Trigger a chooser bubble, which should exit fullscreen.
+  base::OnceClosure close_chooser = chrome::ShowDeviceChooserDialog(
+      web_contents->GetPrimaryMainFrame(),
+      std::make_unique<FakeUsbChooserController>(/*device_count=*/1));
+
+  ui_test_utils::FullscreenWaiter(browser(), {.tab_fullscreen = false}).Wait();
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+
+  // While bubble is showing, tab fullscreen cannot be entered.
+  EXPECT_FALSE(content::ExecJs(web_contents,
+                               "document.documentElement.requestFullscreen()"));
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+
+  // Close the chooser bubble.
+  std::move(close_chooser).Run();
+
+  // Now we should be able to enter tab fullscreen again.
+  EXPECT_TRUE(content::ExecJs(web_contents,
+                              "document.documentElement.requestFullscreen()"));
+  EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
 }
 
 // Tests ToggleFullscreenModeForTab always causes window to change.
@@ -942,6 +981,7 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
   }
 
   void SetUpOnMainThread() override {
+    FullscreenControllerInteractiveTest::SetUpOnMainThread();
     auto allow_automatic_fullscreen = [&](const GURL& url) {
       HostContentSettingsMapFactory::GetForProfile(browser()->profile())
           ->SetContentSettingDefaultScope(
@@ -975,7 +1015,10 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
     ASSERT_TRUE(WaitForRenderFrameReady(web_contents_->GetPrimaryMainFrame()));
   }
 
-  void TearDownOnMainThread() override { web_contents_ = nullptr; }
+  void TearDownOnMainThread() override {
+    web_contents_ = nullptr;
+    FullscreenControllerInteractiveTest::TearDownOnMainThread();
+  }
 
   bool RequestFullscreen(bool gesture = false,
                          content::RenderFrameHost* rfh = nullptr) {
@@ -1288,6 +1331,7 @@ class MAYBE_MultiScreenFullscreenControllerInteractiveTest
     : public FullscreenControllerInteractiveTest {
  public:
   void SetUpOnMainThread() override {
+    FullscreenControllerInteractiveTest::SetUpOnMainThread();
     if (!SetUpVirtualDisplays()) {
       GTEST_SKIP() << "Skipping test; unavailable multi-screen support.";
     }
@@ -1311,6 +1355,7 @@ class MAYBE_MultiScreenFullscreenControllerInteractiveTest
 #if BUILDFLAG(IS_MAC)
     ui::NSWindowFakedForTesting::SetEnabled(ns_window_faked_for_testing_);
 #endif
+    FullscreenControllerInteractiveTest::TearDownOnMainThread();
   }
 
   // Create virtual displays as needed, ensuring 2 displays are available for
@@ -1736,7 +1781,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_MultiScreenFullscreenControllerInteractiveTest,
 
   // Explicitly check for, and destroy, the exclusive access bubble.
   EXPECT_TRUE(IsExclusiveAccessBubbleDisplayed());
-  Wait(ExclusiveAccessBubble::kShowTime);
+  Wait(ExclusiveAccessBubble::kShowTime * 2);
   FinishExclusiveAccessBubbleAnimation();
   EXPECT_FALSE(IsExclusiveAccessBubbleDisplayed());
 

@@ -62,6 +62,10 @@ AutofillAiModelCacheImpl::AutofillAiModelCacheImpl(
 
 AutofillAiModelCacheImpl::~AutofillAiModelCacheImpl() = default;
 
+void AutofillAiModelCacheImpl::Shutdown() {
+  history_observation_.Reset();
+}
+
 void AutofillAiModelCacheImpl::Update(
     FormSignature form_signature,
     ModelResponse response,
@@ -131,7 +135,7 @@ AutofillAiModelCacheImpl::GetFieldPredictions(
             .rank_in_signature_group =
                 identifier.field_rank_in_signature_group()},
         FieldPrediction(
-            ToSafeFieldType(prediction.field_type(), NO_SERVER_DATA),
+            ToSafeFieldType(prediction.field_type()).value_or(NO_SERVER_DATA),
             std::move(format_string)));
   }
   return std::move(result);

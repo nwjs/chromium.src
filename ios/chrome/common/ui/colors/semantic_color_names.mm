@@ -9,6 +9,8 @@ NSString* const kAimInputItemTopBackgroundColor =
     @"aim_input_item_top_background_color";
 NSString* const kAimComposeboxButtonBackgroundColor =
     @"aim_composebox_button_background_color";
+NSString* const kAppBarColor = @"app_bar";
+NSString* const kAppBarIncognitoColor = @"app_bar_incognito";
 NSString* const kBackgroundColor = @"background_color";
 NSString* const kCloseButtonColor = @"close_button_color";
 NSString* const kDisabledTintColor = @"disabled_tint_color";
@@ -91,6 +93,7 @@ NSString* const kBlue700Color = @"blue_700_color";
 NSString* const kBlue900Color = @"blue_900_color";
 NSString* const kStaticBlueColor = @"static_blue_color";
 NSString* const kStaticBlue400Color = @"static_blue_400_color";
+NSString* const kStaticBlue600Color = @"static_blue_600_color";
 
 NSString* const kGreenColor = @"green_color";
 NSString* const kGreen100Color = @"green_100_color";

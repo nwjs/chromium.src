@@ -221,8 +221,8 @@ void LaunchBrowserStartup(Profile* profile) {
 }
 
 // Creates an empty browser window with the given profile and returns a pointer
-// to the new |Browser|.
-Browser* CreateBrowser(Profile* profile) {
+// to the new |BrowserWindowInterface|.
+BrowserWindowInterface* CreateBrowser(Profile* profile) {
   // Closes the first run if we open a new window.
   if (auto* fre_service =
           FirstRunServiceFactory::GetForBrowserContextIfExists(profile)) {
@@ -234,15 +234,15 @@ Browser* CreateBrowser(Profile* profile) {
     chrome::NewEmptyWindow(profile);
   }
 
-  Browser* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser = chrome::FindLastActive();
   //CHECK(browser);
   return browser;
 }
 
 // Activates a browser window having the given profile (the last one active) if
 // possible or creates an empty one if necessary. Returns a pointer to the
-// activated/new |Browser|.
-Browser* ActivateOrCreateBrowser(Profile* profile) {
+// activated/new |BrowserWindowInterface|.
+BrowserWindowInterface* ActivateOrCreateBrowser(Profile* profile) {
   if (Browser* browser = ActivateBrowser(profile))
     return browser;
   return CreateBrowser(profile);
@@ -1269,10 +1269,10 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
     ConfigureNSAppForKioskMode();
 
-  Browser* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser = chrome::FindLastActive();
   content::WebContents* activeWebContents = nullptr;
   if (browser) {
-    activeWebContents = browser->tab_strip_model()->GetActiveWebContents();
+    activeWebContents = browser->GetTabStripModel()->GetActiveWebContents();
     _lastActiveBrowser = browser->GetWeakPtr();
   }
   [self updateHandoffManager:activeWebContents];
@@ -1380,14 +1380,15 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
       if ([self userWillWaitForInProgressDownloads:downloadCount]) {
         // Create a new browser window (if necessary) and navigate to the
         // downloads page if the user chooses to wait.
-        Browser* browser = chrome::FindBrowserWithProfile(profile);
+        BrowserWindowInterface* browser =
+            chrome::FindBrowserWithProfile(profile);
         if (!browser) {
           browser = Browser::Create(Browser::CreateParams(profile, true));
-          browser->window()->Show();
+          browser->GetWindow()->Show();
         }
         [[ConfirmQuitPanelController sharedController] cancel];
         DCHECK(browser);
-        chrome::ShowDownloads(browser);
+        chrome::ShowDownloads(browser->GetBrowserForMigrationOnly());
         return NO;
       }
 
@@ -1456,9 +1457,10 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if ([NSApp modalWindow])
     return YES;
 
-  Browser* browser = chrome::FindLastActive();
-  return browser && [[browser->window()->GetNativeWindow().GetNativeNSWindow()
-                            attachedSheet] isKindOfClass:[NSWindow class]];
+  BrowserWindowInterface* browser = chrome::FindLastActive();
+  return browser &&
+         [[browser->GetWindow()->GetNativeWindow().GetNativeNSWindow()
+             attachedSheet] isKindOfClass:[NSWindow class]];
 }
 
 - (BOOL)canOpenNewBrowser {

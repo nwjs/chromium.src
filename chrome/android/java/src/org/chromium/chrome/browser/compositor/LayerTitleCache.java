@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.compositor;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -29,6 +27,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFavicon;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
@@ -234,11 +233,10 @@ public class LayerTitleCache {
 
     @CalledByNative
     private void buildUpdatedGroupTitle(Token groupId, boolean incognito) {
-        TabGroupModelFilter filter = mTabModelSelector.getTabGroupModelFilter(incognito);
-        assumeNonNull(filter);
-        if (!filter.tabGroupExists(groupId)) return;
+        TabModel tabModel = mTabModelSelector.getModel(incognito);
+        if (!tabModel.tabGroupExists(groupId)) return;
 
-        String titleString = TabGroupTitleUtils.getDisplayableTitle(mContext, filter, groupId);
+        String titleString = TabGroupTitleUtils.getDisplayableTitle(mContext, tabModel, groupId);
         getUpdatedGroupTitle(groupId, titleString, incognito);
     }
 
@@ -298,12 +296,21 @@ public class LayerTitleCache {
      * @param titleString The title to measure.
      * @return The width in px of the title.
      */
-    public int getTitleWidth(boolean incognito, String titleString) {
+    public int getTitleWidth(boolean incognito, @Nullable String titleString) {
         if (titleString == null) return 0;
 
         TitleBitmapFactory titleBitmapFactory =
                 incognito ? mDarkTitleBitmapFactory : mStandardTitleBitmapFactory;
         return titleBitmapFactory.getTitleWidth(titleString);
+    }
+
+    /**
+     * @param titleString The button text to measure.
+     * @return The width in px of the button text.
+     */
+    public int getButtonTextWidth(@Nullable String titleString) {
+        if (titleString == null) return 0;
+        return mStandardTitleBitmapFactory.getButtonTextWidth(titleString);
     }
 
     /**

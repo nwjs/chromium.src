@@ -391,8 +391,10 @@ void ServiceWorkerPaymentApp::OnPaymentAppResponse(
     DCHECK(response->payer_phone.value_or("").empty());
     DCHECK(!response->shipping_address);
     DCHECK(response->shipping_option.value_or("").empty());
-    delegate_->OnInstrumentDetailsError(std::string(
-        ConvertPaymentEventResponseTypeToErrorString(response->response_type)));
+    delegate_->OnInstrumentDetailsError(
+        response->response_type,
+        std::string(ConvertPaymentEventResponseTypeToErrorString(
+            response->response_type)));
   }
 
   delegate_ = nullptr;

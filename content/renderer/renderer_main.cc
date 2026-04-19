@@ -19,7 +19,6 @@
 #include "base/message_loop/message_pump_uv.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/pending_task.h"
 #include "base/process/current_process.h"
 #include "base/run_loop.h"
@@ -44,7 +43,7 @@
 #include "content/public/common/main_function_params.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_thread.h"
-#include "content/renderer/memory_coordinator/renderer_memory_coordinator_policy.h"
+#include "content/renderer/memory_coordinator/last_resort_gc_policy.h"
 #include "content/renderer/render_process_impl.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/renderer_main_platform_delegate.h"
@@ -234,7 +233,11 @@ int RendererMain(MainFunctionParams parameters) {
   // can install observers.
   performance_scenarios::ScopedScenarioObserverList scenario_observer_list;
 
-  blink::Platform::InitializeBlink();
+  // This scope is used to reduce the number of stack frames needed to be
+  // scanned during conservative stack scanning in cppgc. It allows us to skip
+  // scanning the caller frames of this function.
+  cppgc::StackStartMarker cppgc_stack_start_marker;
+  blink::Platform::InitializeBlink(std::move(cppgc_stack_start_marker));
   std::unique_ptr<blink::scheduler::WebThreadScheduler> main_thread_scheduler =
       blink::scheduler::WebThreadScheduler::CreateMainThreadScheduler(
           CreateMainThreadMessagePump(nwjs));
@@ -247,8 +250,10 @@ int RendererMain(MainFunctionParams parameters) {
   // is OK.
   InitializeWebRtcModuleBeforeSandbox();
 
-  RendererMemoryCoordinatorPolicy render_memory_coordinator_policy(
-      ChildMemoryCoordinator::Get());
+  std::optional<LastResortGCPolicy> last_resort_gc_policy;
+  if (base::FeatureList::IsEnabled(kMemoryCoordinatorLastResortGC)) {
+    last_resort_gc_policy.emplace(ChildMemoryCoordinator::Get());
+  }
 
   {
     content::ContentRendererClient* client = GetContentClient()->renderer();

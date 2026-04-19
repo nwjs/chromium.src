@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.finds;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
@@ -72,10 +73,31 @@ public class FindsService {
         mObservers.removeObserver(observer);
     }
 
+    /** Reschedules notifications if any are pending. */
+    public void maybeRescheduleNotifications() {
+        if (mNativeFindsServiceAndroid == 0) return;
+        FindsServiceJni.get().maybeRescheduleNotifications(mNativeFindsServiceAndroid);
+    }
+
     @CalledByNative
     private void onOptInCriteriaFulfilled() {
         for (Observer observer : mObservers) {
             observer.onOptInCriteriaFulfilled();
         }
+    }
+
+    @CalledByNative
+    private static void checkAreFindsNotificationsEnabled(long callbackId) {
+        FindsUtils.areFindsNotificationsEnabled(
+                (enabled) -> {
+                    FindsServiceJni.get().onCheckAreFindsNotificationsEnabled(callbackId, enabled);
+                });
+    }
+
+    @NativeMethods
+    interface Natives {
+        void maybeRescheduleNotifications(long nativeFindsServiceAndroid);
+
+        void onCheckAreFindsNotificationsEnabled(long callbackId, boolean result);
     }
 }

@@ -29,15 +29,13 @@ class InstallMigrateToAppCommandBrowserTest : public WebAppBrowserTestBase {
       "/web_apps/migration/migrate_to/manifest_id";
 
   InstallMigrateToAppCommandBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {blink::features::kWebAppMigrationApi,
-         features::kWebAppPredictableAppUpdating},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kWebAppMigrationApi);
   }
 
   webapps::AppId GetTargetAppId() {
-    return GenerateAppIdFromManifestId(
-        webapps::ManifestId(https_server()->GetURL(kMigrateToManifestId)));
+    return GenerateAppIdFromManifestId(webapps::ManifestId(
+        embedded_https_test_server().GetURL(kMigrateToManifestId)));
   }
 
  protected:
@@ -48,7 +46,7 @@ IN_PROC_BROWSER_TEST_F(InstallMigrateToAppCommandBrowserTest,
                        NotScheduledWhenSourceNotInstalled) {
   // 1. Navigate to source app's page without installing it.
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server()->GetURL(kMigrateFromSuggestUrl)));
+      browser(), embedded_https_test_server().GetURL(kMigrateFromSuggestUrl)));
   test::WaitForLoadCompleteAndMaybeManifestSeen(
       *browser()->tab_strip_model()->GetActiveWebContents());
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
@@ -64,8 +62,8 @@ IN_PROC_BROWSER_TEST_F(InstallMigrateToAppCommandBrowserTest,
                        TargetInstalledWhenSourceIsInstalled) {
   // 1. Install the source app. Since it's from `migrate_from/suggest.html`,
   // this will install the app and its manifest will have `migrate_to`.
-  InstallWebAppFromPage(browser(),
-                        https_server()->GetURL(kMigrateFromSuggestUrl));
+  InstallWebAppFromPage(
+      browser(), embedded_https_test_server().GetURL(kMigrateFromSuggestUrl));
 
   base::RunLoop run_loop;
   WebAppInstallManagerObserverAdapter observer(&provider().install_manager());
@@ -80,7 +78,7 @@ IN_PROC_BROWSER_TEST_F(InstallMigrateToAppCommandBrowserTest,
   // We navigate again to the source app to re-trigger manifest check, which
   // schedules the migration to the target app.
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server()->GetURL(kMigrateFromSuggestUrl)));
+      browser(), embedded_https_test_server().GetURL(kMigrateFromSuggestUrl)));
   test::WaitForLoadCompleteAndMaybeManifestSeen(
       *browser()->tab_strip_model()->GetActiveWebContents());
 

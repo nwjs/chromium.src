@@ -103,6 +103,7 @@
 #include "content/public/browser/preload_pipeline_info.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/prerender_handle.h"
+#include "content/public/browser/prerender_host_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -487,6 +488,15 @@ ScopedJavaLocalRef<jobject> AwContents::GetRenderProcess(JNIEnv* env) {
 base::android::ScopedJavaLocalRef<jobject> AwContents::GetJavaObject() {
   JNIEnv* env = base::android::AttachCurrentThread();
   return java_ref_.get(env);
+}
+
+SkBitmap AwContents::GetFavicon(JNIEnv* env) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  gfx::Image favicon_image = web_contents_->GetController()
+                                 .GetLastCommittedEntry()
+                                 ->GetFavicon()
+                                 .image;
+  return favicon_image.AsBitmap();
 }
 
 void AwContents::Destroy(JNIEnv* env) {
@@ -892,14 +902,13 @@ void AwContents::OnReceivedIcon(const GURL& icon_url, const SkBitmap& bitmap) {
   entry->GetFavicon().url = icon_url;
   entry->GetFavicon().image = gfx::Image::CreateFrom1xBitmap(bitmap);
 
-  ScopedJavaLocalRef<jobject> java_bitmap =
-      gfx::ConvertToJavaBitmap(bitmap, gfx::OomBehavior::kReturnNullOnOom);
-  if (!java_bitmap) {
-    LOG(WARNING) << "Skipping onReceivedIcon; Not enough memory to convert "
-                    "icon to Bitmap.";
-    return;
+  // Experiment: will not store favicon bitmap in java or call onReceivedIcon
+  // unless onReceivedIcon is overridden crbug.com/41027010
+  if (is_on_received_icon_overridden_ ||
+      !base::FeatureList::IsEnabled(
+          features::kWebViewSkipFaviconJavaCopyUntilNeeded)) {
+    Java_AwContents_onReceivedIcon(env, obj, bitmap);
   }
-  Java_AwContents_onReceivedIcon(env, obj, java_bitmap);
 }
 
 void AwContents::OnReceivedTouchIconUrl(const std::string& url,
@@ -1465,7 +1474,7 @@ void AwContents::FlushBackForwardCache(JNIEnv* env, int32_t reason) {
       static_cast<NotRestoredReason>(reason));
 }
 
-int32_t AwContents::StartPrerendering(
+int64_t AwContents::StartPrerendering(
     JNIEnv* env,
     const std::string& prerendering_url,
     const base::android::JavaRef<jobject>& j_prefetch_params,
@@ -1492,7 +1501,7 @@ int32_t AwContents::StartPrerendering(
     if (IsPrerenderHandleEquivalentTo(handle, url, no_vary_search_hint)) {
       handle->AddActivationCallback(std::move(activation_callback));
       handle->AddErrorCallback(std::move(error_callback));
-      return handle->GetHandleId();
+      return handle->GetPrerenderHostId().GetUnsafeValue();
     }
 
     // If the handle is not equivalent but has the same prerendering URL, cancel
@@ -1518,6 +1527,19 @@ int32_t AwContents::StartPrerendering(
 
   net::HttpRequestHeaders additional_headers =
       GetAdditionalHeadersFromPrefetchParameters(env, j_prefetch_params);
+  scoped_refptr<content::PreloadPipelineInfo> preload_pipeline_info =
+      content::PreloadPipelineInfo::Create(
+          /*planned_max_preloading_type=*/content::PreloadingType::kPrerender);
+
+  // Trigger prefetch ahead of prerender.
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewPrefetchAheadOfPrerender)) {
+    auto* browser_context =
+        AwBrowserContext::FromWebContents(web_contents_.get());
+    browser_context->GetPrefetchManager().StartPrefetchRequestAheadOfPrerender(
+        base::PassKey<AwContents>(), env, prerendering_url, j_prefetch_params,
+        preload_pipeline_info);
+  }
 
   // This is the same as the page transition of WebView.loadUrl().
   auto page_transition = ui::PageTransitionFromInt(
@@ -1536,16 +1558,14 @@ int32_t AwContents::StartPrerendering(
               features::kPrerender2WarmUpCompositorForWebView),
           /*should_prepare_paint_tree=*/false,
           content::PreloadingHoldbackStatus::kUnspecified,
-          content::PreloadPipelineInfo::Create(
-              /*planned_max_preloading_type=*/content::PreloadingType::
-                  kPrerender),
+          std::move(preload_pipeline_info),
           /*preloading_attempt=*/nullptr, /*url_match_predicate=*/{},
           /*prerender_navigation_handle_callback=*/{},
           /*allow_reuse=*/false);
 
-  int32_t handle_id = -1;
+  int64_t host_id = -1;
   if (prerender_handle) {
-    handle_id = prerender_handle->GetHandleId();
+    host_id = prerender_handle->GetPrerenderHostId().GetUnsafeValue();
     prerender_handle->AddActivationCallback(std::move(activation_callback));
     prerender_handle->AddErrorCallback(std::move(error_callback));
     prerender_handles_.push_back(std::move(prerender_handle));
@@ -1553,14 +1573,16 @@ int32_t AwContents::StartPrerendering(
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(error_callback));
   }
-  return handle_id;
+  return host_id;
 }
 
-void AwContents::CancelPrerendering(JNIEnv* env, int32_t prerender_id) {
-  EraseIf(
+void AwContents::CancelPrerendering(JNIEnv* env, int64_t prerender_id) {
+  content::PrerenderHostId host_id =
+      content::PrerenderHostId::FromUnsafeValue(prerender_id);
+  base::EraseIf(
       prerender_handles_,
-      [prerender_id](const std::unique_ptr<content::PrerenderHandle>& handle) {
-        return handle->GetHandleId() == prerender_id;
+      [host_id](const std::unique_ptr<content::PrerenderHandle>& handle) {
+        return handle->GetPrerenderHostId() == host_id;
       });
 }
 
@@ -1593,6 +1615,10 @@ void AwContents::SetJsOnlineProperty(JNIEnv* env, bool network_up) {
           web_contents_->GetPrimaryMainFrame()->GetProcess());
 
   aw_render_process->SetJsOnlineProperty(network_up);
+}
+
+void AwContents::SetOnReceivedIconOverridden(JNIEnv* env, bool is_overridden) {
+  is_on_received_icon_overridden_ = is_overridden;
 }
 
 void AwContents::TrimMemory(JNIEnv* env, int32_t level, bool visible) {

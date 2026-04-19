@@ -651,7 +651,6 @@ class BrowserView : public BrowserWindow,
       int download_count,
       Browser::DownloadCloseType dialog_type,
       base::OnceCallback<void(bool)> callback) override;
-  void UserChangedTheme(BrowserThemeChangeType theme_change_type) override;
   void ShowAppMenu() override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const input::NativeWebKeyboardEvent& event) override;
@@ -826,9 +825,7 @@ class BrowserView : public BrowserWindow,
   // feature is enabled).
   std::vector<views::NativeViewHost*> GetNativeViewHostsForTopControlsSlide();
 
-  void CreateTabSearchBubble(
-      tab_search::mojom::TabSearchSection section =
-          tab_search::mojom::TabSearchSection::kSearch) override;
+  void CreateTabSearchBubble() override;
   void CloseTabSearchBubble() override;
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -1151,6 +1148,9 @@ private:
   void PaintAsActiveChanged();
   void FrameColorsChanged();
 
+  // Called by BrowserWindowThemeObserver when the theme changes.
+  void UserChangedTheme(BrowserThemeChangeType theme_change_type);
+
   void UpdateAccessibleNameForRootView();
   void UpdateAccessibleURLForRootView(const GURL& url);
 
@@ -1472,6 +1472,8 @@ private:
   base::CallbackListSubscription projects_panel_subscription_;
 
   base::CallbackListSubscription on_locked_task_subscription_;
+
+  base::CallbackListSubscription theme_changed_subscription_;
 
   // Bitmask of current combination of reparenting states, e.g. immersive and
   // ChromeOS tablet modes.

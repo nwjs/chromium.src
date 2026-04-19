@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/profiles/profile_statistics.h"
 #include "chrome/browser/profiles/profile_statistics_common.h"
 #include "chrome/browser/profiles/profile_statistics_factory.h"
+#include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/ui/managed_ui.h"
@@ -32,6 +34,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/signin_resources.h"
 #include "components/prefs/pref_service.h"
+#include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
@@ -57,18 +60,32 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
 
   static constexpr webui::ResourcePath kResources[] = {
       {"icons.html.js", IDR_SIGNIN_ICONS_HTML_JS},
+      {"managed_user_profile_notice_refresh.html",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_REFRESH_HTML},
       {"managed_user_profile_notice_app.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_JS},
+      {"managed_user_profile_notice_app_refresh.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_REFRESH_JS},
       {"managed_user_profile_notice_app.css.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_CSS_JS},
+      {"managed_user_profile_notice_app_refresh.css.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_REFRESH_CSS_JS},
       {"managed_user_profile_notice_app.html.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_HTML_JS},
+      {"managed_user_profile_notice_app_refresh.html.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_APP_REFRESH_HTML_JS},
       {"managed_user_profile_notice_disclosure.css.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_CSS_JS},
+      {"managed_user_profile_notice_disclosure_refresh.css.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_CSS_JS},
       {"managed_user_profile_notice_disclosure.html.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_HTML_JS},
+      {"managed_user_profile_notice_disclosure_refresh.html.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_HTML_JS},
       {"managed_user_profile_notice_disclosure.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_JS},
+      {"managed_user_profile_notice_disclosure_refresh.js",
+       IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_DISCLOSURE_REFRESH_JS},
       {"managed_user_profile_notice_state.css.js",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_MANAGED_USER_PROFILE_NOTICE_STATE_CSS_JS},
       {"managed_user_profile_notice_value_prop.css.js",
@@ -103,6 +120,10 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_IMAGES_ENROLLMENT_FAILURE_DARK_SVG},
       {"images/enrollment_timeout_dark.svg",
        IDR_SIGNIN_MANAGED_USER_PROFILE_NOTICE_IMAGES_ENROLLMENT_TIMEOUT_DARK_SVG},
+      {"images/profile_picker_light_background.svg",
+       IDR_SIGNIN_IMAGES_PROFILE_PICKER_LIGHT_BACKGROUND_SVG},
+      {"images/profile_picker_dark_background.svg",
+       IDR_SIGNIN_IMAGES_PROFILE_PICKER_DARK_BACKGROUND_SVG},
       {"signin_shared.css.js", IDR_SIGNIN_SIGNIN_SHARED_CSS_JS},
       {"signin_vars.css.js", IDR_SIGNIN_SIGNIN_VARS_CSS_JS},
       {"tangible_sync_style_shared.css.js",
@@ -159,6 +180,11 @@ ManagedUserProfileNoticeUI::ManagedUserProfileNoticeUI(content::WebUI* web_ui)
                              IDS_ENTERPRISE_WELCOME_DEVICE_INFORMATION_TITLE);
   source->AddLocalizedString("deviceInformationDetails",
                              IDS_ENTERPRISE_WELCOME_DEVICE_INFORMATION_DETAILS);
+
+  source->AddLocalizedString("avatarAccessibilityLabel",
+                             IDS_ACCNAME_YOUR_AVATAR);
+  source->AddLocalizedString("enterpriseIconAccessibilityLabel",
+                             IDS_ACCNAME_ENTERPRISE_ORGANIZATION_ICON);
 
   source->AddLocalizedString("processingSubtitle",
                              IDS_ENTERPRISE_OIDC_WELCOME_PROCESSING_SUBTITLE);
@@ -219,6 +245,7 @@ void ManagedUserProfileNoticeUI::Initialize(
   base::DictValue update_data;
   std::string domain =
       enterprise_util::GetDomainFromEmail(create_param->account_info.email);
+  update_data.Set("screenType", static_cast<int>(type));
   if (type ==
       ManagedUserProfileNoticeUI::ScreenType::kEnterpriseAccountCreation) {
     update_data.Set("isModalDialog", true);
@@ -283,8 +310,7 @@ void ManagedUserProfileNoticeUI::Initialize(
     update_data.Set(
         "valuePropSubtitle",
         l10n_util::GetStringUTF16(
-            base::FeatureList::IsEnabled(
-                syncer::kReplaceSyncPromosWithSignInPromos)
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
                 ? IDS_ENTERPRISE_VALUE_PROPOSITION_CONSUMER_SUBTITLE_WITH_BOOKMARKS
                 : IDS_ENTERPRISE_VALUE_PROPOSITION_CONSUMER_SUBTITLE));
     update_data.Set(
@@ -349,6 +375,27 @@ void ManagedUserProfileNoticeUI::Initialize(
         "separateBrowsingDataChoiceTitle",
         l10n_util::GetStringUTF16(
             IDS_ENTERPRISE_WELCOME_SEPARATE_BROWSING_DATA_SCHOOL_CHOICE));
+  }
+  if (type == ManagedUserProfileNoticeUI::ScreenType::kFirstRun) {
+    const bool is_in_search_engine_choice_region =
+        CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
+                        GetForProfile(profile))
+            .IsInSearchEngineChoiceScreenRegion();
+    if (switches::IsFirstRunDesktopRefreshEnabled(
+            is_in_search_engine_choice_region)) {
+      update_data.Set(
+          "profileDisclosureTitle",
+          l10n_util::GetStringFUTF16(
+              IDS_FRE_SIGN_IN_CELEBRATION_WELCOME_TITLE,
+              base::UTF8ToUTF16(
+                  create_param->account_info.GetGivenName().value_or(
+                      create_param->account_info.email))));
+      update_data.Set(
+          "profileDisclosureSubtitle",
+          l10n_util::GetStringFUTF16(
+              IDS_ENTERPRISE_WELCOME_PROFILE_DISCLOSURE_KNOWN_DOMAIN_SUBTITLE,
+              base::UTF8ToUTF16(domain)));
+    }
   }
 
   // Change the text so that the "(Recommended)" label is not shown when the

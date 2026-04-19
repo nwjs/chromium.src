@@ -16,7 +16,6 @@
 #include "base/i18n/string_compare.h"
 #include "base/memory/singleton.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -43,7 +42,6 @@
 #include "components/translate/core/browser/translate_metrics_logger.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/translate/core/browser/translate_ui_delegate.h"
-#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -274,6 +272,14 @@ void TranslateBubbleView::ResetLanguage() {
 }
 
 void TranslateBubbleView::WindowClosing() {
+  if (GetBubbleFrameView()->GetWidget()->closed_reason() ==
+      views::Widget::ClosedReason::kCloseButtonClicked) {
+    model_->DeclineTranslation();
+    model_->ReportUIInteraction(translate::UIInteraction::kCloseUIExplicitly);
+  } else {
+    model_->ReportUIInteraction(translate::UIInteraction::kCloseUILostFocus);
+  }
+
   // The operations for |model_| are valid only when a WebContents is alive.
   // TODO(crbug.com/40341719): TranslateBubbleViewModel(Impl) should not hold a
   // WebContents as a member variable because the WebContents might be destroyed
@@ -462,16 +468,6 @@ void TranslateBubbleView::ExecuteCommand(int command_id, int event_flags) {
 
     default:
       NOTREACHED();
-  }
-}
-
-void TranslateBubbleView::OnWidgetClosing(views::Widget* widget) {
-  if (GetBubbleFrameView()->GetWidget()->closed_reason() ==
-      views::Widget::ClosedReason::kCloseButtonClicked) {
-    model_->DeclineTranslation();
-    model_->ReportUIInteraction(translate::UIInteraction::kCloseUIExplicitly);
-  } else {
-    model_->ReportUIInteraction(translate::UIInteraction::kCloseUILostFocus);
   }
 }
 

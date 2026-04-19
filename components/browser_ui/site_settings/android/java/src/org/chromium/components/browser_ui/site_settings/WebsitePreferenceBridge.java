@@ -8,6 +8,7 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.permissions.PermissionUtil.getGeolocationType;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
@@ -37,7 +38,7 @@ public class WebsitePreferenceBridge {
 
     /** Interface for an object that listens to storage info is cleared callback. */
     public interface StorageInfoClearedCallback {
-        @CalledByNative("StorageInfoClearedCallback")
+        @CalledByNative
         void onStorageInfoCleared();
     }
 
@@ -207,8 +208,8 @@ public class WebsitePreferenceBridge {
     }
 
     /** Returns whether the DSE (Default Search Engine) origin matches the given origin. */
-    public static boolean isDSEOrigin(BrowserContextHandle browserContextHandle, String origin) {
-        return WebsitePreferenceBridgeJni.get().isDSEOrigin(browserContextHandle, origin);
+    public static boolean isDseOrigin(BrowserContextHandle browserContextHandle, GURL origin) {
+        return WebsitePreferenceBridgeJni.get().isDseOrigin(browserContextHandle, origin);
     }
 
     /**
@@ -673,7 +674,8 @@ public class WebsitePreferenceBridge {
         void recordHeuristicActionForTesting( // IN-TEST
                 BrowserContextHandle browserContextHandle, String origin, int type, int action);
 
-        boolean isDSEOrigin(BrowserContextHandle browserContextHandle, String origin);
+        boolean isDseOrigin(
+                BrowserContextHandle browserContextHandle, @JniType("GURL") GURL origin);
 
         boolean getAdBlockingActivated(BrowserContextHandle browserContextHandle, String origin);
 

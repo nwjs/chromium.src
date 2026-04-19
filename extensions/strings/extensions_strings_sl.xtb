@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">Neznan izdelek <ph name="PRODUCT_ID" /> dobavitelja <ph name="VENDOR_ID" /> (serijska številka <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Datoteke .crx ni bilo mogoče zamenjati. Preverite, ali je datoteka v uporabi.</translation>
 <translation id="3163201441334626963">Neznan izdelek <ph name="PRODUCT_ID" /> dobavitelja <ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">Vaša organizacija je blokirala dostop do te razširitve.</translation>
 <translation id="3242289508736283383">Aplikacijo z atributom manifesta »kiosk_only« je treba namestiti v načinu kioska sistema Chrome OS</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (serijska številka <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> dobavitelja <ph name="VENDOR_ID" /> (serijska številka <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">Aplikacije »<ph name="TO_INSTALL_APP_NAME" />« ni bilo mogoče dodati, ker je v sporu z aplikacijo »<ph name="INSTALLED_APP_NAME" />«.</translation>
 <translation id="388442998277590542">Strani z možnostmi »<ph name="OPTIONS_PAGE" />« ni bilo mogoče naložiti.</translation>
 <translation id="3984413272403535372">Med podpisovanjem razširitve je prišlo do napake.</translation>
+<translation id="4094452115117798451">Vaša organizacija je blokirala dostop do te kategorije razširitev.</translation>
 <translation id="4233778200880751280">Ni bilo mogoče naložiti Vizitke »<ph name="ABOUT_PAGE" />«.</translation>
 <translation id="424963718355121712">Aplikacije morajo biti izvedene pri gostitelju, na katerega vplivajo</translation>
 <translation id="4306119971288449206">Aplikacije morajo biti opremljene z vrsto vsebine »<ph name="CONTENT_TYPE" />«</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">Neznan izdelek <ph name="PRODUCT_ID" /> dobavitelja <ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">Datoteka manifesta ni veljavna</translation>
 <translation id="7217838517480956708">Skrbnik tega računalnika zahteva namestitev razširitve <ph name="EXTENSION_NAME" />. Ni je mogoče odstraniti ali spremeniti.</translation>
+<translation id="7287143125007575591">Dostop zavrnjen.</translation>
 <translation id="7612608473764576263">Vrednost vnosa za zasebni ključ mora biti veljavne oblike (ključ RSA s kodiranjem PEM v obliki PKCS#8).</translation>
 <translation id="765293928828334535">Aplikacij, razširitev in uporabniških skriptov ni mogoče dodati s tega spletnega mesta</translation>
 <translation id="7876803335449432072">Datoteke »<ph name="RELATIVE_PATH" />« ni bilo mogoče naložiti za skript vsebine. Datoteke s slogi skripta vsebine je mogoče naložiti samo iz podprtih datotek s slogi, kot so datoteke .css.</translation>

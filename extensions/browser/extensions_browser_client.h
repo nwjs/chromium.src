@@ -49,6 +49,10 @@ class StoragePartitionConfig;
 class WebContents;
 }  // namespace content
 
+namespace download {
+class DownloadItem;
+}  // namespace download
+
 namespace mojo {
 template <typename>
 class BinderMapWithContext;
@@ -93,6 +97,7 @@ class SafeBrowsingDatabaseManager;
 namespace extensions {
 
 class Blocklist;
+class CrxInstaller;
 class ComponentExtensionResourceManager;
 class Extension;
 class ExtensionAssetsManager;
@@ -106,6 +111,7 @@ class ExtensionSystemProvider;
 class ExtensionWebContentsObserver;
 class InstallStageTracker;
 class InstallTracker;
+class InstallVerifier;
 class KioskDelegate;
 class PermissionSet;
 class ProcessManagerDelegate;
@@ -114,6 +120,7 @@ class RuntimeAPIDelegate;
 class SafeBrowsingDelegate;
 class ScopedBrowserContextKeepAlive;
 class ScriptExecutor;
+class SharedModuleService;
 class SitePermissionsHelper;
 class UserScriptListener;
 
@@ -419,6 +426,9 @@ class ExtensionsBrowserClient {
   // Returns true if activity logging is enabled for the given `context`.
   virtual bool IsActivityLoggingEnabled(content::BrowserContext* context);
 
+  // Returns true if telemetry logging is enabled for the given `context`.
+  virtual bool IsTelemetryLoggingEnabled(content::BrowserContext* context);
+
   // Retrives the embedder's notion of tab and window ID for a given
   // WebContents. May return -1 for either or both values if the embedder does
   // not implement any such concepts. This is used to support the WebRequest API
@@ -635,6 +645,25 @@ class ExtensionsBrowserClient {
 
   // Returns InstallTracker associated with `context`.
   virtual InstallTracker* GetInstallTracker(content::BrowserContext* context);
+
+  // Returns InstallVerifier associated with `context`.
+  virtual InstallVerifier* GetInstallVerifier(content::BrowserContext* context);
+
+  // Returns SharedModuleService associated with `context`.
+  virtual SharedModuleService* GetSharedModuleService(
+      content::BrowserContext* context);
+
+  // Run an update check if the updater is enabled.
+  virtual void UpdateCheckIfEnabled(content::BrowserContext* context);
+
+  // Returns the path to the user's data directory.
+  virtual base::FilePath GetUserDataDir();
+
+  // Creates and pre-configures a CrxInstaller with an install prompt UI for a
+  // given |download_item|.
+  virtual scoped_refptr<CrxInstaller> CreateCrxInstallerFromDownloadItem(
+      content::BrowserContext* context,
+      const download::DownloadItem& download);
 
  protected:
   std::unique_ptr<ExtensionAssetsManager> assets_manager_;

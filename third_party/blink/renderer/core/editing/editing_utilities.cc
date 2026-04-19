@@ -28,6 +28,7 @@
 #include <array>
 #include <string_view>
 
+#include "base/compiler_specific.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
@@ -89,6 +90,7 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
+#include "third_party/blink/renderer/core/layout/layout_block.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/svg/svg_image_element.h"
@@ -121,8 +123,9 @@ UChar WhitespaceRebalancingCharToAppend(const StringView& string,
                                         UChar previous) {
   DCHECK_LT(index, string.length());
 
-  if (!IsWhitespace(string[index]))
-    return string[index];
+  if (!IsWhitespace(UNSAFE_TODO(string[index]))) {
+    return UNSAFE_TODO(string[index]);
+  }
 
   if (!index && start_is_start_of_paragraph)
     return uchar::kNoBreakSpace;
@@ -137,9 +140,11 @@ UChar WhitespaceRebalancingCharToAppend(const StringView& string,
   }
 
   // Run of two or more spaces starts with a no-break space (crbug.com/453042).
-  if (index + 1 < string.length() && IsWhitespace(string[index + 1]))
+  // SAFETY: index checked before use in &&-expression.
+  if (index + 1 < string.length() &&
+      IsWhitespace(UNSAFE_BUFFERS(string[index + 1]))) {
     return uchar::kNoBreakSpace;
-
+  }
   return ' ';
 }
 
@@ -954,7 +959,7 @@ TextDirection DirectionOfEnclosingBlockOfAlgorithm(
   if (!enclosing_block_element)
     return TextDirection::kLtr;
   LayoutObject* layout_object = enclosing_block_element->GetLayoutObject();
-  return layout_object ? layout_object->Style()->Direction()
+  return layout_object ? layout_object->StyleRef().Direction()
                        : TextDirection::kLtr;
 }
 
@@ -971,7 +976,7 @@ TextDirection PrimaryDirectionOf(const Node& node) {
   TextDirection primary_direction = TextDirection::kLtr;
   for (const LayoutObject* r = node.GetLayoutObject(); r; r = r->Parent()) {
     if (r->IsLayoutBlockFlow()) {
-      primary_direction = r->Style()->Direction();
+      primary_direction = r->StyleRef().Direction();
       break;
     }
   }
@@ -1336,6 +1341,29 @@ static Element* UserSelectContainBoundaryOf(const Position& position) {
   return nullptr;
 }
 
+// Check if anchorNode and targetNode share the same neareast out-of-flow
+// ancestor.
+static bool HaveSameOutOfFlowAncestor(const Node& anchor_node,
+                                      const Node& target_node) {
+  LayoutObject* anchor_object = anchor_node.GetLayoutObject();
+  LayoutObject* target_object = target_node.GetLayoutObject();
+  if (!anchor_object || !target_object || anchor_object == target_object) {
+    return true;
+  }
+  auto nearest_out_of_flow_object = [](LayoutObject* ancestor) {
+    while (ancestor) {
+      if (ancestor->IsOutOfFlowPositioned()) {
+        return ancestor;
+      }
+      ancestor = ancestor->ContainingBlock();
+    }
+    return static_cast<LayoutObject*>(nullptr);
+  };
+
+  return nearest_out_of_flow_object(anchor_object) ==
+         nearest_out_of_flow_object(target_object);
+}
+
 PositionWithAffinity PositionRespectingEditingBoundary(
     const Position& position,
     const HitTestResult& hit_test_result) {
@@ -1344,6 +1372,13 @@ PositionWithAffinity PositionRespectingEditingBoundary(
   const LayoutObject* target_object = target_node->GetLayoutObject();
   if (!target_object)
     return PositionWithAffinity();
+
+  if (RuntimeEnabledFeatures::
+          NoExtendSelectionToUserSelectNoneOutOfFlowEnabled() &&
+      !position.IsNull() && !target_object->IsSelectable() &&
+      !HaveSameOutOfFlowAncestor(*position.AnchorNode(), *target_node)) {
+    return PositionWithAffinity();
+  }
 
   Element* editable_element = UserSelectContainBoundaryOf(position);
   if (!editable_element || editable_element->contains(target_node))

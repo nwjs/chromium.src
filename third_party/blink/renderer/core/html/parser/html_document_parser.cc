@@ -361,12 +361,13 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument& document,
 }
 
 HTMLDocumentParser::HTMLDocumentParser(
-    ContainerNode* fragment_target,
+    DocumentFragment* fragment_target,
     Element* context_element,
     ParserContentPolicy parser_content_policy,
     ParserPrefetchPolicy parser_prefetch_policy,
     CustomElementRegistry* registry,
-    StreamingSanitizer* sanitizer)
+    StreamingSanitizer* sanitizer,
+    ParserRootInsertionPoint* root_insertion_point)
     : HTMLDocumentParser(fragment_target->GetDocument(),
                          parser_content_policy,
                          kForceSynchronousParsing,
@@ -382,10 +383,15 @@ HTMLDocumentParser::HTMLDocumentParser(
   tokenizer_.SetState(TokenizerStateForContextElement(context_element,
                                                       report_errors, options_));
 
-  // No script_runner_ in fragment parser.
+  if (parser_content_policy == kAllowScriptingContentAndMarkAsParserInserted) {
+    CHECK(RuntimeEnabledFeatures::NewHTMLSettingMethodsEnabled());
+    script_runner_ = HTMLParserScriptRunner::Create(
+        ReentryPermit(), &fragment_target->GetDocument(), this);
+  }
+
   tree_builder_ = MakeGarbageCollected<HTMLTreeBuilder>(
       this, fragment_target, context_element, parser_content_policy, options_,
-      include_shadow_roots, registry, sanitizer);
+      include_shadow_roots, registry, sanitizer, root_insertion_point);
 }
 
 HTMLDocumentParser::HTMLDocumentParser(Document& document,

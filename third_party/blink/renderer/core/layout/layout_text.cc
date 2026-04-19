@@ -487,14 +487,13 @@ String LayoutText::PlainText() const {
     // Append a trailing space of the last |text_box| if it was collapsed.
     const unsigned end_offset = text_box.dom_start_offset + text_box.dom_length;
     if (last_end_offset && text_box.dom_start_offset > last_end_offset &&
-        !IsASCIISpace(text_[end_offset - 1])) {
+        !IsAsciiSpace(text_[end_offset - 1])) {
       plain_text_builder.Append(uchar::kSpace);
     }
     last_end_offset = end_offset;
 
-    String text =
-        text_.Substring(text_box.dom_start_offset, text_box.dom_length)
-            .SimplifyWhiteSpace(kDoNotStripWhiteSpace);
+    String text = text_.substr(text_box.dom_start_offset, text_box.dom_length)
+                      .SimplifyWhiteSpace(kDoNotStripWhiteSpace);
     plain_text_builder.Append(text);
   }
   return plain_text_builder.ToString();
@@ -757,7 +756,7 @@ UChar32 LayoutText::FirstCharacterAfterWhitespaceCollapsing() const {
     cursor.MoveTo(*this);
     if (cursor) {
       const StringView text = cursor.Current().Text(cursor);
-      return text.length() ? text.CodepointAt(0) : 0;
+      return text.length() ? text.CodePointAt(0) : 0;
     }
   }
   return 0;
@@ -770,7 +769,7 @@ UChar32 LayoutText::LastCharacterAfterWhitespaceCollapsing() const {
     cursor.MoveTo(*this);
     if (cursor) {
       const StringView text = cursor.Current().Text(cursor);
-      return text.length() ? text.CodepointAt(text.length() - 1) : 0;
+      return text.length() ? text.CodePointAt(text.length() - 1) : 0;
     }
   }
   return 0;
@@ -941,6 +940,17 @@ std::pair<String, TextOffsetMap> LayoutText::SecureText(const String& plain,
   NOT_DESTROYED();
   if (!plain.length()) {
     return std::make_pair(plain, TextOffsetMap());
+  }
+
+  if (Node* node = GetNode()) {
+    auto ancestors = FlatTreeTraversal::InclusiveAncestorsOf(*node);
+    auto it = std::ranges::find_if(ancestors, [](Node& n) {
+      return n.IsElementNode() && !n.IsInUserAgentShadowRoot();
+    });
+
+    if (it != ancestors.end()) {
+      To<Element>(*it).SetHasBeenHeuristicCustomPasswordCSS();
+    }
   }
 
   int last_typed_character_offset_to_reveal = -1;

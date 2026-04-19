@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/omnibox/test_omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_view.h"
+#include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/omnibox/browser/actions/omnibox_action.h"
@@ -469,7 +470,7 @@ TEST_F(OmniboxEditModelTest, KeywordModePreservesTemporaryText) {
 TEST_F(OmniboxEditModelTest, CtrlEnterNavigatesToDesiredTLD) {
   // Set the edit model into an inline autocomplete state.
   view()->SetUserText(u"foo");
-  model()->StartAutocomplete(false, false);
+  model()->StartAutocomplete(false);
   view()->OnInlineAutocompleteTextMaybeChanged(u"foo", u"bar");
 
   model()->OnControlKeyChanged(true);
@@ -482,7 +483,7 @@ TEST_F(OmniboxEditModelTest, CtrlEnterNavigatesToDesiredTLD) {
 TEST_F(OmniboxEditModelTest, CtrlEnterNavigatesToDesiredTLDTemporaryText) {
   // But if it's the temporary text, the View text should be used.
   view()->SetUserText(u"foo");
-  model()->StartAutocomplete(false, false);
+  model()->StartAutocomplete(false);
   model()->OnPopupDataChanged(u"foobar",
                               /*is_temporary_text=*/true, std::u16string(),
                               std::u16string(), std::u16string(), false,
@@ -1777,8 +1778,8 @@ TEST_F(OmniboxEditModelPopupTest, AimPopupEnabled_ForcedNavigationEnabled) {
                 "Omnibox"),
             1);
   histogram_tester.ExpectUniqueSample(
-      "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.Omnibox", true,
-      1);
+      "ContextualSearch.UserAction.SubmitQueryV2.Omnibox",
+      contextual_search::ContextualSearchContextState::kWithoutContext, 1);
 
   testing::Mock::VerifyAndClearExpectations(client());
   EXPECT_CALL(*client(), IsAimPopupEnabled()).WillRepeatedly(Return(true));
@@ -1991,4 +1992,36 @@ TEST_F(OmniboxEditModelPopupTest,
 
   // 5. Verify selection was reset to 0.
   EXPECT_EQ(0u, model()->GetPopupSelection().line);
+}
+
+TEST_F(OmniboxEditModelPopupTest, OpenFeaturedSearchMatch) {
+  // Populate the TemplateURLService with starter pack entries.
+  std::vector<std::unique_ptr<TemplateURLData>> turls =
+      template_url_starter_pack_data::GetStarterPackEngines();
+  for (auto& starter_turl : turls) {
+    controller()->client()->GetTemplateURLService()->Add(
+        std::make_unique<TemplateURL>(std::move(*starter_turl)));
+  }
+
+  // Create a featured search match.
+  AutocompleteMatch match(nullptr, 1000, false,
+                          AutocompleteMatchType::STARTER_PACK);
+  match.keyword = u"@bookmarks";
+  match.associated_keyword = u"@bookmarks";
+  match.destination_url = GURL("chrome://bookmarks");
+
+  ACMatches matches;
+  matches.push_back(match);
+  AutocompleteResult* result = &AutocompleteControllerPublishedResult();
+  result->AppendMatches(matches);
+
+  model()->OnPopupResultChanged();
+
+  // Selecting the match with NORMAL state should enter keyword mode.
+  model()->OpenSelection(
+      OmniboxPopupSelection(0, OmniboxPopupSelection::NORMAL));
+
+  EXPECT_TRUE(model()->is_keyword_selected());
+  EXPECT_EQ(u"@bookmarks", model()->keyword());
+  EXPECT_FALSE(model()->is_keyword_hint());
 }

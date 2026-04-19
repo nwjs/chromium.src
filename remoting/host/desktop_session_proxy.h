@@ -30,6 +30,7 @@
 #include "remoting/host/base/screen_resolution.h"
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/file_transfer/ipc_file_operations.h"
+#include "remoting/host/mojom/chromoting_host_services.mojom.h"
 #include "remoting/host/mojom/desktop_session.mojom.h"
 #include "remoting/host/mojom/remoting_mojom_traits.h"
 #include "remoting/host/remote_open_url/url_forwarder_configurator.h"
@@ -106,6 +107,10 @@ class DesktopSessionProxy
   std::unique_ptr<UrlForwarderConfigurator> CreateUrlForwarderConfigurator();
   std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
   CreateRemoteWebAuthnStateChangeNotifier();
+#if BUILDFLAG(IS_LINUX)
+  void OnSessionServicesClientConnected(
+      mojo::PendingReceiver<mojom::ChromotingSessionServices> receiver);
+#endif
   std::string GetCapabilities() const;
   void SetCapabilities(const std::string& capabilities);
 
@@ -158,7 +163,9 @@ class DesktopSessionProxy
       std::unique_ptr<protocol::ClipboardStub> client_clipboard);
 
   // API used to implement the SessionController interface.
-  void SetScreenResolution(const ScreenResolution& resolution);
+  void SetScreenResolution(const ScreenResolution& resolution,
+                           std::optional<webrtc::ScreenId> screen_id);
+  void SetVideoLayout(const protocol::VideoLayout& layout);
 
   // API used to implement the ActionExecutor interface.
   void ExecuteAction(const protocol::ActionRequest& request);
@@ -182,6 +189,8 @@ class DesktopSessionProxy
   void OnLocalMouseMoveDetected(
       const webrtc::DesktopVector& new_position) override;
   void OnLocalKeyboardInputDetected(int32_t usb_keycode) override;
+  void OnSecurityKeyConnection(
+      mojo::PendingReceiver<mojom::SecurityKeyForwarder> receiver) override;
 
   // mojom::DesktopSessionStateHandler implementation.
   void DisconnectSession(protocol::ErrorCode error,

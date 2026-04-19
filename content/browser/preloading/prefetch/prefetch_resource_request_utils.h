@@ -6,11 +6,14 @@
 #define CONTENT_BROWSER_PRELOADING_PREFETCH_PREFETCH_RESOURCE_REQUEST_UTILS_H_
 
 #include "content/browser/preloading/prefetch/prefetch_request.h"
+#include "content/common/content_export.h"
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
 
 namespace content {
+
+struct PrefetchUpdateHeadersParams;
 
 // Avoid using `inline constexpr` here in order to place the definition to
 // `.cc` file to get `tools/traffic_annotation/scripts/auditor/auditor.py` to
@@ -18,42 +21,63 @@ namespace content {
 extern const net::NetworkTrafficAnnotationTag
     kNavigationalPrefetchTrafficAnnotation;
 
-// Returns "Sec-Purpose" header value for a prefetch request to `request_url`.
-// Note that `request_url` and `prefetch_request.url` / `resource_request`
-// (that `request_headers` belongs)'s `url` can be different when called from
-// `PrefetchContainer::PrepareUpdateHeaders()`.
-void AddSecPurposeHeader(net::HttpRequestHeaders& request_headers,
-                         const GURL& request_url,
-                         const PrefetchRequest& prefetch_request);
+// ------------------------------------------------------------------------
+// Utilities for constructing request headers.
+//
+// Header modifications should be applied in the following order, and the
+// latter (if any) should override the former.
+// [1] `request().additional_headers()`
+// [2] Chromium's default headers
+// [3] WebContents overrides
+// [4] DevTools overrides
+//
+// `request_url` is the next URL to prefetch (the initial prefetch URL or the
+// URL after redirect).
+//
+// While the full URL is passed here, only the origin of the URL is used, except
+// for `WebContentsDelegate::ShouldOverrideUserAgentForPreloading()` used for
+// the WebContents `User-Agent` override.
 
-// Adds Speculation Rules Tags headers for a prefetch request to `request_url`
-// to `headers`.
-// Note that `request_url` and `prefetch_request.url` / `resource_request`
-// (that `request_headers` belongs)'s `url` can be different when called from
-// `PrefetchContainer::PrepareUpdateHeaders()`.
-void AddSpeculationTagsHeader(net::HttpRequestHeaders& request_headers,
-                              const GURL& request_url,
-                              const PrefetchRequest& prefetch_request);
-
-// TODO(crbug.com/483079815): We won't need to expose this once we
-// move the whole `MakeInitialResourceRequest` to here.
-void AddAdditionalHeaders(net::HttpRequestHeaders& request_headers,
-                          const PrefetchRequest& prefetch_request);
-
-// Adds "X-Client-Data" header for a prefetch request to `request_url`.
-// `cors_exempt_headers` corresponds to `ResourceRequest::cors_exempt_headers`.
-// Note that `request_url` and `prefetch_request.url` / `resource_request`
-// (that `request_headers` belongs)'s `url` can be different when called from
-// `PrefetchContainer::PrepareUpdateHeaders()`.
-void AddVariationsHeaderForPrefetch(
-    net::HttpRequestHeaders& cors_exempt_headers,
+// Returns a `PrefetchUpdateHeadersParams` that contains the headers to be added
+// to the initial prefetch `ResourceRequest`.
+PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetch(
     const GURL& request_url,
     const PrefetchRequest& prefetch_request,
-    bool is_first_party_context_for_variations);
+    bool is_first_party_context_for_variations_header);
 
-mojo::PendingRemote<network::mojom::DevToolsObserver>
-MaybeMakeSelfOwnedNetworkServiceDevToolsObserverForPrefetch(
+// Returns a tuple of `PrefetchUpdateHeadersParams`s that indicates the header
+// modification upon redirect, to be passed to
+// `PrefetchContainer::UpdateResourceRequest()` and
+// `URLLoader::FollowRedirect()`, respectively.
+// TODO(crbug.com/467177773): Ideally these two should be equal, but currently
+// we are incrementally adding headers to the latter.
+std::tuple<PrefetchUpdateHeadersParams, PrefetchUpdateHeadersParams>
+PrepareRedirectHeadersForPrefetch(const GURL& request_url,
+                                  const PrefetchRequest& prefetch_request);
+
+// Modifies "X-Client-Data" headers of `resource_request` upon redirect. Must be
+// called after `resource_request.url` is updated.
+void UpdateVariationsHeaderForPrefetch(
+    network::ResourceRequest& resource_request,
     const PrefetchRequest& prefetch_request);
+
+// ------------------------------------------------------------------------
+// Utilities for constructing `network::ResourceRequest`.
+
+// Constructs a `ResourceRequest` without headers.
+// Headers should be added using `PrepareInitialHeadersForPrefetch()`, in
+// `MakeInitialResourceRequestForPrefetch()` or separately for OMT prefetch.
+std::unique_ptr<network::ResourceRequest>
+MakeInitialResourceRequestWithoutHeadersForPrefetch(
+    const PrefetchRequest& prefetch_request,
+    bool is_decoy);
+
+// Constructs a full `ResourceRequest`, based on
+// `MakeInitialResourceRequestWithoutHeadersForPrefetch()` and
+// `PrepareInitialHeadersForPrefetch()`.
+CONTENT_EXPORT std::unique_ptr<network::ResourceRequest>
+MakeInitialResourceRequestForPrefetch(const PrefetchRequest& prefetch_request,
+                                      bool is_decoy);
 
 }  // namespace content
 

@@ -12,10 +12,10 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/autofill/form_input_accessory/test/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_matchers.h"
+#import "ios/chrome/browser/device_reauth/test/reauthentication_app_interface.h"
 #import "ios/chrome/browser/infobars/ui_bundled/banners/infobar_banner_constants.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/test/credential_suggestion_bottom_sheet_app_interface.h"
@@ -23,7 +23,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_details/password_details_table_view_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_egtest_utils.h"
-#import "ios/chrome/browser/settings/ui_bundled/password/password_settings_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_table_view_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -44,7 +43,6 @@ using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::CancelButton;
 using chrome_test_util::NavigationBarCancelButton;
 using chrome_test_util::NavigationBarDoneButton;
-using chrome_test_util::SettingsAccountButton;
 using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsPasswordMatcher;
 using chrome_test_util::SettingsPasswordSearchMatcher;
@@ -199,9 +197,9 @@ void CheckPasswordManagerUIDismissesAfterFailedAuthentication(
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Simulate failed authentication.
-  [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
-  [PasswordSettingsAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
+  [ReauthenticationAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
 
   // Tap the action in the manual fallback UI.
   [[EarlGrey selectElementWithMatcher:manual_fallback_action_matcher]
@@ -213,7 +211,7 @@ void CheckPasswordManagerUIDismissesAfterFailedAuthentication(
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Deliver authentication result should dismiss the UI.
-  [PasswordSettingsAppInterface mockReauthenticationModuleReturnMockedResult];
+  [ReauthenticationAppInterface mockReauthenticationModuleReturnMockedResult];
 
   // Verify that the whole navigation stack is gone.
   [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
@@ -274,8 +272,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   [ChromeEarlGrey waitForWebStateContainingText:"hello!"];
 
   // Mock successful reauth for opening the Password Manager.
-  [PasswordSettingsAppInterface setUpMockReauthenticationModule];
-  [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kSuccess];
 
   // Set up histogram tester.
@@ -288,7 +285,6 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 - (void)tearDownHelper {
   [AutofillAppInterface clearProfilePasswordStore];
-  [PasswordSettingsAppInterface removeMockReauthenticationModule];
 
   // Clean up histogram tester.
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
@@ -636,9 +632,9 @@ void CheckKeyboardIsUpAndNotCovered() {
 // authentication.
 - (void)testOtherPasswordListUIDismissedAfterFailedAuth {
   // Setup failed authentication.
-  [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
-  [PasswordSettingsAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
+  [ReauthenticationAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
 
   [self openOtherPasswords];
 
@@ -652,7 +648,7 @@ void CheckKeyboardIsUpAndNotCovered() {
       assertWithMatcher:grey_notVisible()];
 
   // Deliver authentication result should dismiss the UI.
-  [PasswordSettingsAppInterface mockReauthenticationModuleReturnMockedResult];
+  [ReauthenticationAppInterface mockReauthenticationModuleReturnMockedResult];
 
   // Verify that the whole navigation stack is gone.
   [ChromeEarlGrey
@@ -955,8 +951,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   // Disable Passwords toggle in account settings.
-  [ChromeEarlGreyUI openSettingsMenu];
-  [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
+  [SigninEarlGreyUI openSyncSettings];
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityID(kSyncPasswordsIdentifier)]
       performAction:chrome_test_util::TurnTableViewSwitchOn(/*on=*/NO)];
@@ -1001,8 +996,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
   // Verify encryption error is showing in in account settings.
-  [ChromeEarlGreyUI openSettingsMenu];
-  [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
+  [SigninEarlGreyUI openSyncSettings];
   // Verify the error section is showing.
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityID(kSyncErrorButtonIdentifier)]
@@ -1124,9 +1118,8 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that tapping the "Autofill form" button fills the password form with
 // the right data.
 - (void)testAutofillFormButtonFillsForm {
-  [FormInputAccessoryAppInterface setUpMockReauthenticationModule];
-  [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
-                                      ReauthenticationResult::kSuccess];
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
+                                    ReauthenticationResult::kSuccess];
 
   // Disable the credential bottom sheet.
   [CredentialSuggestionBottomSheetAppInterface disableBottomSheet];
@@ -1160,16 +1153,13 @@ void CheckKeyboardIsUpAndNotCovered() {
   // Verify that the acceptance of the password suggestion at index 0 was
   // correctly recorded.
   CheckAutofillSuggestionAcceptedIndexMetricsCount(/*suggestion_index=*/0);
-
-  [FormInputAccessoryAppInterface removeMockReauthenticationModule];
 }
 
 // Tests that tapping the "Autofill form" button doesn't fill the password form
 // if reauth failed.
 - (void)testAutofillFormButtonWithFailedAuth {
-  [FormInputAccessoryAppInterface setUpMockReauthenticationModule];
-  [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
-                                      ReauthenticationResult::kFailure];
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
+                                    ReauthenticationResult::kFailure];
 
   // Disable the credential bottom sheet.
   [CredentialSuggestionBottomSheetAppInterface disableBottomSheet];
@@ -1196,8 +1186,6 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // Verify that the page is filled properly.
   [self verifyPasswordInfoHasntBeenFilled];
-
-  [FormInputAccessoryAppInterface removeMockReauthenticationModule];
 }
 
 // Tests that tapping the "Autofill form" button in the all password list fills
@@ -1241,9 +1229,8 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that tapping the "Autofill form" button for a backup credential fills
 // the password form with the right data.
 - (void)testAutofillFormButtonForBackupCredentialFillsForm {
-  [FormInputAccessoryAppInterface setUpMockReauthenticationModule];
-  [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
-                                      ReauthenticationResult::kSuccess];
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
+                                    ReauthenticationResult::kSuccess];
 
   // Disable the credential bottom sheet.
   [CredentialSuggestionBottomSheetAppInterface disableBottomSheet];

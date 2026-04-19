@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pl">
 <translation id="1000436330784933699">Tutaj możesz otworzyć Obiektyw.</translation>
+<translation id="1005291068154454184">Wideo pełnoekranowe z instrukcjami, jak ustawić Chromium jako przeglądarkę domyślną</translation>
 <translation id="1042296835509784301">Otwiera Menedżera haseł w Chromium.</translation>
 <translation id="1047130070405668746">Wybierz Chromium.</translation>
 <translation id="1091252999271033193">Oznacza to, że Chromium będzie za każdym razem wyświetlać witrynę mobilną.</translation>
@@ -70,9 +71,6 @@ Dopóki nie usuniesz niektórych zakładek, nie będzie można zapisywać nowych
 <translation id="2313870531055795960">Sprawdza, czy URL jest na liście niebezpiecznych stron zapisanej w Chromium. Jeśli strona próbuje wykraść Twoje hasło lub pobierasz szkodliwy plik, Chromium może też wysłać URL wraz z fragmentami zawartości strony do usługi Bezpieczne przeglądanie.</translation>
 <translation id="2314220608288760290">Chromium automatycznie otwiera linki incognito z YouTube w trybie incognito.</translation>
 <translation id="231828342043114302">Aby otrzymywać spersonalizowane treści na podstawie swoich zainteresowań, zaloguj się w Chromium.</translation>
-<translation id="2326738825692478496">Niektóre dane z Chromium nie zostały jeszcze zapisane na Twoim koncie Google.
-
-Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te dane zostaną usunięte.</translation>
 <translation id="2334943301233020675">Nie udało się zaimportować tych kluczy dostępu do Menedżera haseł, ponieważ nie spełniają wymagań.</translation>
 <translation id="2337722506862731008">Udostępnij Chromium</translation>
 <translation id="2340423701577464731">Dodaj element listy Do przeczytania do Chromium</translation>
@@ -103,7 +101,6 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 W <ph name="BEGIN_LINK" />usługach Google<ph name="END_LINK" /> znajdziesz więcej ustawień, które wykorzystują dane do ulepszania działania Chromium.</translation>
 <translation id="2832168932648876507">Wyszukaj głosowo w Chromium.</translation>
 <translation id="2843571538056574338">Korzystaj w Chromium z autouzupełniania</translation>
-<translation id="2899085719655668655">Instrukcje wideo w trybie obrazu w obrazie dotyczące ustawiania Chromium jako przeglądarki domyślnej</translation>
 <translation id="2918709798697875261">Twoja organizacja nie pozwala Ci zalogować się w Chromium.</translation>
 <translation id="2942241131342758843">Używaj domyślnie Chromium, aby otwierać linki, wyszukiwać z widżetów i korzystać z autouzupełniania haseł w innych aplikacjach</translation>
 <translation id="2977470724722393594">Masz aktualną wersję Chromium</translation>

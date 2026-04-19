@@ -10,6 +10,7 @@
 
 #include "base/apple/foundation_util.h"
 #include "base/base64.h"
+#include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/sys_string_conversions.h"
@@ -66,6 +67,9 @@ namespace views {
 
 namespace {
 
+BASE_FEATURE(kAlwaysMoveWindowsToOriginalSpaces,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 bool g_move_windows_to_original_spaces_upon_restoration = false;
 
 // Dummy implementation of the BridgedNativeWidgetHost interface. This structure
@@ -94,6 +98,8 @@ class BridgedNativeWidgetHostDummy
   void OnWindowGeometryChanged(
       const gfx::Rect& window_bounds_in_screen_dips,
       const gfx::Rect& content_bounds_in_screen_dips) override {}
+  void OnWindowWillMove() override {}
+  void OnWindowDidEndMove() override {}
   void OnWindowWillStartLiveResize() override {}
   void OnWindowDidEndLiveResize() override {}
   void OnWindowFullscreenTransitionStart(
@@ -516,7 +522,8 @@ void NativeWidgetMacNSWindowHost::InitWindow(
       window_params->state_restoration_data->appkit_restoration_data =
           state_restoration_data_;
       window_params->state_restoration_data->restore_space =
-          g_move_windows_to_original_spaces_upon_restoration;
+          g_move_windows_to_original_spaces_upon_restoration ||
+          base::FeatureList::IsEnabled(kAlwaysMoveWindowsToOriginalSpaces);
     }
 
     GetNSWindowMojo()->InitWindow(std::move(window_params));
@@ -1391,6 +1398,14 @@ void NativeWidgetMacNSWindowHost::OnWindowGeometryChanged(
     // Update the compositor surface and layer size.
     UpdateCompositorProperties();
   }
+}
+
+void NativeWidgetMacNSWindowHost::OnWindowWillMove() {
+  native_widget_mac_->OnWindowWillMove();
+}
+
+void NativeWidgetMacNSWindowHost::OnWindowDidEndMove() {
+  native_widget_mac_->OnWindowDidEndMove();
 }
 
 void NativeWidgetMacNSWindowHost::OnWindowWillStartLiveResize() {

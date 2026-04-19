@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/webui/signin/signin_utils_desktop.h"
 
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
@@ -37,10 +36,6 @@ SigninUIError CanOfferSignin(Profile* profile,
     return SigninUIError::SigninDisallowed(email);
   }
 
-  if (!ChromeSigninClient::ProfileAllowsSigninCookies(profile)) {
-    return SigninUIError::SigninCookiesDisallowed(email);
-  }
-
   if (!email.empty()) {
     auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
     if (!identity_manager) {
@@ -59,8 +54,7 @@ SigninUIError CanOfferSignin(Profile* profile,
     std::string current_email =
         identity_manager
             ->GetPrimaryAccountInfo(
-                base::FeatureList::IsEnabled(
-                    syncer::kReplaceSyncPromosWithSignInPromos)
+                syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
                     ? signin::ConsentLevel::kSignin
                     : signin::ConsentLevel::kSync)
             .email;
@@ -105,8 +99,7 @@ SigninUIError CanOfferSignin(Profile* profile,
           }
           // If the feature is disabled, the below check on GaiaId equality is
           // equivalent to checking if the user is signed in.
-          if (!base::FeatureList::IsEnabled(
-                  syncer::kReplaceSyncPromosWithSignInPromos)) {
+          if (!syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
             if (!entry->IsAuthenticated() && !entry->CanBeManaged()) {
               continue;
             }
@@ -126,6 +119,12 @@ SigninUIError CanOfferSignin(Profile* profile,
           prefs::kGoogleServicesLastSyncingUsername);
       return SigninUIError::ProfileWasUsedByAnotherAccount(email, last_email);
     }
+  }
+
+  // This error has lower priority because it is not critical and may sometimes
+  // be ignored.
+  if (!ChromeSigninClient::ProfileAllowsSigninCookies(profile)) {
+    return SigninUIError::SigninCookiesDisallowed(email);
   }
 
   return SigninUIError::Ok();

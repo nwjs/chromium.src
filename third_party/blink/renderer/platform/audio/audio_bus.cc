@@ -34,8 +34,6 @@
 #include <algorithm>
 #include <array>
 #include <memory>
-#include <utility>
-
 #include "base/compiler_specific.h"
 #include "media/base/audio_bus.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -50,7 +48,7 @@ namespace blink {
 using vector_math::Vadd;
 using vector_math::Vsma;
 
-const unsigned kMaxBusChannels = 32;
+constexpr unsigned kMaxBusChannels = 32;
 
 scoped_refptr<AudioBus> AudioBus::Create(unsigned number_of_channels,
                                          uint32_t length,
@@ -545,12 +543,12 @@ void AudioBus::CopyWithGainFrom(const AudioBus& source_bus, float gain) {
     return;
   }
 
-  std::array<const float*, kMaxBusChannels> sources;
-  std::array<float*, kMaxBusChannels> destinations;
+  std::array<base::span<const float>, kMaxBusChannels> sources;
+  std::array<base::span<float>, kMaxBusChannels> destinations;
 
   for (unsigned i = 0; i < number_of_channels; ++i) {
-    sources[i] = source_bus.Channel(i)->Data();
-    destinations[i] = Channel(i)->MutableData();
+    sources[i] = source_bus.Channel(i)->Span();
+    destinations[i] = Channel(i)->MutableSpan();
   }
 
   unsigned frames_to_process = length();
@@ -559,22 +557,22 @@ void AudioBus::CopyWithGainFrom(const AudioBus& source_bus, float gain) {
   if (gain == 1) {
     for (unsigned channel_index = 0; channel_index < number_of_channels;
          ++channel_index) {
-      UNSAFE_TODO(
-          memcpy(destinations[channel_index], sources[channel_index],
-                 frames_to_process * sizeof(*destinations[channel_index])));
+      destinations[channel_index]
+          .first(frames_to_process)
+          .copy_from(sources[channel_index].first(frames_to_process));
     }
   } else if (gain == 0) {
     for (unsigned channel_index = 0; channel_index < number_of_channels;
          ++channel_index) {
-      UNSAFE_TODO(
-          memset(destinations[channel_index], 0,
-                 frames_to_process * sizeof(*destinations[channel_index])));
+      std::ranges::fill(destinations[channel_index].first(frames_to_process),
+                        0.0f);
     }
   } else {
     for (unsigned channel_index = 0; channel_index < number_of_channels;
          ++channel_index) {
-      vector_math::Vsmul(sources[channel_index], 1, &gain,
-                         destinations[channel_index], 1, frames_to_process);
+      vector_math::Vsmul(sources[channel_index].data(), 1, &gain,
+                         destinations[channel_index].data(), 1,
+                         frames_to_process);
     }
   }
 }
@@ -672,11 +670,9 @@ scoped_refptr<AudioBus> AudioBus::CreateBySampleRateConverting(
 
   // Sample-rate convert each channel.
   for (unsigned i = 0; i < number_of_destination_channels; ++i) {
-    const float* source = resampler_source_bus->Channel(i)->Data();
-    float* destination = destination_bus->Channel(i)->MutableData();
-
     SincResampler resampler(sample_rate_ratio);
-    resampler.Process(source, destination, source_length);
+    resampler.Process(resampler_source_bus->Channel(i)->Span(),
+                      destination_bus->Channel(i)->MutableSpan());
   }
 
   destination_bus->ClearSilentFlag();
@@ -699,14 +695,14 @@ scoped_refptr<AudioBus> AudioBus::CreateByMixingToMono(
       unsigned n = source_bus->length();
       scoped_refptr<AudioBus> destination_bus = Create(1, n);
 
-      const float* source_l = source_bus->Channel(0)->Data();
-      const float* source_r = source_bus->Channel(1)->Data();
-      float* destination = destination_bus->Channel(0)->MutableData();
+      base::span<const float> source_l = source_bus->Channel(0)->Span();
+      base::span<const float> source_r = source_bus->Channel(1)->Span();
+      base::span<float> destination =
+          destination_bus->Channel(0)->MutableSpan();
 
       // Do the mono mixdown.
       for (unsigned i = 0; i < n; ++i) {
-        UNSAFE_TODO(destination[i]) =
-            (UNSAFE_TODO(source_l[i]) + UNSAFE_TODO(source_r[i])) / 2;
+        destination[i] = (source_l[i] + source_r[i]) * 0.5f;
       }
 
       destination_bus->ClearSilentFlag();

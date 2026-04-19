@@ -12,6 +12,7 @@
 
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -37,6 +38,7 @@
 #include "net/base/test_completion_callback.h"
 #include "net/base/upload_bytes_element_reader.h"
 #include "net/dns/public/host_resolver_results.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/dns/public/secure_dns_policy.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/transport_security_state.h"
@@ -428,7 +430,7 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
             kQuicYieldAfterDurationMilliseconds),
         /*cert_verify_flags=*/0, quic::test::DefaultQuicConfig(),
         std::make_unique<TestQuicCryptoClientConfigHandle>(&crypto_config_),
-        "CONNECTION_UNKNOWN", dns_start, dns_end,
+        "CONNECTION_UNKNOWN", dns_start, dns_end, resolution_details_,
         base::DefaultTickClock::GetInstance(),
         base::SingleThreadTaskRunner::GetCurrentDefault().get(),
         /*socket_performance_watcher=*/nullptr, ConnectionEndpointMetadata(),
@@ -458,6 +460,10 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
   void SetResponse(const string& status, const string& body) {
     response_headers_ = server_maker_.GetResponseHeaders(status);
     response_data_ = body;
+  }
+
+  void SetResolutionDetails(ResolutionDetails resolution_details) {
+    resolution_details_ = resolution_details;
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructClientDataPacket(
@@ -673,6 +679,8 @@ class QuicHttpStreamTest : public ::testing::TestWithParam<TestParams>,
   std::vector<PacketToWrite> writes_;
   quic::test::MockConnectionIdGenerator connection_id_generator_;
   quic::test::NoopQpackStreamSenderDelegate noop_qpack_stream_sender_delegate_;
+
+  std::optional<ResolutionDetails> resolution_details_;
 };
 
 INSTANTIATE_TEST_SUITE_P(VersionIncludeStreamDependencySequence,
@@ -700,6 +708,32 @@ TEST_P(QuicHttpStreamTest, DisableConnectionMigrationForStream) {
   QuicChromiumClientStream::Handle* client_stream =
       QuicHttpStreamPeer::GetQuicChromiumClientStream(stream_.get());
   EXPECT_FALSE(client_stream->can_migrate_to_cellular_network());
+}
+
+TEST_P(QuicHttpStreamTest, IsConnectionReused) {
+  Initialize();
+
+  stream_->RegisterRequest(&request_);
+  EXPECT_EQ(OK, stream_->InitializeStream(true, DEFAULT_PRIORITY,
+                                          net_log_with_source_,
+                                          callback_.callback()));
+
+  // The very first stream on a connection is not considered reused.
+  EXPECT_FALSE(stream_->IsConnectionReused());
+
+  // Create a second stream on the same connection by using the same domain
+  // (www.example.org) as the first stream.
+  QuicHttpStream stream2(session_->CreateHandle(url::SchemeHostPort(
+                             url::kHttpsScheme, "www.example.org", 443)),
+                         {} /* dns_aliases */);
+  stream2.RegisterRequest(&request_);
+  TestCompletionCallback callback2;
+  EXPECT_EQ(
+      OK, stream2.InitializeStream(true, DEFAULT_PRIORITY, net_log_with_source_,
+                                   callback2.callback()));
+
+  // Subsequent streams on the same connection should be considered reused.
+  EXPECT_TRUE(stream2.IsConnectionReused());
 }
 
 TEST_P(QuicHttpStreamTest, GetRequest) {
@@ -757,10 +791,10 @@ TEST_P(QuicHttpStreamTest, GetRequest) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_header_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_header_frame_length),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_header_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_header_frame_length,
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, LoadTimingTwoRequests) {
@@ -852,6 +886,55 @@ TEST_P(QuicHttpStreamTest, LoadTimingTwoRequests) {
   ExpectLoadTimingValid(load_timing_info2, /*session_reused=*/true);
 }
 
+TEST_P(QuicHttpStreamTest, PopulateLoadTimingInternalInfo_ResolutionDetails) {
+  SetResolutionDetails(ResolutionDetails{ResolutionSource::kSecure});
+  Initialize();
+
+  request_.method = "GET";
+  request_.url = GURL("https://www.example.org/");
+  stream_->RegisterRequest(&request_);
+  EXPECT_EQ(OK, stream_->InitializeStream(
+                    /*can_send_early=*/true, DEFAULT_PRIORITY,
+                    net_log_with_source_, callback_.callback()));
+
+  LoadTimingInternalInfo load_timing_internal_info;
+  stream_->PopulateLoadTimingInternalInfo(&load_timing_internal_info);
+
+  EXPECT_TRUE(load_timing_internal_info.resolution_details.has_value());
+  EXPECT_EQ(ResolutionSource::kSecure,
+            load_timing_internal_info.resolution_details->source);
+}
+
+TEST_P(QuicHttpStreamTest, PopulateLoadTimingInternalInfo_ExistingSession) {
+  SetResolutionDetails(ResolutionDetails{ResolutionSource::kSecure});
+  Initialize();
+
+  request_.method = "GET";
+  request_.url = GURL("https://www.example.org/");
+  stream_->RegisterRequest(&request_);
+  EXPECT_EQ(OK, stream_->InitializeStream(
+                    /*can_send_early=*/true, DEFAULT_PRIORITY,
+                    net_log_with_source_, callback_.callback()));
+
+  // Create a second stream on the same session.
+  QuicHttpStream stream2(session_->CreateHandle(url::SchemeHostPort(
+                             url::kHttpsScheme, "www.example.org", 443)),
+                         /*dns_aliases=*/{});
+  stream2.RegisterRequest(&request_);
+  EXPECT_EQ(
+      OK, stream2.InitializeStream(/*can_send_early=*/true, DEFAULT_PRIORITY,
+                                   net_log_with_source_, base::NullCallback()));
+
+  LoadTimingInternalInfo load_timing_internal_info;
+  stream2.PopulateLoadTimingInternalInfo(&load_timing_internal_info);
+
+  EXPECT_TRUE(load_timing_internal_info.resolution_details.has_value());
+  // Since the stream uses the existing session, it doesn't perform DNS
+  // resolution again and inherits the resolution details of the session.
+  EXPECT_EQ(ResolutionSource::kSecure,
+            load_timing_internal_info.resolution_details->source);
+}
+
 // QuicHttpStream does not currently support trailers. It should ignore
 // trailers upon receiving them.
 TEST_P(QuicHttpStreamTest, GetRequestWithTrailers) {
@@ -923,12 +1006,11 @@ TEST_P(QuicHttpStreamTest, GetRequestWithTrailers) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_header_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_header_frame_length +
-                                 strlen(kResponseBody) + header.length() +
-                                 +spdy_trailers_frame_length),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_header_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_header_frame_length + strlen(kResponseBody) +
+                header.length() + +spdy_trailers_frame_length,
+            stream_->GetTotalReceivedBytes().InBytes());
   // Check that NetLog was filled as expected.
   auto entries = net_log_observer_.GetEntries();
   size_t pos = ExpectLogContainsSomewhere(
@@ -1096,10 +1178,10 @@ TEST_P(QuicHttpStreamTest, GetRequestLargeResponse) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length,
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 // Regression test for http://crbug.com/409101
@@ -1121,8 +1203,8 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendRequest) {
   EXPECT_EQ(ERR_CONNECTION_CLOSED,
             stream_->SendRequest(headers_, &response_, callback_.callback()));
 
-  EXPECT_EQ(0, stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(0, stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 // Regression test for http://crbug.com/584441
@@ -1331,9 +1413,9 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeReadResponseHeaders) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendPostRequest) {
@@ -1403,12 +1485,12 @@ TEST_P(QuicHttpStreamTest, SendPostRequest) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length +
-                                 strlen(kUploadData) + header.length()),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header2.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(
+      spdy_request_headers_frame_length + strlen(kUploadData) + header.length(),
+      stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header2.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendPostRequestAndReceiveSoloFin) {
@@ -1478,12 +1560,12 @@ TEST_P(QuicHttpStreamTest, SendPostRequestAndReceiveSoloFin) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length +
-                                 strlen(kUploadData) + header.length()),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header2.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(
+      spdy_request_headers_frame_length + strlen(kUploadData) + header.length(),
+      stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header2.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendChunkedPostRequest) {
@@ -1556,12 +1638,12 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequest) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length +
-                                 strlen(kUploadData) * 2 + header.length() * 2),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header2.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length + strlen(kUploadData) * 2 +
+                header.length() * 2,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header2.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendChunkedPostRequestWithFinalEmptyDataPacket) {
@@ -1630,12 +1712,12 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequestWithFinalEmptyDataPacket) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length +
-                                 strlen(kUploadData) + header.length()),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header2.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(
+      spdy_request_headers_frame_length + strlen(kUploadData) + header.length(),
+      stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header2.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendChunkedPostRequestWithOneEmptyDataPacket) {
@@ -1699,11 +1781,11 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequestWithOneEmptyDataPacket) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SendChunkedPostRequestAbortedByResetStream) {
@@ -1786,12 +1868,12 @@ TEST_P(QuicHttpStreamTest, SendChunkedPostRequestAbortedByResetStream) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length +
-                                 strlen(kUploadData) + header.length()),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(spdy_response_headers_frame_length +
-                                 strlen(kResponseBody) + header2.length()),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(
+      spdy_request_headers_frame_length + strlen(kUploadData) + header.length(),
+      stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(spdy_response_headers_frame_length + strlen(kResponseBody) +
+                header2.length(),
+            stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, DestroyedEarly) {
@@ -1834,11 +1916,10 @@ TEST_P(QuicHttpStreamTest, DestroyedEarly) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
   // The stream was closed after receiving the headers.
-  EXPECT_EQ(static_cast<int64_t>(response_size),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(response_size, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, Priority) {
@@ -1877,10 +1958,9 @@ TEST_P(QuicHttpStreamTest, Priority) {
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes currently only includes the
   // headers and payload.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(static_cast<int64_t>(response_size),
-            stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(response_size, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SessionClosedDuringDoLoop) {
@@ -1959,8 +2039,8 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendHeadersComplete) {
                                     true);
   ASSERT_EQ(ERR_QUIC_PROTOCOL_ERROR, callback_.WaitForResult());
 
-  EXPECT_LE(0, stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_LE(0, stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendHeadersCompleteReadResponse) {
@@ -1994,8 +2074,8 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendHeadersCompleteReadResponse) {
   ASSERT_EQ(ERR_QUIC_PROTOCOL_ERROR,
             stream_->ReadResponseHeaders(callback_.callback()));
 
-  EXPECT_LE(0, stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_LE(0, stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendBodyComplete) {
@@ -2035,8 +2115,8 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendBodyComplete) {
   ASSERT_EQ(ERR_QUIC_PROTOCOL_ERROR,
             stream_->ReadResponseHeaders(callback_.callback()));
 
-  EXPECT_LE(0, stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_LE(0, stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendBundledBodyComplete) {
@@ -2084,8 +2164,8 @@ TEST_P(QuicHttpStreamTest, SessionClosedBeforeSendBundledBodyComplete) {
   ASSERT_EQ(ERR_QUIC_PROTOCOL_ERROR,
             stream_->ReadResponseHeaders(callback_.callback()));
 
-  EXPECT_LE(0, stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_LE(0, stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, DataReadErrorSynchronous) {
@@ -2119,9 +2199,9 @@ TEST_P(QuicHttpStreamTest, DataReadErrorSynchronous) {
   EXPECT_TRUE(AtEof());
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes includes only headers.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, DataReadErrorAsynchronous) {
@@ -2160,9 +2240,9 @@ TEST_P(QuicHttpStreamTest, DataReadErrorAsynchronous) {
   EXPECT_TRUE(AtEof());
 
   // QuicHttpStream::GetTotalSent/ReceivedBytes includes only headers.
-  EXPECT_EQ(static_cast<int64_t>(spdy_request_headers_frame_length),
-            stream_->GetTotalSentBytes());
-  EXPECT_EQ(0, stream_->GetTotalReceivedBytes());
+  EXPECT_EQ(spdy_request_headers_frame_length,
+            stream_->GetTotalSentBytes().InBytes());
+  EXPECT_EQ(0, stream_->GetTotalReceivedBytes().InBytes());
 }
 
 TEST_P(QuicHttpStreamTest, GetAcceptChViaAlps) {

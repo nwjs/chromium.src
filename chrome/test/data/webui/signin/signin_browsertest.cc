@@ -4,19 +4,38 @@
 
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/first_run/first_run_features.h"
 #include "chrome/browser/ui/webui/signin/signin_url_utils.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "content/public/test/browser_test.h"
 
 using SigninTest = WebUIMochaBrowserTest;
 
+class SigninTestRefresh : public SigninTest {
+ protected:
+  SigninTestRefresh() {
+    feature_list_.InitWithFeatures(
+        {switches::kFirstRunDesktopRefresh,
+         switches::kFirstRunDesktopChoiceScreenRefresh},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 IN_PROC_BROWSER_TEST_F(SigninTest, SyncConfirmationDefaultModal) {
   set_test_loader_host(chrome::kChromeUISyncConfirmationHost);
   RunTest("signin/sync_confirmation_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SigninTestRefresh, SyncConfirmationDefaultModal) {
+  set_test_loader_host(chrome::kChromeUISyncConfirmationHost);
+  RunTest("signin/sync_confirmation_refresh_test.js", "mocha.run()");
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -27,6 +46,14 @@ IN_PROC_BROWSER_TEST_F(SigninTest, SyncConfirmationInterceptModal) {
               static_cast<int>(SyncConfirmationStyle::kSigninInterceptModal)),
           "mocha.run()");
 }
+
+IN_PROC_BROWSER_TEST_F(SigninTestRefresh, SyncConfirmationInterceptModal) {
+  set_test_loader_host(chrome::kChromeUISyncConfirmationHost);
+  RunTest(base::StringPrintf(
+              "signin/sync_confirmation_refresh_test.js&style=%d",
+              static_cast<int>(SyncConfirmationStyle::kSigninInterceptModal)),
+          "mocha.run()");
+}
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 IN_PROC_BROWSER_TEST_F(SigninTest, SyncConfirmationWindow) {
@@ -34,6 +61,14 @@ IN_PROC_BROWSER_TEST_F(SigninTest, SyncConfirmationWindow) {
   RunTest(base::StringPrintf("signin/sync_confirmation_test.js&style=%d",
                              static_cast<int>(SyncConfirmationStyle::kWindow)),
           "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SigninTestRefresh, SyncConfirmationWindow) {
+  set_test_loader_host(chrome::kChromeUISyncConfirmationHost);
+  RunTest(
+      base::StringPrintf("signin/sync_confirmation_refresh_test.js&style=%d",
+                         static_cast<int>(SyncConfirmationStyle::kWindow)),
+      "mocha.run()");
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -58,6 +93,26 @@ IN_PROC_BROWSER_TEST_F(SigninTest, SigninManagedUserProfileNotice) {
   RunTest("signin/managed_user_profile_notice_test.js", "mocha.run()");
 }
 
+class SigninManagedUserProfileNoticeRefreshTest : public SigninTest {
+ protected:
+  SigninManagedUserProfileNoticeRefreshTest() {
+    feature_list_.InitWithFeatures(
+        {switches::kFirstRunDesktopRefresh,
+         switches::kFirstRunDesktopChoiceScreenRefresh},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SigninManagedUserProfileNoticeRefreshTest,
+                       SigninManagedUserProfileNoticeRefresh) {
+  set_test_loader_host(chrome::kChromeUIManagedUserProfileNoticeHost);
+  RunTest("signin/managed_user_profile_notice_app_refresh_test.js",
+          "mocha.run()");
+}
+
 class SigninTestWithHistorySync : public SigninTest {
  protected:
   SigninTestWithHistorySync() {
@@ -77,7 +132,10 @@ IN_PROC_BROWSER_TEST_F(SigninTestWithHistorySync, HistorySyncOptIn) {
 class SigninTestWithHistorySyncRefresh : public SigninTestWithHistorySync {
  protected:
   SigninTestWithHistorySyncRefresh() {
-    feature_list_.InitAndEnableFeature(switches::kFirstRunDesktopRefresh);
+    feature_list_.InitWithFeatures(
+        {switches::kFirstRunDesktopRefresh,
+         switches::kFirstRunDesktopChoiceScreenRefresh},
+        {});
   }
 
  private:

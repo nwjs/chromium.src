@@ -48,6 +48,7 @@
 #include "components/autofill/core/browser/logging/text_log_receiver.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
+#include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #include "components/autofill/core/browser/network/autofill_ai/mock_wallet_pass_access_manager.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
@@ -66,12 +67,12 @@
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/consent_auditor/fake_consent_auditor.h"
 #include "components/device_reauth/mock_device_authenticator.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
 #include "components/one_time_tokens/core/browser/sms_otp_backend.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
-#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry.h"
 #include "components/prefs/pref_service.h"
@@ -86,10 +87,6 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "url/gurl.h"
 #include "url/origin.h"
-
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-#include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
-#endif
 
 namespace autofill {
 
@@ -187,6 +184,14 @@ class TestAutofillClientTemplate : public T {
     return mock_autofill_ai_delegate_.get();
   }
 
+  consent_auditor::ConsentAuditor* GetConsentAuditor() override {
+    if (!consent_auditor_) {
+      consent_auditor_ =
+          std::make_unique<consent_auditor::FakeConsentAuditor>();
+    }
+    return consent_auditor_.get();
+  }
+
   SingleFieldFillRouter& GetSingleFieldFillRouter() override {
     if (!single_field_fill_router_) {
       single_field_fill_router_ = std::make_unique<SingleFieldFillRouter>(
@@ -270,7 +275,6 @@ class TestAutofillClientTemplate : public T {
     return &test_address_normalizer_;
   }
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   FieldClassificationModelHandler* GetAutofillFieldClassificationModelHandler()
       override {
     return autofill_ml_prediction_model_handler_.get();
@@ -290,7 +294,6 @@ class TestAutofillClientTemplate : public T {
       std::unique_ptr<FieldClassificationModelHandler> handler) {
     password_ml_prediction_model_handler_ = std::move(handler);
   }
-#endif
 
   const GURL& GetLastCommittedPrimaryMainFrameURL() const override {
     return last_committed_primary_main_frame_url_;
@@ -435,33 +438,14 @@ class TestAutofillClientTemplate : public T {
   }
 
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator(
-      std::string histogram) override {
+      std::string histogram) const override {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_CHROMEOS)
-    if (device_authenticator_) {
-      return std::move(device_authenticator_);
-    }
     return std::make_unique<device_reauth::MockDeviceAuthenticator>();
 #else
     return nullptr;
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_CHROMEOS)
-  }
-
-  device_reauth::MockDeviceAuthenticator* GetDeviceAuthenticatorPtr() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_CHROMEOS)
-    return device_authenticator_.get();
-#else
-    return nullptr;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
-        // BUILDFLAG(IS_CHROMEOS)
-  }
-
-  void SetDeviceAuthenticator(
-      std::unique_ptr<device_reauth::MockDeviceAuthenticator>
-          device_authenticator) {
-    device_authenticator_ = std::move(device_authenticator);
   }
 
 #if BUILDFLAG(IS_IOS)
@@ -726,18 +710,14 @@ class TestAutofillClientTemplate : public T {
               /*strike_database=*/nullptr);
   ::testing::NiceMock<MockAutocompleteHistoryManager>
       mock_autocomplete_history_manager_;
-  std::unique_ptr<device_reauth::MockDeviceAuthenticator>
-      device_authenticator_ = nullptr;
   std::unique_ptr<one_time_tokens::SmsOtpBackend> injected_sms_otp_backend_;
   std::unique_ptr<one_time_tokens::OneTimeTokenService>
       injected_one_time_token_service_;
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   std::unique_ptr<FieldClassificationModelHandler>
       autofill_ml_prediction_model_handler_;
   std::unique_ptr<FieldClassificationModelHandler>
       password_ml_prediction_model_handler_;
-#endif
 
   bool autofill_profile_enabled_ = true;
   bool wallet_public_pass_storage_enabled_ = true;
@@ -757,6 +737,7 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<SingleFieldFillRouter> single_field_fill_router_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   std::unique_ptr<WalletPassAccessManager> wallet_pass_access_manager_;
+  std::unique_ptr<consent_auditor::FakeConsentAuditor> consent_auditor_;
 
   GeoIpCountryCode variation_config_country_code_;
 

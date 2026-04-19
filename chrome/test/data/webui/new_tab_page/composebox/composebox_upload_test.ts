@@ -3,11 +3,12 @@
 // found in the LICENSE file.
 
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
-import {ContextUploadErrorType, ContextUploadStatus, InputType, ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {ContextualSearchInputStateDeletionType} from 'chrome://resources/cr_components/composebox/common.js';
+import {ContextUploadErrorType, ContextUploadStatus, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {ToolMode} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {ToolMode as ComposeboxToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -19,8 +20,7 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
   const testProxy = testSupport.setupComposeboxTest();
 
   test('uploading/deleting pdf file queries zps', async () => {
-    loadTimeData.overrideValues(
-        {composeboxShowZps: true, composeboxShowSubmit: true});
+    loadTimeData.overrideValues({composeboxShowZps: true});
     testSupport.createComposeboxElement(testProxy);
     await microtasksFinished();
 
@@ -397,10 +397,12 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
         testProxy.searchboxHandler.getArgs('deleteContext')[0];
     assertEquals(idArg, deletedId);
     assertFalse(fromChip);
-    const metricName =
-        'ContextualSearch.UserAction.InputStateDeletion.File.NewTabPage';
-    assertEquals(1, testProxy.metrics.count(metricName, 0));
-    assertEquals(1, testProxy.metrics.count(metricName, true));
+    const histogramName =
+        'ContextualSearch.UserAction.InputStateDeletion.NewTabPage';
+    assertEquals(
+        1,
+        testProxy.metrics.count(
+            histogramName, ContextualSearchInputStateDeletionType.FILE));
   });
 
   test('delete tab', async () => {
@@ -421,10 +423,12 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
     await microtasksFinished();
 
     // Assert.
-    const metricName =
-        'ContextualSearch.UserAction.InputStateDeletion.Tab.NewTabPage';
-    assertEquals(1, testProxy.metrics.count(metricName, 0));
-    assertEquals(1, testProxy.metrics.count(metricName, true));
+    const histogramName =
+        'ContextualSearch.UserAction.InputStateDeletion.NewTabPage';
+    assertEquals(
+        1,
+        testProxy.metrics.count(
+            histogramName, ContextualSearchInputStateDeletionType.TAB));
   });
 
   test('image upload button clicks file input', () => {
@@ -470,7 +474,7 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
           'composeboxShowCreateImageButton': true,
         });
         const testInputState = {
-          ...testSupport.mockInputState,
+          ...new testSupport.MockInputState(),
           maxInputsByType: {
             [InputType.kBrowserTab]: 1,
             [InputType.kLensImage]: 1,
@@ -498,7 +502,7 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
         await testProxy.searchboxHandler.whenCalled(
             testSupport.ADD_FILE_CONTEXT_FN);
         await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled_']);
+        assertFalse(testProxy.element['uploadButtonDisabled']);
 
         // Delete the file. `uploadButtonDisabled` should be false.
         const deletedId = testProxy.element.$.carousel.files[0]!.uuid;
@@ -506,7 +510,7 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
             'delete-file',
             {detail: {uuid: deletedId}, bubbles: true, composed: true}));
         await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled_']);
+        assertFalse(testProxy.element['uploadButtonDisabled']);
         testProxy.searchboxHandler.resetResolver(
             testSupport.ADD_FILE_CONTEXT_FN);
         testProxy.searchboxHandler.setPromiseResolveFor(
@@ -525,17 +529,19 @@ suite('NewTabPageComposeboxUploadFileTest', () => {
         await testProxy.searchboxHandler.whenCalled(
             testSupport.ADD_FILE_CONTEXT_FN);
         await microtasksFinished();
-        assertFalse(testProxy.element['uploadButtonDisabled_']);
+        assertFalse(testProxy.element['uploadButtonDisabled']);
 
         // Enter create image mode.
-        testProxy.element['activeToolMode'] = ComposeboxToolMode.kImageGen;
+        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+            {...testInputState, activeTool: ToolMode.kImageGen});
         await testProxy.element.updateComplete;
-        assertFalse(testProxy.element['uploadButtonDisabled_']);
+        assertFalse(testProxy.element['uploadButtonDisabled']);
 
         // Exit create image mode. `uploadButtonDisabled` should be false.
-        testProxy.element['activeToolMode'] = ComposeboxToolMode.kUnspecified;
+        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+            {...testInputState, activeTool: ToolMode.kUnspecified});
         await testProxy.element.updateComplete;
-        assertFalse(testProxy.element['uploadButtonDisabled_']);
+        assertFalse(testProxy.element['uploadButtonDisabled']);
       });
 });
 
@@ -563,7 +569,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     });
 
     // Act.
-    testProxy.element.$.input.dispatchEvent(pasteEvent);
+    testProxy.element.getInputElement().inputElement.dispatchEvent(pasteEvent);
 
     // Assert.
     // Check that addFileContext (testSupport.ADD_FILE_CONTEXT_FN) was called
@@ -589,7 +595,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
   test('pasting too many files records metric and prevents paste', async () => {
     // Arrange.
     const testInputState = {
-      ...testSupport.mockInputState,
+      ...new testSupport.MockInputState(),
       maxInputsByType: {
         [InputType.kBrowserTab]: 1,
         [InputType.kLensImage]: 1,
@@ -619,7 +625,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     });
 
     // Act.
-    testProxy.element.$.input.dispatchEvent(pasteEvent);
+    testProxy.element.getInputElement().inputElement.dispatchEvent(pasteEvent);
     await testProxy.searchboxHandler.whenCalled(
         testSupport.ADD_FILE_CONTEXT_FN);
     await microtasksFinished();
@@ -660,7 +666,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     });
 
     // Act.
-    testProxy.element.$.input.dispatchEvent(pasteEvent);
+    testProxy.element.getInputElement().inputElement.dispatchEvent(pasteEvent);
     await microtasksFinished();
 
     // Assert.
@@ -694,7 +700,8 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
         });
 
         // Act.
-        testProxy.element.$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement().inputElement.dispatchEvent(
+            pasteEvent);
         await microtasksFinished();
 
         // Assert.
@@ -711,7 +718,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
   test('pasting mixed files is processed correctly', async () => {
     // Arrange.
     const testInputState = {
-      ...testSupport.mockInputState,
+      ...new testSupport.MockInputState(),
       maxInstances: {
         [InputType.kBrowserTab]: 2,
         [InputType.kLensImage]: 2,
@@ -743,7 +750,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
     });
 
     // Act.
-    testProxy.element.$.input.dispatchEvent(pasteEvent);
+    testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
 
     // Wait for both files to be processed (addFileContext called twice).
     await testSupport.waitForAddFileCallCount(testProxy.searchboxHandler, 2);
@@ -779,7 +786,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
       async () => {
         // Arrange.
         const testInputState = {
-          ...testSupport.mockInputState,
+          ...new testSupport.MockInputState(),
           maxTotalInputs: 5,
         };
         testSupport.createComposeboxElement(testProxy);
@@ -809,7 +816,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
         });
 
         // Act.
-        testProxy.element.$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 5);
@@ -834,7 +841,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
       async () => {
         // Arrange.
         const testInputState = {
-          ...testSupport.mockInputState,
+          ...new testSupport.MockInputState(),
           maxInputsByType: {
             [InputType.kBrowserTab]: 1,
             [InputType.kLensImage]: 3,
@@ -873,7 +880,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
         });
 
         // Act.
-        testProxy.element.$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 3);
@@ -921,7 +928,7 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
           composed: true,
         });
 
-        testProxy.element.$.input.dispatchEvent(pasteEvent);
+        testProxy.element.getInputElement().$.input.dispatchEvent(pasteEvent);
 
         await testSupport.waitForAddFileCallCount(
             testProxy.searchboxHandler, 1);
@@ -954,19 +961,19 @@ suite('NewTabPageComposeboxUploadToolModeTest', () => {
     const contextEntrypoint = $$(testProxy.element, '#contextEntrypoint');
     assertTrue(!!contextEntrypoint);
     contextEntrypoint.dispatchEvent(new CustomEvent('tool-click', {
-      detail: {toolMode: ComposeboxToolMode.kImageGen},
+      detail: {toolMode: ToolMode.kImageGen},
     }));
     await microtasksFinished();
     assertEquals(
         testProxy.searchboxHandler.getCallCount('setActiveToolMode'), 1);
     assertEquals(
-        ComposeboxToolMode.kImageGen,
+        ToolMode.kImageGen,
         testProxy.searchboxHandler.getArgs('setActiveToolMode')[0]);
     assertEquals(
         testProxy.searchboxHandler.getCallCount('recordToolSelectionAction'),
         1);
     assertEquals(
-        ComposeboxToolMode.kImageGen,
+        ToolMode.kImageGen,
         testProxy.searchboxHandler.getArgs('recordToolSelectionAction')[0]);
 
   });
@@ -1030,8 +1037,9 @@ suite('NewTabPageComposeboxUploadToolModeTest', () => {
         testProxy.element, testProxy.searchboxCallbackRouterRemote));
 
     // Query autocomplete with image present to get verbatim match.
-    testProxy.element.$.input.value = 'T';
-    testProxy.element.$.input.dispatchEvent(new Event('input'));
+    testProxy.element.getInputElement().$.input.value = 'T';
+    testProxy.element.getInputElement().$.input.dispatchEvent(
+        new Event('input'));
     await microtasksFinished();
     assertEquals(
         testProxy.searchboxHandler.getCallCount('queryAutocomplete'), 2);
@@ -1082,9 +1090,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
     await testProxy.element.updateComplete;
     await microtasksFinished();
 
-    assertTrue(
-        testProxy.element.getNumOfFilesForTesting() === 1,
-        'Tab should be added');
+    assertEquals(1, testProxy.element.files.size, 'Tab should be added');
 
     const bad_token = testSupport.FAKE_TOKEN_STRING_2;
     testProxy.searchboxCallbackRouterRemote.onContextualInputStatusChanged(
@@ -1094,9 +1100,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
     );
     await testProxy.element.updateComplete;
     await microtasksFinished();
-    assertTrue(
-        testProxy.element.getNumOfFilesForTesting() === 2,
-        'Ghost file should be added');
+    assertEquals(2, testProxy.element.files.size, 'Ghost file should be added');
   });
 
   test('does not add tab context of ghost file', async () => {
@@ -1108,9 +1112,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
     await microtasksFinished();
 
 
-    assertTrue(
-        testProxy.element.getNumOfFilesForTesting() === 1,
-        'Tab should be added');
+    assertEquals(1, testProxy.element.files.size, 'Tab should be added');
     const bad_token = testSupport.FAKE_TOKEN_STRING_2;
     testProxy.searchboxCallbackRouterRemote.onContextualInputStatusChanged(
         bad_token,
@@ -1119,9 +1121,8 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
     );
     await testProxy.element.updateComplete;
     await microtasksFinished();
-    assertTrue(
-        testProxy.element.getNumOfFilesForTesting() === 1,
-        'Ghost file should not be added');
+    assertEquals(
+        1, testProxy.element.files.size, 'Ghost file should not be added');
   });
 
   test(
@@ -1131,8 +1132,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         testSupport.createComposeboxElement(testProxy);
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
-            'Should be 0 starting test');
+            testProxy.element.files.size, 0, 'Should be 0 starting test');
         const tab = {
           tabId: 1,
           title: 'Tab 1',
@@ -1157,7 +1157,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 1,
+            testProxy.element.files.size, 1,
             'Attached files should be 1 after adding first tab.');
 
         testProxy.element.clearAllInputs(
@@ -1168,8 +1168,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
-            'Should be 0 after clearing all.');
+            testProxy.element.files.size, 0, 'Should be 0 after clearing all.');
 
         testProxy.searchboxHandler.resetResolver(
             testSupport.ADD_TAB_CONTEXT_FN);
@@ -1182,7 +1181,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 1,
+            testProxy.element.files.size, 1,
             'Attached files should be 1 after adding a second auto ' +
                 'chip, and having cleared the first one.');
       });
@@ -1193,7 +1192,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         testSupport.createComposeboxElement(testProxy);
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
+            testProxy.element.files.size, 0,
             'Attached files should be 0 at start.');
 
         const tab = {
@@ -1221,7 +1220,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
+            testProxy.element.files.size, 0,
             'Attached files should be 0 after failed callback' +
                 'does not return for an auto chip.');
 
@@ -1244,7 +1243,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
+            testProxy.element.files.size, 0,
             'Attached files should still be 0 since the first' +
                 'callback corrupted, but the same auto chip' +
                 'context is added again.');
@@ -1273,7 +1272,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
 
         // New auto chip added since is different from tab 1.
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 1,
+            testProxy.element.files.size, 1,
             'Attached files should be 1 after adding a second auto ' +
                 'chip, and having the first one be corrupted.');
       });
@@ -1285,8 +1284,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         testSupport.createComposeboxElement(testProxy);
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
-            'Should be 0 starting test');
+            testProxy.element.files.size, 0, 'Should be 0 starting test');
         const tab = {
           tabId: 1,
           title: 'Tab 1',
@@ -1311,7 +1309,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
+            testProxy.element.files.size, 0,
             'First tab should not be added since callback fails');
 
         testProxy.element.clearAllInputs(
@@ -1322,8 +1320,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 0,
-            'Should be 0 after clearing all.');
+            testProxy.element.files.size, 0, 'Should be 0 after clearing all.');
 
         testProxy.searchboxHandler.resetResolver(
             testSupport.ADD_TAB_CONTEXT_FN);
@@ -1338,7 +1335,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         assertEquals(
-            testProxy.element.getNumOfFilesForTesting(), 1,
+            testProxy.element.files.size, 1,
             'Same tab should be added back after clearing all.');
       });
 
@@ -1362,7 +1359,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
       attachments: [
         {fileAttachment: fileAttachment, tabAttachment: undefined},
       ],
-      toolMode: ToolMode.kDefault,
+      toolMode: ToolMode.kUnspecified,
     };
 
     testProxy.element.addSearchContext(context);
@@ -1394,7 +1391,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
       attachments: [
         {fileAttachment: fileAttachment, tabAttachment: undefined},
       ],
-      toolMode: ToolMode.kDefault,
+      toolMode: ToolMode.kUnspecified,
     };
 
     testProxy.element.addSearchContext(context);
@@ -1427,7 +1424,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
       attachments: [
         {fileAttachment: undefined, tabAttachment: tabAttachment},
       ],
-      toolMode: ToolMode.kDefault,
+      toolMode: ToolMode.kUnspecified,
     };
 
     testProxy.searchboxHandler.setPromiseResolveFor(
@@ -1452,51 +1449,35 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
     assertEquals('Tab Title', files[0]!.name);
   });
 
-  test('addSearchContext sets tool modes correctly', async () => {
-    loadTimeData.overrideValues({composeboxShowZps: true});
+  test('inputState synchronizes all tool modes from backend', async () => {
     testSupport.createComposeboxElement(testProxy);
-    testProxy.element.searchboxNextEnabled = true;
-
     await microtasksFinished();
+    const toolModes = [
+      ComposeboxToolMode.kDeepSearch,
+      ComposeboxToolMode.kImageGen,
+      ComposeboxToolMode.kCanvas,
+    ];
 
-    const deepSearchContext = {
-      input: '',
-      files: [],
-      attachments: [],
-      toolMode: ToolMode.kDeepSearch,
-    };
-    testProxy.element.addSearchContext(deepSearchContext);
-    await microtasksFinished();
-    assertEquals(
-        ComposeboxToolMode.kDeepSearch, testProxy.element.activeToolMode);
+    for (const toolMode of toolModes) {
+      const testInputState = {
+        ...new testSupport.MockInputState(),
+        activeTool: toolMode,
+      };
+      testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+          testInputState);
+      await testProxy.element.updateComplete;
+      await microtasksFinished();
 
-    const imageContext = {
-      input: '',
-      files: [],
-      attachments: [],
-      toolMode: ToolMode.kCreateImage,
-    };
-    testProxy.element.addSearchContext(imageContext);
-    await microtasksFinished();
-    assertEquals(
-        ComposeboxToolMode.kImageGen, testProxy.element.activeToolMode);
-
-    const canvasContext = {
-      input: '',
-      files: [],
-      attachments: [],
-      toolMode: ToolMode.kCanvas,
-    };
-    testProxy.element.addSearchContext(canvasContext);
-    await microtasksFinished();
-    assertEquals(ComposeboxToolMode.kCanvas, testProxy.element.activeToolMode);
+      assertTrue(!!testProxy.element.inputState);
+      assertEquals(toolMode, testProxy.element.inputState.activeTool);
+    }
   });
 
   test(
       'files are cleared when their input type is no longer allowed',
       async () => {
         const testInputState = {
-          ...testSupport.mockInputState,
+          ...new testSupport.MockInputState(),
           allowedInputTypes: [
             InputType.kLensImage,
             InputType.kBrowserTab,
@@ -1518,11 +1499,11 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await testProxy.element.updateComplete;
         await microtasksFinished();
 
-        assertEquals(testProxy.element.getNumOfFilesForTesting(), 1);
+        assertEquals(testProxy.element.files.size, 1);
 
         // Update InputState to disallow images and tabs.
         const newInputState = {
-          ...testSupport.mockInputState,
+          ...new testSupport.MockInputState(),
           allowedInputTypes: [InputType.kLensFile],
         };
         testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
@@ -1532,7 +1513,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
         await microtasksFinished();
 
         // Ensure the file is deleted.
-        assertEquals(testProxy.element.getNumOfFilesForTesting(), 0);
+        assertEquals(testProxy.element.files.size, 0);
         assertEquals(
             testProxy.searchboxHandler.getCallCount('deleteContext'), 1);
       });

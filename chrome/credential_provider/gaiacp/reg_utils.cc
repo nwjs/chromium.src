@@ -40,6 +40,8 @@ const wchar_t kWinlogonUserListRegKey[] =
     L"SOFTWARE\\Microsoft\\Windows NT"
     L"\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList";
 
+const wchar_t kRegEnableSecurityKeySupport[] = L"enable_security_key_support";
+
 const wchar_t kLogonUiUserTileRegKey[] =
     L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Authentication\\LogonUI"
     L"\\UserTile";
@@ -53,6 +55,9 @@ constexpr wchar_t kRegGlsPath[] = L"gls_path";
 constexpr wchar_t kRegEnableVerboseLogging[] = L"enable_verbose_logging";
 constexpr wchar_t kRegLogFilePath[] = L"log_file_path";
 constexpr wchar_t kRegLogFileAppend[] = L"log_file_append";
+constexpr wchar_t kRegChromeLogFilePath[] = L"chrome_log_file_path";
+constexpr wchar_t kRegEnableChromeVerboseLogging[] =
+    L"enable_chrome_verbose_logging";
 constexpr wchar_t kRegInitializeCrashReporting[] = L"enable_crash_reporting";
 constexpr wchar_t kRegMdmUrl[] = L"mdm";
 constexpr wchar_t kRegEnableDmEnrollment[] = L"enable_dm_enrollment";

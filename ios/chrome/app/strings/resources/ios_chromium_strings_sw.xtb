@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sw">
 <translation id="1000436330784933699">Unaweza kufungua Lenzi hapa.</translation>
+<translation id="1005291068154454184">Video ya skrini nzima ya jinsi ya kuweka Chromium iwe kivinjari chaguomsingi</translation>
 <translation id="1042296835509784301">Hufungua Kidhibiti cha Manenosiri kwenye Chromium.</translation>
 <translation id="1047130070405668746">Chagua Chromium</translation>
 <translation id="1091252999271033193">Hii inamaanisha kwamba Chromium itahitaji tovuti ya kifaa cha mkononi kila wakati.</translation>
@@ -70,9 +71,6 @@ Huwezi kuhifadhi alamisho mpya kwenye akaunti yako hadi ufute baadhi ya alamisho
 <translation id="2313870531055795960">Hukagua URL ili kuona iwapo zipo kwenye orodha ya tovuti zisizo salama zilizohifadhiwa katika Chromium. Ikiwa tovuti inajaribu kuiba nenosiri lako au unapopakua faili hatari, Chromium inaweza pia kutuma URL, ikiwa ni pamoja na sehemu za maudhui ya ukurasa, kwa kipengele cha Kuvinjari Salama.</translation>
 <translation id="2314220608288760290">Chromium hufungua kiotomatiki viungo vya Faraghani vya YouTube katika hali ya Faraghani.</translation>
 <translation id="231828342043114302">Ili upokee maudhui yaliyowekewa mapendeleo kulingana na mambo yanayokuvutia, ingia katika akaunti kwenye Chromium.</translation>
-<translation id="2326738825692478496">Baadhi ya data yako ya Chromium bado haijahifadhiwa kwenye Akaunti yako ya Google.
-
-Jaribu kusubiri kwa dakika chache kabla ya kuondoka kwenye akaunti. Ukiondoka kwenye akaunti sasa, data hii itafutwa.</translation>
 <translation id="2334943301233020675">Funguo zifuatazo za siri hazikuhamishiwa kwenye Kidhibiti cha Manenosiri, kwa sababu hazitimizi masharti.</translation>
 <translation id="2337722506862731008">Tuma Chromium</translation>
 <translation id="2340423701577464731">Weka kipengee cha orodha ya kusoma kwenye Chromium</translation>
@@ -103,7 +101,6 @@ Jaribu kusubiri kwa dakika chache kabla ya kuondoka kwenye akaunti. Ukiondoka kw
 Kwa mipangilio zaidi inayotumia data kuboresha hali yako ya utumiaji wa Chromium, nenda kwenye <ph name="BEGIN_LINK" />Huduma za Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Tafuta ukitumia sauti kwenye Chromium.</translation>
 <translation id="2843571538056574338">Tumia Chromium ili Ujaze kiotomatiki</translation>
-<translation id="2899085719655668655">Maagizo ya kupachika picha ndani ya picha nyingine kuhusu jinsi ya kuweka Chromium iwe kivinjari chaguomsingi</translation>
 <translation id="2918709798697875261">Shirika lako linahitaji usiingie katika akaunti kwenye Chromium.</translation>
 <translation id="2942241131342758843">Tumia Chromium kwa chaguomsingi kufungua viungo, kutafuta kwenye wijeti na kujaza manenosiri kiotomatiki katika programu zingine</translation>
 <translation id="2977470724722393594">Chromium imesasishwa</translation>

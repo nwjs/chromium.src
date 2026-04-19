@@ -836,6 +836,7 @@ test("android_webview_unittests") {
   sources = [
     "../browser/aw_browser_context_unittest.cc",
     "../browser/aw_client_hints_controller_delegate_unittest.cc",
+    "../browser/aw_content_browser_client_content_restriction_throttles_unittest.cc",
     "../browser/aw_content_browser_client_unittest.cc",
     "../browser/aw_contents_client_bridge_unittest.cc",
     "../browser/aw_crash_keys_unittest.cc",
@@ -844,6 +845,7 @@ test("android_webview_unittests") {
     "../browser/aw_pac_processor_unittest.cc",
     "../browser/aw_permission_manager_unittest.cc",
     "../browser/aw_user_agent_metadata_unittest.cc",
+    "../browser/content_restriction/aw_content_restriction_url_loader_throttle_unittest.cc",
     "../browser/enterprise_authentication_app_link_policy_handler_unittest.cc",
     "../browser/file_system_access/aw_file_system_access_permission_context_unittest.cc",
     "../browser/gfx/begin_frame_source_webview_unittest.cc",
@@ -889,6 +891,7 @@ test("android_webview_unittests") {
 
 android_assets("android_webview_unittests_assets") {
   sources = [ "unittest/assets/asset_file.ogg" ]
+  deps = [ "//third_party/icu:icu_assets" ]
 }
 
 android_library("android_webview_unittests_java") {
@@ -919,6 +922,7 @@ android_library("crash_test_utils_java") {
 # robolectric tests
 robolectric_binary("android_webview_junit_tests") {
   sources = [
+    "../junit/src/org/chromium/android_webview/robolectric/AwAdvancedProtectionStatusManagerBridgeTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/AwContentRestrictionManagerBridgeTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/AwDisplayCutoutControllerTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/AwDisplayModeControllerTest.java",
@@ -929,6 +933,7 @@ robolectric_binary("android_webview_junit_tests") {
     "../junit/src/org/chromium/android_webview/robolectric/AwWebContentsMetricsRecorderTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/FindAddressTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/PlatformSelectionActionMenuDelegateTest.java",
+    "../junit/src/org/chromium/android_webview/robolectric/PrefetchOperationResultTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/RectUtilsTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/ShouldInterceptRequestMediatorTest.java",
     "../junit/src/org/chromium/android_webview/robolectric/SupportLibSpeculativeLoadingParametersAdapterTest.java",
@@ -968,6 +973,7 @@ robolectric_binary("android_webview_junit_tests") {
     "//components/crash/android:java",
     "//components/embedder_support/android:context_menu_java",
     "//components/embedder_support/android:util_java",
+    "//components/safe_browsing/android:safe_browsing_java",
     "//content/public/android:content_java",
     "//content/public/common:common_java",
     "//content/public/test/android:content_java_test_support",

@@ -18,7 +18,9 @@
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_quality_logger_interface.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/webid/identity_credential_source.h"
 
 namespace content {
 class WebContents;
@@ -49,6 +51,7 @@ class MockActorLoginService : public actor_login::ActorLoginService {
   // `actor_login::ActorLoginService`:
   void GetCredentials(
       tabs::TabInterface* tab,
+      bool has_sign_in_with_google_button,
       base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       actor_login::CredentialsOrErrorReply callback) override;
   void AttemptLogin(
@@ -57,7 +60,9 @@ class MockActorLoginService : public actor_login::ActorLoginService {
       bool should_store_permission,
       base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       base::TimeTicks attempt_login_tool_start_time,
-      actor_login::LoginStatusResultOrErrorReply callback) override;
+      actor_login::LoginStatusResultOrErrorReply callback,
+      base::WeakPtr<actor_login::ActionSequenceDelegate>
+          action_sequence_delegate) override;
 
   void SetCredentials(const actor_login::CredentialsOrError& credentials);
 
@@ -65,14 +70,34 @@ class MockActorLoginService : public actor_login::ActorLoginService {
 
   void SetLoginStatus(actor_login::LoginStatusResultOrError login_status);
 
+  using FederatedLoginResumeCallback =
+      base::OnceCallback<void(content::webid::FederatedLoginResult)>;
+  using FederatedLoginDelayCallback =
+      base::OnceCallback<void(FederatedLoginResumeCallback)>;
+  void SetFederatedLoginDelay(
+      FederatedLoginDelayCallback on_federated_login_delay);
+
   const std::optional<actor_login::Credential>& last_credential_used() const;
   bool last_permission_was_permanent() const;
+  bool last_sequence_succeeded() const;
 
  private:
+  void OnActionSequenceEnded(bool success);
+
+  static void OnFederatedLoginResume(
+      tabs::TabInterface* tab,
+      content::webid::FederatedLoginResult result);
+
   actor_login::CredentialsOrError credentials_;
   actor_login::LoginStatusResultOrError login_status_;
+
+  base::WeakPtr<actor_login::ActionSequenceDelegate> action_sequence_delegate_;
+  base::CallbackListSubscription action_sequence_subscription_;
+  FederatedLoginDelayCallback on_federated_login_delay_;
+
   std::optional<actor_login::Credential> last_credential_used_;
   bool last_permission_was_permanent_ = false;
+  std::optional<bool> last_sequence_succeeded_;
 };
 
 inline constexpr int32_t kNonExistentContentNodeId =

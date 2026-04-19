@@ -48,7 +48,6 @@ import org.chromium.net.CronetTestRule.IgnoreFor;
 import org.chromium.net.CronetTestRule.IntFlag;
 import org.chromium.net.CronetTestRule.RequiresMinAndroidApi;
 import org.chromium.net.CronetTestRule.RequiresMinApi;
-import org.chromium.net.NetworkChangeNotifierAutoDetect.ConnectivityManagerDelegate;
 import org.chromium.net.TestUrlRequestCallback.ResponseStep;
 import org.chromium.net.httpflags.BaseFeature;
 import org.chromium.net.httpflags.FlagValue;
@@ -233,7 +232,7 @@ public class CronetUrlRequestContextTest {
         try (LogcatCapture logcatSink =
                 new LogcatCapture(
                         Arrays.asList(
-                                HttpFlagsLoader.TAG + ":I",
+                                Log.normalizeTag(HttpFlagsLoader.TAG + ":I"),
                                 Log.normalizeTag(TAG + ":I"),
                                 "chromium:I"))) {
             // Run the action that should do printing to logcat.
@@ -827,9 +826,9 @@ public class CronetUrlRequestContextTest {
             reason = "Tests native implementation internals")
     public void testNetworkBoundContextLifetime() throws Exception {
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
-        ConnectivityManagerDelegate delegate =
-                new ConnectivityManagerDelegate(mTestRule.getTestFramework().getContext());
-        Network defaultNetwork = delegate.getDefaultNetwork();
+        ConnectivityManagerWrapper wrapper =
+                new ConnectivityManagerWrapper(mTestRule.getTestFramework().getContext());
+        Network defaultNetwork = wrapper.getDefaultNetwork();
         assume().that(defaultNetwork).isNotNull();
 
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -891,8 +890,8 @@ public class CronetUrlRequestContextTest {
         callback.setAutoAdvance(false);
         ExperimentalUrlRequest.Builder urlRequestBuilder =
                 cronetEngine.newUrlRequestBuilder(mUrl, callback, callback.getExecutor());
-        ConnectivityManagerDelegate delegate =
-                new ConnectivityManagerDelegate(mTestRule.getTestFramework().getContext());
+        ConnectivityManagerWrapper delegate =
+                new ConnectivityManagerWrapper(mTestRule.getTestFramework().getContext());
         Network defaultNetwork = delegate.getDefaultNetwork();
         assume().that(defaultNetwork).isNotNull();
 
@@ -962,8 +961,8 @@ public class CronetUrlRequestContextTest {
 
     @Test
     public void testBindToDefaultNetworkSucceeds() {
-        ConnectivityManagerDelegate delegate =
-                new ConnectivityManagerDelegate(mTestRule.getTestFramework().getContext());
+        ConnectivityManagerWrapper delegate =
+                new ConnectivityManagerWrapper(mTestRule.getTestFramework().getContext());
         Network defaultNetwork = delegate.getDefaultNetwork();
         assume().that(defaultNetwork).isNotNull();
 
@@ -2213,7 +2212,9 @@ public class CronetUrlRequestContextTest {
         mTestRule.getTestFramework().startEngine();
         // Verify CronetEngine.Builder config is passed down accurately to native code.
         ExperimentalCronetEngine.Builder builder =
-                new ExperimentalCronetEngine.Builder(mTestRule.getTestFramework().getContext());
+                (ExperimentalCronetEngine.Builder)
+                        new NativeCronetProvider(mTestRule.getTestFramework().getContext())
+                                .createBuilder();
         builder.enableHttp2(false);
         builder.enableQuic(true);
         builder.addQuicHint("example.com", 12, 34);
@@ -2239,7 +2240,9 @@ public class CronetUrlRequestContextTest {
         mTestRule.getTestFramework().startEngine();
         // Verify CronetEngine.Builder config is passed down accurately to native code.
         ExperimentalCronetEngine.Builder builder =
-                new ExperimentalCronetEngine.Builder(mTestRule.getTestFramework().getContext());
+                (ExperimentalCronetEngine.Builder)
+                        new NativeCronetProvider(mTestRule.getTestFramework().getContext())
+                                .createBuilder();
         builder.enableHttp2(false);
         // QUIC is on by default. Disabling it here to make sure the built config can correctly
         // reflect the change.

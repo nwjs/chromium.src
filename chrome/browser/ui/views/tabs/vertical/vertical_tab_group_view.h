@@ -41,6 +41,7 @@ class VerticalTabGroupView
 
   // views::View:
   void OnThemeChanged() override;
+  void OnGestureEvent(ui::GestureEvent* event) override;
 
   // views::LayoutDelegate:
   views::ProposedLayout CalculateProposedLayout(
@@ -54,10 +55,15 @@ class VerticalTabGroupView
   views::Widget* ShowGroupEditorBubble(
       bool stop_context_menu_propagation) override;
   std::u16string GetGroupContentString() const override;
-  void InitHeaderDrag(const ui::MouseEvent& event) override;
-  bool ContinueHeaderDrag(const ui::MouseEvent& event) override;
+  bool IsValid() const override;
+  void InitHeaderDrag(const ui::LocatedEvent& event) override;
+  bool ContinueHeaderDrag(const ui::LocatedEvent& event) override;
   void CancelHeaderDrag() override;
-  void HideHoverCard() const override;
+  const TabGroup& GetTabGroup() const override;
+  void UpdateHoverCard(int update_type) const override;
+  void HideHoverCard(int update_type) const override;
+  bool IsFocusInTabStrip() override;
+  std::unique_ptr<ExpandOnHoverLock> AcquireExpandOnHoverLock() override;
   void ShiftGroupUp() override;
   void ShiftGroupDown() override;
 
@@ -87,8 +93,8 @@ class VerticalTabGroupView
   void UpdateTargetLayoutForDrag(
       const std::vector<const views::View*>& views_to_snap) override;
   const views::ProposedLayout& GetLayoutForDrag() const override;
-  void HandleTabDragInContainer(const gfx::Rect& dragged_tab_bounds) override;
-  void OnTabDragExited(const gfx::Point& point_in_screen) override;
+  const TabCollectionNode* GetCollectionNodeFromView(
+      const views::View& view) const override;
 
   void AttachChildView(std::unique_ptr<views::View> child_view,
                        const gfx::Rect& previous_bounds_in_screen);
@@ -98,7 +104,6 @@ class VerticalTabGroupView
   void OnDataChanged();
   void UpdateChildVisibilityForCollapseState(bool collapsed);
   bool GetIsShared();
-  bool IsTabStripCollapsed() const;
 
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
 

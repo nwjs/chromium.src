@@ -359,6 +359,7 @@
         "border-shape",
         "border-visual",
         "border-width",
+        "box-paint-property",
         "clip",
         "clip-path",
         "color",
@@ -1002,7 +1003,6 @@
       valid_for_keyframe: false,
     },
     {
-      // TODO(futhark): Set the TreeScope on CSSAnimationData.
       name: "animation-name",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal", "InitialValue"],
       style_builder_template: "animation",
@@ -2131,7 +2131,7 @@
     {
       name: "background-clip",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      keywords: ["border-box", "padding-box", "content-box", "text"],
+      keywords: ["border-box", "padding-box", "content-box", "text", "border-area"],
       typedom_types: ["Keyword"],
       separator: " ",
       style_builder_template: "background_layer",
@@ -2358,6 +2358,7 @@
       valid_for_page_context: true,
       invalidate: ["border-radius", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "border-bottom-right-radius",
@@ -2381,6 +2382,7 @@
       valid_for_page_context: true,
       invalidate: ["border-radius", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "border-bottom-style",
@@ -2714,6 +2716,7 @@
       valid_for_page_context: true,
       invalidate: ["border-radius", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "border-top-right-radius",
@@ -2737,6 +2740,7 @@
       valid_for_page_context: true,
       invalidate: ["border-radius", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "border-top-style",
@@ -3484,6 +3488,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "flex-direction",
@@ -3882,7 +3887,7 @@
         "third_party/blink/renderer/platform/graphics/image_node_animation_info.h"
       ],
       type_name: "ImageAnimationEnum",
-      keywords: ["normal", "running", "paused"],
+      keywords: ["normal", "running", "paused", "stopped"],
       default_value: "normal",
       typedom_types: ["Keyword"],
       invalidate: ["paint"],
@@ -3896,7 +3901,7 @@
       field_template: "keyword",
       keywords: [
         "auto", "optimizespeed", "optimizequality",
-        "-webkit-optimize-contrast", "pixelated"
+        "-webkit-optimize-contrast", "pixelated", "crisp-edges"
       ],
       typedom_types: ["Keyword"],
       default_value: "auto",
@@ -4178,6 +4183,7 @@
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
       anchor_mode: "height",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "margin-left",
@@ -4204,6 +4210,7 @@
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
       anchor_mode: "width",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "margin-right",
@@ -4230,6 +4237,7 @@
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
       anchor_mode: "width",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "margin-top",
@@ -4255,6 +4263,7 @@
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
       anchor_mode: "height",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "margin-trim",
@@ -4661,6 +4670,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       invalidate: ["outline"],
+      affected_by_zoom: true,
     },
     {
       name: "outline-style",
@@ -4697,6 +4707,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       invalidate: ["outline"],
+      affected_by_zoom: true,
     },
     {
       name: "overflow-anchor",
@@ -4751,7 +4762,7 @@
       default_value: "std::nullopt",
       type_name: "std::optional<StyleOverflowClipMargin>",
       converter: "ConvertOverflowClipMargin",
-      invalidate: ["layout"],
+      invalidate: ["box-paint-property", "layout"],
     },
     {
       name: "overflow-x",
@@ -4776,7 +4787,7 @@
       // Modifying overflow frequently should not be common, so we take it out.
       supports_incremental_style: false,
       idempotent: false,
-      invalidate: ["layout", "paint"],
+      invalidate: ["box-paint-property", "layout", "paint"],
     },
     {
       name: "overflow-y",
@@ -4797,14 +4808,14 @@
       // See comment on overflow-x.
       supports_incremental_style: false,
       idempotent: false,
-      invalidate: ["layout", "paint"],
+      invalidate: ["box-paint-property", "layout", "paint"],
     },
     {
       name: "-internal-overscroll-area",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       field_group: "*",
       field_template: "keyword",
-      keywords: ["none", "auto"],
+      keywords: ["none", "auto", "overlay"],
       typedom_types: ["Keyword"],
       default_value: "none",
       runtime_flag: "OverscrollGestures",
@@ -4838,6 +4849,7 @@
         name: "overscroll-behavior",
         resolver: "horizontal",
       },
+      invalidate: ["box-paint-property"],
       valid_for_permission_element: true,
     },
     {
@@ -4853,6 +4865,7 @@
         name: "overscroll-behavior",
         resolver: "vertical",
       },
+      invalidate: ["box-paint-property"],
       valid_for_permission_element: true,
     },
     {
@@ -4886,6 +4899,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint", "scroll-anchor"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "padding-left",
@@ -4908,6 +4922,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint", "scroll-anchor"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "padding-right",
@@ -4930,6 +4945,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint", "scroll-anchor"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "padding-top",
@@ -4952,6 +4968,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint", "scroll-anchor"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "page",
@@ -5136,7 +5153,7 @@
       field_group: "*",
       field_size: 3,
       field_template: "primitive",
-      default_value: "InitialPositionVisibilityKeyword()",
+      default_value: "PositionVisibility::kAnchorsVisible",
       getter: "GetPositionVisibility",
       type_name: "PositionVisibility",
       converter: "ConvertPositionVisibility",
@@ -5406,6 +5423,7 @@
         resolver: "bottom",
       },
       valid_for_permission_element: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-margin-inline-end",
@@ -5441,6 +5459,7 @@
         resolver: "left",
       },
       valid_for_permission_element: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-margin-right",
@@ -5456,6 +5475,7 @@
         resolver: "right",
       },
       valid_for_permission_element: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-margin-top",
@@ -5471,6 +5491,7 @@
         resolver: "top",
       },
       valid_for_permission_element: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-padding-block-end",
@@ -5517,6 +5538,7 @@
       },
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-padding-inline-end",
@@ -5563,6 +5585,7 @@
       },
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-padding-right",
@@ -5579,6 +5602,7 @@
       },
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-padding-top",
@@ -5595,6 +5619,7 @@
       },
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-snap-align",
@@ -6134,7 +6159,6 @@
       valid_for_first_letter: true,
       valid_for_first_line: true,
       invalidate: ["layout"],
-      runtime_flag: "CssTextJustify",
     },
     {
       name: "text-overflow",
@@ -6223,6 +6247,7 @@
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       independent: true,
       inherited: true,
+      field_group: "inherited",
       field_template: "multi_keyword",
       keywords: ["none", "capitalize", "uppercase", "lowercase", "full-width", "full-size-kana", "math-auto"],
       type_name: "ETextTransform",
@@ -6789,6 +6814,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "row-gap",
@@ -6851,8 +6877,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6865,8 +6892,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6879,8 +6907,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6893,8 +6922,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6907,8 +6937,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6921,8 +6952,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6935,8 +6967,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -6949,8 +6982,9 @@
       field_group: "*",
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
-      typedom_types: ["Length", "Percentage"],
-      converter: "ConvertLength",
+      keywords: ["overlap-join"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      converter: "ConvertGapDecorationInsetLength",
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
@@ -7031,8 +7065,8 @@
       inherited: false,
       field_group: "*",
       field_template: "keyword",
-      keywords: ["all", "auto", "around", "between"],
-      default_value: "auto",
+      keywords: ["all", "normal", "around", "between"],
+      default_value: "normal",
       type_name: "RuleVisibilityItems",
       typedom_types: ["Keyword"],
       invalidate: ["paint"],
@@ -7044,8 +7078,8 @@
       inherited: false,
       field_group: "*",
       field_template: "keyword",
-      keywords: ["all", "auto", "around", "between"],
-      default_value: "auto",
+      keywords: ["all", "normal", "around", "between"],
+      default_value: "normal",
       type_name: "RuleVisibilityItems",
       typedom_types: ["Keyword"],
       invalidate: ["paint"],
@@ -7066,6 +7100,7 @@
       keywords: ["thin", "medium", "thick"],
       typedom_types: ["Keyword", "Length"],
       invalidate: ["paint"],
+      affected_by_zoom: true,
     },
     {
       name: "row-rule-width",
@@ -7108,6 +7143,7 @@
       keywords: ["auto"],
       typedom_types: ["Keyword", "Length"],
       invalidate: ["layout", "paint"],
+      affected_by_zoom: true,
     },
     {
       name: "column-height",
@@ -7123,6 +7159,7 @@
       keywords: ["auto"],
       typedom_types: ["Keyword", "Length"],
       invalidate: ["layout", "paint"],
+      affected_by_zoom: true,
       runtime_flag: "MulticolColumnWrapping",
     },
     {
@@ -7617,6 +7654,7 @@
       affected_by_all: false,
       // Overlaps with transform-origin.
       legacy_overlapping: true,
+      percentages_depend_on_used_value: true,
     },
     {
       name: "-webkit-transform-origin-y",
@@ -7628,6 +7666,7 @@
       affected_by_all: false,
       // Overlaps with transform-origin.
       legacy_overlapping: true,
+      percentages_depend_on_used_value: true,
     },
     {
       name: "-webkit-transform-origin-z",
@@ -7639,6 +7678,7 @@
       affected_by_all: false,
       // Overlaps with transform-origin.
       legacy_overlapping: true,
+      percentages_depend_on_used_value: true,
     },
     {
       name: "-webkit-user-drag",
@@ -7777,8 +7817,15 @@
       name: "will-change",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_custom_functions: ["initial", "inherit", "value"],
+      type_name: "StyleWillChangeData",
+      field_template: "pointer",
+      field_group: "misc",
+      wrapper_pointer_name: "Member",
+      default_value: "nullptr",
+      include_paths: ["third_party/blink/renderer/core/style/style_will_change_data.h"],
       keywords: ["auto"],
       typedom_types: ["Keyword"],
+      invalidate: ["compositing"],
       valid_for_permission_element: true,
       is_animation_affecting: true,
     },
@@ -8648,7 +8695,7 @@
       // anchor() functions compute relative to the containing block that is
       // modified by position-area in AnchorEvaluatorImpl.
       priority: 1,
-      invalidate: ["layout", "out-of-flow", "paint"],
+      invalidate: ["box-paint-property", "layout", "out-of-flow", "paint"],
     },
     // Shorthands
     {

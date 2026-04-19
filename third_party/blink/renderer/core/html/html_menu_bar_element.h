@@ -15,6 +15,10 @@ class CORE_EXPORT HTMLMenuBarElement final : public HTMLMenuOwnerElement {
 
  public:
   explicit HTMLMenuBarElement(Document&);
+
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLMenuBarElement;
+  }
 };
 
 }  // namespace blink

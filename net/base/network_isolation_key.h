@@ -38,6 +38,14 @@ namespace net {
 // `frame_site ` -> the schemeful site of the frame.
 // `network_isolation_partition` -> an extra partition for the HTTP cache for
 // special use cases.
+//
+// An empty NetworkIsolationKey (one where the `top_frame_site` is empty) can be
+// used for transient network requests where the responses should not be written
+// to disk. Note that empty NetworkAnonymizationKeys can still have different
+// NetworkIsolationPartition values. Also note that although a given
+// NetworkIsolationKey may be empty, the corresponding NetworkAnonymizationKey
+// (also empty) may still result in metadata such as HttpServerProperties being
+// written to disk.
 class NET_EXPORT NetworkIsolationKey {
  public:
   // Full constructor.  When a request is initiated by the top frame, it must
@@ -59,6 +67,10 @@ class NET_EXPORT NetworkIsolationKey {
 
   // Construct an empty key.
   NetworkIsolationKey();
+
+  // Create an empty NetworkIsolationKey with a partition.
+  static NetworkIsolationKey CreateEmptyWithPartition(
+      NetworkIsolationPartition network_isolation_partition);
 
   NetworkIsolationKey(const NetworkIsolationKey& network_isolation_key);
   NetworkIsolationKey(NetworkIsolationKey&& network_isolation_key);
@@ -89,12 +101,11 @@ class NET_EXPORT NetworkIsolationKey {
   // entries may be distinguishable from each other.
   std::string ToDebugString() const;
 
-  // Returns true if all parts of the key are non-empty.
-  bool IsFullyPopulated() const;
-
-  // Returns true if this key's lifetime is short-lived, or if
-  // IsFullyPopulated() returns true. It may not make sense to persist state to
-  // disk related to it (e.g., disk cache).
+  // Returns true if this key's lifetime is short-lived, or if !IsEmpty()
+  // returns true. It may not make sense to persist state to disk related to it
+  // (e.g., disk cache). See the note in the class comment about empty
+  // NetworkIsolationKeys, though, and how certain data associated with requests
+  // using them may still be persisted to disk.
   bool IsTransient() const;
 
   // Getters for the top frame and frame sites. These accessors are primarily
@@ -146,7 +157,9 @@ class NET_EXPORT NetworkIsolationKey {
     return data_->network_isolation_partition();
   }
 
-  // Returns true if all parts of the key are empty.
+  // Returns true if this is an empty key (i.e. `top_frame_site`, `frame_site`,
+  // and `nonce` are empty). See the note in the class comment regarding empty
+  // NetworkIsolationKeys.
   bool IsEmpty() const;
 
  private:
@@ -156,11 +169,11 @@ class NET_EXPORT NetworkIsolationKey {
    public:
     static scoped_refptr<Data> GetEmptyData();
 
-    // Conctruct an empty data.
+    // Construct an empty data.
     explicit Data(base::PassKey<Data>);
 
-    Data(SchemefulSite&& top_frame_site,
-         SchemefulSite&& frame_site,
+    Data(std::optional<SchemefulSite>&& top_frame_site,
+         std::optional<SchemefulSite>&& frame_site,
          std::optional<base::UnguessableToken>&& nonce,
          NetworkIsolationPartition network_isolation_partition);
 

@@ -39,6 +39,7 @@ import org.chromium.components.omnibox.AutocompleteResult;
 import org.chromium.components.omnibox.GroupsProto.GroupConfig;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
+import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -78,7 +79,10 @@ class DropdownItemViewInfoListBuilder {
      * @return AutocompleteUIContext with all necessary dependencies
      */
     private AutocompleteUIContext createUIContext(
-            Context context, SuggestionHost host, UrlBarEditingTextStateProvider textProvider) {
+            Context context,
+            SuggestionHost host,
+            UrlBarEditingTextStateProvider textProvider,
+            OmniboxActionDelegate actionDelegate) {
         return new AutocompleteUIContext(
                 context,
                 host,
@@ -87,7 +91,8 @@ class DropdownItemViewInfoListBuilder {
                 mBookmarkState,
                 mActivityTabSupplier,
                 mShareDelegateSupplier,
-                mToolbarPositionSupplier);
+                mToolbarPositionSupplier,
+                actionDelegate);
     }
 
     /**
@@ -99,13 +104,17 @@ class DropdownItemViewInfoListBuilder {
      */
     @Initializer
     void initDefaultProcessors(
-            Context context, SuggestionHost host, UrlBarEditingTextStateProvider textProvider) {
+            Context context,
+            SuggestionHost host,
+            UrlBarEditingTextStateProvider textProvider,
+            OmniboxActionDelegate actionDelegate) {
         assert mPriorityOrderedSuggestionProcessors.size() == 0 : "Processors already initialized.";
 
         mImageSupplier =
                 OmniboxFeatures.isLowMemoryDevice() ? null : new OmniboxImageSupplier(context);
 
-        AutocompleteUIContext uiContext = createUIContext(context, host, textProvider);
+        AutocompleteUIContext uiContext =
+                createUIContext(context, host, textProvider, actionDelegate);
 
         mGroupSeparatorProcessor = new GroupSeparatorProcessor(uiContext.context);
         mHeaderProcessor = new HeaderProcessor(uiContext.context);
@@ -239,14 +248,19 @@ class DropdownItemViewInfoListBuilder {
         // TODO(http://crbug/1518967): move this to the calling function and instantiate the
         // HeaderView undonditionally when passing from one suggestion group to another.
         // TODO(http://crbug/1518967): collapse Header and DivierLine to a single component.
+        boolean showGroupSeparatorDecoration = false;
         if (!TextUtils.isEmpty(groupDetails.getHeaderText())) {
             final PropertyModel model = mHeaderProcessor.createModel();
             mHeaderProcessor.populateModel(model, groupDetails.getHeaderText());
             result.add(new DropdownItemViewInfo(mHeaderProcessor, model, groupDetails));
         } else if (previousDetails != null
                 && previousDetails.getRenderType() == GroupConfig.RenderType.DEFAULT_VERTICAL) {
-            final PropertyModel model = mGroupSeparatorProcessor.createModel();
-            result.add(new DropdownItemViewInfo(mGroupSeparatorProcessor, model, groupDetails));
+            if (OmniboxFeatures.sOmniboxItemDecoration.isEnabled()) {
+                showGroupSeparatorDecoration = true;
+            } else {
+                final PropertyModel model = mGroupSeparatorProcessor.createModel();
+                result.add(new DropdownItemViewInfo(mGroupSeparatorProcessor, model, groupDetails));
+            }
         }
 
         boolean toolbarOnBottom =
@@ -254,12 +268,12 @@ class DropdownItemViewInfoListBuilder {
                         && assumeNonNull(mToolbarPositionSupplier.get()) == ControlsPosition.BOTTOM;
         var roundingStartEdge =
                 toolbarOnBottom
-                        ? DropdownCommonProperties.BG_BOTTOM_CORNER_ROUNDED
-                        : DropdownCommonProperties.BG_TOP_CORNER_ROUNDED;
+                        ? SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED
+                        : SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED;
         var roundingEndEdge =
                 toolbarOnBottom
-                        ? DropdownCommonProperties.BG_TOP_CORNER_ROUNDED
-                        : DropdownCommonProperties.BG_BOTTOM_CORNER_ROUNDED;
+                        ? SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED
+                        : SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED;
 
         for (int indexInList = 0; indexInList < numGroupMatches; indexInList++) {
             var indexOnList = firstVerticalPosition + indexInList;
@@ -269,7 +283,10 @@ class DropdownItemViewInfoListBuilder {
 
             model.set(roundingStartEdge, indexInList == 0);
             model.set(roundingEndEdge, indexInList == numGroupMatches - 1);
-            model.set(DropdownCommonProperties.SHOW_DIVIDER, indexInList < numGroupMatches - 1);
+            model.set(SuggestionCommonProperties.SHOW_DIVIDER, indexInList < numGroupMatches - 1);
+            model.set(
+                    SuggestionCommonProperties.SHOW_GROUP_SEPARATOR,
+                    showGroupSeparatorDecoration && indexInList == 0);
 
             processor.populateModel(input, match, model, indexOnList);
             result.add(new DropdownItemViewInfo(processor, model, groupDetails));

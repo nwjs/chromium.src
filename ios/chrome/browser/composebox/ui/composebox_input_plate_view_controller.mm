@@ -897,8 +897,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   if (!_attachFileActionsHidden) {
     visibleButtons.push_back(FuseboxAttachmentButtonType::kFiles);
   }
-  [self.metricsRecorder
-      recordAttachmentsMenuOpenedWithVisibleButtons:visibleButtons];
+  [self.delegate composeboxViewController:self
+      didOpenPlusMenuWithVisibleInternalButtons:visibleButtons];
 }
 
 - (void)micButtonTapped {
@@ -2577,7 +2577,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
   __weak __typeof(self) weakSelf = self;
   dispatch_async(dispatch_get_main_queue(), ^{
-    [weakSelf.mutator processPDFFileURL:pdfURL];
+    [weakSelf.mutator processFileURL:pdfURL isPDF:YES];
   });
 }
 

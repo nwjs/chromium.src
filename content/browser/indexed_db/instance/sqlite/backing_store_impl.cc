@@ -4,6 +4,8 @@
 
 #include "content/browser/indexed_db/instance/sqlite/backing_store_impl.h"
 
+#include <atomic>
+#include <memory>
 #include <vector>
 
 #include "base/check.h"
@@ -34,11 +36,12 @@ BackingStoreImpl::BackingStoreImpl(
     storage::mojom::BlobStorageContext& blob_storage_context,
     base::RepeatingCallback<
         std::vector<PartitionedLock>(const std::u16string& name)> lock_database,
-    base::RepeatingCallback<void(net::Error)> on_blob_read_complete)
+    base::RepeatingCallback<void(std::optional<net::Error>)> on_blob_activity)
     : directory_(std::move(directory)),
       blob_storage_context_(blob_storage_context),
       lock_database_(std::move(lock_database)),
-      on_blob_read_complete_(std::move(on_blob_read_complete)) {}
+      on_blob_activity_(std::move(on_blob_activity)),
+      is_force_closing_(std::make_unique<std::atomic_bool>(false)) {}
 
 BackingStoreImpl::~BackingStoreImpl() = default;
 
@@ -71,13 +74,13 @@ bool BackingStoreImpl::CanOpportunisticallyClose() const {
 }
 
 void BackingStoreImpl::OnForceClosing() {
-  is_force_closing_ = true;
+  is_force_closing_->store(true, std::memory_order_relaxed);
 }
 
 void BackingStoreImpl::SignalWhenDestructionComplete(
     base::WaitableEvent* signal_on_destruction) && {
   for (auto& [_, db] : open_connections_) {
-    std::move(*db).GetCleanupTask(/*force_closing=*/true).Run();
+    std::move(*db).GetCleanupTask().Run(/*force_closing=*/true);
   }
   open_connections_.clear();
 
@@ -89,8 +92,11 @@ void BackingStoreImpl::SignalWhenDestructionComplete(
   // Signal when the last cleanup task completes. `signal_on_destruction` is
   // guaranteed to outlive `this`.
   cleanup_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&base::WaitableEvent::Signal,
-                                base::Unretained(signal_on_destruction)));
+      FROM_HERE,
+      base::OnceClosure(
+          base::DoNothingWithBoundArgs(std::move(is_force_closing_)))
+          .Then(base::BindOnce(&base::WaitableEvent::Signal,
+                               base::Unretained(signal_on_destruction))));
 }
 
 void BackingStoreImpl::StartPreCloseTasks(base::OnceClosure on_done) {
@@ -199,8 +205,8 @@ BackingStoreImpl::GetDatabaseNamesAndVersions() {
                 // Though not really force closing, skip "optional" cleanup
                 // steps since we're actively serving a frontend request.
                 std::move(*connection)
-                    .GetCleanupTask(/*force_closing=*/true)
-                    .Run();
+                    .GetCleanupTask()
+                    .Run(/*force_closing=*/true);
               });
     });
   }
@@ -248,12 +254,10 @@ void BackingStoreImpl::DestroyConnection(const std::u16string& name,
                                          std::vector<PartitionedLock> locks) {
   std::unique_ptr<DatabaseConnection> connection =
       std::move(open_connections_.extract(name).mapped());
-  base::OnceClosure cleanup_task =
-      std::move(*connection).GetCleanupTask(is_force_closing_);
 
-  if (is_force_closing_) {
+  if (is_force_closing_->load(std::memory_order_relaxed)) {
     // Run the cleanup task synchronously.
-    std::move(cleanup_task).Run();
+    std::move(*connection).GetCleanupTask().Run(/*force_closing=*/true);
     return;
   }
 
@@ -275,7 +279,15 @@ void BackingStoreImpl::DestroyConnection(const std::u16string& name,
 
   cached_versions_[name] = connection->GetCommittedVersion();
   cleanup_task_runner_->PostTaskAndReply(
-      FROM_HERE, std::move(cleanup_task),
+      FROM_HERE,
+      // `Unretained` is safe here because `is_force_closing_` is moved to
+      // `cleanup_task_runner_` before `this` is destroyed.
+      base::BindOnce(
+          [](const std::atomic_bool* flag) {
+            return flag->load(std::memory_order_relaxed);
+          },
+          base::Unretained(is_force_closing_.get()))
+          .Then(std::move(*connection).GetCleanupTask()),
       base::BindOnce(&BackingStoreImpl::OnCleanupComplete,
                      weak_factory_.GetWeakPtr(), name, std::move(locks)));
 }

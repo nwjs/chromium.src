@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ur">
 <translation id="1000436330784933699">آپ یہاں لینز کھول سکتے ہیں۔</translation>
+<translation id="1005291068154454184">‏‫Chromium کو بطور ڈیفالٹ سیٹ کرنے کے طریقے کی فُل اسکرین ویڈیو</translation>
 <translation id="1042296835509784301">‏‫Chromium میں پاس ورڈ مینیجر کھولتا ہے۔</translation>
 <translation id="1047130070405668746">‏Chromium منتخب کریں</translation>
 <translation id="1091252999271033193">‏اس کا مطلب ہے کہ Chromium ہر بار موبائل سائٹ کی درخواست کرے گا۔</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">‏Chromium میں اسٹور کردہ غیر محفوظ سائٹس کی فہرست کے URLs چیک کرتا ہے۔ اگر کوئی سائٹ آپ کا پاس ورڈ چرانے کی کوشش کرتی ہے یا جب آپ نقصان دہ فائل ڈاؤن لوڈ کرتے ہیں تو Chromium محفوظ براؤزنگ پر صفحہ کے مواد کے بائٹس سمیت URLs بھیجتا ہے۔</translation>
 <translation id="2314220608288760290">‏‫Chromium خودکار طور پر YouTube پوشیدگی کے لنکس کو پوشیدگی میں کھولتا ہے۔</translation>
 <translation id="231828342043114302">‏اپنی دلچسپیوں کی بنیاد پر ذاتی نوعیت کا مواد حاصل کرنے کے لیے، Chromium میں سائن ان کریں۔</translation>
-<translation id="2326738825692478496">‏آپ کا کچھ Chromium ڈیٹا ابھی تک آپ کے Google اکاؤنٹ میں محفوظ نہیں ہوا ہے۔
-
-سائن آؤٹ کرنے سے پہلے چند منٹ انتظار کرنے کی کوشش کریں۔ اگر آپ ابھی سائن آؤٹ کرتے ہیں تو یہ ڈیٹا حذف ہو جائے گا۔</translation>
 <translation id="2334943301233020675">درج ذیل پاس کیز کو پاس ورڈ مینیجر میں درآمد نہیں کیا گیا تھا، کیونکہ وہ تقاضوں سے مماثل نہیں ہیں۔</translation>
 <translation id="2337722506862731008">‏‫Chromium کا اشتراک کریں</translation>
 <translation id="2340423701577464731">‏‫Chromium میں پڑھنے کی فہرست کا آئٹم شامل کریں</translation>
@@ -103,7 +101,6 @@
 آپ کے Chromium کے تجربے کو بہتر بنانے کی خاطر ڈیٹا کا استعمال کرنے والی مزید ترتیبات کے لیے <ph name="BEGIN_LINK" />Google سروسز<ph name="END_LINK" /> پر جائیں۔</translation>
 <translation id="2832168932648876507">‏‫Chromium میں آواز سے تلاش کریں۔</translation>
 <translation id="2843571538056574338">‏آٹوفل کے لیے Chromium استعمال کریں</translation>
-<translation id="2899085719655668655">‏‫Chromium کو بطور ڈیفالٹ سیٹ کرنے کے طریقے کی تصویر میں تصویر ویڈیو ہدایات</translation>
 <translation id="2918709798697875261">‏آپ کی تنظیم کا تقاضہ ہے کہ آپ Chromium سے سائن آؤٹ رہیں۔</translation>
 <translation id="2942241131342758843">‏لنکس کھولنے، ویجیٹس سے تلاش کرنے اور دیگر ایپس میں پاس ورڈز کو آٹو فل کرنے کیلئے، Chromium کا بطور ڈیفالٹ استعمال کریں</translation>
 <translation id="2977470724722393594">‏Chromium اپ ٹو ڈیٹ ہے</translation>

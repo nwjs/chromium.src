@@ -15,10 +15,10 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -49,29 +49,23 @@ class ContextualTasksUiServiceInteractiveUiTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class TabStripModelObserverImpl : public TabStripModelObserver {
+class TabListInterfaceObserverImpl : public TabListInterfaceObserver {
  public:
-  explicit TabStripModelObserverImpl(
+  explicit TabListInterfaceObserverImpl(
       contextual_tasks::ContextualTasksService* contextual_tasks_service,
       const base::Uuid& task_id)
       : contextual_tasks_service_(contextual_tasks_service),
         task_id_(task_id) {}
 
-  void OnTabStripModelChanged(
-      TabStripModel* tab_strip_model,
-      const TabStripModelChange& change,
-      const TabStripSelectionChange& selection) override {
-    if (change.type() == TabStripModelChange::kInserted) {
-      for (const auto& contents : change.GetInsert()->contents) {
-        SessionID session_id =
-            sessions::SessionTabHelper::IdForTab(contents.contents);
-        std::optional<ContextualTask> task =
-            contextual_tasks_service_->GetContextualTaskForTab(session_id);
-        if (task.has_value()) {
-          EXPECT_EQ(task->GetTaskId(), task_id_);
-          was_inserted_ = true;
-        }
-      }
+  void OnTabAdded(TabListInterface& tab_list,
+                  tabs::TabInterface* tab,
+                  int index) override {
+    SessionID session_id =
+        sessions::SessionTabHelper::IdForTab(tab->GetContents());
+    std::optional<ContextualTask> task =
+        contextual_tasks_service_->GetContextualTaskForTab(session_id);
+    if (task.has_value() && task->GetTaskId() == task_id_) {
+      was_inserted_ = true;
     }
   }
 
@@ -102,11 +96,11 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceInteractiveUiTest,
   contextual_tasks_service->AssociateTabWithTask(
       task1.GetTaskId(),
       sessions::SessionTabHelper::IdForTab(
-          browser()->tab_strip_model()->GetWebContentsAt(0)));
+          TabListInterface::From(browser())->GetTab(0)->GetContents()));
 
-  TabStripModelObserverImpl observer(contextual_tasks_service,
-                                     task1.GetTaskId());
-  browser()->tab_strip_model()->AddObserver(&observer);
+  TabListInterfaceObserverImpl observer(contextual_tasks_service,
+                                        task1.GetTaskId());
+  TabListInterface::From(browser())->AddTabListInterfaceObserver(&observer);
 
   ContextualTasksPanelController* coordinator =
       ContextualTasksPanelController::From(browser());
@@ -135,7 +129,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceInteractiveUiTest,
         // Close side panel.
         coordinator->Close();
       }));
-  browser()->tab_strip_model()->RemoveObserver(&observer);
+  TabListInterface::From(browser())->RemoveTabListInterfaceObserver(&observer);
 
   histogram_tester.ExpectUniqueSample(
       "ContextualTasks.AiResponse.UserAction.LinkClicked.Panel", true, 1);
@@ -752,13 +746,22 @@ IN_PROC_BROWSER_TEST_F(DisabledContextualTasksUiServiceInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(DisabledContextualTasksUiServiceInteractiveUiTest,
                        RedirectToAimUrlFromSearchParams) {
-  GURL contextual_tasks_url = GURL(
-      "chrome://contextual-tasks?aim_url=https%3A%2F%2Fgoogle.com%2Fsearch");
+  GURL contextual_tasks_url =
+      GURL("chrome://contextual-tasks?param1=1&param2=2&chrome_task_id=1234");
   EXPECT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL(contextual_tasks_url)));
   TabListInterface* tab_list = TabListInterface::From(browser());
-  ASSERT_EQ(GURL("https://google.com/search"),
-            tab_list->GetActiveTab()->GetContents()->GetLastCommittedURL());
+
+  GURL url = tab_list->GetActiveTab()->GetContents()->GetLastCommittedURL();
+  EXPECT_EQ("https", url.scheme());
+  EXPECT_EQ("www.google.com", url.host());
+  EXPECT_EQ("/search", url.path());
+  std::string value;
+  EXPECT_TRUE(net::GetValueForKeyInQuery(url, "param1", &value));
+  EXPECT_EQ(value, "1");
+  EXPECT_TRUE(net::GetValueForKeyInQuery(url, "param2", &value));
+  EXPECT_EQ(value, "2");
+  EXPECT_FALSE(net::GetValueForKeyInQuery(url, "chrome_task_id", &value));
 }
 
 class MockEligibilityServiceContextualTasksUiServiceInteractiveUiTest

@@ -8,6 +8,7 @@
 #include <array>
 #include <optional>
 
+#include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
 #include "third_party/blink/renderer/core/css/css_counter_value.h"
@@ -380,7 +381,7 @@ bool IsContentPositionKeyword(CSSValueID);
 bool IsContentPositionOrLeftOrRightKeyword(CSSValueID);
 CORE_EXPORT bool IsCSSWideKeyword(CSSValueID);
 CORE_EXPORT bool IsCSSWideKeyword(StringView);
-bool IsInvalidFontFamily(const AtomicString&);
+bool FontFamilyNeedsQuoting(const AtomicString&);
 bool IsRevertKeyword(StringView);
 bool IsDefaultKeyword(StringView);
 bool IsHashIdentifier(const CSSParserToken&);
@@ -388,8 +389,10 @@ CORE_EXPORT bool IsDashedIdent(const CSSParserToken&);
 
 // https://drafts.csswg.org/css-mixins-1/#function-rule
 inline bool IsDashedFunctionName(const CSSParserToken& token) {
+  // SAFETY: token value length checked before use in &&-expression.
   return token.GetType() == kFunctionToken && token.Value().length() >= 3 &&
-         token.Value()[0] == '-' && token.Value()[1] == '-';
+         UNSAFE_BUFFERS(token.Value()[0]) == '-' &&
+         UNSAFE_BUFFERS(token.Value()[1]) == '-';
 }
 
 CORE_EXPORT CSSValue* ConsumeCSSWideKeyword(CSSParserTokenStream&,
@@ -477,7 +480,11 @@ void AddBackgroundValue(CSSValue*& list, const CSSValue*);
 CSSValue* ConsumeBackgroundAttachment(CSSParserTokenStream&);
 CSSValue* ConsumeBackgroundBlendMode(CSSParserTokenStream&);
 CSSValue* ConsumeBackgroundBox(CSSParserTokenStream&);
-CSSValue* ConsumeBackgroundBoxOrText(CSSParserTokenStream&);
+
+enum class AllowBorderAreaValue { kAllow, kForbid };
+CSSValue* ConsumeBackgroundClip(
+    CSSParserTokenStream&,
+    AllowBorderAreaValue = AllowBorderAreaValue::kAllow);
 CSSValue* ConsumeMaskComposite(CSSParserTokenStream&);
 CSSValue* ConsumePrefixedMaskComposite(CSSParserTokenStream&);
 CSSValue* ConsumeMaskMode(CSSParserTokenStream&);

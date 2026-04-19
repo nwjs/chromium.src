@@ -17,9 +17,9 @@
 #include <list>
 
 #include "base/containers/flat_map.h"
-#include "components/optimization_guide/core/model_execution/model_broker_client.h"
-#include "components/optimization_guide/core/model_execution/remote_model_executor.h"
-#include "components/soda/soda_installer.h"
+#include "components/optimization_guide/core/model_execution/model_broker_client.h"  // nogncheck crbug.com/1125897
+#include "components/optimization_guide/core/model_execution/remote_model_executor.h"  // nogncheck crbug.com/1125897
+#include "components/soda/soda_installer.h"  // nogncheck crbug.com/1125897
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace content {
@@ -51,9 +51,11 @@ class OnDeviceSpeechRecognitionImpl
   // speech::mojom::OnDeviceSpeechRecognition methods:
   void Available(
       const std::vector<std::string>& languages,
+      media::mojom::SpeechRecognitionQuality quality,
       OnDeviceSpeechRecognitionImpl::AvailableCallback callback) override;
   void Install(
       const std::vector<std::string>& languages,
+      media::mojom::SpeechRecognitionQuality quality,
       OnDeviceSpeechRecognitionImpl::InstallCallback callback) override;
 
 #if !BUILDFLAG(IS_ANDROID)

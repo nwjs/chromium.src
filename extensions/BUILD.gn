@@ -183,7 +183,7 @@ static_library("test_support") {
     "//services/network/public/mojom",
     "//testing/gmock",
     "//testing/gtest",
-    #"//third_party/cld_3/src/src:cld_3",
+    "//third_party/cld_3/src/src:cld_3",
     "//third_party/zlib/google:zip",
   ]
 

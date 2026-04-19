@@ -22,6 +22,7 @@
 #include "content/public/browser/navigation_handle_timing.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/preloading_trigger_type.h"
+#include "content/public/browser/prerender_host_id.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/restore_type.h"
 #include "content/public/common/child_process_id.h"
@@ -84,6 +85,56 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   ADVANCED_MEMORY_SAFETY_CHECKS();
 
  public:
+  // Execution mode for the beforeunload handling.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class BeforeUnloadExecutionMode {
+    // Navigation was not blocked by beforeunload handlers (e.g., no handlers
+    // registered, or navigation skipped running beforeunload handlers). Unlike
+    // `kForLegacy`, the navigation start time is NOT updated.
+    kNotBlocked = 0,
+    // Used for navigations when no beforeunload handlers are present. The
+    // primary difference from `kNotBlocked` is that the navigation start time
+    // is updated in this mode (see
+    // `NavigationRequest::UpdateNavigationStartTime()`).
+    //
+    // This mode was previously managed as a `for_legacy` boolean, which is
+    // still used in some parts of the codebase.
+    //
+    // Depending on the state, this mode can lead to either synchronous
+    // execution (proceeding immediately via `std::move(closure).Run()`) or
+    // asynchronous execution (using a `PostTask` to avoid re-entrancy issues).
+    // In particular, if the frame is eligible, it proceeds synchronously (fast
+    // path); otherwise, it falls back to the legacy `PostTask` behavior (which
+    // is always used for WebView).
+    //
+    // `PostTask()` is used because proceeding synchronously could lead to
+    // reentrancy problems. In particular, some tests and Android WebView assume
+    // they can synchronously navigate from `WillStartRequest()`. If
+    // `PostTask()` is not used for a frame that is not eligible,
+    // `NavigationController` would trigger a CHECK in
+    // `ScopedPendingEntryReentrancyGuard` to prevent unsafe re-entrant
+    // navigations (see
+    // `NavigationControllerImpl::in_navigate_to_pending_entry_`). See
+    // https://crbug.com/40353566 for more details.
+    kForLegacy = 1,
+    // Normal (synchronous) beforeunload execution mode. The browser process
+    // waits for the renderer's response before proceeding with the navigation.
+    // This mode is used when there are beforeunload handlers that have sticky
+    // user activation, potentially allowing them to show a confirmation dialog
+    // or cancel the navigation.
+    kSync = 2,
+    // Asynchronous beforeunload optimization (AsyncBeforeUnload). The browser
+    // process runs beforeunload handlers in the background without blocking the
+    // navigation. This is only used when no handlers in the affected subtree
+    // have sticky user activation, meaning they are guaranteed not to show a
+    // dialog or cancel the navigation. The navigation commit will still be
+    // deferred by AsyncBeforeUnloadCommitDeferringCondition until these
+    // handlers complete or timeout.
+    kAsync = 3,
+    kMaxValue = kAsync,
+  };
+
   ~NavigationHandle() override = default;
 
   // Parameters available at navigation start time -----------------------------
@@ -147,6 +198,10 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // details.
   virtual bool IsInOutermostMainFrame() const = 0;
 
+  // Returns the execution mode for the beforeunload handling of this
+  // navigation.
+  virtual BeforeUnloadExecutionMode GetBeforeUnloadExecutionMode() const = 0;
+
   // Prerender2:
   // Whether the navigation is taking place in the main frame of the
   // prerendered frame tree. Prerender will create separate frame trees to load
@@ -161,6 +216,12 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // Returns true if this navigation will activate a prerendered page. It is
   // only meaningful to call this after BeginNavigation().
   virtual bool IsPrerenderedPageActivation() const = 0;
+
+  // Prerender2:
+  // Returns the PrerenderHostId driving the navigation. If the navigation
+  // is not derived from a prerendered page, the default-constructed null
+  // value will be returned.
+  virtual PrerenderHostId GetPrerenderHostId() const = 0;
 
   // FencedFrame:
   // Returns true if the navigation is taking place in a frame in a fenced frame
@@ -466,7 +527,7 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // Set LCP Critical Path Predictor hint data to be passed along to the
   // renderer process on the navigation commit.
   virtual void SetLCPPNavigationHint(
-      const blink::mojom::LCPCriticalPathPredictorNavigationTimeHint& hint) = 0;
+      blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr hint) = 0;
 
   // Peek into LCP Critical Path Predictor hint data attached to the navigation.
   virtual const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&

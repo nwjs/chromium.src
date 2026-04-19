@@ -68,6 +68,8 @@ class TestTabModel : public TabModel {
   void SetActiveIndex(int index) override;
   void ForceCloseAllTabs() override;
   void CloseTabAt(int index) override;
+  std::unique_ptr<content::WebContents> DetachWebContents(
+      tabs::TabHandle tab) override;
   void AddObserver(TabModelObserver* observer) override;
   void RemoveObserver(TabModelObserver* observer) override;
 
@@ -80,6 +82,8 @@ class TestTabModel : public TabModel {
       const base::Time& end_time) const override;
   void CloseTabsNavigatedInTimeWindow(const base::Time& begin_time,
                                       const base::Time& end_time) override;
+  tabs::TabStripCollection* GetTabStripCollection(
+      base::PassKey<tabs_api::AndroidTabStripModelAdapter>) override;
 
   // TODO(crbug.com/415351293): Implement these.
   // TabListInterface implementation.
@@ -173,6 +177,8 @@ class OwningTestTabModel : public TabModel {
   void SetActiveIndex(int index) override;
   void ForceCloseAllTabs() override;
   void CloseTabAt(int index) override;
+  std::unique_ptr<content::WebContents> DetachWebContents(
+      tabs::TabHandle tab) override;
   tabs::TabInterface* CreateTab(
       TabAndroid* parent,
       std::unique_ptr<content::WebContents> web_contents,
@@ -195,6 +201,8 @@ class OwningTestTabModel : public TabModel {
       const base::Time& end_time) const override;
   void CloseTabsNavigatedInTimeWindow(const base::Time& begin_time,
                                       const base::Time& end_time) override;
+  tabs::TabStripCollection* GetTabStripCollection(
+      base::PassKey<tabs_api::AndroidTabStripModelAdapter>) override;
 
   // Test accessors:
 

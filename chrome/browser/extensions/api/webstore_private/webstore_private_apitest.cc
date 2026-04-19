@@ -23,7 +23,6 @@
 #include "chrome/browser/extensions/extension_allowlist.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/mixin_based_extension_apitest.h"
-#include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/extensions/extension_install_ui.h"
@@ -48,6 +47,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/install_approval.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/browser/webstore_installer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
@@ -847,6 +847,9 @@ class SupervisedUserExtensionWebstorePrivateApiTestAndroid
 // Tests that the initial InstallAskParent dialog is shown, then dismissed.
 IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
                        ParentApprovalInstallAskParentDialogShown) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
   WebstoreInstallListener listener;
   auto delegate_reset = WebstorePrivateApi::SetDelegateForTesting(&listener);
 
@@ -859,6 +862,22 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
   ASSERT_EQ(kTestAppId, listener.id());
   ASSERT_EQ(listener.last_failure_reason(),
             WebstoreInstaller::FailureReason::FAILURE_REASON_CANCELLED);
+
+  // Verify the Ask Parent Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogCanceledActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kOpened,
+      1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kCanceled,
+      1);
 }
 
 // Tests that the parent approval install dialog is NOT shown when the parent
@@ -866,6 +885,9 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
 IN_PROC_BROWSER_TEST_F(
     SupervisedUserExtensionWebstorePrivateApiTestAndroid,
     ParentApprovalInstallDialogNotShownOnParentAuthenticationCancel) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
   // Set the prompt type to ensure we are testing the parent approval install
   // dialog.
   ExtensionInstallPrompt::g_last_prompt_type_for_tests =
@@ -887,6 +909,22 @@ IN_PROC_BROWSER_TEST_F(
   // Verify that the parent approval install dialog was NOT shown.
   EXPECT_NE(ExtensionInstallPrompt::g_last_prompt_type_for_tests,
             ExtensionInstallPrompt::EXTENSION_PARENT_APPROVAL_PROMPT);
+
+  // Verify the Ask Parent Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogApprovedActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kOpened,
+      1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kApproved,
+      1);
 }
 
 // Tests that the parent approval install dialog is shown when the parent
@@ -894,6 +932,9 @@ IN_PROC_BROWSER_TEST_F(
 // on the dialog.
 IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
                        ParentApprovalDialogShownAndCancelled) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
   // Set the prompt type to ensure we are testing the parent approval install
   // dialog.
   ExtensionInstallPrompt::g_last_prompt_type_for_tests =
@@ -918,12 +959,50 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
   // Verify that the parent approval install dialog was shown.
   EXPECT_EQ(ExtensionInstallPrompt::g_last_prompt_type_for_tests,
             ExtensionInstallPrompt::EXTENSION_PARENT_APPROVAL_PROMPT);
+
+  // Verify the Ask Parent Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogApprovedActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kOpened,
+      1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kApproved,
+      1);
+
+  // Verify the Extension Install Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kExtensionInstallDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kExtensionInstallDialogChildCanceledActionName));
+  histogram_tester.ExpectBucketCount(SupervisedUserExtensionsMetricsRecorder::
+                                         kExtensionInstallDialogHistogramName,
+                                     SupervisedUserExtensionsMetricsRecorder::
+                                         ExtensionInstallDialogState::kOpened,
+                                     1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::
+          kExtensionInstallDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::ExtensionInstallDialogState::
+          kChildCanceled,
+      1);
 }
 
 // Tests that the parent approval install dialog is shown when the parent
 // authentication is successful. Then accept the dialog.
 IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
                        ParentApprovalDialogShownAndAccepted) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
   // Set the prompt type to ensure we are testing the parent approval install
   // dialog.
   ExtensionInstallPrompt::g_last_prompt_type_for_tests =
@@ -946,6 +1025,41 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
   // Verify that the parent approval install dialog was shown.
   EXPECT_EQ(ExtensionInstallPrompt::g_last_prompt_type_for_tests,
             ExtensionInstallPrompt::EXTENSION_PARENT_APPROVAL_PROMPT);
+
+  // Verify the Ask Parent Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kAskParentDialogApprovedActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kOpened,
+      1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kApproved,
+      1);
+
+  // Verify the Extension Install Dialog metrics.
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kExtensionInstallDialogOpenedActionName));
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   SupervisedUserExtensionsMetricsRecorder::
+                       kExtensionInstallDialogChildAcceptedActionName));
+  histogram_tester.ExpectBucketCount(SupervisedUserExtensionsMetricsRecorder::
+                                         kExtensionInstallDialogHistogramName,
+                                     SupervisedUserExtensionsMetricsRecorder::
+                                         ExtensionInstallDialogState::kOpened,
+                                     1);
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::
+          kExtensionInstallDialogHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::ExtensionInstallDialogState::
+          kChildAccepted,
+      1);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

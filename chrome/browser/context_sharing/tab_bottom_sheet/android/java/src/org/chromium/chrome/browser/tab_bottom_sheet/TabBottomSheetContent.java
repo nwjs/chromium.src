@@ -13,11 +13,13 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.context_sharing.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.GlowSpec;
 
 /** The bottom sheet content for the tab bottom sheet. */
 @NullMarked
 public class TabBottomSheetContent implements BottomSheetContent {
     private final View mContentView;
+    private final GlowSpec mGlowSpec;
 
     /**
      * Constructor.
@@ -26,6 +28,15 @@ public class TabBottomSheetContent implements BottomSheetContent {
      */
     public TabBottomSheetContent(View contentView) {
         mContentView = contentView;
+        mGlowSpec =
+                new GlowSpec(
+                        mContentView.getContext().getColor(R.color.default_bg_color_blue),
+                        GlowSpec.ShadowSize.LONG);
+    }
+
+    @Override
+    public @Nullable GlowSpec getSheetBackgroundGlowSpecOverride() {
+        return mGlowSpec;
     }
 
     @Override
@@ -75,12 +86,12 @@ public class TabBottomSheetContent implements BottomSheetContent {
 
     @Override
     public float getHalfHeightRatio() {
-        return 0.4f;
+        return HeightMode.DISABLED;
     }
 
     @Override
     public float getFullHeightRatio() {
-        return HeightMode.DEFAULT;
+        return HeightMode.WRAP_CONTENT;
     }
 
     @Override
@@ -115,6 +126,11 @@ public class TabBottomSheetContent implements BottomSheetContent {
 
     @Override
     public boolean canSuppressInAnyState() {
+        return false;
+    }
+
+    @Override
+    public boolean allowInSheetContentSnackbars() {
         return false;
     }
 }

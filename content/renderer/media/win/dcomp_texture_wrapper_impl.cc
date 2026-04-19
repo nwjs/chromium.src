@@ -199,14 +199,13 @@ void DCOMPTextureWrapperImpl::CreateVideoFrame(
 
   scoped_refptr<gpu::ClientSharedImage> shared_image =
       dcomp_texture_resources_->GetSharedImage();
-
+  CHECK(shared_image);
   auto frame = media::VideoFrame::WrapSharedImage(
       media::PIXEL_FORMAT_BGRA, shared_image, gpu::SyncToken(),
       base::BindPostTask(
           media_task_runner_,
           base::BindOnce(&OnReleaseVideoFrame, dcomp_texture_resources_)),
-      shared_image->size(), gfx::Rect(shared_image->size()), natural_size_,
-      base::TimeDelta());
+      gfx::Rect(shared_image->size()), natural_size_, base::TimeDelta());
 
   frame->set_color_space(shared_image->color_space());
   frame->metadata().dcomp_surface = true;

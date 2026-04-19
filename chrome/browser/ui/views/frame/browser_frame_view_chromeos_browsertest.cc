@@ -601,7 +601,7 @@ class WebAppFrameViewChromeOSTest
     content_settings->OnContentAllowed(ContentSettingsType::GEOLOCATION);
 
     return *std::ranges::find(*content_setting_views_,
-                              ContentSettingImageModel::ImageType::GEOLOCATION,
+                              ContentSettingImageModel::ImageType::kGeolocation,
                               &ContentSettingImageView::GetType);
   }
 
@@ -747,22 +747,12 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, ShowZoomIcon) {
 IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, ShowFindIcon) {
   SetUpWebApp();
 
-  const bool find_page_action_migrated =
-      IsPageActionMigrated(PageActionIconType::kFind);
-  IconLabelBubbleView* find_icon = GetPageActionView(PageActionIconType::kFind);
-
-  if (find_page_action_migrated) {
-    EXPECT_FALSE(find_icon);
-  } else {
-    EXPECT_TRUE(find_icon);
-    EXPECT_FALSE(find_icon->GetVisible());
-  }
+  IconLabelBubbleView* find_icon = GetPageActionView(kActionFind);
+  ASSERT_TRUE(find_icon);
+  EXPECT_FALSE(find_icon->GetVisible());
 
   chrome::Find(app_browser_);
-
-  if (!find_page_action_migrated) {
-    ASSERT_TRUE(WaitForVisible(true, find_icon));
-  }
+  EXPECT_TRUE(find_icon->GetVisible());
 }
 
 // TODO(crbug.com/420040505): Fix failures on the Linux Chromium OS ASan LSan
@@ -1757,11 +1747,12 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshTestNoWebUiTabStrip,
 
   ash::NewWindowDelegate::GetInstance()->NewWindow(
       /*incognito=*/false, /*should_trigger_session_restore=*/false);
-  Browser* browser = chrome::FindBrowserWithProfile(primary_user_profile);
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithProfile(primary_user_profile);
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   BrowserFrameViewChromeOS* frame_view = GetFrameViewChromeOS(browser_view);
   BrowserFrameViewChromeOSTestApi test_api(frame_view);
-  aura::Window* window = browser->window()->GetNativeWindow();
+  aura::Window* window = browser->GetWindow()->GetNativeWindow();
 
   EXPECT_FALSE(BrowserFrameViewChromeOS::ShouldShowAvatarForTesting(window));
   EXPECT_FALSE(test_api.GetProfileIndicatorIcon());
@@ -1808,14 +1799,14 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshTest,
   settings_manager->ShowOSSettings(browser()->profile());
   browser_created_observer.Wait();
 
-  Browser* settings_browser =
+  BrowserWindowInterface* settings_browser =
       settings_manager->FindBrowserForProfile(browser()->profile());
 
   // Try to set the bounds to a tiny value.
-  settings_browser->window()->SetBounds(gfx::Rect(1, 1));
+  settings_browser->GetWindow()->SetBounds(gfx::Rect(1, 1));
 
   // The window has a reasonable size.
-  gfx::Rect actual_bounds = settings_browser->window()->GetBounds();
+  gfx::Rect actual_bounds = settings_browser->GetWindow()->GetBounds();
   EXPECT_LE(300, actual_bounds.width());
   EXPECT_LE(100, actual_bounds.height());
 }

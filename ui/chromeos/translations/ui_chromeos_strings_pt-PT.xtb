@@ -53,6 +53,7 @@
 <translation id="1399511500114202393">Nenhum certificado de utilizador</translation>
 <translation id="1403008701842173542">Em qualquer local</translation>
 <translation id="1404323374378969387">Norueguês</translation>
+<translation id="1412476183660741812">Pacote Web assinado</translation>
 <translation id="1433628812591023318">Para largar ficheiros no Parallels Desktop, o ficheiro tem de ser movido para os ficheiros do Windows.</translation>
 <translation id="1435838927755162558">Partilhe a pasta com o Parallels Desktop</translation>
 <translation id="1439919885608649279">Pessoa com flores</translation>
@@ -220,6 +221,7 @@
 <translation id="2708477391501452176">BÉPO francês</translation>
 <translation id="2719020180254996569">Rede <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, detalhes</translation>
 <translation id="2724954091494693138">Turco com teclado F</translation>
+<translation id="2727633948226935816">Não lembrar novamente</translation>
 <translation id="2728450421877450246">Francês</translation>
 <translation id="2732288874651063549">Gerir partilha de <ph name="VM_NAME" /></translation>
 <translation id="2732839045120506979">VNI vietnamita</translation>
@@ -470,6 +472,7 @@
 <translation id="4788401404269709922"><ph name="NUMBER_OF_KB" /> KB</translation>
 <translation id="4789067489790477934">Conceda autorização ao Parallels Desktop para aceder a ficheiros no seu Google Drive. As alterações serão sincronizadas com os seus outros dispositivos.</translation>
 <translation id="4790766916287588578">Hindi com teclado InScript</translation>
+<translation id="4798645114741131062">O seu dispositivo com ChromeOS Flex vai deixar de receber atualizações em breve. Pondere mudar para um dispositivo com ChromeOS.</translation>
 <translation id="4801956050125744859">Manter ambas</translation>
 <translation id="4802185962157240723">Húngaro</translation>
 <translation id="4804827417948292437">Abacate</translation>
@@ -619,6 +622,7 @@
 <translation id="5819442873484330149">Hangul 3 Set (final)</translation>
 <translation id="5832976493438355584">Bloqueado</translation>
 <translation id="5833610766403489739">Este ficheiro está perdido algures. Verifique a definição da sua localização de transferências e tente novamente.</translation>
+<translation id="5833859326857395309">Atualização final</translation>
 <translation id="5838451609423551646">Removeu todas as entradas da seleção.</translation>
 <translation id="5845721951356578987">Enfermeiro</translation>
 <translation id="5858478190805449225">Modo de Poupança de bateria ativado. Tente novamente quando o modo de Poupança de bateria estiver desativado.</translation>

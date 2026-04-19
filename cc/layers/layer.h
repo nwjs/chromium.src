@@ -27,9 +27,9 @@
 #include "cc/paint/element_id.h"
 #include "cc/paint/filter_operations.h"
 #include "cc/paint/node_id.h"
-#include "cc/trees/tracked_element_bounds.h"
 #include "components/viz/common/surfaces/region_capture_bounds.h"
 #include "components/viz/common/surfaces/subtree_capture_id.h"
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/linear_gradient.h"
@@ -55,7 +55,6 @@ class PictureLayer;
 class PropertyTrees;
 
 struct CommitState;
-struct ThreadUnsafeCommitState;
 
 enum class ElementListType;
 enum class RenderSurfaceReason : uint8_t;
@@ -277,13 +276,19 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   void SetNeedsDisplay() { SetNeedsDisplayRect(gfx::Rect(bounds())); }
   // Returns the union of previous calls to SetNeedsDisplayRect() and
   // SetNeedsDisplay() that have not been committed to the compositor thread.
-  const gfx::Rect& update_rect() const { return update_rect_.Read(*this); }
+  const gfx::Rect& update_rect() const {
+    DCHECK(!IsAttached() || IsMainThread());
+    return update_rect_;
+  }
+  void ResetUpdateRect() {
+    DCHECK(!IsAttached() || IsMainThread());
+    update_rect_ = gfx::Rect();
+  }
 
   // If this returns true, then `SetNeedsDisplay` will be called in response to
   // the HDR headroom of the display that the content is rendering to changing.
   virtual bool RequiresSetNeedsDisplayOnHdrHeadroomChange() const;
 
-  void ResetUpdateRectForTesting() { update_rect_.Write(*this) = gfx::Rect(); }
 
   // For layer tree mode only.
   // Set or get the rounded corner radii which is applied to the layer and its
@@ -528,12 +533,12 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
 
   // Set or get data for tracked elements on this layer. The geometry provided
   // is in layer space.
-  void SetTrackedElementBounds(TrackedElementBounds bounds);
-  const TrackedElementBounds& tracked_element_bounds() const {
+  void SetTrackedElementRects(viz::TrackedElementRects rects);
+  const viz::TrackedElementRects& tracked_element_rects() const {
     if (const auto& rare_inputs = inputs_.Read(*this).rare_inputs) {
-      return rare_inputs->tracked_element_bounds;
+      return rare_inputs->tracked_element_rects;
     }
-    return TrackedElementBoundsEmpty();
+    return viz::TrackedElementRectsEmpty();
   }
 
   // Set or get the set of blocking wheel rects of this layer. The
@@ -751,9 +756,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   // that state as well. The |layer| passed in will be of the type created by
   // CreateLayerImpl(), so can be safely down-casted if the subclass uses a
   // different type for the compositor thread.
-  void PushPropertiesTo(LayerImpl* layer,
-                        const CommitState& commit_state,
-                        const ThreadUnsafeCommitState& unsafe_state);
+  void PushPropertiesTo(LayerImpl* layer, CommitState& commit_state);
 
   // Internal method to be overridden by Layer subclasses that need to do work
   // during a main frame. The method should compute any state that will need to
@@ -903,11 +906,9 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   ~Layer() override;
 
   // This is implementation helper for PushPropertiesTo().
-  virtual void PushDirtyPropertiesTo(
-      LayerImpl* layer,
-      uint8_t dirty_flag,
-      const CommitState& commit_state,
-      const ThreadUnsafeCommitState& unsafe_state);
+  virtual void PushDirtyPropertiesTo(LayerImpl* layer,
+                                     uint8_t dirty_flag,
+                                     CommitState& commit_state);
 
   // These SetNeeds functions are in order of severity of update:
 
@@ -943,8 +944,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   }
 
   base::AutoReset<bool> IgnoreSetNeedsCommitForTest() {
-    return base::AutoReset<bool>(
-        &ignore_set_needs_commit_for_test_.Write(*this), true);
+    return base::AutoReset<bool>(&ignore_set_needs_commit_for_test_, true);
   }
 
   enum : uint8_t {
@@ -1040,7 +1040,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
     ~RareInputs();
 
     viz::RegionCaptureBounds capture_bounds;
-    TrackedElementBounds tracked_element_bounds;
+    viz::TrackedElementRects tracked_element_rects;
     Region main_thread_scroll_hit_test_region;
     std::vector<ScrollHitTestRect> non_composited_scroll_hit_test_rects;
     Region wheel_event_region;
@@ -1185,7 +1185,11 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   ProtectedSequenceWritable<std::unique_ptr<LayerDebugInfo>> debug_info_;
 
   ProtectedSequenceReadable<Inputs> inputs_;
-  ProtectedSequenceWritable<gfx::Rect> update_rect_;
+
+  // update_rect_ doesn't need a ProtectedSequence wrapper because it is
+  // snapshotted on the main thread into CommitState::layer_update_rects and
+  // never touched on the compositor thread.
+  gfx::Rect update_rect_;
 
   const int layer_id_;
 
@@ -1201,7 +1205,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   // When true, the layer is about to perform an update. Any commit requests
   // will be handled implicitly after the update completes. Not a bitfield
   // because it's used in base::AutoReset.
-  ProtectedSequenceReadable<bool> ignore_set_needs_commit_for_test_;
+  bool ignore_set_needs_commit_for_test_ = false;
   ProtectedSequenceWritable<bool> subtree_property_changed_;
 
 #if DCHECK_IS_ON()

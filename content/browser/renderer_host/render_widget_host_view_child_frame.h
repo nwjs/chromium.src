@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -29,11 +30,11 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/touch_selection_controller_client_manager.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom.h"
+#include "third_party/blink/public/common/page/content_to_visible_time_request.h"
 #include "third_party/blink/public/common/widget/visual_properties.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-forward.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
-#include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom-forward.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_ui_types.h"
 
@@ -42,7 +43,7 @@
 #endif  // BUILDFLAG(IS_MAC)
 
 namespace content {
-class CrossProcessFrameConnector;
+class FrameConnector;
 class RenderWidgetHost;
 class RenderWidgetHostViewChildFrameTest;
 class TouchSelectionControllerClientChildFrame;
@@ -71,7 +72,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   RenderWidgetHostViewChildFrame& operator=(
       const RenderWidgetHostViewChildFrame&) = delete;
 
-  void SetFrameConnector(CrossProcessFrameConnector* frame_connector);
+  void SetFrameConnector(FrameConnector* frame_connector);
 
   // TouchSelectionControllerClientManager::Observer implementation.
   void OnManagerWillDestroy(
@@ -108,8 +109,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 #if BUILDFLAG(IS_ANDROID)
   bool IsTouchSequencePotentiallyActiveOnViz() override;
   void RequestInputBackForDragAndDrop(
+      WeakDocumentPtr source_document,
       blink::mojom::DragDataPtr drag_data,
-      const url::Origin& source_origin,
       blink::DragOperationsMask drag_operations_mask,
       SkBitmap bitmap,
       gfx::Vector2d cursor_offset_in_dip,
@@ -216,9 +217,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void OnFrameTokenChanged(uint32_t frame_token,
                            base::TimeTicks activation_time) override;
 
-  CrossProcessFrameConnector* FrameConnectorForTesting() const {
-    return frame_connector_;
-  }
+  FrameConnector* FrameConnectorForTesting() const { return frame_connector_; }
 
   RenderWidgetHostViewBase* GetParentViewInput() override;
 
@@ -271,9 +270,9 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void OverrideDisplayFeatureForEmulation(
       const DisplayFeature* display_feature) override;
   void NotifyHostAndDelegateOnWasShown(
-      blink::mojom::RecordContentToVisibleTimeRequestPtr) final;
+      std::optional<blink::RecordContentToVisibleTimeRequest>) final;
   void RequestSuccessfulPresentationTimeFromHostOrDelegate(
-      blink::mojom::RecordContentToVisibleTimeRequestPtr) final;
+      blink::RecordContentToVisibleTimeRequest) final;
   void CancelSuccessfulPresentationTimeRequestForHostAndDelegate() final;
 
   void StopFlingingIfNecessary(
@@ -289,7 +288,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   // frame_connector_ provides a platform abstraction. Messages
   // sent through it are routed to the embedding renderer process.
-  raw_ptr<CrossProcessFrameConnector> frame_connector_;
+  raw_ptr<FrameConnector> frame_connector_;
 
   base::WeakPtr<RenderWidgetHostViewChildFrame> AsWeakPtr() {
     return weak_factory_.GetWeakPtr();

@@ -39,6 +39,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.R;
+import org.chromium.chrome.browser.toolbar.extensions.ExtensionsToolbarCoordinatorImpl.MenuButtonPinningDelegate;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.extensions.ExtensionTestUtils;
 import org.chromium.chrome.browser.ui.extensions.ExtensionsMenuBridge;
@@ -70,6 +71,7 @@ public class ExtensionsMenuCoordinatorTest {
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private ExtensionsToolbarBridge mExtensionsToolbarBridge;
     @Mock private ExtensionsMenuBridge.Natives mExtensionsMenuBridgeJniMock;
+    @Mock private MenuButtonPinningDelegate mMenuButtonPinningDelegate;
 
     @Captor private ArgumentCaptor<LoadUrlParams> mLoadUrlParamsCaptor;
 
@@ -129,7 +131,8 @@ public class ExtensionsMenuCoordinatorTest {
                         mProfile,
                         mCurrentTabSupplier,
                         mTabCreator,
-                        mExtensionsToolbarBridge);
+                        mExtensionsToolbarBridge,
+                        mMenuButtonPinningDelegate);
 
         // Clear invocations from initialization to ensure tests start fresh.
         Mockito.clearInvocations(mExtensionsMenuBridgeJniMock);
@@ -199,7 +202,11 @@ public class ExtensionsMenuCoordinatorTest {
 
         // Verify that the menu is closed and the tab is loaded with the correct URL.
         verify(shownListener).onPopupMenuDismissed();
-        verify(mTab).loadUrl(mLoadUrlParamsCaptor.capture());
+        verify(mTabCreator)
+                .createNewTab(
+                        mLoadUrlParamsCaptor.capture(),
+                        Mockito.eq(org.chromium.chrome.browser.tab.TabLaunchType.FROM_CHROME_UI),
+                        Mockito.isNull());
         assertEquals(UrlConstants.CHROME_EXTENSIONS_URL, mLoadUrlParamsCaptor.getValue().getUrl());
     }
 
@@ -222,7 +229,11 @@ public class ExtensionsMenuCoordinatorTest {
 
         // Verify that the menu is closed and the tab is loaded with the correct URL.
         verify(shownListener).onPopupMenuDismissed();
-        verify(mTab).loadUrl(mLoadUrlParamsCaptor.capture());
+        verify(mTabCreator)
+                .createNewTab(
+                        mLoadUrlParamsCaptor.capture(),
+                        Mockito.eq(org.chromium.chrome.browser.tab.TabLaunchType.FROM_CHROME_UI),
+                        Mockito.isNull());
         assertEquals(UrlConstants.CHROME_WEBSTORE_URL, mLoadUrlParamsCaptor.getValue().getUrl());
     }
 

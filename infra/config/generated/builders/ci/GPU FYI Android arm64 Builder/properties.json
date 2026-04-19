@@ -9,8 +9,8 @@
           {
             "builder_id": {
               "bucket": "ci",
-              "builder": "Android FYI Release (Pixel 6)",
-              "project": "chromium-m147"
+              "builder": "Android FYI Experimental Release (Pixel 6)",
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -38,7 +38,117 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU FYI Android arm64 Builder",
-                "project": "chromium-m147"
+                "project": "chromium"
+              },
+              "run_tests_serially": true
+            }
+          },
+          {
+            "builder_id": {
+              "bucket": "ci",
+              "builder": "Android FYI Release (Pixel 10)",
+              "project": "chromium"
+            },
+            "builder_spec": {
+              "builder_group": "chromium.gpu.fyi",
+              "execution_mode": "TEST",
+              "legacy_android_config": {
+                "config": "base_config"
+              },
+              "legacy_chromium_config": {
+                "apply_configs": [
+                  "mb",
+                  "download_xr_test_apks"
+                ],
+                "build_config": "Release",
+                "config": "main_builder",
+                "target_arch": "arm",
+                "target_bits": 64,
+                "target_platform": "android"
+              },
+              "legacy_gclient_config": {
+                "apply_configs": [
+                  "android"
+                ],
+                "config": "chromium"
+              },
+              "parent": {
+                "bucket": "ci",
+                "builder": "GPU FYI Android arm64 Builder",
+                "project": "chromium"
+              },
+              "run_tests_serially": true
+            }
+          },
+          {
+            "builder_id": {
+              "bucket": "ci",
+              "builder": "Android FYI Release (Pixel 6)",
+              "project": "chromium"
+            },
+            "builder_spec": {
+              "builder_group": "chromium.gpu.fyi",
+              "execution_mode": "TEST",
+              "legacy_android_config": {
+                "config": "base_config"
+              },
+              "legacy_chromium_config": {
+                "apply_configs": [
+                  "mb",
+                  "download_xr_test_apks"
+                ],
+                "build_config": "Release",
+                "config": "main_builder",
+                "target_arch": "arm",
+                "target_bits": 64,
+                "target_platform": "android"
+              },
+              "legacy_gclient_config": {
+                "apply_configs": [
+                  "android"
+                ],
+                "config": "chromium"
+              },
+              "parent": {
+                "bucket": "ci",
+                "builder": "GPU FYI Android arm64 Builder",
+                "project": "chromium"
+              },
+              "run_tests_serially": true
+            }
+          },
+          {
+            "builder_id": {
+              "bucket": "ci",
+              "builder": "Android FYI Release (Samsung S23)",
+              "project": "chromium"
+            },
+            "builder_spec": {
+              "builder_group": "chromium.gpu.fyi",
+              "execution_mode": "TEST",
+              "legacy_android_config": {
+                "config": "base_config"
+              },
+              "legacy_chromium_config": {
+                "apply_configs": [
+                  "mb"
+                ],
+                "build_config": "Release",
+                "config": "main_builder",
+                "target_arch": "arm",
+                "target_bits": 64,
+                "target_platform": "android"
+              },
+              "legacy_gclient_config": {
+                "apply_configs": [
+                  "android"
+                ],
+                "config": "chromium"
+              },
+              "parent": {
+                "bucket": "ci",
+                "builder": "GPU FYI Android arm64 Builder",
+                "project": "chromium"
               },
               "run_tests_serially": true
             }
@@ -47,7 +157,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU FYI Android arm64 Builder",
-              "project": "chromium-m147"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -80,19 +190,50 @@
         {
           "bucket": "ci",
           "builder": "GPU FYI Android arm64 Builder",
-          "project": "chromium-m147"
+          "project": "chromium"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
+          "builder": "Android FYI Experimental Release (Pixel 6)",
+          "project": "chromium"
+        },
+        {
+          "bucket": "ci",
+          "builder": "Android FYI Release (Pixel 10)",
+          "project": "chromium"
+        },
+        {
+          "bucket": "ci",
           "builder": "Android FYI Release (Pixel 6)",
-          "project": "chromium-m147"
+          "project": "chromium"
+        },
+        {
+          "bucket": "ci",
+          "builder": "Android FYI Release (Samsung S23)",
+          "project": "chromium"
         }
       ],
       "mirroring_builder_group_and_names": [
         {
           "builder": "gpu-fyi-cq-android-arm64",
+          "group": "tryserver.chromium.android"
+        },
+        {
+          "builder": "gpu-fyi-try-android-pixel-10-64",
+          "group": "tryserver.chromium.android"
+        },
+        {
+          "builder": "gpu-fyi-try-android-pixel-6-64",
+          "group": "tryserver.chromium.android"
+        },
+        {
+          "builder": "gpu-fyi-try-android-pixel-6-64-exp",
+          "group": "tryserver.chromium.android"
+        },
+        {
+          "builder": "gpu-fyi-try-android-s23-64",
           "group": "tryserver.chromium.android"
         }
       ],
@@ -119,11 +260,11 @@
   },
   "builder_group": "chromium.gpu.fyi",
   "gardener_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ],
   "perf_dashboard_machine_group": "ChromiumGPUFYI",
   "recipe": "chromium",
   "sheriff_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ]
 }

@@ -38,7 +38,6 @@ export class RelatedWebsiteSetsToolbarElement extends CrLitElement {
       narrowThreshold_: {type: Number},
       pageName: {type: String},
       searchPrompt_: {type: String},
-      showSearch_: {type: Boolean},
     };
   }
 
@@ -46,7 +45,7 @@ export class RelatedWebsiteSetsToolbarElement extends CrLitElement {
   protected accessor alwaysShowLogo_: boolean = true;
   protected accessor clearLabel_: string = 'Clear search';
   protected accessor menuLabel_: string = 'Menu';
-  protected accessor narrow: boolean|undefined;
+  protected accessor narrow: boolean = false;
   protected accessor narrowThreshold_: number = 1096;
   protected accessor pageName: string = '';
   protected accessor searchPrompt_: string = 'Search site';

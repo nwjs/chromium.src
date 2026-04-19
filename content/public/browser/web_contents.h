@@ -26,6 +26,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "cc/input/browser_controls_state.h"
+#include "components/surface_embed/buildflags/buildflags.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/invalidate_type.h"
@@ -142,6 +143,10 @@ class PreloadingAttempt;
 #if BUILDFLAG(IS_ANDROID)
 class SelectionPopupDelegate;
 #endif
+
+#if BUILDFLAG(ENABLE_SURFACE_EMBED)
+class SurfaceEmbedConnector;
+#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
 // WebContents is the core class in content/. A WebContents renders web content
 // (usually HTML) in a rectangular area.
@@ -441,6 +446,12 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // Gets/Sets the delegate.
   virtual WebContentsDelegate* GetDelegate() = 0;
   virtual void SetDelegate(WebContentsDelegate* delegate) = 0;
+
+#if BUILDFLAG(ENABLE_SURFACE_EMBED)
+  // Gets the SurfaceEmbedConnector for this WebContents, or nullptr if this
+  // WebContents is not embedded with SurfaceEmbed.
+  virtual SurfaceEmbedConnector* GetSurfaceEmbedConnector() const = 0;
+#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
   // Gets the NavigationController for primary frame tree of this WebContents.
   // See comments on NavigationController for more details.
@@ -1127,6 +1138,11 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
                                                 int end_adjust,
                                                 bool show_selection_menu) = 0;
 
+  // Returns the bounds of the text selection in global screen coordinates in
+  // DIPs.
+  virtual const std::optional<gfx::Rect> GetTextSelectionBounds(
+      RenderFrameHost* render_frame_host) const = 0;
+
   // Replaces the currently selected word or a word around the cursor.
   virtual void Replace(const std::u16string& word) = 0;
 
@@ -1190,6 +1206,14 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // Invoked when this tab is getting the focus through tab traversal (|reverse|
   // is true when using Shift-Tab).
   virtual void FocusThroughTabTraversal(bool reverse) = 0;
+
+  // When multiple WebContents are present within a tab or window, a single one
+  // is focused and will route keyboard events in most cases to a RenderWidget
+  // contained within it.
+
+  // Returns true if |this| is the focused WebContents or an ancestor of the
+  // focused WebContents.
+  virtual bool ContainsOrIsFocusedWebContents() = 0;
 
   // Misc state & callbacks ----------------------------------------------------
 
@@ -1592,27 +1616,13 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // ui::Events will be always ignored without asking the callback. The given
   // callback will be invoked only while the returned ScopedIgnoreInputEvents
   // alives.
-  // By default, this also blocks all interactive accessibility actions,
-  // treating them as standard user input, while still permitting hit testing
-  // for screenreaders.
+  // This also blocks all interactive accessibility actions, treating them as
+  // standard user input, while still permitting hit testing for screenreaders.
   using WebInputEventAuditCallback =
       base::RepeatingCallback<bool(const blink::WebInputEvent&)>;
-  [[nodiscard]] inline ScopedIgnoreInputEvents IgnoreInputEvents(
-      std::optional<WebInputEventAuditCallback> audit_callback) {
-    return IgnoreInputEvents(std::move(audit_callback),
-                             /*should_ignore_a11y_input=*/true);
-  }
-  // If `should_ignore_a11y_input` is true, this also blocks all
-  // accessibility actions from interacting with the WebContents, other than the
-  // hit test.
-  // TODO(crbug.com/452693512): Remove this overloaded method and the
-  // `should_ignore_a11y_input` parameter once all callers have been migrated to
-  // the 1-argument version.
   [[nodiscard]] virtual ScopedIgnoreInputEvents IgnoreInputEvents(
-      std::optional<WebInputEventAuditCallback> audit_callback,
-      bool should_ignore_a11y_input) = 0;
+      std::optional<WebInputEventAuditCallback> audit_callback) = 0;
   virtual bool ShouldIgnoreInputEventsForTesting() = 0;
-  virtual bool ShouldIgnoreA11yInputEventsForTesting() = 0;
 
   // Returns the group id for all audio streams that correspond to a single
   // WebContents. This can be used to determine if a AudioOutputStream was
@@ -1852,6 +1862,9 @@ inline content::WebContents* FromJniType<content::WebContents*>(
 template <>
 inline ScopedJavaLocalRef<jobject> ToJniType(JNIEnv* env,
                                              content::WebContents* obj) {
+  if (!obj) {
+    return nullptr;
+  }
   return obj->GetJavaWebContents();
 }
 

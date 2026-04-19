@@ -4,16 +4,15 @@
 
 package org.chromium.chrome.browser.autofill.save_card;
 
-
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.autofill.AutofillSheetUiController;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 
@@ -32,7 +31,7 @@ import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
         void onIgnored();
     }
 
-    private final BottomSheetController mBottomSheetController;
+    private final AutofillSheetUiController mUiController;
     private final LayoutStateProvider mLayoutStateProvider;
     private final TabModel mTabModel;
     private ControllerDelegate mDelegate;
@@ -41,17 +40,17 @@ import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
     /**
      * Constructs the lifecycle for the save card bottom sheet.
      *
-     * @param bottomSheetController The controller to use for showing or hiding the content.
+     * @param uiController The controller to use for showing or hiding the content.
      * @param layoutStateProvider The LayoutStateProvider used to detect when the bottom sheet needs
      *     to be hidden after a change of layout (e.g. to the tab switcher).
      * @param tabModel The TabModel used to detect when the bottom sheet needs to be hidden after a
      *     tab change.
      */
     AutofillSaveCardBottomSheetLifecycle(
-            BottomSheetController bottomSheetController,
+            AutofillSheetUiController uiController,
             LayoutStateProvider layoutStateProvider,
             TabModel tabModel) {
-        mBottomSheetController = bottomSheetController;
+        mUiController = uiController;
         mLayoutStateProvider = layoutStateProvider;
         mTabModel = tabModel;
     }
@@ -65,7 +64,7 @@ import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
     void begin(ControllerDelegate delegate) {
         mDelegate = delegate;
 
-        mBottomSheetController.addObserver(this);
+        mUiController.addObserver(this);
         mLayoutStateProvider.addObserver(this);
         mTabModel.addObserver(this);
     }
@@ -74,7 +73,7 @@ import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
     void end() {
         mTabModel.removeObserver(this);
         mLayoutStateProvider.removeObserver(this);
-        mBottomSheetController.removeObserver(this);
+        mUiController.removeObserver(this);
     }
 
     // Overrides EmptyBottomSheetObserver onSheetClosed method for BottomSheetController.

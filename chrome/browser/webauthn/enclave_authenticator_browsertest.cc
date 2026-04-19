@@ -41,8 +41,8 @@
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "chrome/browser/password_manager/account_password_store_factory.h"
-#include "chrome/browser/password_manager/profile_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -76,6 +76,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "components/trusted_vault/securebox.h"
 #include "components/trusted_vault/test/mock_trusted_vault_throttling_connection.h"
@@ -1156,7 +1157,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 
   // Disable user verification support. This can happen e.g. if the user
   // disables Windows Hello or Touch ID.
-  DisableUVKeySupport();
+  OverrideUVKeyAvailability(false);
 
   // Try to make a new credential. The UI should go to the onboarding screen to
   // avoid surprising the user with a gaia prompt.
@@ -1232,7 +1233,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 
   // Disable user verification support. This can happen e.g. if the user
   // disables Windows Hello or Touch ID.
-  DisableUVKeySupport();
+  OverrideUVKeyAvailability(false);
 
   // Try to get an assertion with the credential. The UI should go to the
   // onboarding screen to avoid surprising the user with a gaia prompt.
@@ -1317,7 +1318,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 
   // Disable user verification support. This can happen e.g. if the user
   // disables Windows Hello or Touch ID.
-  DisableUVKeySupport();
+  OverrideUVKeyAvailability(false);
 
   // Simulate adding a PIN from another device.
   AuthenticationFactorsResult registration_state_result;
@@ -1630,9 +1631,16 @@ IN_PROC_BROWSER_TEST_F(
 
 class OpportunisticKeyRetrievalEnclaveAuthenticatorBrowserTest
     : public EnclaveAuthenticatorBrowserTest {
+ public:
+  OpportunisticKeyRetrievalEnclaveAuthenticatorBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {device::kWebAuthnOpportunisticRetrieval,
+         device::kWebAuthnDoNotAlwaysTerminateStateMachineDuringIdentityChange},
+        {});
+  }
+
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      device::kWebAuthnOpportunisticRetrieval};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Regression test for https://crbug.com/465139934 ("Chrome crashes after
@@ -1837,6 +1845,52 @@ IN_PROC_BROWSER_TEST_F(OpportunisticKeyRetrievalEnclaveAuthenticatorBrowserTest,
   ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
   EXPECT_EQ(script_result, "\"webauthn: OK\"");
   EXPECT_TRUE(enclave_manager().has_wrapped_pin());
+}
+
+// Regression test for crbug.com/489315488.
+// Tests that concurrent change of Sync consent shouldn't impact the
+// opportunistic key retrieval.
+IN_PROC_BROWSER_TEST_F(
+    OpportunisticKeyRetrievalEnclaveAuthenticatorBrowserTest,
+    UnlockedViaOpportunisticFlowWithConcurrentSyncConsentChange) {
+  auto* const identity_manager =
+      IdentityManagerFactory::GetForProfile(browser()->profile());
+  SetTrustedVaultRecoverable();
+  EnableUVKeySupport();
+
+  // Loading Enclave Manager (the loaded state of Enclave Manager is helpful for
+  // reproducing the conditions for testing the aforementioned regression).
+  base::test::TestFuture<void> add_future;
+  enclave_manager().Load(add_future.GetCallback());
+  EXPECT_TRUE(add_future.Wait());
+
+  // Perform opportunistic key retrieval.
+  EnclaveKeysWaiter enclave_keys_waiter(&enclave_manager());
+  SimulateTrustedVaultKeyRetrieval(/*with_store_keys_lock=*/false);
+  // Simulate the concurrent change of Sync consent (in case of the
+  // aforementioned regression the concurrent modification of the sync consent
+  // was causing the failure of the opportunistic retrieval).
+  identity_manager->GetPrimaryAccountMutator()->RevokeSyncConsent(
+      signin_metrics::ProfileSignout::kUserTappedUndoRightAfterSignInFromNtp);
+  // The change of the Sync consent shouldn't impact the opportunistic key
+  // retrieval.
+  EXPECT_EQ(enclave_keys_waiter.Wait(),
+            EnclaveManager::OutOfContextRecoveryOutcome::
+                kStoreKeysFromOpportunisticFlowSucceeded);
+
+  // Verify that we can successfully use passkeys.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
+  delegate_observer()->WaitForUI();
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  model_observer()->WaitForStep();
+  dialog_model()->OnGPMCreationConfirmed();
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"webauthn: OK\"");
 }
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,

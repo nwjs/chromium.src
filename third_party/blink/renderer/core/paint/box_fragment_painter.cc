@@ -2341,12 +2341,15 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
   }
 
   if (!skip_children) {
-    if (!box_fragment_.IsScrollContainer()) {
+    if (!box_fragment_.IsScrollContainer() &&
+        !box_fragment_.IsNonOverlayOverscrollScrollContainer()) {
       if (HitTestChildren(hit_test, physical_offset))
         return true;
     } else {
       const PhysicalOffset scrolled_offset =
           physical_offset -
+          PhysicalOffset(
+              GetPhysicalFragment().PixelSnappedOverscrollContentOffset()) -
           PhysicalOffset(
               GetPhysicalFragment().PixelSnappedScrolledContentOffset());
       HitTestContext adjusted_hit_test{hit_test.phase, hit_test.location,
@@ -3045,11 +3048,10 @@ void BoxFragmentPainter::RecordRegionCaptureAndTrackedElementData(
         ToPixelSnappedRect(paint_rect));
   }
 
-  if (element && element->GetTrackedElementRect()) {
-    const auto* tracked_element_rect = element->GetTrackedElementRect();
+  if (element && element->GetTrackedElementSubRects()) {
+    const auto* sub_rects = element->GetTrackedElementSubRects();
     paint_info.context.GetPaintController().RecordTrackedElementData(
-        display_item_client, *tracked_element_rect,
-        ToPixelSnappedRect(paint_rect));
+        display_item_client, ToPixelSnappedRect(paint_rect), *sub_rects);
   }
 }
 

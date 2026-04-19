@@ -123,6 +123,8 @@ void HTMLGeolocationElement::ParseAttribute(
 void HTMLGeolocationElement::DefaultEventHandler(Event& event) {
   // We consume the click event here if the permission is already granted
   // and propagate any other events to the parent HTMLCapabilityElementBase.
+  // HTMLCapabilityElementBase::HandleActivation checks that the event is
+  // trusted before proceeding with the permission request.
   if (event.type() == event_type_names::kDOMActivate && PermissionsGranted()) {
     HandleActivation(event,
                      blink::BindOnce(&HTMLGeolocationElement::OnActivated,
@@ -294,7 +296,7 @@ void HTMLGeolocationElement::UpdateText() {
   uint16_t message_id = GetTranslatedMessageID(
       is_precise_location() ? IDS_PERMISSION_REQUEST_PRECISE_GEOLOCATION
                             : IDS_PERMISSION_REQUEST_GEOLOCATION,
-      ComputeInheritedLanguage().LowerASCII());
+      ComputeInheritedLanguage().ToAsciiLower());
   CHECK(message_id);
   permission_text_span()->setInnerText(GetLocale().QueryString(message_id));
 }

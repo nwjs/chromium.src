@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -100,6 +101,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.ButtonType;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.TooltipHandler;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
+import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorTextButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnKeyboardFocusHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabStripIphController.IphType;
@@ -114,6 +116,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -134,6 +138,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver.DidRemov
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelActionListener;
 import org.chromium.chrome.browser.tabmodel.TabModelActionListener.DialogType;
+import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabRemover;
 import org.chromium.chrome.browser.tabmodel.TabUngrouper;
 import org.chromium.chrome.browser.tasks.tab_management.TabDragHandlerBase;
@@ -196,7 +201,7 @@ public class StripLayoutHelperTest {
     @Mock private LayoutManagerHost mManagerHost;
     @Mock private LayoutUpdateHost mUpdateHost;
     @Mock private LayoutRenderHost mRenderHost;
-    @Mock private TintedCompositorButton mGlicBtn;
+    @Mock private TintedCompositorTextButton mGlicBtn;
     @Mock private CompositorButton mModelSelectorBtn;
     @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private TabUngrouper mTabUngrouper;
@@ -215,6 +220,7 @@ public class StripLayoutHelperTest {
     @Mock private TabContextMenuCoordinator mTabContextMenuCoordinator;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private MultiInstanceManager mMultiInstanceManager;
+    @Mock private MultiInstanceOrchestrator mMultiInstanceOrchestrator;
     @Mock private ShareDelegate mShareDelegate;
     @Mock private TabGroupListBottomSheetCoordinatorFactory mBottomSheetCoordinatorFactory;
     @Mock private SnackbarManager mSnackbarManager;
@@ -234,6 +240,7 @@ public class StripLayoutHelperTest {
     @Captor private ArgumentCaptor<TabModelActionListener> mTabModelActionListenerCaptor;
     @Captor private ArgumentCaptor<Callback<TabClosureParams>> mTabRemoverCallbackCaptor;
     @Captor private ArgumentCaptor<List<Tab>> mTabListCaptor;
+    @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
 
     private Activity mActivity;
     private Context mContext;
@@ -296,6 +303,7 @@ public class StripLayoutHelperTest {
 
         mActivity = Robolectric.setupActivity(Activity.class);
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
+        MultiInstanceOrchestratorFactory.setInstanceForTesting(mMultiInstanceOrchestrator);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         CompositorAnimationHandler.setTestingMode(true);
         when(mUpdateHost.getAnimationHandler())
@@ -2700,7 +2708,11 @@ public class StripLayoutHelperTest {
         verify(mTabStripContextMenuCoordinator)
                 .showMenu(rectProviderCaptor.capture(), eq(mIncognito), any());
         Rect rect = rectProviderCaptor.getValue().getRect();
-        assertEquals(new Rect(x, y, x, y), rect);
+        int tabWidthPx =
+                Math.round(
+                        mStripLayoutHelper.getUnpinnedTabWidthForTesting()
+                                * mContext.getResources().getDisplayMetrics().density);
+        assertEquals(new Rect(x, y, x + tabWidthPx, y), rect);
     }
 
     @Test
@@ -2724,7 +2736,11 @@ public class StripLayoutHelperTest {
         verify(mTabStripContextMenuCoordinator)
                 .showMenu(rectProviderCaptor.capture(), eq(mIncognito), any());
         Rect rect = rectProviderCaptor.getValue().getRect();
-        assertEquals(new Rect(x, y, x, y), rect);
+        int tabWidthPx =
+                Math.round(
+                        mStripLayoutHelper.getUnpinnedTabWidthForTesting()
+                                * mContext.getResources().getDisplayMetrics().density);
+        assertEquals(new Rect(x, y, x + tabWidthPx, y), rect);
     }
 
     @Test
@@ -4830,7 +4846,6 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Pinned Tabs")
-    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testGetTabIndexForTabDrop_DropPinnedTabOverUnpinnedTab() {
         // Setup with 3 tabs.
         initializeTest(false, false, 1, 3);
@@ -4856,7 +4871,6 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Pinned Tabs")
-    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testGetTabIndexForTabDrop_DropUnpinnedTabOverPinnedTab() {
         // Setup with 3 tabs.
         initializeTest(false, false, 1, 3);
@@ -4887,7 +4901,6 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Pinned Tabs")
-    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testGetTabIndexForTabDrop_DropPinnedTabOverPinnedTab() {
         // Setup with 3 tabs.
         initializeTest(false, false, 1, 3);
@@ -6962,7 +6975,6 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Pinned Tabs")
-    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testTabsDrawXAndWidth_PinnedTabs() {
         final int numTabs = 5;
         initializeTest(false, false, 0, numTabs);
@@ -7052,7 +7064,6 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Pinned Tabs")
-    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testTabsDrawXAndWidth_PinnedTabs_Rtl() {
         LocalizationUtils.setRtlForTesting(true);
         final int numTabs = 5;
@@ -7139,6 +7150,87 @@ public class StripLayoutHelperTest {
             assertEquals(
                     "The tab's drawX is incorrect", expectedDrawXNoPinnedTab, tab.getDrawX(), 0.1f);
         }
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testPinnedTabFaviconCentering_OnStartup() {
+        // 1. Initialize with one pinned tab.
+        int numTabs = 1;
+        initializeTest(false, false, 0, numTabs);
+        mStripLayoutHelper.onSizeChanged(
+                STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
+
+        // 2. Set the tab as pinned in the model.
+        Tab tab = mModel.getTabAt(0);
+        when(mModel.getTabById(anyInt())).thenReturn(tab);
+        when(tab.getIsPinned()).thenReturn(true);
+
+        // Reset TabModel to re-initialize tab state.
+        mStripLayoutHelper.setTabModel(new TestTabModel(), null, false);
+        mStripLayoutHelper.setTabModel(mModel, mTabCreator, false);
+
+        // 3. Trigger onTabStateInitialized to simulate startUp.
+        mStripLayoutHelper.setTabModelStartupInfo(1, 0, true);
+        mStripLayoutHelper.onTabStateInitialized();
+
+        StripLayoutTab[] tabs = mStripLayoutHelper.getStripLayoutTabsForTesting();
+        StripLayoutTab pinnedTab = tabs[0];
+
+        // 4. Verify the favicon offset on the tab.
+        float expectedOffset =
+                (PINNED_TAB_WIDTH_DP - pinnedTab.getFaviconSize()) / 2.f
+                        - pinnedTab.getFaviconPadding();
+        assertEquals(
+                "Favicon offset should be centered on startup",
+                expectedOffset,
+                pinnedTab.getPinnedTabFaviconOffsetX(),
+                0.1f);
+    }
+
+    @Test
+    @Feature("Pinned Tabs")
+    public void testPinnedTabFaviconCenteringAndReset() {
+        // 1. Initialize with one tab.
+        initializeTest(false, false, 0, 1);
+        mStripLayoutHelper.onSizeChanged(
+                STRIP_WIDTH, STRIP_HEIGHT, false, TIMESTAMP, PADDING_LEFT, PADDING_RIGHT, 0f);
+
+        // 2. Pin the tab in the model and trigger the observer.
+        Tab tab = mModel.getTabAt(0);
+        when(tab.getIsPinned()).thenReturn(true);
+        getTabModelObserver().didChangePinState(tab);
+        mStripLayoutHelper.updateLayout(TIMESTAMP);
+        mStripLayoutHelper.finishAnimations();
+
+        // 3. Verify favicon offset is set (centered).
+        StripLayoutTab stripTab = mStripLayoutHelper.getStripLayoutTabsForTesting()[0];
+        float expectedOffset =
+                (PINNED_TAB_WIDTH_DP - stripTab.getFaviconSize()) / 2.f
+                        - stripTab.getFaviconPadding();
+        assertEquals(
+                "Favicon offset should be centered when pinned",
+                expectedOffset,
+                stripTab.getPinnedTabFaviconOffsetX(),
+                0.1f);
+
+        // 4. Unpin the tab in the model and trigger the observer.
+        when(tab.getIsPinned()).thenReturn(false);
+        getTabModelObserver().didChangePinState(tab);
+        mStripLayoutHelper.updateLayout(TIMESTAMP);
+        mStripLayoutHelper.finishAnimations();
+
+        // 5. Verify favicon offset is reset to 0.
+        assertEquals(
+                "Favicon offset should be reset to 0 when unpinned",
+                0f,
+                stripTab.getPinnedTabFaviconOffsetX(),
+                0.1f);
+    }
+
+    private TabModelObserver getTabModelObserver() {
+        verify(mModel, atLeastOnce()).addObserver(mTabModelObserverCaptor.capture());
+        return mTabModelObserverCaptor.getValue();
     }
 
     private float getClickCoordinateForTabAtIndex(StripLayoutView[] stripViews, int i) {

@@ -38,6 +38,7 @@
 namespace blink {
 
 struct AttributeTriggers;
+class AttachInternalsOptions;
 class Color;
 class DocumentFragment;
 class ElementInternals;
@@ -119,6 +120,10 @@ class CORE_EXPORT HTMLElement : public Element {
     return HasLocalName(name.LocalName());
   }
 
+  ElementType GetElementType() const override {
+    return ElementType::kHTMLElement;
+  }
+
   const char* GetHumanReadableName() const override;
 
   String title() const final;
@@ -197,6 +202,9 @@ class CORE_EXPORT HTMLElement : public Element {
   // origin trial is over.
   virtual bool IsHTMLFencedFrameElement() const { return false; }
   virtual bool IsHTMLFrameSetElement() const { return false; }
+  // TODO(crbug.com/483423896): Remove this method when the install element
+  // trial is over.
+  virtual bool IsHTMLInstallElement() const { return false; }
   // TODO(crbug.com/443013457): Remove these 2 methods when the
   // permission/usermedia trials are over.
   virtual bool IsHTMLCapabilityElementBase() const { return false; }
@@ -247,6 +255,8 @@ class CORE_EXPORT HTMLElement : public Element {
   int offsetHeightForBinding();
 
   ElementInternals* attachInternals(ExceptionState& exception_state);
+  ElementInternals* attachInternals(const AttachInternalsOptions* options,
+                                    ExceptionState& exception_state);
   virtual FormAssociated* ToFormAssociatedOrNull() { return nullptr; }
   bool IsFormAssociatedCustomElement() const;
 
@@ -256,7 +266,7 @@ class CORE_EXPORT HTMLElement : public Element {
   void AdjustDirectionAutoAfterRecalcAssignedNodes();
   virtual bool CalculateAndAdjustAutoDirectionality();
 
-  V8UnionBooleanOrStringOrUnrestrictedDouble* hidden() const;
+  V8UnionBooleanOrStringOrUnrestrictedDouble::Ret hidden(ScriptState*) const;
   void setHidden(const V8UnionBooleanOrStringOrUnrestrictedDouble*);
 
   // https://html.spec.whatwg.org/C/#potentially-render-blocking

@@ -32,6 +32,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/forms/form_control_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/js_event_handler_for_content_attribute.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_attach_internals_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_show_popover_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_toggle_popover_options.h"
@@ -86,6 +87,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
+#include "third_party/blink/renderer/core/html/forms/element_behavior.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
@@ -106,6 +108,7 @@
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
+#include "third_party/blink/renderer/core/html/menu_safe_triangle.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
@@ -242,7 +245,7 @@ String HTMLElement::nodeName() const {
   if (IsA<HTMLDocument>(GetDocument())) {
     if (!TagQName().HasPrefix())
       return TagQName().LocalNameUpper();
-    return Element::nodeName().UpperASCII();
+    return Element::nodeName().ToAsciiUpper();
   }
   return Element::nodeName();
 }
@@ -356,7 +359,7 @@ void HTMLElement::CollectStyleForPresentationAttribute(
                                               value);
     }
   } else if (name == html_names::kContenteditableAttr) {
-    AtomicString lower_value = value.LowerASCII();
+    AtomicString lower_value = value.ToAsciiLower();
     if (lower_value.empty() || lower_value == keywords::kTrue) {
       AddPropertyToPresentationAttributeStyle(
           style, CSSPropertyID::kWebkitUserModify, CSSValueID::kReadWrite);
@@ -944,7 +947,7 @@ DocumentFragment* HTMLElement::TextToFragment(const String& text,
 
     if (i > start) {
       fragment->AppendChild(
-          Text::Create(GetDocument(), text.Substring(start, i - start)),
+          Text::Create(GetDocument(), text.substr(start, i - start)),
           exception_state);
       if (exception_state.HadException())
         return nullptr;
@@ -1140,7 +1143,7 @@ bool HTMLElement::HasCustomFocusLogic() const {
 
 ContentEditableType HTMLElement::contentEditableNormalized() const {
   AtomicString value =
-      FastGetAttribute(html_names::kContenteditableAttr).LowerASCII();
+      FastGetAttribute(html_names::kContenteditableAttr).ToAsciiLower();
 
   if (value.IsNull())
     return ContentEditableType::kInherit;
@@ -1172,7 +1175,7 @@ String HTMLElement::contentEditable() const {
 
 void HTMLElement::setContentEditable(const String& enabled,
                                      ExceptionState& exception_state) {
-  String lower_value = enabled.LowerASCII();
+  String lower_value = enabled.ToAsciiLower();
   if (lower_value == keywords::kTrue) {
     setAttribute(html_names::kContenteditableAttr, keywords::kTrue);
   } else if (lower_value == keywords::kFalse) {
@@ -1190,18 +1193,18 @@ void HTMLElement::setContentEditable(const String& enabled,
   }
 }
 
-V8UnionBooleanOrStringOrUnrestrictedDouble* HTMLElement::hidden() const {
+V8UnionBooleanOrStringOrUnrestrictedDouble::Ret HTMLElement::hidden(
+    ScriptState* script_state) const {
   const AtomicString& attribute = FastGetAttribute(html_names::kHiddenAttr);
 
   if (attribute == g_null_atom) {
-    return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(
-        false);
+    return V8UnionBooleanOrStringOrUnrestrictedDouble::Ret(script_state, false);
   }
   if (EqualIgnoringAsciiCase(attribute, keywords::kUntilFound)) {
-    return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(
-        String(keywords::kUntilFound));
+    return V8UnionBooleanOrStringOrUnrestrictedDouble::Ret(
+        script_state, String(keywords::kUntilFound));
   }
-  return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(true);
+  return V8UnionBooleanOrStringOrUnrestrictedDouble::Ret(script_state, true);
 }
 
 void HTMLElement::setHidden(
@@ -1243,7 +1246,7 @@ void HTMLElement::setHidden(
 namespace {
 
 PopoverValueType GetPopoverTypeFromAttributeValue(const AtomicString& value) {
-  AtomicString lower_value = value.LowerASCII();
+  AtomicString lower_value = value.ToAsciiLower();
   if (lower_value == keywords::kAuto || (!value.IsNull() && value.empty())) {
     return PopoverValueType::kAuto;
   } else if (lower_value == keywords::kHint) {
@@ -1547,48 +1550,45 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
     auto& auto_stack = original_document.PopoverAutoStack();
     auto& hint_stack = original_document.PopoverHintStack();
     HTMLDocument::PopoverStack* append_to_stack = nullptr;
-    auto focus_behavior = HidePopoverFocusBehavior::kNone;
-    if (new_popover_is_auto) {
-      // If the new popover is an auto-popover:
-      //  - It cannot be in the hint stack (hints only), so close the entire
-      //    hint stack.
-      //  - If the new auto has an ancestor in the auto stack, close all
-      //    popovers past that point in the auto stack. Otherwise, close the
-      //    entire auto stack.
-      //  - Set append_to_stack to the auto stack.
-      CloseEntirePopoverStack(hint_stack, focus_behavior, transition_behavior);
-      HideAllPopoversUntil(
-          FindTopmostPopoverAncestor(*this, auto_stack, invoker),
-          original_document, focus_behavior, transition_behavior);
-      append_to_stack = &auto_stack;
-    } else {
-      // If the new popover is a hint-popover:
-      //  - If the new hint has an ancestor in the hint stack:
-      //     - Close all popovers past that point in the hint stack
-      //     - Set append_to_stack to the hint stack.
-      //  - Otherwise:
-      //     - Close the entire hint stack
-      //     - If the new hint has an ancestor in the auto stack:
-      //        - close all popovers past that point in the auto stack
-      //        - Set append_to_stack to the auto stack.
-      //     - Otherwise set append_to_stack to the hint stack.
-      //  - Add the new hint to append_to_stack.
-      if (auto* ancestor =
-              FindTopmostPopoverAncestor(*this, hint_stack, invoker)) {
-        HideAllPopoversUntil(ancestor, original_document, focus_behavior,
-                             transition_behavior);
-        append_to_stack = &hint_stack;
-      } else {
-        CloseEntirePopoverStack(hint_stack, focus_behavior,
-                                transition_behavior);
-        if (auto* auto_ancestor =
-                FindTopmostPopoverAncestor(*this, auto_stack, invoker)) {
-          HideAllPopoversUntil(auto_ancestor, original_document, focus_behavior,
-                               transition_behavior);
-          append_to_stack = &auto_stack;
-        } else {
-          append_to_stack = &hint_stack;
+    auto check_popover_validity = [&](const char* exception_message) -> bool {
+      if (PopoverType() != original_type) {
+        if (exception_state) {
+          exception_state->ThrowDOMException(
+              DOMExceptionCode::kInvalidStateError, exception_message);
         }
+        return false;
+      }
+      if (!IsPopoverReady(PopoverTriggerAction::kShow, exception_state,
+                          /*include_event_handler_text=*/true,
+                          &original_document)) {
+        return false;
+      }
+      return true;
+    };
+
+    auto focus_behavior = HidePopoverFocusBehavior::kNone;
+    if (const HTMLElement* hint_ancestor_to_keep =
+            (original_type == PopoverValueType::kHint)
+                ? FindTopmostPopoverAncestor(*this, hint_stack, invoker)
+                : nullptr) {
+      HideAllPopoversUntil(hint_ancestor_to_keep, original_document,
+                           focus_behavior, transition_behavior);
+      append_to_stack = &hint_stack;
+    } else {
+      CloseEntirePopoverStack(hint_stack, focus_behavior, transition_behavior);
+      if (!check_popover_validity(
+              "The value of the popover attribute was changed while hiding "
+              "hint popovers.")) {
+        return;
+      }
+      auto* auto_ancestor =
+          FindTopmostPopoverAncestor(*this, auto_stack, invoker);
+      if (original_type == PopoverValueType::kAuto || auto_ancestor) {
+        HideAllPopoversUntil(auto_ancestor, original_document, focus_behavior,
+                             transition_behavior);
+        append_to_stack = &auto_stack;
+      } else {
+        append_to_stack = &hint_stack;
       }
     }
     CHECK(append_to_stack);
@@ -1596,18 +1596,9 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
     // The 'beforetoggle' event handlers could have changed this popover, e.g.
     // by changing its type, removing it from the document, moving it to
     // another document, or calling showPopover().
-    if (PopoverType() != original_type) {
-      if (exception_state) {
-        exception_state->ThrowDOMException(
-            DOMExceptionCode::kInvalidStateError,
-            "The value of the popover attribute was changed while hiding the "
-            "popover.");
-      }
-      return;
-    }
-    if (!IsPopoverReady(PopoverTriggerAction::kShow, exception_state,
-                        /*include_event_handler_text=*/true,
-                        &original_document)) {
+    if (!check_popover_validity(
+            "The value of the popover attribute was changed while hiding "
+            "popovers.")) {
       return;
     }
 
@@ -1653,7 +1644,9 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
     // :popover-open https://issues.chromium.org/issues/375004874
     OwnerShadowHost()->PseudoStateChanged(CSSSelector::kPseudoOpen);
   }
-  if (IsA<HTMLMenuItemElement>(invoker)) {
+  HTMLMenuItemElement* invoker_menuitem =
+      DynamicTo<HTMLMenuItemElement>(invoker);
+  if (invoker_menuitem) {
     // There are some edge cases where :open doesn't change here, but in
     // practice this basically means it's changing.
     invoker->PseudoStateChanged(CSSSelector::kPseudoOpen);
@@ -1662,42 +1655,59 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   CHECK(!original_document.AllOpenPopovers().Contains(this));
   original_document.AllOpenPopovers().insert(this);
 
+  if (invoker_menuitem) {
+    if (HTMLMenuListElement* invoked_submenu =
+            invoker_menuitem->GetInvokedSubmenu()) {
+      MenuSafeTriangle::MaybeCreate(invoker_menuitem, invoked_submenu);
+    }
+  }
+
   SetPopoverFocusOnShow();
 
+  // Focus/blur event handlers could have changed the popover, so we continue
+  // checking that `popoverOpen()` below before accessing popover things.
+
   // Store the element to focus when this popover closes.
-  if (should_restore_focus && IsPopover()) {
+  if (should_restore_focus && IsPopover() && popoverOpen()) {
     GetPopoverData()->setPreviouslyFocusedElement(originally_focused_element);
   }
 
   // Queue the "opening" toggle event.
   String old_state = "closed";
-  ToggleEvent* after_event;
-  if (GetPopoverData()->hasPendingToggleEventTask()) {
-    // There's already a queued 'toggle' event. Cancel it and fire a new one
-    // keeping the original value for old_state.
-    old_state =
-        GetPopoverData()->pendingToggleEventStartedClosed() ? "closed" : "open";
-    GetPopoverData()->cancelPendingToggleEventTask();
-  } else {
-    GetPopoverData()->setPendingToggleEventStartedClosed(true);
+  if (popoverOpen()) {
+    if (GetPopoverData()->hasPendingToggleEventTask()) {
+      // There's already a queued 'toggle' event. Cancel it and fire a new one
+      // keeping the original value for old_state.
+      old_state = GetPopoverData()->pendingToggleEventStartedClosed() ? "closed"
+                                                                      : "open";
+      GetPopoverData()->cancelPendingToggleEventTask();
+    } else {
+      GetPopoverData()->setPendingToggleEventStartedClosed(true);
+    }
   }
-  after_event = ToggleEvent::Create(event_type_names::kToggle,
-                                    Event::Cancelable::kNo, old_state,
-                                    /*new_state*/ "open", invoker);
+  ToggleEvent* after_event = ToggleEvent::Create(
+      event_type_names::kToggle, Event::Cancelable::kNo, old_state,
+      /*new_state*/ "open", invoker);
   CHECK_EQ(after_event->newState(), "open");
   CHECK_EQ(after_event->oldState(), old_state);
   CHECK(!after_event->bubbles());
   CHECK(!after_event->cancelable());
   after_event->SetTarget(this);
-  GetPopoverData()->setPendingToggleEventTask(PostCancellableTask(
-      *original_document.GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
-      BindOnce(
-          [](HTMLElement* element, ToggleEvent* event) {
-            CHECK(element);
-            CHECK(event);
-            element->DispatchEvent(*event);
-          },
-          WrapPersistent(this), WrapPersistent(after_event))));
+  auto task_runner =
+      original_document.GetTaskRunner(TaskType::kDOMManipulation);
+  auto callback = BindOnce(
+      [](HTMLElement* element, ToggleEvent* event) {
+        CHECK(element);
+        CHECK(event);
+        element->DispatchEvent(*event);
+      },
+      WrapPersistent(this), WrapPersistent(after_event));
+  if (popoverOpen()) {
+    GetPopoverData()->setPendingToggleEventTask(
+        PostCancellableTask(*task_runner, FROM_HERE, std::move(callback)));
+  } else {
+    task_runner->PostTask(FROM_HERE, std::move(callback));
+  }
 }
 
 void HTMLElement::SetPopoverInvoker(Element* invoker) {
@@ -2104,6 +2114,15 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
 
   document.AllOpenPopovers().erase(this);
 
+  if (IsA<HTMLMenuListElement>(this)) {
+    if (MenuSafeTriangle* safe_triangle = document.GetMenuSafeTriangle()) {
+      // If the MenuSafeTriangle existed to allow the user to move the mouse
+      // to the menulist that we just closed, we need to clear it.  We should
+      // do so immediately, before we try to install a new one.
+      safe_triangle->Recheck();
+    }
+  }
+
   Element* previously_focused_element =
       GetPopoverData()->previouslyFocusedElement();
   if (previously_focused_element) {
@@ -2112,6 +2131,13 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
         contains(document.AdjustedFocusedElement())) {
       FocusOptions* focus_options = FocusOptions::Create();
       focus_options->setPreventScroll(true);
+      if (InvokerData* data = previously_focused_element->GetInvokerData();
+          data && previously_focused_element->InterestForElement() == this) {
+        // If the previously focused element is an interest invoker for this
+        // popover, suppress the next focus, so we don't immediately (or after
+        // a delay) re-trigger the same popover.
+        data->SetSuppressNextFocusInterest(true);
+      }
       previously_focused_element->Focus(FocusParams(
           SelectionBehaviorOnFocus::kRestore, mojom::blink::FocusType::kScript,
           /*capabilities=*/nullptr, focus_options));
@@ -2586,27 +2612,28 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
     const auto& first_data = container_data->at(0);
     const auto& second_data = container_data->at(1);
 
-    ScrollOffset scroll_origin =
-        gfx::PointF(scrollable_area->ScrollOrigin()).OffsetFromOrigin();
+    gfx::PointF scroll_origin(scrollable_area->ScrollOrigin());
 
-    // We do the math in absolute space, since that's the space in which our
-    // snap targets are defined.
-    ScrollOffset old_offset =
-        scrollable_area->GetScrollOffset() + scroll_origin;
     ScrollOffset new_offset;
-    if (previous_snap_targets.x == first_data.element_id) {
+
+    if (previous_snap_targets.x == first_data.element_id &&
+        previous_snap_targets.y == first_data.element_id) {
       gfx::RectF target_rect = second_data.rect;
 
       PhysicalSize box_size = overscroll_area_object->PhysicalContentBoxSize();
 
-      // We need to find distances in all 4 directions relative to the current
-      // scroll offset.
-      float min_x_offset = std::min(target_rect.x() - old_offset.x(), 0.f);
-      float min_y_offset = std::min(target_rect.y() - old_offset.y(), 0.f);
+      // We need to find distances in all 4 directions relative to scroll
+      // origin. Note that we use scroll origin here instead of current offset
+      // since we could be in the middle of animating an offset. However we know
+      // that conceptually we should find the furthest area from the position we
+      // would be in if the scroll settled. That position is the scroll origin.
+      float min_x_offset = std::min(target_rect.x() - scroll_origin.x(), 0.f);
+      float min_y_offset = std::min(target_rect.y() - scroll_origin.y(), 0.f);
       float max_x_offset = std::max(
-          target_rect.right() - box_size.width.ToFloat() - old_offset.x(), 0.f);
+          target_rect.right() - box_size.width.ToFloat() - scroll_origin.x(),
+          0.f);
       float max_y_offset = std::max(
-          target_rect.bottom() - box_size.height.ToFloat() - old_offset.y(),
+          target_rect.bottom() - box_size.height.ToFloat() - scroll_origin.y(),
           0.f);
 
       // These are now distances from scroll offset, so we need to pick a
@@ -2622,19 +2649,11 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
         new_offset.set_y(-min_y_offset >= max_y_offset ? min_y_offset
                                                        : max_y_offset);
       }
-      // Now new offset has the delta we need to move relative to the old
-      // offset. We need to convert that into an actual offset (still in
-      // absolute space though).
-      new_offset += old_offset;
-    } else {
-      new_offset = scroll_origin;
     }
 
+    ScrollOffset old_offset = scrollable_area->GetScrollOffset();
     bool x_changed = new_offset.x() != old_offset.x();
     bool y_changed = new_offset.y() != old_offset.y();
-
-    // Convert the offset into scroll origin space.
-    new_offset -= scroll_origin;
 
     std::unique_ptr<cc::SnapSelectionStrategy> strategy =
         cc::SnapSelectionStrategy::CreateForEndPosition(
@@ -2809,7 +2828,7 @@ AtomicString HTMLElement::command() const {
     case CommandEventType::kCustom:
       return action;
     default: {
-      const AtomicString& lower_action = action.LowerASCII();
+      const AtomicString& lower_action = action.ToAsciiLower();
       DCHECK_EQ(GetCommandEventType(lower_action, GetExecutionContext()), type);
       return lower_action;
     }
@@ -3348,10 +3367,11 @@ static Color ParseColorStringWithCrazyLegacyRules(const String& color_string) {
   // "characters" in the String.
   for (; i < color_string.length() && digit_buffer.size() < kMaxColorLength;
        i++) {
-    if (!IsASCIIHexDigit(color_string[i]))
+    if (!IsAsciiHexDigit(color_string[i])) {
       digit_buffer.push_back('0');
-    else
+    } else {
       digit_buffer.push_back(color_string[i]);
+    }
   }
 
   if (!digit_buffer.size())
@@ -3362,9 +3382,9 @@ static Color ParseColorStringWithCrazyLegacyRules(const String& color_string) {
   digit_buffer.push_back('0');
 
   if (digit_buffer.size() < 6) {
-    return Color::FromRGB(ToASCIIHexValue(digit_buffer[0]),
-                          ToASCIIHexValue(digit_buffer[1]),
-                          ToASCIIHexValue(digit_buffer[2]));
+    return Color::FromRGB(ToAsciiHexValue(digit_buffer[0]),
+                          ToAsciiHexValue(digit_buffer[1]),
+                          ToAsciiHexValue(digit_buffer[2]));
   }
 
   // Split the digits into three components, then search the last 8 digits of
@@ -3393,11 +3413,11 @@ static Color ParseColorStringWithCrazyLegacyRules(const String& color_string) {
   SECURITY_DCHECK(blue_index + 1 < digit_buffer.size());
 
   int red_value =
-      ToASCIIHexValue(digit_buffer[red_index], digit_buffer[red_index + 1]);
+      ToAsciiHexValue(digit_buffer[red_index], digit_buffer[red_index + 1]);
   int green_value =
-      ToASCIIHexValue(digit_buffer[green_index], digit_buffer[green_index + 1]);
+      ToAsciiHexValue(digit_buffer[green_index], digit_buffer[green_index + 1]);
   int blue_value =
-      ToASCIIHexValue(digit_buffer[blue_index], digit_buffer[blue_index + 1]);
+      ToAsciiHexValue(digit_buffer[blue_index], digit_buffer[blue_index + 1]);
   return Color::FromRGB(red_value, green_value, blue_value);
 }
 
@@ -3598,11 +3618,9 @@ int HTMLElement::OffsetTopOrLeft(bool top) {
     Element* next_offset_parent = offset_parent->OffsetParent();
     if (const auto* offset_parent_layout_object =
             offset_parent->GetLayoutBoxModelObject()) {
-      if (top) {
-        offset += offset_parent_layout_object->OffsetTop(next_offset_parent);
-      } else {
-        offset += offset_parent_layout_object->OffsetLeft(next_offset_parent);
-      }
+      const PhysicalOffset offset_point =
+          offset_parent_layout_object->OffsetPoint(next_offset_parent);
+      offset += top ? offset_point.top : offset_point.left;
     }
     offset_parent = next_offset_parent;
   } while (offset_parent &&
@@ -3801,6 +3819,15 @@ void HTMLElement::OnContainerTimingIgnoreAttrChanged(
 
 ElementInternals* HTMLElement::attachInternals(
     ExceptionState& exception_state) {
+  return attachInternals(nullptr, exception_state);
+}
+
+ElementInternals* HTMLElement::attachInternals(
+    const AttachInternalsOptions* options,
+    ExceptionState& exception_state) {
+  DCHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled() ||
+         !options);
+
   // 1. If this's is value is not null, then throw a "NotSupportedError"
   // DOMException.
   if (IsValue()) {
@@ -3813,10 +3840,7 @@ ElementInternals* HTMLElement::attachInternals(
   // 2. Let definition be the result of looking up a custom element definition
   // given this's node registry, its namespace, its local name, and null as the
   // is value.
-  CustomElementRegistry* registry = GetTreeScope().customElementRegistry();
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    registry = customElementRegistry();
-  }
+  CustomElementRegistry* registry = customElementRegistry();
   auto* definition =
       registry ? registry->DefinitionForName(localName()) : nullptr;
 
@@ -3859,9 +3883,21 @@ ElementInternals* HTMLElement::attachInternals(
 
   // 7. Set this's attached internals to true.
   SetDidAttachInternals();
+
   // 8. Return a new ElementInternals instance whose target element is this.
   UseCounter::Count(GetDocument(), WebFeature::kElementAttachInternals);
-  return &EnsureElementInternals();
+  ElementInternals& internals = EnsureElementInternals();
+
+  // Handle behaviors option if provided.
+  if (RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled() && options &&
+      options->hasBehaviors()) {
+    internals.SetBehaviors(options->behaviors(), exception_state);
+    if (exception_state.HadException()) {
+      return nullptr;
+    }
+  }
+
+  return &internals;
 }
 
 bool HTMLElement::IsFormAssociatedCustomElement() const {

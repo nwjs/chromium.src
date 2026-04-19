@@ -141,7 +141,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/file_system_provider_capabilities/file_system_provider_capabilities_handler.h"
@@ -2354,12 +2353,6 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   std::vector<base::test::FeatureRef> enabled_features;
   std::vector<base::test::FeatureRef> disabled_features;
 
-  if (options.enable_conflict_dialog) {
-    enabled_features.push_back(ash::features::kFilesConflictDialog);
-  } else {
-    disabled_features.push_back(ash::features::kFilesConflictDialog);
-  }
-
   if (options.arc) {
     arc::SetArcAvailableCommandLineForTesting(command_line);
   }
@@ -2375,15 +2368,17 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   }
 
   if (options.enable_dlp_files_restriction) {
-    enabled_features.push_back(features::kDataLeakPreventionFilesRestriction);
+    enabled_features.push_back(
+        ash::features::kDataLeakPreventionFilesRestriction);
   } else {
-    disabled_features.push_back(features::kDataLeakPreventionFilesRestriction);
+    disabled_features.push_back(
+        ash::features::kDataLeakPreventionFilesRestriction);
   }
 
   if (options.enable_files_policy_new_ux) {
-    enabled_features.push_back(features::kNewFilesPolicyUX);
+    enabled_features.push_back(ash::features::kNewFilesPolicyUX);
   } else {
-    disabled_features.push_back(features::kNewFilesPolicyUX);
+    disabled_features.push_back(ash::features::kNewFilesPolicyUX);
   }
 
   if (options.enable_mirrorsync) {
@@ -2409,15 +2404,18 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   }
 
   if (options.enable_file_transfer_connector) {
-    enabled_features.push_back(features::kFileTransferEnterpriseConnector);
+    enabled_features.push_back(ash::features::kFileTransferEnterpriseConnector);
   } else {
-    disabled_features.push_back(features::kFileTransferEnterpriseConnector);
+    disabled_features.push_back(
+        ash::features::kFileTransferEnterpriseConnector);
   }
 
   if (options.enable_file_transfer_connector_new_ux) {
-    enabled_features.push_back(features::kFileTransferEnterpriseConnectorUI);
+    enabled_features.push_back(
+        ash::features::kFileTransferEnterpriseConnectorUI);
   } else {
-    disabled_features.push_back(features::kFileTransferEnterpriseConnectorUI);
+    disabled_features.push_back(
+        ash::features::kFileTransferEnterpriseConnectorUI);
   }
 
   if (options.enable_local_image_search) {
@@ -2474,12 +2472,12 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
 
   if (options.enable_skyvault) {
     enabled_features.push_back(features::kSkyVault);
-    enabled_features.push_back(features::kSkyVaultV2);
-    enabled_features.push_back(features::kSkyVaultV3);
+    enabled_features.push_back(ash::features::kSkyVaultV2);
+    enabled_features.push_back(ash::features::kSkyVaultV3);
   } else {
     disabled_features.push_back(features::kSkyVault);
-    disabled_features.push_back(features::kSkyVaultV2);
-    disabled_features.push_back(features::kSkyVaultV3);
+    disabled_features.push_back(ash::features::kSkyVaultV2);
+    disabled_features.push_back(ash::features::kSkyVaultV3);
   }
 
 #if BUILDFLAG(ENABLE_PDF)

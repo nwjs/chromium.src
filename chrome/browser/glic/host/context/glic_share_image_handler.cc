@@ -17,7 +17,6 @@
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/clipboard_types.h"
@@ -294,24 +293,17 @@ void GlicShareImageHandler::OnCopyPolicyCheckComplete(
   }
 
   auto* instance = service_->GetInstanceForTab(tab);
-  if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
-    if (instance &&
-        instance->GetPanelState().kind == mojom::PanelStateKind::kDetached) {
-      CHECK(instance->IsShowing()) << ", should be showing if detached";
-      service_->CloseFloatingPanel();
-    }
-    // We always want to call ToggleUI for multi-instance to force a new
-    // instance to be created.
-    glic_panel_open_time_ = base::TimeTicks::Now();
-    // Note: if the FRE was showing, this will just cause it to be reshown.
-    service_->ToggleUI(browser, /*prevent_close=*/true,
-                       mojom::InvocationSource::kSharedImage);
-  } else if (!instance || !instance->IsShowing()) {
-    glic_panel_open_time_ = base::TimeTicks::Now();
-    // Note: if the FRE was showing, this will just cause it to be reshown.
-    service_->ToggleUI(browser, /*prevent_close=*/true,
-                       mojom::InvocationSource::kSharedImage);
+  if (instance &&
+      instance->GetPanelState().kind == mojom::PanelStateKind::kDetached) {
+    CHECK(instance->IsShowing()) << ", should be showing if detached";
+    service_->CloseFloatingPanel();
   }
+  // We always want to call ToggleUI for multi-instance to force a new
+  // instance to be created.
+  glic_panel_open_time_ = base::TimeTicks::Now();
+  // Note: if the FRE was showing, this will just cause it to be reshown.
+  service_->ToggleUI(browser, /*prevent_close=*/true,
+                     mojom::InvocationSource::kSharedImage);
 
   PerformPastePolicyCheckWhenReady();
 }

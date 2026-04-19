@@ -103,7 +103,8 @@ export class ClientRenderer {
           generalAudioInformationTableElement.querySelector('tbody');
     }
 
-    this.players = null;
+    this.players = {};
+    this.registeredCdms = [];
     this.selectedPlayer = null;
     this.selectedAudioComponentType = null;
     this.selectedAudioComponentId = null;
@@ -116,7 +117,13 @@ export class ClientRenderer {
     };
     this.filterText = $('filter-text');
     if (this.filterText) {
-      this.filterText.onkeyup = this.onTextChange_.bind(this);
+      this.filterText.addEventListener('input', this.onTextChange_.bind(this));
+    }
+
+    this.playerFilterText = $('player-filter-text');
+    if (this.playerFilterText) {
+      this.playerFilterText.addEventListener(
+          'input', this.onPlayerFilterChange_.bind(this));
     }
 
     this.copyLogButton = $('copy-log-button');
@@ -127,6 +134,11 @@ export class ClientRenderer {
     this.saveLogButton = $('save-log-button');
     if (this.saveLogButton) {
       this.saveLogButton.onclick = this.saveLog_.bind(this);
+    }
+
+    this.copyCdmsButton = $('copy-cdm-button');
+    if (this.copyCdmsButton) {
+      this.copyCdmsButton.onclick = this.copyCdms_.bind(this);
     }
 
     this.closePlayerViewButton = $('close-player-view-button');
@@ -205,11 +217,19 @@ export class ClientRenderer {
    * @param sessions A list of CDM info that contain the current state.
    */
   updateRegisteredCdms(cdms) {
-    removeChildren(this.cdmListElement_);
+    this.registeredCdms = cdms || [];
+    const fragment = document.createDocumentFragment();
 
-    cdms.forEach(cdm => {
-      this.cdmListElement_.appendChild(this.createCdmRow_(cdm));
+    this.registeredCdms.forEach(cdm => {
+      fragment.appendChild(this.createCdmRow_(cdm));
     });
+
+    removeChildren(this.cdmListElement_);
+    this.cdmListElement_.appendChild(fragment);
+
+    if (this.copyCdmsButton) {
+      this.copyCdmsButton.disabled = this.registeredCdms.length === 0;
+    }
   }
 
   /**
@@ -270,6 +290,8 @@ export class ClientRenderer {
         key === 'event' && value === 'kWebMediaPlayerDestroyed' &&
         player.playerState !== 'errored') {
       player.playerState = 'ended';
+    } else if (key === 'url') {
+      player.loweredUrl = value.toLowerCase();
     }
     if ([
           'url',
@@ -319,7 +341,8 @@ export class ClientRenderer {
   redrawVideoCaptureCapabilities(videoCaptureCapabilities, keys) {
     const copyButtonElement = $('video-capture-capabilities-copy-button');
     copyButtonElement.onclick = function() {
-      this.renderClipboard(JSON.stringify(videoCaptureCapabilities, null, 2));
+      this.renderClipboard(
+          JSON.stringify(videoCaptureCapabilities, null, 2), copyButtonElement);
     }.bind(this);
 
     const videoTableBodyElement = $('video-capture-capabilities-tbody');
@@ -469,6 +492,12 @@ export class ClientRenderer {
       const player = players[id];
       const p = player.properties;
 
+      if (!player.loweredUrl) {
+        player.loweredUrl = (p.url || 'Player ' + player.id).toLowerCase();
+      }
+
+      const url = p.url || 'Player ' + player.id;
+
       const treeItem = document.createElement('div');
       treeItem.classList.add('tree-item');
       if (player.playerState === 'errored') {
@@ -486,7 +515,6 @@ export class ClientRenderer {
 
       const playerName = document.createElement('div');
       playerName.classList.add('player-name');
-      const url = p.url || 'Player ' + player.id;
       if (url.length > 64) {
         playerName.textContent = url.substring(0, 61) + '...';
       } else {
@@ -526,12 +554,30 @@ export class ClientRenderer {
     removeChildren(this.playerListElement);
     this.playerListElement.appendChild(fragment);
 
+    this.applyPlayerFilter_();
+
     if (this.selectedPlayer && this.selectedPlayer.id in players) {
       // Re-select the selected player since the button was just recreated.
       const element = this.playerListElement.querySelector(
           `.tree-item[data-id="${this.selectedPlayer.id}"]`);
       if (element) {
         element.classList.add('selected');
+      }
+    }
+  }
+
+  applyPlayerFilter_() {
+    const filterText =
+        this.playerFilterText ? this.playerFilterText.value.toLowerCase() : '';
+    const items = this.playerListElement.querySelectorAll('.tree-item');
+    for (const item of items) {
+      const id = item.dataset.id;
+      const player = this.players[id];
+      if (filterText && player && player.loweredUrl &&
+          !player.loweredUrl.includes(filterText)) {
+        item.hidden = true;
+      } else {
+        item.hidden = false;
       }
     }
   }
@@ -649,28 +695,30 @@ export class ClientRenderer {
   }
 
   appendEventToLog_(event) {
-    if (this.filterFunction(event.key)) {
-      const row = this.logTable.insertRow(-1);
-      row.classList.add('log-entry');
+    const row = this.logTable.insertRow(-1);
+    row.classList.add('log-entry');
+    row.dataset.key = event.key;
 
-      const timestampCell = row.insertCell(-1);
-      timestampCell.classList.add('log-timestamp');
-      timestampCell.textContent = millisecondsToString(event.time);
+    const timestampCell = row.insertCell(-1);
+    timestampCell.classList.add('log-timestamp');
+    timestampCell.textContent = millisecondsToString(event.time);
 
-      const propertyCell = row.insertCell(-1);
-      propertyCell.classList.add('log-property');
-      propertyCell.textContent = event.key;
+    const propertyCell = row.insertCell(-1);
+    propertyCell.classList.add('log-property');
+    propertyCell.textContent = event.key;
 
-      const valueCell = row.insertCell(-1);
-      valueCell.classList.add('log-value');
-      valueCell.appendChild(
-          this.createValueCellContent_(event.key, event.value));
+    const valueCell = row.insertCell(-1);
+    valueCell.classList.add('log-value');
+    valueCell.appendChild(this.createValueCellContent_(event.key, event.value));
 
-      if (event.key.toLowerCase().includes('error')) {
-        row.classList.add('log-error');
-      } else if (event.key.toLowerCase().includes('warning')) {
-        row.classList.add('log-warning');
-      }
+    if (event.key.toLowerCase().includes('error')) {
+      row.classList.add('log-error');
+    } else if (event.key.toLowerCase().includes('warning')) {
+      row.classList.add('log-warning');
+    }
+
+    if (!this.filterFunction(event.key)) {
+      row.hidden = true;
     }
   }
 
@@ -700,11 +748,41 @@ export class ClientRenderer {
     const p = this.selectedPlayer;
     const playerLog = {properties: p.properties, events: p.allEvents};
 
-    this.renderClipboard(JSON.stringify(playerLog, null, 2));
+    this.renderClipboard(
+        JSON.stringify(playerLog, null, 2), this.copyLogButton);
   }
 
-  renderClipboard(string) {
+  copyCdms_() {
+    if (!this.registeredCdms || this.registeredCdms.length === 0) {
+      return;
+    }
+
+    const orderedCdms = this.registeredCdms.map(cdm => {
+      return {
+        name: cdm.name || '',
+        version: cdm.version || '',
+        status: cdm.status || '',
+        key_system: cdm.key_system || '',
+        robustness: cdm.robustness || '',
+        path: cdm.path || '',
+        capability: cdm.capability || {},
+      };
+    });
+    this.renderClipboard(
+        JSON.stringify(orderedCdms, null, 2), this.copyCdmsButton);
+  }
+
+  renderClipboard(string, feedbackElement) {
     navigator.clipboard.writeText(string);
+    if (feedbackElement) {
+      const originalText = feedbackElement.textContent;
+      feedbackElement.textContent = 'Copied!';
+      feedbackElement.disabled = true;
+      setTimeout(() => {
+        feedbackElement.textContent = originalText;
+        feedbackElement.disabled = false;
+      }, 1000);
+    }
   }
 
   onTextChange_(event) {
@@ -724,11 +802,21 @@ export class ClientRenderer {
       });
     };
 
-    if (this.selectedPlayer) {
-      removeChildren(this.logTable);
-      this.selectedPlayerLogIndex = 0;
-      this.drawLog_();
+    this.applyLogFilter_();
+  }
+
+  applyLogFilter_() {
+    for (const row of this.logTable.children) {
+      if (this.filterFunction(row.dataset.key)) {
+        row.hidden = false;
+      } else {
+        row.hidden = true;
+      }
     }
+  }
+
+  onPlayerFilterChange_(event) {
+    this.applyPlayerFilter_();
   }
 
   createAudioFocusSessionRow_(session) {

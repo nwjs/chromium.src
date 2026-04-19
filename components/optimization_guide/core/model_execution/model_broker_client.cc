@@ -16,6 +16,7 @@
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/safety_checker.h"
 #include "components/optimization_guide/core/model_execution/session_impl.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
@@ -69,7 +70,8 @@ class ModelClient::OnDeviceOptionsClient final
 ModelClient::OnDeviceOptionsClient::~OnDeviceOptionsClient() = default;
 
 ModelClient::ModelClient(mojo::PendingRemote<mojom::ModelSolution> remote,
-                         mojom::ModelSolutionConfigPtr config)
+                         mojom::ModelSolutionConfigPtr config,
+                         on_device_model::Capabilities device_capabilities)
     : remote_(std::move(remote)),
       feature_adapter_(base::MakeRefCounted<OnDeviceModelFeatureAdapter>(
           *config->feature_config
@@ -78,8 +80,14 @@ ModelClient::ModelClient(mojo::PendingRemote<mojom::ModelSolution> remote,
                           .As<proto::FeatureTextSafetyConfiguration>()),
       model_versions_(
           *config->model_versions.As<proto::OnDeviceModelVersions>()),
-      max_tokens_(config->max_tokens),
+      capabilities_(config->model_capabilities),
       feature_(*ToOnDeviceFeature(feature_adapter_->config().feature())) {
+  // Tool use is assumed supported since it is gated by RuntimeEnabledFeatures
+  // in Blink. TODO(crbug.com/422803232): Expose actual model tool use
+  // capability from model metadata instead of assuming support.
+  capabilities_.RetainAll(device_capabilities);
+  capabilities_.Put(on_device_model::CapabilityFlags::kToolUse);
+
   remote_.set_disconnect_handler(
       base::BindOnce(&ModelClient::OnDisconnect, base::Unretained(this)));
 }
@@ -134,12 +142,31 @@ void ModelSubscriberImpl::WaitForClient(ClientCallback callback) {
   FlushCallbacks();
 }
 
-void ModelSubscriberImpl::Unavailable(mojom::ModelUnavailableReason reason) {
+void ModelSubscriberImpl::CanCreateSession(
+    const on_device_model::Capabilities& capabilities,
+    CanCreateSessionCallback callback) {
+  TRACE_EVENT("optimization_guide", "ModelSubscriberImpl::CanCreateSession");
+  if (!features::IsOnDeviceExecutionEnabled()) {
+    std::move(callback).Run(
+        mojom::ModelUnavailableReason::kNotSupported,
+        mojom::ModelNotSupportedDetailedReason::kFeatureNotEnabled);
+    return;
+  }
+
+  can_create_session_callbacks_.emplace_back(capabilities, std::move(callback));
+  FlushCanCreateSessionCallbacks();
+}
+
+void ModelSubscriberImpl::Unavailable(
+    mojom::ModelUnavailableReason reason,
+    std::optional<mojom::ModelNotSupportedDetailedReason> detailed_reason) {
   TRACE_EVENT("optimization_guide", "ModelSubscriberImpl::Unavailable",
               "reason", reason);
   unavailable_reason_ = reason;
+  detailed_reason_ = detailed_reason;
   client_.reset();
   FlushCallbacks();
+  FlushCanCreateSessionCallbacks();
 }
 
 void ModelSubscriberImpl::Available(
@@ -147,8 +174,18 @@ void ModelSubscriberImpl::Available(
     mojo::PendingRemote<mojom::ModelSolution> remote) {
   TRACE_EVENT("optimization_guide", "ModelSubscriberImpl::Available");
   unavailable_reason_ = std::nullopt;
-  client_.emplace(std::move(remote), std::move(config));
+  detailed_reason_ = std::nullopt;
+  client_.emplace(std::move(remote), std::move(config),
+                  capabilities_.value_or(on_device_model::Capabilities()));
   FlushCallbacks();
+  FlushCanCreateSessionCallbacks();
+}
+
+void ModelSubscriberImpl::CapabilitiesUpdated(
+    const on_device_model::Capabilities& capabilities) {
+  TRACE_EVENT("optimization_guide", "ModelSubscriberImpl::CapabilitiesUpdated");
+  capabilities_ = capabilities;
+  FlushCanCreateSessionCallbacks();
 }
 
 void ModelSubscriberImpl::FlushCallbacks() {
@@ -170,6 +207,35 @@ void ModelSubscriberImpl::FlushCallbacks() {
   }
 }
 
+void ModelSubscriberImpl::FlushCanCreateSessionCallbacks() {
+  // Make sure |capabilities_| and solution both are updated.
+  if (!capabilities_.has_value() ||
+      (!client_ && !unavailable_reason_.has_value())) {
+    return;
+  }
+
+  std::vector to_call(std::move(can_create_session_callbacks_));
+  can_create_session_callbacks_.clear();
+
+  for (auto& [capability, callback] : to_call) {
+    std::optional<mojom::ModelUnavailableReason> unavailable_reason =
+        unavailable_reason_;
+    std::optional<mojom::ModelNotSupportedDetailedReason> detailed_reason =
+        unavailable_reason_ == mojom::ModelUnavailableReason::kNotSupported
+            ? detailed_reason_
+            : std::nullopt;
+
+    if ((client_ && !client_->capabilities().HasAll(capability)) ||
+        !capabilities_.value().HasAll(capability)) {
+      unavailable_reason = mojom::ModelUnavailableReason::kNotSupported;
+      detailed_reason =
+          mojom::ModelNotSupportedDetailedReason::kModelAdaptationNotAvailable;
+    }
+
+    std::move(callback).Run(unavailable_reason, detailed_reason);
+  }
+}
+
 ModelSubscriber::ModelSubscriber(
     mojo::PendingReceiver<mojom::ModelSubscriber> pending)
     : receiver_(this, std::move(pending)) {
@@ -180,7 +246,7 @@ ModelSubscriber::~ModelSubscriber() = default;
 
 void ModelSubscriber::OnDisconnect() {
   TRACE_EVENT("optimization_guide", "ModelSubscriber::OnDisconnect");
-  Unavailable(mojom::ModelUnavailableReason::kNotSupported);
+  Unavailable(mojom::ModelUnavailableReason::kNotSupported, std::nullopt);
 }
 
 ModelBrokerClient::ModelBrokerClient(
@@ -227,5 +293,4 @@ void ModelBrokerClient::AddModelDownloadProgressObserver(
   remote_->AddModelDownloadProgressObserver(std::move(observer));
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
-
 }  // namespace optimization_guide

@@ -21,6 +21,7 @@
 #import "ios/chrome/browser/device_sharing/model/device_sharing_manager_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/favicon/model/favicon_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/infobars/model/overlays/browser_agent/infobar_overlay_browser_agent_util.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
@@ -60,6 +61,8 @@
 #import "ios/chrome/browser/web/model/web_state_update_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/public/provider/chrome/browser/app_utils/app_utils_api.h"
+#import "ios/public/provider/chrome/browser/cobalt/cobalt_api.h"
+#import "ios/web/common/features.h"
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 #import "ios/chrome/browser/credential_provider/model/credential_provider_browser_agent.h"
@@ -123,7 +126,7 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   OmniboxPositionBrowserAgent::CreateForBrowser(browser);
   AutocompleteBrowserAgent::CreateForBrowser(browser);
   ToolbarsSizeBrowserAgent::CreateForBrowser(browser);
-  if (IsAimCobrowseEnabled()) {
+  if (IsAimCobrowseEnabled() && !browser_is_off_record) {
     CobrowseBrowserAgent::CreateForBrowser(browser);
   }
 
@@ -131,6 +134,9 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   // regular and incognito Browser (since the other Browser do not present the
   // WebStates, and may not create the tab helpers which would lead to crashes).
   if (!browser_is_inactive && !browser_is_temporary) {
+    if (IsFullscreenRefactoringEnabled()) {
+      FullscreenBrowserAgent::CreateForBrowser(browser);
+    }
     FullscreenController::CreateForBrowser(browser);
     if (IsReaderModeAvailable()) {
       ReaderModeBrowserAgent::CreateForBrowser(browser);
@@ -228,6 +234,10 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   // This needs to be called last in case any downstream browser agents need to
   // access upstream agents created earlier in this function.
   ios::provider::AttachBrowserAgents(browser);
+
+  if (web::features::IsCobaltEnabled()) {
+    ios::provider::AttachCobaltBrowserAgentsForActiveBrowser(browser);
+  }
 }
 
 }  // anonymous namespace

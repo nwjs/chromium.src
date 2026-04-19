@@ -494,6 +494,17 @@ bool BrowserAccessibilityAndroid::IsTableHeader() const {
   return ui::IsTableHeader(GetRole());
 }
 
+bool BrowserAccessibilityAndroid::IsTextSelectable() const {
+  // This property tells Android if the node has selectable text, and is used as
+  // a heuristic to decide if extended selection should be communicated by text
+  // offset or child offset.
+  // https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo#isTextSelectable%28%29
+  // TODO(crbug.com/498376490): Update the above comment after Selection API
+  // with offset type is released.
+  return IsText() || IsAndroidTextView() || IsTextField() ||
+         !GetTextContentUTF16().empty();
+}
+
 bool BrowserAccessibilityAndroid::IsVisibleToUser() const {
   return !IsInvisibleOrIgnored();
 }
@@ -966,6 +977,12 @@ void BrowserAccessibilityAndroid::AppendSubtreeTextRecursive(
 
   AndroidNameTo name_to = ComputeAndroidNameTo();
   if (name_to == AndroidNameTo::kText && !is_non_atomic_text_field) {
+    // Skip this mapping for a range control with value (text). The value is not
+    // visually rendered, and should be mapped to state description instead.
+    if (GetData().IsRangeValueSupported() &&
+        HasStringAttribute(ax::mojom::StringAttribute::kValue)) {
+      return;
+    }
     text = GetNameAsString16();
   }
 
@@ -1145,6 +1162,10 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidStateDescription() const {
   if (GetData().IsRangeValueSupported()) {
     std::u16string value =
         GetString16Attribute(ax::mojom::StringAttribute::kValue);
+    if (value.empty() && GetRole() == ax::mojom::Role::kProgressIndicator &&
+        !HasFloatAttribute(ax::mojom::FloatAttribute::kValueForRange)) {
+      state_descs.push_back(GetLocalizedString(IDS_AX_INDETERMINATE_VALUE));
+    }
     if (!value.empty()) {
       state_descs.push_back(value);
     }
@@ -1291,8 +1312,9 @@ std::u16string BrowserAccessibilityAndroid::GetRadioButtonStateDescription()
 
   return base::ReplaceStringPlaceholders(
       GetLocalizedString(message_id),
-      std::vector<std::u16string>({base::NumberToString16(GetItemIndex() + 1),
-                                   base::NumberToString16(group_ids.size())}),
+      std::vector<std::u16string>(
+          {base::NumberToString16(GetItemIndex().value_or(0) + 1),
+           base::NumberToString16(group_ids.size())}),
       /* offsets */ nullptr);
 }
 
@@ -1619,8 +1641,8 @@ std::string BrowserAccessibilityAndroid::GetFontFamily() const {
   return GetStringAttribute(ax::mojom::StringAttribute::kFontFamily);
 }
 
-int BrowserAccessibilityAndroid::GetItemIndex() const {
-  int index = 0;
+std::optional<int> BrowserAccessibilityAndroid::GetItemIndex() const {
+  std::optional<int> index;
   if (IsRangeControlWithoutAriaValueText()) {
     // Return a percentage here for live feedback in an AccessibilityEvent.
     // The exact value is returned in RangeCurrentValue. Exclude sliders with
@@ -1640,8 +1662,8 @@ int BrowserAccessibilityAndroid::GetItemIndex() const {
   return index;
 }
 
-int BrowserAccessibilityAndroid::GetItemCount() const {
-  int count = 0;
+std::optional<int> BrowserAccessibilityAndroid::GetItemCount() const {
+  std::optional<int> count;
   if (IsRangeControlWithoutAriaValueText()) {
     // An AccessibilityEvent can only return integer information about a
     // seek control, so we return a percentage. The real range is returned
@@ -1978,7 +2000,7 @@ int BrowserAccessibilityAndroid::GetSelectionStart() const {
   int32_t anchor_id = unignored_selection.anchor_object_id;
   BrowserAccessibility* anchor_object = manager()->GetFromID(anchor_id);
   if (!anchor_object) {
-    return 0;
+    return ui::kAXAndroidUndefinedSelectionIndex;
   }
 
   AXPosition position = anchor_object->CreateTextPositionAt(
@@ -2002,7 +2024,7 @@ int BrowserAccessibilityAndroid::GetSelectionEnd() const {
   int32_t focus_id = unignored_selection.focus_object_id;
   BrowserAccessibility* focus_object = manager()->GetFromID(focus_id);
   if (!focus_object) {
-    return 0;
+    return ui::kAXAndroidUndefinedSelectionIndex;
   }
 
   AXPosition position = focus_object->CreateTextPositionAt(
@@ -2073,71 +2095,69 @@ int BrowserAccessibilityAndroid::AndroidRangeType() const {
   return ANDROID_VIEW_ACCESSIBILITY_RANGE_TYPE_FLOAT;
 }
 
-int BrowserAccessibilityAndroid::RowCount() const {
+std::optional<int> BrowserAccessibilityAndroid::RowCount() const {
   if (!IsCollection()) {
-    return 0;
+    return std::nullopt;
   }
 
   if (GetSetSize()) {
     return *GetSetSize();
   }
 
-  return node()->GetTableRowCount().value_or(0);
+  return node()->GetTableRowCount();
 }
 
-int BrowserAccessibilityAndroid::ColumnCount() const {
+std::optional<int> BrowserAccessibilityAndroid::ColumnCount() const {
   if (!IsCollection()) {
-    return 0;
+    return std::nullopt;
   }
-
-  // For <ol> and <ul> elements on Android (e.g. role kList, kListBox, kMenu,
-  // kMenuBar and kMenuListPopup), the AX code may consider these 0 columns (or
-  // more if the element is inside of a table), but on Android they are 1.
-  int ax_cols = node()->GetTableColCount().value_or(0);
+  std::optional<int> ax_cols = node()->GetTableColCount();
   if (GetRole() == ax::mojom::Role::kList ||
       GetRole() == ax::mojom::Role::kListBox ||
       GetRole() == ax::mojom::Role::kMenu ||
       GetRole() == ax::mojom::Role::kMenuBar ||
       GetRole() == ax::mojom::Role::kMenuListPopup ||
       GetRole() == ax::mojom::Role::kTabList) {
+    // For <ol> and <ul> elements on Android (e.g. role kList, kListBox, kMenu,
+    // kMenuBar and kMenuListPopup), the AX code may consider these 0 columns
+    // (or more if the element is inside of a table), but on Android they are 1.
     ax_cols = 1;
   }
 
   return ax_cols;
 }
 
-int BrowserAccessibilityAndroid::RowIndex() const {
+std::optional<int> BrowserAccessibilityAndroid::RowIndex() const {
   std::optional<int> pos_in_set = GetPosInSet();
   if (pos_in_set && pos_in_set > 0) {
     return *pos_in_set - 1;
   }
-  return node()->GetTableCellRowIndex().value_or(0);
+  return node()->GetTableCellRowIndex();
 }
 
-int BrowserAccessibilityAndroid::RowSpan() const {
-  // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
-  // code will consider these 0 span, but on Android they are 1.
-  int ax_row_span = node()->GetTableCellRowSpan().value_or(0);
+std::optional<int> BrowserAccessibilityAndroid::RowSpan() const {
+  std::optional<int> ax_row_span = node()->GetTableCellRowSpan();
   if (GetRole() == ax::mojom::Role::kListItem ||
       GetRole() == ax::mojom::Role::kListBoxOption) {
-    DCHECK_EQ(ax_row_span, 0);
+    // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
+    // code will consider these 0 span, but on Android they are 1.
+    DCHECK(!ax_row_span.has_value());
     ax_row_span = 1;
   }
-
   return ax_row_span;
 }
 
-int BrowserAccessibilityAndroid::ColumnIndex() const {
-  return node()->GetTableCellColIndex().value_or(0);
+std::optional<int> BrowserAccessibilityAndroid::ColumnIndex() const {
+  return node()->GetTableCellColIndex();
 }
 
-int BrowserAccessibilityAndroid::ColumnSpan() const {
-  // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
-  // code will consider these 0 span, but on Android they are 1.
-  int ax_col_span = node()->GetTableCellColSpan().value_or(0);
+std::optional<int> BrowserAccessibilityAndroid::ColumnSpan() const {
+  std::optional<int> ax_col_span = node()->GetTableCellColSpan();
   if (GetRole() == ax::mojom::Role::kListItem ||
       GetRole() == ax::mojom::Role::kListBoxOption) {
-    DCHECK_EQ(ax_col_span, 0);
+    // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
+    // code will consider these 0 span, but on Android they are 1.
+    DCHECK(!ax_col_span.has_value());
     ax_col_span = 1;
   }
 

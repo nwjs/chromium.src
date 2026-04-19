@@ -10,9 +10,12 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_delegate.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -53,9 +56,19 @@ class ContextualTasksUIInterface;
 // thread. Events like tab switching and Intercepted navigations from both the
 // sidepanel and omnibox will be routed here.
 class ContextualTasksUiService : public KeyedService {
+  FRIEND_TEST_ALL_PREFIXES(ContextualTasksUiServiceTest,
+                           IsAllowedHost_WithOverride);
+
  public:
+  class Observer : public base::CheckedObserver {
+   public:
+    virtual void OnContextualTasksUiServiceShutdown(
+        ContextualTasksUiService* service) {}
+  };
+
   ContextualTasksUiService(
       Profile* profile,
+      std::unique_ptr<ContextualTasksUiServiceDelegate> delegate,
       contextual_tasks::ContextualTasksService* contextual_tasks_service,
       signin::IdentityManager* identity_manager,
       AimEligibilityService* aim_eligibility_service);
@@ -65,6 +78,9 @@ class ContextualTasksUiService : public KeyedService {
 
   // KeyedService:
   void Shutdown() override;
+
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
 
   // A notification that the browser attempted to navigate to the AI page. If
   // this method is being called, it means the navigation was blocked and it
@@ -167,6 +183,9 @@ class ContextualTasksUiService : public KeyedService {
   // Returns whether the provided URL is to a contextual tasks WebUI page.
   static bool IsContextualTasksUrl(const GURL& url);
 
+  // Gets the contextual task Id from a contextual task host URL.
+  static base::Uuid GetTaskIdFromUrl(const GURL& url);
+
   // Returns whether the provided URL represents a contextual tasks "display
   // URL" that should lead to the contextual tasks WebUI page upon navigation.
   bool IsContextualTasksDisplayUrl(const GURL& url);
@@ -184,9 +203,10 @@ class ContextualTasksUiService : public KeyedService {
   // correct params and isn't a shopping query.
   bool IsValidSearchResultsPage(const GURL& url);
 
-  // Returns AIM URL found in the search param of the contextual tasks URL.
-  // Returns empty URL if not found or not from AIM.
-  static GURL GetAimUrlFromContextualTasksUrl(const GURL& url);
+  // Returns a copy of base_url with the URL params from webui_url applied to
+  // it. This will exclude chrome webui-specific params, specifically "task".
+  static GURL CopyParamsFromWebUIUrl(const GURL& base_url,
+                                     const GURL& webui_url);
 
   // Called when the Lens overlay is shown/hidden. No-op if the active UI is not
   // in the side panel since the Lens button is always hidden in a tab.
@@ -237,6 +257,10 @@ class ContextualTasksUiService : public KeyedService {
   omnibox::ChromeAimEntryPoint GetInitialEntryPointForTask(
       const base::Uuid& task_id);
 
+  // Show the feedback form.
+  virtual void OpenFeedbackUi(BrowserWindowInterface* browser,
+                              const GURL& page_url);
+
   base::WeakPtr<ContextualTasksUiService> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
@@ -279,8 +303,6 @@ class ContextualTasksUiService : public KeyedService {
   // compared without text selection directives as they don't change the page
   // content and only tell the browser what text to highlight on the page. A
   // pointer to the selected tab is returned if found.
-  // TODO(crbug.com/483442073): Remove the ifdef block once we remove
-  // TabStripModel from MaybeFocusExistingOpenTab.
   tabs::TabInterface* MaybeFocusExistingOpenTab(const GURL& url,
                                                 TabListInterface* tab_list,
                                                 const base::Uuid& task_id);
@@ -307,7 +329,12 @@ class ContextualTasksUiService : public KeyedService {
   // Checks if the provided URL matches any of the allowed hosts.
   static bool IsAllowedHost(const GURL& url);
 
+  base::ObserverList<Observer> observers_;
+
   const raw_ptr<Profile> profile_;
+
+  // The delegate to perform platform specific tasks.
+  std::unique_ptr<ContextualTasksUiServiceDelegate> delegate_;
 
   const raw_ptr<contextual_tasks::ContextualTasksService>
       contextual_tasks_service_;

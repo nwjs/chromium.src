@@ -87,11 +87,17 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         type: String,
         value: ContentSettingsTypes.COOKIES,
       },
+
+      isRelatedWebsiteSetsUiEnabled_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('isRelatedWebsiteSetsUiEnabled'),
+      },
     };
   }
 
   declare searchTerm: string;
   declare private cookiesContentSettingType_: ContentSettingsTypes;
+  declare private isRelatedWebsiteSetsUiEnabled_: boolean;
 
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
@@ -118,7 +124,9 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         this.getPref('privacy_sandbox.m1.ad_measurement_enabled').value;
 
     if (areAnyPrivacySandboxApisEnabled && switchedToBlock3pcs) {
-      if (!loadTimeData.getBoolean('isPrivacySandboxRestricted')) {
+      if (!loadTimeData.getBoolean(
+              'isPrivacySandboxAdPrivacyUxDeprecationEnabled') &&
+          !loadTimeData.getBoolean('isPrivacySandboxRestricted')) {
         this.$.toast.show();
       }
       this.metricsBrowserProxy_.recordAction(

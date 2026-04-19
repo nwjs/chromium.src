@@ -18,7 +18,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/clamped_math.h"
 #include "base/process/current_process.h"
 #include "base/process/process_metrics.h"
@@ -55,6 +54,7 @@
 #include "content/public/gpu/content_gpu_client.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/config/gpu_driver_bug_list.h"
+#include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_info_collector.h"
 #include "gpu/config/gpu_preferences.h"
@@ -156,7 +156,9 @@ class ContentSandboxHelper : public gpu::GpuSandboxHelper {
 
  private:
   // SandboxHelper:
-  void PreSandboxStartup(const gpu::GpuPreferences& gpu_prefs) override {
+  void PreSandboxStartup(
+      const gpu::GpuPreferences& gpu_prefs,
+      const gpu::GpuDriverBugWorkarounds& workarounds) override {
     TRACE_EVENT("gpu,startup", "gpu_main::PreSandboxStartup");
     // Warm up resources that don't need access to GPUInfo.
     {
@@ -172,10 +174,13 @@ class ContentSandboxHelper : public gpu::GpuSandboxHelper {
 
 #if BUILDFLAG(USE_VAAPI)
 #if BUILDFLAG(IS_CHROMEOS)
-    media::VaapiWrapper::PreSandboxInitialization();
+    media::VaapiWrapper::PreSandboxInitialization(
+        /*allow_disabling_global_lock=*/false, &workarounds);
 #else  // For Linux with VA-API support.
-    if (!gpu_prefs.disable_accelerated_video_decode)
-      media::VaapiWrapper::PreSandboxInitialization();
+    if (!gpu_prefs.disable_accelerated_video_decode) {
+      media::VaapiWrapper::PreSandboxInitialization(
+          /*allow_disabling_global_lock=*/false, &workarounds);
+    }
 #endif
 #endif  // BUILDFLAG(USE_VAAPI)
 #if BUILDFLAG(IS_WIN)

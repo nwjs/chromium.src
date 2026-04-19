@@ -53,6 +53,7 @@
 <translation id="1399511500114202393">Kasutaja sertifikaat puudub</translation>
 <translation id="1403008701842173542">Kõikjal</translation>
 <translation id="1404323374378969387">norra</translation>
+<translation id="1412476183660741812">Allkirjastatud Web Bundle</translation>
 <translation id="1433628812591023318">Failide pukseerimiseks Parallels Desktopile peab fail olema teisaldatud Windowsi failide hulka.</translation>
 <translation id="1435838927755162558">Kausta jagamine üksusega Parallels Desktop</translation>
 <translation id="1439919885608649279">Lilledega inimene</translation>
@@ -220,6 +221,7 @@
 <translation id="2708477391501452176">prantsuse BÉPO</translation>
 <translation id="2719020180254996569"><ph name="NETWORK_INDEX" />. võrk <ph name="NETWORK_COUNT" />-st, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, üksikasjad</translation>
 <translation id="2724954091494693138">türgi, F-klaviatuuriga</translation>
+<translation id="2727633948226935816">Ära tuleta rohkem meelde</translation>
 <translation id="2728450421877450246">prantsuse</translation>
 <translation id="2732288874651063549">Halda jagamist VM-iga <ph name="VM_NAME" /></translation>
 <translation id="2732839045120506979">vietnami, VNI</translation>
@@ -470,6 +472,7 @@
 <translation id="4788401404269709922"><ph name="NUMBER_OF_KB" /> kB</translation>
 <translation id="4789067489790477934">Andke üksusele Parallels Desktop luba pääseda juurde Google Drive'is olevatele failidele. Muudatused sünkroonitakse muude seadmetega.</translation>
 <translation id="4790766916287588578">Hindi, InScript-klaviatuuriga</translation>
+<translation id="4798645114741131062">Teie ChromeOS Flexi seade ei saa peagi enam värskendusi. Kaaluge üleminekut ChromeOS-i seadmele.</translation>
 <translation id="4801956050125744859">Säilita mõlemad</translation>
 <translation id="4802185962157240723">ungari</translation>
 <translation id="4804827417948292437">Avokaado</translation>
@@ -619,6 +622,7 @@
 <translation id="5819442873484330149">Hanguli 3. seade (lõplik)</translation>
 <translation id="5832976493438355584">Lukus</translation>
 <translation id="5833610766403489739">See fail on kuhugi kadunud. Kontrollige allalaadimise asukoha seadet ja proovige uuesti.</translation>
+<translation id="5833859326857395309">Viimane värskendus</translation>
 <translation id="5838451609423551646">Valikust eemaldati kõik kirjed.</translation>
 <translation id="5845721951356578987">Meditsiiniõde</translation>
 <translation id="5858478190805449225">Akusäästja režiim on sisse lülitatud. Proovige uuesti, kui akusäästja režiim on välja lülitatud.</translation>
@@ -673,7 +677,7 @@
 <translation id="6271903698064569429">Faile ei saa üles laadida, kuna kettal „<ph name="SHARED_DRIVE_NAME" />“ ei ole piisavalt salvestusruumi.</translation>
 <translation id="6279140785485544797">Teie mobiilse andmeside pakett võib olla aegunud. Abi saamiseks pöörduge operaatori poole.</translation>
 <translation id="6287852322318138013">Valige faili avamiseks rakendus</translation>
-<translation id="6295542640242147836">SIM-i lukustamine</translation>
+<translation id="6295542640242147836">SIMi lukustamine</translation>
 <translation id="6296410173147755564">Vale PUK</translation>
 <translation id="6308243004861726558">See fail on konfidentsiaalne ja sellele kehtib administraatori reegel. Kehtivad järgmised failidele juurdepääsemise ja edastamise toimingud.</translation>
 <translation id="6312403991423642364">Tundmatu võrguviga</translation>
@@ -801,7 +805,7 @@
 <translation id="7192364647705823015">horvaadi</translation>
 <translation id="7224162581405244205">islandi</translation>
 <translation id="7229570126336867161">Vajalik EVDO</translation>
-<translation id="7230898482850090046">Administraator on palunud teil seade „SIM-i lukustamine“ välja lülitada</translation>
+<translation id="7230898482850090046">Administraator on palunud teil seade „SIMi lukustamine“ välja lülitada</translation>
 <translation id="7238097264433196391">Ketta nimi</translation>
 <translation id="7238643356913091553"><ph name="NETWORK_NAME" />, üksikasjad</translation>
 <translation id="7246947237293279874">FTP-puhverserver</translation>
@@ -968,7 +972,7 @@
 <translation id="8425213833346101688">Muuda</translation>
 <translation id="8428213095426709021">Seaded</translation>
 <translation id="8429998526804961548"><ph name="NUMBER_OF_ITEMS" /> kausta on jagatud VM-iga <ph name="VM_NAME" /></translation>
-<translation id="8431909052837336408">Muuda SIM-kaardi PIN-koodi</translation>
+<translation id="8431909052837336408">SIMi PIN-koodi muutmine</translation>
 <translation id="8452135315243592079">SIM-kaart puudub</translation>
 <translation id="8456681095658380701">Kehtetu nimi</translation>
 <translation id="8457767749626250697">Teie SIM on lukustatud</translation>

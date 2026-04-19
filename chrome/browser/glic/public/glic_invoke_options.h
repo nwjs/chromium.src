@@ -23,8 +23,18 @@ struct DefaultConversation {};
 // Always invoke into a new conversation.
 struct NewConversation {};
 
-// Use the conversation with the given ID.
-using ConversationId = std::string;
+// Use the conversation with the given ID and optionally a specific turn ID.
+struct ConversationId {
+  explicit ConversationId(std::string conversation_id);
+  ConversationId(std::string conversation_id,
+                 std::optional<std::string> turn_id);
+  ~ConversationId();
+  ConversationId(const ConversationId&);
+  ConversationId& operator=(const ConversationId&);
+
+  std::string conversation_id;
+  std::optional<std::string> turn_id;
+};
 
 // The level of in-flight navigation events allowed without canceling the
 // invocation.
@@ -49,6 +59,8 @@ enum class GlicInvokeError {
   kInstanceDestroyed,
   // The instance is already handling an invocation.
   kInvokeInProgress,
+  // The provided invocation configuration is invalid.
+  kInvalidConfiguration,
 };
 
 // Configuration options for invoking Glic.
@@ -85,6 +97,10 @@ struct GlicInvokeOptions {
 
   // If this invocation is used by the skill feature, this specifies its ID.
   std::optional<std::string> skill_id;
+
+  // The FRE override, if any.
+  glic::mojom::FreOverride fre_override =
+      glic::mojom::FreOverride::kUnspecified;
 
   // A custom string message to show the user if something goes wrong.
   std::optional<std::string> error_message;

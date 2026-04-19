@@ -431,16 +431,18 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
   // isolation info. (All requests originating from a fenced frame have a
   // nonce specified.)
   if (isolation_info.has_value() && isolation_info->nonce().has_value() &&
-      !context_->IsNetworkForNonceAndUrlAllowed(*isolation_info->nonce(),
-                                                resource_request.url)) {
+      !context_->IsNetworkForNonceAndUrlAllowed(
+          *isolation_info->nonce(), resource_request.url,
+          isolation_info->network_anonymization_key())) {
     mojo::Remote<mojom::URLLoaderClient>(std::move(client))
         ->OnComplete(
             URLLoaderCompletionStatus(net::ERR_NETWORK_ACCESS_REVOKED));
     return;
   }
   if (network_restrictions_id_.has_value() &&
-      !context_->IsNetworkForNonceAndUrlAllowed(*network_restrictions_id_,
-                                                resource_request.url)) {
+      !context_->IsNetworkForNonceAndUrlAllowed(
+          *network_restrictions_id_, resource_request.url,
+          isolation_info_ptr->network_anonymization_key())) {
     // TODO(crbug.com/447954811): Perhaps change to a new error code and
     // add console messages.
     mojo::Remote<mojom::URLLoaderClient>(std::move(client))
@@ -517,7 +519,7 @@ void CorsURLLoaderFactory::Clone(
 
 void CorsURLLoaderFactory::DeleteIfNeeded() {
   if (url_loaders_.empty() && cors_url_loaders_.empty() &&
-      !owner_->HasAdditionalReferences()) {
+      !owner_->HasAdditionalReferences() && !prevent_self_deletion_) {
     owner_->DestroyURLLoaderFactory(this);
   }
 }
@@ -995,6 +997,8 @@ net::handles::NetworkHandle CorsURLLoaderFactory::GetBoundNetworkForTesting()
 void CorsURLLoaderFactory::CancelRequestsIfNonceMatchesAndUrlNotExempted(
     const base::UnguessableToken& nonce,
     const std::set<GURL>& exemptions) {
+  CHECK(!prevent_self_deletion_);
+  prevent_self_deletion_ = true;
   auto iterate_over_set = [&nonce, &exemptions](auto& url_loaders) {
     // Cancelling the request may cause the URL loader to be deleted from the
     // data structure, invalidating the iterator if it is currently pointing to
@@ -1010,6 +1014,8 @@ void CorsURLLoaderFactory::CancelRequestsIfNonceMatchesAndUrlNotExempted(
 
   iterate_over_set(url_loaders_);
   iterate_over_set(cors_url_loaders_);
+  prevent_self_deletion_ = false;
+  DeleteIfNeeded();
 }
 
 }  // namespace network::cors

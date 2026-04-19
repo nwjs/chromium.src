@@ -23,7 +23,6 @@
   V(kHistoryClusters, kActionSidePanelShowHistoryCluster, "HistoryClusters")  \
   V(kHistory, kActionSidePanelShowHistory, "History")                         \
   V(kReadAnything, kActionSidePanelShowReadAnything, "ReadAnything")          \
-  V(kUserNote, kActionSidePanelShowUserNote, "UserNotes")                     \
   V(kFeed, kActionSidePanelShowFeed, "Feed")                                  \
   V(kWebView, std::nullopt, "WebView")                                        \
   V(kContextualTasks, kActionSidePanelShowContextualTasks, "ContextualTasks") \
@@ -41,6 +40,8 @@
   V(kMerchantTrust, kActionSidePanelShowMerchantTrust, "MerchantTrust")       \
   V(kComments, kActionSidePanelShowComments, "Comments")                      \
   V(kGlic, kActionSidePanelShowGlic, "Glic")                                  \
+  V(kTabsFromOtherDevices, kActionSidePanelShowTabsFromOtherDevices,          \
+    "TabsFromOtherDevices")                                                   \
   /* Extensions (nothing more should be added below here) */                  \
   V(kExtension, std::nullopt, "Extension")
 

@@ -15,6 +15,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
@@ -256,6 +257,7 @@ std::unique_ptr<Layer> Layer::Clone() const {
 
   // Background filters.
   clone->SetBackgroundBlur(background_blur_sigma_);
+  clone->SetBackgroundInverted(background_inverted_);
   clone->SetBackgroundZoom(zoom_, zoom_inset_);
   clone->SetBackdropFilterQuality(backdrop_filter_quality_);
   if (has_explicit_backdrop_filter_bounds_) {
@@ -596,6 +598,15 @@ void Layer::SetBackgroundBlur(float blur_sigma) {
   SetLayerBackgroundFilters();
 }
 
+void Layer::SetBackgroundInverted(bool inverted) {
+  if (background_inverted_ == inverted) {
+    return;
+  }
+  background_inverted_ = inverted;
+
+  SetLayerBackgroundFilters();
+}
+
 void Layer::SetBackgroundZoom(float zoom, int inset) {
   zoom_ = zoom;
   zoom_inset_ = inset;
@@ -785,6 +796,10 @@ void Layer::SetLayerFilters() {
 void Layer::SetLayerBackgroundFilters() {
   cc::FilterOperations filters;
 
+  if (background_inverted_) {
+    filters.Append(cc::FilterOperation::CreateInvertFilter(1.0f));
+  }
+
   if (background_blur_sigma_) {
     filters.Append(cc::FilterOperation::CreateBlurFilter(background_blur_sigma_,
                                                          SkTileMode::kClamp));
@@ -809,7 +824,7 @@ void Layer::RecomputeBackdropFilterBounds() {
   }
 
   // Only set bounds when backdrop filters are active.
-  if (!background_blur_sigma_ && zoom_ == 1) {
+  if (!background_blur_sigma_ && zoom_ == 1 && !background_inverted_) {
     cc_layer_->ClearBackdropFilterBounds();
     return;
   }

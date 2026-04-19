@@ -14,6 +14,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
+#include "base/types/pass_key.h"
 
 namespace base {
 
@@ -34,6 +35,14 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
     parent_ = std::move(parent);
     registration_.emplace(consumer_name, traits, this, check_unregister,
                           check_registry_exists);
+    registration_->SetAsyncHandleDestroyedFlag(
+        &async_handle_destroyed_, PassKey<AsyncMemoryConsumerRegistration>());
+  }
+
+  void NotifyAsyncHandleDestroyed() {
+    // Use release/acquire ordering to ensure the main thread sees this update
+    // before the registry is potentially destroyed.
+    async_handle_destroyed_.store(true, std::memory_order_release);
   }
 
  private:
@@ -65,6 +74,8 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
   std::optional<MemoryConsumerRegistration> registration_
       GUARDED_BY_CONTEXT(thread_checker_);
 
+  std::atomic<bool> async_handle_destroyed_{false};
+
   THREAD_CHECKER(thread_checker_);
 };
 
@@ -77,6 +88,13 @@ AsyncMemoryConsumerRegistration::AsyncMemoryConsumerRegistration(
     CheckUnregister check_unregister,
     CheckRegistryExists check_registry_exists)
     : consumer_(consumer) {
+  // TODO(crbug.com/441951621): DCHECK instead of silently failing when a
+  // AsyncMemoryConsumerRegistration is created in a non-sequenced context.
+  // Tests will need to be adjusted for that to work.
+  if (!SingleThreadTaskRunner::HasMainThreadDefault()) {
+    return;
+  }
+
   main_thread_task_runner_ = SingleThreadTaskRunner::GetMainThreadDefault();
   main_thread_ = std::make_unique<MainThread>();
   main_thread_task_runner_->PostTask(
@@ -89,6 +107,7 @@ AsyncMemoryConsumerRegistration::AsyncMemoryConsumerRegistration(
 AsyncMemoryConsumerRegistration::~AsyncMemoryConsumerRegistration() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (main_thread_) {
+    main_thread_->NotifyAsyncHandleDestroyed();
     // In tests, tasks on the main thread are not executed upon destruction of
     // the TaskEnvironment. The main thread object thus gets tagged as leaking,
     // which is fine in this case.

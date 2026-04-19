@@ -163,7 +163,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVm[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVmDlc[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kArcVmDlcHardwareRequirementSatisfied[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVmRtVcpu[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kEnableBirchWeatherApiForTestingOverride[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableCastReceiver[];
@@ -351,6 +350,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kTelemetryExtensionDirectory[];
 extern const char kTemporaryAllowEmptyPasswordsInTests[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kTestEncryptionMigrationUI[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kTestName[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kTestWallpaperServer[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kTetherHostScansIgnoreWiredConnections[];
@@ -375,6 +375,13 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAllowDefaultShelfPinLayoutIgnoringSync[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kForceRefreshRateThrottle[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAppModeAuthCode[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAppModeOAuth2Token[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMonitoringDestinationID[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSystemLogUploadFrequency[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kCustomAndroidMessagesDomain[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kNearbyShareVerboseLogging[];
 
 ////////////////////////////////////////////////////////////////////////////////
 

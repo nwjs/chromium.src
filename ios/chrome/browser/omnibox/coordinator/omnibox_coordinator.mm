@@ -10,7 +10,6 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/feature_engagement/public/tracker.h"
-#import "components/omnibox/browser/omnibox_client.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/omnibox/common/omnibox_focus_state.h"
 #import "components/open_from_clipboard/clipboard_recent_content.h"
@@ -24,6 +23,7 @@
 #import "ios/chrome/browser/omnibox/coordinator/omnibox_mediator_delegate.h"
 #import "ios/chrome/browser/omnibox/coordinator/popup/omnibox_popup_coordinator.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_client_ios.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_metrics_recorder.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_model.h"
@@ -86,7 +86,7 @@
 
 @implementation OmniboxCoordinator {
   /// Omnibox client.
-  std::unique_ptr<OmniboxClient> _client;
+  std::unique_ptr<OmniboxClientIOS> _client;
 
   // OmniboxCoordinator temporarely owns these class until they are removed
   // after the refactoring crbug.com/390409559.
@@ -94,6 +94,7 @@
 
   /// Controller for the omnibox autocomplete.
   OmniboxAutocompleteController* _omniboxAutocompleteController;
+
   /// Controller for the omnibox text.
   OmniboxTextController* _omniboxTextController;
 
@@ -117,7 +118,7 @@
 - (instancetype)
     initWithBaseViewController:(UIViewController*)viewController
                        browser:(Browser*)browser
-                 omniboxClient:(std::unique_ptr<OmniboxClient>)client
+                 omniboxClient:(std::unique_ptr<OmniboxClientIOS>)client
            presentationContext:(OmniboxPresentationContext)presentationContext {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
@@ -256,8 +257,13 @@
       autocompleteResultWrapper;
   autocompleteResultWrapper.delegate = _omniboxAutocompleteController;
 
-  self.popupCoordinator = [self createPopupCoordinator:self.presenterDelegate];
-  [self.popupCoordinator start];
+  // NOTE: Suggestions are currently disabled for Cobrowse. If they are
+  // requested in the future, remove this conditional branch.
+  if (_presentationContext != OmniboxPresentationContext::kCobrowse) {
+    self.popupCoordinator =
+        [self createPopupCoordinator:self.presenterDelegate];
+    [self.popupCoordinator start];
+  }
 }
 
 - (void)stop {
@@ -268,6 +274,7 @@
   _client.reset();
 
   self.viewController = nil;
+  [self.mediator disconnect];
   self.mediator.templateURLService = nullptr;  // Unregister the observer.
   if (self.keyboardAccessoryView) {
     // Unregister the observer.
@@ -410,7 +417,9 @@
   if (self.searchOnlyUI) {
     showKeyboardAccessory = NO;
   }
-  if (_presentationContext == OmniboxPresentationContext::kComposebox) {
+
+  if (_presentationContext == OmniboxPresentationContext::kComposebox ||
+      _presentationContext == OmniboxPresentationContext::kCobrowse) {
     showKeyboardAccessory =
         base::FeatureList::IsEnabled(kEnableFuseboxKeyboardAccessory);
   }

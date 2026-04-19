@@ -93,6 +93,7 @@
 #include "content/public/test/web_transport_simple_test_server.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/api/web_request/web_request_api.h"
+#include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/background_script_executor.h"
 #include "extensions/browser/blocked_action_type.h"
 #include "extensions/browser/event_router.h"
@@ -235,7 +236,7 @@ class EventRouterInterceptorForStopListenerRemoval
  public:
   EventRouterInterceptorForStopListenerRemoval(
       content::BrowserContext* browser_context,
-      int worker_renderer_process_id)
+      content::ChildProcessId worker_renderer_process_id)
       : browser_context_(browser_context) {
     auto* event_router = extensions::EventRouter::Get(browser_context_);
     CHECK(event_router) << "There is no EventRouter for browser context when "
@@ -1482,7 +1483,7 @@ class ExtensionWebRequestApiAuthRequiredTestVariousContext
     content::EvalJsResult result =
         EvalJs(GetActiveWebContents(),
                content::JsReplace(kAddIframeScript, frame_url));
-    ASSERT_THAT(result, content::EvalJsResult::IsOk());
+    ASSERT_TRUE(result.is_ok());
     EXPECT_TRUE(listener.WaitUntilSatisfied());
   }
 };
@@ -7635,8 +7636,7 @@ IN_PROC_BROWSER_TEST_F(
   // it's active listeners should be removed.
   EventRouterInterceptorForStopListenerRemoval
       event_listener_removal_on_stop_interceptor(
-          profile(),
-          previous_service_worker_id->render_process_id.GetUnsafeValue());
+          profile(), previous_service_worker_id->render_process_id);
 
   // Stop the extension's service worker. The worker listener, due to the
   // interceptor, will stay registered as an active listener. However,
@@ -8694,6 +8694,91 @@ IN_PROC_BROWSER_TEST_F(SecurityInfoBrokenWebRequestApiTest,
   RunSecurityInfoTest("broken", /*use_web_socket=*/true,
                       GetWebSocketServer().GetCertificate(),
                       GetWebSocketServer().GetURL("/echo-with-no-extension"));
+}
+
+// Regression test for https://crbug.com/496279876.
+// Tests that an extension renderer cannot bypass the webRequestBlocking
+// permission check by registering a listener for a general browser traffic
+// event while supplying a non-zero `web_view_instance_id`.
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, InvalidWebViewInstanceId) {
+  // Setup an extension that has <webview> privileges but explicitly lacks
+  // the "webRequestBlocking" permission to simulate the bug's scenario.
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("webview_extension")
+          .AddAPIPermissions({"webview", "webRequest"})
+          .AddHostPermission("<all_urls>")
+          .Build();
+  ASSERT_TRUE(extension);
+
+  auto function =
+      base::MakeRefCounted<WebRequestInternalAddEventListenerFunction>();
+  function->set_extension(extension.get());
+  function->set_has_callback(true);
+
+  // Arguments for webRequestInternal.addEventListener:
+  //   0. `callback`: not used here.
+  //   1. `filter`: the RequestFilter dictionary.
+  //   2. `extraInfoSpec`: use "blocking" option to require the permission.
+  //   3. `eventName`: the base event name.
+  //   4. `subEventName`: uniquely identifies the listener.
+  //   5. `webViewInstanceId`: a non-zero integer representing a webview.
+  std::string args = R"([
+    {},
+    {"urls": ["<all_urls>"]},
+    ["blocking"],
+    "webRequest.onBeforeRequest",
+    "webRequest.onBeforeRequest/s1",
+    1
+  ])";
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+
+  // Supplying a non-zero `web_view_instance_id` for a general webRequest event
+  // should be immediately caught by the prefix validation.
+  EXPECT_EQ("Invalid event name for webview.", error);
+}
+
+// This test verifies that various types of network requests (defined in
+// chrome/test/data/webview/request_interception_coverage_guest.js) are
+// correctly intercepted by the extensions::WebRequestAPI. The same test logic
+// is executed across four different environments:
+// 1. Normal extension with WebRequest API permissions  <<This test>>
+// 2. WebView embedded in an Extension
+// 3. WebView embedded in a WebUI
+// 4. Controlled Frame in an Isolated Web App
+class ExtensionWebRequestApiCoverageTest
+    : public ExtensionWebRequestApiWebTransportTest,
+      public testing::WithParamInterface<testing::tuple<bool, bool>> {
+ public:
+  ExtensionWebRequestApiCoverageTest() {
+    scoped_feature_list_.InitWithFeatureStates(
+        {{extensions_features::kOptimizeWebRequestProxy,
+          testing::get<0>(GetParam())},
+         {extensions_features::kForceWebRequestProxyForTest,
+          testing::get<1>(GetParam())}});
+  }
+  ~ExtensionWebRequestApiCoverageTest() override = default;
+
+  static std::string DescribeParams(
+      const testing::TestParamInfo<ParamType>& info) {
+    const auto [optimization, force] = info.param;
+    return base::StrCat({"Optimization", optimization ? "Enabled" : "Disabled",
+                         "ForceProxy", force ? "Enabled" : "Disabled"});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         ExtensionWebRequestApiCoverageTest,
+                         testing::Combine(testing::Bool(), testing::Bool()),
+                         ExtensionWebRequestApiCoverageTest::DescribeParams);
+
+IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiCoverageTest,
+                       RequestInterceptionCoverage) {
+  ASSERT_TRUE(StartWebSocketServer());
+  ASSERT_TRUE(RunTest("test_interception_coverage.html")) << message_;
 }
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)

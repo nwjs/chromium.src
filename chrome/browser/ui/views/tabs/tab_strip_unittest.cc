@@ -22,13 +22,13 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_highlight.h"
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
-#include "chrome/browser/ui/views/tabs/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_observer.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
@@ -534,7 +534,7 @@ TEST_P(TabStripTest, TabNeedsAttentionBlocked) {
   // Block tab1.
   tabs::TabData data;
   data.blocked = true;
-  tab1->SetData(data);
+  tab1->SetDataForTesting(data);
 
   EXPECT_FALSE(IsShowingAttentionIndicator(tab1));
   controller_->SelectTab(0, dummy_event_);
@@ -553,7 +553,7 @@ TEST_P(TabStripTest, TabNeedsAttentionGeneric) {
   // Set needs attention.
   tabs::TabData data;
   data.needs_attention = true;
-  tab1->SetData(data);
+  tab1->SetDataForTesting(data);
 
   EXPECT_TRUE(IsShowingAttentionIndicator(tab1));
   controller_->SelectTab(0, dummy_event_);

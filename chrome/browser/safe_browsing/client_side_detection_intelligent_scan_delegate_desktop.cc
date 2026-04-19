@@ -242,6 +242,8 @@ bool ClientSideDetectionIntelligentScanDelegateDesktop::ShouldShowScamWarning(
          (base::FeatureList::IsEnabled(
               kClientSideDetectionShowLlamaScamVerdictWarning) &&
           *verdict == IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_2) ||
+         *verdict == IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_3 ||
+         *verdict == IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_4 ||
          *verdict ==
              IntelligentScanVerdict::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT;
 }
@@ -352,7 +354,7 @@ void ClientSideDetectionIntelligentScanDelegateDesktop::
     client_side_detection::LogOnDeviceModelFetchTime(on_device_fetch_time_);
     NotifyOnDeviceModelAvailable();
   } else {
-    client_side_detection::LogOnDeviceModelDownloadSuccess(false);
+    client_side_detection::LogOnDeviceModelDownloadSuccess(false, reason);
   }
 }
 

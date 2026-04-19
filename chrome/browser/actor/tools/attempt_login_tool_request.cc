@@ -41,9 +41,9 @@ ToolRequest::CreateToolResult AttemptLoginToolRequest::CreateTool(
                                          "The tab is no longer present.")};
   }
 
-  return {std::make_unique<AttemptLoginTool>(task_id, tool_delegate, *tab,
-                                             password_button_,
-                                             sign_in_with_google_button_),
+  return {std::make_unique<AttemptLoginTool>(
+              task_id, tool_delegate, *tab, password_button_,
+              sign_in_with_google_button_, RequiresOpeningWebContents()),
           MakeOkResult()};
 }
 
@@ -56,10 +56,7 @@ std::string_view AttemptLoginToolRequest::Name() const {
 }
 
 bool AttemptLoginToolRequest::RequiresOpeningWebContents() const {
-  return base::FeatureList::IsEnabled(
-             password_manager::features::kActorLoginFederatedLoginSupport) &&
-         base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin) &&
-         base::FeatureList::IsEnabled(features::kFedCmNavigationInterception);
+  return base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin);
 }
 
 }  // namespace actor

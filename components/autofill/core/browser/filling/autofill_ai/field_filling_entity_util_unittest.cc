@@ -104,7 +104,9 @@ std::u16string GetFillValueForEntity(
           case EntityTypeName::kVehicle:
             return AttributeType(AttributeTypeName::kVehicleOwner);
           case EntityTypeName::kOrder:
-            return AttributeType(AttributeTypeName::kOrderAccount);
+            return std::nullopt;
+          case EntityTypeName::kShipment:
+            return std::nullopt;
         }
         return std::nullopt;
       }();
@@ -142,7 +144,7 @@ class FieldFillingEntityUtilTest : public testing::Test {
         client().GetSyncService(), helper_.autofill_webdata_service(),
         /*history_service=*/nullptr,
         /*strike_database=*/nullptr,
-        /*accessibility_annotator_data_adapter=*/nullptr,
+        /*accessibility_annotator_service=*/nullptr,
         /*variation_country_code=*/GeoIpCountryCode("US")));
     client().SetUpPrefsAndIdentityForAutofillAi();
 
@@ -246,6 +248,51 @@ TEST_F(FieldFillingEntityUtilTest, FillingUnavailable) {
   test_api(form()).SetFieldTypes({CREDIT_CARD_NAME_FULL, NAME_FULL},
                                  {CREDIT_CARD_NAME_FULL, NO_SERVER_DATA});
   EXPECT_THAT(GetFieldsFillableByAutofillAi(form(), client()), IsEmpty());
+}
+
+// Tests that WillFillSensitiveAttributes() correctly identifies whether a
+// section contains fields that would be filled with sensitive attributes.
+TEST_F(FieldFillingEntityUtilTest, WillFillSensitiveAttributes) {
+  EntityInstance passport = test::GetPassportEntityInstance();
+  // Case 1: Form contains a sensitive field (PASSPORT_NUMBER).
+  test_api(form()).SetFieldTypes({NAME_FULL, PASSPORT_NUMBER});
+  EXPECT_TRUE(WillFillSensitiveAttributes(
+      passport, form(), form().fields()[0]->section(), kAppLocaleUS));
+
+  // Case 2: Form only contains non-sensitive fields.
+  test_api(form()).SetFieldTypes({NAME_FULL, PASSPORT_ISSUE_DATE});
+  EXPECT_FALSE(WillFillSensitiveAttributes(
+      passport, form(), form().fields()[0]->section(), kAppLocaleUS));
+}
+
+// Tests that WillRequireServerFetch() correctly identifies whether
+// a server fetch is needed (sensitive field + masked entity).
+TEST_F(FieldFillingEntityUtilTest, WillRequireServerFetch) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillAiWalletPrivatePasses);
+
+  EntityInstance local_passport = test::GetPassportEntityInstance();
+  EntityInstance masked_server_passport =
+      test::MaskEntityInstance(test::GetPassportEntityInstance(
+          {.record_type = EntityInstance::RecordType::kServerWallet}));
+
+  // Case 1: Form contains sensitive field + local entity -> no fetch needed.
+  test_api(form()).SetFieldTypes({NAME_FULL, PASSPORT_NUMBER});
+  EXPECT_FALSE(WillRequireServerFetch(
+      local_passport, form(), form().fields()[0]->section(), kAppLocaleUS));
+
+  // Case 2: Form contains sensitive field + masked server entity -> fetch
+  // needed.
+  EXPECT_TRUE(WillRequireServerFetch(masked_server_passport, form(),
+                                     form().fields()[0]->section(),
+                                     kAppLocaleUS));
+
+  // Case 3: Form contains NO sensitive fields + masked server entity -> no
+  // fetch needed.
+  test_api(form()).SetFieldTypes({NAME_FULL, PASSPORT_ISSUE_DATE});
+  EXPECT_FALSE(WillRequireServerFetch(masked_server_passport, form(),
+                                      form().fields()[0]->section(),
+                                      kAppLocaleUS));
 }
 
 class GetFillValueForEntityTest : public testing::Test {

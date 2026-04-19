@@ -276,8 +276,7 @@ class SigninInterceptFirstRunExperienceDialogBrowserTestBase : public TestBase {
   CoreAccountId account_id() { return account_id_; }
 
   bool InUnoPhase2ModelWithFastFollows() {
-    return base::FeatureList::IsEnabled(
-               syncer::kReplaceSyncPromosWithSignInPromos) &&
+    return syncer::IsReplaceSyncPromosWithSignInPromosEnabled() &&
            base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp);
   }
 
@@ -343,9 +342,11 @@ class SigninInterceptFirstRunExperienceDialogBrowserTest
     std::vector<base::test::FeatureRef> disabled_features;
     if (std::get<0>(GetParam())) {
       enabled_features = {syncer::kReplaceSyncPromosWithSignInPromos,
+                          syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
                           syncer::kUnoPhase2FollowUp};
     } else {
       disabled_features = {syncer::kReplaceSyncPromosWithSignInPromos,
+                           syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
                            syncer::kUnoPhase2FollowUp};
     }
     scoped_features_.InitWithFeatures(enabled_features, disabled_features);
@@ -372,9 +373,11 @@ class SigninInterceptFirstRunExperienceDialogEnterpriseUserBrowserTest
     std::vector<base::test::FeatureRef> disabled_features;
     if (GetParam()) {
       enabled_features = {syncer::kReplaceSyncPromosWithSignInPromos,
+                          syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
                           syncer::kUnoPhase2FollowUp};
     } else {
       disabled_features = {syncer::kReplaceSyncPromosWithSignInPromos,
+                           syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
                            syncer::kUnoPhase2FollowUp};
     }
     scoped_features_.InitWithFeatures(enabled_features, disabled_features);
@@ -983,8 +986,12 @@ class
     std::vector<base::test::FeatureRef> disabled_features;
     if (std::get<0>(GetParam())) {
       enabled_features.push_back(syncer::kReplaceSyncPromosWithSignInPromos);
+      enabled_features.push_back(
+          syncer::kReplaceSyncPromosWithSigninPromosNewSignin);
     } else {
       disabled_features.push_back(syncer::kReplaceSyncPromosWithSignInPromos);
+      disabled_features.push_back(
+          syncer::kReplaceSyncPromosWithSigninPromosNewSignin);
     }
     if (std::get<1>(GetParam())) {
       enabled_features.push_back(syncer::kUnoPhase2FollowUp);
@@ -1010,8 +1017,7 @@ class
   }
 
   bool InUnoPhase2ModelNoFastFollows() {
-    return base::FeatureList::IsEnabled(
-               syncer::kReplaceSyncPromosWithSignInPromos) &&
+    return syncer::IsReplaceSyncPromosWithSignInPromosEnabled() &&
            !base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp);
   }
 

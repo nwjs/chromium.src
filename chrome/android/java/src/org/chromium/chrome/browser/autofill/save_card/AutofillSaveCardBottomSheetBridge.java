@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.autofill.save_card;
 
-import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
@@ -17,6 +16,8 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinator;
+import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinatorProvider;
 import org.chromium.chrome.browser.layouts.LayoutManagerProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -36,6 +37,7 @@ public class AutofillSaveCardBottomSheetBridge
     private final TabModel mTabModel;
     private final @Nullable Context mContext;
     private final @Nullable BottomSheetController mBottomSheetController;
+    private final @Nullable AnchoredDialogCoordinator mAnchoredDialogCoordinator;
     private final @Nullable LayoutStateProvider mLayoutStateProvider;
     private @Nullable AutofillSaveCardBottomSheetCoordinator mCoordinator;
 
@@ -47,6 +49,7 @@ public class AutofillSaveCardBottomSheetBridge
         mTabModel = tabModel;
         mContext = window.getContext().get();
         mBottomSheetController = BottomSheetControllerProvider.from(window);
+        mAnchoredDialogCoordinator = AnchoredDialogCoordinatorProvider.from(window);
         mLayoutStateProvider = LayoutManagerProvider.from(window);
     }
 
@@ -61,16 +64,22 @@ public class AutofillSaveCardBottomSheetBridge
      */
     @CalledByNative
     public void requestShowContent(AutofillSaveCardUiInfo uiInfo, boolean skipLoadingForFixFlow) {
-        if (mNativeAutofillSaveCardBottomSheetBridge == 0) return;
-        assertNonNull(mContext);
-        assertNonNull(mBottomSheetController);
-        assertNonNull(mLayoutStateProvider);
+        if (mNativeAutofillSaveCardBottomSheetBridge == 0
+                || mContext == null
+                || mBottomSheetController == null
+                || mAnchoredDialogCoordinator == null
+                || mLayoutStateProvider == null) {
+            // Likely only to happen when Chrome's window is being closed.
+            return;
+        }
+
         mCoordinator =
                 new AutofillSaveCardBottomSheetCoordinator(
                         mContext,
                         uiInfo,
                         skipLoadingForFixFlow,
                         mBottomSheetController,
+                        mAnchoredDialogCoordinator,
                         mLayoutStateProvider,
                         mTabModel,
                         /* delegate= */ this);

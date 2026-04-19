@@ -9,7 +9,7 @@
 #include "base/functional/callback.h"
 #include "base/observer_list_types.h"
 #include "base/scoped_observation_traits.h"
-#include "base/uuid.h"
+#include "base/types/strong_alias.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 
 class BrowserWindowInterface;
@@ -26,8 +26,32 @@ namespace glic {
 class Host;
 class GlicInstanceMetrics;
 
-// A type alias for the Glic instance identifier.
-using InstanceId = base::Uuid;
+// Instance IDs are created in the form `<index>-<64-bit-random-int>`.
+// The index is an indicator of how many instances have been created by the
+// profile since Chrome start. The random number is included so that instance
+// IDs can be loaded from disk when restoring tabs after a browser restart.
+class InstanceId : public base::StrongAlias<class InstanceIdTag, std::string> {
+ public:
+  using Base = base::StrongAlias<class InstanceIdTag, std::string>;
+  using Base::Base;
+
+  static InstanceId Create(uint64_t glic_instance_coordinator_id,
+                           uint32_t index);
+  static InstanceId CreateNullId() { return InstanceId(""); }
+  // Returns true if the instance ID is valid and not null.
+  bool IsValid() const { return !Base::value().empty(); }
+};
+
+struct ConversationInfo {
+  ConversationInfo();
+  ConversationInfo(InstanceId instance_id, std::string title);
+  ~ConversationInfo();
+  ConversationInfo(const ConversationInfo&);
+  ConversationInfo& operator=(const ConversationInfo&);
+
+  InstanceId instance_id;
+  std::string title;
+};
 
 struct PanelStateContext {
   // Provided only when kGlicMultiInstance is off.
@@ -46,9 +70,9 @@ class PanelStateObserver : public base::CheckedObserver {
 namespace glic_instance_internal {
 
 // Interface for UI methods that can be called on the instance.
-class UIDelegate {
+class UiDelegate {
  public:
-  virtual ~UIDelegate() = default;
+  virtual ~UiDelegate() = default;
 
   virtual bool IsShowing() const = 0;
 
@@ -72,10 +96,10 @@ class UIDelegate {
 }  // namespace glic_instance_internal
 
 // Public interface for one instance of the glic web client.
-class GlicInstance : public glic_instance_internal::UIDelegate {
+class GlicInstance : public glic_instance_internal::UiDelegate {
  public:
-  // Exposes the UIDelegate interface on GlicInstance::UIDelegate.
-  using UIDelegate = glic_instance_internal::UIDelegate;
+  // Exposes the UiDelegate interface on GlicInstance::UiDelegate.
+  using UiDelegate = glic_instance_internal::UiDelegate;
 
   // Get this instance's Host which manages the chrome://glic WebContents.
   virtual Host& host() = 0;

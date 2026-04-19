@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Robolectric.buildActivity;
 
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,15 +22,18 @@ import android.view.ViewGroup.MarginLayoutParams;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheet.ShadowLayerView;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.util.ColorUtils;
@@ -41,9 +45,11 @@ public class BottomSheetUnitTest {
     private static final int APP_HEADER_HEIGHT = 42;
     private static final int SHEET_CONTAINER_HEIGHT = 200;
     private static final int SHEET_PEEK_HEIGHT = 60;
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ViewGroup mSheetContainer;
     @Mock private View mSheetBackground;
+    @Mock private ShadowLayerView mShadowLayerView;
     @Mock private MarginLayoutParams mSheetLayoutParams;
     @Mock private BottomSheetContent mSheetContent;
     @Mock private TouchRestrictingFrameLayout mToolbarHolder;
@@ -55,7 +61,6 @@ public class BottomSheetUnitTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.openMocks(this);
         mActivity = buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mBottomSheet =
@@ -65,6 +70,7 @@ public class BottomSheetUnitTest {
         mBottomSheet.setSheetContainerForTesting(mSheetContainer);
         mBottomSheet.setToolbarHolderForTesting(mToolbarHolder);
         mBottomSheet.setSheetBackgroundForTesting(mSheetBackground);
+        mBottomSheet.setShadowLayerForTesting(mShadowLayerView);
     }
 
     @After
@@ -233,5 +239,32 @@ public class BottomSheetUnitTest {
                 "Sheet bg color should be the override color.",
                 SemanticColorUtils.getColorSurface(mActivity),
                 mBottomSheet.getSheetBackgroundColor());
+    }
+
+    @Test
+    public void testBackgroundGlowColor() {
+        final int glowColor = Color.CYAN;
+        BottomSheetContent.GlowSpec spec =
+                new BottomSheetContent.GlowSpec(
+                        glowColor, BottomSheetContent.GlowSpec.ShadowSize.LONG);
+        doReturn(spec).when(mSheetContent).getSheetBackgroundGlowSpecOverride();
+
+        mBottomSheet.showContent(mSheetContent);
+
+        verify(mShadowLayerView).setBackgroundTintList(ColorStateList.valueOf(glowColor));
+        int expectedSize = 60;
+        verify(mShadowLayerView).setShadowLength(expectedSize);
+    }
+
+    @Test
+    public void testBackgroundGlowColor_Transparent() {
+        doReturn(null).when(mSheetContent).getSheetBackgroundGlowSpecOverride();
+
+        mBottomSheet.showContent(mSheetContent);
+
+        verify(mShadowLayerView).setBackgroundTintList(null);
+        int defaultSize =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length);
+        verify(mShadowLayerView).setShadowLength(defaultSize);
     }
 }

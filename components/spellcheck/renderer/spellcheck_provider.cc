@@ -12,7 +12,6 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -311,7 +310,7 @@ void SpellCheckProvider::CheckSpelling(
 
     std::vector<std::u16string> suggestions;
     spellcheck::FillSuggestions(per_language_suggestions, &suggestions);
-    *optional_suggestions = base::ToVector(suggestions, &WebString::FromUTF16);
+    *optional_suggestions = base::ToVector(suggestions, &WebString::FromUtf16);
     spellcheck_renderer_metrics::RecordCheckedTextLengthWithSuggestions(
         base::saturated_cast<int>(word.size()));
   } else {
@@ -337,6 +336,12 @@ void SpellCheckProvider::RequestCheckingOfText(
                       should_force_refresh, std::move(completion));
   spellcheck_renderer_metrics::RecordAsyncCheckedTextLength(
       base::saturated_cast<int>(text.length()));
+}
+
+void SpellCheckProvider::SpellCheckCustomDictionaryChanged(
+    const std::vector<std::string>& words_added,
+    const std::vector<std::string>& words_removed) {
+  spellcheck_->SpellCheckCustomDictionaryChanged(words_added, words_removed);
 }
 
 #if BUILDFLAG(USE_RENDERER_SPELLCHECKER)

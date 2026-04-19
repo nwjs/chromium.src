@@ -19,6 +19,7 @@
 #include "components/autofill/core/browser/metrics/form_events/form_event_logger_base.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/common/signatures.h"
 
 namespace autofill {
@@ -62,6 +63,8 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
   // the list.
   // `with_card_info_retrieval_enrolled` indicates whether at least one of the
   // suggestions contains card info retrieval enrolled card.
+  // `with_pay_later_tab_suggestion` indicates that whether at least one of the
+  // suggestions is for the Pay Later tab.
   // `is_virtual_card_standalone_cvc_field` indicates whether the `suggestions`
   // are fetched for a virtual card standalone CVC field.
   // `metadata_logging_context` contains information about whether any card has
@@ -70,6 +73,7 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
       const std::vector<Suggestion>& suggestions,
       bool with_cvc,
       bool with_card_info_retrieval_enrolled,
+      bool with_pay_later_tab_suggestion,
       bool is_virtual_card_standalone_cvc_field,
       CardMetadataLoggingContext metadata_logging_context);
 
@@ -135,8 +139,9 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
     signin_state_for_metrics_ = state;
   }
 
-  // Logging when a BNPL suggestion was accepted.
-  void OnDidAcceptBnplSuggestion();
+  // Logging when the user decided to use BNPL (for example, accepting a BNPL
+  // suggestion chip if present).
+  void OnUserDecisionToUseBnpl();
 
   // Called by BrowserAutofillManager after the Save and Fill suggestion is
   // shown.
@@ -147,6 +152,8 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
   void OnDidAcceptSaveAndFillSuggestion();
 
   std::optional<CreditCard> GetFilledCreditCardForTesting();
+
+  CreditCardSuggestionSummary GetCreditCardSuggestionSummaryForTesting() const;
 
  protected:
   // FormEventLoggerBase pure-virtual overrides.
@@ -221,6 +228,8 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
   // If true, one of the cards in the suggestions fetched card info retrieval
   // enrolled.
   bool suggestion_contains_card_info_retrieval_enrolled_card_ = false;
+  // If true, one of the suggestions will be shown in the Pay Later tab.
+  bool suggestion_contains_pay_later_tab_entry_ = false;
   // If true, the suggestions shown on BNPL eligible merchant is logged and
   // should not be logged again.
   bool has_logged_suggestions_shown_on_bnpl_eligible_merchant_ = false;
@@ -244,6 +253,11 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
   bool has_logged_save_and_fill_suggestion_accepted_ = false;
 
   CardMetadataLoggingContext metadata_logging_context_;
+  // Captures the `metadata_logging_context_` at the time of form filling. Used
+  // when logging submission metrics since `metadata_logging_context_` could get
+  // overwritten anytime a new suggestion fetch is triggered, e.g. a user
+  // focuses a CVC field after autofilling a card with benefits.
+  CardMetadataLoggingContext metadata_logging_context_at_fill_;
 
   // Set when a list of suggestion is shown.
   base::TimeTicks suggestion_shown_timestamp_;

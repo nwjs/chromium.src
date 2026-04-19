@@ -4,7 +4,8 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {SettingsItemType, type SettingsMenuElement} from './settings_menu.js';
+import {SettingsItemType} from './settings_menu.js';
+import type {SettingsMenuElement} from './settings_menu.js';
 
 
 export function getHtml(this: SettingsMenuElement) {
@@ -20,7 +21,7 @@ export function getHtml(this: SettingsMenuElement) {
           data-index="${index}"
           title="${item.ariaLabel || item.title}"
           aria-label="${item.ariaLabel || item.title}"
-          ?disabled="${item.disabled}"
+          ?disabled="${!!item.disabled}"
           aria-haspopup="${item.itemType === SettingsItemType.MENU ?
              'menu' : 'false'}"
           aria-expanded="${this.getAriaExpanded_(item)}"
@@ -40,7 +41,7 @@ export function getHtml(this: SettingsMenuElement) {
             <cr-toggle
               title="${item.ariaLabel || item.title}"
               aria-label="${item.ariaLabel || item.title}"
-              ?disabled="${item.disabled}"
+              ?disabled="${!!item.disabled}"
               @click="${this.onMenuItemClick_}"
               ?checked="${item.checked || false}"
               data-index="${index}">

@@ -89,6 +89,7 @@ source_set("test_support") {
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/signin/model/avatar",
     "//ios/chrome/common",
+    "//ios/chrome/test/app:test_support",
     "//ios/components/security_interstitials/safe_browsing:test_support",
     "//ios/components/webui:url_constants",
     "//ios/public/provider/chrome/browser/additional_features:additional_features_api",
@@ -103,6 +104,24 @@ source_set("test_support") {
     "//testing/gtest",
     "//ui/base",
     "//url",
+  ]
+}
+
+source_set("ios_chrome_test_with_web_state") {
+  testonly = true
+  sources = [
+    "ios_chrome_test_with_web_state.h",
+    "ios_chrome_test_with_web_state.mm",
+  ]
+  deps = [
+    "//base/test:test_support",
+    "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/chrome/browser/web/model:web_internal",
+    "//ios/chrome/test:test_support",
+    "//ios/web/public/js_messaging",
+    "//ios/web/public/test",
+    "//ios/web/public/test/fakes",
+    "//testing/gtest",
   ]
 }
 
@@ -306,6 +325,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/enterprise/client_certificates:unit_tests",
     "//ios/chrome/browser/enterprise/cloud_content_scanning/model:unit_tests",
     "//ios/chrome/browser/enterprise/connectors:unit_tests",
+    "//ios/chrome/browser/enterprise/connectors/analysis:unit_tests",
     "//ios/chrome/browser/enterprise/connectors/reporting:unit_tests",
     "//ios/chrome/browser/enterprise/identifiers:unit_tests",
     "//ios/chrome/browser/enterprise/model/idle:unit_tests",
@@ -316,6 +336,8 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/first_run/coordinator:unit_tests",
     "//ios/chrome/browser/first_run/tos/coordinator:unit_tests",
     "//ios/chrome/browser/flags:unit_tests",
+    "//ios/chrome/browser/fullscreen/coordinator:unit_tests",
+    "//ios/chrome/browser/fullscreen/model:unit_tests",
     "//ios/chrome/browser/fullscreen/ui_bundled:unit_tests",
     "//ios/chrome/browser/geolocation/model:unit_tests",
     "//ios/chrome/browser/history/model:unit_tests",
@@ -334,8 +356,8 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/infobars/model/overlays/browser_agent/interaction_handlers/confirm:unit_tests",
     "//ios/chrome/browser/infobars/ui_bundled/banners:unit_tests",
     "//ios/chrome/browser/infobars/ui_bundled/modals/autofill_address_profile:unit_tests",
-    "//ios/chrome/browser/intelligence/actuation/model:unit_tests",
-    "//ios/chrome/browser/intelligence/actuation/model/tools:unit_tests",
+    "//ios/chrome/browser/intelligence/actor/model:unit_tests",
+    "//ios/chrome/browser/intelligence/actor/tools/model:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/coordinator:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/model:unit_tests",
     "//ios/chrome/browser/intelligence/bwg/ui:unit_tests",
@@ -410,6 +432,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/passwords/bottom_sheet/ui:unit_tests",
     "//ios/chrome/browser/passwords/model:unit_tests",
     "//ios/chrome/browser/passwords/model/metrics:unit_tests",
+    "//ios/chrome/browser/passwords/password_exporter/coordinator:unit_tests",
     "//ios/chrome/browser/permissions/model:unit_tests",
     "//ios/chrome/browser/photos/model:unit_tests",
     "//ios/chrome/browser/plus_addresses/coordinator:unit_tests",
@@ -449,6 +472,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/safari_data_import/model:unit_tests",
     "//ios/chrome/browser/safe_browsing/model:unit_tests",
     "//ios/chrome/browser/safe_browsing/model/tailored_security:unit_tests",
+    "//ios/chrome/browser/safe_browsing/ui_bundled:unit_tests",
     "//ios/chrome/browser/safe_mode/model:unit_tests",
     "//ios/chrome/browser/safe_mode/ui_bundled:unit_tests",
     "//ios/chrome/browser/safety_check/model:unit_tests",
@@ -467,6 +491,11 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/segmentation_platform/model:unit_tests",
     "//ios/chrome/browser/send_tab_to_self/model:unit_tests",
     "//ios/chrome/browser/sessions/model:unit_tests",
+    "//ios/chrome/browser/settings/autofill/autofill_ai/coordinator:unit_tests",
+    "//ios/chrome/browser/settings/autofill/autofill_ai/ui:unit_tests",
+    "//ios/chrome/browser/settings/autofill/autofill_ai/utils:unit_tests",
+    "//ios/chrome/browser/settings/clear_browsing_data/coordinator:unit_tests",
+    "//ios/chrome/browser/settings/clear_browsing_data/quick_delete_other_data/coordinator:unit_tests",
     "//ios/chrome/browser/settings/google_services/manage_accounts/coordinator:unit_tests",
     "//ios/chrome/browser/settings/google_services/manage_accounts/ui:unit_tests",
     "//ios/chrome/browser/settings/model/sync/utils:unit_tests",
@@ -477,8 +506,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/settings/ui_bundled/bwg/model:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/bwg/utils:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/cells:unit_tests",
-    "//ios/chrome/browser/settings/ui_bundled/clear_browsing_data/coordinator:unit_tests",
-    "//ios/chrome/browser/settings/ui_bundled/clear_browsing_data/quick_delete_other_data/coordinator:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/content_settings:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/credit_card_scanner:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/default_browser:unit_tests",
@@ -521,6 +548,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/shared/ui/table_view/cells:unit_tests",
     "//ios/chrome/browser/shared/ui/table_view/content_configuration:unit_tests",
     "//ios/chrome/browser/shared/ui/util:unit_tests",
+    "//ios/chrome/browser/shared/ui/util/image:unit_tests",
     "//ios/chrome/browser/sharing/ui_bundled:unit_tests",
     "//ios/chrome/browser/sharing/ui_bundled/activity_services:unit_tests",
     "//ios/chrome/browser/sharing/ui_bundled/activity_services/activities:unit_tests",
@@ -528,6 +556,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/sharing/ui_bundled/qr_generator:unit_tests",
     "//ios/chrome/browser/sharing_message/model:unit_tests",
     "//ios/chrome/browser/side_swipe/ui_bundled:unit_tests",
+    "//ios/chrome/browser/signin/coordinator:unit_tests",
     "//ios/chrome/browser/signin/model:signin_util_internal_unit_tests",
     "//ios/chrome/browser/signin/model:unit_tests",
     "//ios/chrome/browser/signin/model/avatar:unit_tests",

@@ -45,11 +45,6 @@ BASE_FEATURE(kWebViewDeferStartupGmsCalls, base::FEATURE_DISABLED_BY_DEFAULT);
 // longer supported.
 BASE_FEATURE(kWebViewFileSystemAccess, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable ignoring duplicate navigations in WebView. Note that this will only
-// take effect if both this feature flag and the content/public
-// kIgnoreDuplicateNavs flag is enabled.
-BASE_FEATURE(kWebViewIgnoreDuplicateNavs, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Fetch Hand Writing icon lazily.
 BASE_FEATURE(kWebViewLazyFetchHandWritingIcon,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -121,6 +116,9 @@ BASE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel,
 
 // This enables WebView crashes.
 BASE_FEATURE(kWebViewEnableCrash, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebViewPrefetchAheadOfPrerender,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Prefetches the native WebView code to memory during startup.
 BASE_FEATURE(kWebViewPrefetchNativeLibrary, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -204,7 +202,7 @@ BASE_FEATURE(kWebViewUseStartupTasksLogicP2, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Stop browser startup in isMultiProcessEnabled.
 BASE_FEATURE(kWebViewStopBrowserStartupInIsMultiProcessEnabled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables running native startup tasks asynchronously if WebView startup is
 // asynchronous.
@@ -244,11 +242,6 @@ BASE_FEATURE(kWebViewEarlyTracingInit, base::FEATURE_DISABLED_BY_DEFAULT);
 // `kWebViewEarlyTracingInit`. If both flags are enabled,
 // `kWebViewEarlyTracingInit` will take precedent.
 BASE_FEATURE(kWebViewBackgroundTracingInit, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Caches reflective methods in AndroidX instead of looking them up every time.
-// This should make calling AndroidX methods faster.
-BASE_FEATURE(kWebViewCacheBoundaryInterfaceMethods,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, opts in WebView to GMSCore's bindService optimizations.
 BASE_FEATURE(kWebViewOptInToGmsBindServiceOptimization,
@@ -317,5 +310,15 @@ BASE_FEATURE(kWebViewFasterGetDefaultUserAgent,
 // When enabled, navigation headers will be saved and restored as part
 // of saved state for WebView.
 BASE_FEATURE(kWebViewSaveStateIncludeHeaders,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the downloaded favicon in native will not be passed through
+// the jni unless needed / when onReceivedIcon is overridden.
+BASE_FEATURE(kWebViewSkipFaviconJavaCopyUntilNeeded,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, a null will always be passed as the favicon in the
+// onPageStarted method.
+BASE_FEATURE(kWebViewPassNullFaviconToOnPageStarted,
              base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace android_webview::features

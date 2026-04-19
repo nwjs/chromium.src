@@ -13,6 +13,7 @@
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_context.h"
@@ -28,6 +29,7 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_builder.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/features/simple_feature.h"
@@ -638,6 +640,60 @@ TEST_F(EventRouterTest, AddLazyListenerForUnloadedExtension) {
   EXPECT_TRUE(registered_sw_events.count(kEventName2));
 }
 
+// TODO(crbug.com/474558883): Remove this after webRequest listener
+// persistence is stable for a few milestones.
+TEST_F(EventRouterTest, RemovesOrphanedWebRequestEvents) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      extensions_features::kWebRequestPersistFilteredEventsViaEventRouter);
+
+  EventRouter* router = EventRouter::Get(browser_context());
+  scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
+
+  // Manually add orphaned events to prefs.
+  router->AddLazyListenerForMainThread(extension->id(),
+                                       "webRequest.onBeforeRequest/s1");
+  router->AddLazyListenerForServiceWorker(
+      extension->id(), Extension::GetBaseURLFromExtensionId(extension->id()),
+      "webRequest.onBeforeRequest/s2");
+
+  router->AddLazyListenerForMainThread(extension->id(),
+                                       "webViewInternal.onMessage/s1");
+  router->AddLazyListenerForServiceWorker(
+      extension->id(), Extension::GetBaseURLFromExtensionId(extension->id()),
+      "webViewInternal.onMessage/s2");
+
+  // Add non-orphaned events to ensure they are kept.
+  router->AddLazyListenerForMainThread(extension->id(), "tabs.onCreated");
+  router->AddLazyListenerForServiceWorker(
+      extension->id(), Extension::GetBaseURLFromExtensionId(extension->id()),
+      "tabs.onRemoved");
+
+  router->AddLazyListenerForMainThread(extension->id(),
+                                       "webRequest.onActionIgnored");
+  router->AddLazyListenerForServiceWorker(
+      extension->id(), Extension::GetBaseURLFromExtensionId(extension->id()),
+      "webRequest.onActionIgnored");
+
+  // Trigger OnExtensionLoaded.
+  router->OnExtensionLoaded(browser_context(), extension.get());
+
+  // Verify the orphaned events were removed from prefs.
+  auto lazy_events = router->GetRegisteredEvents(
+      extension->id(), EventRouter::RegisteredEventType::kLazy);
+  EXPECT_TRUE(lazy_events.contains("tabs.onCreated"));
+  EXPECT_TRUE(lazy_events.contains("webRequest.onActionIgnored"));
+  EXPECT_FALSE(lazy_events.contains("webRequest.onBeforeRequest/s1"));
+  EXPECT_FALSE(lazy_events.contains("webViewInternal.onMessage/s1"));
+
+  auto sw_events = router->GetRegisteredEvents(
+      extension->id(), EventRouter::RegisteredEventType::kServiceWorker);
+  EXPECT_TRUE(sw_events.contains("tabs.onRemoved"));
+  EXPECT_TRUE(sw_events.contains("webRequest.onActionIgnored"));
+  EXPECT_FALSE(sw_events.contains("webRequest.onBeforeRequest/s2"));
+  EXPECT_FALSE(sw_events.contains("webViewInternal.onMessage/s2"));
+}
+
 // Tests adding and removing events with filters.
 // TODO(crbug.com/40281129): test is flaky across platforms.
 TEST_P(EventRouterFilterTest, DISABLED_Basic) {
@@ -958,6 +1014,79 @@ TEST_F(EventRouterDispatchTest, TestDispatchCallback) {
   event_router()->DispatchEventToExtension(
       ext3, create_event_with_callback("api.other"));
   EXPECT_EQ(0u, dispatched.size());
+}
+
+TEST_F(EventRouterDispatchTest, TestDispatchCallback_NoListeners) {
+  std::string ext1 = "ext1";
+  std::string event_name = "testapi.onEvent";
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("test extension").SetID(ext1).Build();
+  ExtensionRegistry::Get(browser_context())->AddEnabled(extension);
+
+  TestEventRouterObserver observer(event_router());
+
+  // A dispatch restricted to `ext1` should still trigger the callback when
+  // EventRouter has no listener to receive the event.
+  auto event = std::make_unique<extensions::Event>(
+      extensions::events::FOR_TEST, event_name, base::ListValue());
+  base::RunLoop run_loop;
+  bool callback_ran = false;
+  event->cannot_dispatch_callback = base::BindLambdaForTesting([&]() {
+    callback_ran = true;
+    run_loop.Quit();
+  });
+
+  event_router()->DispatchEventToExtension(ext1, std::move(event));
+  run_loop.Run();
+
+  EXPECT_TRUE(callback_ran);
+  EXPECT_EQ(0u, observer.dispatched_events().size());
+}
+
+TEST_F(EventRouterDispatchTest, TestDispatchCallback_OtherExtensionListener) {
+  std::string ext1 = "ext1";
+  std::string ext2 = "ext2";
+  std::string event_name = "testapi.onEvent";
+  FeatureProvider provider;
+  auto feature = std::make_unique<SimpleFeature>();
+  feature->set_name("test feature");
+  provider.AddFeature(event_name, std::move(feature));
+
+  ExtensionAPI api;
+  api.RegisterDependencyProvider("api", &provider);
+  ExtensionAPI::OverrideSharedInstanceForTest scope(&api);
+
+  auto add_extension = [&](const std::string& id) {
+    scoped_refptr<const Extension> extension =
+        ExtensionBuilder("test extension").SetID(id).Build();
+    ExtensionRegistry::Get(browser_context())->AddEnabled(extension);
+  };
+  add_extension(ext1);
+  add_extension(ext2);
+
+  TestEventRouterObserver observer(event_router());
+  // A listener for the same event name owned by `ext2` should not suppress the
+  // callback for a dispatch restricted to `ext1`.
+  event_router()->AddFilteredEventListener(
+      event_name, process(), mojom::EventListenerOwner::NewExtensionId(ext2),
+      /*service_worker_context=*/nullptr, base::DictValue(),
+      /*add_lazy_listener=*/false);
+
+  auto event = std::make_unique<extensions::Event>(
+      extensions::events::FOR_TEST, event_name, base::ListValue());
+  base::RunLoop run_loop;
+  bool callback_ran = false;
+  event->cannot_dispatch_callback = base::BindLambdaForTesting([&]() {
+    callback_ran = true;
+    run_loop.Quit();
+  });
+
+  event_router()->DispatchEventToExtension(ext1, std::move(event));
+  run_loop.Run();
+
+  EXPECT_TRUE(callback_ran);
+  EXPECT_EQ(0u, observer.dispatched_events().size());
 }
 
 }  // namespace extensions

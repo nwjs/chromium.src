@@ -123,6 +123,7 @@ template("chrome_extra_paks") {
       "$root_gen_dir/chrome/browser_resources.pak",
       "$root_gen_dir/chrome/chrome_unscaled_resources.pak",
       "$root_gen_dir/chrome/common_resources.pak",
+      "$root_gen_dir/chrome/contextual_tasks_resources.pak",
       "$root_gen_dir/chrome/glic_fre_resources.pak",
       "$root_gen_dir/chrome/glic_resources.pak",
       "$root_gen_dir/chrome/glic_shared_resources.pak",
@@ -166,6 +167,7 @@ template("chrome_extra_paks") {
       "//chrome/browser:resources",
       "//chrome/browser/glic/resources:browser_resources",
       "//chrome/browser/resources",
+      "//chrome/browser/resources/contextual_tasks:resources",
       "//chrome/browser/resources/glic:resources",
       "//chrome/browser/resources/glic/fre:resources",
       "//chrome/browser/resources/glic/shared:resources",
@@ -216,7 +218,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/browser/actor/resources/actor_common_resources.pak",
         "$root_gen_dir/chrome/certificate_manager_resources.pak",
         "$root_gen_dir/chrome/content_annotator_internals_resources.pak",
-        "$root_gen_dir/chrome/contextual_tasks_resources.pak",
         "$root_gen_dir/chrome/data_sharing_resources.pak",
         "$root_gen_dir/chrome/dev_ui_resources.pak",
         "$root_gen_dir/chrome/downloads_resources.pak",
@@ -227,7 +228,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/key_value_pair_viewer_shared_resources.pak",
         "$root_gen_dir/chrome/lens_shared_resources.pak",
         "$root_gen_dir/chrome/lens_untrusted_resources.pak",
-        "$root_gen_dir/chrome/management_resources.pak",
         "$root_gen_dir/chrome/new_tab_footer_resources.pak",
         "$root_gen_dir/chrome/new_tab_page_instant_resources.pak",
         "$root_gen_dir/chrome/new_tab_page_resources.pak",
@@ -249,6 +249,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_read_anything_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_resources.pak",
         "$root_gen_dir/chrome/side_panel_shared_resources.pak",
+        "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_resources.pak",
         "$root_gen_dir/chrome/signin_resources.pak",
         "$root_gen_dir/chrome/suggest_internals_resources.pak",
         "$root_gen_dir/chrome/support_tool_resources.pak",
@@ -268,7 +269,6 @@ template("chrome_extra_paks") {
         "//chrome/browser/resources:dev_ui_paks",
         "//chrome/browser/resources/actor_overlay:resources",
         "//chrome/browser/resources/autofill_ml_internals:resources",
-        "//chrome/browser/resources/contextual_tasks:resources",
         "//chrome/browser/resources/data_sharing:resources",
         "//chrome/browser/resources/lens/overlay:resources",
         "//chrome/browser/resources/lens/shared:resources",
@@ -432,6 +432,7 @@ template("chrome_extra_paks") {
         "//ash/webui/personalization_app/resources",
         "//ash/webui/print_management/resources",
         "//ash/webui/print_preview_cros/resources",
+        "//ash/webui/projector_app/resources/app/untrusted:resources",
         "//ash/webui/recorder_app_ui/resources",
         "//ash/webui/resources:boca_app_bundle_resources",
         "//ash/webui/resources:boca_receiver_app_bundle_resources",
@@ -446,7 +447,6 @@ template("chrome_extra_paks") {
         "//ash/webui/resources:media_app_resources",
         "//ash/webui/resources:multidevice_debug_resources",
         "//ash/webui/resources:projector_app_bundle_resources",
-        "//ash/webui/resources:projector_app_untrusted_resources",
         "//ash/webui/resources:projector_common_resources",
         "//ash/webui/sanitize_ui/resources",
         "//ash/webui/scanner_feedback_ui/resources",
@@ -513,13 +513,25 @@ template("chrome_extra_paks") {
     }
 
     if (is_win || is_mac || is_linux || is_chromeos || is_desktop_android) {
-      sources += [ "$root_gen_dir/chrome/discards_resources.pak" ]
-      deps += [ "//chrome/browser/resources/discards:resources" ]
+      sources += [
+        "$root_gen_dir/chrome/discards_resources.pak",
+        "$root_gen_dir/chrome/management_resources.pak",
+      ]
+      deps += [
+        "//chrome/browser/resources/discards:resources",
+        "//chrome/browser/resources/management:resources",
+      ]
     }
 
     if (is_win || is_mac || is_linux || is_chromeos) {
-      sources += [ "$root_gen_dir/chrome/skills_resources.pak" ]
-      deps += [ "//chrome/browser/resources/skills:resources" ]
+      sources += [
+        "$root_gen_dir/chrome/ai_overlay_dialog_untrusted_resources.pak",
+        "$root_gen_dir/chrome/skills_resources.pak",
+      ]
+      deps += [
+        "//chrome/browser/resources/ai_overlay_dialog:resources",
+        "//chrome/browser/resources/skills:resources",
+      ]
     }
 
     if (is_win || is_mac || is_linux) {
@@ -608,6 +620,8 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_customize_chrome_code_cache_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_code_cache_resources.pak",
         "$root_gen_dir/chrome/side_panel_shared_code_cache_resources.pak",
+        "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_code_cache_resources.pak",
+        "$root_gen_dir/chrome/webui_toolbar_code_cache_resources.pak",
         "$root_gen_dir/ui/webui/resources/webui_code_cache_resources.pak",
       ]
       deps += [
@@ -732,34 +746,6 @@ template("chrome_paks") {
     }
     if (defined(invoker.public_deps)) {
       public_deps += invoker.public_deps
-    }
-  }
-
-  if (defined(invoker.files_to_hash)) {
-    _prefix = "$target_gen_dir/app/${target_name}_integrity"
-
-    # User of this template needs to check in a pre-generated "$_prefix.h".
-    _integrity_outputs = [ "$_prefix.cc" ]
-
-    action("${target_name}_integrity_hash") {
-      script = "tools/build/sha256_file.py"
-      outputs = _integrity_outputs
-      inputs = []
-      foreach(file, invoker.files_to_hash) {
-        inputs += [ "${invoker.output_dir}/$file" ]
-      }
-
-      args = rebase_path([ _prefix ] + inputs, root_build_dir)
-      deps = [ ":${invoker.target_name}" ]
-    }
-
-    source_set("${target_name}_integrity") {
-      sources = _integrity_outputs
-
-      # This allows starting compilation in dependent targets earlier.
-      public = []
-
-      deps = [ ":${target_name}_hash" ]
     }
   }
 }

@@ -11,13 +11,19 @@
 namespace password_manager::features {
 #if !BUILDFLAG(IS_IOS)  // Desktop
 BASE_FEATURE(kActorLogin, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kActorLoginFederatedLoginSupport,
+BASE_FEATURE(kActorLoginConflictingPermissionCleanup,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kActorLoginFederatedClickFromActor,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginFieldVisibilityCheck, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kActorLoginGetCredentialsNoLoginForm,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginLocalClassificationModel,
              base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_IOS)
+
+BASE_FEATURE(kActorLoginSyncsPasswordPermissions,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kActorLoginPermissionsUseStrongAffiliations,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginReauthTaskRefocus, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -40,8 +46,12 @@ BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
 BASE_FEATURE(kAutofillPasswordUserPerceptionSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAutofillReintroduceHybridPasskeyDropdownItem,
+BASE_FEATURE(kAwaitPageStabilityForPasswordChange,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO: crbug.com/399124614 - Clean up in M151.
+BASE_FEATURE(kAutofillReintroduceHybridPasskeyDropdownItem,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kBiometricTouchToFill, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -128,10 +138,8 @@ BASE_FEATURE(kMarkAllCredentialsAsLeaked, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kOtpPhishGuard, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-BASE_FEATURE(kPasswordDateLastFilled, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPasswordChangeImmediateSubmission,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// Temporarily disabled as mitigation for crbug.com/485895402.
+BASE_FEATURE(kPasswordDateLastFilled, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPasswordFormClientsideClassifier,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -154,9 +162,9 @@ BASE_FEATURE(kProactivelyDownloadModelForPasswordChange,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReduceRequirementsForPasswordChange,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPasswordCheckup, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPasswordCheckupPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kRestartToGainAccessToKeychain,
@@ -185,7 +193,7 @@ BASE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseActionablesForImprovedPasswordChange,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseDetachedWidget, base::FEATURE_DISABLED_BY_DEFAULT);
 

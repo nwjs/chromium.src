@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/inspector/inspector_css_parser_observer.h"
 
+#include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
@@ -167,17 +168,18 @@ CSSRuleSourceData* InspectorCSSParserObserver::PopRuleData() {
 
 namespace {
 
-wtf_size_t FindColonIndex(const String& property_string) {
+wtf_size_t FindColonIndex(const StringView& property_string) {
   for (wtf_size_t index = 0;
        index != kNotFound && index < property_string.length(); index++) {
-    if (property_string[index] == '\\') {
+    // SAFETY: index checked in loop body.
+    if (UNSAFE_BUFFERS(property_string[index]) == '\\') {
       // Next character is escaped, skip over it.
       index++;
-    } else if (property_string[index] == ':') {
+    } else if (UNSAFE_BUFFERS(property_string[index]) == ':') {
       return index;
     } else if (index < property_string.length() - 1 &&
-               property_string[index] == '/' &&
-               property_string[index + 1 == '*']) {
+               UNSAFE_BUFFERS(property_string[index]) == '/' &&
+               UNSAFE_BUFFERS(property_string[index + 1]) == '*') {
       if (index >= property_string.length() - 2) {
         return kNotFound;
       }
@@ -216,19 +218,23 @@ void InspectorCSSParserObserver::ObserveProperty(unsigned start_offset,
   }
 
   DCHECK_LT(start_offset, end_offset);
-  String property_string =
-      parsed_text_.Substring(start_offset, end_offset - start_offset)
+  StringView property_string =
+      parsed_text_
+          .subview(std::min(start_offset, parsed_text_.length()),
+                   end_offset - start_offset)
           .StripWhiteSpace();
   if (property_string.ends_with(';')) {
-    property_string = property_string.Left(property_string.length() - 1);
+    property_string.remove_suffix(1);
   }
   wtf_size_t colon_index = FindColonIndex(property_string);
   DCHECK_NE(colon_index, kNotFound);
 
-  String name = property_string.Left(colon_index).StripWhiteSpace();
+  String name =
+      property_string.subview(0, colon_index).StripWhiteSpace().ToString();
   String value =
-      property_string.Substring(colon_index + 1, property_string.length())
-          .StripWhiteSpace();
+      property_string.subview(colon_index + 1, property_string.length())
+          .StripWhiteSpace()
+          .ToString();
   current_rule_data_stack_.back()->property_data.push_back(
       CSSPropertySourceData(name, value, is_important, false, is_parsed,
                             SourceRange(start_offset, end_offset)));
@@ -267,7 +273,7 @@ void InspectorCSSParserObserver::ObserveComment(unsigned start_offset,
     return;
   }
   comment_text =
-      comment_text.Substring(0, comment_text.length() - 2).StripWhiteSpace();
+      comment_text.substr(0, comment_text.length() - 2).StripWhiteSpace();
   if (comment_text.empty()) {
     return;
   }

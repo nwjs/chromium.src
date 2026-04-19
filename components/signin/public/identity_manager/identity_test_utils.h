@@ -10,12 +10,14 @@
 #include <string_view>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/token_binding_info.h"
 #include "google_apis/gaia/gaia_id.h"
 
 namespace network {
@@ -162,8 +164,8 @@ struct AccountAvailabilityOptions {
   // used as the token.
   const std::optional<std::string> refresh_token = std::string();
 
-  // If non-empty, a refresh token will be bound to device with this key.
-  const std::vector<uint8_t> wrapped_binding_key;
+  // If provided, a refresh token will be bound to device with this information.
+  const TokenBindingInfo token_binding_info;
 
   // If non-null, the account to be created will be marked as present in the
   // Gaia cookie, by using `url_loader_factory_for_cookies` to mock the
@@ -186,7 +188,7 @@ struct AccountAvailabilityOptions {
       const GaiaId& gaia_id,
       std::optional<ConsentLevel> consent_level,
       std::optional<std::string> refresh_token,
-      const std::vector<uint8_t>& wrapped_binding_key,
+      const TokenBindingInfo& token_binding_info,
       raw_ptr<network::TestURLLoaderFactory> url_loader_factory_for_cookies,
       signin_metrics::AccessPoint access_point);
 };
@@ -227,10 +229,11 @@ class AccountAvailabilityOptionsBuilder {
   AccountAvailabilityOptionsBuilder& WithRefreshToken(
       std::string_view refresh_token);
 
-  // Request a refresh token that is bound to a `wrapped_binding_key`.
+  // Request a refresh token that is bound to a device according to
+  // `token_binding_info`.
   // `WithoutRefreshToken()` must not be called if this option is set.
-  AccountAvailabilityOptionsBuilder& WithRefreshTokenBindingKey(
-      const std::vector<uint8_t>& wrapped_binding_key);
+  AccountAvailabilityOptionsBuilder& WithRefreshTokenBindingInfo(
+      const TokenBindingInfo& token_binding_info);
 
   // Request that we should not attempt to set a refresh token for the account.
   AccountAvailabilityOptionsBuilder& WithoutRefreshToken();
@@ -247,7 +250,7 @@ class AccountAvailabilityOptionsBuilder {
   GaiaId gaia_id_;
   std::optional<ConsentLevel> primary_account_consent_level_;
   std::optional<std::string> refresh_token_ = std::string();
-  std::vector<uint8_t> wrapped_binding_key_;
+  TokenBindingInfo token_binding_info_;
   bool with_cookie_ = false;
   signin_metrics::AccessPoint access_point_ =
       signin_metrics::AccessPoint::kSettings;
@@ -282,7 +285,7 @@ void SetRefreshTokenForAccount(
     IdentityManager* identity_manager,
     const CoreAccountId& account_id,
     const std::string& token_value = std::string(),
-    const std::vector<uint8_t>& wrapped_binding_key = std::vector<uint8_t>());
+    const TokenBindingInfo& token_binding_info = TokenBindingInfo());
 
 // Sets a special invalid refresh token for the given account (which must
 // already be available). Blocks until the refresh token is set.
@@ -396,7 +399,8 @@ account_manager::AccountManagerFacade* GetAccountManagerFacade(
 
 // Allows testing some features gated by the official Chrome API keys and OAuth
 // client IDs in builds lacking those keys.
-void SetIgnoreNonOfficialApiKeys();
+[[nodiscard]] std::optional<base::AutoReset<bool>>
+SetIgnoreNonOfficialApiKeysForTesting();
 }  // namespace signin
 
 #endif  // COMPONENTS_SIGNIN_PUBLIC_IDENTITY_MANAGER_IDENTITY_TEST_UTILS_H_

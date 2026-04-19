@@ -26,13 +26,6 @@
 
 namespace downgrade {
 
-SnapshotItemDetails::SnapshotItemDetails(base::FilePath path,
-                                         ItemType item_type,
-                                         uint64_t data_types)
-    : path(std::move(path)),
-      is_directory(item_type == ItemType::kDirectory),
-      data_types(data_types) {}
-
 // Returns a list of items to snapshot that should be directly under the user
 // data  directory.
 std::vector<SnapshotItemDetails> CollectUserDataItems() {
@@ -88,6 +81,9 @@ std::vector<SnapshotItemDetails> CollectProfileItems() {
                           chrome_browsing_data_remover::DATA_TYPE_BOOKMARKS),
       // Tab Restore and sessions
       SnapshotItemDetails(base::FilePath(sessions::kSessionsDirectory),
+                          SnapshotItemDetails::ItemType::kDirectory,
+                          chrome_browsing_data_remover::DATA_TYPE_HISTORY),
+      SnapshotItemDetails(base::FilePath(sessions::kEncryptedSessionsDirectory),
                           SnapshotItemDetails::ItemType::kDirectory,
                           chrome_browsing_data_remover::DATA_TYPE_HISTORY),
       // Sign-in state

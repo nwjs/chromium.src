@@ -148,6 +148,7 @@
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
+#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/browser_controls.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
@@ -210,6 +211,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/url_loader_client.h"
+#include "third_party/blink/renderer/platform/network/http_names.h"
 #include "third_party/blink/renderer/platform/runtime_feature_state/runtime_feature_state_override_context.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
@@ -1760,7 +1762,8 @@ bool CheckTextAutosizingMultiplier(Document* document, float multiplier) {
   for (LayoutObject* layout_object = document->GetLayoutView(); layout_object;
        layout_object = layout_object->NextInPreOrder()) {
     if (layout_object->Style() && layout_object->IsText()) {
-      EXPECT_EQ(multiplier, layout_object->Style()->TextAutosizingMultiplier());
+      EXPECT_EQ(multiplier,
+                layout_object->StyleRef().TextAutosizingMultiplier());
       multiplier_checked = true;
     }
   }
@@ -7276,18 +7279,16 @@ TEST_F(WebFrameTest, SpellcheckResultsSavedInDocument) {
             document->Markers().Markers()[0]->GetType());
 }
 
-class TestAccessInitialDocumentLocalFrameHost
-    : public mojom::blink::LocalMainFrameHost {
+class FakeMainLocalFrameHost : public mojom::blink::LocalMainFrameHost {
  public:
-  TestAccessInitialDocumentLocalFrameHost() = default;
-  ~TestAccessInitialDocumentLocalFrameHost() override = default;
+  FakeMainLocalFrameHost() = default;
+  ~FakeMainLocalFrameHost() override = default;
 
   void Init(blink::AssociatedInterfaceProvider* provider) {
     provider->OverrideBinderForTesting(
         mojom::blink::LocalMainFrameHost::Name_,
-        BindRepeating(
-            &TestAccessInitialDocumentLocalFrameHost::BindFrameHostReceiver,
-            Unretained(this)));
+        BindRepeating(&FakeMainLocalFrameHost::BindFrameHostReceiver,
+                      Unretained(this)));
   }
 
   // LocalMainFrameHost:
@@ -7313,12 +7314,30 @@ class TestAccessInitialDocumentLocalFrameHost
   void SetResizable(bool resizable) override {}
 #endif
   void DidFirstVisuallyNonEmptyPaint() override {}
-  void DidAccessInitialMainDocument() override {
-    ++did_access_initial_main_document_;
-  }
+  void DidAccessInitialMainDocument() override {}
+  void DidChangeThemeColor(std::optional<::SkColor> theme_color) override {}
+  void DidChangeBackgroundColor(const SkColor4f& background_color,
+                                bool color_adjust) override {}
   void DraggableRegionsChanged(
       Vector<mojom::blink::DraggableRegionPtr> regions) override {}
   void OnFirstContentfulPaint(base::TimeDelta duration) override {}
+
+ private:
+  void BindFrameHostReceiver(mojo::ScopedInterfaceEndpointHandle handle) {
+    receiver_.Bind(
+        mojo::PendingAssociatedReceiver<mojom::blink::LocalMainFrameHost>(
+            std::move(handle)));
+  }
+
+  mojo::AssociatedReceiver<mojom::blink::LocalMainFrameHost> receiver_{this};
+};
+
+class TestAccessInitialDocumentLocalFrameHost : public FakeMainLocalFrameHost {
+ public:
+  // LocalMainFrameHost:
+  void DidAccessInitialMainDocument() override {
+    ++did_access_initial_main_document_;
+  }
 
   // !!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!
   // If the actual counts in the tests below increase, this could be an
@@ -7327,14 +7346,6 @@ class TestAccessInitialDocumentLocalFrameHost
   // Please do not simply increment the expected counts in the below tests
   // without understanding what's causing the increased count.
   int did_access_initial_main_document_ = 0;
-
- private:
-  void BindFrameHostReceiver(mojo::ScopedInterfaceEndpointHandle handle) {
-    receiver_.Bind(
-        mojo::PendingAssociatedReceiver<mojom::blink::LocalMainFrameHost>(
-            std::move(handle)));
-  }
-  mojo::AssociatedReceiver<mojom::blink::LocalMainFrameHost> receiver_{this};
 };
 
 TEST_F(WebFrameTest, DidAccessInitialMainDocumentBody) {
@@ -9206,17 +9217,17 @@ TEST_F(WebFrameTest, PrintingBasic)
   frame->PrintEnd();
 }
 
-class ThemeColorTestLocalFrameHost : public FakeLocalFrameHost {
+class ThemeColorTestLocalMainFrameHost : public FakeMainLocalFrameHost {
  public:
-  ThemeColorTestLocalFrameHost() = default;
-  ~ThemeColorTestLocalFrameHost() override = default;
+  ThemeColorTestLocalMainFrameHost() = default;
+  ~ThemeColorTestLocalMainFrameHost() override = default;
 
   void Reset() { did_notify_ = false; }
 
   bool DidNotify() const { return did_notify_; }
 
  private:
-  // FakeLocalFrameHost:
+  // LocalMainFrameHost:
   void DidChangeThemeColor(std::optional<::SkColor> theme_color) override {
     did_notify_ = true;
   }
@@ -9226,7 +9237,7 @@ class ThemeColorTestLocalFrameHost : public FakeLocalFrameHost {
 
 TEST_F(WebFrameTest, ThemeColor) {
   RegisterMockedHttpURLLoad("theme_color_test.html");
-  ThemeColorTestLocalFrameHost host;
+  ThemeColorTestLocalMainFrameHost host;
   frame_test_helpers::TestWebFrameClient client;
   host.Init(client.GetRemoteNavigationAssociatedInterfaces());
   frame_test_helpers::WebViewHelper web_view_helper;
@@ -11892,7 +11903,7 @@ TEST_F(WebFrameTest, SaveImageAt) {
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
 
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -11909,7 +11920,7 @@ TEST_F(WebFrameTest, SaveImageAt) {
   local_frame->SaveImageAt(gfx::Point(3, 3));
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -11937,7 +11948,7 @@ TEST_F(WebFrameTest, SaveImageWithImageMap) {
   local_frame->SaveImageAt(gfx::Point(25, 25));
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -11945,7 +11956,7 @@ TEST_F(WebFrameTest, SaveImageWithImageMap) {
   local_frame->SaveImageAt(gfx::Point(75, 25));
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -11977,7 +11988,7 @@ TEST_F(WebFrameTest, CopyImageWithImageMap) {
   local_frame->SaveImageAt(gfx::Point(25, 25));
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -11985,7 +11996,7 @@ TEST_F(WebFrameTest, CopyImageWithImageMap) {
   local_frame->SaveImageAt(gfx::Point(75, 25));
   base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).RunUntilIdle();
   EXPECT_EQ(
-      String::FromUTF8("data:image/gif;base64"
+      String::FromUtf8("data:image/gif;base64"
                        ",R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="),
       frame_host.Result());
 
@@ -13779,7 +13790,8 @@ TEST_F(WebFrameTest, ContextMenuDataNonLocatedMenu) {
 
   RunPendingTasks();
   web_view_helper.Reset();
-  EXPECT_EQ(frame.GetMenuData().source_type, kMenuSourceTouch);
+  EXPECT_EQ(frame.GetMenuData().source_type,
+            ui::mojom::blink::MenuSourceType::kTouch);
   EXPECT_FALSE(frame.GetMenuData().selected_text.empty());
 }
 
@@ -14896,6 +14908,94 @@ TEST_F(WebFrameTest, SandboxedIframePopupCtrlClick) {
   // sandboxed without `allow-popups`. This should be blocked before reaching
   // BeginNavigation().
   EXPECT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 1);
+}
+
+// Tests that a FrameLoadRequest for a POST request made from an opaque origin
+// results in a ResourceRequest with an Origin header of "null".
+TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTOpaque) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
+  auto* window = frame->DomWindow();
+
+  window->GetSecurityContext().SetSecurityOriginForTesting(
+      SecurityOrigin::CreateUniqueOpaque());
+
+  ResourceRequest resource_request(KURL("https://destination.test/"));
+  resource_request.SetHttpMethod(http_names::kPOST);
+
+  FrameLoadRequest frame_load_request(window, resource_request);
+
+  EXPECT_EQ("null", frame_load_request.GetResourceRequest().HttpHeaderField(
+                        http_names::kOrigin));
+}
+
+// Tests that a FrameLoadRequest for a GET request made from an opaque origin
+// results in a ResourceRequest with no Origin header.
+TEST_F(WebFrameTest, FrameLoadRequestOriginGETOpaque) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
+  auto* window = frame->DomWindow();
+
+  window->GetSecurityContext().SetSecurityOriginForTesting(
+      SecurityOrigin::CreateUniqueOpaque());
+
+  ResourceRequest resource_request(KURL("https://destination.test/"));
+  resource_request.SetHttpMethod(http_names::kGET);
+
+  FrameLoadRequest frame_load_request(window, resource_request);
+
+  EXPECT_TRUE(frame_load_request.GetResourceRequest()
+                  .HttpHeaderField(http_names::kOrigin)
+                  .IsNull());
+}
+
+// Tests that a FrameLoadRequest for a POST request made from a document with
+// URL "about:blank" and origin "https://example.test" results in a
+// ResourceRequest with an Origin header of "https://example.test".
+TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTAboutBlank) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
+  auto* window = frame->DomWindow();
+
+  frame->GetDocument()->SetURL(BlankUrl());
+  window->GetSecurityContext().SetSecurityOriginForTesting(
+      SecurityOrigin::CreateFromString("https://example.test"));
+
+  ResourceRequest resource_request(KURL("https://destination.test/"));
+  resource_request.SetHttpMethod(http_names::kPOST);
+
+  FrameLoadRequest frame_load_request(window, resource_request);
+
+  EXPECT_EQ("https://example.test",
+            frame_load_request.GetResourceRequest().HttpHeaderField(
+                http_names::kOrigin));
+}
+
+// Tests that a FrameLoadRequest for a POST request made from a document with
+// URL "about:blank" and origin "https://example.test" with a referrer policy of
+// "no-referrer" results in a ResourceRequest with an Origin header of "null".
+TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTAboutBlankNoReferrer) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
+  auto* window = frame->DomWindow();
+
+  KURL about_blank = BlankUrl();
+  frame->GetDocument()->SetURL(about_blank);
+  window->GetSecurityContext().SetSecurityOriginForTesting(
+      SecurityOrigin::CreateFromString("https://example.test"));
+  window->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever);
+
+  ResourceRequest resource_request(KURL("https://destination.test/"));
+  resource_request.SetHttpMethod(http_names::kPOST);
+
+  FrameLoadRequest frame_load_request(window, resource_request);
+
+  EXPECT_EQ("null", frame_load_request.GetResourceRequest().HttpHeaderField(
+                        http_names::kOrigin));
 }
 
 }  // namespace blink

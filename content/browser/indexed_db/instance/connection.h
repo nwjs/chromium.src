@@ -19,7 +19,6 @@
 #include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
 #include "components/services/storage/public/cpp/buckets/bucket_info.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
-#include "content/browser/indexed_db/instance/bucket_context_handle.h"
 #include "content/browser/indexed_db/instance/database.h"
 #include "content/browser/indexed_db/instance/transaction.h"
 #include "content/common/content_export.h"
@@ -109,8 +108,6 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   // TODO(dmurph): Change that so this doesn't need to ignore unknown ids.
   void RemoveTransaction(int64_t id);
 
-  void AbortTransactionAndTearDownOnError(Transaction* transaction,
-                                          const DatabaseError& error);
   void CloseAndReportForceClose(const std::string& message);
 
   int scheduling_priority() const { return scheduling_priority_; }
@@ -209,34 +206,17 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   // Gets the transaction, returning null if it doesn't exist.
   Transaction* GetTransaction(int64_t id) const;
 
-  enum class CloseErrorHandling {
-    // Returns from the function on the first encounter with an error.
-    kReturnOnFirstError,
-    // Continues to call Abort() on all transactions despite any errors.
-    // The last error encountered is returned.
-    kAbortAllReturnLastError,
-  };
-
   // The return value is `callbacks_`, passing ownership.
   std::unique_ptr<DatabaseCallbacks> AbortTransactionsAndClose(
-      CloseErrorHandling error_handling,
       const std::string& message);
 
-  // Returns the last error that occurred, if there is any.
-  Status AbortAllTransactionsAndIgnoreErrors(const DatabaseError& error);
-
-  Status AbortAllTransactions(const DatabaseError& error);
-
-  BucketContext* bucket_context() {
-    return bucket_context_handle_.bucket_context();
-  }
+  void AbortAllTransactions(const DatabaseError& error);
 
   void RecordCreateTransactionHistograms(blink::mojom::IDBTransactionMode mode);
 
   const int32_t id_;
 
-  // Keeps the factory for this bucket alive.
-  BucketContextHandle bucket_context_handle_;
+  raw_ptr<BucketContext> bucket_context_;
 
   base::WeakPtr<Database> database_;
   base::RepeatingClosure on_version_change_ignored_;

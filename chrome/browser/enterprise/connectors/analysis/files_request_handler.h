@@ -11,22 +11,20 @@
 #include "base/files/scoped_file.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/enterprise/connectors/analysis/request_handler_base.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/file_opening_job.h"
+#include "chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/file_opening_job.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/request_handler_base.h"
 #include "components/file_access/scoped_file_access.h"
 
-namespace safe_browsing {
-
-class FileAnalysisRequest;
-class FileOpeningJob;
-
-}  // namespace safe_browsing
+class Profile;
 
 namespace enterprise_connectors {
+
+class FileAnalysisRequestBase;
 
 // Handles deep scanning requests for multiple files which are specified by
 // `paths_`. Files are scanned in parallel and piped to the BinaryUploadService
@@ -101,7 +99,8 @@ class FilesRequestHandler : public RequestHandlerBase {
  private:
   // Prepares an upload request for the file at `path`.  If the file
   // cannot be uploaded it will have a failure verdict added to `result_`.
-  safe_browsing::FileAnalysisRequest* PrepareFileRequest(size_t index);
+  enterprise_connectors::FileAnalysisRequestBase* PrepareFileRequest(
+      size_t index);
 
   // Called when the file info for `path` has been fetched. Also begins the
   // upload process.
@@ -109,6 +108,8 @@ class FilesRequestHandler : public RequestHandlerBase {
                      size_t index,
                      ScanRequestUploadResult result,
                      BinaryUploadRequest::Data data);
+
+  void OnGotHash(size_t index, std::string hash);
 
   // Called when a request is finished early without uploading it.
   // This is, e.g., called for encrypted files and responsible for posting the
@@ -139,9 +140,9 @@ class FilesRequestHandler : public RequestHandlerBase {
       std::vector<safe_browsing::FileOpeningJob::FileOpeningTask> tasks,
       file_access::ScopedFileAccess file_access);
 
-  // Owner of the FileOpeningJob responsible for opening files on parallel
-  // threads. Always nullptr for non-file content scanning.
-  std::unique_ptr<safe_browsing::FileOpeningJob> file_opening_job_;
+  // Constructs and owns a refcount to FileOpeningJob responsible for opening
+  // files on parallel threads. Always nullptr for non-file content scanning.
+  scoped_refptr<safe_browsing::FileOpeningJob> file_opening_job_;
 
   std::vector<base::FilePath> paths_;
   std::vector<FileInfo> file_info_;
@@ -164,6 +165,7 @@ class FilesRequestHandler : public RequestHandlerBase {
   std::string source_;
   std::string destination_;
   std::string content_transfer_method_;
+  raw_ptr<Profile> profile_ = nullptr;
 
   CompletionCallback callback_;
 

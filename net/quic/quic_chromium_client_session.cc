@@ -537,6 +537,15 @@ QuicChromiumClientSession::Handle::GetConnectTiming() {
   return session_->GetConnectTiming();
 }
 
+std::optional<ResolutionDetails>
+QuicChromiumClientSession::Handle::GetResolutionDetails() const {
+  if (!session_) {
+    return std::nullopt;
+  }
+
+  return session_->GetResolutionDetails();
+}
+
 void QuicChromiumClientSession::Handle::PopulateNetErrorDetails(
     NetErrorDetails* details) const {
   if (session_) {
@@ -1021,6 +1030,7 @@ QuicChromiumClientSession::QuicChromiumClientSession(
     const char* const connection_description,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> resolution_details,
     const base::TickClock* tick_clock,
     base::SequencedTaskRunner* task_runner,
     std::unique_ptr<SocketPerformanceWatcher> socket_performance_watcher,
@@ -1064,6 +1074,7 @@ QuicChromiumClientSession::QuicChromiumClientSession(
       task_runner_(task_runner),
       net_log_(NetLogWithSource::Make(net_log.net_log(),
                                       NetLogSourceType::QUIC_SESSION)),
+      resolution_details_(std::move(resolution_details)),
       logger_(std::make_unique<QuicConnectionLogger>(
           this,
           connection_description,
@@ -1363,9 +1374,10 @@ int QuicChromiumClientSession::TryCreateStream(StreamRequest* request) {
 
   bool can_open_next = CanOpenNextOutgoingBidirectionalStream();
   if (can_open_next) {
-    request->stream_ =
-        CreateOutgoingReliableStreamImpl(request->traffic_annotation())
-            ->CreateHandle();
+    request->stream_ = CreateOutgoingReliableStreamImpl(
+                           request->traffic_annotation(),
+                           /*max_stream_limit_pending_delay=*/base::TimeDelta())
+                           ->CreateHandle();
     return OK;
   }
 
@@ -1424,11 +1436,13 @@ QuicChromiumClientSession::CreateOutgoingBidirectionalStream() {
 
 QuicChromiumClientStream*
 QuicChromiumClientSession::CreateOutgoingReliableStreamImpl(
-    const NetworkTrafficAnnotationTag& traffic_annotation) {
+    const NetworkTrafficAnnotationTag& traffic_annotation,
+    base::TimeDelta max_stream_limit_pending_delay) {
   DCHECK(connection()->connected());
   QuicChromiumClientStream* stream = new QuicChromiumClientStream(
       GetNextOutgoingBidirectionalStreamId(), this, server_id(),
-      quic::BIDIRECTIONAL, net_log_, traffic_annotation);
+      quic::BIDIRECTIONAL, net_log_, traffic_annotation,
+      max_stream_limit_pending_delay);
   ActivateStream(base::WrapUnique(stream));
   ++num_total_streams_;
   UMA_HISTOGRAM_COUNTS_1M("Net.QuicSession.NumOpenStreams",
@@ -1645,7 +1659,7 @@ QuicChromiumClientSession::CreateIncomingReliableStreamImpl(
 
   QuicChromiumClientStream* stream = new QuicChromiumClientStream(
       id, this, server_id(), quic::READ_UNIDIRECTIONAL, net_log_,
-      traffic_annotation);
+      traffic_annotation, /*max_stream_limit_pending_delay=*/std::nullopt);
   ActivateStream(base::WrapUnique(stream));
   ++num_total_streams_;
   return stream;
@@ -1692,8 +1706,10 @@ void QuicChromiumClientSession::OnCanCreateNewOutgoingStream(
     StreamRequest* request = stream_requests_.front();
     // TODO(ckrasic) - analyze data and then add logic to mark QUIC
     // broken if wait times are excessive.
+    base::TimeDelta pending_wait_time =
+        tick_clock_->NowTicks() - request->pending_start_time_;
     UMA_HISTOGRAM_TIMES("Net.QuicSession.PendingStreamsWaitTime",
-                        tick_clock_->NowTicks() - request->pending_start_time_);
+                        pending_wait_time);
     stream_requests_.pop_front();
 
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
@@ -1707,7 +1723,8 @@ void QuicChromiumClientSession::OnCanCreateNewOutgoingStream(
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
 
     request->OnRequestCompleteSuccess(
-        CreateOutgoingReliableStreamImpl(request->traffic_annotation())
+        CreateOutgoingReliableStreamImpl(request->traffic_annotation(),
+                                         pending_wait_time)
             ->CreateHandle());
   }
 }
@@ -3056,7 +3073,6 @@ static void LogMTCCertVerifyMetrics(
     const std::vector<std::vector<uint8_t>>& client_mtc_tais,
     const std::vector<std::vector<uint8_t>>& server_tais,
     const ProofVerifyDetailsChromium* verify_details,
-    bool is_resumption,
     int64_t mtc_update_time_seconds) {
   std::optional<uint64_t> client_landmark;
   std::optional<uint64_t> server_landmark;
@@ -3082,19 +3098,11 @@ static void LogMTCCertVerifyMetrics(
     have_landmark_delta = true;
     if (*server_landmark > *client_landmark) {
       old_client = true;
-      UMA_HISTOGRAM_COUNTS_1000("Net.QuicSession.MTCLandmarkDelta.OldClient",
+      UMA_HISTOGRAM_COUNTS_1000("Net.QuicSession.MTCLandmarkDelta2.OldClient",
                                 *server_landmark - *client_landmark);
-      base::UmaHistogramCounts1000(
-          HistogramNameForResumptionVariant(
-              "Net.QuicSession.MTCLandmarkDelta.OldClient", is_resumption),
-          *server_landmark - *client_landmark);
     } else {
       UMA_HISTOGRAM_COUNTS_1000(
-          "Net.QuicSession.MTCLandmarkDelta.CurrentClient",
-          *client_landmark - *server_landmark);
-      base::UmaHistogramCounts1000(
-          HistogramNameForResumptionVariant(
-              "Net.QuicSession.MTCLandmarkDelta.CurrentClient", is_resumption),
+          "Net.QuicSession.MTCLandmarkDelta2.CurrentClient",
           *client_landmark - *server_landmark);
     }
   }
@@ -3105,11 +3113,11 @@ static void LogMTCCertVerifyMetrics(
     // The MTCMetadata is only useful for a max of 7 days. The histogram logs
     // thru 10 days so that if clients are out of date, we have somewhat of an
     // idea of how out of date they are.
-    UMA_HISTOGRAM_CUSTOM_TIMES("Net.QuicSession.MTCMetadataAge", landmark_age,
+    UMA_HISTOGRAM_CUSTOM_TIMES("Net.QuicSession.MTCMetadataAge2", landmark_age,
                                base::Seconds(1), base::Days(10), 100);
-    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata", true);
+    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata2", true);
   } else {
-    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata", false);
+    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata2", false);
   }
 
   bool cert_is_mtc =
@@ -3117,9 +3125,7 @@ static void LogMTCCertVerifyMetrics(
       bssl::SignatureAlgorithm::kMtcProofDraftDavidben08;
 
   MTCResult result;
-  if (is_resumption) {
-    result = MTCResult::kResumption;
-  } else if (cert_is_mtc) {
+  if (cert_is_mtc) {
     if (!IsCertStatusError(verify_details->cert_verify_result.cert_status)) {
       result = MTCResult::kValidMTC;
     } else {
@@ -3135,24 +3141,14 @@ static void LogMTCCertVerifyMetrics(
       result = MTCResult::kClassicalCertExpectedMTC;
     }
   }
-  UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.MTCResult", result);
+  UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.MTCResult2", result);
 
   base::UmaHistogramSparse(
-      "Net.QuicSession.CertVerificationResult.MTCAdvertised",
-      -verify_details->cert_verify_net_error_for_metrics_only);
-  base::UmaHistogramSparse(
-      HistogramNameForResumptionVariant(
-          "Net.QuicSession.CertVerificationResult.MTCAdvertised",
-          is_resumption),
+      "Net.QuicSession.CertVerificationResult.MTCAdvertised2",
       -verify_details->cert_verify_net_error_for_metrics_only);
   if (cert_is_mtc) {
     base::UmaHistogramSparse(
-        "Net.QuicSession.CertVerificationResult.MTCReceived",
-        -verify_details->cert_verify_net_error_for_metrics_only);
-    base::UmaHistogramSparse(
-        HistogramNameForResumptionVariant(
-            "Net.QuicSession.CertVerificationResult.MTCReceived",
-            is_resumption),
+        "Net.QuicSession.CertVerificationResult.MTCReceived2",
         -verify_details->cert_verify_net_error_for_metrics_only);
   }
 }
@@ -3187,15 +3183,43 @@ void QuicChromiumClientSession::OnProofVerifyDetailsAvailable(
   verify_mtcs_enabled =
       base::FeatureList::IsEnabled(net::features::kVerifyMTCs);
 #endif
-  if (server_supports_mtc_tai_ && verify_mtcs_enabled) {
+  // This function runs as part of the cert verify callback. That callback runs
+  // in 2 conditions: When receiving a Certificate message from the server (as
+  // part of a full handshake), and if we are attempting resumption, it runs (at
+  // some point during the handshake) using the cached cert in the SSL_SESSION.
+  // If no resumption is attempted, or if resumption is attempted and accepted,
+  // it runs once per handshake. However, if resumption is attempted and
+  // rejected, it runs twice.
+  //
+  // To ensure that metrics reflect what we observe in a certificate from a
+  // server (and that they're only logged once per connection), the following
+  // detects whether this function is running as part of a reverify_on_resume.
+  // If it is part of a reverification, then the cert is cached rather than sent
+  // from the server on this connection and we shouldn't log metrics.
+
+  // Reverifies only happen on resumption attempts.
+  bool is_resumption_attempt = crypto_stream_->ResumptionAttempted();
+  // If SSL_session_reused says this connection is a resumption handshake, then
+  // we're definitely in a reverify call.
+  bool is_resumption = SSL_session_reused(crypto_stream_->GetSsl());
+  // If we're in a 0-RTT resumption attempt, the reverify runs before sending
+  // any early data, so ssl->s3->session_reused hasn't been set yet.
+  // SSL_session_reused will return true if that is true or SSL_in_early_data
+  // returns true, but due to the ordering of calls in BoringSSL, cert
+  // reverification happens before in_early_data is set. We can exploit the
+  // nature of this timing difference by looking at the ssl_early_data_reason_t,
+  // which also doesn't get set until after the early cert reverify call.
+  bool early_data_reason_unknown =
+      crypto_stream_->EarlyDataReason() == ssl_early_data_unknown;
+  bool is_reverify =
+      is_resumption_attempt && (is_resumption || early_data_reason_unknown);
+  if (!is_reverify && server_supports_mtc_tai_ && verify_mtcs_enabled) {
     auto client_mtc_tais =
         ssl_config_service_->GetSSLContextConfig().mtc_trust_anchor_ids;
     int64_t mtc_update_time_seconds =
         ssl_config_service_->GetSSLContextConfig().mtc_update_time_seconds;
-    bool is_resumption = SSL_session_reused(crypto_stream_->GetSsl());
     LogMTCCertVerifyMetrics(client_mtc_tais, server_tais,
-                            verify_details_chromium, is_resumption,
-                            mtc_update_time_seconds);
+                            verify_details_chromium, mtc_update_time_seconds);
   }
 }
 
@@ -4330,6 +4354,11 @@ QuicChromiumClientSession::GetConnectTiming() {
   connect_timing_.ssl_start = connect_timing_.connect_start;
   connect_timing_.ssl_end = connect_timing_.connect_end;
   return connect_timing_;
+}
+
+std::optional<ResolutionDetails>
+QuicChromiumClientSession::GetResolutionDetails() const {
+  return resolution_details_;
 }
 
 quic::ParsedQuicVersion QuicChromiumClientSession::GetQuicVersion() const {

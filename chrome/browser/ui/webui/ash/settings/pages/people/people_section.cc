@@ -29,8 +29,6 @@
 #include "chrome/browser/ash/account_manager/account_manager_util.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -388,13 +386,20 @@ void AddSetupPinDialogStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_CHOOSE_PIN_TITLE},
       {"configurePinConfirmPinTitle",
        IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_CONFIRM_PIN_TITLE},
-      {"invalidPin", IDS_SETTINGS_PEOPLE_PIN_PROMPT_INVALID_PIN},
       {"configurePinMismatched", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_MISMATCHED},
       {"configurePinTooShort", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_TOO_SHORT},
       {"configurePinTooLong", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_TOO_LONG},
       {"configurePinWeakPin", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_WEAK_PIN},
       {"configurePinNondigit", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_NONDIGIT},
       {"internalError", IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_INTERNAL_ERROR},
+      {"configurePinComplexityErrorNone",
+       IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_NONE},
+      {"configurePinComplexityErrorLow",
+       IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_LOW},
+      {"configurePinComplexityErrorMedium",
+       IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_MEDIUM},
+      {"configurePinComplexityErrorHigh",
+       IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_HIGH},
       {"pinKeyboardPlaceholderPin", IDS_PIN_KEYBOARD_HINT_TEXT_PIN},
       {"pinKeyboardPlaceholderPinPassword",
        IDS_PIN_KEYBOARD_HINT_TEXT_PIN_PASSWORD},
@@ -502,9 +507,8 @@ PeopleSection::PeopleSection(Profile* profile,
   // OS and browser settings.
   if (IsAccountManagerAvailable(profile)) {
     // Some Account Manager search tags are added/removed dynamically.
-    auto* factory =
-        g_browser_process->platform_part()->GetAccountManagerFactory();
-    account_manager_ = factory->GetAccountManager(profile->GetPath().value());
+    account_manager_ = AccountManagerFactory::Get()->GetAccountManager(
+        profile->GetPath().value());
     DCHECK(account_manager_);
     account_manager_facade_ =
         AccountManagerFactory::Get()->GetAccountManagerFacade(

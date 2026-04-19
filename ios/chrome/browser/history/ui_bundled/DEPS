@@ -7,18 +7,10 @@ include_rules = [
   "+ios/chrome/browser/metrics/model/new_tab_page_uma.h",
   "+ios/chrome/browser/net/model/crurl.h",
   "+ios/chrome/browser/policy/model/policy_util.h",
-  "+ios/chrome/browser/settings/ui_bundled/clear_browsing_data",
+  "+ios/chrome/browser/settings/clear_browsing_data",
   "+ios/chrome/browser/sharing/ui_bundled",
   "+ios/chrome/browser/sync/model/sync_service_factory.h",
   "+ios/chrome/browser/url_loading/model",
   "+ios/chrome/browser/window_activities/model/window_activity_helpers.h",
   # keep-sorted end
 ]
-
-specific_include_rules = {
-  # web::HttpServer is deprecated in favor of net::EmbeddedTestServer.
-  # TODO:(crbug.com/891834) Remove this exception.
-  "history_system_egtest\.mm": [
-    "+ios/web/public/test/http_server",
-  ],
-}

@@ -4,14 +4,18 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+import android.content.Context;
+import android.view.View;
+
+import org.chromium.base.CallbackController;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
+import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.ui.base.WindowAndroid;
 
 /** Manager class for the tab bottom sheet. */
@@ -37,9 +41,48 @@ public class TabBottomSheetManager implements Destroyable {
         void onBottomSheetClosed();
     }
 
+    private final LayoutStateObserver mLayoutStateObserver =
+            new LayoutStateObserver() {
+                @Override
+                public void onStartedShowing(@LayoutType int layoutType) {
+                    if (layoutType == LayoutType.TAB_SWITCHER) {
+                        mIsSuppressedOnTabSwitcher = true;
+                        if (mTabBottomSheetCoordinator != null
+                                && mNativeInterfaceDelegate != null) {
+                            mTabBottomSheetCoordinator.closeBottomSheet();
+                        }
+                    }
+                }
+
+                @Override
+                public void onStartedHiding(@LayoutType int layoutType) {
+                    if (layoutType == LayoutType.TAB_SWITCHER) {
+                        mIsSuppressedOnTabSwitcher = false;
+                        if (mLayoutStateProviderOneShotSupplier.get() != null) {
+                            @LayoutType
+                            int nextLayoutType =
+                                    mLayoutStateProviderOneShotSupplier.get().getNextLayoutType();
+                            if (nextLayoutType == LayoutType.BROWSING) {
+                                if (mTabBottomSheetCoordinator != null
+                                        && mNativeInterfaceDelegate != null) {
+                                    if (!mTabBottomSheetCoordinator.tryToShowBottomSheet(
+                                            /* animate= */ false, /* startsExpanded= */ false)) {
+                                        notifyOnClose();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+    private final Context mContext;
     private final WindowAndroid mWindowAndroid;
     private final BottomSheetController mBottomSheetController;
-    private final BottomSheetObserver mBottomSheetObserver;
+    private final OneshotSupplier<LayoutStateProvider> mLayoutStateProviderOneShotSupplier;
+    private final CallbackController mCallbackController = new CallbackController();
+
+    private boolean mIsSuppressedOnTabSwitcher;
 
     private @Nullable TabBottomSheetCoordinator mTabBottomSheetCoordinator;
     private @Nullable NativeInterfaceDelegate mNativeInterfaceDelegate;
@@ -47,15 +90,27 @@ public class TabBottomSheetManager implements Destroyable {
     /**
      * Constructor.
      *
+     * @param context Context.
      * @param windowAndroid The {@link WindowAndroid} for managing window-level operations.
      * @param bottomSheetController The {@link BottomSheetController} used to show the bottom sheet.
+     * @param tabModelSelector The {@link TabModelSelector} for managing tab models.
+     * @param layoutStateProviderOneShotSupplier The {@link LayoutStateProvider} for managing layout
+     *     state.
      */
     public TabBottomSheetManager(
-            WindowAndroid windowAndroid, BottomSheetController bottomSheetController) {
+            Context context,
+            WindowAndroid windowAndroid,
+            BottomSheetController bottomSheetController,
+            OneshotSupplier<LayoutStateProvider> layoutStateProviderOneShotSupplier) {
+        mContext = context;
         mWindowAndroid = windowAndroid;
         mBottomSheetController = bottomSheetController;
+        mLayoutStateProviderOneShotSupplier = layoutStateProviderOneShotSupplier;
 
-        mBottomSheetObserver = buildBottomSheetObserver();
+        mLayoutStateProviderOneShotSupplier.onAvailable(
+                mCallbackController.makeCancelable(
+                        (provider) -> provider.addObserver(mLayoutStateObserver)));
+
         TabBottomSheetUtils.attachManagerToWindow(windowAndroid, this);
     }
 
@@ -63,17 +118,37 @@ public class TabBottomSheetManager implements Destroyable {
      * Attempts to show the Tab BottomSheet.
      *
      * @param nativeInterfaceDelegate The native interface delegate.
-     * @param coBrowseViews The views to show in the bottom sheet.
+     * @param coBrowseViews The views to be displayed within the bottom sheet. These should be
+     *     obtained via {@link CoBrowseViewFactory}. Note that these views have a single-use
+     *     lifecycle; they are destroyed when the bottom sheet is closed and cannot be reused for
+     *     subsequent showings.
+     * @param animate Whether to animate the bottom sheet.
+     * @param startsExpanded Whether the bottom sheet should start in the expanded state.
      * @return Whether the bottom sheet was shown.
      */
     boolean tryToShowBottomSheet(
-            NativeInterfaceDelegate nativeInterfaceDelegate, CoBrowseViews coBrowseViews) {
+            NativeInterfaceDelegate nativeInterfaceDelegate,
+            CoBrowseViews coBrowseViews,
+            boolean animate,
+            boolean startsExpanded) {
+        // Close any existing bottom sheet before showing a new one.
+        tryToCloseBottomSheet();
         mTabBottomSheetCoordinator =
-                new TabBottomSheetCoordinator(mBottomSheetController, coBrowseViews);
+                new TabBottomSheetCoordinator(
+                        mContext,
+                        mWindowAndroid,
+                        mBottomSheetController,
+                        coBrowseViews,
+                        this::onBottomSheetClosed);
 
-        if (mTabBottomSheetCoordinator.tryToShowBottomSheet()) {
+        if (mIsSuppressedOnTabSwitcher) {
+            // We are currently in the tab switcher, save this sheet to be shown when we return to a
+            // tab.
+            mNativeInterfaceDelegate = nativeInterfaceDelegate;
+            return true;
+        }
+        if (mTabBottomSheetCoordinator.tryToShowBottomSheet(animate, startsExpanded)) {
             // Successfully showed bottom sheet.
-            mBottomSheetController.addObserver(mBottomSheetObserver);
             mNativeInterfaceDelegate = nativeInterfaceDelegate;
             return true;
         }
@@ -89,44 +164,72 @@ public class TabBottomSheetManager implements Destroyable {
 
     void tryToCloseBottomSheet() {
         if (mTabBottomSheetCoordinator != null) {
-            mTabBottomSheetCoordinator.closeBottomSheet();
+            if (!mTabBottomSheetCoordinator.isSheetShowing()) {
+                // The bottom sheet is already closed. just send a onClose event back to native.
+                notifyOnClose();
+            } else {
+                mTabBottomSheetCoordinator.closeBottomSheet();
+            }
         }
+    }
+
+    /**
+     * Attaches the peek view to the bottom sheet.
+     *
+     * @param peekView The peek view to attach.
+     */
+    public void attachPeekView(View peekView) {
+        if (mTabBottomSheetCoordinator != null) {
+            mTabBottomSheetCoordinator.attachPeekView(peekView);
+        }
+    }
+
+    public boolean isSheetInitialized() {
+        return mTabBottomSheetCoordinator != null;
     }
 
     boolean isSheetShowing() {
         return mTabBottomSheetCoordinator != null && mTabBottomSheetCoordinator.isSheetShowing();
     }
 
-    // Observer methods.
-    private BottomSheetObserver buildBottomSheetObserver() {
-        return new EmptyBottomSheetObserver() {
-            @Override
-            public void onSheetStateChanged(@SheetState int state, @StateChangeReason int reason) {
-                if (state == SheetState.HIDDEN) {
-                    mBottomSheetController.removeObserver(mBottomSheetObserver);
-                    if (mNativeInterfaceDelegate != null) {
-                        mNativeInterfaceDelegate.onBottomSheetClosed();
-                        mNativeInterfaceDelegate = null;
-                    }
-                    if (mTabBottomSheetCoordinator != null) {
-                        mTabBottomSheetCoordinator.destroy();
-                        mTabBottomSheetCoordinator = null;
-                    }
-                }
-            }
-
-            @Override
-            public void onSheetClosed(@StateChangeReason int reason) {}
-        };
-    }
-
     @Override
     public void destroy() {
+        mCallbackController.destroy();
+
+        // Destroy the coorinator in case the manager is abruptly destroyed before hiding the bottom
+        // sheet.
         if (mTabBottomSheetCoordinator != null) {
             mTabBottomSheetCoordinator.destroy();
             mTabBottomSheetCoordinator = null;
         }
+
+        var layoutStateProvider = mLayoutStateProviderOneShotSupplier.get();
+        if (layoutStateProvider != null) {
+            layoutStateProvider.removeObserver(mLayoutStateObserver);
+        }
+
         TabBottomSheetUtils.detachManagerFromWindow(mWindowAndroid);
+    }
+
+    private void onBottomSheetClosed() {
+        if (!mIsSuppressedOnTabSwitcher) {
+            notifyOnClose();
+        }
+    }
+
+    private void notifyOnClose() {
+        if (mNativeInterfaceDelegate != null) {
+            mNativeInterfaceDelegate.onBottomSheetClosed();
+            mNativeInterfaceDelegate = null;
+        }
+        // Destroy the sheet after notifying native of the close event.
+        // The only time the sheet isn't destroyed is if we enter the tab switcher, in which case
+        // we close the sheet but hold only the coordinator to reshow the sheet if we return to the
+        // same tab.
+        if (mTabBottomSheetCoordinator != null) {
+            mTabBottomSheetCoordinator.destroy();
+            mTabBottomSheetCoordinator = null;
+        }
     }
 
     /* Testing methods */

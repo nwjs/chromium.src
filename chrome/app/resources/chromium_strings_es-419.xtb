@@ -33,7 +33,6 @@
 <translation id="1324107359134968521">Chromium necesita acceso a la conexión Bluetooth para explorar 
  los dispositivos Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Detectar idioma</translation>
-<translation id="1330742950061766891">Usar la configuración recomendada del navegador Chromium</translation>
 <translation id="1342274909142618978">Borrar también datos de Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Se fijó. Puedes volver a acceder a la Búsqueda con imágenes desde el nuevo botón en la barra de herramientas.</translation>
 <translation id="1356661055722410047">¡Novedad! Puedes traducir texto e imágenes en pantalla</translation>
@@ -55,8 +54,10 @@
 <translation id="1594928384848033697">Chromium quiere borrar tus datos del Administrador de contraseñas. Para permitirlo, escribe tu contraseña de Windows.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{Tu administrador necesita que reinicies Chromium para aplicar una actualización}=1{Tu administrador necesita que reinicies Chromium para aplicar una actualización. No se volverá a abrir la ventana de incógnito.}other{Tu administrador necesita que reinicies Chromium para aplicar una actualización. No se volverán a abrir las # ventanas de incógnito.}}</translation>
 <translation id="1625909126243026060">Revisa los controles de seguridad y privacidad más importantes en Chromium</translation>
+<translation id="1639380494700489405">Para preguntarle al Modo IA sobre tu pestaña sin salir de la página, accede a Chromium. También obtendrás tus contraseñas y más en todos tus dispositivos.</translation>
 <translation id="1640672724030957280">Descargando...</translation>
 <translation id="1680687534629375545">Preguntar a la Búsqueda con imágenes acerca de esta página</translation>
+<translation id="1708414395296835197">Puedes usar Chromium cada vez que hagas clic en vínculos de mensajes, documentos y otras apps. También se fijará a la barra de tareas.</translation>
 <translation id="1709772298389099340">Otorga privilegios elevados para <ph name="BROWSER_NAME" />.</translation>
 <translation id="1715127912119967311">Para ayudar a mejorar estas funciones, Chromium envía tus interacciones con ellas a Google. Los revisores manuales podrán leer, procesar y anotar estos datos.</translation>
 <translation id="1722488837206509557">Esto te permitirá seleccionar dispositivos disponibles y mostrar contenido en ellos.</translation>
@@ -196,6 +197,7 @@
 <translation id="3045032126857188731">Idioma traducido: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Cerrar diálogo de comentarios</translation>
 <translation id="3068187312562070417">Otros perfiles de Chromium</translation>
+<translation id="3068290154869370196">Las extensiones son complementos que te permiten personalizar Chromium. Desde mantener la organización hasta simplificar las tareas cotidianas, las extensiones te ayudan a personalizar Chromium.</translation>
 <translation id="3068515742935458733">Envía a Google informes de fallos y <ph name="UMA_LINK" /> para ayudar a mejorar Chromium.</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Una o más extensiones de Chromium tenían acceso a 1 dispositivo USB}=1{Una o más extensiones de Chromium tienen acceso a 1 dispositivo USB}other{Una o más extensiones de Chromium tienen acceso a # dispositivos USB}}</translation>
 <translation id="3095811995836568724">Historial de Chromium</translation>
@@ -224,7 +226,6 @@
 <translation id="3313189106987092621">Chromium te advertirá antes de que cargues un sitio con una conexión no segura</translation>
 <translation id="3316771292331273802">Saldrás de la mayoría de los sitios cuando cierres todas las ventanas de Chromium, excepto tu Cuenta de Google si accediste a Chromium. Para permitir que los sitios te recuerden, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3322413454779348750">Se cambió tu motor de búsqueda predeterminado fuera de Chromium. Chromium lo restableció para protegerte.</translation>
-<translation id="3331557257666250900">Accede a tu cuenta en Chromium para obtener tus contraseñas, favoritos y mucho más en todos tus dispositivos</translation>
 <translation id="3352986031709923790">esquina superior derecha del área de búsqueda: derecha <ph name="RIGHT" />%, superior <ph name="TOP" />%</translation>
 <translation id="3366305173356742781">Datos de Chromium en tu cuenta</translation>
 <translation id="3369405342922656244">Buscar en esta página con la Búsqueda con imágenes</translation>
@@ -435,6 +436,7 @@
 <translation id="5895138241574237353">Reiniciar</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" />: Acceso a la red</translation>
 <translation id="5924017743176219022">Conectando a Internet...</translation>
+<translation id="5939553720811388432">Preparemos tu Chromium</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="5949225980829865667">Para acceder a este favorito y mucho más en todos tus dispositivos, accede a Chromium</translation>
 <translation id="5953657885167112863">Personaliza Chromium a tu gusto</translation>
@@ -584,6 +586,7 @@ No se pueden guardar nuevos favoritos en tu cuenta hasta que borres algunos. Si 
 <translation id="7352651011704765696">Se produjo un error</translation>
 <translation id="7368826207863345663">Para obtener las próximas actualizaciones de Chromium, necesitarás macOS 13 o versiones posteriores. Esta computadora usa macOS 12.</translation>
 <translation id="7376384068949534168">No lo visitaste recientemente. Chromium quitó los permisos de <ph name="PERMISSION_1" /> y <ph name="PERMISSION_2" />.</translation>
+<translation id="73786666777299047">Abrir Chrome Web Store</translation>
 <translation id="7384121030444253939">Esta extensión ya no es compatible. Chromium te recomienda quitarla.</translation>
 <translation id="7413153308467572558">Retoma tu actividad desde donde la dejaste: Chromium restablece tus pestañas cada vez que reinicias. Para desactivar esta opción, ve a</translation>
 <translation id="7427879960656355200">Importar contraseñas a Chromium</translation>

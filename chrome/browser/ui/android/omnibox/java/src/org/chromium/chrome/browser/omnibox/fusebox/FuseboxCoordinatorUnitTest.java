@@ -9,6 +9,8 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
@@ -33,7 +35,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
@@ -61,7 +62,6 @@ import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.Page
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatureList;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
@@ -85,6 +85,7 @@ public class FuseboxCoordinatorUnitTest {
     @Mock private Profile mProfile;
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private SnackbarManager mSnackbarManager;
+    @Mock private FuseboxMetrics mMetrics;
 
     private AutocompleteInput mAutocompleteInput;
     private ActivityController<TestActivity> mActivityController;
@@ -140,6 +141,7 @@ public class FuseboxCoordinatorUnitTest {
         lenient().doReturn(mAutocompleteController).when(session).getAutocompleteController();
         lenient().doReturn(mAutocompleteInput).when(session).getAutocompleteInput();
         lenient().doReturn(mComposebox).when(session).getComposeboxQueryControllerBridge();
+        lenient().doReturn(mMetrics).when(session).getMetrics();
         return session;
     }
 
@@ -174,21 +176,8 @@ public class FuseboxCoordinatorUnitTest {
 
     @Test
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
-    public void testBeginInput_tracksProfileChanges() {
-        mCoordinator.beginInput(createSession());
-        assertNotNull(mCoordinator.getMediatorForTesting());
-        assertNotEquals(mMediator, mCoordinator.getMediatorForTesting());
-
-        FuseboxMediator previousMediator = mCoordinator.getMediatorForTesting();
-        mCoordinator.beginInput(createSession(mock(Profile.class)));
-        assertNotNull(mCoordinator.getMediatorForTesting());
-        assertNotEquals(previousMediator, mMediator);
-    }
-
-    @Test
-    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testToolbarVisibility_featureEnabled_mediatorInitialized() {
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
+        mCoordinator.setMediatorForTesting(mMediator);
 
         mCoordinator.beginInput(createSession());
         verify(mMediator).beginInput(any());
@@ -200,7 +189,7 @@ public class FuseboxCoordinatorUnitTest {
     @Test
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testToolbarVisibility_featureEnabled_disabledByServer() {
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
+        mCoordinator.setMediatorForTesting(mMediator);
 
         doReturn(false).when(mComposebox).isFuseboxEligible();
         mCoordinator.beginInput(createSession());
@@ -237,7 +226,7 @@ public class FuseboxCoordinatorUnitTest {
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testToolbarVisibility_basedOnPageClassification() {
         mCoordinator.beginInput(createSession());
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
+        mCoordinator.setMediatorForTesting(mMediator);
         final Set<PageClassification> supportedPageClassifications =
                 EnumSet.of(
                         PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
@@ -261,45 +250,24 @@ public class FuseboxCoordinatorUnitTest {
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testNonGoogleDse() {
         mCoordinator.beginInput(createSession());
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
+        mCoordinator.setMediatorForTesting(mMediator);
         doReturn(false).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         mCoordinator.beginInput(createSession());
         mTemplateUrlServiceSupplier.set(mTemplateUrlService);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mMediator).setToolbarVisible(false);
+        verify(mMediator).endInput();
     }
 
     @Test
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testNtpAiModeButtonPress() {
         mCoordinator.beginInput(createSession());
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
+        mCoordinator.setMediatorForTesting(mMediator);
         mAutocompleteInput.setRequestType(AutocompleteRequestType.AI_MODE);
 
         mCoordinator.beginInput(createSession());
         verify(mMediator).beginInput(any());
-    }
-
-    @Test
-    @EnableFeatures({OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT})
-    public void testWrappingChange() {
-        mCoordinator.beginInput(createSession());
-        mCoordinator.setMediatorForTesting(mMediator, mProfile);
-        OmniboxFeatures.sCompactFusebox.setForTesting(true);
-
-        mCoordinator.onFuseboxTextWrappingChanged(true);
-        verify(mMediator).setUseCompactUi(false);
-
-        mCoordinator.onFuseboxTextWrappingChanged(false);
-        verify(mMediator).setUseCompactUi(true);
-
-        mCoordinator.onFuseboxTextWrappingChanged(true);
-        Mockito.clearInvocations(mMediator);
-
-        mAutocompleteInput.setRequestType(AutocompleteRequestType.AI_MODE);
-        mCoordinator.onFuseboxTextWrappingChanged(false);
-        verify(mMediator).setUseCompactUi(false);
     }
 
     @Test
@@ -311,5 +279,22 @@ public class FuseboxCoordinatorUnitTest {
         int width = context.getResources().getDisplayMetrics().widthPixels;
         int height = context.getResources().getDisplayMetrics().heightPixels;
         assertEquals(new Rect(0, 0, width, height), viewportRectProvider.getRect());
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
+    public void testNotifyOmniboxSessionEnded() {
+        mCoordinator.beginInput(createSession());
+        mCoordinator.notifyOmniboxSessionEnded(true);
+
+        verify(mMetrics).notifyOmniboxSessionEnded(eq(true), anyInt(), anyInt());
+
+        mCoordinator.endInput();
+        clearInvocations(mMetrics);
+
+        mCoordinator.beginInput(createSession());
+        mCoordinator.notifyOmniboxSessionEnded(false);
+
+        verify(mMetrics).notifyOmniboxSessionEnded(eq(false), anyInt(), anyInt());
     }
 }

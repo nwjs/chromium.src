@@ -79,8 +79,7 @@
                        completion:(void (^)(AddBookmarkToChromeIntentResponse*))
                                       completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [AddBookmarkToChromeIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   AddBookmarkToChromeIntentResponse* response =
       [[AddBookmarkToChromeIntentResponse alloc]
@@ -114,8 +113,7 @@
                                   AddReadingListItemToChromeIntentResponse*))
                                   completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [AddReadingListItemToChromeIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   AddReadingListItemToChromeIntentResponse* response =
       [[AddReadingListItemToChromeIntentResponse alloc]
@@ -146,8 +144,7 @@
                              (void (^)(OpenInChromeIncognitoIntentResponse*))
                                  completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [OpenInChromeIncognitoIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenInChromeIncognitoIntentResponse* response =
       [[OpenInChromeIncognitoIntentResponse alloc]
@@ -176,7 +173,7 @@
                 completion:
                     (void (^)(OpenInChromeIntentResponse* response))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenInChromeIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenInChromeIntentResponse* response = [[OpenInChromeIntentResponse alloc]
       initWithCode:OpenInChromeIntentResponseCodeContinueInApp
@@ -201,8 +198,7 @@
                   completion:
                       (void (^)(SearchInChromeIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [SearchInChromeIntentResponse class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   SearchInChromeIntentResponse* response = [[SearchInChromeIntentResponse alloc]
       initWithCode:SearchInChromeIntentResponseCodeContinueInApp
@@ -217,7 +213,7 @@
                    completion:
                        (void (^)(OpenReadingListIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenReadingListIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenReadingListIntentResponse* response =
       [[OpenReadingListIntentResponse alloc]
@@ -232,7 +228,7 @@
 - (void)handleOpenBookmarks:(OpenBookmarksIntent*)intent
                  completion:(void (^)(OpenBookmarksIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenBookmarksIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenBookmarksIntentResponse* response = [[OpenBookmarksIntentResponse alloc]
       initWithCode:OpenBookmarksIntentResponseCodeContinueInApp
@@ -247,7 +243,7 @@
                   completion:
                       (void (^)(OpenRecentTabsIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenRecentTabsIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenRecentTabsIntentResponse* response = [[OpenRecentTabsIntentResponse alloc]
       initWithCode:OpenRecentTabsIntentResponseCodeContinueInApp
@@ -261,7 +257,7 @@
 - (void)handleOpenTabGrid:(OpenTabGridIntent*)intent
                completion:(void (^)(OpenTabGridIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenTabGridIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenTabGridIntentResponse* response = [[OpenTabGridIntentResponse alloc]
       initWithCode:OpenTabGridIntentResponseCodeContinueInApp
@@ -276,7 +272,7 @@
                    completion:
                        (void (^)(SearchWithVoiceIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([SearchWithVoiceIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   SearchWithVoiceIntentResponse* response =
       [[SearchWithVoiceIntentResponse alloc]
@@ -288,10 +284,10 @@
 
 #pragma mark OpenNewTabIntentHandling
 
-- (void)handleOpenNewTab:(SearchWithVoiceIntent*)intent
+- (void)handleOpenNewTab:(OpenNewTabIntent*)intent
               completion:(void (^)(OpenNewTabIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenNewTabIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenNewTabIntentResponse* response = [[OpenNewTabIntentResponse alloc]
       initWithCode:OpenNewTabIntentResponseCodeContinueInApp
@@ -305,7 +301,7 @@
 - (void)handlePlayDinoGame:(PlayDinoGameIntent*)intent
                 completion:(void (^)(PlayDinoGameIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([PlayDinoGameIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   PlayDinoGameIntentResponse* response = [[PlayDinoGameIntentResponse alloc]
       initWithCode:PlayDinoGameIntentResponseCodeContinueInApp
@@ -322,8 +318,7 @@
                            (void (^)(SetChromeDefaultBrowserIntentResponse*))
                                completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [SetChromeDefaultBrowserIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   SetChromeDefaultBrowserIntentResponse* response =
       [[SetChromeDefaultBrowserIntentResponse alloc]
@@ -338,7 +333,7 @@
 - (void)handleViewHistory:(ViewHistoryIntent*)intent
                completion:(void (^)(ViewHistoryIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([ViewHistoryIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   ViewHistoryIntentResponse* response = [[ViewHistoryIntentResponse alloc]
       initWithCode:ViewHistoryIntentResponseCodeContinueInApp
@@ -353,8 +348,7 @@
                     completion:(void (^)(OpenNewIncognitoTabIntentResponse*))
                                    completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [OpenNewIncognitoTabIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenNewIncognitoTabIntentResponse* response =
       [[OpenNewIncognitoTabIntentResponse alloc]
@@ -371,8 +365,7 @@
                             (void (^)(ManagePaymentMethodsIntentResponse*))
                                 completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass(
-                               [ManagePaymentMethodsIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   ManagePaymentMethodsIntentResponse* response =
       [[ManagePaymentMethodsIntentResponse alloc]
@@ -388,7 +381,7 @@
                   completion:
                       (void (^)(RunSafetyCheckIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([RunSafetyCheckIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   RunSafetyCheckIntentResponse* response = [[RunSafetyCheckIntentResponse alloc]
       initWithCode:RunSafetyCheckIntentResponseCodeContinueInApp
@@ -403,7 +396,7 @@
                    completion:
                        (void (^)(ManagePasswordsIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([ManagePasswordsIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   ManagePasswordsIntentResponse* response =
       [[ManagePasswordsIntentResponse alloc]
@@ -419,7 +412,7 @@
                   completion:
                       (void (^)(ManageSettingsIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([ManageSettingsIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   ManageSettingsIntentResponse* response = [[ManageSettingsIntentResponse alloc]
       initWithCode:ManageSettingsIntentResponseCodeContinueInApp
@@ -433,7 +426,7 @@
 - (void)handleOpenLatestTab:(OpenLatestTabIntent*)intent
                  completion:(void (^)(OpenLatestTabIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenLatestTabIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenLatestTabIntentResponse* response = [[OpenLatestTabIntentResponse alloc]
       initWithCode:OpenLatestTabIntentResponseCodeContinueInApp
@@ -447,7 +440,7 @@
 - (void)handleOpenLens:(OpenLensIntent*)intent
             completion:(void (^)(OpenLensIntentResponse*))completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([OpenLatestTabIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   OpenLensIntentResponse* response = [[OpenLensIntentResponse alloc]
       initWithCode:OpenLensIntentResponseCodeContinueInApp
@@ -462,7 +455,7 @@
                      completion:(void (^)(ClearBrowsingDataIntentResponse*))
                                     completion {
   NSUserActivity* activity = [[NSUserActivity alloc]
-      initWithActivityType:NSStringFromClass([ClearBrowsingDataIntent class])];
+      initWithActivityType:NSStringFromClass([intent class])];
 
   ClearBrowsingDataIntentResponse* response =
       [[ClearBrowsingDataIntentResponse alloc]

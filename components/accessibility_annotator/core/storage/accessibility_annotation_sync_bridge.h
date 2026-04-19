@@ -13,6 +13,8 @@
 
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/time/time.h"
+#include "components/accessibility_annotator/core/data_models/entity_types.h"
 #include "components/sync/model/data_type_store.h"
 #include "components/sync/model/data_type_sync_bridge.h"
 #include "components/sync/model/metadata_change_list.h"
@@ -75,8 +77,11 @@ class AccessibilityAnnotationSyncBridge : public syncer::DataTypeSyncBridge {
       const syncer::EntityData& entity_data) const override;
   std::string GetStorageKey(
       const syncer::EntityData& entity_data) const override;
+  sync_pb::EntitySpecifics TrimAllSupportedFieldsFromRemoteSpecifics(
+      const sync_pb::EntitySpecifics& entity_specifics) const override;
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
                                    delete_metadata_change_list) override;
+  bool SupportsIncrementalUpdates() const override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
 
   void AddObserver(Observer* observer);
@@ -93,6 +98,10 @@ class AccessibilityAnnotationSyncBridge : public syncer::DataTypeSyncBridge {
   std::vector<sync_pb::AccessibilityAnnotationSpecifics> GetAllAnnotations()
       const;
 
+  // Returns all annotations in the store that match the given entity types.
+  std::vector<sync_pb::AccessibilityAnnotationSpecifics> GetAnnotationsByTypes(
+      EntityTypeEnumSet types) const;
+
  private:
   void OnDataTypeStoreCreated(const std::optional<syncer::ModelError>& error,
                               std::unique_ptr<syncer::DataTypeStore> store);
@@ -105,6 +114,12 @@ class AccessibilityAnnotationSyncBridge : public syncer::DataTypeSyncBridge {
                          std::unique_ptr<syncer::MetadataBatch> metadata_batch);
 
   void OnDataTypeStoreCommit(const std::optional<syncer::ModelError>& error);
+
+  // Deletes expired annotations from the store in the given write batch. An
+  // annotation is considered expired if its modification time is older than the
+  // `kAccessibilityAnnotationTTL` constant. Returns true if any annotations
+  // were expired and deleted.
+  bool DeleteExpiredAnnotations(syncer::DataTypeStore::WriteBatch* batch);
 
   std::unique_ptr<syncer::DataTypeStore> data_type_store_;
 

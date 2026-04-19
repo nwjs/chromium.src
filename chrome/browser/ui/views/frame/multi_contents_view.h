@@ -12,6 +12,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/tabs/split_tab_highlight_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -45,9 +46,11 @@ class WebView;
 
 // MultiContentsView shows up to two contents web views side by side, and
 // manages their layout relative to each other.
-class MultiContentsView : public views::View,
-                          public views::ResizeAreaDelegate,
-                          public views::LayoutDelegate {
+class MultiContentsView
+    : public views::View,
+      public views::ResizeAreaDelegate,
+      public views::LayoutDelegate,
+      public split_tabs::SplitTabHighlightController::Delegate {
   METADATA_HEADER(MultiContentsView, views::View)
 
  public:
@@ -107,8 +110,8 @@ class MultiContentsView : public views::View,
   void UpdateSplitRatio(double ratio);
   double GetSplitRatio() const { return start_ratio_; }
 
-  // Sets whether the active contents view is highlighted.
-  void SetHighlightActiveContentsView(bool needs_attention);
+  // SplitTabHighlightController::Delegate:
+  void SetHighlightActiveContentsView(bool needs_attention) override;
 
   // Helper method to execute an arbitrary callback on each visible contents
   // view. Will execute the callback on the active contents view first.
@@ -316,7 +319,7 @@ class MultiContentsView : public views::View,
   std::optional<int> min_contents_width_for_testing_ = std::nullopt;
 
   // Width ratios that a split view will snap to when resize is within a
-  // snap distance (kSideBySideSnapDistance).
+  // snap distance (kSnapDistance).
   std::vector<double> snap_points_ = {0.5};
 
   // Tracks and handles drag and drop settings change.

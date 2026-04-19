@@ -136,7 +136,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
         HistorySyncHelper.setInstanceForTesting(mHistorySyncHelperMock);
         DeviceLockActivityLauncherImpl.setInstanceForTesting(mDeviceLockActivityLauncher);
-        FullscreenSigninMediator.setAnimationsEnabledForTesting(false);
+        FullscreenSigninMediator.disableAnimationsForTesting();
         // Simulate the real HistorySyncHelper's interaction with SyncService to ensure
         // UserSelectableType.HISTORY and UserSelectableType.TABS are correctly set.
         lenient()
@@ -474,6 +474,22 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         // Verify that the user is not signed-out.
         Assert.assertNotNull(mSigninTestRule.getPrimaryAccount(ConsentLevel.SIGNIN));
         historySyncHistogramWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testUserSignsInWhilePromoIsDisplayed() {
+        mHistoryOptInMode = HistorySyncConfig.OptInMode.NONE;
+
+        launchActivity();
+
+        onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
+
+        // Sign in from somewhere else (this can happen in split-screen mode for example)
+        mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_ADULT_ACCOUNT);
+
+        // Verify that the flow completion callback, which finishes the activity, is called.
+        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
     }
 
     @Test

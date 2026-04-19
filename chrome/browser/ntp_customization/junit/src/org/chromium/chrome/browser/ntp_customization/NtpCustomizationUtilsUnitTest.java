@@ -71,6 +71,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
@@ -1318,41 +1319,23 @@ public class NtpCustomizationUtilsUnitTest {
     }
 
     @Test
-    public void testGetSearchBoxHeightWithShadows() {
+    public void testGetSearchBoxHeight() {
         // Mock dimension values.
         int searchBoxHeightTall =
                 mResources.getDimensionPixelSize(R.dimen.ntp_search_box_height_tall);
         int searchBoxHeight = mResources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
-        int paddingForShadowBottom =
-                mResources.getDimensionPixelSize(
-                        R.dimen.composeplate_view_button_padding_for_shadow_bottom);
 
-        // Test case 1: Tall search box with shadow.
-        int expectedHeight = searchBoxHeightTall + (paddingForShadowBottom * 2);
+        // Test case 1: Tall search box.
+        int expectedHeight = searchBoxHeightTall;
         int actualHeight =
-                NtpCustomizationUtils.getSearchBoxHeightWithShadows(
-                        mResources, /* showSearchBoxTall= */ true, /* hasShadowApplied= */ true);
+                NtpCustomizationUtils.getSearchBoxHeight(mResources, /* showSearchBoxTall= */ true);
         assertEquals(expectedHeight, actualHeight);
 
-        // Test case 2: Tall search box without shadow.
-        expectedHeight = searchBoxHeightTall;
-        actualHeight =
-                NtpCustomizationUtils.getSearchBoxHeightWithShadows(
-                        mResources, /* showSearchBoxTall= */ true, /* hasShadowApplied= */ false);
-        assertEquals(expectedHeight, actualHeight);
-
-        // Test case 3: Regular search box with shadow.
-        expectedHeight = searchBoxHeight + (paddingForShadowBottom * 2);
-        actualHeight =
-                NtpCustomizationUtils.getSearchBoxHeightWithShadows(
-                        mResources, /* showSearchBoxTall= */ false, /* hasShadowApplied= */ true);
-        assertEquals(expectedHeight, actualHeight);
-
-        // Test case 4: Regular search box without shadow.
+        // Test case 2: Regular search box.
         expectedHeight = searchBoxHeight;
         actualHeight =
-                NtpCustomizationUtils.getSearchBoxHeightWithShadows(
-                        mResources, /* showSearchBoxTall= */ false, /* hasShadowApplied= */ false);
+                NtpCustomizationUtils.getSearchBoxHeight(
+                        mResources, /* showSearchBoxTall= */ false);
         assertEquals(expectedHeight, actualHeight);
     }
 
@@ -1502,5 +1485,24 @@ public class NtpCustomizationUtilsUnitTest {
                 4,
                 NtpCustomizationUtils.calculateInSampleSize(
                         options, /* reqWidth= */ 500, /* reqHeight= */ 500));
+    }
+
+    @Test
+    public void testIsNtpSimplificationEnabledOnDesktop_enabled() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        assertTrue(NtpCustomizationUtils.isNtpSimplificationEnabledOnDesktop());
+
+        DeviceInfo.setIsDesktopForTesting(false);
+        assertFalse(NtpCustomizationUtils.isNtpSimplificationEnabledOnDesktop());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.NTP_SIMPLIFICATION)
+    public void testIsNtpSimplificationEnabledOnDesktop_disabled() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        assertFalse(NtpCustomizationUtils.isNtpSimplificationEnabledOnDesktop());
+
+        DeviceInfo.setIsDesktopForTesting(false);
+        assertFalse(NtpCustomizationUtils.isNtpSimplificationEnabledOnDesktop());
     }
 }

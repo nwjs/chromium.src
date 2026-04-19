@@ -17,6 +17,7 @@
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
 #include "base/json/values_util.h"
+#include "base/logging.h"
 #include "base/observer_list.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -2200,7 +2201,7 @@ AppSorting* ExtensionPrefs::app_sorting() const {
   return ExtensionSystem::Get(browser_context_)->app_sorting();
 }
 
-void ExtensionPrefs::RegisterBrowserPrefs(PrefRegistrySimple* registry) {
+void ExtensionPrefs::RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       pref_names::kExtensionInstallCloudPolicyChecksEnabled,
       /*default_value=*/false);
@@ -2263,10 +2264,6 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       kMV2DeprecationUnsupportedAcknowledgedGloballyPref.name, false);
   registry->RegisterStringPref(pref_names::kGlobalShortcutsUuid, std::string());
-
-  registry->RegisterBooleanPref(
-      UserScriptManager::kUserScriptsToggleMigratedPref.name,
-      /*default_value=*/false);
 
   registry->RegisterBooleanPref(
       pref_names::kExtensionInstallCloudPolicyChecksEnabled,

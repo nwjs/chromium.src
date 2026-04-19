@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "base/apple/foundation_util.h"
+#import "base/apple/scoped_cftyperef.h"
 #import "base/functional/bind.h"
 #import "base/ios/ios_util.h"
 #import "base/strings/stringprintf.h"
@@ -11,8 +13,10 @@
 #import "components/omnibox/browser/omnibox_pref_names.h"
 #import "components/translate/core/browser/translate_pref_names.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/fullscreen_app_interface.h"
+#import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
@@ -27,6 +31,7 @@
 #import "ios/web/public/test/http_server/http_server.h"
 #import "ios/web/public/test/http_server/http_server_util.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
+#import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
 using base::test::ios::kWaitForJSCompletionTimeout;
@@ -39,6 +44,15 @@ namespace {
 
 // The page height of test pages. This must be big enough to triger fullscreen.
 const int kPageHeightEM = 400;
+
+// Offset to check when there is no safe area (in points).
+const CGFloat kNoInsetOffset = 10.0;
+
+// Sides for gutter color verification.
+enum class FullscreenGutterSide {
+  kLeft,
+  kRight,
+};
 
 // Hides the toolbar by scrolling down.
 void HideToolbarUsingUI() {
@@ -78,6 +92,97 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
   return response;
 }
 
+// Helper to get pixel color at a point in an image.
+void GetColorAtPoint(CGPoint point,
+                     UIImage* image,
+                     CGFloat* red,
+                     CGFloat* green,
+                     CGFloat* blue,
+                     CGFloat* alpha) {
+  base::apple::ScopedCFTypeRef<CFDataRef> pixelData(
+      CGDataProviderCopyData(CGImageGetDataProvider(image.CGImage)));
+  base::span<const uint8_t> pixelDataSpan =
+      base::apple::NSDataToSpan((__bridge NSData*)pixelData.get());
+
+  const NSUInteger bytesPerPixel = CGImageGetBitsPerPixel(image.CGImage) /
+                                   CGImageGetBitsPerComponent(image.CGImage);
+  const NSUInteger index =
+      (CGImageGetWidth(image.CGImage) * (NSUInteger)point.y +
+       (NSUInteger)point.x) *
+      bytesPerPixel;
+
+  base::span<const uint8_t> pixelDataView =
+      pixelDataSpan.subspan(index, bytesPerPixel);
+  // Assuming RGBA.
+  *red = CGFloat(pixelDataView[0]) / 255.0f;
+  *green = CGFloat(pixelDataView[1]) / 255.0f;
+  *blue = CGFloat(pixelDataView[2]) / 255.0f;
+  *alpha = CGFloat(pixelDataView[3]) / 255.0f;
+}
+
+// Helper to assert color at a point in an image.
+void AssertColorAtPoint(CGPoint point,
+                        UIImage* image,
+                        BOOL shouldBeLime,
+                        NSString* sideName,
+                        CGFloat inset) {
+  CGFloat red = 0, green = 0, blue = 0, alpha = 0;
+  GetColorAtPoint(point, image, &red, &green, &blue, &alpha);
+
+  if (shouldBeLime) {
+    GREYAssert(green > 0.9 && red < 0.1 && blue < 0.1,
+               @"%@ gutter should be lime (red=%f, green=%f, blue=%f, "
+               @"inset=%f, point=%@)",
+               sideName, red, green, blue, inset, NSStringFromCGPoint(point));
+  } else {
+    GREYAssertFalse(green > 0.9 && red < 0.1 && blue < 0.1,
+                    @"%@ gutter should NOT be lime (red=%f, green=%f, "
+                    @"blue=%f, inset=%f, point=%@)",
+                    sideName, red, green, blue, inset,
+                    NSStringFromCGPoint(point));
+  }
+}
+
+// Helper to assert color at a side gutter.
+void AssertColorAtSide(FullscreenGutterSide side,
+                       CGFloat inset,
+                       UIImage* image,
+                       BOOL shouldBeLime) {
+  NSString* sideName = nil;
+  CGPoint point;
+
+  const NSUInteger width = CGImageGetWidth(image.CGImage);
+  const NSUInteger height = CGImageGetHeight(image.CGImage);
+  const CGFloat scale = image.scale;
+
+  switch (side) {
+    case FullscreenGutterSide::kLeft:
+      sideName = @"Left";
+      if (inset > 0) {
+        // If there is an inset, we check in the middle of the safe area gutter.
+        point = CGPointMake((inset / 2) * scale, height / 2);
+      } else {
+        // If there is no safe area, we check a point near the edge to verify it
+        // is covered.
+        point = CGPointMake(kNoInsetOffset * scale, height / 2);
+      }
+      break;
+    case FullscreenGutterSide::kRight:
+      sideName = @"Right";
+      if (inset > 0) {
+        // If there is an inset, we check in the middle of the safe area gutter.
+        point = CGPointMake(width - (inset / 2) * scale, height / 2);
+      } else {
+        // If there is no safe area, we check a point near the edge to verify it
+        // is covered.
+        point = CGPointMake(width - kNoInsetOffset * scale, height / 2);
+      }
+      break;
+  }
+
+  AssertColorAtPoint(point, image, shouldBeLime, sideName, inset);
+}
+
 }  // namespace
 
 #pragma mark - Tests
@@ -92,6 +197,7 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_disabled.push_back(web::features::kSmoothScrollingDefault);
+  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
   return config;
 }
 
@@ -250,12 +356,6 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
 // Tests that reloading of a page shows the header even if it was not shown
 // previously.
 - (void)testShowHeaderOnReload {
-// TODO(crbug.com/482416484): Test fails on iphone device.
-#if !TARGET_IPHONE_SIMULATOR
-  if (![ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iPhone device.");
-  }
-#endif
   self.testServer->RegisterRequestHandler(base::BindRepeating(
       [](const net::test_server::HttpRequest& request)
           -> std::unique_ptr<net::test_server::HttpResponse> {
@@ -508,6 +608,204 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
 }
 
+// Tests that tapping on the collapsed primary toolbar exits force fullscreen
+// mode.
+- (void)testTapOnCollapsedToolbarExitsForceFullscreenMode {
+  self.testServer->RegisterRequestHandler(base::BindRepeating(
+      [](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        if (request.relative_url == "/tallpage") {
+          return CreateHttpResponse(base::StringPrintf(
+              "<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM));
+        }
+        return nullptr;
+      }));
+
+  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
+  GURL URL = self.testServer->GetURL("/tallpage");
+  [ChromeEarlGrey loadURL:URL];
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
+
+  // Open the tools menu.
+  [ChromeEarlGreyUI openToolsMenu];
+
+  // Tap on "Hide Toolbars" in the tools menu.
+  [ChromeEarlGreyUI
+      tapToolsMenuAction:grey_accessibilityID(kToolsMenuHideToolbars)];
+
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  // Scroll down and up to ensure we are in forced fullscreen mode and the
+  // toolbars stay hidden.
+  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 250)];
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionUp, 250)];
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  // Tap on the primary toolbar (which is collapsed).
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::PrimaryToolbar()]
+      performAction:grey_tap()];
+
+  // Verify that it exits force fullscreen mode and the toolbar is visible.
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
+
+  // Long press on the omnibox to show the context menu.
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(
+                                   chrome_test_util::DefocusedLocationView(),
+                                   grey_sufficientlyVisible(), nil)]
+      performAction:grey_longPress()];
+
+  // Tap on "Hide Toolbars" in the context menu.
+  id<GREYMatcher> hideToolbarsButton = grey_allOf(
+      grey_accessibilityLabel(
+          l10n_util::GetNSString(IDS_IOS_OVERFLOW_MENU_HIDE_TOOLBARS)),
+      grey_not(grey_kindOfClass([UILabel class])), grey_sufficientlyVisible(),
+      nil);
+  [[EarlGrey selectElementWithMatcher:hideToolbarsButton]
+      performAction:grey_tap()];
+
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  // Scroll down and up to ensure we are in forced fullscreen mode and the
+  // toolbars stay hidden.
+  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 250)];
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionUp, 250)];
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  // Tap on the primary toolbar (which is collapsed).
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::PrimaryToolbar()]
+      performAction:grey_tap()];
+
+  // Verify that it exits force fullscreen mode and the toolbar is visible.
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
+}
+
+// Tests that viewport-fit=cover works as intended in landscape mode.
+// The test loads a page with a lime green content div and a button to toggle
+// the viewport-fit meta tag.
+// 1. In landscape, without viewport-fit=cover, the side gutters (safe area)
+//    should be white (background color).
+// 2. Tapping the button adds viewport-fit=cover to the viewport meta tag.
+// 3. The content should then expand into the safe area, making the gutters
+//    lime green.
+- (void)testViewportFitCover {
+  if ([ChromeEarlGrey isFullscreenSmoothScrollingSupported]) {
+    EARL_GREY_TEST_SKIPPED(@"Smooth scrolling not supported.");
+  }
+  self.testServer->RegisterRequestHandler(base::BindRepeating(
+      [](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        if (request.relative_url == "/viewport-fit") {
+          return CreateHttpResponse(
+              "<!DOCTYPE html>"
+              "<html>"
+              "<head>"
+              "  <meta id='viewport' name='viewport' "
+              "content='width=device-width, initial-scale=1.0'>"
+              "  <style>"
+              "    html { background-color: white; }"
+              "    body { background-color: white; margin: 0; }"
+              "    #content { "
+              "      background-color: lime; "
+              "      position: absolute; "
+              "      top: 0; left: 0; right: 0; bottom: 0; "
+              "    }"
+              "    #toggle { "
+              "              position: absolute; top: 50%; left: 50%; "
+              "              transform: translate(-50%, -50%); "
+              "              width: 200px; height: 100px; font-size: 20px; "
+              "z-index: 100; "
+              "              background-color: black; color: white; border: "
+              "none; }"
+              "  </style>"
+              "  <script>"
+              "    function toggle() {"
+              "      var oldMeta = document.getElementById('viewport');"
+              "      var newMeta = document.createElement('meta');"
+              "      newMeta.id = 'viewport';"
+              "      newMeta.name = 'viewport';"
+              "      if "
+              "(oldMeta.getAttribute('content').includes('viewport-fit=cover'))"
+              " {"
+              "        newMeta.setAttribute('content', 'width=device-width, "
+              "initial-scale=1.0');"
+              "        document.getElementById('toggle').innerText = 'Toggle "
+              "(now auto)';"
+              "      } else {"
+              "        newMeta.setAttribute('content', 'width=device-width, "
+              "initial-scale=1.0, viewport-fit=cover');"
+              "        document.getElementById('toggle').innerText = 'Toggle "
+              "(now cover)';"
+              "      }"
+              "      oldMeta.parentNode.replaceChild(newMeta, oldMeta);"
+              "    }"
+              "  </script>"
+              "</head>"
+              "<body>"
+              "  <div id='content'>"
+              "    <button id='toggle' onclick='toggle()'>Toggle (now "
+              "auto)</button>"
+              "  </div>"
+              "</body>"
+              "</html>");
+        }
+        return nullptr;
+      }));
+
+  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
+  GURL URL = self.testServer->GetURL("/viewport-fit");
+  [ChromeEarlGrey loadURL:URL];
+  [ChromeEarlGrey waitForWebStateContainingText:"Toggle (now auto)"];
+
+  // Rotate to landscape.
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationLandscapeLeft
+                                   error:nil];
+
+  UIEdgeInsets safeArea = [FullscreenAppInterface currentWindowSafeArea];
+  // Pick the side with the largest safe area to check.
+  FullscreenGutterSide sideToCheck = (safeArea.right > safeArea.left)
+                                         ? FullscreenGutterSide::kRight
+                                         : FullscreenGutterSide::kLeft;
+  CGFloat inset = (sideToCheck == FullscreenGutterSide::kLeft) ? safeArea.left
+                                                               : safeArea.right;
+
+  // Take a snapshot of the window.
+  EDORemoteVariable<UIImage*>* snapshot = [[EDORemoteVariable alloc] init];
+  [[EarlGrey selectElementWithMatcher:grey_keyWindow()]
+      performAction:grey_snapshot(snapshot)];
+  UIImage* image = snapshot.object;
+
+  // Check color without viewport-fit=cover.
+  // If there is no safe area inset on the side, it should already be lime.
+  AssertColorAtSide(sideToCheck, inset, image, /*shouldBeLime=*/(inset == 0));
+
+  // Toggle viewport-fit=cover.
+  [ChromeEarlGrey tapWebStateElementWithID:@"toggle"];
+  [ChromeEarlGrey waitForWebStateContainingText:"Toggle (now cover)"];
+
+  // Wait for layout update.
+  [ChromeEarlGreyUI waitForAppToIdle];
+
+  // Snapshot again.
+  [[EarlGrey selectElementWithMatcher:grey_keyWindow()]
+      performAction:grey_snapshot(snapshot)];
+  image = snapshot.object;
+
+  // Check color with viewport-fit=cover.
+  // The side should now be lime regardless of initial safe area.
+  AssertColorAtSide(sideToCheck, inset, image, /*shouldBeLime=*/YES);
+
+  // Rotate back to portrait.
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
+}
+
 @end
 
 #pragma mark - Smooth scrolling enabled Tests
@@ -521,6 +819,7 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(web::features::kSmoothScrollingDefault);
+  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
   config.features_disabled.push_back(
       web::features::kSmoothScrollingUseDelegate);
   return config;
@@ -589,6 +888,7 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
   AppLaunchConfiguration config;
   config.features_enabled.push_back(web::features::kSmoothScrollingDefault);
   config.features_enabled.push_back(web::features::kSmoothScrollingUseDelegate);
+  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
   return config;
 }
 

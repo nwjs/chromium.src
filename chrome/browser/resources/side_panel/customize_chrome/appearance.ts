@@ -81,7 +81,7 @@ export class AppearanceElement extends AppearanceElementBase {
       showManagedDialog_: {type: Boolean},
       showEditTheme_: {type: Boolean},
       managedByName_: {type: String},
-      managedByDescription_: {type: String},
+      managedByDesc_: {type: String},
       newTabPageType_: {type: Number},
 
       wallpaperSearchButtonEnabled_: {
@@ -117,7 +117,7 @@ export class AppearanceElement extends AppearanceElementBase {
       NewTabPageType.kFirstPartyWebUI;
   protected accessor showEditTheme_: boolean = true;
   protected accessor managedByName_: string = '';
-  protected managedByDesc_: string = '';
+  protected accessor managedByDesc_: string = '';
   private listenerIds_: number[] = [];
   private apiProxy_: CustomizeChromeApiProxy =
       CustomizeChromeApiProxy.getInstance();
@@ -230,7 +230,7 @@ export class AppearanceElement extends AppearanceElementBase {
   }
 
   private computeShowBottomDivider_(): boolean {
-    return !!(this.showClassicChromeButton_ || this.showDeviceThemeToggle_);
+    return this.showClassicChromeButton_ || this.showDeviceThemeToggle_;
   }
 
   private computeShowClassicChromeButton_(): boolean {

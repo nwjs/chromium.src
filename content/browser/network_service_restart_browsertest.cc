@@ -898,14 +898,8 @@ IN_PROC_BROWSER_TEST_F(NetworkServiceRestartBrowserTest, ServiceWorkerFetch) {
   service_worker_context->RemoveObserver(&observer);
 }
 
-// TODO(crbug.com/40290702): Shared workers are not available on Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_SharedWorker DISABLED_SharedWorker
-#else
-#define MAYBE_SharedWorker SharedWorker
-#endif
 // Make sure shared workers terminate after crash.
-IN_PROC_BROWSER_TEST_F(NetworkServiceRestartBrowserTest, MAYBE_SharedWorker) {
+IN_PROC_BROWSER_TEST_F(NetworkServiceRestartBrowserTest, SharedWorker) {
   if (IsInProcessNetworkService())
     return;
   StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
@@ -1111,8 +1105,8 @@ IN_PROC_BROWSER_TEST_F(NetworkServiceRestartBrowserTest,
 
   // Revoke network access for the generated nonce.
   base::UnguessableToken nonce = base::UnguessableToken::Create();
-  partition->RevokeNetworkForNoncesInNetworkContext({{nonce, {}}},
-                                                    base::DoNothing());
+  partition->RevokeNetworkForNoncesInNetworkContext(
+      {{nonce, network::ConnectionAllowlists()}}, base::DoNothing());
 
   // Make a get request, which should be blocked.
   network::mojom::URLLoaderFactoryParamsPtr params =

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/ui_mode.gni")
+import("//components/spellcheck/spellcheck_build_features.gni")
 
 assert(is_chromeos)
 
@@ -68,6 +69,7 @@ static_library("extensions") {
     "//chrome/browser/extensions:external_loader",
     "//chrome/browser/extensions/api/input_ime",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/resources/chromeos:app_icon_resources",
     "//chrome/browser/ui/ash/keyboard",
     "//chrome/browser/ui/ash/multi_user",
@@ -91,6 +93,10 @@ static_library("extensions") {
     "//ui/base",
     "//ui/gfx",
   ]
+
+  if (enable_spellcheck) {
+    deps += [ "//chrome/browser/spellchecker" ]
+  }
 
   allow_circular_includes_from = [
     "//chrome/browser/ash/app_list",

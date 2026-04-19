@@ -19,9 +19,9 @@
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
+#include "base/features.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/task_features.h"
@@ -57,6 +57,7 @@ DWORD GetSleepTimeoutMs(TimeTicks next_task_time,
 }
 
 bool g_ui_pump_improvements_win = false;
+bool g_pump_peek_message_with_observer = false;
 
 }  // namespace
 
@@ -73,6 +74,8 @@ MessagePumpWin::~MessagePumpWin() = default;
 // static
 void MessagePumpWin::InitializeFeatures() {
   g_ui_pump_improvements_win = FeatureList::IsEnabled(kUIPumpImprovementsWin);
+  g_pump_peek_message_with_observer =
+      FeatureList::IsEnabled(base::features::kPumpPeekMessageWithObserver);
 }
 
 void MessagePumpWin::Run(Delegate* delegate) {
@@ -184,14 +187,27 @@ bool MessagePumpForUI::HandleNestedNativeLoopWithApplicationTasks(
   return true;
 }
 
-void MessagePumpForUI::AddObserver(Observer* observer) {
+void MessagePumpForUI::RegisterNativeEventObserver(
+    NativeEventObserver* observer) {
   DCHECK_CALLED_ON_VALID_THREAD(bound_thread_);
-  observers_.AddObserver(observer);
+  CHECK(!native_event_observer_);
+  native_event_observer_ = observer;
 }
 
-void MessagePumpForUI::RemoveObserver(Observer* observer) {
+void MessagePumpForUI::UnregisterNativeEventObserver(
+    NativeEventObserver* observer) {
   DCHECK_CALLED_ON_VALID_THREAD(bound_thread_);
-  observers_.RemoveObserver(observer);
+  CHECK_EQ(native_event_observer_, observer);
+  native_event_observer_ = nullptr;
+}
+
+MessagePumpForUI::NativeEventObserver*
+MessagePumpForUI::ResetNativeEventObserverForTesting(
+    NativeEventObserver* observer) {
+  DCHECK_CALLED_ON_VALID_THREAD(bound_thread_);
+  NativeEventObserver* old_observer = native_event_observer_;
+  native_event_observer_ = observer;
+  return old_observer;
 }
 
 //-----------------------------------------------------------------------------
@@ -368,7 +384,16 @@ void MessagePumpForUI::WaitForWork(Delegate::NextWorkInfo next_work_info) {
         MSG msg;
         TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("base"),
                      "MessagePumpForUI::WaitForWork PeekMessage");
-        if (::PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE)) {
+        if (g_pump_peek_message_with_observer && native_event_observer_) {
+          native_event_observer_->WillRunNativeEvent(
+              next_peek_message_event_id_);
+        }
+        bool has_msg = ::PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE) != FALSE;
+        if (g_pump_peek_message_with_observer && native_event_observer_) {
+          native_event_observer_->DidRunNativeEvent(
+              next_peek_message_event_id_++);
+        }
+        if (has_msg) {
           return;
         }
       }
@@ -583,7 +608,14 @@ bool MessagePumpForUI::ProcessNextWindowsMessage() {
                 ctx.event()->set_chrome_message_pump();
             msg_pump_data->set_sent_messages_in_queue(more_work_is_plausible);
           });
+      if (g_pump_peek_message_with_observer && native_event_observer_) {
+        native_event_observer_->WillRunNativeEvent(next_peek_message_event_id_);
+      }
       has_msg = ::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE) != FALSE;
+      if (g_pump_peek_message_with_observer && native_event_observer_) {
+        native_event_observer_->DidRunNativeEvent(
+            next_peek_message_event_id_++);
+      }
     }
   }
   if (has_msg) {
@@ -621,13 +653,15 @@ bool MessagePumpForUI::ProcessMessageHelper(const MSG& msg) {
                     ->set_message_id(msg.message);
               });
 
-  for (Observer& observer : observers_) {
-    observer.WillDispatchMSG(msg);
+  if (native_event_observer_) {
+    native_event_observer_->WillRunNativeEvent(
+        reinterpret_cast<uintptr_t>(&msg));
   }
   ::TranslateMessage(&msg);
   ::DispatchMessage(&msg);
-  for (Observer& observer : observers_) {
-    observer.DidDispatchMSG(msg);
+  if (native_event_observer_) {
+    native_event_observer_->DidRunNativeEvent(
+        reinterpret_cast<uintptr_t>(&msg));
   }
 
   return true;

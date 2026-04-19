@@ -61,6 +61,15 @@ class NET_EXPORT_PRIVATE HttpNoVarySearchData {
       const std::vector<std::string>& vary_params,
       bool vary_on_key_order);
 
+  // Parse No-Vary-Search from the value of a "No-Vary-Search" response header.
+  //
+  // Returns HttpNoVarySearchData if `value` is a correct No-Vary-Search header
+  // value, or a ParseErrorEnum if it is invalid. If `value` is empty, returns
+  // ParseErrorEnum::kDefaultValue.
+  static base::expected<HttpNoVarySearchData,
+                        HttpNoVarySearchData::ParseErrorEnum>
+  ParseFromHeaderValue(std::string_view value);
+
   // Parse No-Vary-Search from response headers.
   //
   // Returns HttpNoVarySearchData if a correct No-Vary-Search header is present
@@ -69,6 +78,10 @@ class NET_EXPORT_PRIVATE HttpNoVarySearchData {
   static base::expected<HttpNoVarySearchData,
                         HttpNoVarySearchData::ParseErrorEnum>
   ParseFromHeaders(const HttpResponseHeaders& response_headers);
+
+  // Returns true if the header value contains "params" with a boolean value.
+  // This form is going to be deprecated.
+  static bool HasBooleanParamsMember(std::string_view header_value);
 
   bool operator==(const HttpNoVarySearchData& rhs) const;
 

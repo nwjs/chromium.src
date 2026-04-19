@@ -54,10 +54,10 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
   FakeWebNNGraphImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
-      base::WeakPtr<WebNNContextImpl> context,
+      WebNNContextImpl& context,
       ComputeResourceInfo compute_resource_info)
       : WebNNGraphImpl(std::move(receiver),
-                       std::move(context),
+                       context,
                        std::move(compute_resource_info),
                        /*devices=*/{}) {}
 
@@ -68,8 +68,7 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
       ComputeResourceInfo compute_resource_info,
       WebNNContextImpl::CreateGraphImplCallback callback) {
     std::move(callback).Run(base::MakeRefCounted<FakeWebNNGraphImpl>(
-        std::move(receiver), std::move(context),
-        std::move(compute_resource_info)));
+        std::move(receiver), *context, std::move(compute_resource_info)));
   }
 
  private:
@@ -102,8 +101,7 @@ class FakeWebNNTensorImpl final : public WebNNTensorImpl {
   void WriteTensorImpl(mojo_base::BigBuffer src_buffer) override {}
   // Interop is not required by tests.
   bool ImportTensorImpl(ScopedAccessPtr access) override { return false; }
-  void ExportTensorImpl(ScopedAccessPtr access,
-                        ExportTensorCallback callback) override {}
+  void ExportTensorImpl(ScopedAccessPtr access) override {}
 };
 
 // A fake WebNNContext Mojo interface implementation that binds a pipe for
@@ -172,6 +170,8 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
     return base::unexpected(mojom::Error::New(
         mojom::Error::Code::kNotSupportedError, "Not implemented"));
   }
+
+  std::string_view GetBackendName() const override { return "Fake Backend"; }
 
   base::WeakPtrFactory<FakeWebNNContextImpl> weak_factory_{this};
 };

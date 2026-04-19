@@ -185,13 +185,15 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // state.
   void RecreateWebUIWrapper();
 
-  // Artitficially sets the time when the user entered a page for testing the
+  // Artificially sets the time when the user entered a page for testing the
   // omnibox entry point.
   void SetDwellTimeForTesting(base::TimeTicks test_time);
 
   ReadAnythingSidePanelController* GetSidePanelControllerForTesting() {
     return read_anything_side_panel_controller_.get();
   }
+
+  void OnSoftNavigation();
 
  private:
   // Called when the tab will detach.

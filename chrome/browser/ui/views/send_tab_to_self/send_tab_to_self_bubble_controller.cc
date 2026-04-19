@@ -8,8 +8,12 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/uuid.h"
+#include "chrome/browser/notifications/notification_display_service.h"
+#include "chrome/browser/notifications/notification_display_service_factory.h"
+#include "chrome/browser/notifications/notification_handler.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/send_tab_to_self/desktop_notification_handler.h"
+#include "chrome/browser/send_tab_to_self/send_tab_to_self_page_handler.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -30,35 +34,23 @@
 #include "components/prefs/pref_service.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/metrics_util.h"
-#include "components/send_tab_to_self/page_context.h"
 #include "components/send_tab_to_self/pref_names.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/target_device_info.h"
-#include "components/shared_highlighting/core/common/text_fragment.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/events/event.h"
+#include "ui/message_center/public/cpp/notification.h"
+#include "ui/strings/grit/ui_strings.h"
 
 namespace send_tab_to_self {
-
-SendTabToSelfBubbleController::PendingRequest::PendingRequest()
-    : start_time(base::TimeTicks::Now()) {}
-
-SendTabToSelfBubbleController::PendingRequest::PendingRequest(
-    PendingRequest&&) = default;
-
-SendTabToSelfBubbleController::PendingRequest&
-SendTabToSelfBubbleController::PendingRequest::operator=(PendingRequest&&) =
-    default;
-
-SendTabToSelfBubbleController::PendingRequest::~PendingRequest() = default;
 
 SendTabToSelfBubbleController::~SendTabToSelfBubbleController() {
   if (send_tab_to_self_bubble_view_) {
@@ -153,131 +145,15 @@ void SendTabToSelfBubbleController::OnDeviceSelected(
     const std::string& target_device_guid) {
   // TODO(crbug.com/40817150): This duplicates the ShouldOfferFeature() check,
   // instead the 2 codepaths should share code.
-  PendingRequest request;
-  request.target_device_guid = target_device_guid;
-  request.url = GetWebContents().GetLastCommittedURL();
-  request.title = base::UTF16ToUTF8(GetWebContents().GetTitle());
-  if (base::FeatureList::IsEnabled(kSendTabToSelfPropagateFormFields)) {
-    request.page_context = ExtractFormFieldsFromWebContents(&GetWebContents());
-  }
+  SendTabToSelfPageHandler* handler =
+      SendTabToSelfPageHandler::GetOrCreateForWebContents(&GetWebContents());
 
-  if (!base::FeatureList::IsEnabled(kSendTabToSelfPropagateScrollPosition)) {
-    SendFinalizedRequest(std::move(request), std::nullopt);
-    return;
-  }
-
-  content::RenderFrameHost* main_frame = GetWebContents().GetPrimaryMainFrame();
-  if (!main_frame) {
-    SendFinalizedRequest(
-        std::move(request),
-        ScrollPositionGenerationOutcome::kMainFrameUnavailable);
-    return;
-  }
-
-  request.main_frame_id = main_frame->GetGlobalId();
-
-  if (request.main_frame_id != last_main_frame_id_) {
-    text_fragment_receiver_.reset();
-    last_main_frame_id_ = request.main_frame_id;
-  }
-
-  if (!text_fragment_receiver_.is_bound()) {
-    main_frame->GetRemoteInterfaces()->GetInterface(
-        text_fragment_receiver_.BindNewPipeAndPassReceiver());
-  }
-
-  auto request_token = base::Token::CreateRandom();
-  pending_requests_[request_token] = std::move(request);
-
-  text_fragment_receiver_->RequestSelectorForViewportCenter(base::BindOnce(
-      &SendTabToSelfBubbleController::SelectorGeneratedForRequest,
-      weak_ptr_factory_.GetWeakPtr(), request_token,
-      /*is_browser_timeout=*/false));
-
-  // Start a timer to fallback if the renderer is too slow.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
+  const GURL url = GetWebContents().GetLastCommittedURL();
+  handler->SendTabToDevice(
+      target_device_guid, url, base::UTF16ToUTF8(GetWebContents().GetTitle()),
       base::BindOnce(
-          &SendTabToSelfBubbleController::SelectorGeneratedForRequest,
-          weak_ptr_factory_.GetWeakPtr(), request_token,
-          /*is_browser_timeout=*/true,
-          /*selector=*/std::string(),
-          shared_highlighting::LinkGenerationError::kTimeout,
-          shared_highlighting::LinkGenerationReadyStatus::kRequestedAfterReady),
-      GetSelectorGenerationTimeout());
-}
-
-void SendTabToSelfBubbleController::SelectorGeneratedForRequest(
-    base::Token request_token,
-    bool is_browser_timeout,
-    const std::string& selector,
-    shared_highlighting::LinkGenerationError error,
-    shared_highlighting::LinkGenerationReadyStatus /*ready_status*/) {
-  auto it = pending_requests_.find(request_token);
-  if (it == pending_requests_.end()) {
-    // This happens if a request completes after the timeout has already
-    // triggered, or if the timeout task runs after a request has already
-    // completed.
-    return;
-  }
-
-  PendingRequest request = std::move(it->second);
-  pending_requests_.erase(it);
-
-  ScrollPositionGenerationOutcome outcome =
-      ScrollPositionGenerationOutcome::kSuccess;
-
-  content::RenderFrameHost* main_frame = GetWebContents().GetPrimaryMainFrame();
-  if (!main_frame || main_frame->GetGlobalId() != request.main_frame_id) {
-    outcome = ScrollPositionGenerationOutcome::kMainFrameChanged;
-  } else if (is_browser_timeout) {
-    outcome = ScrollPositionGenerationOutcome::kBrowserTimeout;
-  } else if (error == shared_highlighting::LinkGenerationError::kTimeout) {
-    outcome = ScrollPositionGenerationOutcome::kRendererTimeout;
-  } else if (error != shared_highlighting::LinkGenerationError::kNone) {
-    outcome = ScrollPositionGenerationOutcome::kLinkGenerationError;
-  } else if (selector.empty()) {
-    outcome = ScrollPositionGenerationOutcome::kEmptySelector;
-  } else {
-    std::optional<shared_highlighting::TextFragment> fragment =
-        shared_highlighting::TextFragment::FromEscapedString(selector);
-    if (fragment) {
-      RecordScrollPositionSelectorLength(selector.length());
-      request.page_context.scroll_position.text_fragment =
-          TextFragmentData(*fragment);
-    } else {
-      outcome = ScrollPositionGenerationOutcome::kInvalidSelector;
-    }
-  }
-
-  SendFinalizedRequest(std::move(request), outcome);
-}
-
-void SendTabToSelfBubbleController::SendFinalizedRequest(
-    PendingRequest request,
-    std::optional<ScrollPositionGenerationOutcome> outcome) {
-  if (outcome) {
-    RecordScrollPositionGenerationOutcome(*outcome);
-    send_tab_to_self::RecordScrollPositionGenerationTime(
-        base::TimeTicks::Now() - request.start_time);
-  }
-
-  SendTabToSelfModel* model =
-      SendTabToSelfSyncServiceFactory::GetForProfile(GetProfile())
-          ->GetSendTabToSelfModel();
-  if (!model->IsReady()) {
-    // TODO(crbug.com/40811626): Is this legit? In STTSv2, there may not
-    // *be* a DesktopNotificationHandler for profile, and we're violating the
-    // lifetime rules of DesktopNotificationHandler here I think.
-    DesktopNotificationHandler(GetProfile()).DisplayFailureMessage(request.url);
-    return;
-  }
-
-  model->AddEntry(request.url, request.title, request.target_device_guid,
-                  std::move(request.page_context));
-
-  // Show confirmation message.
-  show_message_ = true;
+          &SendTabToSelfBubbleController::HandleSendTabToDeviceResult,
+          weak_ptr_factory_.GetWeakPtr(), url));
 }
 
 void SendTabToSelfBubbleController::OnManageDevicesClicked(
@@ -310,6 +186,38 @@ void SendTabToSelfBubbleController::OnBackButtonPressed() {
   controller->ShowBubble(share::ShareAttempt(&GetWebContents()));
 }
 
+void SendTabToSelfBubbleController::HandleSendTabToDeviceResult(
+    const GURL& url,
+    SendTabToSelfResult result) {
+  switch (result) {
+    case SendTabToSelfResult::kSuccess:
+      SetShowConfirmationMessage(true);
+      break;
+    case SendTabToSelfResult::kFailure:
+      OnSendFailed(url);
+      break;
+  }
+}
+
+void SendTabToSelfBubbleController::OnSendFailed(const GURL& url) {
+  // TODO(crbug.com/40811626): Decide how to handle failures in STTSv2. For now,
+  // keep the STTSv1-style notification.
+  message_center::Notification notification(
+      message_center::NOTIFICATION_TYPE_SIMPLE,
+      "shared" + base::Uuid::GenerateRandomV4().AsLowercaseString(),
+      l10n_util::GetStringUTF16(
+          IDS_MESSAGE_NOTIFICATION_SEND_TAB_TO_SELF_CONFIRMATION_FAILURE_TITLE),
+      l10n_util::GetStringUTF16(
+          IDS_MESSAGE_NOTIFICATION_SEND_TAB_TO_SELF_CONFIRMATION_FAILURE_MESSAGE),
+      ui::ImageModel(), base::UTF8ToUTF16(url.host()), url,
+      message_center::NotifierId(url), message_center::RichNotificationData(),
+      /*delegate=*/nullptr);
+
+  NotificationDisplayServiceFactory::GetForProfile(GetProfile())
+      ->Display(NotificationHandler::Type::SHARING, notification,
+                /*metadata=*/nullptr);
+}
+
 bool SendTabToSelfBubbleController::InitialSendAnimationShown() {
   return GetProfile()->GetPrefs()->GetBoolean(
       prefs::kInitialSendAnimationShown);
@@ -320,16 +228,28 @@ void SendTabToSelfBubbleController::SetInitialSendAnimationShown(bool shown) {
                                        shown);
 }
 
-void SendTabToSelfBubbleController::SetSelectorGenerationTimeoutForTesting(
-    base::TimeDelta timeout) {
-  selector_generation_timeout_for_testing_ = timeout;
+void SendTabToSelfBubbleController::SetShowConfirmationMessage(
+    bool show_confirmation_message) {
+  if (show_confirmation_message_ == show_confirmation_message) {
+    return;
+  }
+  show_confirmation_message_ = show_confirmation_message;
+
+  if (show_confirmation_message_) {
+    // Because the actual entry creation may occur asynchronously (e.g. after
+    // scroll position capture), we need to ensure the page action icon is
+    // updated when the confirmation state is finalized.
+    Browser* browser = chrome::FindBrowserWithTab(&GetWebContents());
+    if (browser && browser->window()) {
+      browser->window()->UpdatePageActionIcon(PageActionIconType::kSharingHub);
+    }
+  }
 }
 
-base::TimeDelta SendTabToSelfBubbleController::GetSelectorGenerationTimeout()
-    const {
-  return selector_generation_timeout_for_testing_.is_zero()
-             ? base::Milliseconds(200)
-             : selector_generation_timeout_for_testing_;
+void SendTabToSelfBubbleController::SetSelectorGenerationTimeoutForTesting(
+    base::TimeDelta timeout) {
+  SendTabToSelfPageHandler::GetOrCreateForWebContents(&GetWebContents())
+      ->SetSelectorGenerationTimeoutForTesting(timeout);
 }
 
 // Static:

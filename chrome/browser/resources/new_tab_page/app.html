@@ -1,5 +1,5 @@
 <!-- #html_wrapper_imports_start
-import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
+import {SubmitButtonIconType} from '//resources/cr_components/composebox/composebox.js';
 #html_wrapper_imports_end -->
 <div id="content"
   ?ntp-threads-rail-open="${this.showComposebox_ && this.enableThreadsRail_}">
@@ -43,7 +43,7 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
   <div id="searchboxContainer"
       @focusin="${this.onSearchboxContainerFocusin_}"
       @focusout="${this.onSearchboxContainerFocusout_}">
-    <cr-searchbox id="searchbox" ?is-dark="${this.isThemeDark_()}"
+    <ntp-searchbox id="searchbox" ?is-dark="${this.isThemeDark_()}"
         placeholder-text="$i18n{searchBoxPlaceholder}"
         ?color-source-is-baseline="${this.colorSourceIsBaseline}"
         @open-composebox="${this.onOpenComposebox_}"
@@ -51,28 +51,28 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
         @open-voice-search="${this.onOpenVoiceSearch_}" ?shown="${this.realboxShown_}"
         ?had-secondary-side="${this.realboxHadSecondarySide}"
         @had-secondary-side-changed="${this.onRealboxHadSecondarySideChanged_}"
-        @context-menu-entrypoint-click="${this.onContextMenuEntrypointClick_}"
         ?can-show-secondary-side="${this.realboxCanShowSecondarySide}"
         ?compose-button-enabled="${this.composeButtonEnabled}"
         ?composebox-enabled="${this.composeboxEnabled}"
-        searchbox-layout-mode="${this.realboxLayoutMode_}"
+        searchbox-layout-mode="${this.ntpRealboxNextEnabled_ ? 'Compact' : ''}"
         ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
         ?cycling-placeholders="${this.searchboxCyclingPlaceholders_}"
         context-menu-glif-animation-state="${this.contextMenuGlifAnimationState_}"
         ?multi-line-enabled="${this.multiLineEnabled_}">
-    </cr-searchbox>
+    </ntp-searchbox>
     ${this.showComposebox_ ? html`
       <div id="dialogAnchor"></div>
       <dialog id="composeboxDialog">
         <cr-composebox id="composebox"
             ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
             ?searchbox-next-enabled="${this.ntpRealboxNextEnabled_}"
+            .submitButtonIconType="${this.ntpRealboxNextEnabled_ ? SubmitButtonIconType.FORWARD : SubmitButtonIconType.UPWARD}"
             ?disable-caret-color-animation="${!this.caretAnimationsEnabled_}"
+            .observeResize="${false}"
             .state="${this.composeboxState_}"
             @close-composebox="${this.onCloseComposebox_}"
-            @context-menu-entrypoint-click="${this.onContextMenuEntrypointClick_}"
             @voice-search-action="${this.onComposeVoiceSearchAction_}"
-            searchbox-layout-mode="${this.realboxLayoutMode_}">
+            searchbox-layout-mode="${this.ntpRealboxNextEnabled_ ? 'Compact' : ''}">
         </cr-composebox>
         ${this.enableThreadsRail_ ? html`
           <cr-threads-rail id="threadsRail">
@@ -141,22 +141,9 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
         </cr-button>
       </cr-toast>
     ` : ''}
-    ${ this.showBrowserPromo_ ? (() => { switch (this.browserPromoType_) {
-     case "simple":
-      return html`
-        <individual-promos maxPromos="${this.browserPromoLimit_}">
-        </individual-promos>
-
-      `;
-     case "setuplist":
-      return html`
-        <setup-list-module-wrapper maxPromos="${this.browserPromoLimit_}"
-            maxCompletedPromos="${this.browserPromoCompletedLimit_}">
-        </setup-list-module-wrapper>
-      `;
-     default:
-      return '';
-    } })() : '' }
+    ${ this.showBrowserPromo_ && this.browserPromoType_ === 'simple' ? html`
+        <individual-promos></individual-promos>
+    ` : '' }
   ${!this.isFooterVisible_ ? html`
       <a id="backgroundImageAttribution"
           href="${this.backgroundImageAttributionUrl_}"
@@ -199,7 +186,7 @@ ${this.showVoiceSearchOverlay_ ? html`
 ` : ''}
 ${!this.ntpRealboxNextEnabled_ && this.showComposebox_ ? html`
   <div id="scrim"
-      @click="${this.composeboxCloseByClickOutside_ ? this.onComposeboxClickOutside_ : nothing}"></div>
+      @click="${this.onComposeboxOutsideClick_}"></div>
 ` : ''}
 <svg>
   <defs>

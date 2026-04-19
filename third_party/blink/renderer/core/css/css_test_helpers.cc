@@ -182,8 +182,9 @@ CSSVariableData* CreateVariableData(String s) {
   bool is_animation_tainted = false;
   bool is_attr_tainted = false;
   bool needs_variable_resolution = false;
-  return CSSVariableData::Create(s, is_animation_tainted, is_attr_tainted,
-                                 needs_variable_resolution);
+  return CSSVariableData::Create(
+      s, is_animation_tainted, is_attr_tainted,
+      CSSVariableData::HasReferences(needs_variable_resolution));
 }
 
 const CSSValue* CreateCustomIdent(const char* s) {
@@ -275,6 +276,8 @@ String ToString(PseudoId pseudo_id) {
       return "kPseudoIdBefore";
     case kPseudoIdAfter:
       return "kPseudoIdAfter";
+    case kPseudoIdExpandIcon:
+      return "kPseudoIdExpandIcon";
     case kPseudoIdPickerIcon:
       return "kPseudoIdPickerIcon";
     case kPseudoIdInterestHint:

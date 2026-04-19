@@ -4,12 +4,9 @@
 
 #include "chrome/browser/device_reauth/chromeos/device_authenticator_chromeos.h"
 
-#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/notreached.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/profiles/profile.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 
@@ -20,7 +17,8 @@ DeviceAuthenticatorChromeOS::DeviceAuthenticatorChromeOS(
     : DeviceAuthenticatorCommon(proxy,
                                 params.GetAuthenticationValidityPeriod(),
                                 params.GetAuthResultHistogram()),
-      authenticator_(std::move(authenticator)) {}
+      authenticator_(std::move(authenticator)),
+      source_(params.GetDeviceAuthSource()) {}
 
 DeviceAuthenticatorChromeOS::~DeviceAuthenticatorChromeOS() = default;
 
@@ -69,7 +67,7 @@ void DeviceAuthenticatorChromeOS::AuthenticateWithMessage(
   callback_ = std::move(callback);
 
   authenticator_->AuthenticateUser(
-      message,
+      message, source_,
       base::BindOnce(&DeviceAuthenticatorChromeOS::OnAuthenticationCompleted,
                      weak_ptr_factory_.GetWeakPtr()));
 }

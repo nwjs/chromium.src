@@ -84,7 +84,6 @@
 #include "chrome/browser/ui/webui/ash/login/tpm_error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/update_required_screen_handler.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -95,6 +94,7 @@
 #include "chromeos/ash/components/login/auth/public/key.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
 #include "chromeos/ash/components/osauth/public/auth_hub.h"
+#include "chromeos/ash/components/osauth/public/auth_policy_connector.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/settings/user_login_permission_tracker.h"
@@ -302,6 +302,11 @@ int CountRegularUsers(const user_manager::UserList& users) {
   return regular_users_counter;
 }
 
+bool UserHasAnyLocalAuthFactors(const UserContext& context) {
+  return (context.GetAuthFactorsData().FindLocalPasswordFactor() != nullptr ||
+          context.GetAuthFactorsData().FindPinFactor() != nullptr);
+}
+
 }  // namespace
 
 // Utility class used to wait for a Public Session policy to be available if
@@ -359,12 +364,14 @@ ExistingUserController* ExistingUserController::current_controller() {
 
 ExistingUserController::ExistingUserController(
     PrefService* local_state,
-    const ApplicationLocaleStorage* application_locale_storage)
+    const ApplicationLocaleStorage* application_locale_storage,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory)
     : local_state_(CHECK_DEREF(local_state)),
       application_locale_storage_(CHECK_DEREF(application_locale_storage)),
+      shared_url_loader_factory_(std::move(shared_url_loader_factory)),
       cros_settings_(CrosSettings::Get()),
-      network_state_helper_(new login::NetworkStateHelper),
-      pin_salt_storage_(std::make_unique<quick_unlock::PinSaltStorage>()) {
+      network_state_helper_(new login::NetworkStateHelper) {
+  CHECK(shared_url_loader_factory_);
   HttpAuthDialog::AddObserver(this);
 
   enable_system_httpauth_ = HttpAuthDialog::Enable();
@@ -405,6 +412,7 @@ ExistingUserController::ExistingUserController(
     // for now because first session is very short and it will be a auto sign
     // out in 90s if idle.
     demo_login_controller_ = std::make_unique<ash::DemoLoginController>(
+        &local_state_.get(),
         base::BindRepeating(&ExistingUserController::ConfigureAutoLogin,
                             base::Unretained(this)));
   }
@@ -585,9 +593,11 @@ void ExistingUserController::PerformLogin(
       !new_user_context.GetChallengeResponseKeys().empty();
 
   if (new_user_context.IsUsingPin()) {
+    const quick_unlock::PinSaltStorageImpl pin_salt_storage;
+
     std::optional<Key> key =
         quick_unlock::PinStorageCryptohome::TransformPinKey(
-            pin_salt_storage_.get(), new_user_context.GetAccountId(),
+            pin_salt_storage, new_user_context.GetAccountId(),
             *new_user_context.GetKey());
     if (key) {
       new_user_context.SetKey(*key);
@@ -781,7 +791,53 @@ void ExistingUserController::OnAuthSuccess(const UserContext& user_context) {
   if (MaybeShowPasswordSelectionScreen(user_context)) {
     return;
   }
+
+  // Start the remove local auth factors flow.
+  if (MaybeShowRemoveLocalAuthFactorsScreen(user_context)) {
+    return;
+  }
   FinalizeAuthAndStartSession(user_context, has_auth_cookies);
+}
+
+bool ExistingUserController::MaybeShowRemoveLocalAuthFactorsScreen(
+    const UserContext& user_context) {
+  bool has_required_feature_flags =
+      ash::features::IsRecoveryFlowReorderEnabled() &&
+      ash::features::IsManagedLocalPinAndPasswordEnabled();
+  if (!has_required_feature_flags ||
+      auth_mode_ != LoginPerformer::AuthorizationMode::kExternal) {
+    return false;
+  }
+
+  auto auth_setup_flow = GetLoginDisplayHost()
+                             ->GetWizardContext()
+                             ->knowledge_factor_setup.auth_setup_flow;
+  if (!has_required_feature_flags ||
+      auth_setup_flow != WizardContext::AuthChangeFlow::kReauthentication) {
+    return false;
+  }
+
+  if (!user_context.GetAccountId().is_valid()) {
+    LOG(ERROR) << "Invalid AccountId detected";
+  }
+  // Only check for policy after the check for auth mode and auth flow,
+  // otherwise we might end up calling an auth policy connector in offline login
+  // where it might not have been properly initialized.
+  auto allowed_local_auth_factors =
+      AuthPolicyConnector::Get()->AllowedLocalAuthFactors(
+          user_context.GetAccountId());
+  bool policy_allows_local_auth_factors =
+      allowed_local_auth_factors.has_value() &&
+      !allowed_local_auth_factors->empty();
+  if (policy_allows_local_auth_factors ||
+      !UserHasAnyLocalAuthFactors(user_context)) {
+    return false;
+  }
+  SetUserContext(*GetLoginDisplayHost()->GetWizardContext(),
+                 std::make_unique<UserContext>(user_context));
+
+  GetLoginDisplayHost()->GetSigninUI()->ShowRemoveLocalAuthFactorsScreen();
+  return true;
 }
 
 bool ExistingUserController::MaybeShowPasswordSelectionScreen(
@@ -985,8 +1041,8 @@ void ExistingUserController::OnOffTheRecordAuthSuccess() {
   // that would actually complete the login process.
 
   // Mark the device as registered., i.e. the second part of OOBE as completed.
-  if (!StartupUtils::IsDeviceRegistered()) {
-    StartupUtils::MarkDeviceRegistered(base::OnceClosure());
+  if (!StartupUtils::IsDeviceRegistered(local_state_.get())) {
+    StartupUtils::MarkDeviceRegistered(local_state_.get(), base::OnceClosure());
   }
 
   UserSessionManager::GetInstance()->CompleteGuestSessionLogin(guest_mode_url_);
@@ -1587,7 +1643,7 @@ void ExistingUserController::ContinueLoginIfDeviceNotDisabled(
   }
 
   if (features::IsOobeAutoEnrollmentCheckForcedEnabled() &&
-      !StartupUtils::IsOobeCompleted()) {
+      !StartupUtils::IsOobeCompleted(local_state_.get())) {
     // If OOBE is not yet completed, abort the current login attempt. This
     // indicates a potential bypass attempt and an error screen is shown.
     ++num_login_attempts_;
@@ -1659,7 +1715,7 @@ void ExistingUserController::DoCompleteLogin(
   if (!user_context.GetAuthCode().empty()) {
     oauth2_token_initializer_ = std::make_unique<OAuth2TokenInitializer>();
     oauth2_token_initializer_->Start(
-        user_context,
+        shared_url_loader_factory_, user_context,
         base::BindOnce(&ExistingUserController::OnOAuth2TokensFetched,
                        weak_factory_.GetWeakPtr()));
     return;

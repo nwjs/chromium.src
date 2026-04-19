@@ -450,14 +450,15 @@ void WebContentsViewAndroid::ShowPopupMenu(
 }
 
 void WebContentsViewAndroid::StartDragging(
+    RenderFrameHost& source_rfh,
     const DropData& drop_data,
-    const url::Origin& source_origin,
     blink::DragOperationsMask allowed_ops,
     const gfx::ImageSkia& image,
     const gfx::Vector2d& cursor_offset,
     const gfx::Rect& drag_obj_rect,
-    const blink::mojom::DragEventSourceInfo& event_info,
-    RenderWidgetHostImpl* source_rwh) {
+    const blink::mojom::DragEventSourceInfo& event_info) {
+  RenderWidgetHostImpl* const source_rwh =
+      static_cast<RenderWidgetHostImpl*>(source_rfh.GetRenderWidgetHost());
   current_source_rwh_for_drag_ = source_rwh->GetWeakPtr();
   if (!IsDragEnabledForDropData(drop_data)) {
     // Need to clear drag and drop state in blink.
@@ -558,7 +559,7 @@ void WebContentsViewAndroid::UpdateDragOperation(
 // changes, we resend the entered event before sending the update or drop.
 bool WebContentsViewAndroid::OnDragEvent(const ui::DragEventAndroid& event) {
   switch (event.action()) {
-    case JNI_DragEvent::ACTION_DRAG_ENTERED: {
+    case DragEventJni::ACTION_DRAG_ENTERED: {
       drag_metadata_.clear();
       for (const std::u16string& mime_type : event.mime_types()) {
         if (mime_type == ui::kMimeTypePlainText16 ||
@@ -581,10 +582,10 @@ bool WebContentsViewAndroid::OnDragEvent(const ui::DragEventAndroid& event) {
       OnDragEntered(event.location(), event.screen_location());
       break;
     }
-    case JNI_DragEvent::ACTION_DRAG_LOCATION:
+    case DragEventJni::ACTION_DRAG_LOCATION:
       OnDragUpdated(event.location(), event.screen_location());
       break;
-    case JNI_DragEvent::ACTION_DROP: {
+    case DragEventJni::ACTION_DROP: {
       drop_data_ = std::make_unique<DropData>();
       drop_data_->did_originate_from_renderer = false;
       drop_data_->document_is_handling_drag = document_is_handling_drag_;
@@ -611,13 +612,13 @@ bool WebContentsViewAndroid::OnDragEvent(const ui::DragEventAndroid& event) {
       OnPerformDrop(event.location(), event.screen_location());
       break;
     }
-    case JNI_DragEvent::ACTION_DRAG_EXITED:
+    case DragEventJni::ACTION_DRAG_EXITED:
       OnDragExited();
       break;
-    case JNI_DragEvent::ACTION_DRAG_ENDED:
+    case DragEventJni::ACTION_DRAG_ENDED:
       OnDragEnded();
       break;
-    case JNI_DragEvent::ACTION_DRAG_STARTED:
+    case DragEventJni::ACTION_DRAG_STARTED:
       // Nothing meaningful to do.
       break;
   }

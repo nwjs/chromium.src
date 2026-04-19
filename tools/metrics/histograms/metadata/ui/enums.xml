@@ -362,6 +362,7 @@ chromium-metrics-reviews@google.com.
   <int value="159" label="IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_GEMINI"/>
   <int value="160" label="IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_DEVTOOLS"/>
   <int value="161" label="IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY"/>
+  <int value="162" label="IDC_CONTENT_CONTEXT_GLIC"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -389,6 +390,8 @@ chromium-metrics-reviews@google.com.
     manually cleared by the manager.
   </int>
 </enum>
+
+<!-- LINT.IfChange(SnackbarIdentifier) -->
 
 <enum name="SnackbarIdentifier">
   <int value="-2" label="TEST_SNACKBAR"/>
@@ -475,7 +478,11 @@ chromium-metrics-reviews@google.com.
   <int value="82" label="UMA_CROSS_DEVICE_SETTING_IMPORT"/>
   <int value="83" label="UMA_CROSS_DEVICE_SETTING_UNDO"/>
   <int value="84" label="UMA_CROSS_DEVICE_SETTING_REDO"/>
+  <int value="85" label="UMA_CHROME_FINDS_OPT_IN"/>
+  <int value="86" label="UMA_AUTOFILL_AI_LOCAL_SAVE_FALLBACK"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/messages/android/java/src/org/chromium/chrome/browser/ui/messages/snackbar/Snackbar.java:SnackbarIdentifier) -->
 
 <enum name="WebUIPreloadReason">
   <int value="0" label="BrowserWarmup"/>
@@ -746,6 +753,7 @@ chromium-metrics-reviews@google.com.
   <int value="-1259871417" label="chrome://browser-switch/"/>
   <int value="-1239015343" label="chrome://kill/"/>
   <int value="-1224398205" label="chrome://prefs-internals/"/>
+  <int value="-1222744253" label="chrome-untrusted://ai-overlay-dialog/"/>
   <int value="-1203248739" label="chrome://scanning/"/>
   <int value="-1198437953" label="chrome://download-shelf.top-chrome/"/>
   <int value="-1179878260" label="chrome://user-education-internals/"/>
@@ -1031,6 +1039,7 @@ chromium-metrics-reviews@google.com.
   <int value="1797107942" label="chrome://md-settings/"/>
   <int value="1834776370" label="chrome://password-change/"/>
   <int value="1846714330" label="chrome://sanitize/"/>
+  <int value="1878438412" label="chrome://tabs-from-other-devices.top-chrome/"/>
   <int value="1887784693" label="chrome://policy/"/>
   <int value="1906728906" label="chrome://privacy-sandbox-internals/"/>
   <int value="1914132589" label="chrome-untrusted://boca-app/"/>

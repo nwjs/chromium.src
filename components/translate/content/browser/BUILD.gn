@@ -30,7 +30,7 @@ static_library("browser") {
     "//components/optimization_guide/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/search_engines",
-    #"//components/translate/core/language_detection",
+    "//components/translate/core/language_detection",
     "//components/ukm/content",
     "//content/public/browser",
     "//content/public/common",

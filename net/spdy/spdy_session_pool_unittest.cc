@@ -2125,11 +2125,12 @@ TEST_F(SpdySessionPoolTest, NotifyConnectionChangeOnSessionClose) {
                               test_key.host_port_pair().port()),
           test_key.privacy_mode(), NetworkAnonymizationKey(),
           SecureDnsPolicy::kAllow,
-          /*disable_cert_network_fetches=*/false),
+          /*disable_cert_network_fetches=*/false,
+          handles::kInvalidNetworkHandle),
       socket_params, /*proxy_annotation_tag=*/std::nullopt, MEDIUM,
       test_key.socket_tag(), ClientSocketPool::RespectLimits::ENABLED,
       callback.callback(), ClientSocketPool::ProxyAuthCallback(),
-      http_session_->GetSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL,
+      http_session_->GetSocketPool(HttpNetworkSession::SocketPoolType::kNormal,
                                    ProxyChain::Direct()),
       net_log);
   rv = callback.GetResult(rv);
@@ -2212,11 +2213,12 @@ TEST_F(SpdySessionPoolTest, NotifyConnectionChangeOnConnectionFailure) {
                               test_key.host_port_pair().port()),
           test_key.privacy_mode(), NetworkAnonymizationKey(),
           SecureDnsPolicy::kAllow,
-          /*disable_cert_network_fetches=*/false),
+          /*disable_cert_network_fetches=*/false,
+          handles::kInvalidNetworkHandle),
       socket_params, /*proxy_annotation_tag=*/std::nullopt, MEDIUM,
       test_key.socket_tag(), ClientSocketPool::RespectLimits::ENABLED,
       callback.callback(), ClientSocketPool::ProxyAuthCallback(),
-      http_session_->GetSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL,
+      http_session_->GetSocketPool(HttpNetworkSession::SocketPoolType::kNormal,
                                    ProxyChain::Direct()),
       net_log);
   rv = callback.GetResult(rv);

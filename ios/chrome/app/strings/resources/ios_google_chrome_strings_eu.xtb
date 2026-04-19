@@ -81,9 +81,6 @@ Kontuan hartu beharrekoak:
 <translation id="2703746758996815929">Chrome-ri buruzko aholku lagungarriak jasotzeko, aktibatu jakinarazpenak iOS-en ezarpenetan.</translation>
 <translation id="2728851697704606655">Itzuli Google Lens-ekin</translation>
 <translation id="2736805085127235148">Chrome-ren jakinarazpenak desaktibatuta daude une honetan gailuaren ezarpenetan.</translation>
-<translation id="2754428955276778271">Chrome-ko datu batzuk ez dira gorde Google-ko kontuan oraindik.
-
-Saioa amaitu aurretik, itxaron minutu batzuk. Orain amaitzen baduzu saioa, datuak ezabatuko dira.</translation>
 <translation id="2767464022270041271">Ez dago pasahitzik gordeta. Gordetako pasahitzak egiaztatzeko gai da Google-ren Pasahitz-kudeatzailea.</translation>
 <translation id="2788811701191021538">Chrome-ko ordainketa-metodoen ezarpenen orria irekitzen du.</translation>
 <translation id="2876628302275096482">Lortu <ph name="BEGIN_LINK" />Chrome-k zure datuen pribatutasuna babesteko duen moduari<ph name="END_LINK" /> buruzko informazio gehiago</translation>
@@ -188,6 +185,7 @@ Saioa amaitu aurretik, itxaron minutu batzuk. Orain amaitzen baduzu saioa, datua
 <translation id="5395376160638294582">Izan beti Google-ko kontuko Chrome-ren datuak erabiltzeko aukera</translation>
 <translation id="5404252374083197467">Arakatzaile lehenetsi gisa ezarri nahi duzu Chrome?</translation>
 <translation id="5439191312780166229">Webgune arriskutsuen berri ematen dizu, Google-k ezagutzen ez zituenak barne, webguneetan babes estandarrak baino datu gehiago aztertuz. Chrome-ren abisuak saltatzea aukera dezakezu.</translation>
+<translation id="5453077102022695084">Pantaila osoko bideoa Chrome arakatzaile lehenetsi gisa ezartzeko argibideekin</translation>
 <translation id="5460571915754665838">4. Hautatu Chrome.</translation>
 <translation id="5492504007368565877">Google-ren Pasahitz-kudeatzailea aplikazioak ezin ditu egiaztatu pasahitzak.</translation>
 <translation id="5525095647255982834">Fitxa beste gailu batera bidaltzeko, hasi saioa Chrome-n bertan.</translation>
@@ -374,7 +372,6 @@ Datuak pasaesaldiarekin enkriptatu ziren data honetan: <ph name="TIME" />. Chrom
 <translation id="9176561303811134420">Kudeatu ordainketa-metodoak Chrome-n</translation>
 <translation id="9181628561061032322">Chrome-ren azkenaldiko fitxak irekitzen ditu.</translation>
 <translation id="924447568950697217">Bihurtu Chrome arakatzaile lehenetsi</translation>
-<translation id="93622496651329736">Chrome arakatzaile lehenetsi gisa ezartzeko argibideak pantaila txiki gainjarriko bideoan</translation>
 <translation id="948597495737267756">Chrome-ko historiaren orria irekitzen du.</translation>
 <translation id="954347330803595209">Pasahitzak, historia, laster-markak eta kreditu-txartelak Chrome-n erabiltzeko, inportatu zure datuak</translation>
 <translation id="97300214378190234">Erabili Chrome beste aplikazioetako estekak sakatzen dituzunean.</translation>

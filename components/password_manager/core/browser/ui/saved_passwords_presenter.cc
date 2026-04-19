@@ -436,10 +436,9 @@ std::vector<CredentialUIEntry> SavedPasswordsPresenter::GetBlockedSites() {
   return passwords_grouper_->GetBlockedSites();
 }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 base::flat_set<ActorLoginPermission>
 SavedPasswordsPresenter::GetActorLoginPermissions(
-    syncer::SyncService* sync_service) const {
+    const syncer::SyncService* sync_service) const {
   std::vector<ActorLoginPermission> permissions;
   std::vector<AffiliatedGroup> groups =
       passwords_grouper_->GetAffiliatedGroupsWithGroupingInfo();
@@ -471,12 +470,12 @@ SavedPasswordsPresenter::GetActorLoginPermissions(
 }
 
 void SavedPasswordsPresenter::RevokeActorLoginPermission(
-    const std::u16string& username,
-    const std::string& signon_realm) {
+    const std::string& signon_realm,
+    const std::string& username) {
   for (const auto& credential : passwords_grouper_->GetAllCredentials()) {
     for (const auto& form : GetCorrespondingPasswordForms(credential)) {
       if (form.signon_realm == signon_realm &&
-          form.username_value == username) {
+          form.username_value == base::UTF8ToUTF16(username)) {
         PasswordForm updated_form = form;
         updated_form.actor_login_approved = false;
         GetStoreFor(updated_form).UpdateLogin(updated_form);
@@ -484,7 +483,6 @@ void SavedPasswordsPresenter::RevokeActorLoginPermission(
     }
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 std::vector<PasswordForm>
 SavedPasswordsPresenter::GetCorrespondingPasswordForms(

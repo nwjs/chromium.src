@@ -14,6 +14,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_screen.h"
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
@@ -50,7 +51,7 @@
 #include "chrome/browser/ash/login/screens/saml_confirm_password_screen.h"
 #include "chrome/browser/ash/login/screens/signin_fatal_error_screen.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
-#include "chrome/browser/ash/login/signin_partition_manager.h"
+#include "chrome/browser/ash/login/signin_partition_manager_factory.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/login/users/chrome_user_manager_util.h"
 #include "chrome/browser/ash/login/wizard_context.h"
@@ -81,7 +82,6 @@
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -416,13 +416,20 @@ void OnGetAuthFactorsConfiguration(std::unique_ptr<UserContext> user_context,
 }  // namespace
 
 GaiaScreenHandler::GaiaScreenHandler(
+    PrefService* local_state,
+    policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
     const scoped_refptr<NetworkStateInformer>& network_state_informer,
     ErrorScreen* error_screen)
     : BaseScreenHandler(kScreenId),
+      browser_policy_connector_ash_(CHECK_DEREF(browser_policy_connector_ash)),
+      shared_url_loader_factory_(std::move(shared_url_loader_factory)),
       network_state_informer_(network_state_informer),
       error_screen_(error_screen),
       histogram_helper_(std::make_unique<ErrorScreensHistogramHelper>(
-          ErrorScreensHistogramHelper::ErrorParentScreen::kSignin)) {
+          ErrorScreensHistogramHelper::ErrorParentScreen::kSignin)),
+      auth_flow_auto_reload_manager_(local_state) {
+  CHECK(shared_url_loader_factory_);
   DCHECK(network_state_informer_.get());
   DCHECK(error_screen_);
   HttpAuthDialog::AddObserver(this);
@@ -448,8 +455,9 @@ void GaiaScreenHandler::LoadGaia(const login::GaiaContext& context) {
 
     if (user && user->using_saml() &&
         user->GetType() == user_manager::UserType::kPublicAccount) {
-      public_saml_url_fetcher_ =
-          std::make_unique<PublicSamlUrlFetcher>(account_id);
+      public_saml_url_fetcher_ = std::make_unique<PublicSamlUrlFetcher>(
+          &browser_policy_connector_ash_.get(), shared_url_loader_factory_,
+          account_id);
       public_saml_url_fetcher_->Fetch(std::move(partition_call));
       return;
     }
@@ -473,7 +481,7 @@ void GaiaScreenHandler::LoadGaiaWithPartition(
   // modification of the cookie header. So manually write the GAPS cookie into
   // the CookieManager.
   login::SigninPartitionManager* signin_partition_manager =
-      login::SigninPartitionManager::Factory::GetForBrowserContext(
+      login::SigninPartitionManagerFactory::GetForBrowserContext(
           Profile::FromWebUI(web_ui()));
 
   login::SetCookieForPartition(context, signin_partition_manager,
@@ -895,7 +903,7 @@ void GaiaScreenHandler::HandleCompleteAuthenticationEvent(
 
   // Retrieve cookies and continue with authentication
   login::SigninPartitionManager* signin_partition_manager =
-      login::SigninPartitionManager::Factory::GetForBrowserContext(
+      login::SigninPartitionManagerFactory::GetForBrowserContext(
           Profile::FromWebUI(web_ui()));
   gaia_cookie_retriever_ = std::make_unique<GaiaCookieRetriever>(
       signin_partition_name_, signin_partition_manager,
@@ -1353,6 +1361,9 @@ void GaiaScreenHandler::Hide() {
 }
 
 void GaiaScreenHandler::LoadGaiaAsync(const AccountId& account_id) {
+  // TODO(crbug.com/489929275): Avoid using g_browser_process.
+  PrefService& local_state = CHECK_DEREF(g_browser_process->local_state());
+
   // TODO(https://crbug.com/1317991): Investigate why the call is making Gaia
   // loading slowly.
   // CallExternalAPI("onBeforeLoad");
@@ -1361,7 +1372,8 @@ void GaiaScreenHandler::LoadGaiaAsync(const AccountId& account_id) {
   if (account_id.is_valid()) {
     login_request_variant_ = GaiaLoginVariant::kOnlineSignin;
   } else {
-    if (StartupUtils::IsOobeCompleted() && StartupUtils::IsDeviceOwned()) {
+    if (StartupUtils::IsOobeCompleted(local_state) &&
+        StartupUtils::IsDeviceOwned()) {
       login_request_variant_ = GaiaLoginVariant::kAddUser;
     } else {
       login_request_variant_ = GaiaLoginVariant::kOobe;

@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/editing/text_affinity.h"
 #include "third_party/blink/renderer/core/editing/visible_position.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/html/custom_password_heuristics.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_inner_elements.h"
@@ -63,6 +64,7 @@
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -179,7 +181,7 @@ void TextControlElement::DispatchBlurEvent(
 void TextControlElement::DefaultEventHandler(Event& event) {
   // OpaqueRange snapshots on beforeinput and commits after the value
   // mutation, ensuring updates are visible before input listeners run.
-  if (RuntimeEnabledFeatures::OpaqueRangeEnabled() &&
+  if (RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()) &&
       event.type() == event_type_names::kBeforeinput && event.IsInputEvent()) {
     CaptureOpaqueRangePreEdit();
   }
@@ -429,7 +431,7 @@ void TextControlElement::setRangeText(const String& replacement,
     ScopedSkipValueAutoDiff skip_value_auto_diff(*this);
     SetValue(text.ToString(), TextFieldEventBehavior::kDispatchNoEvent,
              TextControlSetValueSelection::kDoNotSet);
-    if (RuntimeEnabledFeatures::OpaqueRangeEnabled()) {
+    if (RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext())) {
       CommitProgrammaticOpaqueRangeEdit(original_text, start, end);
     }
   }
@@ -952,7 +954,7 @@ bool TextControlElement::IsPlaceholderBreakElement(const Node* node) {
 void TextControlElement::AdjustPlaceholderBreakElement() {
   HTMLElement* inner_editor = InnerEditorElement();
   if (inner_editor->GetLayoutObject() &&
-      inner_editor->GetLayoutObject()->Style()->ShouldCollapseBreaks()) {
+      inner_editor->GetLayoutObject()->StyleRef().ShouldCollapseBreaks()) {
     return;
   }
   Node* last_child = inner_editor->lastChild();
@@ -1020,9 +1022,14 @@ void TextControlElement::SetInnerEditorValue(const String& value) {
   // the last newline.
   AdjustPlaceholderBreakElement();
 
-  if (text_is_changed && GetLayoutObject()) {
-    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
-      cache->HandleTextFormControlChanged(this);
+  if (text_is_changed) {
+    MaybeSetHasBeenHeuristicCustomPasswordJS();
+
+    if (GetLayoutObject()) {
+      if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
+        cache->HandleTextFormControlChanged(this);
+      }
+    }
   }
 }
 
@@ -1239,7 +1246,7 @@ void TextControlElement::SetAutofillValue(const String& value,
                                           WebAutofillState autofill_state) {
   // Set the value trimmed to the max length of the field and dispatch the input
   // and change events.
-  SetValue(value.Substring(0, maxLength()),
+  SetValue(value.substr(0, maxLength()),
            TextFieldEventBehavior::kDispatchInputAndChangeEvent,
            TextControlSetValueSelection::kSetSelectionToEnd,
            value.empty() ? WebAutofillState::kNotFilled : autofill_state);
@@ -1248,7 +1255,7 @@ void TextControlElement::SetAutofillValue(const String& value,
 void TextControlElement::SetSuggestedValue(const String& value) {
   // Avoid calling maxLength() if possible as it's non-trivial.
   const String new_suggested_value =
-      value.empty() ? value : value.Substring(0, maxLength());
+      value.empty() ? value : value.substr(0, maxLength());
   if (new_suggested_value == suggested_value_) {
     return;
   }
@@ -1328,7 +1335,7 @@ void TextControlElement::DisconnectAllOpaqueRanges() {
 
 void TextControlElement::RemovedFrom(ContainerNode& insertion_point) {
   if (insertion_point.isConnected() &&
-      RuntimeEnabledFeatures::OpaqueRangeEnabled()) {
+      RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext())) {
     DisconnectAllOpaqueRanges();
   }
   HTMLFormControlElementWithState::RemovedFrom(insertion_point);
@@ -1349,7 +1356,7 @@ OpaqueRange* TextControlElement::createValueRange(
     unsigned start_offset,
     unsigned end_offset,
     ExceptionState& exception_state) {
-  CHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled());
+  CHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()));
 
   const String value = Value();
   if (start_offset > value.length() || end_offset > value.length()) {
@@ -1371,7 +1378,7 @@ void TextControlElement::NotifyOpaqueRangesOfTextChange(
     unsigned change_offset,
     unsigned deleted_count,
     unsigned inserted_count) const {
-  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled());
+  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()));
   if (opaque_ranges_.empty()) {
     return;
   }
@@ -1382,7 +1389,7 @@ void TextControlElement::NotifyOpaqueRangesOfTextChange(
 }
 
 void TextControlElement::CaptureOpaqueRangePreEdit() {
-  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled());
+  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()));
   if (opaque_ranges_.empty()) {
     return;
   }
@@ -1394,7 +1401,7 @@ void TextControlElement::CaptureOpaqueRangePreEdit() {
 }
 
 void TextControlElement::CommitOpaqueRangeEdit() {
-  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled());
+  DCHECK(RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()));
   if (opaque_ranges_.empty() || !pending_user_edit_) {
     pending_user_edit_.reset();
     return;
@@ -1461,7 +1468,8 @@ void TextControlElement::CommitProgrammaticOpaqueRangeEdit(
     const String& old_value,
     unsigned old_sel_start,
     unsigned old_sel_end) {
-  if (!RuntimeEnabledFeatures::OpaqueRangeEnabled() || opaque_ranges_.empty()) {
+  if (!RuntimeEnabledFeatures::OpaqueRangeEnabled(GetExecutionContext()) ||
+      opaque_ranges_.empty()) {
     return;
   }
   // Clear any pending user pre-edit snapshot to avoid applying a user-driven
@@ -1477,6 +1485,12 @@ void TextControlElement::SetSkipNextSetValueAutoDiff(bool should_skip) {
 
 bool TextControlElement::ShouldSkipNextSetValueAutoDiff() const {
   return skip_next_set_value_auto_diff_;
+}
+
+void TextControlElement::MaybeSetHasBeenHeuristicCustomPasswordJS() {
+  has_been_heuristic_custom_password_js_ =
+      IsTextControl() && (has_been_heuristic_custom_password_js_ ||
+                          IsLikelyJSCustomPasswordField(Value()));
 }
 
 }  // namespace blink

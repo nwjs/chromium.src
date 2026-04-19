@@ -8,16 +8,17 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.view.MotionEvent;
 import android.view.View;
 
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.thinwebview.ThinWebView;
 import org.chromium.components.thinwebview.ThinWebViewConstraints;
 import org.chromium.components.thinwebview.ThinWebViewFactory;
+import org.chromium.components.thinwebview.internal.ThinWebViewContextMenuItemDelegate;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
@@ -27,30 +28,28 @@ import org.chromium.ui.base.WindowAndroid;
 public class TabBottomSheetWebUi {
     private final Context mContext;
     private final WindowAndroid mWindowAndroid;
+    private final ContextMenuPopulatorFactory mContextMenuPopulatorFactory;
     private ThinWebView mThinWebView;
     private @Nullable WebContents mWebContents;
 
-    TabBottomSheetWebUi(Context context, WindowAndroid windowAndroid) {
+    TabBottomSheetWebUi(
+            Context context,
+            WindowAndroid windowAndroid,
+            ContextMenuPopulatorFactory contextMenuPopulatorFactory) {
         mContext = context;
         mWindowAndroid = windowAndroid;
+        mContextMenuPopulatorFactory = contextMenuPopulatorFactory;
         resetThinWebView();
     }
 
     @SuppressLint("ClickableViewAccessibility")
     void setWebContents(@Nullable WebContents webContents) {
+        if (mWebContents == webContents) {
+            return;
+        }
         mWebContents = webContents;
         if (mWebContents != null) {
             ContentView contentView = ContentView.createContentView(mContext, null);
-
-            // Prevent bottom sheet from intercepting touch events.
-            View.OnTouchListener touchListener =
-                    (v, event) -> {
-                        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                            v.getParent().requestDisallowInterceptTouchEvent(true);
-                        }
-                        return false;
-                    };
-            contentView.setOnTouchListener(touchListener);
 
             mWebContents.setDelegates(
                     VersionInfo.getProductVersion(),
@@ -59,11 +58,14 @@ public class TabBottomSheetWebUi {
                     mWindowAndroid,
                     WebContents.createDefaultInternalsHolder());
             contentView.setWebContents(mWebContents);
+            ThinWebViewContextMenuItemDelegate itemDelegate =
+                    new ThinWebViewContextMenuItemDelegate(mWebContents);
+            mContextMenuPopulatorFactory.setItemDelegate(itemDelegate);
             mThinWebView.attachWebContents(
                     mWebContents,
                     contentView,
                     /* delegate= */ null,
-                    /* contextMenuPopulatorFactory= */ null,
+                    mContextMenuPopulatorFactory,
                     /* selectionDropdownMenuDelegate= */ null);
         } else {
             resetThinWebView();
@@ -72,11 +74,6 @@ public class TabBottomSheetWebUi {
 
     @Nullable WebContents getWebContents() {
         return mWebContents;
-    }
-
-    /** Sets the size of the web contents. */
-    void setInsets(int top, int left, int bottom, int right) {
-        mThinWebView.setInsets(top, left, bottom, right);
     }
 
     void destroy() {

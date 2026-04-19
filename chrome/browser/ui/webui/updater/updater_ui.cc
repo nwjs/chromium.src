@@ -18,7 +18,6 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/updater/updater_page_handler.h"
 #include "chrome/browser/ui/webui/updater/updater_ui.mojom.h"
@@ -34,6 +33,11 @@
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/webui_util.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "base/version_info/channel.h"
+#include "chrome/common/channel_info.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace {
 
@@ -65,10 +69,6 @@ void AddKnownApp(content::WebUIDataSource& source,
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 }  // namespace
-
-bool UpdaterUIConfig::IsWebUIEnabled(content::BrowserContext* browser_context) {
-  return base::FeatureList::IsEnabled(features::kUpdaterUI);
-}
 
 // enable_chrome_send is needed for plural_string_handler.
 UpdaterUI::UpdaterUI(content::WebUI* web_ui)
@@ -124,6 +124,7 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"eventTypeUPDATE", IDS_UPDATER_EVENT_TYPE_UPDATE},
       {"eventTypeUPDATER_PROCESS", IDS_UPDATER_EVENT_TYPE_UPDATER_PROCESS},
       {"expandAll", IDS_UPDATER_EXPAND_ALL},
+      {"exportHistoryFile", IDS_UPDATER_EXPORT_HISTORY_FILE},
       {"filterChipApp", IDS_UPDATER_FILTER_CHIP_APP},
       {"filterChipDate", IDS_UPDATER_FILTER_CHIP_DATE},
       {"filterChipEventType", IDS_UPDATER_FILTER_CHIP_EVENT_TYPE},
@@ -136,6 +137,8 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"internal", IDS_UPDATER_INTERNAL},
       {"lastChecked", IDS_UPDATER_LAST_CHECKED_LABEL},
       {"lastStarted", IDS_UPDATER_LAST_STARTED_LABEL},
+      {"loadHistoryFile", IDS_UPDATER_LOAD_HISTORY_FILE},
+      {"loadHistoryFileError", IDS_UPDATER_LOAD_HISTORY_FILE_ERROR},
       {"never", IDS_UPDATER_NEVER},
       {"nextVersion", IDS_UPDATER_NEXT_VERSION},
       {"noAppsFound", IDS_UPDATER_NO_APPS_FOUND},
@@ -160,6 +163,7 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"qualificationFailed", IDS_UPDATER_QUALIFICATION_FAILED},
       {"qualificationSucceeded", IDS_UPDATER_QUALIFICATION_SUCCEEDED},
       {"removeFilter", IDS_UPDATER_REMOVE_FILTER},
+      {"returnToLocal", IDS_UPDATER_RETURN_TO_LOCAL},
       {"scope", IDS_UPDATER_SCOPE},
       {"scopeSystem", IDS_UPDATER_SCOPE_SYSTEM},
       {"scopeUser", IDS_UPDATER_SCOPE_USER},
@@ -187,6 +191,8 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
                                             IDS_UPDATER_PARSE_ERROR_EVENTS);
   plural_string_handler->AddLocalizedString("undatedEvents",
                                             IDS_UPDATER_UNDATED_EVENTS);
+  plural_string_handler->AddLocalizedString("viewingHistoryFiles",
+                                            IDS_UPDATER_VIEWING_HISTORY_FILES);
   web_ui->AddMessageHandler(std::move(plural_string_handler));
 
   int32_t num_known_apps = 0;
@@ -206,7 +212,20 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
               {"{44FC7FE2-65CE-487C-93F4-EDEE46EEAAAB}"});
   AddKnownApp(*source, num_known_apps++, "Chrome Enterprise Companion App",
               {"{85EEDF37-756C-4972-9399-5A12A4BEE148}"});
-  source->AddLocalizedString("defaultAppFilters", IDS_PRODUCT_NAME);
+
+  source->AddLocalizedString("defaultAppFilters", [] {
+    switch (chrome::GetChannel()) {
+      case version_info::Channel::BETA:
+        return IDS_SHORTCUT_NAME_BETA;
+      case version_info::Channel::DEV:
+        return IDS_SHORTCUT_NAME_DEV;
+      case version_info::Channel::CANARY:
+        return IDS_SXS_SHORTCUT_NAME;
+      case version_info::Channel::STABLE:
+      case version_info::Channel::UNKNOWN:
+        return IDS_PRODUCT_NAME;
+    }
+  }());
 #else
   source->AddString("defaultAppFilters", "");
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)

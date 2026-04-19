@@ -12,30 +12,30 @@
 #import "ios/chrome/browser/passwords/bottom_sheet/coordinator/credential_suggestion_bottom_sheet_mediator_base+Subclassing.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/ui/credential_suggestion_bottom_sheet_consumer.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
 @implementation PasskeySuggestionBottomSheetMediator {
-  // Information of the passkey request which triggered the bottom sheet.
-  std::unique_ptr<webauthn::IOSPasskeyClient::RequestInfo> _requestInfo;
-
   // Delegate used to fetch and select passkey suggestions.
   raw_ptr<webauthn::IOSWebAuthnCredentialsDelegate>
       _webAuthnCredentialsDelegate;
 }
 
-- (instancetype)initWithWebStateList:(WebStateList*)webStateList
-                         requestInfo:(webauthn::IOSPasskeyClient::RequestInfo)
-                                         requestInfo {
-  self = [super initWithWebStateList:webStateList];
-  if (self) {
-    _requestInfo = std::make_unique<webauthn::IOSPasskeyClient::RequestInfo>(
-        std::move(requestInfo));
+- (instancetype)
+    initWithWebStateList:(WebStateList*)webStateList
+             requestInfo:(webauthn::IOSPasskeyClient::RequestInfo)requestInfo
+            reauthModule:(id<ReauthenticationProtocol>)reauthModule {
+  std::string frameId = requestInfo.frame_id;
 
+  self = [super initWithWebStateList:webStateList
+                        reauthModule:reauthModule
+                         requestInfo:std::move(requestInfo)];
+  if (self) {
     _webAuthnCredentialsDelegate =
         webauthn::IOSWebAuthnCredentialsDelegateFactory::GetFactory(
             webStateList->GetActiveWebState())
-            ->GetDelegateForFrame(_requestInfo->frame_id);
+            ->GetDelegateForFrameId(frameId);
     if (_webAuthnCredentialsDelegate) {
       base::expected<const std::vector<password_manager::PasskeyCredential>*,
                      password_manager::WebAuthnCredentialsDelegate::
@@ -64,13 +64,17 @@
 
   [self.consumer
       setPrimaryActionString:l10n_util::GetNSString(
-                                 IDS_IOS_CREDENTIAL_BOTTOM_SHEET_CONTINUE)];
+                                 IDS_IOS_CREDENTIAL_BOTTOM_SHEET_CONTINUE)
+       secondaryActionString:l10n_util::GetNSString(
+                                 IDS_IOS_CREDENTIAL_BOTTOM_SHEET_MORE_PASSKEYS)
+        secondaryActionImage:DefaultSymbolWithPointSize(
+                                 kPersonBadgeKeyFillSymbol,
+                                 kSymbolActionPointSize)];
 }
 
 - (void)disconnect {
   [super disconnect];
 
-  _requestInfo.reset();
   _webAuthnCredentialsDelegate = nullptr;
 }
 
@@ -78,9 +82,15 @@
                     atIndex:(NSInteger)index
                  completion:(ProceduralBlock)completion {
   CHECK_EQ(suggestion.type, autofill::SuggestionType::kWebauthnCredential);
+  [super didSelectSuggestion:suggestion atIndex:index completion:completion];
+}
 
-  // TODO(crbug.com/464290670): Handle reauth.
+#pragma mark - Subclassing
 
+// Perform suggestion selection
+- (void)selectSuggestion:(FormSuggestion*)suggestion
+                 atIndex:(NSInteger)index
+              completion:(ProceduralBlock)completion {
   // `_webAuthnCredentialsDelegate` can be null if the frame it was created for
   // was destroyed or navigated away.
   if (!_webAuthnCredentialsDelegate) {

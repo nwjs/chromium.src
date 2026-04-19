@@ -8,9 +8,19 @@
 #include <vector>
 
 #include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
 #include "base/rand_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "build/buildflag.h"
+
+namespace {
+// Allow runtime override of the forced embedded page host.
+std::string& GetForcedEmbeddedPageHostOverrideString() {
+  static base::NoDestructor<std::string> override_string;
+  return *override_string;
+}
+}  // namespace
 
 namespace contextual_tasks {
 
@@ -69,13 +79,28 @@ BASE_FEATURE(kContextualTasksAnimatedCaret, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualTasksEnableFileHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kContextualTasksComposeboxJumpFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the use of a rounded clip-path for the composebox.
+BASE_FEATURE(kContextualTasksRoundedClipPath, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// On android the menu still needs to be shown in all cases. Enable the feature
+// everywhere else.
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kContextualTasksInsertWebContentsAt,
+BASE_FEATURE(kContextualTasksHideMenuOnAiPage,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #else
-BASE_FEATURE(kContextualTasksInsertWebContentsAt,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+BASE_FEATURE(kContextualTasksHideMenuOnAiPage,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(kContextualTasksUpdateModelOnNavigation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool GetIsContextualTasksUpdateModeOnNavigationEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksUpdateModelOnNavigation);
+}
 
 const base::FeatureParam<bool> kContextualTasksLockAndUnlockInputCapability(
     &kContextualTasks,
@@ -115,13 +140,20 @@ const base::FeatureParam<bool> kContextualTasksContextSmartTabSharing(
     "ContextualTasksContextSmartTabSharing",
     false);
 
+const base::FeatureParam<base::TimeDelta> kSmartTabSharingTabSelectionTimeout(
+    &kContextualTasksContext,
+    "ContextualTasksContextSmartTabSharingTabSelectionTimeout",
+    base::Milliseconds(300));
+
 const base::FeatureParam<double> kContextualTasksContextLoggingSampleRate{
     &kContextualTasksContextLogging, "ContextualTasksContextLoggingSampleRate",
     1.0};
 
 // Enables tab auto-chip for contextual tasks.
 const base::FeatureParam<bool> kContextualTasksTabAutoSuggestionChipEnabled(
-    &kContextualTasks, "ContextualTasksTabAutoSuggestionChipEnabled", true);
+    &kContextualTasks,
+    "ContextualTasksTabAutoSuggestionChipEnabled",
+    true);
 
 // The base URL for the AI page.
 const base::FeatureParam<std::string> kContextualTasksAiPageUrl{
@@ -139,18 +171,19 @@ const base::FeatureParam<std::string> kContextualTasksForcedEmbeddedPageHost{
 // The base domains for the sign in page.
 const base::FeatureParam<std::string> kContextualTasksSignInDomains{
     &kContextualTasks, "contextual-tasks-sign-in-domains",
-    "accounts.google.com,login.corp.google.com"};
+    "login.corp.google.com"};
 
 constexpr base::FeatureParam<EntryPointOption>::Option kEntryPointOptions[] = {
     {EntryPointOption::kNoEntryPoint, "no-entry-point"},
     {EntryPointOption::kPageActionRevisit, "page-action-revisit"},
     {EntryPointOption::kToolbarRevisit, "toolbar-revisit"},
-    {EntryPointOption::kToolbarPermanent, "toolbar-permanent"}};
+    {EntryPointOption::kToolbarPermanent, "toolbar-permanent"},
+    {EntryPointOption::kToolbarEphemeralBranded, "toolbar-ephemeral-branded"}};
 
 const base::FeatureParam<EntryPointOption> kShowEntryPoint(
     &kContextualTasks,
     "ContextualTasksEntryPoint",
-    EntryPointOption::kToolbarRevisit,
+    EntryPointOption::kNoEntryPoint,
     &kEntryPointOptions);
 
 constexpr base::FeatureParam<ExpandButtonOption>::Option kExpandButtonOption[] =
@@ -162,11 +195,6 @@ const base::FeatureParam<ExpandButtonOption> kExpandButtonOptions(
     "ContextualTasksExpandButtonOptions",
     ExpandButtonOption::kToolbarCloseButton,
     &kExpandButtonOption);
-
-const base::FeatureParam<bool> kTaskScopedSidePanel(
-    &kContextualTasks,
-    "ContextualTasksTaskScopedSidePanel",
-    true);
 
 const base::FeatureParam<bool> kOpenSidePanelOnLinkClicked(
     &kContextualTasks,
@@ -191,13 +219,6 @@ const base::FeatureParam<bool> kForceGscInTabMode(
 // Version 2.0: M146 respin launch candidate.
 const base::FeatureParam<std::string> kContextualTasksUserAgentSuffix{
     &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/2.0"};
-
-// TODO(b/481079194): Remove `kAutoSubmitVoiceSearchQuery` and the code that
-// respects its disabled state.
-const base::FeatureParam<bool> kAutoSubmitVoiceSearchQuery(
-    &kContextualTasks,
-    "ContextualTasksAutoSubmitVoiceSearchQuery",
-    true);
 
 const base::FeatureParam<std::string> kContextualTasksHelpUrl(
     &kContextualTasks,
@@ -301,9 +322,6 @@ int ContextualTasksInactiveSidePanelKeepInCacheMinutes() {
   return kContextualTasksInactiveSidePanelKeepInCacheMinutes.Get();
 }
 
-bool GetAutoSubmitVoiceSearchQuery() {
-  return kAutoSubmitVoiceSearchQuery.Get();
-}
 
 bool GetIsProtectedPageErrorEnabled() {
   return kEnableProtectedPageError.Get();
@@ -350,16 +368,24 @@ bool ShouldShowExpandedSecurityChip() {
 }
 
 std::string GetForcedEmbeddedPageHost() {
-  std::string host = kContextualTasksForcedEmbeddedPageHost.Get();
+  std::string host = !GetForcedEmbeddedPageHostOverrideString().empty()
+                         ? GetForcedEmbeddedPageHostOverrideString()
+                         : kContextualTasksForcedEmbeddedPageHost.Get();
 
   // If there's a non-empty host, ensure that it is only ever going to a
   // google.com domain. If not, return the default empty string.
+  // LINT.IfChange(AllowedHosts)
   if (!host.empty() && !(base::EndsWith(host, ".google.com") ||
                          base::EndsWith(host, ".googlers.com"))) {
     return kContextualTasksForcedEmbeddedPageHost.default_value;
   }
+  // LINT.ThenChange(//depot/chromium/chrome/browser/resources/contextual_tasks/app.ts:AllowedHosts)
 
   return host;
+}
+
+void SetForcedEmbeddedPageHostOverride(const std::string& host) {
+  GetForcedEmbeddedPageHostOverrideString() = host;
 }
 
 std::vector<std::string> GetContextualTasksSignInDomains() {
@@ -392,6 +418,13 @@ bool GetIsContextualTasksSuggestionsEnabled() {
 bool GetIsSmartTabSharingEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksContext) &&
          kContextualTasksContextSmartTabSharing.Get();
+}
+
+base::TimeDelta GetSmartTabSharingTabSelectionTimeout() {
+  if (kSmartTabSharingTabSelectionTimeout.Get().is_positive()) {
+    return kSmartTabSharingTabSelectionTimeout.Get();
+  }
+  return base::Milliseconds(300);
 }
 
 bool GetIsTabAutoSuggestionChipEnabled() {
@@ -460,8 +493,16 @@ bool GetEnableFileHint() {
   return base::FeatureList::IsEnabled(kContextualTasksEnableFileHint);
 }
 
+bool GetEnableComposeboxJumpFix() {
+  return base::FeatureList::IsEnabled(kContextualTasksComposeboxJumpFix);
+}
+
 ExpandButtonOption GetExpandButtonOption() {
   return kExpandButtonOptions.Get();
+}
+
+bool IsRoundedClipPathEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksRoundedClipPath);
 }
 
 namespace flag_descriptions {

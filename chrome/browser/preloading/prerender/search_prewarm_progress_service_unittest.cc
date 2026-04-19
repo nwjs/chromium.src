@@ -6,6 +6,8 @@
 
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
+#include "chrome/browser/preloading/prerender/search_prewarm_progress_test_utils.h"
+#include "content/public/browser/prerender_host_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class SearchPrewarmProgressServiceTest : public testing::Test {
@@ -23,43 +25,60 @@ TEST_F(SearchPrewarmProgressServiceTest, InitialState) {
 
 TEST_F(SearchPrewarmProgressServiceTest, StartAndFinish) {
   SearchPrewarmProgressService service;
-  service.OnSearchPrewarmStarted();
-  EXPECT_TRUE(service.HasOnGoingSearchPrewarm());
+  content::PrerenderHostId host_id(1);
 
-  service.OnSearchPrewarmFinished();
+  service.OnSearchPrewarmStarted(host_id);
+  EXPECT_TRUE(service.HasOnGoingSearchPrewarm());
+  EXPECT_TRUE(service.IsOnGoingSearchPrewarm(host_id));
+
+  service.OnSearchPrewarmFinished(host_id);
   EXPECT_FALSE(service.HasOnGoingSearchPrewarm());
+  EXPECT_FALSE(service.IsOnGoingSearchPrewarm(host_id));
 }
 
 TEST_F(SearchPrewarmProgressServiceTest, MultiplePrewarms) {
   SearchPrewarmProgressService service;
-  service.OnSearchPrewarmStarted();
-  service.OnSearchPrewarmStarted();
-  EXPECT_TRUE(service.HasOnGoingSearchPrewarm());
+  content::PrerenderHostId host_id1(1);
+  content::PrerenderHostId host_id2(2);
 
-  service.OnSearchPrewarmFinished();
+  service.OnSearchPrewarmStarted(host_id1);
+  service.OnSearchPrewarmStarted(host_id2);
   EXPECT_TRUE(service.HasOnGoingSearchPrewarm());
+  EXPECT_TRUE(service.IsOnGoingSearchPrewarm(host_id1));
+  EXPECT_TRUE(service.IsOnGoingSearchPrewarm(host_id2));
 
-  service.OnSearchPrewarmFinished();
+  service.OnSearchPrewarmFinished(host_id1);
+  EXPECT_TRUE(service.HasOnGoingSearchPrewarm());
+  EXPECT_FALSE(service.IsOnGoingSearchPrewarm(host_id1));
+  EXPECT_TRUE(service.IsOnGoingSearchPrewarm(host_id2));
+
+  service.OnSearchPrewarmFinished(host_id2);
   EXPECT_FALSE(service.HasOnGoingSearchPrewarm());
+  EXPECT_FALSE(service.IsOnGoingSearchPrewarm(host_id1));
+  EXPECT_FALSE(service.IsOnGoingSearchPrewarm(host_id2));
 }
 
-TEST_F(SearchPrewarmProgressServiceTest, CallbacksTriggeredOnFinish) {
+TEST_F(SearchPrewarmProgressServiceTest, CallbacksNotifiedOnFinish) {
   SearchPrewarmProgressService service;
-  service.OnSearchPrewarmStarted();
+  content::PrerenderHostId host_id1(1);
+  content::PrerenderHostId host_id2(2);
 
-  bool callback1_called = false;
-  bool callback2_called = false;
+  service.OnSearchPrewarmStarted(host_id1);
+  service.OnSearchPrewarmStarted(host_id2);
 
-  service.AddSearchPrewarmFinishedCallback(
-      base::BindLambdaForTesting([&]() { callback1_called = true; }));
-  service.AddSearchPrewarmFinishedCallback(
-      base::BindLambdaForTesting([&]() { callback2_called = true; }));
+  SearchPrewarmProgressTestObserver observer1(&service);
+  SearchPrewarmProgressTestObserver observer2(&service);
 
-  EXPECT_FALSE(callback1_called);
-  EXPECT_FALSE(callback2_called);
+  EXPECT_FALSE(observer1.was_notified());
+  EXPECT_FALSE(observer2.was_notified());
 
-  service.OnSearchPrewarmFinished();
+  service.OnSearchPrewarmFinished(host_id1);
 
-  EXPECT_TRUE(callback1_called);
-  EXPECT_TRUE(callback2_called);
+  EXPECT_FALSE(observer1.was_notified());
+  EXPECT_FALSE(observer2.was_notified());
+
+  service.OnSearchPrewarmFinished(host_id2);
+
+  EXPECT_TRUE(observer1.was_notified());
+  EXPECT_TRUE(observer2.was_notified());
 }

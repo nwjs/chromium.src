@@ -30,7 +30,7 @@
 #include <iterator>
 #include <memory>
 
-#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/strings/string_view_util.h"
 #include "style_rule.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
@@ -339,6 +339,8 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdBefore;
     case kPseudoAfter:
       return kPseudoIdAfter;
+    case kPseudoExpandIcon:
+      return kPseudoIdExpandIcon;
     case kPseudoPickerIcon:
       return kPseudoIdPickerIcon;
     case kPseudoInterestHint:
@@ -635,6 +637,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"empty", CSSSelector::kPseudoEmpty},
     {"enabled", CSSSelector::kPseudoEnabled},
     {"end", CSSSelector::kPseudoEnd},
+    {"expand-icon", CSSSelector::kPseudoExpandIcon},
     {"file-selector-button", CSSSelector::kPseudoFileSelectorButton},
     {"filtered", CSSSelector::kPseudoFiltered},
     {"first", CSSSelector::kPseudoFirstPage},
@@ -847,6 +850,13 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
+  if ((match->type == CSSSelector::kPseudoToolFormActive ||
+       match->type == CSSSelector::kPseudoToolSubmitActive) &&
+      document &&
+      !RuntimeEnabledFeatures::WebMCPEnabled(document->GetExecutionContext())) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
   if (match->type == CSSSelector::kPseudoHasSlotted &&
       !RuntimeEnabledFeatures::CSSPseudoHasSlottedEnabled()) {
     return CSSSelector::kPseudoUnknown;
@@ -865,6 +875,11 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   }
   if (match->type == CSSSelector::kPseudoAnimatedImage &&
       !RuntimeEnabledFeatures::CSSImageAnimationEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
+  if (match->type == CSSSelector::kPseudoExpandIcon &&
+      !RuntimeEnabledFeatures::MenuElementsEnabled()) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -923,7 +938,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
                                    bool has_arguments,
                                    CSSParserMode mode) {
   DCHECK(Match() == kPseudoClass || Match() == kPseudoElement);
-  AtomicString lower_value = value.LowerASCII();
+  AtomicString lower_value = value.ToAsciiLower();
   PseudoType pseudo_type = CSSSelectorParser::ParsePseudoType(
       lower_value, has_arguments, context.GetDocument());
   SetPseudoType(pseudo_type);
@@ -942,6 +957,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
       }
       [[fallthrough]];
     // For pseudo-elements
+    case kPseudoExpandIcon:
     case kPseudoPickerIcon:
     case kPseudoInterestHint:
     case kPseudoCheckMark:
@@ -1112,13 +1128,9 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoWhere:
     case kPseudoWindowInactive:
     case kPseudoXrOverlay:
-      if (Match() != kPseudoClass) {
-        bits_.set<PseudoTypeField>(kPseudoUnknown);
-      }
-      break;
     case kPseudoToolFormActive:
     case kPseudoToolSubmitActive:
-      if (Match() != kPseudoClass || !RuntimeEnabledFeatures::WebMCPEnabled()) {
+      if (Match() != kPseudoClass) {
         bits_.set<PseudoTypeField>(kPseudoUnknown);
       }
       break;
@@ -1365,12 +1377,16 @@ void CSSSelector::SerializeSimpleSelector(StringBuilder& builder,
       }
       case kPseudoHighlight: {
         builder.Append('(');
-        builder.Append(Argument());
+        SerializeIdentifier(Argument(), builder);
         builder.Append(')');
         break;
       }
+      case kPseudoPicker:
+      case kPseudoOverscrollAreaParent:
       case kPseudoScrollButton: {
         builder.Append('(');
+        // These accept only fixed arguments that do not require escaping (in
+        // some cases including "*" which should not be escaped).
         builder.Append(Argument());
         builder.Append(')');
         break;
@@ -1397,11 +1413,6 @@ void CSSSelector::SerializeSimpleSelector(StringBuilder& builder,
         builder.Append(')');
         break;
       }
-      case kPseudoOverscrollAreaParent:
-        builder.Append('(');
-        builder.Append(Argument());
-        builder.Append(')');
-        break;
       default:
         break;
     }
@@ -1709,6 +1720,7 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
   return Match() == CSSSelector::kPseudoElement &&
          (GetPseudoType() == kPseudoCheckMark ||
           GetPseudoType() == kPseudoBefore || GetPseudoType() == kPseudoAfter ||
+          GetPseudoType() == kPseudoExpandIcon ||
           GetPseudoType() == kPseudoPickerIcon ||
           GetPseudoType() == kPseudoInterestHint ||
           GetPseudoType() == kPseudoMarker ||
@@ -1749,6 +1761,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoCheckMark:
     case kPseudoBefore:
     case kPseudoAfter:
+    case kPseudoExpandIcon:
     case kPseudoPickerIcon:
     case kPseudoInterestHint:
     case kPseudoPlaceholder:
@@ -2248,37 +2261,17 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
   }
 }
 
-constexpr bool IsPseudoMapSorted(const NameToPseudoStruct* map, unsigned size) {
-  for (unsigned i = 0; i < size - 1; i++) {
-    // strcmp/strncmp would be much better here, but unfortunately they aren't
-    // constexpr.
-    const char* current_string = UNSAFE_TODO(map[i].string);
-    const char* next_string = UNSAFE_TODO(map[i + 1].string);
-    while (true) {
-      if (*current_string > *next_string) {
-        return false;
-      }
-      if (*current_string < *next_string) {
-        break;
-      }
-      if (!*current_string) {
-        break;
-      }
-      if (!*next_string) {
-        return false;
-      }
-      UNSAFE_TODO(current_string++);
-      UNSAFE_TODO(next_string++);
-    }
-  }
-  return true;
-}
+constexpr auto PseudoNameProjection = [](const NameToPseudoStruct& entry) {
+  return std::string_view(entry.string);
+};
 
-static_assert(IsPseudoMapSorted(kPseudoTypeWithoutArgumentsMap,
-                                std::size(kPseudoTypeWithoutArgumentsMap)),
+static_assert(std::ranges::is_sorted(kPseudoTypeWithoutArgumentsMap,
+                                     {},
+                                     PseudoNameProjection),
               "kPseudoTypeWithoutArgumentsMap must be sorted.");
-static_assert(IsPseudoMapSorted(kPseudoTypeWithArgumentsMap,
-                                std::size(kPseudoTypeWithArgumentsMap)),
+static_assert(std::ranges::is_sorted(kPseudoTypeWithArgumentsMap,
+                                     {},
+                                     PseudoNameProjection),
               "kPseudoTypeWithArgumentsMap must be sorted.");
 
 }  // namespace blink

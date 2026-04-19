@@ -624,7 +624,8 @@ public class ModalDialogViewTest {
                 model.get(ModalDialogProperties.CHECKBOX_CHECKED));
 
         // Perform a click to check the box.
-        onView(withId(R.id.modal_dialog_checkbox)).perform(click());
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mModalDialogView.findViewById(R.id.modal_dialog_checkbox).performClick());
 
         // Verify that the view is now checked AND the model property has been updated.
         onView(withId(R.id.modal_dialog_checkbox)).check(matches(isChecked()));
@@ -634,7 +635,8 @@ public class ModalDialogViewTest {
         Mockito.verify(mMockController, times(1)).onCheckboxChecked(true);
 
         // Perform another click to uncheck the box.
-        onView(withId(R.id.modal_dialog_checkbox)).perform(click());
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mModalDialogView.findViewById(R.id.modal_dialog_checkbox).performClick());
 
         // Verify that the view is now unchecked AND the model property has been updated.
         onView(withId(R.id.modal_dialog_checkbox)).check(matches(isNotChecked()));

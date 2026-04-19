@@ -71,6 +71,26 @@ class MockQueryController
               (const base::UnguessableToken& file_token),
               (override));
 
+  const contextual_search::FileInfo* FakeGetFileInfo(
+      const base::UnguessableToken& file_token);
+
+  void FakeStartFileUploadFlow(
+      const base::UnguessableToken& file_token,
+      std::unique_ptr<lens::ContextualInputData> contextual_input,
+      std::optional<lens::ImageEncodingOptions> image_options);
+
+  void FakeCreateSearchUrl(
+      std::unique_ptr<CreateSearchUrlRequestInfo> search_url_request_info,
+      base::OnceCallback<void(GURL)> callback);
+
+  void AddFileInfoForTesting(const base::UnguessableToken& file_token,
+                             lens::MimeType mime_type) {
+    auto file_info = std::make_unique<contextual_search::FileInfo>();
+    file_info->file_token = file_token;
+    file_info->mime_type = mime_type;
+    files_[file_token] = std::move(file_info);
+  }
+
   void InitializeIfNeededBase() {
     TestComposeboxQueryController::InitializeIfNeeded();
   }
@@ -94,10 +114,11 @@ class MockQueryController
     TestComposeboxQueryController::RemoveObserver(obs);
   }
 
-  void NotifySuccess(const base::UnguessableToken& file_token) {
+  void NotifySuccess(const base::UnguessableToken& file_token,
+                     lens::MimeType mime_type = lens::MimeType::kHtml) {
     for (auto& observer : observers_) {
       observer.OnContextUploadStatusChanged(
-          file_token, lens::MimeType::kHtml,
+          file_token, mime_type,
           contextual_search::ContextUploadStatus::kUploadSuccessful,
           std::nullopt);
     }
@@ -107,6 +128,8 @@ class MockQueryController
   base::ObserverList<contextual_search::ContextualSearchContextController::
                          ContextUploadStatusObserver>
       observers_;
+  std::map<base::UnguessableToken, std::unique_ptr<contextual_search::FileInfo>>
+      files_;
 };
 
 class TestWebContentsDelegate : public content::WebContentsDelegate {
@@ -140,18 +163,16 @@ class MockContextualSearchMetricsRecorder
                int file_count),
               (override));
   MOCK_METHOD(void, ActivateMetricsFunnel, (const std::string&), (override));
-  MOCK_METHOD(void,
-              RecordToolMode,
-              (composebox_query::mojom::ToolMode tool_mode),
-              (override));
+  MOCK_METHOD(void, RecordToolMode, (omnibox::ToolMode tool_mode), (override));
   MOCK_METHOD(void,
               RecordModelMode,
-              (composebox_query::mojom::ModelMode model_mode),
+              (omnibox::ModelMode model_mode),
               (override));
   MOCK_METHOD(void,
               RecordModesOnSubmission,
-              (composebox_query::mojom::ToolMode tool_mode,
-               composebox_query::mojom::ModelMode model_mode),
+              (omnibox::ToolMode tool_mode,
+               omnibox::ModelMode model_mode,
+               const std::vector<omnibox::InputType>& input_types),
               (override));
   MOCK_METHOD(void, RecordZeroSuggestClick, (bool is_contextual), (override));
   MOCK_METHOD(void,
@@ -172,19 +193,20 @@ class MockContextualSearchMetricsRecorder
         has_tab_context, has_non_tab_context, query_text_length, file_count);
   }
 
-  void RecordToolModeBase(composebox_query::mojom::ToolMode tool_mode) {
+  void RecordToolModeBase(omnibox::ToolMode tool_mode) {
     ContextualSearchMetricsRecorder::RecordToolMode(tool_mode);
   }
 
-  void RecordModelModeBase(composebox_query::mojom::ModelMode model_mode) {
+  void RecordModelModeBase(omnibox::ModelMode model_mode) {
     ContextualSearchMetricsRecorder::RecordModelMode(model_mode);
   }
 
   void RecordModesOnSubmissionBase(
-      composebox_query::mojom::ToolMode tool_mode,
-      composebox_query::mojom::ModelMode model_mode) {
-    ContextualSearchMetricsRecorder::RecordModesOnSubmission(tool_mode,
-                                                             model_mode);
+      omnibox::ToolMode tool_mode,
+      omnibox::ModelMode model_mode,
+      const std::vector<omnibox::InputType>& input_types) {
+    ContextualSearchMetricsRecorder::RecordModesOnSubmission(
+        tool_mode, model_mode, input_types);
   }
 
   void RecordZeroSuggestClickBase(bool is_contextual) {

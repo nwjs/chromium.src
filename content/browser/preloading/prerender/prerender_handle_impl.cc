@@ -18,12 +18,6 @@ namespace content {
 
 namespace {
 
-int32_t GetNextHandleId() {
-  static int32_t next_handle_id = 1;
-  CHECK_LT(next_handle_id, std::numeric_limits<int32_t>::max());
-  return next_handle_id++;
-}
-
 // Returns true when the error callback should be fired. The callback does not
 // need to be fired when prerendering succeed but is never activated, or it is
 // intentinally cancelled by an embedder (e.g., calling the cancellation API).
@@ -146,6 +140,8 @@ bool ShouldFireErrorCallback(PrerenderFinalStatus status) {
     // The PrerenderHost is reused by another prerender request.
     case PrerenderFinalStatus::kPrerenderHostReused:
       return false;
+    case PrerenderFinalStatus::kFormSubmitWhenPrerendering:
+      return false;
   }
 }
 
@@ -156,8 +152,7 @@ PrerenderHandleImpl::PrerenderHandleImpl(
     PrerenderHostId prerender_host_id,
     const GURL& prerendering_url,
     std::optional<net::HttpNoVarySearchData> no_vary_search_hint)
-    : handle_id_(GetNextHandleId()),
-      prerender_host_id_(prerender_host_id),
+    : prerender_host_id_(prerender_host_id),
       prerender_host_registry_(std::move(prerender_host_registry)),
       prerendering_url_(prerendering_url),
       no_vary_search_hint_(std::move(no_vary_search_hint)) {
@@ -178,8 +173,8 @@ PrerenderHandleImpl::~PrerenderHandleImpl() {
   }
 }
 
-int32_t PrerenderHandleImpl::GetHandleId() const {
-  return handle_id_;
+PrerenderHostId PrerenderHandleImpl::GetPrerenderHostId() const {
+  return prerender_host_id_;
 }
 
 const GURL& PrerenderHandleImpl::GetInitialPrerenderingUrl() const {
@@ -294,11 +289,13 @@ void PrerenderHandleImpl::OnHostDestroyed(PrerenderFinalStatus status) {
 
 void PrerenderHandleImpl::OnHeadersReceived(
     NavigationHandle& navigation_handle) {
-  if (state_ != State::kLoading) {
-    SCOPED_CRASH_KEY_NUMBER("BUG489979390", "state", static_cast<int>(state_));
-    base::debug::DumpWithoutCrashing();
+  // There is a small chance that the headers received callback
+  // will be called for a cancelled prerender host because the
+  // deferred destruction of the PrerenderHost.
+  if (state_ == State::kCanceled) {
     return;
   }
+  CHECK_EQ(state_, State::kLoading);
   state_ = State::kReady;
 
   for (auto& callback : on_headers_received_callbacks_) {

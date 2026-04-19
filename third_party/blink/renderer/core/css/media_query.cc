@@ -30,6 +30,8 @@
 
 #include <algorithm>
 #include <memory>
+
+#include "third_party/blink/renderer/core/css/css_markup.h"
 #include "third_party/blink/renderer/core/css/media_query_exp.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/media_type_names.h"
@@ -54,7 +56,7 @@ String MediaQuery::Serialize() const {
   const ConditionalExpNode* exp_node = ExpNode();
 
   if (!exp_node) {
-    result.Append(MediaType());
+    SerializeIdentifier(MediaType(), result);
     return result.ReleaseString();
   }
 
@@ -79,7 +81,7 @@ MediaQuery* MediaQuery::CreateNotAll() {
 MediaQuery::MediaQuery(RestrictorType restrictor,
                        String media_type,
                        const ConditionalExpNode* exp_node)
-    : media_type_(AttemptStaticStringCreation(media_type.LowerASCII())),
+    : media_type_(AttemptStaticStringCreation(media_type.ToAsciiLower())),
       exp_node_(exp_node),
       restrictor_(restrictor) {}
 

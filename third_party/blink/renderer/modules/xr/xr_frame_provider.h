@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_id_hash_traits.h"
 #include "third_party/blink/renderer/modules/xr/xr_layer_shared_image_manager.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/xr_frame_transport.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/xr_frame_transport_delegate.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/xr_webgl_drawing_buffer.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
@@ -208,8 +209,7 @@ class XRFrameProvider final : public GarbageCollected<XRFrameProvider> {
 
   // Temporarily store the images and ids for the current frame during layer
   // submitting. Will be empty after OnFrameEnd.
-  Vector<device::LayerId> layer_ids_;
-  Vector<std::unique_ptr<SharedImageHolder>> current_frame_images_;
+  Vector<XRLayerUpdate> layers_;
 };
 
 }  // namespace blink

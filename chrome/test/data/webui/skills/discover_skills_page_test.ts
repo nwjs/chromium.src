@@ -42,6 +42,7 @@ suite('DiscoverSkillsPage', function() {
       icon: '',
       prompt: '',
       description: '',
+      imageUrl: '',
       source: SkillSource.kFirstParty,
       creationTime: {internalValue: 0n},
       lastUpdateTime: {internalValue: 0n},
@@ -280,5 +281,20 @@ suite('DiscoverSkillsPage', function() {
     page.onSearchChanged('');
     await microtasksFinished();
     assertFalse(!!page.shadowRoot.querySelector('error-page'));
+  });
+
+  test('ShowsImageWhenPresent', async function() {
+    const imageUrl = 'https://example.com/image.png';
+    await setFirstPartySkills({
+      'Shopping': [{id: '1', name: 'Skill with image', imageUrl}],
+    });
+
+    const card = page.shadowRoot.querySelector('skill-card');
+    assertTrue(!!card);
+    await microtasksFinished();
+
+    const img = card.$.illustrationImage;
+    assertTrue(!!img);
+    assertEquals(imageUrl, img.getAttribute('auto-src'));
   });
 });

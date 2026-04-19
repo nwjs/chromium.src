@@ -37,7 +37,11 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
   std::vector<base::android::ScopedJavaLocalRef<jobject>> GetMenuEntries(
       JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetSiteSettings(JNIEnv* env);
+  int GetOptionalSection(JNIEnv* env);
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> GetHostAccessRequests(
+      JNIEnv* env);
   bool IsReady(JNIEnv* env);
+  void OnReloadPageButtonClicked(JNIEnv* env);
   void OnSiteSettingsToggleChanged(JNIEnv* env, bool is_checked);
 
   // ExtensionsMenuViewModel::Delegate:

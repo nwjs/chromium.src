@@ -6,6 +6,7 @@
 
 #include "base/i18n/rtl.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_animating_layout_manager.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_dragged_tabs_container.h"
@@ -87,18 +88,29 @@ views::ProposedLayout VerticalPinnedTabContainerView::CalculateProposedLayout(
   // Since all children are allocated the same width this will be the same for
   // every row.
   if (size_bounds.width().is_bounded() && size_bounds.width().value() > 0) {
-    bool is_collapsed = IsTabStripCollapsed();
+    auto collapse_state = GetTabStripCollapseState();
+
+    // Apply horizontal padding immediately at start of collapse animation by
+    // including collapsing state.
     const int region_horizontal_padding = GetLayoutConstant(
-        is_collapsed ? LayoutConstant::kVerticalTabStripCollapsedPadding
-                     : LayoutConstant::kVerticalTabStripUncollapsedPadding);
+        collapse_state != tabs::VerticalTabStripCollapseState::kExpanded
+            ? LayoutConstant::kVerticalTabStripCollapsedPadding
+            : LayoutConstant::kVerticalTabStripUncollapsedPadding);
     int available_width =
         size_bounds.width().value() - region_horizontal_padding;
 
+    // When we are in collapsed state, only one child should be shown per row.
+    // During collapse animation and other cases, fit as many as possible.
     children_on_row =
-        std::min(children_on_row,
-                 static_cast<int>(std::floor((available_width - child_width) /
-                                             (child_width + kTabPadding)) +
-                                  1));
+        tabs::IsVerticalTabsExpandOnHoverFeatureEnabled() &&
+                collapse_state ==
+                    tabs::VerticalTabStripCollapseState::kCollapsed
+            ? 1
+            : std::min(
+                  children_on_row,
+                  static_cast<int>(std::floor((available_width - child_width) /
+                                              (child_width + kTabPadding)) +
+                                   1));
 
     // Allocate extra space to the tabs.
     available_width -=
@@ -165,9 +177,12 @@ gfx::Size VerticalPinnedTabContainerView::GetMinimumSize() const {
   }
 
   // The minimum size should be enough to show a row and a half, if needed.
+  auto collapse_state = GetTabStripCollapseState();
   const int num_children = collection_node_->GetDirectChildren().size();
-  const float min_rows = std::min((IsTabStripCollapsed() ? 1.5f : 1.0f),
-                                  static_cast<float>(num_children));
+  const float min_rows = std::min(
+      (collapse_state != tabs::VerticalTabStripCollapseState::kExpanded ? 1.5f
+                                                                        : 1.0f),
+      static_cast<float>(num_children));
   const int min_height =
       base::ClampCeil(GetLayoutConstant(LayoutConstant::kVerticalTabHeight) *
                       min_rows) +
@@ -209,7 +224,8 @@ VerticalPinnedTabContainerView::GetLinkDropIndex(
     return std::nullopt;
   }
 
-  if (IsTabStripCollapsed()) {
+  auto collapse_state = GetTabStripCollapseState();
+  if (collapse_state != tabs::VerticalTabStripCollapseState::kExpanded) {
     if (auto index = GetLinkDropIndexForCollapsed(loc_in_container)) {
       return index;
     }
@@ -318,12 +334,6 @@ void VerticalPinnedTabContainerView::ResetCollectionNode() {
   collection_node_ = nullptr;
 }
 
-bool VerticalPinnedTabContainerView::IsTabStripCollapsed() const {
-  const auto* controller =
-      collection_node_ ? collection_node_->GetController() : nullptr;
-  return controller && controller->IsCollapsed();
-}
-
 views::ScrollView* VerticalPinnedTabContainerView::GetScrollViewForContainer()
     const {
   return views::ScrollView::GetScrollViewForContents(
@@ -340,25 +350,16 @@ const views::ProposedLayout& VerticalPinnedTabContainerView::GetLayoutForDrag()
   return layout_manager_->target_layout();
 }
 
-void VerticalPinnedTabContainerView::HandleTabDragInContainer(
-    const gfx::Rect& dragged_tab_bounds) {
-  const views::ProposedLayout& target_layout = layout_manager_->target_layout();
-  views::View* view_at_point =
-      GetViewForDragBounds(target_layout, dragged_tab_bounds);
-  const TabCollectionNode* node = nullptr;
-  if (auto* tab_view = views::AsViewClass<VerticalTabView>(view_at_point)) {
-    node = tab_view->collection_node();
+const TabCollectionNode*
+VerticalPinnedTabContainerView::GetCollectionNodeFromView(
+    const views::View& view) const {
+  if (auto* tab_view = views::AsViewClass<VerticalTabView>(&view)) {
+    return tab_view->collection_node();
   } else if (auto* split_tab_view =
-                 views::AsViewClass<VerticalSplitTabView>(view_at_point)) {
-    node = split_tab_view->collection_node();
+                 views::AsViewClass<VerticalSplitTabView>(&view)) {
+    return split_tab_view->collection_node();
   }
-  if (node) {
-    GetDragHandler().HandleDraggedTabsOverNode(*node, std::nullopt);
-    // Synchronously force a layout here to update the target layout. Since all
-    // the calculations are based off on target layout, we need to ensure it is
-    // updated where there are model change.
-    DeprecatedLayoutImmediately();
-  }
+  return nullptr;
 }
 
 BEGIN_METADATA(VerticalPinnedTabContainerView)

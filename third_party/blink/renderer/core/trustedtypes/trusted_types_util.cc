@@ -26,7 +26,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_trustedscripturl_usvstring.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
-#include "third_party/blink/renderer/core/html/parser/fragment_parser_options.h"
+#include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/exception_metadata.h"
 #include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
@@ -134,14 +134,14 @@ const char* GetMessage(TrustedTypeViolationKind kind) {
              "This script element was modified without use of TrustedScript "
              "assignment and the 'default' policy failed to execute.";
     case kTrustedHTMLParserOptionsTransform:
-      CHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
+      CHECK(RuntimeEnabledFeatures::NewHTMLSettingMethodsEnabled());
       return "This document requires 'TrustedParserOptions' assignment.";
     case kTrustedHTMLParserOptionsTransformAndNoDefaultPolicyExisted:
-      CHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
+      CHECK(RuntimeEnabledFeatures::NewHTMLSettingMethodsEnabled());
       return "The TrustedParserOptions parser options transform failed and no "
              "'default' policy for 'TrustedParserOptions' has been defined.";
     case kTrustedHTMLParserOptionsTransformAndDefaultPolicyFailed:
-      CHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
+      CHECK(RuntimeEnabledFeatures::NewHTMLSettingMethodsEnabled());
       return "The TrustedParserOptions parser options transform failed and the "
              "'default' policy failed to execute.";
   }
@@ -252,7 +252,7 @@ bool TrustedTypeFail(TrustedTypeViolationKind kind,
   base::UnguessableToken issue_id = base::UnguessableToken::Create();
   bool allow = execution_context->GetContentSecurityPolicy()
                    ->AllowTrustedTypeAssignmentFailure(
-                       GetMessage(kind), strip ? value.Substring(strip) : value,
+                       GetMessage(kind), strip ? value.substr(strip) : value,
                        prefix, issue_id);
 
   // TODO(1087743): Add a console message for Trusted Type-related Function

@@ -20,6 +20,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/mediastream/media_devices.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
@@ -110,7 +111,8 @@ void RecordMediaPlaybackInterruptionType(AudioContextInterruptionType type) {
       "WebAudio.AudioContext.MediaPlaybackWhileNotVisible.InterruptionType",
       type);
 }
-const char* LatencyCategoryToString(
+
+StringView LatencyCategoryToString(
     WebAudioLatencyHint::AudioContextLatencyCategory category) {
   switch (category) {
     case WebAudioLatencyHint::kCategoryInteractive:
@@ -123,14 +125,17 @@ const char* LatencyCategoryToString(
       return "exact";
     case WebAudioLatencyHint::kLastValue:
       return "invalid";
+    default:
+      NOTREACHED();
   }
 }
 
 String GetAudioContextLogString(const WebAudioLatencyHint& latency_hint,
                                 std::optional<float> sample_rate) {
   StringBuilder builder;
-  UNSAFE_TODO(builder.AppendFormat(
-      "({latency_hint=%s}", LatencyCategoryToString(latency_hint.Category())));
+  builder.Append("({latency_hint=");
+  builder.Append(LatencyCategoryToString(latency_hint.Category()));
+  builder.Append("}");
   if (latency_hint.Category() == WebAudioLatencyHint::kCategoryExact) {
     builder.AppendFormat(", {seconds=%.3f}", latency_hint.Seconds());
   }
@@ -1579,11 +1584,11 @@ base::TimeDelta AudioContext::PlatformBufferDuration() const {
 }
 
 void AudioContext::OnPermissionStatusChange(
-    mojom::blink::PermissionStatus status) {
+    mojom::blink::PermissionStatusWithDetailsPtr status) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
 
-  stats_update_restrictor_->SetCapturePermission(status);
-  microphone_permission_status_ = status;
+  stats_update_restrictor_->SetCapturePermission(status->status);
+  microphone_permission_status_ = status->status;
   if (is_media_device_service_initialized_) {
     CHECK_LT(pending_device_list_updates_, std::numeric_limits<int>::max());
     pending_device_list_updates_++;
@@ -1600,7 +1605,8 @@ void AudioContext::OnPermissionStatusChange(
 
 void AudioContext::DidInitialPermissionCheck(
     mojom::blink::PermissionDescriptorPtr descriptor,
-    mojom::blink::PermissionStatus status) {
+    mojom::blink::PermissionStatusWithDetailsPtr status_with_details) {
+  mojom::blink::PermissionStatus status = status_with_details->status;
   if (descriptor->name == mojom::blink::PermissionName::AUDIO_CAPTURE &&
       status == mojom::blink::PermissionStatus::GRANTED) {
     // If the initial permission check is successful, the current implementation
@@ -1622,7 +1628,9 @@ void AudioContext::DidInitialPermissionCheck(
       GetExecutionContext()->GetTaskRunner(TaskType::kPermission));
   permission_service_->AddPermissionObserver(
       CreatePermissionDescriptor(mojom::blink::PermissionName::AUDIO_CAPTURE),
-      microphone_permission_status_, std::move(observer));
+      mojom::blink::PermissionStatusWithDetails::New(
+          microphone_permission_status_, nullptr),
+      std::move(observer));
 }
 
 double AudioContext::GetOutputLatencyQuantizingFactor() const {
@@ -1738,7 +1746,7 @@ void AudioContext::OnDevicesChanged(mojom::blink::MediaDeviceType device_type,
         output_device_ids_.insert(
             String(media::AudioDeviceDescription::kDefaultDeviceId));
       } else {
-        output_device_ids_.insert(String::FromUTF8(device.device_id));
+        output_device_ids_.insert(String::FromUtf8(device.device_id));
       }
     }
   }

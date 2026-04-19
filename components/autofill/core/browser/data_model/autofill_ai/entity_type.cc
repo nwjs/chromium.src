@@ -21,7 +21,7 @@ FieldTypeSet AttributeType::storable_field_types(
   if (data_type() == DataType::kName) {
     return NameInfo::kDatabaseStoredTypes;
   }
-  return {field_type()};
+  return {field_type().value_or(UNKNOWN_TYPE)};
 }
 
 std::u16string AttributeType::GetNameForI18n() const {
@@ -54,12 +54,22 @@ std::u16string AttributeType::GetNameForI18n() const {
       return u"";
     case AttributeTypeName::kOrderDate:
     case AttributeTypeName::kOrderAccount:
-    case AttributeTypeName::kOrderGrandTotal:
     case AttributeTypeName::kOrderId:
     case AttributeTypeName::kOrderMerchantDomain:
     case AttributeTypeName::kOrderMerchantName:
     case AttributeTypeName::kOrderProductNames:
       // Orders are read-only and do not use attribute strings.
+      return u"";
+    case AttributeTypeName::kShipmentCarrierName:
+    case AttributeTypeName::kShipmentCarrierDomain:
+    case AttributeTypeName::kShipmentTrackingNumber:
+    case AttributeTypeName::kShipmentDeliveryZipCode:
+    case AttributeTypeName::kShipmentEstimatedDeliveryDate:
+    case AttributeTypeName::kShipmentOrderIds:
+    case AttributeTypeName::kShipmentOrderDates:
+    case AttributeTypeName::kShipmentMerchantName:
+    case AttributeTypeName::kShipmentProductNames:
+      // Shipments are read-only and do not use attribute strings.
       return u"";
     case AttributeTypeName::kKnownTravelerNumberName:
       return l10n_util::GetStringUTF16(
@@ -154,6 +164,8 @@ bool EntityType::ImportOrder(const EntityType& lhs, const EntityType& rhs) {
         return 1;
       case EntityTypeName::kRedressNumber:
         return 6;
+      case EntityTypeName::kShipment:
+        return 9;
       case EntityTypeName::kVehicle:
         return 3;
     }
@@ -189,6 +201,8 @@ bool EntityType::ListOrder(const EntityType& lhs, const EntityType& rhs) {
         return 7;
       case EntityTypeName::kVehicle:
         return 8;
+      case EntityTypeName::kShipment:
+        return 9;
     }
   };
   // For a deterministic behavior, distinct types should have distinct ranks.
@@ -224,6 +238,8 @@ std::u16string EntityType::GetNameForI18n() const {
     case EntityTypeName::kRedressNumber:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_REDRESS_NUMBER_ENTITY_NAME);
+    case EntityTypeName::kShipment:
+      return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SHIPMENT_ENTITY_NAME);
     case EntityTypeName::kVehicle:
       return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_VEHICLE_ENTITY_NAME);
   }

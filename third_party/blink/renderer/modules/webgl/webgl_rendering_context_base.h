@@ -40,6 +40,7 @@
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_htmlcanvaselement_offscreencanvas.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_webgl_context_attributes.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/renderer/modules/webgl/webgl_uniform_location.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_vertex_array_object_base.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
+#include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/drawing_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgl_image_conversion.h"
@@ -707,7 +709,8 @@ class MODULES_EXPORT WebGLRenderingContextBase
   scoped_refptr<StaticBitmapImage> GetImage() override;
   void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) override;
 
-  V8UnionHTMLCanvasElementOrOffscreenCanvas* getHTMLOrOffscreenCanvas() const;
+  V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret getHTMLOrOffscreenCanvas(
+      ScriptState*) const;
 
   void drawingBufferStorage(GLenum sizedformat, GLsizei width, GLsizei height);
 
@@ -776,7 +779,7 @@ class MODULES_EXPORT WebGLRenderingContextBase
       std::unique_ptr<WebGraphicsContext3DProvider>,
       const Platform::WebGLContextInfo&);
   void SetupFlags();
-  bool CopyRenderingResultsFromDrawingBuffer(
+  bool CopyRenderingResultsFromDrawingBufferAccelerated(
       CanvasNon2DResourceProviderSharedImage*,
       SourceDrawingBuffer);
 
@@ -2029,11 +2032,11 @@ class MODULES_EXPORT WebGLRenderingContextBase
 
   CanvasNon2DResourceProviderSharedImage* GetSharedImageResourceProvider();
 
-  // Attempts to paint the most recent rendering results into a
-  // CanvasNon2DResourceProviderSharedImage. Returns the provider if the paint
-  // succeeded; otherwise returns nullptr.
-  CanvasNon2DResourceProviderSharedImage*
-  PaintRenderingResultsToResourceProvider(SourceDrawingBuffer source_buffer);
+  // Attempts to copy the most recent rendering results from the drawing buffer
+  // into a CanvasResource. Returns the resource if the copy succeeded;
+  // otherwise returns nullptr.
+  scoped_refptr<CanvasResource> CopyRenderingResultsFromDrawingBufferToResource(
+      SourceDrawingBuffer source_buffer);
   void TexImageHelperMediaVideoFrame(
       TexImageParams,
       WebGLTexture*,
@@ -2060,13 +2063,6 @@ class MODULES_EXPORT WebGLRenderingContextBase
 
   void Dispose() override;
 
-  // PushFrameWithCopy will make a potential copy if the resource is accelerated
-  // or a drawImage if the resource is non accelerated.
-  bool PushFrameWithCopy();
-  // PushFrameNoCopy will try and export the content of the DrawingBuffer as a
-  // ExtenralCanvasResource.
-  bool PushFrameNoCopy();
-
   void TexElementImage2DInternal(GLenum target,
                                  GLint level,
                                  GLint internalformat,
@@ -2084,10 +2080,6 @@ class MODULES_EXPORT WebGLRenderingContextBase
   // Used to provide accelerated snapshots and CanvasResources holding the
   // current content.
   std::unique_ptr<CanvasNon2DResourceProviderSharedImage> resource_provider_;
-
-  // Whether `resource_provider_` has fresh content that should be sent to the
-  // compositor in response to a PushFrame() call.
-  bool resource_provider_has_content_for_frame_push_ = false;
 
   // If PaintRenderingResultsToSnapshot() is unable to create
   // `resource_provider_`, it will attempt to create an unaccelerated snapshot

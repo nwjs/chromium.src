@@ -57,11 +57,13 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #else
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
@@ -491,7 +493,6 @@ std::unique_ptr<ToolRequest> CreateWaitRequest(const WaitAction& action) {
   return std::make_unique<WaitToolRequest>(wait_time, observe_tab_handle);
 }
 
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
 std::unique_ptr<ToolRequest> CreateAttemptLoginRequest(
     const AttemptLoginAction& action) {
   const tabs::TabHandle tab_handle = GetTabHandle(action);
@@ -501,8 +502,7 @@ std::unique_ptr<ToolRequest> CreateAttemptLoginRequest(
 
   std::optional<PageTarget> password_button;
   std::optional<PageTarget> sign_in_with_google_button;
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kActorLoginFederatedLoginSupport)) {
+  if (base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin)) {
     for (const auto& login_target : action.login_targets()) {
       if (!login_target.has_login_type() || !login_target.has_target()) {
         return nullptr;
@@ -534,7 +534,6 @@ std::unique_ptr<ToolRequest> CreateAttemptLoginRequest(
   return std::make_unique<AttemptLoginToolRequest>(tab_handle, password_button,
                                                    sign_in_with_google_button);
 }
-#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
 
 std::unique_ptr<ToolRequest> CreateAttemptFormFillingRequest(
     const AttemptFormFillingAction& action) {
@@ -554,28 +553,28 @@ std::unique_ptr<ToolRequest> CreateAttemptFormFillingRequest(
   auto requested_data_enum_converter = [](optimization_guide::proto::
                                               FormFillingRequest_RequestedData
                                                   proto_enum) {
+    using RequestedData = AttemptFormFillingToolRequest::RequestedData;
     switch (proto_enum) {
       case optimization_guide::proto::FormFillingRequest_RequestedData_ADDRESS:
-        return AttemptFormFillingToolRequest::RequestedData::kAddress;
+        return RequestedData::kAddress;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_BILLING_ADDRESS:
-        return AttemptFormFillingToolRequest::RequestedData::kBillingAddress;
+        return RequestedData::kBillingAddress;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_SHIPPING_ADDRESS:
-        return AttemptFormFillingToolRequest::RequestedData::kShippingAddress;
+        return RequestedData::kShippingAddress;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_WORK_ADDRESS:
-        return AttemptFormFillingToolRequest::RequestedData::kWorkAddress;
+        return RequestedData::kWorkAddress;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_HOME_ADDRESS:
-        return AttemptFormFillingToolRequest::RequestedData::kHomeAddress;
+        return RequestedData::kHomeAddress;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_CREDIT_CARD:
-        return AttemptFormFillingToolRequest::RequestedData::kCreditCard;
+        return RequestedData::kCreditCard;
       case optimization_guide::proto::
           FormFillingRequest_RequestedData_CONTACT_INFORMATION:
-        return AttemptFormFillingToolRequest::RequestedData::
-            kContactInformation;
+        return RequestedData::kContactInformation;
       default:
         // A default is needed:
         // 1. To ease importing the actions_data.proto from an external
@@ -584,7 +583,7 @@ std::unique_ptr<ToolRequest> CreateAttemptFormFillingRequest(
         // 2. Since an old build may receive a yet unimported enum value in a
         //    new proto message.
         NOTIMPLEMENTED();
-        return AttemptFormFillingToolRequest::RequestedData::kUnknown;
+        return RequestedData::kUnknown;
     }
   };
 
@@ -610,6 +609,10 @@ std::unique_ptr<ToolRequest> CreateAttemptFormFillingRequest(
 
 std::unique_ptr<ToolRequest> CreateScriptToolRequest(
     const ScriptToolAction& action) {
+  if (!base::FeatureList::IsEnabled(actor::kGlicActorEnableScriptTools)) {
+    return nullptr;
+  }
+
   const tabs::TabHandle tab_handle = GetTabHandle(action);
   if (tab_handle == TabHandle::Null()) {
     return nullptr;
@@ -771,11 +774,11 @@ std::unique_ptr<ToolRequest> CreateToolRequest(
       const ActivateTabAction& activate_tab_action = action.activate_tab();
       return CreateActivateTabRequest(activate_tab_action);
     }
+#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
     case optimization_guide::proto::Action::kAttemptLogin: {
       const AttemptLoginAction& attempt_login_action = action.attempt_login();
       return CreateAttemptLoginRequest(attempt_login_action);
     }
-#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
     case optimization_guide::proto::Action::kAttemptFormFilling: {
       const AttemptFormFillingAction& attempt_form_fill_action =
           action.attempt_form_filling();
@@ -1100,8 +1103,6 @@ GetScreenshotCollectionOptions(
 void BuildActionsResultWithObservations(
     content::BrowserContext& browser_context,
     base::TimeTicks actions_start_time,
-    mojom::ActionResultCode result_code,
-    std::optional<size_t> index_of_failed_action,
     std::vector<actor::ActionResultWithLatencyInfo> action_results,
     const ActorTask& task,
     bool skip_async_observation_information,
@@ -1110,8 +1111,6 @@ void BuildActionsResultWithObservations(
         screenshot_collection_options,
     base::OnceCallback<
         void(base::TimeTicks actions_start_time,
-             mojom::ActionResultCode result_code,
-             std::optional<size_t> index_of_failed_action,
              std::vector<actor::ActionResultWithLatencyInfo> action_results,
              actor::TaskId task_id,
              bool skip_async_observation_information,
@@ -1125,6 +1124,10 @@ void BuildActionsResultWithObservations(
   auto* profile = Profile::FromBrowserContext(&browser_context);
   auto* actor_service = actor::ActorKeyedService::Get(profile);
   CHECK(actor_service);
+
+  mojom::ActionResultCode result_code = mojom::ActionResultCode::kOk;
+  std::optional<size_t> index_of_failed_action;
+  ExtractErrorResult(action_results, &result_code, index_of_failed_action);
 
   std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry> journal_entry =
       actor_service->GetJournal().CreatePendingAsyncEntry(
@@ -1183,22 +1186,22 @@ void BuildActionsResultWithObservations(
   }
 
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
-  std::vector<Browser*> browsers =
-      chrome::FindAllTabbedBrowsersWithProfile(profile);
+  ProfileBrowserCollection::GetForProfile(profile)
+      ->ForEach([&response](BrowserWindowInterface* browser) {
+        apc::WindowObservation* window_observation = response->add_windows();
+        window_observation->set_id(browser->GetSessionID().id());
+        window_observation->set_active(browser->IsActive());
 
-  for (Browser* browser : browsers) {
-    apc::WindowObservation* window_observation = response->add_windows();
-    window_observation->set_id(browser->session_id().id());
-    window_observation->set_active(browser->IsActive());
+        if (tabs::TabInterface* tab = browser->GetActiveTabInterface()) {
+          window_observation->set_activated_tab_id(
+              tab->GetHandle().raw_value());
+        }
 
-    if (tabs::TabInterface* tab = browser->GetActiveTabInterface()) {
-      window_observation->set_activated_tab_id(tab->GetHandle().raw_value());
-    }
-
-    for (const tabs::TabInterface* tab : *browser->GetTabStripModel()) {
-      window_observation->add_tab_ids(tab->GetHandle().raw_value());
-    }
-  }
+        for (const tabs::TabInterface* tab : *browser->GetTabStripModel()) {
+          window_observation->add_tab_ids(tab->GetHandle().raw_value());
+        }
+        return true;
+      });
 #else
   // TODO(b/482430429): Use the same implementation in Desktop and Android once
   // ProfileBrowserCollection is implemented on Android.
@@ -1304,8 +1307,7 @@ void BuildActionsResultWithObservations(
   RecordPageContextTabCount(tabs_to_fetch.size());
 
   if (skip_async_observation_information) {
-    std::move(callback).Run(actions_start_time, result_code,
-                            index_of_failed_action, std::move(action_results),
+    std::move(callback).Run(actions_start_time, std::move(action_results),
                             task.id(), skip_async_observation_information,
                             screenshot_collection_options, std::move(response),
                             std::move(journal_entry));
@@ -1313,9 +1315,8 @@ void BuildActionsResultWithObservations(
   }
   base::RepeatingClosure barrier = base::BarrierClosure(
       tabs_to_fetch.size(),
-      base::BindOnce(std::move(callback), actions_start_time, result_code,
-                     index_of_failed_action, action_results, task.id(),
-                     skip_async_observation_information,
+      base::BindOnce(std::move(callback), actions_start_time, action_results,
+                     task.id(), skip_async_observation_information,
                      screenshot_collection_options, std::move(response),
                      std::move(journal_entry)));
   for (auto& [tab, tab_observation] : tabs_to_fetch) {

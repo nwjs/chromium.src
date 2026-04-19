@@ -13,7 +13,6 @@
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -451,7 +450,12 @@ void BackgroundLoaderOffliner::ResetState() {
   is_low_bar_met_ = false;
   did_snapshot_on_last_retry_ = false;
   content::WebContentsObserver::Observe(nullptr);
-  loader_.reset();
+
+  // Delete the `loader_` asynchronously. We don't want to delete it
+  // synchronously when ResetState() is called from CanDownload() as it results
+  // in deleting a caller instance.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
+      FROM_HERE, std::move(loader_));
 
   for (int i = 0; i < ResourceDataType::RESOURCE_DATA_TYPE_COUNT; ++i) {
     UNSAFE_TODO(stats_[i]).requested = 0;

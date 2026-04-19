@@ -8,6 +8,7 @@
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/core/loader/resource/script_resource.h"
+#include "third_party/blink/renderer/platform/bindings/parkable_string.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
 #include "third_party/blink/renderer/platform/loader/fetch/cached_metadata.h"
 #include "third_party/blink/renderer/platform/loader/fetch/code_cache_host.h"
@@ -21,7 +22,7 @@
 #include "third_party/blink/renderer/platform/testing/mock_context_lifecycle_notifier.h"
 #include "third_party/blink/renderer/platform/testing/noop_url_loader.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
-#include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
+#include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 
@@ -122,12 +123,10 @@ class ResourceLoaderCodeCacheTest : public testing::Test {
     outer_header->marker =
         CachedMetadataHandler::kSingleEntryWithHashAndPadding;
     if (source_text.has_value()) {
-      std::unique_ptr<ParkableStringImpl::SecureDigest> hash =
+      std::unique_ptr<SecureStringDigest> hash =
           ParkableStringImpl::HashString(source_text->Impl());
-      CHECK_EQ(hash->size(),
-               ScriptCachedMetadataHandlerWithHashing::kSha256Bytes);
-      UNSAFE_TODO(memcpy(outer_header->hash, hash->data(),
-                         ScriptCachedMetadataHandlerWithHashing::kSha256Bytes));
+      CHECK_EQ(hash->size(), kSha256Bytes);
+      UNSAFE_TODO(memcpy(outer_header->hash, hash->data(), kSha256Bytes));
     }
     CachedMetadataHeader* inner_header =
         reinterpret_cast<CachedMetadataHeader*>(
@@ -141,8 +140,7 @@ class ResourceLoaderCodeCacheTest : public testing::Test {
   }
 
   test::TaskEnvironment task_environment_;
-  ScopedTestingPlatformSupport<TestingPlatformSupportWithMockScheduler>
-      platform_;
+  ScopedTestingPlatformSupport<TestingPlatformSupport> platform_;
 
   // State initialized by CommonSetup().
   Persistent<ScriptResource> resource_;

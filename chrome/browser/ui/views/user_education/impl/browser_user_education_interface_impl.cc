@@ -6,7 +6,10 @@
 
 #include <optional>
 
+#include "base/check.h"
 #include "base/check_is_test.h"
+#include "base/check_op.h"
+#include "base/logging.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/pass_key.h"
@@ -131,7 +134,7 @@ bool BrowserUserEducationInterfaceImpl::IsFeaturePromoActive(
 }
 
 user_education::FeaturePromoResult
-BrowserUserEducationInterfaceImpl::CanShowFeaturePromo(
+BrowserUserEducationInterfaceImpl::WouldShowFeaturePromoImpl(
     const base::Feature& iph_feature) const {
   if (state_ != State::kInitialized) {
     return user_education::FeaturePromoResult::kError;

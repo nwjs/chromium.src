@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="vi">
 <translation id="1000436330784933699">Bạn có thể mở Ống kính tại đây.</translation>
+<translation id="1005291068154454184">Video toàn màn hình hướng dẫn cách đặt Chromium làm trình duyệt mặc định</translation>
 <translation id="1042296835509784301">Mở Trình quản lý mật khẩu trong Chromium.</translation>
 <translation id="1047130070405668746">Chọn Chromium</translation>
 <translation id="1091252999271033193">Tức là lần nào Chromium cũng yêu cầu trang web dành cho thiết bị di động.</translation>
@@ -70,9 +71,6 @@ Bạn phải xoá bớt một số dấu trang thì mới có thể lưu dấu t
 <translation id="2313870531055795960">Kiểm tra đối chiếu các URL với danh sách trang web không an toàn được lưu trữ trong Chromium. Nếu một trang web cố ăn cắp mật khẩu của bạn hoặc nếu bạn tải một tệp gây hại xuống, thì Chrome cũng có thể gửi các URL đến tính năng Duyệt web an toàn, bao gồm cả các đoạn nội dung trên trang.</translation>
 <translation id="2314220608288760290">Chromium tự động mở các đường liên kết ẩn danh của YouTube ở chế độ ẩn danh.</translation>
 <translation id="231828342043114302">Để nhận nội dung được cá nhân hoá dựa trên sở thích của bạn, hãy đăng nhập vào Chromium.</translation>
-<translation id="2326738825692478496">Một số dữ liệu Chromium của bạn chưa được lưu vào Tài khoản Google.
-
-Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xuất ngay, dữ liệu này sẽ bị xoá.</translation>
 <translation id="2334943301233020675">Các khoá truy cập sau đây không được nhập vào Trình quản lý mật khẩu vì không đáp ứng được các yêu cầu.</translation>
 <translation id="2337722506862731008">Chia sẻ Chromium</translation>
 <translation id="2340423701577464731">Thêm mục trong danh sách đọc vào Chromium</translation>
@@ -103,7 +101,6 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 Để xem thêm các chế độ cài đặt khác có sử dụng dữ liệu để cải thiện trải nghiệm Chromium của bạn, hãy truy cập vào <ph name="BEGIN_LINK" />Các dịch vụ của Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Tìm kiếm bằng giọng nói trong Chromium.</translation>
 <translation id="2843571538056574338">Dùng Chromium để tự động điền</translation>
-<translation id="2899085719655668655">Video hướng dẫn cách đặt Chromium làm trình duyệt mặc định ở chế độ hình trong hình</translation>
 <translation id="2918709798697875261">Tổ chức của bạn yêu cầu bạn duy trì trạng thái đăng xuất khỏi Chromium.</translation>
 <translation id="2942241131342758843">Hãy dùng Chromium theo mặc định để mở đường liên kết, tìm kiếm trong tiện ích và tự động điền mật khẩu trên các ứng dụng khác</translation>
 <translation id="2977470724722393594">Chromium đã được cập nhật</translation>

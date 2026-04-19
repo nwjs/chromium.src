@@ -546,14 +546,15 @@ bool WebGLRenderingContextWebGPUBase::Initialize(
 // Start of WebGLRenderingContextBase's IDL methods
 // ****************************************************************************
 
-V8UnionHTMLCanvasElementOrOffscreenCanvas*
-WebGLRenderingContextWebGPUBase::getHTMLOrOffscreenCanvas() const {
+V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret
+WebGLRenderingContextWebGPUBase::getHTMLOrOffscreenCanvas(
+    ScriptState* script_state) const {
   if (canvas()) {
-    return MakeGarbageCollected<V8UnionHTMLCanvasElementOrOffscreenCanvas>(
-        static_cast<HTMLCanvasElement*>(Host()));
+    return V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret(
+        script_state, static_cast<HTMLCanvasElement*>(Host()));
   }
-  return MakeGarbageCollected<V8UnionHTMLCanvasElementOrOffscreenCanvas>(
-      static_cast<OffscreenCanvas*>(Host()));
+  return V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret(
+      script_state, static_cast<OffscreenCanvas*>(Host()));
 }
 
 int WebGLRenderingContextWebGPUBase::drawingBufferWidth() const {
@@ -1541,7 +1542,7 @@ void WebGLRenderingContextWebGPUBase::shaderSource(WebGLShader* shader,
   std::vector<char> ascii_source;
   ascii_source.reserve(source.length());
   for (auto code_point : source) {
-    ascii_source.push_back(IsASCII(code_point) ? code_point : '?');
+    ascii_source.push_back(IsAscii(code_point) ? code_point : '?');
   }
 
   GLint c_ascii_size = ascii_source.size();

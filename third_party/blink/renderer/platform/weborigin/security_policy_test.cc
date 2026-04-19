@@ -53,15 +53,14 @@ TEST(SecurityPolicyTest, EmptyReferrerForUnauthorizedScheme) {
   const KURL example_http_url = KURL("http://example.com/");
   EXPECT_TRUE(String() == SecurityPolicy::GenerateReferrer(
                               network::mojom::ReferrerPolicy::kAlways,
-                              example_http_url,
-                              String::FromUTF8("chrome://somepage/"))
+                              example_http_url, "chrome://somepage/")
                               .referrer);
 }
 
 TEST(SecurityPolicyTest, GenerateReferrerRespectsReferrerSchemesRegistry) {
   const KURL example_http_url = KURL("http://example.com/");
-  const String foobar_url = String::FromUTF8("foobar://somepage/");
-  const String foobar_scheme = String::FromUTF8("foobar");
+  const String foobar_url = "foobar://somepage/";
+  const String foobar_scheme = "foobar";
 
   EXPECT_EQ(String(), SecurityPolicy::GenerateReferrer(
                           network::mojom::ReferrerPolicy::kAlways,
@@ -78,7 +77,7 @@ TEST(SecurityPolicyTest, GenerateReferrerRespectsReferrerSchemesRegistry) {
 TEST(SecurityPolicyTest, ShouldHideReferrerRespectsReferrerSchemesRegistry) {
   const KURL example_http_url = KURL("http://example.com/");
   const KURL foobar_url = KURL("foobar://somepage/");
-  const String foobar_scheme = String::FromUTF8("foobar");
+  const String foobar_scheme = "foobar";
 
   EXPECT_TRUE(SecurityPolicy::ShouldHideReferrer(example_http_url, foobar_url));
   SchemeRegistry::RegisterURLSchemeAsAllowedForReferrer(foobar_scheme);
@@ -257,9 +256,9 @@ TEST(SecurityPolicyTest, GenerateReferrer) {
   for (TestCase test : inputs) {
     KURL destination(test.destination);
     Referrer result = SecurityPolicy::GenerateReferrer(
-        test.policy, destination, String::FromUTF8(test.referrer));
+        test.policy, destination, String::FromUtf8(test.referrer));
     if (test.expected) {
-      EXPECT_EQ(String::FromUTF8(test.expected), result.referrer)
+      EXPECT_EQ(String::FromUtf8(test.expected), result.referrer)
           << "'" << test.referrer << "' to '" << test.destination
           << "' with policy=" << static_cast<int>(test.policy)
           << " should have been '" << test.expected << "': was '"

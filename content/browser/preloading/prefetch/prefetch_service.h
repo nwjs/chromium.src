@@ -13,12 +13,14 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/types/strong_alias.h"
+#include "content/browser/preloading/prefetch/pre_prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_key.h"
 #include "content/browser/preloading/prefetch/prefetch_match_resolver.h"
 #include "content/browser/preloading/prefetch/prefetch_streaming_url_loader_common_types.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/pre_prefetch_handle.h"
 #include "content/public/browser/prefetch_handle.h"
 #include "content/public/browser/storage_partition.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -119,6 +121,11 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainer::Observer {
   // to which `prefetch_request` is merged into.
   [[nodiscard]] std::unique_ptr<PrefetchHandle> AddPrefetchRequestWithHandle(
       std::unique_ptr<const PrefetchRequest> prefetch_request);
+
+  // Adds a `PrefetchContainer` from a `PrePrefetchHandle`.
+  [[nodiscard]] std::unique_ptr<PrefetchHandle>
+  AddPrefetchRequestFromPrePrefetch(
+      std::unique_ptr<PrePrefetchHandle> pre_prefetch_handle);
 
   [[nodiscard]] base::WeakPtr<PrefetchContainer>
   AddPrefetchRequestWithoutStartingPrefetchForTesting(
@@ -317,11 +324,13 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainer::Observer {
   //
   // Use `AddPrefetchRequestWithHandle()` for non-test cases.
   base::WeakPtr<PrefetchContainer> AddPrefetchRequestInternal(
-      std::unique_ptr<const PrefetchRequest> prefetch_request);
+      std::unique_ptr<const PrefetchRequest> prefetch_request,
+      std::unique_ptr<PrePrefetchContainer> pre_prefetch_container);
 
   // Creates a new `PrefetchContainer` and adds it to `owned_prefetches_`.
   base::WeakPtr<PrefetchContainer> CreatePrefetchContainer(
-      std::unique_ptr<const PrefetchRequest> prefetch_request);
+      std::unique_ptr<const PrefetchRequest> prefetch_request,
+      std::unique_ptr<PrePrefetchContainer> pre_prefetch_container);
 
   // The prefetch is reset after
   // `PrefetchContainerDefaultTtlInPrefetchService()`
@@ -444,15 +453,6 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainer::Observer {
   // this prefetch for metrics.
   void MaybeSetPrefetchMatchMissedTimeForMetrics(
       PrefetchContainer& prefetch_container) const;
-
-  // Returns `true` if the `prefetch_container` is stale. I.e.
-  // the prefetch either is not or never will be servable to a
-  // navigation.
-  //
-  // Note: This is currently used for WebView initiated prefetches so
-  // consideration should be taken if updating the underlying implementation (or
-  // its dependencies).
-  bool IsPrefetchStale(base::WeakPtr<PrefetchContainer> prefetch_container);
 
   void DumpPrefetchesForDebug() const;
 

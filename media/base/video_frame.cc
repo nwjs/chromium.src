@@ -370,25 +370,41 @@ scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
     const gfx::Rect& visible_rect,
     const gfx::Size& natural_size,
     base::TimeDelta timestamp) {
+  CHECK(shared_image);
+  if (coded_size != shared_image->size()) {
+    DLOG(ERROR) << "coded_size (" << coded_size.ToString()
+                << ") does not match shared_image size ("
+                << shared_image->size().ToString() << ")";
+    return nullptr;
+  }
+
   scoped_refptr<VideoFrame> frame = CreateFrameForNativeTexturesInternal(
-      format, coded_size, visible_rect, natural_size, timestamp);
+      format, shared_image->size(), visible_rect, natural_size, timestamp);
   if (!frame) {
     return nullptr;
   }
 
-  if (shared_image) {
-    frame->acquire_sync_token_ = sync_token;
-    frame->shared_image_ = shared_image->MakeUnowned();
-    CHECK_EQ(coded_size, shared_image->size())
-        << "coded_size (" << coded_size.ToString()
-        << ") does not match shared_image size ("
-        << shared_image->size().ToString() << ")";
+  frame->acquire_sync_token_ = sync_token;
+  frame->shared_image_ = shared_image->MakeUnowned();
+  if (shared_image_release_cb) {
+    frame->SetReleaseMailboxCB(std::move(shared_image_release_cb));
   }
-  frame->shared_image_release_cb_ = std::move(shared_image_release_cb);
-
-  DCHECK(frame->HasSharedImage());
-
   return frame;
+}
+
+// static
+scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
+    VideoPixelFormat format,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
+    gpu::SyncToken sync_token,
+    ReleaseMailboxCB shared_image_release_cb,
+    const gfx::Rect& visible_rect,
+    const gfx::Size& natural_size,
+    base::TimeDelta timestamp) {
+  CHECK(shared_image);
+  return WrapSharedImage(
+      format, shared_image, sync_token, std::move(shared_image_release_cb),
+      shared_image->size(), visible_rect, natural_size, timestamp);
 }
 
 scoped_refptr<VideoFrame> VideoFrame::WrapMappableSharedImage(
@@ -467,7 +483,9 @@ scoped_refptr<VideoFrame> VideoFrame::WrapMappableSharedImage(
     DLOG(ERROR) << __func__ << " Couldn't create VideoFrame instance";
     return nullptr;
   }
-  frame->shared_image_release_cb_ = std::move(shared_image_release_cb);
+  if (shared_image_release_cb) {
+    frame->SetReleaseMailboxCB(std::move(shared_image_release_cb));
+  }
   frame->acquire_sync_token_ = sync_token;
 
   // Note that we cannot use |shared_image|->MakeUnowned() here since MappableSI
@@ -719,7 +737,7 @@ scoped_refptr<VideoFrame> VideoFrame::WrapExternalDmabufs(
     return nullptr;
   }
 
-  frame->shared_image_release_cb_ = ReleaseMailboxCB();
+  frame->shared_image_release_cb_ = ReleaseMailboxCBWithLostResource();
   frame->dmabuf_fds_ = std::move(dmabuf_fds);
   DCHECK(frame->HasDmaBufs());
 
@@ -1432,12 +1450,37 @@ void VideoFrame::SetReleaseMailboxCB(ReleaseMailboxCB release_mailbox_cb) {
   // is not thread safe.  This method should only be called by the owner of
   // |wrapped_frame_| directly.
   DCHECK(!wrapped_frame_);
+  // Binds `release_mailbox_cb` and runs it with SyncToken ignoring the bool.
+  // Returns a OnceCallback<void (const gpu::SyncToken &, bool)> which is then
+  // stored.
+  SetReleaseMailboxCB(
+      base::BindOnce([](ReleaseMailboxCB cb, const gpu::SyncToken& sync_token,
+                        bool lost_resource) { std::move(cb).Run(sync_token); },
+                     std::move(release_mailbox_cb)));
+}
+
+void VideoFrame::SetReleaseMailboxCB(
+    ReleaseMailboxCBWithLostResource release_mailbox_cb) {
+  DCHECK(release_mailbox_cb);
+  DCHECK(!shared_image_release_cb_);
+  // We don't relay SetReleaseMailboxCB to |wrapped_frame_| because the method
+  // is not thread safe.  This method should only be called by the owner of
+  // |wrapped_frame_| directly.
+  DCHECK(!wrapped_frame_);
   shared_image_release_cb_ = std::move(release_mailbox_cb);
 }
 
 bool VideoFrame::HasReleaseMailboxCB() const {
   return wrapped_frame_ ? wrapped_frame_->HasReleaseMailboxCB()
                         : !!shared_image_release_cb_;
+}
+
+void VideoFrame::SetLostSharedImageResource() {
+  if (wrapped_frame_) {
+    wrapped_frame_->SetLostSharedImageResource();
+    return;
+  }
+  lost_shared_image_resource_ = true;
 }
 
 void VideoFrame::AddDestructionObserver(base::OnceClosure callback) {
@@ -1523,9 +1566,9 @@ VideoFrame::~VideoFrame() {
       base::AutoLock locker(release_sync_token_lock_);
       release_sync_token = release_sync_token_;
     }
-    std::move(shared_image_release_cb_).Run(release_sync_token);
+    std::move(shared_image_release_cb_)
+        .Run(release_sync_token, lost_shared_image_resource_);
   }
-
   // Prevents dangling raw ptr, see https://docs.google.com/document/d/156O7kBZqIhe1dUcqTMcN5T-6YEAcg0yNnj5QlnZu9xU/edit?usp=sharing.
   shm_region_ = nullptr;
 

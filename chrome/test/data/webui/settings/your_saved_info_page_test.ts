@@ -56,7 +56,6 @@ suite('YourSavedInfoPage', function() {
       enableYourSavedInfoSettingsPage: true,
       showIbansSettings: true,
       shouldShowPayOverTimeSettings: true,
-      enableLoyaltyCardsFilling: true,
     });
   });
 
@@ -76,7 +75,7 @@ suite('YourSavedInfoPage', function() {
     const cards = yourSavedInfoPage.shadowRoot!.querySelectorAll(
         'category-reference-card');
     for (const card of cards) {
-      const chips = card.shadowRoot!.querySelectorAll('cr-chip');
+      const chips = card.shadowRoot!.querySelectorAll('cr-button');
       for (const chip of chips) {
         const labelSpan = chip.querySelector('span:not(.counter)');
         if (labelSpan && labelSpan.textContent === chipLabel) {
@@ -224,7 +223,7 @@ suite('YourSavedInfoPage', function() {
             loadTimeData.getString('contactInfoTitle')}"]`);
     assertTrue(!!card);
     const chips: HTMLElement[] =
-        Array.from(card.shadowRoot!.querySelectorAll('cr-chip'));
+        Array.from(card.shadowRoot!.querySelectorAll('cr-button'));
     const chip: HTMLElement = chips.find(chip => {
       const labelSpan = chip.querySelector('span:not(.counter)');
       return labelSpan &&
@@ -307,7 +306,7 @@ suite('DataChipsVisibility', function() {
         yourSavedInfoPage.shadowRoot!.querySelector<HTMLElement>(cardSelector);
     assertTrue(!!card);
     const chips: HTMLElement[] =
-        Array.from(card.shadowRoot!.querySelectorAll('cr-chip'));
+        Array.from(card.shadowRoot!.querySelectorAll('cr-button'));
     return chips.map(chip => chip.querySelector('span')!.textContent);
   }
 
@@ -316,7 +315,6 @@ suite('DataChipsVisibility', function() {
       enableYourSavedInfoSettingsPage: true,
       showIbansSettings: true,
       shouldShowPayOverTimeSettings: true,
-      enableLoyaltyCardsFilling: true,
     });
     await entityDataManager.whenCalled('getWritableEntityTypes');
 
@@ -353,7 +351,6 @@ suite('DataChipsVisibility', function() {
     const yourSavedInfoPage = await setupPage({
       showIbansSettings: false,
       shouldShowPayOverTimeSettings: true,
-      enableLoyaltyCardsFilling: true,
     });
     assertDeepEquals(
         [
@@ -370,7 +367,6 @@ suite('DataChipsVisibility', function() {
     const yourSavedInfoPage = await setupPage({
       showIbansSettings: false,
       shouldShowPayOverTimeSettings: true,
-      enableLoyaltyCardsFilling: true,
     });
     autofillManager.lastCallback.setPersonalDataManagerListener!
         ([], [], [createIbanEntry()], []);
@@ -391,28 +387,12 @@ suite('DataChipsVisibility', function() {
     const yourSavedInfoPage = await setupPage({
       showIbansSettings: true,
       shouldShowPayOverTimeSettings: false,
-      enableLoyaltyCardsFilling: true,
     });
     assertDeepEquals(
         [
           loadTimeData.getString('creditAndDebitCardTitle'),
           loadTimeData.getString('ibanTitle'),
           loadTimeData.getString('loyaltyCardsTitle'),
-        ],
-        getChipLabels(yourSavedInfoPage, '#paymentManagerButton'));
-  });
-
-  test('DisabledLoyaltyCards', async function() {
-    const yourSavedInfoPage = await setupPage({
-      showIbansSettings: true,
-      shouldShowPayOverTimeSettings: true,
-      enableLoyaltyCardsFilling: false,
-    });
-    assertDeepEquals(
-        [
-          loadTimeData.getString('creditAndDebitCardTitle'),
-          loadTimeData.getString('ibanTitle'),
-          loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
         ],
         getChipLabels(yourSavedInfoPage, '#paymentManagerButton'));
   });

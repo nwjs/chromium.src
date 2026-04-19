@@ -98,4 +98,21 @@ public interface FirstRunPageDelegate {
 
     /** Return the {@link WindowAndroid} for the FirstRunActivity. */
     WindowAndroid getWindowAndroid();
+
+    // TODO(crbug.com/494980777): Implement a generalized state restoration mechanism for
+    // FirstRunFragments. Currently, FirstRunActivity suppresses fragment restoration via
+    // #transformSavedInstanceStateForOnCreate, requiring fragments to manually coordinate state via
+    // this delegate.
+
+    /** Returns whether the Role Manager Dialog has been triggered. */
+    boolean getPromoRoleManagerDialogTriggered();
+
+    /** Sets whether the Role Manager Dialog has been triggered. */
+    void setPromoRoleManagerDialogTriggered(boolean triggered);
+
+    /** Returns whether the History Sync screen has been completed. */
+    boolean getHistorySyncStepCompleted();
+
+    /** Sets whether the History Sync screen has been completed. */
+    void setHistorySyncStepCompleted(boolean completed);
 }

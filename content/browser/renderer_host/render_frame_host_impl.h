@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/unique_ptr_adapters.h"
@@ -115,6 +117,8 @@
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/isolation_info.h"
 #include "net/base/network_isolation_key.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_change_dispatcher.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/net_buildflags.h"
 #include "services/device/public/mojom/vibration_manager.mojom.h"
@@ -157,6 +161,7 @@
 #include "third_party/blink/public/mojom/image_downloader/image_downloader.mojom.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-forward.h"
 #include "third_party/blink/public/mojom/installedapp/installed_app_provider.mojom-forward.h"
+#include "third_party/blink/public/mojom/loader/content_security_notifier.mojom.h"
 #include "third_party/blink/public/mojom/loader/fetch_later.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/local_resource_loader_config.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
@@ -336,6 +341,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       public BucketContext,
       public base::MemoryPressureListener {
  public:
+  using BeforeUnloadExecutionMode = NavigationHandle::BeforeUnloadExecutionMode;
   using JavaScriptDialogCallback =
       content::JavaScriptDialogManager::DialogClosedCallback;
 
@@ -387,6 +393,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // leading to security failures. If there is a `RenderFrameHostImpl` with a
   // matching document token but not a matching process ID, invokes
   // `process_mismatch_callback` (if non-null) and returns `nullptr`.
+  static RenderFrameHostImpl* FromDocumentToken(
+      ChildProcessId process_id,
+      const blink::DocumentToken& document_token,
+      mojo::ReportBadMessageCallback* process_mismatch_callback = nullptr);
+  // TODO(crbug.com/379869738) Remove this method when usages are ported.
   static RenderFrameHostImpl* FromDocumentToken(
       int process_id,
       const blink::DocumentToken& document_token,
@@ -1204,16 +1215,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // deleted or deferred depending on its children's unload status.
   void Unload(RenderFrameProxyHost* proxy, bool is_loading);
 
-  // Sent to a renderer when the browser needs to cancel a navigation associated
-  // with a speculative RenderFrameHost that has already been asked to commit
-  // via `CommitNavigation()`. The renderer will swap out the already-committed
-  // RenderFrame, replacing it with a `blink::RemoteFrame` for `proxy`.
-  //
-  // TODO(crbug.com/40186427): This method is fundamentally incompatible
-  // with RenderDocument, as there is no `blink::RemoteFrame` to restore for a
-  // local<->local swap.
-  void UndoCommitNavigation(RenderFrameProxyHost& proxy, bool is_loading);
-
   // Unload this frame for the proxy. Similar to `Unload()` but without
   // managing the lifecycle of this object.
   void SwapOuterDelegateFrame(
@@ -1551,18 +1552,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // of whether any cookie/HTTPOnly cookie had been changed before, which can be
   // used to determine if a document with Cache-control: no-store header set is
   // eligible for BFCache.
-  class CookieChangeListener : public network::mojom::CookieChangeListener {
+  class CONTENT_EXPORT CookieChangeListener
+      : public network::mojom::CookieChangeListener {
    public:
     struct CookieChangeInfo {
       // The number of observed cookie modifications.
       int64_t cookie_modification_count = 0;
       int64_t http_only_cookie_modification_count = 0;
       int64_t non_http_only_cookie_modification_count = 0;
-      // The number of observed cookie modifications that should be removed
-      // since we want to adjust the count by subtracting the number of cookie
-      // modification from the navigation itself.
-      int64_t cookie_modification_removing_count = 0;
-      int64_t http_only_cookie_modification_removing_count = 0;
     };
 
     CookieChangeListener(StoragePartition* storage_partition, GURL& url);
@@ -1574,28 +1571,38 @@ class CONTENT_EXPORT RenderFrameHostImpl
     CookieChangeInfo cookie_change_info() { return cookie_change_info_; }
 
     // We don't want to count the cookie modification made by the
-    // `NavigationRequest` itself, so provide this function to allow the count
-    // adjustment.
+    // `NavigationRequest` itself, so provide this function to allow adding
+    // certain cookie to the ignore list.
     // Passing the `base::PassKey` to restrict the caller of this method to
     // `NavigationRequest` only.
-    void RemoveNavigationCookieModificationCount(
+    void AddNavigationCookieToIgnore(
         base::PassKey<content::NavigationRequest> navigation_request,
-        uint64_t cookie_modification_count_delta,
-        uint64_t http_only_cookie_modification_count_delta) {
-      cookie_change_info_.cookie_modification_removing_count +=
-          cookie_modification_count_delta;
-      cookie_change_info_.http_only_cookie_modification_removing_count +=
-          http_only_cookie_modification_count_delta;
-    }
+        const net::CanonicalCookie& cookie);
+
+    void AddNavigationCookieToIgnoreForTesting(
+        const net::CanonicalCookie& cookie);
+    void OnCookieChangeForTesting(const net::CookieChangeInfo& change);
 
    private:
     // network::mojom::CookieChangeListener
     void OnCookieChange(const net::CookieChangeInfo& change) override;
 
+    void AddNavigationCookieToIgnoreInternal(
+        const net::CanonicalCookie& cookie);
+
     mojo::Receiver<network::mojom::CookieChangeListener>
         cookie_change_listener_receiver_{this};
 
+    // The information about the cookie change observed during the lifetime of
+    // this RFHI, excluding the cookies set by the navigation.
     CookieChangeInfo cookie_change_info_;
+
+    using CookieKey = std::tuple<net::UniqueCookieKey, bool>;
+    // Stores the navigation cookies and the count.
+    base::flat_map<CookieKey, int> navigation_cookies_to_ignore_;
+    // Stores the cookie changes received before they are added to the ignore
+    // list.
+    base::flat_map<CookieKey, int> unmatched_cookie_changes_;
   };
 
   class DeviceBoundSessionObserver
@@ -2495,9 +2502,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void SetNeedsOcclusionTracking(bool needs_tracking) override;
   void SetVirtualKeyboardMode(ui::mojom::VirtualKeyboardMode mode) override;
   void VisibilityChanged(blink::mojom::FrameVisibility) override;
-  void DidChangeThemeColor(std::optional<SkColor> theme_color) override;
-  void DidChangeBackgroundColor(const SkColor4f& background_color,
-                                bool color_adjust) override;
   void DidFailLoadWithError(const GURL& url, int32_t error_code) override;
   void DidFocusFrame() override;
   void DidCallFocus() override;
@@ -2696,6 +2700,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
                      SetWindowRectCallback callback) override;
   void DidFirstVisuallyNonEmptyPaint() override;
   void DidAccessInitialMainDocument() override;
+  void DidChangeThemeColor(std::optional<SkColor> theme_color) override;
+  void DidChangeBackgroundColor(const SkColor4f& background_color,
+                                bool color_adjust) override;
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   void Minimize() override;
   void Maximize() override;
@@ -2896,8 +2903,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   network::mojom::ClientSecurityStatePtr BuildClientSecurityStateForWorkers()
       const;
 
-  void OnDidRunInsecureContent(const GURL& security_origin,
-                               const GURL& target_url);
+  void OnDidRunInsecureContent(
+      const GURL& target_url,
+      blink::mojom::ContentSecurityNotifier::InsecureContentOrigin origin_type);
   void OnDidDisplayContentWithCertificateErrors();
   void OnDidRunContentWithCertificateErrors();
 
@@ -3052,6 +3060,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const url::Origin& effective_origin,
       bool is_payment_credential_get_assertion,
       const std::optional<url::Origin>& remote_desktop_client_override_origin,
+      const std::optional<std::string>& app_id,
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback);
   void PerformMakeCredentialWebAuthSecurityChecks(
@@ -3059,6 +3068,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const url::Origin& effective_origin,
       bool is_payment_credential_creation,
       const std::optional<url::Origin>& remote_desktop_client_override_origin,
+      const std::optional<std::string>& app_id,
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback);
   void PerformReportWebAuthSecurityChecks(
@@ -3247,12 +3257,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       NavigationRequest& navigation_request,
       blink::mojom::AutomaticBeaconType event_type);
 
-  // Determines if this RenderFrameHostImpl is allowed to read from Shared
-  // Storage. Only true if this RenderFrameHostImpl is in a fenced frame tree,
-  // and if its closest fenced frame root ancestor and all nested fenced frame
-  // roots have disabled untrusted network access.
-  bool CanReadFromSharedStorage();
-
   // If this RenderFrameHost is a local root (i.e., either the main frame or a
   // subframe in a different process than its parent), this returns the
   // RenderWidgetHost corresponding to this frame. Otherwise this returns null.
@@ -3380,7 +3384,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // made to mojom::NavigationClient.
   // These exist to be overridden in tests to retain mojo callbacks.
   virtual void SendCommitNavigation(
-      mojom::NavigationClient* navigation_client,
       NavigationRequest* navigation_request,
       blink::mojom::CommonNavigationParamsPtr common_params,
       blink::mojom::CommitNavigationParamsPtr commit_params,
@@ -3404,7 +3407,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::DocumentToken& document_token,
       const base::UnguessableToken& devtools_navigation_token);
   virtual void SendCommitFailedNavigation(
-      mojom::NavigationClient* navigation_client,
       NavigationRequest* navigation_request,
       blink::mojom::CommonNavigationParamsPtr common_params,
       blink::mojom::CommitNavigationParamsPtr commit_params,
@@ -3427,16 +3429,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   BuildCommitFailedNavigationCallback(NavigationRequest* navigation_request);
 
   // Protected / virtual so it can be overridden by tests.
-  // If `for_legacy` is true, the beforeunload handler is not actually present,
-  // nor required to run. In this case the renderer is not notified, but
-  // PostTask() is used. PostTask() is used because synchronously proceeding
-  // with navigation could lead to reentrancy problems. In particular, there
-  // are tests and android WebView using NavigationThrottles to navigate from
-  // WillStartRequest(). If PostTask() is not used, then CHECKs would trigger
-  // in a NavigationController. See https://crbug.com/365039 for more details.
   virtual void SendBeforeUnload(bool is_reload,
-                                base::WeakPtr<RenderFrameHostImpl> impl,
-                                bool for_legacy);
+                                bool should_run_before_unload_asynchronously,
+                                base::WeakPtr<RenderFrameHostImpl> impl);
 
  private:
   friend class CommitNavigationPauser;
@@ -3495,9 +3490,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
                            BindToWebUIFromWebViaMojo);
   FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
+                           CreateNewWindowInvalidDisposition);
+  FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
                            CreateNewWindowWithInaccessibleFile);
   FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
                            WindowOpenDisallowedFromSandboxedFrame);
+  FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
+                           ModalDialogDisallowedFromSandboxedFrame);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
                            RenderViewHostIsNotReusedAfterDelayedUnloadACK);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
@@ -3907,19 +3906,23 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool is_same_document_history_api_navigation,
       base::TimeTicks actual_navigation_start);
 
+  // Continue navigation without waiting for the renderer's beforeunload
+  // response.
+  void ContinueNavigationAfterBeforeUnloadCheck(
+      BeforeUnloadExecutionMode execution_mode);
+
   // Helper to process the beforeunload completion callback. |proceed| indicates
   // whether the navigation or tab close should be allowed to proceed.  If
   // |treat_as_final_completion_callback| is true, the frame should stop waiting
   // for any further completion callbacks from subframes. Completion callbacks
   // invoked from the renderer set |treat_as_final_completion_callback| to
-  // false, whereas a beforeunload timeout sets it to true. See
-  // SendBeforeUnload() for details on `for_legacy`.
+  // false, whereas a beforeunload timeout sets it to true.
   void ProcessBeforeUnloadCompleted(
       bool proceed,
       bool treat_as_final_completion_callback,
       const base::TimeTicks& renderer_before_unload_start_time,
       const base::TimeTicks& renderer_before_unload_end_time,
-      bool for_legacy);
+      BeforeUnloadExecutionMode execution_mode);
 
   // Called when a particular frame finishes running a beforeunload handler,
   // possibly as part of processing beforeunload for an ancestor frame. In
@@ -3928,7 +3931,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // been invoked on. If a beforeunload timeout occurred,
   // |treat_as_final_completion_callback| is set to true.
   // |is_frame_being_destroyed| is set to true if this was called as part of
-  // destroying |frame|. See SendBeforeUnload() for details on `for_legacy`.
+  // destroying |frame|.
   void ProcessBeforeUnloadCompletedFromFrame(
       bool proceed,
       bool treat_as_final_completion_callback,
@@ -3936,7 +3939,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool is_frame_being_destroyed,
       const base::TimeTicks& renderer_before_unload_start_time,
       const base::TimeTicks& renderer_before_unload_end_time,
-      bool for_legacy);
+      BeforeUnloadExecutionMode execution_mode);
 
   // Helper function to check whether the current frame and its subframes need
   // to run beforeunload and, if |send_ipc| is true, send all the necessary
@@ -3954,9 +3957,27 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool subframes_only,
       bool send_ipc,
       bool is_reload,
+      bool should_run_before_unload_asynchronously,
+      std::set<GlobalRenderFrameHostId>& beforeunload_pending_replies,
       bool* found_beforeunload,
       bool* run_beforeunload_for_legacy,
       RenderFrameHostImpl* rfh);
+
+  // Returns true if it's safe to run beforeunload handlers in the background
+  // while the navigation proceeds. This is only possible if no frame (the frame
+  // that is navigating and its descendants) with a beforeunload handler has
+  // sticky user activation, which guarantees that the renderer will not attempt
+  // to cancel navigation (i.e., the browser will not show a beforeunload
+  // dialog).
+  //
+  // If `subframes_only` is true, skip this frame and its same-SiteInstanceGroup
+  // descendants, which share a renderer-side frame tree. This happens for
+  // renderer-initiated navigations, where these frames have already run
+  // beforeunload.
+  //
+  // If `send_ipc` is false, return false, because beforeunload does not run in
+  // such case.
+  bool ShouldRunBeforeUnloadAsynchronously(bool subframes_only, bool send_ipc);
 
   // Called by |beforeunload_timeout_| when the beforeunload timeout fires.
   void BeforeUnloadTimeout();
@@ -4162,10 +4183,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // this frame's subtree.
   void PendingDeletionCheckCompletedOnSubtree();
 
-  // Call PendingDeletionCheckCompletedOnSubtree now or later, depending on
-  // the feature gate DelayRfhDestructionsOnUnloadAndDetach.
-  void PendingDeletionCheckCompletedOnSubtreeNowOrLater();
-
   // In this RenderFramehost, cancels every:
   // - Non-pending commit NavigationRequest owned by the FrameTreeNode that
   // intends to commit in this RFH
@@ -4255,7 +4272,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       LifecycleStateImpl state);
 
   // Check the renderer provided sandbox flags matches with what the browser
-  // process computed on its own. This triggers DCHECK and DumpWithoutCrashing()
+  // process computed on its own. This triggers CHECK and DumpWithoutCrashing()
   //
   // TODO(crbug.com/40051217) Remove this when we are confident the value
   // computed from the browser is always matching.

@@ -296,10 +296,19 @@ public class Features {
     // Profile.clearPrefetch
     public static final String PREFETCH_WITH_URL = "PREFETCH_URL_V5";
 
+    // Profile.getMaxPrefetches
+    // Profile.getPrefetchTtlSeconds
     // Profile.setMaxPrefetches
     // Profile.setPrefetchTtlSeconds
+    // Profile.clearMaxPrefetches
+    // Profile.clearPrefetchTtl
     public static final String PREFETCH_CACHE = "PREFETCH_CACHE_V1";
 
+    // PrefetchOperationCallbackBoundaryInterface.onResult
+    public static final String PREFETCH_WITH_CALLBACK_RESULT_V1 =
+            "PREFETCH_WITH_CALLBACK_RESULT_V1";
+
+    // Profile.getMaxPrerenders
     // Profile.setMaxPrerenders
     public static final String SET_MAX_PRERENDERS = "SET_MAX_PRERENDERS_V1";
 
@@ -471,4 +480,10 @@ public class Features {
     // Navigation.getWebResourceError
     public static final String NAVIGATION_GET_WEB_RESOURCE_ERROR =
             "NAVIGATION_GET_WEB_RESOURCE_ERROR";
+
+    // WebViewSettings.setIgnoreDuplicateNavEnabled
+    // WebViewSettings.getIgnoreDuplicateNavEnabled
+    // WebViewSettings.setIgnoreDuplicateNavThreshold
+    // WebViewSettings.getIgnoreDuplicateNavThreshold
+    public static final String IGNORE_DUPLICATE_NAV = "IGNORE_DUPLICATE_NAV";
 }

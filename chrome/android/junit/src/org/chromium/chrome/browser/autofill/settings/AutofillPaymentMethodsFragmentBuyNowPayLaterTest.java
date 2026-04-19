@@ -56,11 +56,9 @@ import java.util.List;
 @DisableFeatures({
     ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM,
     ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
-    ChromeFeatureList.AUTOFILL_ENABLE_CVC_STORAGE,
     ChromeFeatureList.AUTOFILL_ENABLE_CARD_BENEFITS_FOR_AMERICAN_EXPRESS,
     ChromeFeatureList.AUTOFILL_ENABLE_CARD_BENEFITS_FOR_BMO,
     ChromeFeatureList.AUTOFILL_ENABLE_FLAT_RATE_CARD_BENEFITS_FROM_CURINOS,
-    ChromeFeatureList.AUTOFILL_ENABLE_LOYALTY_CARDS_FILLING,
     ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
 })
 public class AutofillPaymentMethodsFragmentBuyNowPayLaterTest {

@@ -51,7 +51,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
-import org.chromium.chrome.browser.toolbar.extensions.ExtensionToolbarCoordinator;
+import org.chromium.chrome.browser.toolbar.extensions.ExtensionsToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.home_button.HomeButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.incognito.IncognitoIndicatorCoordinator;
@@ -109,7 +109,7 @@ public class ToolbarTablet extends ToolbarLayout {
     private @Nullable MonotonicObservableSupplier<Integer> mTabCountSupplier;
     private @Nullable TabletCaptureStateToken mLastCaptureStateToken;
     private @DrawableRes int mBookmarkButtonImageRes;
-    private @Nullable ExtensionToolbarCoordinator mExtensionToolbarCoordinator;
+    private @Nullable ExtensionsToolbarCoordinator mExtensionsToolbarCoordinator;
 
     private final @Nullable ToolbarWidthConsumer[] mToolbarWidthConsumers =
             new ToolbarWidthConsumer[ToolbarComponentId.COUNT];
@@ -197,7 +197,7 @@ public class ToolbarTablet extends ToolbarLayout {
 
     @Override
     public CaptureReadinessResult isReadyForTextureCapture() {
-        if (urlHasFocus()) {
+        if (urlHasFocus() || mLocationBar.isUrlBarFocusedWithoutAnimation()) {
             return CaptureReadinessResult.notReady(TopToolbarBlockCaptureReason.URL_BAR_HAS_FOCUS);
         } else if (mIsInTabSwitcherMode) {
             return CaptureReadinessResult.notReady(TopToolbarBlockCaptureReason.TAB_SWITCHER_MODE);
@@ -322,8 +322,8 @@ public class ToolbarTablet extends ToolbarLayout {
         mBookmarkButton.setBackgroundResource(omniboxIconRippleId);
         mLocationBar.updateButtonBackground(omniboxIconRippleId);
 
-        if (mExtensionToolbarCoordinator != null) {
-            mExtensionToolbarCoordinator.updateMenuButtonBackground(toolbarIconRippleId);
+        if (mExtensionsToolbarCoordinator != null) {
+            mExtensionsToolbarCoordinator.updateMenuButtonBackground(toolbarIconRippleId);
         }
     }
 
@@ -442,13 +442,17 @@ public class ToolbarTablet extends ToolbarLayout {
     }
 
     @Override
-    public void setExtensionToolbarCoordinator(
-            ExtensionToolbarCoordinator extensionToolbarCoordinator) {
-        mExtensionToolbarCoordinator = extensionToolbarCoordinator;
+    public void setExtensionsToolbarCoordinator(
+            ExtensionsToolbarCoordinator extensionsToolbarCoordinator) {
+        mExtensionsToolbarCoordinator = extensionsToolbarCoordinator;
+        mToolbarWidthConsumers[ToolbarComponentId.POPPED_EXTENSION_ACTION] =
+                mExtensionsToolbarCoordinator.getPoppedOutActionWidthConsumer();
         mToolbarWidthConsumers[ToolbarComponentId.EXTENSIONS_MENU_BUTTON] =
-                mExtensionToolbarCoordinator.getMenuButtonWidthConsumer();
+                mExtensionsToolbarCoordinator.getMenuButtonWidthConsumer();
+        mToolbarWidthConsumers[ToolbarComponentId.EXTENSIONS_REQUEST_ACCESS_BUTTON] =
+                mExtensionsToolbarCoordinator.getRequestAccessButtonWidthConsumer();
         mToolbarWidthConsumers[ToolbarComponentId.EXTENSION_ACTION_LIST] =
-                mExtensionToolbarCoordinator.getActionListWidthConsumer();
+                mExtensionsToolbarCoordinator.getActionListWidthConsumer();
     }
 
     @Override

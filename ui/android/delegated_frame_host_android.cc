@@ -5,15 +5,16 @@
 #include "ui/android/delegated_frame_host_android.h"
 
 #include <iterator>
+#include <utility>
 
 #include "base/android/android_info.h"
 #include "base/check_op.h"
+#include "base/containers/extend.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -63,35 +64,6 @@ scoped_refptr<cc::slim::SurfaceLayer> CreateSurfaceLayer(
   layer->SetContentsOpaque(surface_opaque);
 
   return layer;
-}
-
-// From content::VisibleTimeRequestTrigger::ConsumeAndMergeRequests
-// TODO(crbug.com/40203057): Use separate start time for each event.
-blink::mojom::RecordContentToVisibleTimeRequestPtr ConsumeAndMergeRequests(
-    blink::mojom::RecordContentToVisibleTimeRequestPtr request1,
-    blink::mojom::RecordContentToVisibleTimeRequestPtr request2) {
-  if (!request1 && !request2)
-    return nullptr;
-
-  // Pick any non-null request to merge into.
-  blink::mojom::RecordContentToVisibleTimeRequestPtr to;
-  blink::mojom::RecordContentToVisibleTimeRequestPtr from;
-  if (request1) {
-    to = std::move(request1);
-    from = std::move(request2);
-  } else {
-    to = std::move(request2);
-    from = std::move(request1);
-  }
-
-  if (from) {
-    to->event_start_time =
-        std::min(to->event_start_time, from->event_start_time);
-    to->destination_is_loaded |= from->destination_is_loaded;
-    to->show_reason_tab_switching |= from->show_reason_tab_switching;
-    to->show_reason_bfcache_restore |= from->show_reason_bfcache_restore;
-  }
-  return to;
 }
 
 }  // namespace
@@ -441,7 +413,7 @@ void DelegatedFrameHostAndroid::AttachToCompositor(
         ->PostRequestSuccessfulPresentationTimeForNextFrame(
             content_to_visible_time_recorder_.TabWasShown(
                 /*has_saved_frames=*/true,
-                std::move(content_to_visible_time_request_)));
+                std::move(*content_to_visible_time_request_)));
   }
   // If we are visible and embedded, then update the surface keep alive for
   // the newly attached compositor.
@@ -457,7 +429,7 @@ void DelegatedFrameHostAndroid::DetachFromCompositor() {
   registered_parent_compositor_->RemoveFrameSubmissionObserver(client_);
   registered_parent_compositor_->RemoveChildFrameSink(frame_sink_id_);
   registered_parent_compositor_ = nullptr;
-  content_to_visible_time_request_ = nullptr;
+  content_to_visible_time_request_.reset();
 }
 
 bool DelegatedFrameHostAndroid::IsPrimarySurfaceEvicted() const {
@@ -478,11 +450,11 @@ void DelegatedFrameHostAndroid::WasShown(
     const viz::LocalSurfaceId& new_local_surface_id,
     const gfx::Size& new_size_in_pixels,
     bool is_fullscreen,
-    blink::mojom::RecordContentToVisibleTimeRequestPtr
+    std::optional<blink::RecordContentToVisibleTimeRequest>
         content_to_visible_time_request) {
   if (content_to_visible_time_request) {
     PostRequestSuccessfulPresentationTimeForNextFrame(
-        std::move(content_to_visible_time_request));
+        std::move(*content_to_visible_time_request));
   }
   frame_evictor_->SetVisible(true);
 
@@ -600,10 +572,9 @@ void DelegatedFrameHostAndroid::EmbedSurface(
 }
 
 void DelegatedFrameHostAndroid::RequestSuccessfulPresentationTimeForNextFrame(
-    blink::mojom::RecordContentToVisibleTimeRequestPtr
-        content_to_content_to_visible_time_request) {
+    blink::RecordContentToVisibleTimeRequest content_to_visible_time_request) {
   PostRequestSuccessfulPresentationTimeForNextFrame(
-      std::move(content_to_content_to_visible_time_request));
+      std::move(content_to_visible_time_request));
 }
 
 void DelegatedFrameHostAndroid::CancelSuccessfulPresentationTimeRequest() {
@@ -723,23 +694,27 @@ void DelegatedFrameHostAndroid::ActivatedOrEvictedFromBackForwardCache() {
 
 void DelegatedFrameHostAndroid::
     PostRequestSuccessfulPresentationTimeForNextFrame(
-        blink::mojom::RecordContentToVisibleTimeRequestPtr
+        blink::RecordContentToVisibleTimeRequest
             content_to_visible_time_request) {
   // Since we could receive multiple requests while awaiting
   // `registered_parent_compositor_` we merge them.
-  auto request =
-      ConsumeAndMergeRequests(std::move(content_to_visible_time_request_),
-                              std::move(content_to_visible_time_request));
+  if (content_to_visible_time_request_) {
+    base::Extend(content_to_visible_time_request.events,
+                 std::move(content_to_visible_time_request_->events));
+    content_to_visible_time_request_.reset();
+  }
 
   if (!registered_parent_compositor_) {
-    content_to_visible_time_request_ = std::move(request);
+    content_to_visible_time_request_ =
+        std::move(content_to_visible_time_request);
     return;
   }
 
   registered_parent_compositor_
       ->PostRequestSuccessfulPresentationTimeForNextFrame(
           content_to_visible_time_recorder_.TabWasShown(
-              /*has_saved_frames=*/true, std::move(request)));
+              /*has_saved_frames=*/true,
+              std::move(content_to_visible_time_request)));
 }
 
 void DelegatedFrameHostAndroid::UpdateCaptureKeepAlive() {

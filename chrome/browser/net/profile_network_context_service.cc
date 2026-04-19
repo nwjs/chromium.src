@@ -20,7 +20,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
@@ -140,7 +139,7 @@
 #include "net/ssl/client_cert_store_empty.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/common/constants.h"
 #endif
 
@@ -576,6 +575,20 @@ ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
       base::BindRepeating(&ProfileNetworkContextService::
                               UpdateCorsNonWildcardRequestHeadersSupport,
                           base::Unretained(this)));
+
+  // Register a callback for both kSafeBrowsingEnabled and kSafeBrowsingEnhanced
+  // since `safe_browsing::IsEnhancedProtectionEnabled` returns an answer based
+  // on both prefs.
+  pref_change_registrar_.Add(
+      prefs::kSafeBrowsingEnabled,
+      base::BindRepeating(
+          &ProfileNetworkContextService::UpdateDohFallbackUpgradeAllowed,
+          base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kSafeBrowsingEnhanced,
+      base::BindRepeating(
+          &ProfileNetworkContextService::UpdateDohFallbackUpgradeAllowed,
+          base::Unretained(this)));
 }
 
 ProfileNetworkContextService::~ProfileNetworkContextService() = default;
@@ -709,6 +722,17 @@ void ProfileNetworkContextService::UpdateReferrersEnabled() {
       [&](content::StoragePartition* storage_partition) {
         storage_partition->GetNetworkContext()->SetEnableReferrers(
             enable_referrers);
+      });
+}
+
+void ProfileNetworkContextService::UpdateDohFallbackUpgradeAllowed() {
+  const bool allowed =
+      safe_browsing::IsEnhancedProtectionEnabled(*profile_->GetPrefs());
+
+  profile_->ForEachLoadedStoragePartition(
+      [allowed](content::StoragePartition* storage_partition) {
+        storage_partition->GetNetworkContext()->SetDohFallbackUpgradeAllowed(
+            allowed);
       });
 }
 
@@ -1107,7 +1131,7 @@ ProfileNetworkContextService::CreateCookieManagerParams(
   // (chrome://new-tab-page), etc.
   out->secure_origin_cookies_allowed_schemes.push_back(
       content::kChromeUIScheme);
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // TODO(chlily): To be consistent with the content_settings version of
   // CookieSettings, we should probably also add kExtensionScheme to the list of
   // matching_scheme_cookies_allowed_schemes.
@@ -1144,9 +1168,6 @@ ProfileNetworkContextService::CreateCookieManagerParams(
 
   out->mitigations_enabled_for_3pcd =
       cookie_settings.MitigationsEnabledFor3pcd();
-
-  out->tracking_protection_enabled_for_3pcd = base::FeatureList::IsEnabled(
-      content_settings::features::kTrackingProtection3pcd);
 
   return out;
 }
@@ -1334,6 +1355,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
 
   network_context_params->accept_language = ComputeAcceptLanguage();
   network_context_params->enable_referrers = enable_referrers_.GetValue();
+
+  network_context_params->doh_fallback_upgrade_allowed =
+      safe_browsing::IsEnhancedProtectionEnabled(*profile_->GetPrefs());
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(embedder_support::kShortReportingDelay)) {

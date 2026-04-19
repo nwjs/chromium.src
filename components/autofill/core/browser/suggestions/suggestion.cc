@@ -98,6 +98,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kMagic";
     case Suggestion::Icon::kOfferTag:
       return "kOfferTag";
+    case Suggestion::Icon::kPassport:
+      return "kPassport";
     case Suggestion::Icon::kPenSpark:
       return "kPenSpark";
     case Suggestion::Icon::kPersonCheck:
@@ -148,22 +150,14 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kNoIcon";
     case Suggestion::Icon::kBnplGeneric:
       return "kBnplGeneric";
-    case Suggestion::Icon::kBnplAffirmLinked:
-      return "kBnplAffirmLinked";
-    case Suggestion::Icon::kBnplAffirmUnlinked:
-      return "kBnplAffirmUnlinked";
-    case Suggestion::Icon::kBnplAfterpayLinked:
-      return "kBnplAfterpayLinked";
-    case Suggestion::Icon::kBnplAfterpayUnlinked:
-      return "kBnplAfterpayUnlinked";
-    case Suggestion::Icon::kBnplZipLinked:
-      return "kBnplZipLinked";
-    case Suggestion::Icon::kBnplZipUnlinked:
-      return "kBnplZipUnlinked";
-    case Suggestion::Icon::kBnplKlarnaLinked:
-      return "kBnplKlarnaLinked";
-    case Suggestion::Icon::kBnplKlarnaUnlinked:
-      return "kBnplKlarnaUnlinked";
+    case Suggestion::Icon::kBnplAffirm:
+      return "kBnplAffirm";
+    case Suggestion::Icon::kBnplAfterpay:
+      return "kBnplAfterpay";
+    case Suggestion::Icon::kBnplKlarna:
+      return "kBnplKlarna";
+    case Suggestion::Icon::kBnplZip:
+      return "kBnplZip";
     case Suggestion::Icon::kSaveAndFill:
       return "kSaveAndFill";
     case Suggestion::Icon::kAndroidMessages:
@@ -229,8 +223,9 @@ Suggestion::PlusAddressPayload::~PlusAddressPayload() = default;
 
 Suggestion::AutofillAiPayload::AutofillAiPayload() = default;
 
-Suggestion::AutofillAiPayload::AutofillAiPayload(EntityInstance::EntityId guid)
-    : guid(std::move(guid)) {}
+Suggestion::AutofillAiPayload::AutofillAiPayload(EntityInstance::EntityId guid,
+                                                 bool requires_server_fetch)
+    : guid(std::move(guid)), requires_server_fetch(requires_server_fetch) {}
 
 Suggestion::AutofillAiPayload::AutofillAiPayload(const AutofillAiPayload&) =
     default;

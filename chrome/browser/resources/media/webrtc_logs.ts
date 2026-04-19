@@ -14,21 +14,24 @@ interface EventLogEntry {
   [key: string]: number|string;
 }
 
+interface WebRtcLogsResult {
+  textLogs: EventLogEntry[];
+  eventLogs: EventLogEntry[];
+  version: string;
+}
+
 /**
  * Requests the list of WebRTC logs from the backend.
  */
 function requestWebRtcLogsList() {
-  sendWithPromise('requestWebRtcLogsList').then(updateWebRtcLogsList);
+  sendWithPromise<WebRtcLogsResult>('requestWebRtcLogsList')
+      .then(updateWebRtcLogsList);
 }
 
 /**
  * Callback from backend with the list of WebRTC logs. Builds the UI.
  */
-function updateWebRtcLogsList(results: {
-  textLogs: EventLogEntry[],
-  eventLogs: EventLogEntry[],
-  version: string,
-}) {
+function updateWebRtcLogsList(results: WebRtcLogsResult) {
   updateWebRtcTextLogsList(results.textLogs, results.version);
   updateWebRtcEventLogsList(results.eventLogs);
 }
@@ -303,10 +306,8 @@ function appendLocalFile(logBlock: HTMLElement, eventLogEntry: EventLogEntry) {
 
 function appendLocalLogId(logBlock: HTMLElement, eventLogEntry: EventLogEntry) {
   const localIdLine = document.createElement('p');
-  localIdLine.textContent =
-      loadTimeData.getStringF(
-          'webrtcEventLogLocalLogIdFormat', eventLogEntry['local_id']) +
-      '';
+  localIdLine.textContent = loadTimeData.getStringF(
+      'webrtcEventLogLocalLogIdFormat', eventLogEntry['local_id']);
   logBlock.appendChild(localIdLine);
 }
 

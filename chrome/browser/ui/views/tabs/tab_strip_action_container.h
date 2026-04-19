@@ -7,12 +7,11 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/glic/browser_ui/glic_button_controller_delegate.h"
-#include "chrome/browser/ui/tabs/glic_nudge_controller.h"
-#include "chrome/browser/ui/tabs/glic_nudge_delegate.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_delegate.h"
 #include "chrome/browser/ui/views/glic/glic_button_interface.h"
 #include "chrome/browser/ui/views/tabs/glic/tab_strip_glic_actor_task_icon.h"
 #include "chrome/browser/ui/views/tabs/glic/tab_strip_glic_button.h"
-#include "chrome/browser/ui/views/tabs/tab_search_container.h"
 #include "chrome/common/buildflags.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/animation/slide_animation.h"
@@ -31,10 +30,16 @@ class TabStripGlicActorTaskIcon;
 class BrowserWindowInterface;
 class GlicAndActorButtonsContainer;
 
+enum class LockedExpansionMode {
+  kNone = 0,
+  kWillShow,
+  kWillHide,
+};
+
 class TabStripActionContainer : public views::View,
                                 public views::AnimationDelegateViews,
                                 public views::MouseWatcherListener,
-                                public GlicNudgeDelegate,
+                                public glic::GlicNudgeDelegate,
                                 public glic::GlicButtonControllerDelegate {
   METADATA_HEADER(TabStripActionContainer, views::View)
 
@@ -90,7 +95,7 @@ class TabStripActionContainer : public views::View,
 
   explicit TabStripActionContainer(
       BrowserWindowInterface* browser_window_interface,
-      tabs::GlicNudgeController* glic_nudge_controller);
+      glic::GlicNudgeController* glic_nudge_controller);
   TabStripActionContainer(const TabStripActionContainer&) = delete;
   TabStripActionContainer& operator=(const TabStripActionContainer&) = delete;
   ~TabStripActionContainer() override;
@@ -113,6 +118,10 @@ class TabStripActionContainer : public views::View,
 
   // GlicNudgeDelegate:
   void OnTriggerGlicNudgeUI(std::string label) override;
+  void OnTriggerAnchoredMessage(
+      std::string label,
+      std::string anchored_message_text,
+      std::optional<std::string> prompt_suggestion) override;
   void OnHideGlicNudgeUI() override;
   bool GetIsShowingGlicNudge() override;
 
@@ -192,9 +201,15 @@ class TabStripActionContainer : public views::View,
   // Helper to handles teardown logic when the task icon is fully gone.
   void FinalizeHideGlicActorTaskIcon();
 
+  // Update visibility of glic actor button
+  void UpdateGlicActorVisibility(bool should_show);
+
+  // Update visibility of glic button and action container
+  void UpdateGlicButtonVisibility(bool should_show);
+
   // The button currently holding the lock to be shown/hidden.
   raw_ptr<TabStripNudgeButton> locked_expansion_button_ = nullptr;
-  raw_ptr<tabs::GlicNudgeController> glic_nudge_controller_ = nullptr;
+  raw_ptr<glic::GlicNudgeController> glic_nudge_controller_ = nullptr;
 
   raw_ptr<views::Separator> separator_ = nullptr;
 
@@ -215,6 +230,10 @@ class TabStripActionContainer : public views::View,
   std::unique_ptr<ScopedTabStripModalUI> scoped_tab_strip_modal_ui_;
 
   std::list<base::CallbackListSubscription> subscriptions_;
+
+  // Tracks the page-action subscription for the anchored contextual cue.
+  // Reset when the anchored message is hidden or replaced.
+  base::CallbackListSubscription anchored_message_subscription_;
 
   std::unique_ptr<TabStripNudgeAnimationSession> animation_session_;
 

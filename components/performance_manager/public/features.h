@@ -197,6 +197,14 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 // enabled.
 BASE_DECLARE_FEATURE_PARAM(int, kInfiniteTabsFreezingOnMemoryPressurePercent);
 
+// If enabled, tabs may be discarded on Windows when the system approaches the
+// commit limit.
+BASE_DECLARE_FEATURE(kDiscardOnCommitLimit);
+
+// The available commit memory percentage below which to trigger discarding when
+// enabled.
+BASE_DECLARE_FEATURE_PARAM(int, kDiscardOnCommitLimit_MinAvailablePercent);
+
 // When enabled, Resource Attribution measurements will include contexts for
 // individual origins.
 BASE_DECLARE_FEATURE(kResourceAttributionIncludeOrigins);
@@ -239,6 +247,13 @@ BASE_DECLARE_FEATURE(kBrowserProcessAboveNormalPriority);
 #endif
 
 BASE_DECLARE_FEATURE(kDisableTabDiscarding);
+
+// When enabled, PageLiveStateDecorator uses the page loading state to avoid
+// treating initial load title/favicon churn as a background update
+// signal (crbug.com/497577319).
+//
+// When disabled, falls back to legacy behavior.
+BASE_DECLARE_FEATURE(kUseLoadingStateToDetectBackgroundTitleOrFaviconUpdate);
 
 }  // namespace performance_manager::features
 

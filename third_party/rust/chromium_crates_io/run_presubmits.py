@@ -109,7 +109,7 @@ def _CheckTomlTableIsSorted(toml_table):
         if first_elaborate_key:
             if isinstance(value, str):
                 return ("Simple string entries should appear before table "
-                        f"entries: `{key}` should appear after "
+                        f"entries: `{key}` should appear before "
                         f"`{first_elaborate_key}`.")
             elaborate_keys.append(key)
         else:
@@ -194,7 +194,7 @@ def CheckNonapplicablePatches(crate_ids, gnrt_config):
     real_crate_names = _GetRealCrateNamesWithEpochs(crate_ids)
 
     patched_crate_names = set(
-        filter(lambda filename: filename != "README.md",
+        filter(lambda filename: filename not in ["README.md", "PRESUBMIT.py"],
                os.listdir(PATCHES_DIR)))
 
     nonapplicable_patches = patched_crate_names - real_crate_names

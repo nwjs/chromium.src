@@ -81,7 +81,7 @@ void HTMLMetaElement::ParseViewportContentAttribute(
   // Tread lightly in this code -- it was specifically designed to mimic Win
   // IE's parsing behavior.
 
-  String buffer = content.LowerASCII();
+  String buffer = content.ToAsciiLower();
   unsigned length = buffer.length();
   for (unsigned i = 0; i < length; /* no increment here */) {
     // skip to first non-separator, but don't skip past the end of the string
@@ -653,18 +653,18 @@ enum class ContentClassificationOpenGraph {
 
 ContentClassificationOpenGraph GetContentClassification(
     const AtomicString& open_graph_type) {
-  const AtomicString lowercase_type(open_graph_type.LowerASCII());
-  if (lowercase_type.StartsWithIgnoringAsciiCase("website")) {
+  const AtomicString lowercase_type(open_graph_type.ToAsciiLower());
+  if (lowercase_type.starts_with("website")) {
     return ContentClassificationOpenGraph::kWebsite;
-  } else if (lowercase_type.StartsWithIgnoringAsciiCase("music")) {
+  } else if (lowercase_type.starts_with("music")) {
     return ContentClassificationOpenGraph::kMusic;
-  } else if (lowercase_type.StartsWithIgnoringAsciiCase("video")) {
+  } else if (lowercase_type.starts_with("video")) {
     return ContentClassificationOpenGraph::kVideo;
-  } else if (lowercase_type.StartsWithIgnoringAsciiCase("article")) {
+  } else if (lowercase_type.starts_with("article")) {
     return ContentClassificationOpenGraph::kArticle;
-  } else if (lowercase_type.StartsWithIgnoringAsciiCase("book")) {
+  } else if (lowercase_type.starts_with("book")) {
     return ContentClassificationOpenGraph::kBook;
-  } else if (lowercase_type.StartsWithIgnoringAsciiCase("profile")) {
+  } else if (lowercase_type.starts_with("profile")) {
     return ContentClassificationOpenGraph::kProfile;
   }
   return ContentClassificationOpenGraph::kUnknown;

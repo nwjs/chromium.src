@@ -31,6 +31,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "third_party/blink/public/mojom/webid/digital_identity_request.mojom-forward.h"
 #include "third_party/re2/src/re2/re2.h"
 
@@ -63,6 +64,9 @@ constexpr char kAndroidCarrierHint[] = "android_carrier_hint";
 constexpr char kGetPhoneNumberVctValue[] =
     "number-verification/device-phone-number/ts43";
 constexpr char kVerifyPhoneNumberVctValue[] = "number-verification/verify/ts43";
+
+constexpr char kDpcVctValue[] = "com.emvco.dpc";
+constexpr char kDpcCredCardVctValue[] = "dpc.cred.card";
 
 constexpr char kDigitalIdentityDialogParam[] = "dialog";
 constexpr char kDigitalIdentityNoDialogParamValue[] = "no_dialog";
@@ -98,6 +102,16 @@ bool CanClaimBypassInterstitial(const std::string& claim) {
   return std::find(std::begin(kClaimsCanBypassInterstitial),
                    std::end(kClaimsCanBypassInterstitial),
                    claim) != std::end(kClaimsCanBypassInterstitial);
+}
+
+// Returns whether the vct value is a Digital Payment Credential (DPC).
+bool IsDpcVctValue(const std::string& vct_value) {
+  return vct_value == kDpcVctValue || vct_value == kDpcCredCardVctValue;
+}
+
+// Returns whether the doctype value is a Digital Payment Credential (DPC).
+bool IsDpcDocTypeValue(const std::string& doctype_value) {
+  return doctype_value == kDpcVctValue;
 }
 
 bool CanVctValueBypassInterstitial(const std::string& vct_value) {
@@ -154,6 +168,24 @@ bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithPresentationD
          CanClaimBypassInterstitial(mdoc_data_element);
 }
 
+// Returns whether the request is a Digital Payment Credential (DPC) request
+// that can bypass the interstitial.
+bool IsDpcRequest(const base::flat_set<std::string>& all_claims,
+                  const base::flat_set<std::string>& all_vct_values,
+                  const base::flat_set<std::string>& all_doctype_values) {
+  // A DPC request is identified by either a DPC vct_value or a DPC
+  // doctype_value.
+  bool has_dpc_indicator =
+      std::ranges::any_of(all_vct_values, IsDpcVctValue) ||
+      std::ranges::any_of(all_doctype_values, IsDpcDocTypeValue);
+  if (!has_dpc_indicator) {
+    return false;
+  }
+  // Even for DPC, the interstitial is only bypassed if no sensitive claims are
+  // requested.
+  return std::ranges::all_of(all_claims, CanClaimBypassInterstitial);
+}
+
 bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithDCQL(
     const base::DictValue& request) {
   const base::DictValue* query_dict = request.FindDict("dcql_query");
@@ -173,7 +205,7 @@ bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithDCQL(
         return {};
       }
       const base::ListValue* paths = claim_dict->FindList("path");
-      if (!paths) {
+      if (!paths || paths->empty()) {
         return {};
       }
       const std::string* claim_name = paths->back().GetIfString();
@@ -193,12 +225,16 @@ bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithDCQL(
     }
     std::vector<std::string> vct_values;
     for (const base::Value& vct_value : *vct_values_list) {
-      if (!vct_value.is_string()) {
-        return {};
+      if (vct_value.is_string()) {
+        vct_values.push_back(vct_value.GetString());
       }
-      vct_values.push_back(vct_value.GetString());
     }
     return vct_values;
+  };
+
+  auto meta_to_doctype_value = [](const base::DictValue& meta) -> std::string {
+    const std::string* doctype_value = meta.FindString("doctype_value");
+    return doctype_value ? *doctype_value : "";
   };
 
   const base::ListValue* credentials = query_dict->FindList("credentials");
@@ -208,6 +244,7 @@ bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithDCQL(
 
   base::flat_set<std::string> all_claims;
   base::flat_set<std::string> all_vct_values;
+  base::flat_set<std::string> all_doctype_values;
   for (const base::Value& credential : *credentials) {
     const base::DictValue* credential_dict = credential.GetIfDict();
     if (!credential_dict) {
@@ -223,9 +260,20 @@ bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocolWithDCQL(
     }
     std::vector<std::string> meta_vct_values = meta_to_vct_values(*meta_dict);
     all_vct_values.insert(meta_vct_values.begin(), meta_vct_values.end());
+
+    std::string doctype_value = meta_to_doctype_value(*meta_dict);
+    if (!doctype_value.empty()) {
+      all_doctype_values.insert(doctype_value);
+    }
   }
-  return std::ranges::all_of(all_claims, CanClaimBypassInterstitial) &&
-         std::ranges::all_of(all_vct_values, CanVctValueBypassInterstitial);
+
+  // The interstitial is bypassed if either:
+  // 1. The request only asks for claims and vct_values that are known to be
+  //    bypassable (e.g. phone number verification).
+  // 2. The request is a DPC request and only asks for bypassable claims.
+  return (std::ranges::all_of(all_claims, CanClaimBypassInterstitial) &&
+          std::ranges::all_of(all_vct_values, CanVctValueBypassInterstitial)) ||
+         IsDpcRequest(all_claims, all_vct_values, all_doctype_values);
 }
 
 bool CanRequestCredentialBypassInterstitialForOpenid4vpProtocol(
@@ -292,10 +340,11 @@ blink::mojom::RequestDigitalIdentityStatus ToRequestDigitalIdentityStatus(
     case RequestStatusForMetrics::kErrorNoTransientUserActivation:
       return blink::mojom::RequestDigitalIdentityStatus::
           kErrorNoTransientUserActivation;
-    case RequestStatusForMetrics::kErrorNoCredential:
-    case RequestStatusForMetrics::kErrorUserDeclined:
     case RequestStatusForMetrics::kErrorOther:
       return blink::mojom::RequestDigitalIdentityStatus::kError;
+    case RequestStatusForMetrics::kErrorNoCredential:
+    case RequestStatusForMetrics::kErrorUserDeclined:
+      return blink::mojom::RequestDigitalIdentityStatus::kErrorUserDeclined;
     case RequestStatusForMetrics::kErrorInvalidJson:
       return blink::mojom::RequestDigitalIdentityStatus::kErrorInvalidJson;
   }
@@ -441,6 +490,14 @@ void DigitalIdentityRequestImpl::Get(
     return;
   }
 
+  // Enforce Permissions Policy browser-side.
+  if (!render_frame_host().IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kDigitalCredentialsGet)) {
+    ReportBadMessageAndDeleteThis(
+        "digital-credentials-get permissions policy is not enabled.");
+    return;
+  }
+
   if (callback_) {
     // Only allow one in-flight wallet request.
     std::move(callback).Run(RequestDigitalIdentityStatus::kErrorTooManyRequests,
@@ -525,6 +582,15 @@ void DigitalIdentityRequestImpl::Create(
     mojo::ReportBadMessage(
         "DigitalIdentityRequest should not be allowed in fenced frame "
         "trees.");
+    return;
+  }
+
+  // Enforce Permissions Policy browser-side.
+  if (!render_frame_host().IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::
+              kDigitalCredentialsCreate)) {
+    ReportBadMessageAndDeleteThis(
+        "digital-credentials-create permissions policy is not enabled.");
     return;
   }
 

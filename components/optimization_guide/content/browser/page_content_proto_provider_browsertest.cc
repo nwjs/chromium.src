@@ -57,6 +57,8 @@ namespace optimization_guide {
 
 namespace {
 
+using ::testing::IsEmpty;
+
 // Allow 1px differences from rounding.
 #define EXPECT_ALMOST_EQ(a, b) EXPECT_LE(abs(a - b), 1);
 
@@ -633,6 +635,61 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
       collapsed.content_attributes().interaction_info().clickability_reasons(),
       testing::UnorderedElementsAre(
           optimization_guide::proto::CLICKABILITY_REASON_ARIA_EXPANDED_FALSE));
+
+  const auto& toggled = ActionableContentRootNode().children_nodes()[3];
+  ASSERT_TRUE(toggled.content_attributes().has_interaction_info());
+  EXPECT_THAT(
+      toggled.content_attributes().interaction_info().clickability_reasons(),
+      testing::Contains(
+          optimization_guide::proto::CLICKABILITY_REASON_ARIA_TOGGLE));
+
+  const auto& selectable = ActionableContentRootNode().children_nodes()[4];
+  ASSERT_TRUE(selectable.content_attributes().has_interaction_info());
+  EXPECT_THAT(
+      selectable.content_attributes().interaction_info().clickability_reasons(),
+      testing::Contains(
+          optimization_guide::proto::CLICKABILITY_REASON_ARIA_SELECTABLE));
+
+  // aria-checked should also be treated as a toggle signal so we cover both
+  // toggle-related ARIA attributes.
+  ASSERT_EQ(ActionableContentRootNode().children_nodes().size(), 10u);
+  const auto& aria_checked = ActionableContentRootNode().children_nodes()[5];
+  ASSERT_TRUE(aria_checked.content_attributes().has_interaction_info());
+  EXPECT_THAT(aria_checked.content_attributes()
+                  .interaction_info()
+                  .clickability_reasons(),
+              testing::Contains(
+                  optimization_guide::proto::CLICKABILITY_REASON_ARIA_TOGGLE));
+  const auto& focusable_only = ActionableContentRootNode().children_nodes()[6];
+  ASSERT_TRUE(focusable_only.content_attributes().has_interaction_info());
+  EXPECT_TRUE(
+      focusable_only.content_attributes().interaction_info().is_focusable());
+  EXPECT_FALSE(
+      focusable_only.content_attributes().interaction_info().is_tabbable());
+
+  const auto& tabbable = ActionableContentRootNode().children_nodes()[7];
+  ASSERT_TRUE(tabbable.content_attributes().has_interaction_info());
+  EXPECT_TRUE(tabbable.content_attributes().interaction_info().is_focusable());
+  EXPECT_TRUE(tabbable.content_attributes().interaction_info().is_tabbable());
+
+  const auto& activedescendant =
+      ActionableContentRootNode().children_nodes()[8];
+  ASSERT_TRUE(activedescendant.content_attributes().has_interaction_info());
+  EXPECT_TRUE(activedescendant.content_attributes()
+                  .interaction_info()
+                  .has_aria_activedescendant());
+
+  const auto& split_action = ActionableContentRootNode().children_nodes()[9];
+  ASSERT_TRUE(split_action.content_attributes().has_interaction_info());
+  ASSERT_EQ(split_action.content_attributes()
+                .interaction_info()
+                .aria_action_target_node_ids_size(),
+            1);
+  const auto& close_action = split_action.children_nodes()[1];
+  EXPECT_EQ(split_action.content_attributes()
+                .interaction_info()
+                .aria_action_target_node_ids(0),
+            close_action.content_attributes().common_ancestor_dom_node_id());
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
@@ -840,6 +897,31 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   EXPECT_TRUE(iframe.content_attributes().is_ad_related());
 
   EXPECT_EQ(iframe.children_nodes().size(), 1);
+}
+
+// TODO(crbug.com/447642858): An end-to-end ad tagging test that uses the
+// subresource filter should be added.
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AIPageContentAdIframeExcluded) {
+  LoadPage(https_server()->GetURL("a.com", "/iframe_ad.html"));
+
+  // Mark the iframe as an ad frame.
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+                          const iframe = document.getElementById('iframe1');
+                          window.internals.setIsAdFrame(iframe.contentDocument);
+                        )"));
+
+  // Pre-check: Verify that without exclusion, the iframe content is included.
+  LoadData(GetAIPageContentOptions());
+  EXPECT_EQ(page_content().root_node().children_nodes().size(), 1u);
+
+  auto options = GetAIPageContentOptions();
+  options->non_salient_content_config =
+      blink::mojom::NonSalientContentConfig::New();
+  options->non_salient_content_config->exclude_ad_related = true;
+
+  LoadData(std::move(options));
+  EXPECT_THAT(page_content().root_node().children_nodes(), IsEmpty());
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
@@ -1244,6 +1326,43 @@ IN_PROC_BROWSER_TEST_P(PageContentProtoProviderBrowserTestMultiProcess,
                    cross_site_frame_geometry.outer_bounding_box().y());
   EXPECT_NE(same_site_geometry.outer_bounding_box().x(),
             cross_site_frame_geometry.outer_bounding_box().x());
+}
+
+IN_PROC_BROWSER_TEST_P(PageContentProtoProviderBrowserTestMultiProcess,
+                       AIPageContentAdIframeExcluded) {
+  LoadPage(https_server()->GetURL(
+      "a.com",
+      "/paragraph_iframe_partially_offscreen.html?domain=/cross-site/b.com/"));
+
+  content::RenderFrameHost* child_rfh =
+      ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 0);
+
+  // Mark the iframe as an ad frame from its own process.
+  ASSERT_TRUE(
+      content::ExecJs(child_rfh, "window.internals.setIsAdFrame(document);"));
+
+  // Pre-check: Verify that without exclusion, the iframe content is included.
+  LoadData(GetAIPageContentOptions());
+  ASSERT_EQ(page_content().root_node().children_nodes().size(), 1u);
+  EXPECT_EQ(
+      page_content().root_node().children_nodes()[0].children_nodes().size(),
+      1u);
+
+  auto options = GetAIPageContentOptions();
+  options->non_salient_content_config =
+      blink::mojom::NonSalientContentConfig::New();
+  options->non_salient_content_config->exclude_ad_related = true;
+
+  LoadData(std::move(options));
+
+  // The iframe element itself is in the main frame, and it's not marked as
+  // ad-related in the main frame's process. Thus it's included.
+  // However, its content (the sub-document) is in its own process and is marked
+  // as an ad frame. It should be skipped by AIPageContentAgent in that process.
+  ASSERT_EQ(page_content().root_node().children_nodes().size(), 1u);
+  // The iframe should have no children because its content was skipped.
+  EXPECT_THAT(page_content().root_node().children_nodes()[0].children_nodes(),
+              IsEmpty());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -1708,8 +1827,7 @@ class PageContentProtoProviderBrowserTestMediaData
     metadata.artist = u"test artist";
     metadata.album = u"test album";
     metadata.source_title = base::ASCIIToUTF16(base::StringPrintf(
-        "%s:%u", https_server()->GetIPLiteralString().c_str(),
-        https_server()->port()));
+        "%s:%u", https_server()->GetIPLiteralString(), https_server()->port()));
     return metadata;
   }
 
@@ -2683,6 +2801,76 @@ IN_PROC_BROWSER_TEST_P(PageContentProtoProviderMainFrameTimeoutBrowserTest,
 
   // The APC should have timed out.
   EXPECT_TRUE(loading_run_loop.AnyQuitCalled());
+}
+
+// Regression test for crbug.com/497815610.
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AIPageContentDisplayLockedIframe) {
+  ASSERT_TRUE(content::NavigateToURL(web_contents(),
+                                     https_server()->GetURL("/simple.html")));
+  ASSERT_TRUE(content::ExecJs(
+      web_contents()->GetPrimaryMainFrame(),
+      "document.body.innerHTML = '<iframe style=\"content-visibility: hidden\" "
+      "srcdoc=\"<div>hidden iframe text</div>\"></iframe>';"));
+
+  // Ensure visuals are updated.
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+  }
+
+  LoadData(GetActionableAIPageContentOptions());
+
+  const auto& root_node = ActionableContentRootNode();
+  ASSERT_EQ(root_node.children_nodes().size(), 1u);
+
+  const auto& iframe = root_node.children_nodes()[0];
+  EXPECT_EQ(iframe.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
+
+  const auto& iframe_data = iframe.content_attributes().iframe_data();
+  EXPECT_TRUE(iframe_data.has_frame_data());
+
+  // Children should be empty due to display lock blocking traversal.
+  EXPECT_EQ(iframe.children_nodes().size(), 0);
+}
+
+// Tests that iframes inside a display-locked ancestor are omitted.
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AIPageContentDisplayLockedAncestorOfIframe) {
+  ASSERT_TRUE(content::NavigateToURL(web_contents(),
+                                     https_server()->GetURL("/simple.html")));
+  ASSERT_TRUE(content::ExecJs(
+      web_contents()->GetPrimaryMainFrame(),
+      "document.body.innerHTML = '<div style=\"content-visibility: hidden\">"
+      "<iframe srcdoc=\"<div>hidden iframe text</div>\"></iframe></div>';"));
+
+  // Ensure visuals are updated.
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+  }
+
+  LoadData(GetActionableAIPageContentOptions());
+
+  const auto& root_node = ActionableContentRootNode();
+  // The div itself is included because visibility is visible.
+  ASSERT_EQ(root_node.children_nodes().size(), 1u);
+
+  const auto& div = root_node.children_nodes()[0];
+  EXPECT_EQ(div.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_CONTAINER);
+  // The div should have no children because it is display-locked and returns
+  // early in WalkChildren.
+  EXPECT_EQ(div.children_nodes().size(), 0);
 }
 
 }  // namespace

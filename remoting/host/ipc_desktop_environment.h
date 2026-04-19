@@ -128,6 +128,12 @@ class IpcDesktopEnvironmentFactory : public DesktopEnvironmentFactory,
       int session_id,
       mojo::ScopedMessagePipeHandle desktop_pipe) override;
   void OnTerminalDisconnected(int terminal_id) override;
+#if BUILDFLAG(IS_LINUX)
+  void OnSessionServicesClientConnected(
+      int terminal_id,
+      mojo::PendingReceiver<mojom::ChromotingSessionServices> receiver)
+      override;
+#endif
 
  private:
   friend class IpcDesktopEnvironmentTest;
@@ -137,10 +143,10 @@ class IpcDesktopEnvironmentFactory : public DesktopEnvironmentFactory,
     // the client has disconnected.
     raw_ptr<DesktopSessionProxy> desktop_session_proxy;
 
-    // The email address of the CRD client to ensure the correct desktop session
+    // The identifier of the CRD client to ensure the correct desktop session
     // is reused in case the host is configured to accept connections from
     // multiple client users.
-    std::string client_email;
+    std::string client_id;
   };
 
   // List of DesktopEnvironment instances we've told the daemon process about.

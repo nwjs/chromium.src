@@ -39,7 +39,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/infobars/model/infobar_metrics_recorder.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
@@ -708,7 +708,8 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
   FullscreenController* fullscreenController =
       FullscreenController::FromBrowser(self.browser);
   fullscreenController->EnterForceFullscreenMode(
-      /* insets_update_enabled */ true);
+      /* insets_update_enabled */ true,
+      FullscreenModeTransitionTrigger::kForcedByUser);
 }
 
 #pragma mark - LocationBarBadgeCommands
@@ -861,12 +862,11 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
            entryPoint:LensEntrypoint::OmniboxPostCapture];
     [handler searchImageWithLens:command];
   } else {
-    web::NavigationManager::WebLoadParams webParams =
-        ImageSearchParamGenerator::LoadParamsForImage(
-            image, ios::TemplateURLServiceFactory::GetForProfile(
-                       browser->GetProfile()));
-    UrlLoadParams params = UrlLoadParams::InCurrentTab(webParams);
-    UrlLoadingBrowserAgent::FromBrowser(browser)->Load(params);
+    __weak LocationBarCoordinator* weakSelf = self;
+    ImageSearchParamGenerator::PrepareImageDataAsync(
+        image, base::BindOnce(^(NSData* imageData) {
+          [weakSelf loadImageSearchWithPreparedData:imageData];
+        }));
   }
 
   id<BrowserCoordinatorCommands> browserCoordinatorHandler = HandlerForProtocol(
@@ -876,6 +876,20 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 
 - (UIView*)locationBarSteadyViewVisualCopy {
   return self.viewController.locationBarSteadyViewVisualCopy;
+}
+
+// Called when image data is ready for search.
+- (void)loadImageSearchWithPreparedData:(NSData*)imageData {
+  if (!self.browser) {
+    return;
+  }
+  TemplateURLService* service =
+      ios::TemplateURLServiceFactory::GetForProfile(self.browser->GetProfile());
+  web::NavigationManager::WebLoadParams webParams =
+      ImageSearchParamGenerator::LoadParamsForResizedImageData(imageData,
+                                                               GURL(), service);
+  UrlLoadParams params = UrlLoadParams::InCurrentTab(webParams);
+  UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
 }
 
 @end

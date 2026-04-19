@@ -8,6 +8,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/memory/raw_ptr.h"
 #include "content/common/content_export.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
@@ -166,6 +167,24 @@ class CONTENT_EXPORT BrowserAccessibilityManagerAndroid
 
   std::optional<std::vector<std::string>> GetMetadataForTree() const;
 
+  struct SelectionRange {
+    raw_ptr<BrowserAccessibilityAndroid> anchor_object = nullptr;
+    int anchor_offset = -1;
+    raw_ptr<BrowserAccessibilityAndroid> focus_object = nullptr;
+    int focus_offset = -1;
+  };
+
+  // Returns the selection fitted to Android accessibility tree and Selection
+  // API restrictions. If the output has value, all fields of the
+  // `SelectionRange` are populated.
+  std::optional<SelectionRange> GetSelectionRange() const;
+
+  // Creates an AXPosition for the given `node` and `offset` that are received
+  // from Android. Returns Null Position if the offset is not valid.
+  ui::BrowserAccessibility::AXPosition ConvertAndroidSelectionPositionToChrome(
+      BrowserAccessibilityAndroid* node,
+      int32_t offset);
+
  protected:
   std::unique_ptr<ui::BrowserAccessibility> CreateBrowserAccessibility(
       ui::AXNode* node) override;
@@ -193,6 +212,18 @@ class CONTENT_EXPORT BrowserAccessibilityManagerAndroid
   void HandleHoverEvent(ui::BrowserAccessibility* node);
 
   void FireDocumentSelectionChangedEvent(WebContentsAccessibilityAndroid* wcax);
+
+  // Given `node_id`, `offset`, and `affinity` which represent a selection
+  // position in Chrome accessibility tree, creates an appropriate selection
+  // position in Android accessibility tree. This is done by ensuring selection
+  // offset type is expected by Android and anchor node exists on Android (if
+  // not, moves to the highest leaf node which is ancestor of the node). Returns
+  // empty if conversion is not possible.
+  std::optional<std::pair<BrowserAccessibilityAndroid*, int>>
+  ConvertChromeSelectionPositionToAndroid(ui::AXNodeID node_id,
+                                          int offset,
+                                          ax::mojom::TextAffinity affinity,
+                                          bool is_backward) const;
 
   // A weak reference to WebContentsAccessibility for reaching Java layer.
   // Only the root manager has the reference. Should be accessed through

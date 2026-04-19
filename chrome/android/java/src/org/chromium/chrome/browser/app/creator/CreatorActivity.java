@@ -9,14 +9,13 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tab.Tab.INVALID_TAB_ID;
 
 import android.content.Context;
-import android.os.Bundle;
 import android.view.MenuItem;
 
 import androidx.appcompat.widget.Toolbar;
 
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
-import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -30,15 +29,20 @@ import org.chromium.chrome.browser.init.ActivityLifecycleDispatcherImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
+import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.ui.base.ActivityWindowAndroid;
-import org.chromium.ui.base.IntentRequestTracker;
+import org.chromium.ui.base.ActivityResultTracker;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 
 import java.util.function.Supplier;
 
@@ -47,7 +51,6 @@ import java.util.function.Supplier;
 /** Activity for the Creator Page. */
 @NullMarked
 public class CreatorActivity extends SnackbarActivity {
-    private @Nullable ActivityWindowAndroid mWindowAndroid;
     private @Nullable BottomSheetController mBottomSheetController;
     private @Nullable CreatorActionDelegateImpl mCreatorActionDelegate;
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
@@ -67,7 +70,11 @@ public class CreatorActivity extends SnackbarActivity {
                 Supplier<@Nullable TabModelSelector> tabModelSelectorProvider,
                 Supplier<@Nullable Profile> profileSupplier,
                 ShareSheetDelegate delegate,
-                boolean isCustomTab) {
+                boolean isCustomTab,
+                SigninAndHistorySyncActivityLauncher signinAndHistorySyncActivityLauncher,
+                ActivityResultTracker activityResultTracker,
+                MonotonicObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
+                SnackbarManager snackbarManager) {
             super(
                     context,
                     controller,
@@ -77,20 +84,17 @@ public class CreatorActivity extends SnackbarActivity {
                     profileSupplier,
                     delegate,
                     isCustomTab,
-                    /* dataSharingTabManager= */ null);
+                    /* dataSharingTabManager= */ null,
+                    signinAndHistorySyncActivityLauncher,
+                    activityResultTracker,
+                    modalDialogManagerSupplier,
+                    snackbarManager);
         }
 
         @Override
         public boolean isSharingHubEnabled() {
             return false;
         }
-    }
-
-    @Initializer
-    @Override
-    protected void onCreateInternal(@Nullable Bundle savedInstanceState) {
-
-        super.onCreateInternal(savedInstanceState);
     }
 
     @Override
@@ -109,15 +113,6 @@ public class CreatorActivity extends SnackbarActivity {
         int parentTabId =
                 getIntent().getIntExtra(CreatorIntentConstants.CREATOR_TAB_ID, INVALID_TAB_ID);
 
-        IntentRequestTracker intentRequestTracker = IntentRequestTracker.createFromActivity(this);
-        mWindowAndroid =
-                new ActivityWindowAndroid(
-                        this,
-                        false,
-                        intentRequestTracker,
-                        getInsetObserver(),
-                        /* trackOcclusion= */ true);
-
         TabShareDelegateImpl tabshareDelegate =
                 new TabShareDelegateImpl(
                         this,
@@ -127,7 +122,11 @@ public class CreatorActivity extends SnackbarActivity {
                         /* tabModelSelectProvider */ ObservableSuppliers.createMonotonic(),
                         getProfileSupplier(),
                         new ShareDelegateImpl.ShareSheetDelegate(),
-                        /* isCustomTab= */ false);
+                        /* isCustomTab= */ false,
+                        SigninAndHistorySyncActivityLauncherImpl.get(),
+                        getActivityResultTracker(),
+                        getModalDialogManagerSupplier(),
+                        getSnackbarManager());
         mTabShareDelegateSupplier.set(tabshareDelegate);
 
         assert webFeedId != null;
@@ -137,7 +136,7 @@ public class CreatorActivity extends SnackbarActivity {
                         this,
                         webFeedId,
                         getSnackbarManager(),
-                        mWindowAndroid,
+                        getWindowAndroid(),
                         profile,
                         url,
                         this::createWebContents,
@@ -159,7 +158,11 @@ public class CreatorActivity extends SnackbarActivity {
                         getProfileSupplier(),
                         new ShareDelegateImpl.ShareSheetDelegate(),
                         /* isCustomTab= */ false,
-                        null);
+                        null,
+                        SigninAndHistorySyncActivityLauncherImpl.get(),
+                        getActivityResultTracker(),
+                        getModalDialogManagerSupplier(),
+                        getSnackbarManager());
         mShareDelegateSupplier.set(shareDelegate);
         mCreatorActionDelegate =
                 new CreatorActionDelegateImpl(
@@ -201,17 +204,14 @@ public class CreatorActivity extends SnackbarActivity {
         mTabShareDelegateSupplier.destroy();
         mShareDelegateSupplier.destroy();
 
-        // Destroy ActivityWindowAndroid if it exists. This must be after
-        // mLifecycleDispatcher.dispatchOnDestroy() because objects subscribing to
-        // mLifecycleDispatcher's onDestroy events may have references to ActivityWindowAndroid.
-        if (mWindowAndroid != null) {
-            mWindowAndroid.destroy();
-            mWindowAndroid = null;
-        }
-
-        // Finally, destroy the activity. This must be after destroying ActivityWindowAndroid
-        // because it has a reference to the Activity.
+        // This must be after mLifecycleDispatcher.dispatchOnDestroy() because objects subscribing
+        // to mLifecycleDispatcher's onDestroy events may have references to ActivityWindowAndroid.
         super.onDestroy();
+    }
+
+    @Override
+    protected ModalDialogManager createModalDialogManager() {
+        return new ModalDialogManager(new AppModalPresenter(this), ModalDialogType.APP);
     }
 
     // This implements the CreatorWebContents interface.

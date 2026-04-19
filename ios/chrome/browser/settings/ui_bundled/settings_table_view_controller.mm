@@ -138,6 +138,7 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/avatar/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
@@ -205,6 +206,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 @interface SettingsTableViewController () <
     AddressBarPreferenceCoordinatorDelegate,
+    AuthenticationServiceObserving,
     BooleanObserver,
     GeminiSettingsCoordinatorDelegate,
     ContentSettingsCoordinatorDelegate,
@@ -253,6 +255,9 @@ struct EnhancedSafeBrowsingActivePromoData
   // The item related to the safety check.
   SettingsCheckItem* _safetyCheckItem;
   SigninCoordinator* _signinAndHistorySyncCoordinator;
+  raw_ptr<AuthenticationService> _authService;
+  std::unique_ptr<AuthenticationServiceObserverBridge>
+      _authServiceObserverBridge;
 
   // Gemini settings coordinator.
   GeminiSettingsCoordinator* _geminiSettingsCoordinator;
@@ -383,9 +388,8 @@ struct EnhancedSafeBrowsingActivePromoData
                    prefName:prefs::kShowMemoryDebuggingTools];
     [_showMemoryDebugToolsEnabled setObserver:self];
 
-    AuthenticationService* authService =
-        AuthenticationServiceFactory::GetForProfile(_profile);
-    _identity = authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+    _authService = AuthenticationServiceFactory::GetForProfile(_profile);
+    _identity = _authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
 
     _featureEngagementTracker =
         feature_engagement::TrackerFactory::GetForProfile(_profile);
@@ -403,7 +407,9 @@ struct EnhancedSafeBrowsingActivePromoData
         [[PrefBackedBoolean alloc] initWithPrefService:prefService
                                               prefName:prefs::kSigninAllowed];
     _allowChromeSigninPreference.observer = self;
-
+    _authServiceObserverBridge =
+        std::make_unique<AuthenticationServiceObserverBridge>(_authService,
+                                                              self);
     _bottomOmniboxEnabled = [[PrefBackedBoolean alloc]
         initWithPrefService:localState
                    prefName:omnibox::kIsOmniboxInBottomPosition];
@@ -643,10 +649,8 @@ struct EnhancedSafeBrowsingActivePromoData
 - (void)addPromoToSigninSection {
   TableViewItem* item = nil;
 
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_profile);
   const AuthenticationService::ServiceStatus authServiceStatus =
-      authService->GetServiceStatus();
+      _authService->GetServiceStatus();
   // If sign-in is disabled by policy there should not be a sign-in promo.
   if ((authServiceStatus ==
        AuthenticationService::ServiceStatus::SigninDisabledByPolicy)) {
@@ -655,9 +659,10 @@ struct EnhancedSafeBrowsingActivePromoData
                   AuthenticationService::ServiceStatus::SigninForcedByPolicy ||
               authServiceStatus ==
                   AuthenticationService::ServiceStatus::SigninAllowed) &&
-             !authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+             !_authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     item = [self accountSignInItem];
   } else {
+    // Signin is disabled by user or by internal.
     [self.tableViewModel
         removeSectionWithIdentifier:SettingsSectionIdentifierSignIn];
 
@@ -680,9 +685,7 @@ struct EnhancedSafeBrowsingActivePromoData
 // Adds the account profile to the Account section if the user is signed in.
 - (void)addAccountToSigninSection {
   TableViewModel<TableViewItem*>* model = self.tableViewModel;
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_profile);
-  if (authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+  if (_authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     // Account profile item.
     [model addItem:[self accountCellItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAccount];
@@ -1601,6 +1604,17 @@ struct EnhancedSafeBrowsingActivePromoData
     base::debug::DumpWithoutCrashing();
   }
 
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
+  if (!authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin) ||
+      !authService->SigninEnabled()) {
+    // Due to race condition, the user may be signed-out, or sign-in may be
+    // disabled between the time the user tap on the button and the execution of
+    // this method. In this case, do nothing, the button will disappear by
+    // itself. See crbug.com/488974911
+    return;
+  }
+
   // Stop the coordinator before restarting it, if it exists.
   [_manageSyncSettingsCoordinator stop];
 
@@ -1742,9 +1756,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 // Updates the identity cell.
 - (void)updateIdentityAccountItem:(TableViewAccountItem*)identityAccountItem {
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_profile);
-  _identity = authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  _identity = _authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   if (!_identity) {
     // This could occur during the sign out process. Just ignore as the account
     // cell will be replaced by the "Sign in" button.
@@ -1753,8 +1765,14 @@ struct EnhancedSafeBrowsingActivePromoData
   identityAccountItem.image =
       GetApplicationContext()->GetIdentityAvatarProvider()->GetIdentityAvatar(
           _identity, IdentityAvatarSize::TableViewIcon);
-  identityAccountItem.text = _identity.userFullName;
-  identityAccountItem.detailText = _identity.userEmail;
+  NSString* name = _identity.userFullName;
+  NSString* email = _identity.userEmail;
+  if (name) {
+    identityAccountItem.text = name;
+    identityAccountItem.detailText = email;
+  } else {
+    identityAccountItem.text = email;
+  }
 
   syncer::SyncService* syncService =
       SyncServiceFactory::GetForProfile(_profile);
@@ -1786,9 +1804,7 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_settingsAreDismissed) {
     return;
   }
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
-  if (!authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+  if (!_authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     return;
   }
 
@@ -1961,10 +1977,8 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 
   NSString* detailText = nil;
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_profile);
   id<SystemIdentity> identity =
-      authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+      _authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   PrefService* prefService = _profile->GetPrefs();
   push_notification_settings::ClientPermissionState permission_state =
       push_notification_settings::GetNotificationPermissionState(
@@ -2040,10 +2054,8 @@ struct EnhancedSafeBrowsingActivePromoData
   //   3.) Have Safe Browsing standard protection enabled.
   //   4.) One of the trigerring criteria has been met.
   //   5.) Not have their Safe Browsing preferences enterprise-managed.
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(_profile);
   bool isSignedIn =
-      authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
+      _authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
   bool isDefaultBrowser = IsChromeLikelyDefaultBrowser();
   bool isStandardProtectionEnabled =
       safe_browsing::GetSafeBrowsingState(*_profile->GetPrefs()) ==
@@ -2135,6 +2147,11 @@ struct EnhancedSafeBrowsingActivePromoData
 
 - (void)showSignIn {
   if (_signinAndHistorySyncCoordinator.viewWillPersist) {
+    return;
+  }
+  if (!_authService->SigninEnabled()) {
+    // This can occur if the device policies were changed while the users was in
+    // settings.
     return;
   }
   [_signinAndHistorySyncCoordinator stop];
@@ -2265,6 +2282,8 @@ struct EnhancedSafeBrowsingActivePromoData
   _searchEngineObserverBridge.reset();
   _syncObserverBridge.reset();
   _identityObserverBridge.reset();
+  _authServiceObserverBridge.reset();
+  _authService = nil;
 
   // Remove PrefObserverDelegates.
   _notificationsObserver.delegate = nil;
@@ -2681,6 +2700,13 @@ struct EnhancedSafeBrowsingActivePromoData
   [handler showSafeBrowsingSettingsFromPromoInteraction];
   base::RecordAction(base::UserMetricsAction(
       "MobileSettingsEnhancedSafeBrowsingInlinePromoProceed"));
+}
+
+#pragma mark - AuthenticationServiceObserving
+
+- (void)onServiceStatusChanged {
+  [self updateSigninSection];
+  [self.tableView reloadData];
 }
 
 @end

@@ -286,6 +286,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   void WillComputeSiteForNavigation(content::BrowserContext* browser_context,
                                     const GURL& url) override;
   bool IsAndroidAdvancedProtectionEnabled() override;
+  bool IsFullscreenAllowedForUnfocusedWebContents(
+      content::WebContents* unfocused_web_contents) override;
   bool ShouldEnableStrictSiteIsolation() override;
   std::optional<bool> GetOverrideValueForOriginKeyedProcesses() override;
   bool ShouldDisableSiteIsolation(
@@ -354,6 +356,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool AllowCompressionDictionaryTransport(
       content::BrowserContext* context) override;
   bool AllowSharedWorkerBlobURLFix(content::BrowserContext* context) override;
+  bool AllowSharedWorkerExtendedLifetime(
+      content::BrowserContext* context) override;
   void RequestFilesAccess(
       const std::vector<base::FilePath>& files,
       const GURL& destination_url,
@@ -381,11 +385,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context,
       const std::vector<content::GlobalRenderFrameHostId>& render_frames,
       const blink::StorageKey& storage_key) override;
-  AllowWebBluetoothResult AllowWebBluetooth(
-      content::BrowserContext* browser_context,
-      const url::Origin& requesting_origin,
-      const url::Origin& embedding_origin) override;
-  std::string GetWebBluetoothBlocklist() override;
   bool IsInterestGroupAPIAllowed(content::BrowserContext* browser_context,
                                  content::RenderFrameHost* render_frame_host,
                                  InterestGroupApiOperation operation,
@@ -429,10 +428,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& accessing_origin,
       std::string* out_debug_message = nullptr,
       bool* out_block_is_site_setting_specific = nullptr) override;
-  bool IsFencedStorageReadAllowed(content::BrowserContext* browser_context,
-                                  content::RenderFrameHost* rfh,
-                                  const url::Origin& top_frame_origin,
-                                  const url::Origin& accessing_origin) override;
   bool IsPrivateAggregationAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
@@ -455,11 +450,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsServiceWorkerSyntheticResponseAllowed(
       content::BrowserContext* browser_context,
       const GURL& url) override;
-  void GrantCookieAccessDueToHeuristic(content::BrowserContext* browser_context,
-                                       const net::SchemefulSite& top_frame_site,
-                                       const net::SchemefulSite& accessing_site,
-                                       base::TimeDelta ttl,
-                                       bool ignore_schemes) override;
   bool AreThirdPartyCookiesGenerallyAllowed(
       content::BrowserContext* browser_context,
       content::WebContents* web_contents) override;
@@ -513,6 +503,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       std::unique_ptr<content::ClientCertificateDelegate> delegate) override;
   content::MediaObserver* GetMediaObserver() override;
   content::FeatureObserverClient* GetFeatureObserverClient() override;
+  bool IsPopupBypassAllowed(
+      content::RenderFrameHost* render_frame_host) override;
   bool CanCreateWindow(content::RenderFrameHost* opener,
                        const GURL& opener_url,
                        const GURL& opener_top_level_frame_url,
@@ -918,14 +910,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   int NumVersionsInTopicsEpochs(
       content::RenderFrameHost* main_frame) const override;
 
-  bool IsBluetoothScanningBlocked(content::BrowserContext* browser_context,
-                                  const url::Origin& requesting_origin,
-                                  const url::Origin& embedding_origin) override;
-
-  void BlockBluetoothScanning(content::BrowserContext* browser_context,
-                              const url::Origin& requesting_origin,
-                              const url::Origin& embedding_origin) override;
-
   void GetMediaDeviceIDSalt(
       content::RenderFrameHost* rfh,
       const net::SiteForCookies& site_for_cookies,
@@ -1234,6 +1218,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext& browser_context,
       const GURL& url,
       const std::string& embedder_histogram_suffix) override;
+
+  bool IsAttributionInternalsWebUIEnabled() override;
 
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);

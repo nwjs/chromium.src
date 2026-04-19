@@ -15,7 +15,6 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -207,10 +206,8 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
   SetClientSidePhishingDetection();
 #endif
 
-#if 0
   translate_agent_ =
       new translate::TranslateAgent(render_frame, ISOLATED_WORLD_ID_TRANSLATE);
-#endif
 }
 
 ChromeRenderFrameObserver::~ChromeRenderFrameObserver() = default;
@@ -244,23 +241,18 @@ void ChromeRenderFrameObserver::ReadyToCommitNavigation(
   if (render_frame()->IsMainFrame() && web_cache_impl_)
     web_cache_impl_->ExecutePendingClearCache();
 
-#if 0
   // Let translate_agent do any preparatory work before the new document loads.
   if (translate_agent_) {
     translate_agent_->PrepareForNewDocument();
   }
-#endif
 }
 
 void ChromeRenderFrameObserver::DidSetPageLifecycleState(
     blink::BFCacheStateChange bfcache_change) {
-#if 0
   if (bfcache_change == blink::BFCacheStateChange::kRestoredFromBFCache &&
       translate_agent_) {
     translate_agent_->RenewPageRegistration();
   }
-#endif
-
   if (bfcache_change == blink::BFCacheStateChange::kStoredToBFCache) {
     // Reset actor state if entering the BFCache
     page_stability_monitor_.reset();
@@ -694,7 +686,7 @@ void ChromeRenderFrameObserver::CreatePageStabilityMonitor(
 }
 
 void ChromeRenderFrameObserver::SetClientSidePhishingDetection() {
-#if 0 //BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   phishing_classifier_ = safe_browsing::PhishingClassifierDelegate::Create(
       render_frame(), nullptr);
   phishing_image_embedder_ =
@@ -795,14 +787,12 @@ void ChromeRenderFrameObserver::CapturePageText(
             .Utf16());
   }
 
-#if 0
   // Language detection should run only once. Parsing finishes before the page
   // loads, so attempt detection here first.
   if (translate_agent_ &&
       (layout_type == blink::WebMeaningfulLayout::kFinishedParsing)) {
     translate_agent_->PageCaptured(contents);
   }
-#endif
 
   if (text_callback) {
     std::move(text_callback).Run(contents);

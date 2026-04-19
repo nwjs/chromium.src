@@ -198,6 +198,15 @@ PUBLIC_PERF_BUILDERS = [
     'linux-perf-fyi',
 ]
 
+# TODO(zijiehe): Fuchsia should check the os version, i.e. --os-check=check, but
+# perf test run multiple suites in sequential and the os checks are performed
+# multiple times. Currently there isn't a simple way to check only once at the
+# beginning of the test.
+# See the revision:
+# https://crsrc.org/c/tools/perf/core/bot_platforms.py
+#   ;drc=93a804bc8c5871e1fb70a762e461d787749cb2d7;l=470
+_COMMON_FUCHSIA_ARGS = ['-d', '--os-check=ignore']
+
 # This is an opt-in list for builders which uses dynamic sharding.
 DYNAMIC_SHARDING_TESTERS = []
 
@@ -241,12 +250,9 @@ FYI_BUILDERS = {
     },
     'fuchsia-perf-nsn': {
         'tests': [{
-            'isolate':
-            'performance_web_engine_test_suite',
-            'extra_args': ['--output-format=histograms'] +
-            bot_platforms.FUCHSIA_EXEC_ARGS['nelson'],
-            'type':
-            TEST_TYPES.TELEMETRY,
+            'isolate': 'performance_web_engine_test_suite',
+            'extra_args': ['--output-format=histograms'] + _COMMON_FUCHSIA_ARGS,
+            'type': TEST_TYPES.TELEMETRY,
         }],
         'platform':
         'fuchsia-wes',
@@ -259,12 +265,9 @@ FYI_BUILDERS = {
     },
     'fuchsia-perf-shk': {
         'tests': [{
-            'isolate':
-            'performance_web_engine_test_suite',
-            'extra_args': ['--output-format=histograms'] +
-            bot_platforms.FUCHSIA_EXEC_ARGS['sherlock'],
-            'type':
-            TEST_TYPES.TELEMETRY,
+            'isolate': 'performance_web_engine_test_suite',
+            'extra_args': ['--output-format=histograms'] + _COMMON_FUCHSIA_ARGS,
+            'type': TEST_TYPES.TELEMETRY,
         }],
         'platform':
         'fuchsia-wes',
@@ -427,7 +430,11 @@ BUILDERS = {
         'perf_trigger': False,
     },
     'android_arm64_high_end-builder-perf': {
-        'additional_compile_targets': ['trichrome_google_64_32_minimal_apks'],
+        'additional_compile_targets': [
+            'trichrome_google_64_32_minimal_apks',
+            'system_webview_apk',
+            'system_webview_google_apk',
+        ],
         'pinpoint_additional_compile_targets': [],
     },
     'linux-builder-perf': {
@@ -1546,10 +1553,6 @@ GTEST_BENCHMARKS = {
     BenchmarkMetadata(
         'jrprice@google.com, dsinclair@chromium.org', 'Dawn>Tint',
         'https://dawn.googlesource.com/dawn/+/HEAD/docs/tint/benchmark.md'),
-    'web_tests_cuj':
-    # TODO(b/435031130): Update info after finishing implementation.
-    BenchmarkMetadata('zhanliang@google.com',
-                      documentation_url='TODO(b/435031130)'),
 }
 
 RESOURCE_SIZES_METADATA = BenchmarkMetadata(

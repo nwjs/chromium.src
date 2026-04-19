@@ -14,6 +14,8 @@ source_set("lib") {
   sources = [
     "background_task_coordinator.cc",
     "background_task_coordinator.h",
+    "clients/finds_client.cc",
+    "clients/finds_client.h",
     "collection_store.h",
     "display_decider.cc",
     "display_decider.h",
@@ -66,6 +68,7 @@ source_set("lib") {
   deps = [
     "//base",
     "//chrome/app:generated_resources",
+    "//chrome/browser/finds/core",
     "//chrome/browser/notifications/proto",
     "//chrome/browser/notifications/scheduler/public",
     "//components/keyed_service/core",
@@ -74,6 +77,7 @@ source_set("lib") {
     "//skia",
     "//ui/base",
     "//ui/gfx/codec",
+    "//url",
   ]
 }
 
@@ -81,6 +85,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "background_task_coordinator_unittest.cc",
+    "clients/finds_client_unittest.cc",
     "display_decider_unittest.cc",
     "icon_converter_unittest.cc",
     "icon_store_unittest.cc",
@@ -99,6 +104,7 @@ source_set("unit_tests") {
   ]
 
   deps = [
+    "//chrome/browser/finds/core",
     "//chrome/browser/notifications/proto",
     "//chrome/browser/notifications/scheduler/internal:lib",
     "//chrome/browser/notifications/scheduler/public",
@@ -106,10 +112,12 @@ source_set("unit_tests") {
     "//chrome/browser/notifications/scheduler/test:test_support",
     "//chrome/common:constants",
     "//components/leveldb_proto:test_support",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs:test_support",
     "//skia",
     "//testing/gmock",
     "//testing/gtest",
+    "//url",
   ]
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and

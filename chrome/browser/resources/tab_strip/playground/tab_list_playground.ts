@@ -9,7 +9,7 @@ import '../tab_group.js';
 import {TabStripService} from '/tab_strip_api/tab_strip_api.mojom-webui.js';
 import type {TabsSnapshot, TabStripServiceRemote} from '/tab_strip_api/tab_strip_api.mojom-webui.js';
 import type {Container, Data, SplitTab, Tab, TabCreatedContainer, TabGroup} from '/tab_strip_api/tab_strip_api_data_model.mojom-webui.js';
-import type {OnCollectionCreatedEvent, OnDataChangedEvent, OnNodeMovedEvent, OnTabsClosedEvent, OnTabsCreatedEvent} from '/tab_strip_api/tab_strip_api_events.mojom-webui.js';
+import type {OnCollectionCreatedEvent, OnDataChangedEvent, OnNodeMovedEvent, OnNodesClosedEvent, OnTabsCreatedEvent} from '/tab_strip_api/tab_strip_api_events.mojom-webui.js';
 import type {NodeId, Position} from '/tab_strip_api/tab_strip_api_types.mojom-webui.js';
 import {TabStripObservation} from '/tab_strip_api/tab_strip_observation.js';
 import type {TabStripObserver} from '/tab_strip_api/tab_strip_observer.js';
@@ -134,10 +134,10 @@ export class TabListPlaygroundElement extends CustomElement implements
     });
   }
 
-  onTabsClosed(onTabsClosedEvent: OnTabsClosedEvent) {
-    const tabsClosed = onTabsClosedEvent.tabs;
-    tabsClosed.forEach((tabId: NodeId) => {
-      const element = this.findNodeElement_(tabId);
+  onNodesClosed(onNodesClosedEvent: OnNodesClosedEvent) {
+    const nodesClosed = onNodesClosedEvent.nodeIds;
+    nodesClosed.forEach((nodeId: NodeId) => {
+      const element = this.findNodeElement_(nodeId);
       if (element instanceof TabElement) {
         this.addAnimationPromise_(element.slideOut());
       }
@@ -145,19 +145,16 @@ export class TabListPlaygroundElement extends CustomElement implements
   }
 
   onDataChanged(onDataChangedEvent: OnDataChangedEvent) {
-    const data = onDataChangedEvent.data;
-    if (data.tab) {
-      const tab = data.tab;
-      const element = this.findNodeElement_(tab.id);
+    if (onDataChangedEvent.tab) {
+      const {data} = onDataChangedEvent.tab;
+      const element = this.findNodeElement_(data.id);
       if (element instanceof TabElement) {
-        element.tab = tab;
+        element.tab = data;
       }
-    } else if (data.tabGroup) {
-      const tabGroup = data.tabGroup;
-      if (tabGroup) {
-        this.findOrCreateTabGroupElement_(tabGroup.id)
-            .updateVisuals(this.toTabGroupVisualData_(tabGroup));
-      }
+    } else if (onDataChangedEvent.tabGroup) {
+      const {data} = onDataChangedEvent.tabGroup;
+      this.findOrCreateTabGroupElement_(data.id).updateVisuals(
+          this.toTabGroupVisualData_(data));
     }
   }
 

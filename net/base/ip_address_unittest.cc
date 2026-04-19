@@ -323,6 +323,27 @@ TEST(IPAddressTest, IsPubliclyRoutableIPv6) {
   }
 }
 
+TEST(IPAddressTest, IsMulticast) {
+  IPAddress ipv4_multicast;
+  ASSERT_TRUE(ipv4_multicast.AssignFromIPLiteral("224.0.0.1"));
+  EXPECT_TRUE(ipv4_multicast.IsMulticast());
+
+  IPAddress ipv4_non_multicast;
+  ASSERT_TRUE(ipv4_non_multicast.AssignFromIPLiteral("223.255.255.255"));
+  EXPECT_FALSE(ipv4_non_multicast.IsMulticast());
+
+  IPAddress ipv6_multicast;
+  ASSERT_TRUE(ipv6_multicast.AssignFromIPLiteral("ff02::1"));
+  EXPECT_TRUE(ipv6_multicast.IsMulticast());
+
+  IPAddress ipv6_non_multicast;
+  ASSERT_TRUE(ipv6_non_multicast.AssignFromIPLiteral("fe80::1"));
+  EXPECT_FALSE(ipv6_non_multicast.IsMulticast());
+
+  IPAddress invalid;
+  EXPECT_FALSE(invalid.IsMulticast());
+}
+
 TEST(IPAddressTest, IsZero) {
   uint8_t address1[4] = {};
   IPAddress zero_ipv4_address(address1);
@@ -998,6 +1019,24 @@ static_assert(VerifyIPBytes(ipv6_address, ipv6_bytes));
 TEST(IPAddressTest, VerifyIPAddressCreatedAtCompileTime) {
   EXPECT_TRUE(VerifyIPBytes(ipv4_address, ipv4_bytes));
   EXPECT_TRUE(VerifyIPBytes(ipv6_address, ipv6_bytes));
+}
+
+TEST(IPAddressTest, CommonPrefixLength) {
+  IPAddress ipv4_1(192, 168, 0, 1);
+  EXPECT_EQ(32u, CommonPrefixLength(ipv4_1, ipv4_1));
+
+  IPAddress ipv4_2(192, 168, 0, 2);
+  // First 3 bytes (192.168.0) match. Of the last byte, first 6 bits match.
+  EXPECT_EQ(30u, CommonPrefixLength(ipv4_1, ipv4_2));
+
+  IPAddress ipv6_1;
+  ASSERT_TRUE(ipv6_1.AssignFromIPLiteral("2001:db8::1"));
+  EXPECT_EQ(128u, CommonPrefixLength(ipv6_1, ipv6_1));
+
+  IPAddress ipv6_2;
+  ASSERT_TRUE(ipv6_2.AssignFromIPLiteral("2001:db8::2"));
+  // First 15 bytes match, followed by 6 bits matching of the last byte.
+  EXPECT_EQ(126u, CommonPrefixLength(ipv6_1, ipv6_2));
 }
 
 }  // anonymous namespace

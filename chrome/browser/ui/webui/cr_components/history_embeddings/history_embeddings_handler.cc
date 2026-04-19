@@ -4,7 +4,9 @@
 
 #include "chrome/browser/ui/webui/cr_components/history_embeddings/history_embeddings_handler.h"
 
+#include "base/check.h"
 #include "base/i18n/time_formatting.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -15,6 +17,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -259,7 +262,7 @@ void HistoryEmbeddingsHandler::SetUserFeedback(
   user_feedback_ = OptimizationFeedbackFromMojoUserFeedback(user_feedback);
   if (user_feedback ==
       history_embeddings::mojom::UserFeedback::kUserFeedbackNegative) {
-    Browser* browser = chrome::FindLastActive();
+    BrowserWindowInterface* browser = chrome::FindLastActive();
     if (!browser) {
       return;
     }

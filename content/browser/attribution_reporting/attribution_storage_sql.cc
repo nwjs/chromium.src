@@ -23,7 +23,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
@@ -775,7 +774,7 @@ std::optional<StoredSource> AttributionStorageSql::InsertSource(
 }
 
 base::expected<std::optional<AttributionStorageSql::ReportIdAndPriority>,
-               AttributionStorageSql::Error>
+               std::monostate>
 AttributionStorageSql::GetReportWithMinPriority(StoredSource::Id source_id,
                                                 base::Time report_time) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -816,7 +815,7 @@ AttributionStorageSql::GetReportWithMinPriority(StoredSource::Id source_id,
   }
 
   if (!min_priority_statement.Succeeded()) {
-    return base::unexpected(Error());
+    return base::unexpected(std::monostate());
   }
 
   if (!conversion_id_with_min_priority.has_value()) {
@@ -1125,8 +1124,7 @@ bool AttributionStorageSql::RemoveSourcesWithOutdatedScopes(
           break;
         }
 
-        auto [scope_data, _] =
-            scope_datas.try_emplace(std::move(scope), ScopeData());
+        auto [scope_data, _] = scope_datas.try_emplace(std::move(scope));
         scope_data->second.max_source_time =
             std::max(scope_data->second.max_source_time, this_source_time);
 

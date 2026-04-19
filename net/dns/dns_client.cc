@@ -41,19 +41,6 @@ namespace net {
 
 namespace {
 
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-// LINT.IfChange(FallbackFromSecureTransactionPreferredReason)
-enum class FallbackFromSecureTransactionPreferredReason {
-  kFallbackNotPreferred = 0,
-  kFallbackPreferredCannotUseSecureDns = 1,
-  kFallbackPreferredCanaryDomainCheckPending = 2,
-  kFallbackPreferredCanaryDomainCheckNegative = 3,
-  kFallbackPreferredNoAvailableDohServers = 4,
-  kMaxValue = kFallbackPreferredNoAvailableDohServers,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:FallbackFromSecureTransactionPreferredReason)
-
 DnsConfigLocalNameserverState GetDnsConfigLocalNameserverState(
     bool has_loopback_nameserver,
     bool has_local_non_loopback_nameserver) {
@@ -214,8 +201,7 @@ class DnsClientImpl : public DnsClient {
 
     // If the canary domain check is enabled and the canary domain is not
     // successfully resolved, fall back to insecure DNS.
-    if (base::FeatureList::IsEnabled(features::kProbeSecureDnsCanaryDomain) &&
-        session_->config().should_perform_doh_fallback_upgrade) {
+    if (context->IsDohFallbackProbeEnabled()) {
       switch (context->doh_fallback_canary_domain_check_status()) {
         case CanaryDomainCheckStatus::kPositive:
           // On a positive canary domain check, no fallback to insecure DNS.
@@ -225,13 +211,32 @@ class DnsClientImpl : public DnsClient {
               FallbackFromSecureTransactionPreferredReason::
                   kFallbackPreferredCanaryDomainCheckNegative);
           return true;
-        case CanaryDomainCheckStatus::kUnknown:
         case CanaryDomainCheckStatus::kNotStarted:
         case CanaryDomainCheckStatus::kStarted:
           RecordFallbackFromSecureTransactionPreferred(
               FallbackFromSecureTransactionPreferredReason::
                   kFallbackPreferredCanaryDomainCheckPending);
           return true;
+        case CanaryDomainCheckStatus::kInactive:
+          NOTREACHED();
+      }
+    }
+
+    if (context->IsDohConfigFromFallbackDohNameservers()) {
+      if (!context->doh_fallback_upgrade_allowed()) {
+        RecordFallbackFromSecureTransactionPreferred(
+            FallbackFromSecureTransactionPreferredReason::
+                kFallbackPreferredDohFallbackUpgradeNotAllowed);
+        return true;
+      }
+      // It's important to check the feature flag after the other checks so that
+      // only eligible users get activated into the experiment.
+      if (!base::FeatureList::IsEnabled(
+              net::features::kForceSecureDnsDohFallback)) {
+        RecordFallbackFromSecureTransactionPreferred(
+            FallbackFromSecureTransactionPreferredReason::
+                kFallbackPreferredDohFallbackExperimentDisabled);
+        return true;
       }
     }
 
@@ -362,7 +367,7 @@ class DnsClientImpl : public DnsClient {
 
   void SetAddressSorterForTesting(
       std::unique_ptr<AddressSorter> address_sorter) override {
-    NOTIMPLEMENTED();
+    address_sorter_ = std::move(address_sorter);
   }
 
  private:

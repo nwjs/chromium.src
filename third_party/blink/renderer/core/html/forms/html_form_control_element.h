@@ -112,13 +112,12 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
     return PopoverTriggerSupport::kNone;
   }
 
-  bool IsValidInterestInvoker(Element& target) const override;
-
   void DefaultEventHandler(Event&) override;
 
   bool willValidate() const override;
 
   bool IsReadOnly() const;
+  virtual bool SupportsReadOnly() const { return false; }
   bool IsDisabledOrReadOnly() const;
 
   bool MayTriggerVirtualKeyboard() const override;

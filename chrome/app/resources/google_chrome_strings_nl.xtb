@@ -67,7 +67,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1640672724030957280">Bezig met downloaden...</translation>
 <translation id="1651617469580841801">Als je Google Lens gebruikt, worden de paginatitel, URL en content, waaronder pdf's, naar Google gestuurd. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Over Chrome OS Flex</translation>
-<translation id="1665867022636014702">Door Google aanbevolen browserinstellingen gebruiken</translation>
 <translation id="1674870198290878346">Link openen in een Chrome-inco&amp;gnitovenster</translation>
 <translation id="1682634494516646069">Chrome kan niet lezen van en schrijven naar de gegevensdirectory:
 
@@ -187,6 +186,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2885378588091291677">Taakbeheer</translation>
 <translation id="2888126860611144412">Over Chrome</translation>
 <translation id="2915996080311180594">Later opnieuw opstarten</translation>
+<translation id="2916983411556218750">Laten we Chrome instellen</translation>
 <translation id="2926676257163822632">Zwakke wachtwoorden zijn makkelijk te raden. Laat Chrome <ph name="BEGIN_LINK" />sterke wachtwoorden voor je instellen en onthouden<ph name="END_LINK" />.</translation>
 <translation id="2926952073016206995">Chrome heeft camerarechten nodig voor deze site</translation>
 <translation id="2928420929544864228">Installatie afgerond.</translation>
@@ -285,7 +285,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3889417619312448367">Google Chrome verwijderen</translation>
 <translation id="3892148308691398805">Tekst kopiëren</translation>
 <translation id="3893985792899396936">Chrome-tip: Zoeken met Lens</translation>
-<translation id="3906096710440765802">Log in bij Chrome om onder andere je wachtwoorden en bookmarks op al je apparaten te gebruiken</translation>
 <translation id="3941890832296813527">Installatiefout: De bestandsnaam van het installatieprogramma is ongeldig of wordt niet ondersteund.</translation>
 <translation id="395904275706073188">Beschermde pagina's kunnen niet worden gelezen. Probeer een andere pagina.</translation>
 <translation id="3968962723676998462">Voer je wachtwoordzin in om Chrome-gegevens in je account <ph name="ACCOUNT_EMAIL" /> te gebruiken en op te slaan</translation>
@@ -299,6 +298,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="4053720452172726777">Google Chrome aanpassen en beheren</translation>
 <translation id="408393047846373801">Log in bij Chrome om onder andere je wachtwoorden te gebruiken op al je apparaten. Dit wachtwoord wordt opgeslagen in je Google-account nadat je bent ingelogd.</translation>
 <translation id="409936259433005390">Upgrade je binnenkort naar Windows 11? Download het Chrome-installatieprogramma naar OneDrive en wees er direct klaar voor.</translation>
+<translation id="4102173024714616627">Extensies zijn add-ons waarmee je Chrome kunt aanpassen. Extensies helpen je om Chrome aan te passen, van georganiseerd blijven tot dagelijkse taken vereenvoudigen.</translation>
 <translation id="4110895483821904099">Je nieuwe Chrome-profiel instellen</translation>
 <translation id="4111566860456076004">Chrome kan niet verifiëren waar deze extensie vandaan komt en de extensie is misschien onveilig. Verwijder de extensie uit Chrome zodat deze je gegevens (waaronder je persoonlijke informatie) niet meer kan bekijken en wijzigen op sites die je bezoekt.</translation>
 <translation id="4147555960264124640">Je logt in op een beheerd account en geeft de beheerderscontrole over aan je Google Chrome-profiel. Je Chrome-gegevens zoals je apps, bookmarks, geschiedenis, wachtwoorden en andere instellingen worden permanent gekoppeld aan <ph name="USER_NAME" />. Je kunt deze gegevens verwijderen via het Google Accounts Dashboard, maar je kunt deze gegevens niet koppelen aan een ander account. <ph name="LEARN_MORE" /></translation>
@@ -604,6 +604,7 @@ Dit heeft geen gevolgen voor bookmarks, geschiedenis en opgeslagen wachtwoorden.
 <translation id="7161904924553537242">Welkom bij Google Chrome</translation>
 <translation id="7193885263065350793">Je organisatie sluit Chrome als deze <ph name="TIMEOUT_DURATION" /> niet wordt gebruikt.</translation>
 <translation id="7242029209006116544">Je logt in op een beheerd account waarmee de eigenaar van dat account beheer krijgt over je Google Chrome-profiel. Je Chrome-gegevens zoals je apps, bookmarks, geschiedenis, wachtwoorden en andere instellingen worden permanent gekoppeld aan <ph name="USER_NAME" />. Je kunt deze gegevens verwijderen via het Google Accounts Dashboard, maar je kunt deze gegevens niet koppelen aan een ander account. Je kunt ook een nieuw profiel maken om je bestaande Chrome-gegevens gescheiden te houden. <ph name="LEARN_MORE" /></translation>
+<translation id="7274402351400635015">Je kunt Chrome gebruiken als je op links in berichten, documenten en andere apps klikt. Het wordt ook vastgezet op je taakbalk.</translation>
 <translation id="7285616922384953075"><ph name="MANAGER" /> beheert Chrome</translation>
 <translation id="7285990705317078173">Download Chrome op je telefoon om prijzen te volgen en meldingen te krijgen als de prijs daalt op een site</translation>
 <translation id="7288567540154601580">Tabbladen en extensies</translation>
@@ -613,6 +614,7 @@ Dit heeft geen gevolgen voor bookmarks, geschiedenis en opgeslagen wachtwoorden.
 <translation id="7308322188646931570">Chrome heeft toegang tot de opslag nodig om bestanden te kunnen downloaden</translation>
 <translation id="7339898014177206373">Nieuw venster</translation>
 <translation id="7352651011704765696">Er is iets misgegaan</translation>
+<translation id="73786666777299047">Open de Chrome Web Store</translation>
 <translation id="7386878009611068389">Als je online veiliger wilt blijven met de keuzes van je ouder, wissel je naar het Chrome-profiel waarop je al bent ingelogd als <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="7398801000654795464">Je bent ingelogd bij Chrome als <ph name="USER_EMAIL_ADDRESS" />. Gebruik hetzelfde account om opnieuw in te loggen.</translation>
 <translation id="7412494426921990001">Klik op het Chrome-menu</translation>
@@ -777,6 +779,7 @@ Je kunt pas nieuwe bookmarks opslaan in je account als je er een paar hebt verwi
 <translation id="8862326446509486874">Je hebt geen rechten om op systeemniveau te installeren. Meld je aan als beheerder en voer het installatieprogramma opnieuw uit.</translation>
 <translation id="8865415417596392024">Chrome-gegevens in je account</translation>
 <translation id="8883862939660515976">Google Lens vragen over deze afbeelding</translation>
+<translation id="8892956691293410744">Log in bij Chrome om de AI-modus vragen te stellen over je tabblad zonder de pagina te verlaten. Je kunt ook onder andere je wachtwoorden op al je apparaten gebruiken.</translation>
 <translation id="8914504000324227558">Chrome opnieuw starten</translation>
 <translation id="8922193594870374009">Als je een nummer vanaf <ph name="ORIGIN" /> naar je Android-telefoon wilt sturen, log je in bij Chrome op beide apparaten.</translation>
 <translation id="8922998289262614701">De gegevens van deze app verwijderen uit Chrome</translation>
@@ -790,7 +793,6 @@ Je kunt pas nieuwe bookmarks opslaan in je account als je er een paar hebt verwi
 <translation id="8999208279178790196">{0,plural, =0{Er is een Chrome-update beschikbaar}=1{Er is een Chrome-update beschikbaar}other{Er is al # dagen een Chrome-update beschikbaar}}</translation>
 <translation id="9010418943148193727">Je standaard zoekmachine is gewijzigd buiten Chrome om. Chrome heeft deze gereset om je te beschermen.</translation>
 <translation id="9014771989710951291">Meerdere organisaties beheren Chrome</translation>
-<translation id="9024318700713112071">Chrome instellen als je standaardbrowser</translation>
 <translation id="9066987883552592250">Gemini in Chrome Canary sluiten</translation>
 <translation id="9090566250983691233">Meer informatie over waarom Chrome bepaalde bestanden blokkeert</translation>
 <translation id="9106236359747881194">Selecteer tekst om te zoeken</translation>

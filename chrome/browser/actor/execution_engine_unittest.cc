@@ -281,7 +281,7 @@ class ExecutionEngineTest : public ChromeRenderViewHostTestHarness {
     task_ = ActorTask::CreateForTesting(
         *ActorKeyedService::Get(profile()), TaskId(1),
         std::move(task_ui_event_dispatcher),
-        /*options=*/nullptr, &no_enterprise_checker_,
+        /*options=*/nullptr, TestTaskSourceInfo(), &no_enterprise_checker_,
         mock_actor_task_delegate_.GetWeakPtr());
 
     for (auto& mock :
@@ -346,7 +346,13 @@ class ExecutionEngineTest : public ChromeRenderViewHostTestHarness {
     ActResultFuture success;
     std::unique_ptr<ToolRequest> action = std::move(make_action).Run();
     task_->Act(ToRequestList(std::move(action)), success.GetCallback());
-    return IsOk(*success.Get<0>());
+    const auto& action_results = success.Get();
+    for (const auto& action_result : action_results) {
+      if (!IsOk(*action_result.result)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   tabs::MockTabInterface* GetTab() {
@@ -814,9 +820,12 @@ TEST_F(ExecutionEngineTest, MAYBE_LatencyInfoAndActionDurationHistogram) {
   std::move(on_invoke_future.Take()).Run(MakeOkResult());
 
   ASSERT_TRUE(result.Wait());
-  EXPECT_TRUE(IsOk(*result.Get<0>()));
+  const auto& action_results = result.Get();
+  for (const auto& action_result : action_results) {
+    EXPECT_TRUE(IsOk(*action_result.result));
+  }
 
-  auto& actions_result = result.Get<2>();
+  const auto& actions_result = action_results;
   EXPECT_EQ(actions_result.size(), 1u);
   EXPECT_EQ(actions_result[0].start_time, action_start_time);
   EXPECT_EQ(actions_result[0].end_time, action_start_time + simulated_duration);
@@ -1037,7 +1046,7 @@ TEST_F(ExecutionEngineTest,
   ExecutionEngine& execution_engine = task_->GetExecutionEngine();
   std::vector<autofill::ActorFormFillingRequest> test_requests;
   test_requests.emplace_back().requested_data =
-      optimization_guide::proto::FormFillingRequest_RequestedData_ADDRESS;
+      autofill::ActorFormFillingRequestedData::kAddress;
 
   // Hold the forwarded value in `received_requests`.
   std::vector<autofill::ActorFormFillingRequest> received_requests;
@@ -1057,9 +1066,8 @@ TEST_F(ExecutionEngineTest,
 
   // The vector of requests broadcast by the service should match what we sent.
   ASSERT_EQ(received_requests.size(), 1u);
-  EXPECT_EQ(
-      received_requests[0].requested_data,
-      optimization_guide::proto::FormFillingRequest_RequestedData_ADDRESS);
+  EXPECT_EQ(received_requests[0].requested_data,
+            autofill::ActorFormFillingRequestedData::kAddress);
   EXPECT_EQ(received_handler.get(), &event_handler);
 }
 
@@ -1103,7 +1111,7 @@ TEST_F(ExecutionEngineNavigationGatingTest,
             content::NavigationThrottle::PROCEED);
 
   histograms_.ExpectUniqueSample(
-      "Actor.NavigationGating.GatingDecision",
+      "Actor.NavigationGating.GatingDecision2",
       /*sample=*/ExecutionEngine::GatingDecision::kAllowSameOrigin,
       /*expected_bucket_count=*/1);
 

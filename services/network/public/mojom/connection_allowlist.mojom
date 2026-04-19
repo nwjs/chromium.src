@@ -4,6 +4,8 @@
 
 module network.mojom;
 
+import "url/mojom/url.mojom";
+
 // `Connection-Allowlist` headers govern the set of connections which can be
 // established from a given context. The design is in flux, and the
 // implementation here should be considered a flag-guarded prototype as
@@ -41,6 +43,11 @@ struct ConnectionAllowlist {
   //
   // Unparsable headers will result in an empty allowlist, which, in turn,
   // will result in fairly complete breakage.
+  //
+  // TODO(crbug.com/447954811): It would be ideal for us to have a URLPattern
+  // representation in mojo rather than using a string here. Moving
+  // `blink::SafeUrlPattern` somewhere usable by both the network service
+  // and Blink might be a reasonable approach in the future.
   array<string> allowlist;
   string? reporting_endpoint;
   array<ConnectionAllowlistIssue> issues;
@@ -50,6 +57,7 @@ struct ConnectionAllowlist {
 
 // The set of allowlists associated with a given response.
 struct ConnectionAllowlists {
+  url.mojom.Url response_url;
   ConnectionAllowlist? enforced;
   ConnectionAllowlist? report_only;
 };

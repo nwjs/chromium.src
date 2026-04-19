@@ -21,7 +21,6 @@
 #include "base/unguessable_token.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chromeos/crosapi/mojom/video_conference.mojom.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 
 namespace ash {
@@ -60,16 +59,16 @@ void VideoConferenceManagerAsh::GetMediaApps(
   MediaApps apps;
 
   for (auto& [_, client_info] : client_info_map_) {
-    MediaApps apps_from_client = client_info.client->GetMediaApps();
+    auto apps_from_client = client_info.client->GetMediaApps();
     apps.insert(apps.end(), std::make_move_iterator(apps_from_client.begin()),
                 std::make_move_iterator(apps_from_client.end()));
   }
 
   // Sort all apps based on last activity time.
   std::sort(apps.begin(), apps.end(),
-            [](const crosapi::mojom::VideoConferenceMediaAppInfoPtr& app1,
-               const crosapi::mojom::VideoConferenceMediaAppInfoPtr& app2) {
-              return app1->last_activity_time > app2->last_activity_time;
+            [](const VideoConferenceMediaAppInfo& app1,
+               const VideoConferenceMediaAppInfo& app2) {
+              return app1.last_activity_time > app2.last_activity_time;
             });
 
   std::move(ui_callback).Run(std::move(apps));

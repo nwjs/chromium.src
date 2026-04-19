@@ -17,6 +17,7 @@
 #include "base/feature_list.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ref.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/puma_histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -29,6 +30,7 @@
 #include "base/version.h"
 #include "base/version_info/version_info.h"
 #include "components/country_codes/country_codes.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
@@ -210,7 +212,9 @@ bool ShouldRepromptFromFeatureParams(
 
 // Writes the histogram that tracks choice screen completion date in a specific
 // format: YYYYMM (of type int).
-void RecordChoiceScreenCompletionDate(PrefService& profile_prefs) {
+void RecordChoiceScreenCompletionDate(
+    PrefService& profile_prefs,
+    metrics::ProfileMetricsService& profile_metrics_service) {
   std::optional<base::Time> timestamp =
       GetChoiceScreenCompletionTimestamp(profile_prefs);
   if (!timestamp.has_value()) {
@@ -235,8 +239,8 @@ void RecordChoiceScreenCompletionDate(PrefService& profile_prefs) {
   }
 
   // Expected value space is 12 samples / year.
-  base::UmaHistogramSparse(kSearchEngineChoiceCompletedOnMonthHistogram,
-                           year * 100 + month);
+  profile_metrics_service.UmaHistogramSparse(
+      kSearchEngineChoiceCompletedOnMonthHistogram, year * 100 + month);
 }
 
 void RecordWipeOnMissingDse(bool will_wipe) {
@@ -287,6 +291,7 @@ regional_capabilities::FunnelStage ToFunnelStage(
 
 void RecordLegacyStaticEligibilityInternal(
     search_engines::SearchEngineChoiceService::Client& client,
+    metrics::ProfileMetricsService& profile_metrics_service,
     SearchEngineChoiceScreenConditions condition) {
   if (base::FeatureList::IsEnabled(
           switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection) &&
@@ -295,7 +300,7 @@ void RecordLegacyStaticEligibilityInternal(
         kChoiceScreenProfileInitConditionsPostRestoreHistogram, condition);
   }
 
-  base::UmaHistogramEnumeration(
+  profile_metrics_service.UmaHistogramEnumeration(
       kSearchEngineChoiceScreenProfileInitConditionsHistogram, condition);
   base::PumaHistogramEnumeration(
       base::PumaType::kRc,
@@ -434,7 +439,8 @@ bool MaybeRecordChoiceScreenDisplayStateInternal(
     regional_capabilities::RegionalCapabilitiesService&
         regional_capabilities_service,
     const ChoiceScreenDisplayState& display_state,
-    bool is_from_cached_state) {
+    bool is_from_cached_state,
+    metrics::ProfileMetricsService& profile_metrics_service) {
   if (display_state.selected_engine_index.has_value()) {
     if (!is_from_cached_state) {
       // Recorded at the choice moment as it's not part of the display state
@@ -450,7 +456,8 @@ bool MaybeRecordChoiceScreenDisplayStateInternal(
     return false;
   }
 
-  RecordChoiceScreenPositions(display_state.search_engines);
+  RecordChoiceScreenPositions(display_state.search_engines,
+                              profile_metrics_service);
   return true;
 }
 
@@ -469,7 +476,8 @@ enum class PendingDisplayStateStatus {
 PendingDisplayStateStatus ProcessPendingChoiceScreenDisplayStateInternal(
     regional_capabilities::RegionalCapabilitiesService&
         regional_capabilities_service,
-    PrefService& profile_prefs) {
+    PrefService& profile_prefs,
+    metrics::ProfileMetricsService& profile_metrics_service) {
   const base::DictValue& dict = profile_prefs.GetDict(
       prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
   std::optional<ChoiceScreenDisplayState> display_state =
@@ -490,7 +498,7 @@ PendingDisplayStateStatus ProcessPendingChoiceScreenDisplayStateInternal(
 
   return MaybeRecordChoiceScreenDisplayStateInternal(
              regional_capabilities_service, *display_state,
-             /* is_from_cached_state= */ true)
+             /* is_from_cached_state= */ true, profile_metrics_service)
              ? PendingDisplayStateStatus::kUploaded
              : PendingDisplayStateStatus::kStayPending;
 }
@@ -524,14 +532,16 @@ SearchEngineChoiceService::SearchEngineChoiceService(
     regional_capabilities::RegionalCapabilitiesService& regional_capabilities,
     TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
     signin::IdentityManager& identity_manager,
-    policy::ManagementService& platform_management_service)
+    policy::ManagementService& platform_management_service,
+    metrics::ProfileMetricsService& profile_metrics_service)
     : client_(std::move(client)),
       profile_prefs_(profile_prefs),
       local_state_(local_state),
       regional_capabilities_service_(regional_capabilities),
       prepopulate_data_resolver_(prepopulate_data_resolver),
       identity_manager_(identity_manager),
-      platform_management_service_(platform_management_service) {}
+      platform_management_service_(platform_management_service),
+      profile_metrics_service_(profile_metrics_service) {}
 
 SearchEngineChoiceService::~SearchEngineChoiceService() = default;
 
@@ -558,7 +568,7 @@ void SearchEngineChoiceService::Init() {
         base::Time::Now().ToDeltaSinceWindowsEpoch().InSeconds());
   }
 
-  RecordChoiceScreenCompletionDate(*profile_prefs_);
+  RecordChoiceScreenCompletionDate(*profile_prefs_, *profile_metrics_service_);
 }
 
 SearchEngineChoiceScreenConditions
@@ -591,7 +601,8 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
 
   // Initially exclude users with this type of override. Consult b/302675777 for
   // next steps.
-  if (profile_prefs_->HasPrefPath(prefs::kSearchProviderOverrides)) {
+  if (!base::FeatureList::IsEnabled(switches::kIgnoreSearchProviderOverrides) &&
+      profile_prefs_->HasPrefPath(prefs::kSearchProviderOverrides)) {
     return SearchEngineChoiceScreenConditions::kSearchProviderOverride;
   }
 
@@ -677,15 +688,18 @@ void SearchEngineChoiceService::RecordProfileLoadEligibility(
     SearchEngineChoiceScreenConditions condition) {
 #if !BUILDFLAG(IS_IOS)
   // On iOS, this function is called directly.
-  RecordLegacyStaticEligibilityInternal(*client_.get(), condition);
+  RecordLegacyStaticEligibilityInternal(*client_.get(),
+                                        *profile_metrics_service_, condition);
 #endif  // !BUILDFLAG(IS_IOS)
 
-  regional_capabilities::RecordEligibilityFunnelStageDetails(condition);
+  regional_capabilities::RecordEligibilityFunnelStageDetails(
+      condition, *profile_metrics_service_);
   if (!regional_capabilities::IsEligible(condition)) {
     // Being eligible at profile load is not a conclusive funnel state. We don't
     // record it here, we instead rely on trigger-time eligibility, which is
     // expected to be recorded shortly after, to record a funnel stage.
-    regional_capabilities::RecordFunnelStage(ToFunnelStage(condition));
+    regional_capabilities::RecordFunnelStage(ToFunnelStage(condition),
+                                             *profile_metrics_service_);
   }
 
   CHECK(!recorded_profile_load_choice_screen_eligibility_.has_value(),
@@ -696,7 +710,8 @@ void SearchEngineChoiceService::RecordProfileLoadEligibility(
 #if BUILDFLAG(IS_IOS)
 void SearchEngineChoiceService::RecordLegacyStaticEligibility(
     SearchEngineChoiceScreenConditions condition) {
-  RecordLegacyStaticEligibilityInternal(*client_.get(), condition);
+  RecordLegacyStaticEligibilityInternal(*client_.get(),
+                                        *profile_metrics_service_, condition);
 }
 
 bool SearchEngineChoiceService::IsSurfaceEligible(
@@ -723,14 +738,16 @@ void SearchEngineChoiceService::RecordTriggeringEligibility(
         kChoiceScreenNavigationConditionsPostRestoreHistogram, condition);
   }
 
-  base::UmaHistogramEnumeration(
+  profile_metrics_service_->UmaHistogramEnumeration(
       kSearchEngineChoiceScreenNavigationConditionsHistogram, condition);
   base::PumaHistogramEnumeration(
       base::PumaType::kRc, kPumaSearchChoiceScreenNavigationConditionsHistogram,
       condition);
 
-  regional_capabilities::RecordTriggeringFunnelStageDetails(condition);
-  regional_capabilities::RecordFunnelStage(ToFunnelStage(condition));
+  regional_capabilities::RecordTriggeringFunnelStageDetails(
+      condition, *profile_metrics_service_);
+  regional_capabilities::RecordFunnelStage(ToFunnelStage(condition),
+                                           *profile_metrics_service_);
 }
 
 void SearchEngineChoiceService::RecordChoiceScreenEvent(
@@ -742,8 +759,8 @@ void SearchEngineChoiceService::RecordChoiceScreenEvent(
                                   event);
   }
 
-  base::UmaHistogramEnumeration(kSearchEngineChoiceScreenEventsHistogram,
-                                event);
+  profile_metrics_service_->UmaHistogramEnumeration(
+      kSearchEngineChoiceScreenEventsHistogram, event);
   base::PumaHistogramEnumeration(base::PumaType::kRc,
                                  kPumaSearchChoiceScreenEventsHistogram, event);
 
@@ -849,7 +866,7 @@ void SearchEngineChoiceService::RecordChoiceMade(
 
   RecordChoiceScreenDefaultSearchProviderType(
       GetDefaultSearchEngineType(CHECK_DEREF(template_url_service)),
-      choice_location);
+      choice_location, profile_metrics_service_.get());
   SetChoiceCompletionMetadata(
       *profile_prefs_,
       search_engines::CreateChoiceCompletionMetadataForCurrentState(
@@ -885,8 +902,8 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
   }
 
   bool record_rejected = !MaybeRecordChoiceScreenDisplayStateInternal(
-      regional_capabilities_service_.get(), display_state,
-      /* is_from_cached_state= */ false);
+      *regional_capabilities_service_, display_state,
+      /* is_from_cached_state= */ false, *profile_metrics_service_);
   RecordChoiceScreenPositionsCountryMismatch(record_rejected);
   if (record_rejected) {
     // Recording was rejected, persist the data so we can attempt to send it
@@ -970,7 +987,8 @@ void SearchEngineChoiceService::ProcessPendingChoiceScreenDisplayState() {
   }
 
   auto status = ProcessPendingChoiceScreenDisplayStateInternal(
-      regional_capabilities_service_.get(), profile_prefs_.get());
+      *regional_capabilities_service_, *profile_prefs_,
+      *profile_metrics_service_);
   base::UmaHistogramEnumeration(
       "Search.ChoicePrefsCheck.PendingChoiceScreenDisplayStateStatus", status);
 

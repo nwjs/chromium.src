@@ -9,14 +9,19 @@
 #import "ios/chrome/browser/assistant/ui/assistant_container_animator.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_delegate.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
+#import "ios/chrome/browser/assistant/ui/assistant_container_layout_utils.h"
+#import "ios/chrome/browser/assistant/ui/assistant_container_provider.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_view_controller.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/named_guide.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
 @implementation AssistantContainerCoordinator {
   // The view controller for the assistant container.
@@ -71,6 +76,7 @@
 
   _contentViewController = viewController;
   _delegate = delegate;
+  _animator = [[AssistantContainerAnimator alloc] init];
 
   _containerViewController = [[AssistantContainerViewController alloc]
       initWithViewController:_contentViewController];
@@ -89,24 +95,73 @@
   }
   _containerViewController.anchorView = [center referencedViewUnderName:guideName];
 
+  if ([_delegate respondsToSelector:@selector(assistantContainer:
+                                              willAppearAnimated:)]) {
+    [_delegate assistantContainer:_containerViewController
+               willAppearAnimated:YES];
+  }
+
+  // Set up fullscreen observation.
+  FullscreenController* fullscreenController =
+      FullscreenController::FromBrowser(self.browser);
+  [_containerViewController setUpFullscreenObservation:fullscreenController];
+
+  __weak __typeof(self) weakSelf = self;
+  if (IsAssistantSidePanelEnabled()) {
+    bool isSidePanelLayout =
+        IsSidePanelLayout(self.baseViewController.traitCollection);
+
+    [self.provider
+        addAssistantContainerViewController:_containerViewController];
+
+    if (isSidePanelLayout) {
+      [_animator
+          animateSidePanelPresentation:_containerViewController
+                    baseViewController:self.provider
+                            completion:^{
+                              [weakSelf didCompletePresentationAnimation];
+                            }];
+    } else {
+      [self.baseViewController.view layoutIfNeeded];
+      [_animator animatePresentation:_containerViewController
+                          completion:^{
+                            [weakSelf didCompletePresentationAnimation];
+                          }];
+    }
+    return;
+  }
+
   // Add the view controller as a child view controller.
   [self.baseViewController addChildViewController:_containerViewController];
 
-  // Add the view to the hierarchy.
-  [self.baseViewController.view addSubview:_containerViewController.view];
-  [_containerViewController didMoveToParentViewController:self.baseViewController];
+  // Add the view to the hierarchy and apply parent bounds manually.
+  UIView* containerView = _containerViewController.view;
+  UIView* baseView = self.baseViewController.view;
+
+  [baseView addSubview:containerView];
+  containerView.translatesAutoresizingMaskIntoConstraints = NO;
+
+  NSLayoutConstraint* bottomConstraint = [containerView.bottomAnchor
+      constraintEqualToAnchor:baseView.bottomAnchor];
+  // Lowering priority allows `AssistantContainerViewController` to override
+  // the bottom constraint.
+  bottomConstraint.priority = UILayoutPriorityDefaultHigh;
+
+  [NSLayoutConstraint activateConstraints:@[
+    [containerView.topAnchor constraintEqualToAnchor:baseView.topAnchor],
+    [containerView.leadingAnchor
+        constraintEqualToAnchor:baseView.leadingAnchor],
+    [containerView.trailingAnchor
+        constraintEqualToAnchor:baseView.trailingAnchor],
+    bottomConstraint,
+  ]];
+
+  [_containerViewController
+      didMoveToParentViewController:self.baseViewController];
 
   // Force layout to determine optimal size before animating.
   [self.baseViewController.view layoutIfNeeded];
 
-  if ([_delegate respondsToSelector:@selector(assistantContainer:
-                                              willAppearAnimated:)]) {
-    [_delegate assistantContainer:_containerViewController willAppearAnimated:YES];
-  }
-
-  _animator = [[AssistantContainerAnimator alloc] init];
-
-  __weak __typeof(self) weakSelf = self;
   [_animator animatePresentation:_containerViewController
                       completion:^{
                         [weakSelf didCompletePresentationAnimation];
@@ -171,16 +226,31 @@
             willDisappearAnimated:animated];
   }
 
-  if (animated) {
-    __weak __typeof(self) weakSelf = self;
-    [_animator animateDismissal:_containerViewController
-                     completion:^{
-                       [weakSelf didCompleteDismissalAnimationAnimated:YES];
-                     }];
-  } else {
-    [_containerViewController.view removeFromSuperview];
-    [self didCompleteDismissalAnimationAnimated:NO];
+  __weak __typeof(self) weakSelf = self;
+
+  if (IsSidePanelLayout(self.baseViewController.traitCollection)) {
+    if (animated) {
+      [_animator
+          animateSidePanelDismissal:_containerViewController
+                 baseViewController:self.provider
+                         completion:^{
+                           [weakSelf
+                               didCompleteDismissalAnimationAnimated:animated];
+                         }];
+    } else {
+      [weakSelf didCompleteDismissalAnimationAnimated:animated];
+    }
+    return;
   }
+  if (animated) {
+    [_animator
+        animateDismissal:_containerViewController
+              completion:^{
+                [weakSelf didCompleteDismissalAnimationAnimated:animated];
+              }];
+    return;
+  }
+  [self didCompleteDismissalAnimationAnimated:animated];
 }
 
 #pragma mark - Private
@@ -210,10 +280,17 @@
   _dismissalInProgress = NO;
 
   // Cleanup view controller and state.
-  [_containerViewController willMoveToParentViewController:nil];
-  [_containerViewController.view removeFromSuperview];
-  [_containerViewController removeFromParentViewController];
-  [_containerViewController didMoveToParentViewController:nil];
+  [_containerViewController setUpFullscreenObservation:nullptr];
+
+  if (IsAssistantSidePanelEnabled()) {
+    [self.provider removeAssistantContainerViewController];
+  } else {
+    [_containerViewController willMoveToParentViewController:nil];
+    [_containerViewController.view removeFromSuperview];
+    [_containerViewController removeFromParentViewController];
+    [_containerViewController didMoveToParentViewController:nil];
+  }
+
   _containerViewController = nil;
 
   _animator = nil;
@@ -226,6 +303,25 @@
     _dismissalCompletion = nil;
     completion();
   }
+}
+
+#pragma mark - Accessors
+
+// Returns the provider by casting the base view controller.
+// When the Assistant Side Panel is disabled, the baseVC might not conform to
+// this protocol.
+- (UIViewController<AssistantContainerProvider>*)provider {
+  if (IsAssistantSidePanelEnabled()) {
+    CHECK([self.baseViewController
+              conformsToProtocol:@protocol(AssistantContainerProvider)],
+          base::NotFatalUntil::M152);
+  }
+  if ([self.baseViewController
+          conformsToProtocol:@protocol(AssistantContainerProvider)]) {
+    return (UIViewController<AssistantContainerProvider>*)
+        self.baseViewController;
+  }
+  return nil;
 }
 
 @end

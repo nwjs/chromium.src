@@ -20,6 +20,7 @@
 #include "base/test/scoped_path_override.h"
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_test_override.h"
+#include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
 #include "chrome/browser/web_applications/test/fake_environment.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -55,6 +56,21 @@ class OsIntegrationTestOverrideImpl;
 // thread until all users of OsIntegrationTestOverride::Get() have destroyed any
 // saved `scoped_refptr<OsIntegrationTestOverride>`. This ensures that all os
 // integration (disk folders, windows registry changes, etc) have been removed.
+//
+// This overrides the execution of actual OS integration at the lowest layer,
+// simulating success without altering the developer's raw OS environment,
+// allowing tests to read the 'expected' state of OS integrations cleanly.
+//
+// Usage in tests:
+// 1. Setup an `OsIntegrationTestOverrideImpl::BlockingRegistration` inside of
+//    `SetUp()` (needs `ScopedAllowBlockingForTesting`).
+// 2. Utilize the provider to check states:
+//    `OsIntegrationTestOverrideImpl::Get()->IsShortcutCreated(...)`.
+// 3. IMPORTANT TEARDOWN RULE: App uninstallation does file I/O operations and
+//    expects the override to still be alive. So, perform
+//    `test::UninstallAllWebApps(profile());` in `TearDown()` before resetting
+//    the override. Note that `WebAppTest::TearDown()` handles this cleanup
+//    automatically.
 //
 // `test_override()` can be used to view or modify the OS state.
 //
@@ -188,6 +204,11 @@ class OsIntegrationTestOverrideImpl : public OsIntegrationTestOverride {
   bool IsShortcutCreated(Profile* profile,
                          const webapps::AppId& app_id,
                          const std::string& app_name);
+
+  // Verifies that the OS integration resources directory, ending with
+  // `crx_<app_id>` exists on the disk.
+  bool HasOsIntegrationResourcesDirectory(Profile* profile,
+                                          const webapps::AppId& app_id);
 
   // ---------------------------------
   // === Shortcut menu / jump list ===

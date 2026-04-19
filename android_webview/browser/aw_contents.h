@@ -116,6 +116,7 @@ class AwContents : public FindHelper::Listener,
                                   int64_t compositor_frame_consumer);
   base::android::ScopedJavaLocalRef<jobject> GetRenderProcess(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
+  SkBitmap GetFavicon(JNIEnv* env);
   void Destroy(JNIEnv* env);
   void DocumentHasImages(JNIEnv* env,
                          const base::android::JavaRef<jobject>& message);
@@ -208,7 +209,7 @@ class AwContents : public FindHelper::Listener,
   // Returns a non-negative non-zero integer when prerendering successfully
   // started. The returned integer can be passed to CancelPrerendering().
   // Returns -1 when prerendering failed to start.
-  int32_t StartPrerendering(
+  int64_t StartPrerendering(
       JNIEnv* env,
       const std::string& prerendering_url,
       const base::android::JavaRef<jobject>& j_prefetch_params,
@@ -218,7 +219,7 @@ class AwContents : public FindHelper::Listener,
   // `prerender_id` should be a returned value of StartPrerendering(). If a
   // corresponding prerendering has already been canceled or activated, this
   // does nothing.
-  void CancelPrerendering(JNIEnv* env, int prerender_id);
+  void CancelPrerendering(JNIEnv* env, int64_t prerender_id);
 
   // Cancel all prerendering running on this contents regardless of how they are
   // triggered (StartPrerendering() or speculation rules).
@@ -319,6 +320,7 @@ class AwContents : public FindHelper::Listener,
   void OnInputEvent(JNIEnv* env);
 
   void SetJsOnlineProperty(JNIEnv* env, bool network_up);
+  void SetOnReceivedIconOverridden(JNIEnv* env, bool is_overridden);
   void TrimMemory(JNIEnv* env, int32_t level, bool visible);
 
   void GrantFileSchemeAccesstoChildProcess(JNIEnv* env);
@@ -380,6 +382,7 @@ class AwContents : public FindHelper::Listener,
       prerender_handles_;
 
   bool view_tree_force_dark_state_ = false;
+  bool is_on_received_icon_overridden_ = false;
   std::string scheme_;
 
   // GURL is supplied by the content layer as requesting frame.

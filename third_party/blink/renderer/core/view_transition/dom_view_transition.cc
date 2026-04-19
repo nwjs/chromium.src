@@ -58,7 +58,8 @@ DOMViewTransition::DOMViewTransition(ExecutionContext& execution_context,
     : DOMViewTransition(execution_context,
                         view_transition,
                         /*update_dom_callback=*/nullptr) {
-  if (view_transition.IsForNavigationOnNewDocument()) {
+  if (view_transition.IsForNavigationOnNewDocument() ||
+      view_transition.IsPreview()) {
     // In a cross-document view transition, the DOM is "updated" by the
     // navigation so by the time we create this object (in the pagereveal
     // event), the update is complete.
@@ -131,6 +132,18 @@ void DOMViewTransition::DidSkipTransition(
 
   if (!execution_context_) {
     return;
+  }
+
+  if (RuntimeEnabledFeatures::TransitionNavigationQuietSkipEnabled() &&
+      view_transition_ && view_transition_->NavigationSnapshotComplete()) {
+    // Suppress reporting of unhandled rejections on the old document
+    // for a cross document navigation.  The transition on the old document is
+    // skipped when the document is hidden.
+    // TODO(https://github.com/w3c/csswg-drafts/issues/13463): Revisit when
+    // this issue is resolved. Somewhat tangential, but each cross-doc
+    // navigation triggers a skip on the document, which by (current) spec
+    // needs to be handled.
+    mark_promises_as_handled_ = true;
   }
 
   // If the ready promise has not yet been resolved, reject it.
@@ -349,6 +362,17 @@ void DOMViewTransition::HandlePromise(ViewTransition::PromiseResponse response,
                                       PromiseProperty* property) {
   if (!execution_context_) {
     return;
+  }
+
+  if (mark_promises_as_handled_) {
+    // Suppress reporting of unhandled rejections on the old document
+    // for a cross document navigation.  The transition on the old document is
+    // skipped when the document is hidden.
+    // TODO(https://github.com/w3c/csswg-drafts/issues/13463): Revisit when
+    // this issue is resolved. Somewhat tangential, but each cross-doc
+    // navigation triggers a skip on the document, which by (current) spec
+    // needs to be handled.
+    property->MarkAsHandled();
   }
 
   // It's possible for multiple fulfillment microtasks to be queued so

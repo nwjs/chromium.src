@@ -23,11 +23,11 @@
 
 #include "base/check_op.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
 #include "base/sequence_checker.h"
@@ -53,12 +53,12 @@
 #include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/external_constants.h"
+#include "chrome/updater/get_updater_scope.h"
 #include "chrome/updater/registration_data.h"
 #include "chrome/updater/service_proxy_factory.h"
 #include "chrome/updater/update_service.h"
 #include "chrome/updater/update_service_internal.h"
 #include "chrome/updater/updater_branding.h"
-#include "chrome/updater/updater_scope.h"
 #include "chrome/updater/util/progress_sampler.h"
 #include "chrome/updater/util/util.h"
 #include "chrome/updater/util/win_util.h"
@@ -70,7 +70,7 @@
 #include "chrome/updater/win/ui/progress_wnd.h"
 #include "chrome/updater/win/ui/resources/resources.grh"
 #include "chrome/updater/win/ui/resources/updater_installer_strings.h"
-#include "chrome/updater/win/ui/webview_progress_wnd.h"
+#include "chrome/updater/win/ui/webview2_progress_wnd.h"
 #include "chrome/updater/win/win_constants.h"
 #include "components/update_client/update_client_errors.h"
 #include "url/gurl.h"
@@ -380,8 +380,6 @@ class AppInstallControllerImpl : public AppInstallController,
   }
 
  private:
-  friend class base::RefCountedThreadSafe<AppInstallControllerImpl>;
-
   ~AppInstallControllerImpl() override;
 
   // Overrides for OmahaWndEvents. These functions are called on the UI thread.
@@ -608,18 +606,8 @@ void AppInstallControllerImpl::InstallAppOffline(
                                             : client_install_data);
           },
           app_id_),
-      base::BindOnce(
-          [](scoped_refptr<AppInstallControllerImpl> self,
-             const std::tuple<
-                 OfflineManifestSystemRequirements /*requirements*/,
-                 std::string /*installer_version*/,
-                 base::FilePath /*installer_path*/, std::string /*arguments*/,
-                 std::string /*install_data*/>& result) {
-            self->DoInstallAppOffline(std::get<0>(result), std::get<1>(result),
-                                      std::get<2>(result), std::get<3>(result),
-                                      std::get<4>(result));
-          },
-          base::WrapRefCounted(this)));
+      base::BindOnce(&AppInstallControllerImpl::DoInstallAppOffline,
+                     base::WrapRefCounted(this)));
 }
 
 void AppInstallControllerImpl::DoInstallAppOffline(
@@ -908,7 +896,7 @@ void AppInstallControllerImpl::InitializeUI() {
   observer_.reset(progress_wnd.release());
 
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(kWebViewUISwitch)) {
-      auto wnd = std::make_unique<ui::WebviewProgressWnd>();
+      auto wnd = std::make_unique<ui::WebView2ProgressWnd>();
       VISIT_PROGRESS_WND(wnd);
       return;
     }

@@ -36,6 +36,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/time.h"
@@ -1038,12 +1039,9 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, GetRunningServiceWorkerInfos) {
                       kActivating == running_info.version_status ||
               content::ServiceWorkerRunningInfo::ServiceWorkerVersionStatus::
                       kActivated == running_info.version_status);
-  EXPECT_EQ(shell()
-                ->web_contents()
-                ->GetPrimaryMainFrame()
-                ->GetProcess()
-                ->GetDeprecatedID(),
-            running_info.render_process_id);
+  EXPECT_EQ(
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID(),
+      running_info.render_process_id);
 }
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, StartWorkerWhileInstalling) {
@@ -3733,11 +3731,8 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerCrossOriginIsolatedBrowserTest,
             running_info.script_url);
 
   bool is_in_process =
-      shell()
-          ->web_contents()
-          ->GetPrimaryMainFrame()
-          ->GetProcess()
-          ->GetDeprecatedID() == running_info.render_process_id;
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID() ==
+      running_info.render_process_id;
   if (!IsPageCrossOriginIsolated() && !IsServiceWorkerCrossOriginIsolated()) {
     EXPECT_TRUE(is_in_process);
   }
@@ -3805,11 +3800,8 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerCrossOriginIsolatedBrowserTest,
             running_info.script_url);
 
   bool is_in_process =
-      shell()
-          ->web_contents()
-          ->GetPrimaryMainFrame()
-          ->GetProcess()
-          ->GetDeprecatedID() == running_info.render_process_id;
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID() ==
+      running_info.render_process_id;
   bool should_be_in_process =
       IsPageCrossOriginIsolated() == IsServiceWorkerCrossOriginIsolated();
   EXPECT_EQ(is_in_process, should_be_in_process);
@@ -3856,11 +3848,8 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerCoopBrowserTest, FreshInstall) {
             running_info.script_url);
 
   bool is_in_process =
-      shell()
-          ->web_contents()
-          ->GetPrimaryMainFrame()
-          ->GetProcess()
-          ->GetDeprecatedID() == running_info.render_process_id;
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID() ==
+      running_info.render_process_id;
   EXPECT_TRUE(is_in_process);
 }
 
@@ -3904,11 +3893,8 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerCoopBrowserTest, MAYBE_PostInstallRun) {
             running_info.script_url);
 
   bool is_in_process =
-      shell()
-          ->web_contents()
-          ->GetPrimaryMainFrame()
-          ->GetProcess()
-          ->GetDeprecatedID() == running_info.render_process_id;
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID() ==
+      running_info.render_process_id;
   EXPECT_TRUE(is_in_process);
 }
 
@@ -3994,8 +3980,7 @@ IN_PROC_BROWSER_TEST_F(
     // The service worker shares the process with the page that requested it.
     const ServiceWorkerRunningInfo& running_info = infos.begin()->second;
     EXPECT_EQ(service_worker_url, running_info.script_url);
-    EXPECT_EQ(rfh_1->GetProcess()->GetDeprecatedID(),
-              running_info.render_process_id);
+    EXPECT_EQ(rfh_1->GetProcess()->GetID(), running_info.render_process_id);
   }
 
   // Reload the page so that it would use the service worker.
@@ -4033,8 +4018,7 @@ IN_PROC_BROWSER_TEST_F(
     // The service worker also shares the same process as |rfh_2|.
     const ServiceWorkerRunningInfo& running_info = infos.begin()->second;
     EXPECT_EQ(service_worker_url, running_info.script_url);
-    EXPECT_EQ(rfh_2->GetProcess()->GetDeprecatedID(),
-              running_info.render_process_id);
+    EXPECT_EQ(rfh_2->GetProcess()->GetID(), running_info.render_process_id);
   }
 
   // Fetch something from the service worker.
@@ -4091,8 +4075,7 @@ IN_PROC_BROWSER_TEST_F(
     // The service worker shares the process with the page that requested it.
     const ServiceWorkerRunningInfo& running_info = infos.begin()->second;
     EXPECT_EQ(service_worker_url, running_info.script_url);
-    EXPECT_EQ(rfh_1->GetProcess()->GetDeprecatedID(),
-              running_info.render_process_id);
+    EXPECT_EQ(rfh_1->GetProcess()->GetID(), running_info.render_process_id);
   }
 
   // Reload the page so that it would use the service worker.
@@ -4143,10 +4126,8 @@ IN_PROC_BROWSER_TEST_F(
     // in |rfh_1|'s process).
     const ServiceWorkerRunningInfo& running_info = infos.begin()->second;
     EXPECT_EQ(service_worker_url, running_info.script_url);
-    EXPECT_NE(rfh_2->GetProcess()->GetDeprecatedID(),
-              running_info.render_process_id);
-    EXPECT_EQ(rfh_1->GetProcess()->GetDeprecatedID(),
-              running_info.render_process_id);
+    EXPECT_NE(rfh_2->GetProcess()->GetID(), running_info.render_process_id);
+    EXPECT_EQ(rfh_1->GetProcess()->GetID(), running_info.render_process_id);
   }
 
   // Fetch something from the service worker.
@@ -4388,7 +4369,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerFencedFrameProcessAllocationBrowserTest,
 
   // The service worker shares the process with the page that requested it.
   const ServiceWorkerRunningInfo& running_info = infos.begin()->second;
-  EXPECT_EQ(fenced_frame->GetProcess()->GetDeprecatedID(),
+  EXPECT_EQ(fenced_frame->GetProcess()->GetID(),
             running_info.render_process_id);
 }
 
@@ -6586,68 +6567,6 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerAutoPreloadWithBlockedHostsBrowserTest,
   EXPECT_EQ(0, GetRequestCount(relative_url));
 }
 
-class ServiceWorkerAutoPreloadWithEnableSubresourcePreloadBrowserTest
-    : public ServiceWorkerAutoPreloadBrowserTest {
- public:
-  ServiceWorkerAutoPreloadWithEnableSubresourcePreloadBrowserTest() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{features::kServiceWorkerAutoPreload,
-          {
-              {"enable_subresource_preload", "false"},
-          }}},
-        {});
-    RaceNetworkRequestWriteBufferManager::SetDataPipeCapacityBytesForTesting(
-        1024);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ServiceWorkerAutoPreloadWithEnableSubresourcePreloadBrowserTest,
-    testing::Combine(testing::Bool(), testing::Bool()));
-
-IN_PROC_BROWSER_TEST_P(
-    ServiceWorkerAutoPreloadWithEnableSubresourcePreloadBrowserTest,
-    Disabled) {
-  SetupAndRegisterServiceWorker();
-  // Check the main resource request, ensuring the preload request is
-  // dispatched.
-  const std::string relative_url =
-      "/service_worker/mock_response?sw_slow&sw_respond";
-  const GURL test_url = embedded_test_server()->GetURL(relative_url);
-  NavigationHandleObserver observer(web_contents(), test_url);
-  WorkerRunningStatusObserver service_worker_running_status_observer(
-      public_context());
-  NavigateToURLBlockUntilNavigationsComplete(shell(), test_url, 1);
-  EXPECT_TRUE(observer.has_committed());
-  service_worker_running_status_observer.WaitUntilRunning();
-
-  // ServiceWorker will respond after the delay, so we expect the network
-  // request initiated by the RaceNetworkRequest is requested to the server
-  // although it's not actually used.
-  while (GetRequestCount(relative_url) != 1) {
-    base::RunLoop().RunUntilIdle();
-  }
-  EXPECT_EQ(1, GetRequestCount(relative_url));
-  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the fetch handler",
-            GetInnerText());
-  EXPECT_EQ("fetch-handler",
-            observer.GetNormalizedResponseHeader("X-Response-From"));
-
-  // Check the subresource request, ensuring the preload request is not
-  // dispatched. The request recorded count is not changed, because the
-  // subresource preload request is not dispatched.
-  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the fetch handler",
-            EvalJs(GetPrimaryMainFrame(),
-                   "fetch('" + relative_url +
-                       "').then(response => response.text())"));
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(1, GetRequestCount(relative_url));
-}
-
 class ServiceWorkerAutoPreloadWithEnableOnlyWhenSWNotRunningBrowserTest
     : public ServiceWorkerAutoPreloadBrowserTest {
  public:
@@ -7485,6 +7404,13 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerStaticRouterBrowserTest,
   // The result should be got from the cache, and no network access is
   // expected.
   EXPECT_EQ(0, GetRequestCount(relative_url));
+
+  // Sync histograms from the renderer process.
+  FetchHistogramsFromChildProcesses();
+
+  // Check UMA (success case should record true).
+  histogram_tester().ExpectBucketCount(
+      "ServiceWorker.StaticRouter.Subresource.ValidResponse", true, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerStaticRouterBrowserTest,

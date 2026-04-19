@@ -13,7 +13,6 @@
 
 #include "base/base64.h"
 #include "base/check.h"
-#include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_reader.h"
@@ -26,8 +25,8 @@
 #include "chrome/updater/constants.h"
 #include "chrome/updater/external_constants.h"
 #include "chrome/updater/external_constants_default.h"
+#include "chrome/updater/get_updater_scope.h"
 #include "chrome/updater/updater_branding.h"
-#include "chrome/updater/updater_scope.h"
 #include "chrome/updater/updater_version.h"
 #include "chrome/updater/util/util.h"
 #include "components/crx_file/crx_verifier.h"
@@ -42,7 +41,7 @@
 namespace {
 
 // Developer override file name, relative to app data directory.
-const char kDevOverrideFileName[] = "overrides.json";
+constexpr char kDevOverrideFileName[] = "overrides.json";
 
 std::vector<GURL> GURLVectorFromStringList(
     const base::ListValue& update_url_list) {

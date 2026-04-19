@@ -182,20 +182,6 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
   AppWindow::CreateParams create_params;
   std::optional<app_window::CreateWindowOptions>& options = params->options;
   if (options) {
-    if (options->title)
-      create_params.title = *options->title;
-
-    if (options->icon) {
-      base::ScopedAllowBlocking allow_io;
-      gfx::Image app_icon;
-      nw::Package* package = nw::package();
-      if (nw::GetPackageImage(package,
-                              base::FilePath::FromUTF8Unsafe(*options->icon),
-                              &app_icon)) {
-        create_params.icon = app_icon;
-      }
-    }
-
     if (options->id) {
       // TODO(mek): use URL if no id specified?
       // Limit length of id to 256 characters.
@@ -385,23 +371,6 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
       }
     }
 
-    if (options->show_in_taskbar) {
-      create_params.show_in_taskbar = *options->show_in_taskbar;
-    }
-
-    if (options->new_instance) {
-      create_params.new_instance = *options->new_instance;
-    }
-
-    if (options->inject_js_start) {
-      create_params.inject_js_start =
-          *options->inject_js_start;
-    }
-    if (options->inject_js_end) {
-      create_params.inject_js_end =
-          *options->inject_js_end;
-    }
-
     switch (options->state) {
       case app_window::State::kNone:
       case app_window::State::kNormal:
@@ -443,9 +412,6 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
       !app_window->is_ime_window()) {
     app_window->ForcedFullscreen();
   }
-
-  if (options && options->kiosk)
-    app_window->ForcedFullscreen();
 
   if (AppWindowRegistry::Get(browser_context())
           ->HadDevToolsAttached(app_window->web_contents())) {

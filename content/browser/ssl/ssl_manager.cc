@@ -10,7 +10,6 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/supports_user_data.h"
 #include "base/trace_event/optional_trace_event.h"
@@ -111,7 +110,7 @@ void SSLManager::OnSSLCertificateError(
     bool is_primary_main_frame_request,
     const GURL& url,
     NavigationOrDocumentHandle* navigation_or_document,
-    int net_error,
+    net::Error net_error,
     const net::SSLInfo& ssl_info,
     bool fatal) {
   DCHECK(delegate.get());

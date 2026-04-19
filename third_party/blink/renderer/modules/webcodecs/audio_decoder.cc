@@ -89,7 +89,7 @@ AudioDecoderConfig* CopyConfig(const AudioDecoderConfig& config) {
 }
 
 std::optional<media::AudioCodec> TryGetPcmCodec(const String& codec) {
-  String codecs_str = codec.LowerASCII();
+  String codecs_str = codec.ToAsciiLower();
   if (codecs_str == "ulaw") {
     return media::AudioCodec::kPCM_MULAW;
   }
@@ -108,7 +108,7 @@ std::optional<media::AudioCodec> TryGetPcmCodec(const String& codec) {
 }
 
 media::SampleFormat PcmCodecToSampleFormat(const String& codec) {
-  String codecs_str = codec.LowerASCII();
+  String codecs_str = codec.ToAsciiLower();
 
   if (codecs_str == "pcm-u8") {
     return media::SampleFormat::kSampleFormatU8;
@@ -308,6 +308,12 @@ AudioDecoder::MakeMediaAudioDecoderConfig(const ConfigType& config,
       return std::nullopt;
     }
     format = PcmCodecToSampleFormat(config.codec());
+
+    // Both FFmpeg and Symphonia exclusively output S16 decoded buffers for ALAW
+    // and MULAW.
+  } else if (audio_type->codec == media::AudioCodec::kPCM_ALAW ||
+             audio_type->codec == media::AudioCodec::kPCM_MULAW) {
+    format = media::SampleFormat::kSampleFormatS16;
   }
 
   media_config.Initialize(audio_type->codec, format, channel_layout,

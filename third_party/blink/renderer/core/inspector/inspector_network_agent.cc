@@ -356,7 +356,7 @@ class InspectorPostBodyParser : public RefCounted<InspectorPostBodyParser> {
     }
 
     // Try to decode as UTF-8 first.
-    String text_attempt = String::FromUTF8(base::as_byte_span(combined));
+    String text_attempt = String::FromUtf8(base::as_byte_span(combined));
 
     String result;
     bool base64_encoded = false;
@@ -597,7 +597,7 @@ std::unique_ptr<protocol::Network::CorsErrorStatus> BuildCorsErrorStatus(
     const network::CorsErrorStatus& status) {
   return protocol::Network::CorsErrorStatus::create()
       .setCorsError(BuildCorsError(status.cors_error))
-      .setFailedParameter(String::FromUTF8(status.failed_parameter))
+      .setFailedParameter(String::FromUtf8(status.failed_parameter))
       .build();
 }
 
@@ -693,7 +693,7 @@ std::unique_ptr<protocol::Network::WebSocketFrame> WebSocketMessageToProtocol(
       .setOpcode(op_code)
       .setMask(masked)
       // Only interpret the payload as UTF-8 when it's a text message
-      .setPayloadData(op_code == 1 ? String::FromUTF8WithLatin1Fallback(payload)
+      .setPayloadData(op_code == 1 ? String::FromUtf8WithLatin1Fallback(payload)
                                    : Base64Encode(payload))
       .build();
 }
@@ -750,7 +750,7 @@ void SetNetworkStateOverride(bool offline,
   // According to the Chrome DevTools Protocol, negative throughput values
   // disable throttling. Any non-negative value (>= 0) is considered an active
   // override, with 0 representing full throttling.
-  if (offline || latency >= 0 || download_throughput >= 0 ||
+  if (offline || latency > 0 || download_throughput >= 0 ||
       upload_throughput >= 0) {
     std::optional<double> download_mbps;
     if (download_throughput >= 0) {
@@ -764,7 +764,7 @@ void SetNetworkStateOverride(bool offline,
 }
 
 String IPAddressToString(const net::IPAddress& address) {
-  String unbracketed = String::FromUTF8(address.ToString());
+  String unbracketed = String::FromUtf8(address.ToString());
   if (!address.IsIPv6()) {
     return unbracketed;
   }
@@ -915,7 +915,7 @@ static bool FormDataToString(
 
   Vector<char> bytes;
   body->Flatten(bytes);
-  *content = String::FromUTF8WithLatin1Fallback(base::as_byte_span(bytes));
+  *content = String::FromUtf8WithLatin1Fallback(base::as_byte_span(bytes));
   return true;
 }
 
@@ -941,7 +941,7 @@ static std::unique_ptr<protocol::Network::SecurityDetails> BuildSecurityDetails(
                 .setStatus(StringFromASCII(net::ct::StatusToString(sct.status)))
                 .setOrigin(
                     StringFromASCII(net::ct::OriginToString(sct.sct->origin)))
-                .setLogDescription(String::FromUTF8(sct.sct->log_description))
+                .setLogDescription(String::FromUtf8(sct.sct->log_description))
                 .setLogId(StringFromASCII(base::HexEncode(sct.sct->log_id)))
                 .setTimestamp(sct.sct->timestamp.InMillisecondsSinceUnixEpoch())
                 .setHashAlgorithm(
@@ -995,9 +995,9 @@ static std::unique_ptr<protocol::Network::SecurityDetails> BuildSecurityDetails(
           .setKeyExchange(key_exchange)
           .setCipher(cipher)
           .setSubjectName(
-              String::FromUTF8(ssl_info.cert->subject().common_name))
+              String::FromUtf8(ssl_info.cert->subject().common_name))
           .setSanList(std::move(san_list))
-          .setIssuer(String::FromUTF8(ssl_info.cert->issuer().common_name))
+          .setIssuer(String::FromUtf8(ssl_info.cert->issuer().common_name))
           .setValidFrom(ssl_info.cert->valid_start().InSecondsFSinceUnixEpoch())
           .setValidTo(ssl_info.cert->valid_expiry().InSecondsFSinceUnixEpoch())
           .setCertificateId(0)  // Keep this in protocol for compatibility.

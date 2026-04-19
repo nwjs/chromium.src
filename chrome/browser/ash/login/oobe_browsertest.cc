@@ -7,13 +7,13 @@
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/shell.h"
 #include "base/auto_reset.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/test/feature_parameter_interface.h"
-#include "chrome/browser/ash/login/test/local_state_mixin.h"
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/ash/login/test/oobe_screens_utils.h"
@@ -28,7 +28,6 @@
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/ash/components/dbus/cryptohome/key.pb.h"
@@ -134,16 +133,13 @@ IN_PROC_BROWSER_TEST_F(OobeTest, Accelerator) {
 // in the local state.
 class PendingUpdateScreenTest
     : public OobeBaseTest,
-      public LocalStateMixin::Delegate,
       public ::testing::WithParamInterface<std::string> {
  protected:
-  // LocalStateMixin::Delegate:
-  void SetUpLocalState() final {
-    PrefService* prefs = g_browser_process->local_state();
-    prefs->SetString(prefs::kOobeScreenPending, GetParam());
+  void SetUpLocalStatePrefService(PrefService* local_state) final {
+    OobeBaseTest::SetUpLocalStatePrefService(local_state);
+    local_state->SetString(prefs::kOobeScreenPending, GetParam());
   }
   base::AutoReset<bool> branded_build{&WizardContext::g_is_branded_build, true};
-  LocalStateMixin local_state_mixin_{&mixin_host_, this};
 };
 
 IN_PROC_BROWSER_TEST_P(PendingUpdateScreenTest, UpdateScreenShown) {
@@ -161,15 +157,12 @@ INSTANTIATE_TEST_SUITE_P(All,
                                          "oobe-update" /* actual value */));
 
 // Checks that invalid (not existing) pending screen is handled gracefully.
-class InvalidPendingScreenTest : public OobeBaseTest,
-                                 public LocalStateMixin::Delegate {
+class InvalidPendingScreenTest : public OobeBaseTest {
  protected:
-  // LocalStateMixin::Delegate:
-  void SetUpLocalState() final {
-    PrefService* prefs = g_browser_process->local_state();
-    prefs->SetString(prefs::kOobeScreenPending, "not_existing_screen");
+  void SetUpLocalStatePrefService(PrefService* local_state) final {
+    OobeBaseTest::SetUpLocalStatePrefService(local_state);
+    local_state->SetString(prefs::kOobeScreenPending, "not_existing_screen");
   }
-  LocalStateMixin local_state_mixin_{&mixin_host_, this};
 };
 
 IN_PROC_BROWSER_TEST_F(InvalidPendingScreenTest, WelcomeScreenShown) {
@@ -178,7 +171,6 @@ IN_PROC_BROWSER_TEST_F(InvalidPendingScreenTest, WelcomeScreenShown) {
 
 class MeetDeviceDisplayOobeTest
     : public OobeBaseTest,
-      public LocalStateMixin::Delegate,
       public ::testing::WithParamInterface<std::tuple<const char*, gfx::Size>> {
  public:
   MeetDeviceDisplayOobeTest() = default;
@@ -198,9 +190,10 @@ class MeetDeviceDisplayOobeTest
     OobeBaseTest::SetUpCommandLine(command_line);
   }
 
-  // LocalStateMixin::Delegate:
-  void SetUpLocalState() override {
+  void SetUpLocalStatePrefService(PrefService* local_state) override {
+    OobeBaseTest::SetUpLocalStatePrefService(local_state);
     policy::EnrollmentRequisitionManager::SetDeviceRequisition(
+        CHECK_DEREF(local_state),
         policy::EnrollmentRequisitionManager::kRemoraRequisition);
   }
 
@@ -209,7 +202,6 @@ class MeetDeviceDisplayOobeTest
   gfx::Size ExpectedNativeDisplaySize() { return native_display_size_; }
 
  private:
-  LocalStateMixin local_state_mixin_{&mixin_host_, this};
   gfx::Size native_display_size_;
   gfx::Size scaled_display_size_;
 };

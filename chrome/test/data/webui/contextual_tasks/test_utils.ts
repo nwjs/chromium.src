@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+
 import {createAutocompleteMatch, createAutocompleteResultForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {type PageHandlerRemote as SearchboxPageHandlerRemote, type PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {type MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
@@ -52,52 +51,9 @@ export function installMock<T extends object>(
   return mock;
 }
 
-export const mockInputState: InputState = {
-  hintText: '',
-  toolConfigs: [
-    {
-      tool: ComposeboxToolMode.kDeepSearch,
-      hintText: '',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-    {
-      tool: ComposeboxToolMode.kImageGen,
-      hintText: '',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-    {
-      tool: ComposeboxToolMode.kCanvas,
-      hintText: '',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-  ],
-  modelConfigs: [],
-  allowedModels: [],
-  allowedTools: [],
-  allowedInputTypes: [],
-  activeModel: 0,
-  activeTool: 0,
-  disabledModels: [],
-  disabledTools: [],
-  disabledInputTypes: [],
-  inputTypeConfigs: [],
-  toolsSectionConfig: null,
-  modelSectionConfig: null,
-  maxInputsByType: {},
-  maxTotalInputs: 0,
-};
 
 export function simulateUserInput(
-    inputElement: HTMLInputElement, value: string) {
+    inputElement: HTMLInputElement|HTMLTextAreaElement, value: string) {
   inputElement.value = value;
   inputElement.dispatchEvent(
       new Event('input', {bubbles: true, composed: true}));
@@ -209,17 +165,13 @@ export async function deleteLastFile(composebox: any) {
 }
 
 export function getSubmitContainer(composebox: any): HTMLElement|null {
-  return composebox.shadowRoot.querySelector('#submitContainer');
+  const submitElement =
+      composebox.shadowRoot.querySelector('cr-composebox-submit');
+  return submitElement?.$.submitContainer || null;
 }
 
 export function getSubmitButton(composebox: any): HTMLButtonElement|null {
-  const submitContainer: HTMLElement|null = getSubmitContainer(composebox);
-
-  if (!submitContainer) {
-    return null;
-  }
-
-  const submitButton: HTMLButtonElement|null =
-      submitContainer.querySelector('#submitIcon');
-  return submitButton;
+  const submitElement =
+      composebox.shadowRoot.querySelector('cr-composebox-submit');
+  return submitElement?.$.submitIcon || null;
 }

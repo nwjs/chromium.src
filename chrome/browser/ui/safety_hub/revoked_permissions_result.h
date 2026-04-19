@@ -46,7 +46,6 @@ struct PermissionsData {
 
   ContentSettingsPattern primary_pattern;
   std::set<ContentSettingsType> permission_types;
-  base::DictValue chooser_permissions_data;
   content_settings::ContentSettingConstraints constraints;
   PermissionsRevocationType revocation_type;
 };
@@ -60,9 +59,15 @@ class RevokedPermissionsResult : public SafetyHubResult {
       default;
 
   ~RevokedPermissionsResult() override;
+  struct ContentSettingsData {
+    ContentSettingsType type;
+    ContentSettingsPattern primary_pattern;
+    ContentSettingsPattern secondary_pattern;
+  };
 
   using UnusedPermissionMap =
       std::map<std::string, std::list<ContentSettingEntry>>;
+  using UntimestampedPermissionList = std::vector<ContentSettingsData>;
 
   // Adds a revoked permission, defined by origin, a set of permission types
   // and the expiration until the user is made aware of the revoked
@@ -76,6 +81,20 @@ class RevokedPermissionsResult : public SafetyHubResult {
   const UnusedPermissionMap& GetRecentlyUnusedPermissions() {
     return recently_unused_permissions_;
   }
+
+  void SetUntimestampedPermissions(UntimestampedPermissionList list) {
+    untimestamped_permissions_ = std::move(list);
+  }
+
+  const UntimestampedPermissionList& GetUntimestampedPermissions() {
+    return untimestamped_permissions_;
+  }
+
+  void SetRevocationBackfillEnabled(bool enabled) {
+    revocation_backfill_enabled = enabled;
+  }
+
+  bool GetRevocationBackfillEnabled() { return revocation_backfill_enabled; }
 
   const std::list<PermissionsData>& GetRevokedPermissions();
 
@@ -93,6 +112,8 @@ class RevokedPermissionsResult : public SafetyHubResult {
  private:
   std::list<PermissionsData> revoked_permissions_;
   UnusedPermissionMap recently_unused_permissions_;
+  UntimestampedPermissionList untimestamped_permissions_;
+  bool revocation_backfill_enabled = false;
 };
 
 #endif  // CHROME_BROWSER_UI_SAFETY_HUB_REVOKED_PERMISSIONS_RESULT_H_

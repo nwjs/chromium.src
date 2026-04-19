@@ -101,14 +101,9 @@ class CAPTURE_EXPORT VideoCaptureDeviceAndroid : public VideoCaptureDevice {
 
   void OnHardwareBufferAvailableOnMainThread(
       base::android::ScopedHardwareBufferHandle ahb_handle,
+      int32_t data_space,
       int32_t rotation,
       int64_t timestamp);
-
-  // Implement org.chromium.media.VideoCapture.Natives.OnFrameAvailable.
-  void OnFrameAvailable(JNIEnv* env,
-                        const base::android::JavaRef<jbyteArray>& data,
-                        int32_t length,
-                        int32_t rotation);
 
   // Implement org.chromium.media.VideoCapture.Natives.OnI420FrameAvailable.
   void OnI420FrameAvailable(JNIEnv* env,
@@ -121,13 +116,15 @@ class CAPTURE_EXPORT VideoCaptureDeviceAndroid : public VideoCaptureDevice {
                             int32_t width,
                             int32_t height,
                             int32_t rotation,
-                            int64_t timestamp);
+                            int64_t timestamp,
+                            int32_t data_space);
 
   // Implement
   // org.chromium.media.VideoCapture.Natives.onHardwareBufferAvailable.
   void OnHardwareBufferAvailable(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& hardwareBuffer,
+      int32_t data_space,
       int32_t rotation,
       int64_t timestamp);
 
@@ -175,7 +172,8 @@ class CAPTURE_EXPORT VideoCaptureDeviceAndroid : public VideoCaptureDevice {
                                 int length,
                                 int rotation,
                                 base::TimeTicks reference_time,
-                                base::TimeDelta timestamp);
+                                base::TimeDelta timestamp,
+                                gfx::ColorSpace color_space);
 
  private:
   enum InternalState {
@@ -184,7 +182,7 @@ class CAPTURE_EXPORT VideoCaptureDeviceAndroid : public VideoCaptureDevice {
     kError        // Hit error. User needs to recover by destroying the object.
   };
 
-  VideoPixelFormat GetColorspace();
+  VideoPixelFormat GetPixelFormat();
   void SetErrorState(media::VideoCaptureError error,
                      const base::Location& from_here,
                      const std::string& reason);
@@ -218,7 +216,6 @@ class CAPTURE_EXPORT VideoCaptureDeviceAndroid : public VideoCaptureDevice {
 
   const VideoCaptureDeviceDescriptor device_descriptor_;
   VideoCaptureFormat capture_format_;
-  gfx::ColorSpace capture_color_space_;
 
   // Java VideoCaptureAndroid instance.
   base::android::ScopedJavaLocalRef<jobject> j_capture_;

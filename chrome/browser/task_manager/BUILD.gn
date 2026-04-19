@@ -176,6 +176,7 @@ source_set("impl") {
     "//chrome/browser/favicon",
     "//chrome/browser/glic",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/task_manager",
     "//chrome/browser/task_manager/common",
     "//chrome/browser/ui:url_identity",
@@ -252,6 +253,7 @@ source_set("impl") {
   if (enable_extensions_core) {
     deps += [
       "//chrome/browser/extensions",
+      "//chrome/browser/ui/browser_window",
       "//extensions:extensions_browser_resources",
       "//extensions:extensions_browser_resources_grit",
       "//extensions/browser",

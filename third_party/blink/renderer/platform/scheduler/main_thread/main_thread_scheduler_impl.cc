@@ -91,6 +91,10 @@ namespace scheduler {
 BASE_FEATURE(kBusyLoopAggressiveAfterCommittedLoad,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+namespace {
+constexpr base::TimeDelta kBusyLoopAggressiveTime = base::Milliseconds(500);
+}
+
 // When scrolling and the main thread is not expected to be blocking, decrease
 // its thread priority, so as not to contend with the actually display critical
 // threads.
@@ -276,7 +280,7 @@ perfetto::StaticString RenderingPrioritizationStateToString(
 }
 
 // Treat "input handling" specially in V8.
-BASE_FEATURE(kInputHandlingModeFromUseCase, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kInputHandlingModeFromUseCase, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kInputHandlingModeFromPerformanceScenario,
              base::FEATURE_DISABLED_BY_DEFAULT);
 // Attempt to treat inputs as one longer window, instead of many shorter ones.
@@ -586,8 +590,10 @@ void MainThreadSchedulerImpl::OnInputScenarioChanged(
     performance_scenarios::ScenarioScope scope,
     performance_scenarios::InputScenario old_scenario,
     performance_scenarios::InputScenario new_scenario) {
-  DCHECK(
-      base::FeatureList::IsEnabled(kInputHandlingModeFromPerformanceScenario));
+  if (!base::FeatureList::IsEnabled(
+          kInputHandlingModeFromPerformanceScenario)) {
+    return;
+  }
   if (isolate()) {
     isolate()->SetIsInputHandling(
         ComputeIsInputHandlingFromPerformanceScenario(new_scenario));
@@ -598,7 +604,9 @@ void MainThreadSchedulerImpl::OnLoadingScenarioChanged(
     performance_scenarios::ScenarioScope scope,
     performance_scenarios::LoadingScenario old_scenario,
     performance_scenarios::LoadingScenario new_scenario) {
-  DCHECK(base::FeatureList::IsEnabled(kLoadingModeFromPerformanceScenario));
+  if (!base::FeatureList::IsEnabled(kLoadingModeFromPerformanceScenario)) {
+    return;
+  }
   if (isolate()) {
     isolate()->SetIsLoading(
         ComputeIsLoadingFromPerformanceScenario(new_scenario));
@@ -2318,6 +2326,12 @@ void MainThreadSchedulerImpl::DidCommitProvisionalLoad(
   if (base::FeatureList::IsEnabled(kBusyLoopOnRendererMain) &&
       base::FeatureList::IsEnabled(kBusyLoopAggressiveAfterCommittedLoad)) {
     main_thread_only().last_committed_load_time = NowTicks();
+    // This will go back to the normal factor in the future.
+    control_task_queue_->GetTaskRunnerWithDefaultTaskType()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&MainThreadSchedulerImpl::MaybeSetBusyLoop,
+                       weak_factory_.GetWeakPtr()),
+        kBusyLoopAggressiveTime);
   }
 
   // If this either isn't a history inert commit or it's a reload then we must
@@ -2953,10 +2967,6 @@ void MainThreadSchedulerImpl::MaybeUpdatePolicyOnTaskCompleted(
     }
   }
 
-  if (!main_thread_only().last_committed_load_time.is_null()) {
-    needs_policy_update = true;
-  }
-
   RenderingPrioritizationState old_state =
       main_thread_only().main_frame_prioritization_state;
   UpdateRenderingPrioritizationStateOnTaskCompleted(queue, task_timing);
@@ -3209,7 +3219,7 @@ void MainThreadSchedulerImpl::MaybeSetBusyLoop() {
   if (busy_loop_scale_factor != 0.f &&
       !main_thread_only().last_committed_load_time.is_null()) {
     if (NowTicks() - main_thread_only().last_committed_load_time <
-        base::Milliseconds(500)) {
+        kBusyLoopAggressiveTime) {
       busy_loop_scale_factor = 1.5;
     } else {
       main_thread_only().last_committed_load_time = base::TimeTicks();

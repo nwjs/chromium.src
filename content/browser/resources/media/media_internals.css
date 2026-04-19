@@ -75,6 +75,16 @@ body {
   min-height: 0;
 }
 
+#player-filter-text {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 5px;
+  margin-bottom: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 #left-pane-controls {
   padding-top: 10px;
 }
@@ -143,7 +153,8 @@ h3 {
 
 .property-wrapper h2,
 #log-wrapper h2,
-#video-capture-capabilities-wrapper h2 {
+#video-capture-capabilities-wrapper h2,
+#cdms-panel h2 {
   display: flex;
   align-items: center;
 }

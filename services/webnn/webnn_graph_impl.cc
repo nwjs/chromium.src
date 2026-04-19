@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/dcheck_is_on.h"
+#include "base/logging.h"
 #include "base/task/bind_post_task.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
@@ -93,20 +94,18 @@ WebNNGraphImpl::ComputeResourceInfo::~ComputeResourceInfo() = default;
 
 WebNNGraphImpl::WebNNGraphImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
-    base::WeakPtr<WebNNContextImpl> context,
+    WebNNContextImpl& context,
     ComputeResourceInfo compute_resource_info,
     std::vector<mojom::Device> devices)
     : WebNNObjectImpl<mojom::WebNNGraph,
                       blink::WebNNGraphToken,
                       mojo::AssociatedReceiver<mojom::WebNNGraph>>(
           std::move(receiver),
-          context->scheduler_task_runner(),
-          context->owning_task_runner()),
-      context_(std::move(context)),
+          context.scheduler_task_runner(),
+          context.owning_task_runner()),
+      context_(context),
       compute_resource_info_(std::move(compute_resource_info)),
-      devices_(std::move(devices)) {
-  CHECK(context_);
-}
+      devices_(std::move(devices)) {}
 
 WebNNGraphImpl::~WebNNGraphImpl() = default;
 

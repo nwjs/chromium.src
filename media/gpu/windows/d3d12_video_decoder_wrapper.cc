@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "media/gpu/windows/d3d12_video_decoder_wrapper.h"
 
@@ -18,6 +14,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
 #include "base/trace_event/trace_event.h"
@@ -80,6 +77,7 @@ class D3D12VideoDecoderWrapperImpl : public D3D12VideoDecoderWrapper {
 
   void Reset() override {
     input_stream_arguments_.NumFrameArguments = 0;
+    input_stream_arguments_.CompressedBitstream = {};
     bitstream_buffer_.reset();
   }
 
@@ -171,8 +169,9 @@ class D3D12VideoDecoderWrapperImpl : public D3D12VideoDecoderWrapper {
       slice_info_bytes_.clear();
       CHECK_LT(input_stream_arguments_.NumFrameArguments,
                std::size(input_stream_arguments_.FrameArguments));
-      input_stream_arguments_
-          .FrameArguments[input_stream_arguments_.NumFrameArguments++] = {
+      UNSAFE_TODO(
+          input_stream_arguments_
+              .FrameArguments[input_stream_arguments_.NumFrameArguments++]) = {
           .Type = D3D12_VIDEO_DECODE_ARGUMENT_TYPE_SLICE_CONTROL,
           .Size = static_cast<UINT>(task.GetSliceControlBuffer().size()),
           .pData = task.GetSliceControlBuffer().data(),
@@ -180,6 +179,8 @@ class D3D12VideoDecoderWrapperImpl : public D3D12VideoDecoderWrapper {
     }
     reference_frame_list_.WriteTo(&input_stream_arguments_.ReferenceFrames);
     CHECK(bitstream_buffer_);
+    input_stream_arguments_.CompressedBitstream.Size =
+        bitstream_buffer_->BytesWritten();
     bitstream_buffer_.reset();
     CHECK_LE(input_stream_arguments_.NumFrameArguments, 4u);
     return true;
@@ -287,13 +288,12 @@ class ScopedD3D12MemoryBuffer : public ScopedD3DBuffer {
     CHECK_LE(written_size, data_.size());
     CHECK_LT(decoder_->input_stream_arguments_.NumFrameArguments,
              std::size(decoder_->input_stream_arguments_.FrameArguments));
-    decoder_->input_stream_arguments_
-        .FrameArguments[decoder_->input_stream_arguments_.NumFrameArguments++] =
-        {
-            .Type = type_,
-            .Size = written_size,
-            .pData = data_.data(),
-        };
+    UNSAFE_TODO(decoder_->input_stream_arguments_.FrameArguments
+                    [decoder_->input_stream_arguments_.NumFrameArguments++]) = {
+        .Type = type_,
+        .Size = written_size,
+        .pData = data_.data(),
+    };
     data_ = base::span<uint8_t>();
     return true;
   }
@@ -316,8 +316,9 @@ class ScopedD3D12ResourceBuffer : public ScopedD3DBuffer {
           << "Failed to map data of ID3D12Resource";
       return;
     }
-    data_ = base::span(reinterpret_cast<uint8_t*>(mapped_data),
-                       static_cast<size_t>(resource_->GetDesc().Width));
+    data_ = UNSAFE_TODO(
+        base::span(reinterpret_cast<uint8_t*>(mapped_data),
+                   static_cast<size_t>(resource_->GetDesc().Width)));
   }
   ~ScopedD3D12ResourceBuffer() override { ScopedD3D12ResourceBuffer::Commit(); }
 
@@ -378,8 +379,8 @@ std::unique_ptr<ScopedD3DBuffer> D3D12VideoDecoderWrapperImpl::GetBuffer(
       }
       input_stream_arguments_.CompressedBitstream = {
           .pBuffer = bitstream_buffer.Get(),
-          // The size of a buffer resource is its width.
-          .Size = bitstream_buffer->GetDesc().Width,
+          .Offset = 0,
+          .Size = 0,  // Will be correctly populated in SubmitSlice().
       };
       return std::make_unique<ScopedD3D12ResourceBuffer>(this, bitstream_buffer,
                                                          media_log_);

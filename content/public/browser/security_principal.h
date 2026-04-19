@@ -43,10 +43,26 @@ class CONTENT_EXPORT SecurityPrincipal {
   // Returns true if this SecurityPrincipal is used for a <webview> guest.
   virtual bool IsGuest() const = 0;
 
+  // Returns true if the scheme of this SecurityPrincipal is for a WebUI page
+  // (chrome://, chrome-untrusted://, devtools://, chrome-search://). For the
+  // full list of recognized WebUI schemes, see
+  // URLDataManagerBackend::GetWebUISchemes().
+  virtual bool IsWebUI() const = 0;
+
   // Get the StoragePartitionConfig, which describes the StoragePartition this
   // SecurityPrincipal is associated with.  For example, this will correspond to
   // a non-default StoragePartition for <webview> guests.
   virtual const StoragePartitionConfig& GetStoragePartitionConfig() const = 0;
+
+  // Returns true if the scheme of this SecurityPrincipal's associated URL
+  // matches the given |scheme|. For example, SchemeIs("https") returns true
+  // if the principal represents content loaded from an HTTPS URL.
+  // Note that when a principal uses an effective URL, the scheme will
+  // correspond to that effective URL rather than the original. For example,
+  // a hosted app at https://example.com has an effective URL of
+  // chrome-extension://<extension-id>/, so SchemeIs("chrome-extension")
+  // returns true and SchemeIs("https") returns false.
+  virtual bool SchemeIs(std::string_view scheme) const = 0;
 };
 
 }  // namespace content

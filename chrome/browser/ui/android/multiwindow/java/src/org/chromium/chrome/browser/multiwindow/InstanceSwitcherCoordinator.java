@@ -38,8 +38,6 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.components.browser_ui.util.TimeTextResolver;
 import org.chromium.components.browser_ui.widget.BoundedLinearLayout;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
@@ -521,15 +519,13 @@ public class InstanceSwitcherCoordinator {
                 mIsInactiveListShowing ? R.string.restore : R.string.open);
         builder.with(ModalDialogProperties.POSITIVE_BUTTON_DISABLED, true);
 
-        if (UiUtils.isRobustWindowManagementBulkCloseEnabled()) {
-            builder.with(
-                    ModalDialogProperties.TITLE_BACK_BUTTON_CLICK_LISTENER,
-                    v -> {
-                        unselectItems(/* hideVisibleList= */ true);
-                    });
+        builder.with(
+                ModalDialogProperties.TITLE_BACK_BUTTON_CLICK_LISTENER,
+                v -> {
+                    unselectItems(/* hideVisibleList= */ true);
+                });
 
-            buildWindowManagerMoreMenu(builder);
-        }
+        buildWindowManagerMoreMenu(builder);
         return builder.build();
     }
 
@@ -579,9 +575,7 @@ public class InstanceSwitcherCoordinator {
 
     private void buildMoreMenu(PropertyModel.Builder builder, InstanceInfo item) {
         ModelList moreMenu = new ModelList();
-        if (UiUtils.isRobustWindowManagementEnabled()) {
-            moreMenu.add(buildSimpleMenuItem(R.string.instance_switcher_name_window));
-        }
+        moreMenu.add(buildSimpleMenuItem(R.string.instance_switcher_name_window));
         moreMenu.add(buildSimpleMenuItem(R.string.close));
 
         ListMenu.Delegate moreMenuDelegate =
@@ -621,19 +615,11 @@ public class InstanceSwitcherCoordinator {
         int instanceId = clickedItem.instanceId;
         boolean wasSelected = mSelectedItems.contains(instanceId);
 
-        if (UiUtils.isRobustWindowManagementBulkCloseEnabled()) {
-            // Multi-selection is allowed. Toggle the clicked item.
-            if (wasSelected) {
-                mSelectedItems.remove(instanceId);
-            } else {
-                mSelectedItems.add(instanceId);
-            }
+        // Multi-selection is allowed. Toggle the clicked item.
+        if (wasSelected) {
+            mSelectedItems.remove(instanceId);
         } else {
-            // Single-selection. Clear everything, then select if it wasn't selected.
-            mSelectedItems.clear();
-            if (!wasSelected) {
-                mSelectedItems.add(instanceId);
-            }
+            mSelectedItems.add(instanceId);
         }
 
         // Update the UI models to reflect the new selection state.
@@ -661,20 +647,12 @@ public class InstanceSwitcherCoordinator {
         // 1. Update positive button state.
         boolean positiveButtonDisabled = true;
         if (selectionCount > 0) {
-            if (UiUtils.isRobustWindowManagementBulkCloseEnabled()) {
-                if (selectionCount == 1 && mActiveModelList.size() < mMaxInstanceCount) {
-                    positiveButtonDisabled = false;
-                }
-            } else {
-                if (!mIsInactiveListShowing || mActiveModelList.size() < mMaxInstanceCount) {
-                    positiveButtonDisabled = false;
-                }
+            if (selectionCount == 1 && mActiveModelList.size() < mMaxInstanceCount) {
+                positiveButtonDisabled = false;
             }
         }
         mDialog.set(ModalDialogProperties.POSITIVE_BUTTON_DISABLED, positiveButtonDisabled);
 
-        // Return early if Robust Window Management is not enabled.
-        if (!UiUtils.isRobustWindowManagementBulkCloseEnabled()) return;
         // 2. Update title and back button visibility.
         mDialog.set(ModalDialogProperties.TITLE_BACK_BUTTON_VISIBLE, selectionCount > 0);
         String title =
@@ -754,29 +732,19 @@ public class InstanceSwitcherCoordinator {
         if (mNewWindowEnabled) {
             mMaxInfoView.setVisibility(View.GONE);
         } else {
-            String text = mContext.getString(getMaxInfoTextRes(), mMaxInstanceCount - 1);
+            @StringRes
+            int res =
+                    mIsInactiveListShowing
+                            ? R.string.max_number_of_windows_instance_switcher_inactive_tab
+                            : R.string.max_number_of_windows_instance_switcher_active_tab;
+            String text = mContext.getString(res, mMaxInstanceCount - 1);
             mMaxInfoView.setText(text);
             mMaxInfoView.setVisibility(View.VISIBLE);
         }
     }
 
-    private @StringRes int getMaxInfoTextRes() {
-        if (UiUtils.isRobustWindowManagementEnabled()) {
-            return mIsInactiveListShowing
-                    ? R.string.max_number_of_windows_instance_switcher_inactive_tab
-                    : R.string.max_number_of_windows_instance_switcher_active_tab;
-        }
-        return mIsInactiveListShowing
-                ? R.string.max_number_of_windows_instance_switcher_v2_inactive_tab
-                : R.string.max_number_of_windows_instance_switcher_v2_active_tab;
-    }
-
     private boolean shouldAllowNewWindowCreation() {
-        int instanceCount = mActiveModelList.size();
-        if (!UiUtils.isRobustWindowManagementEnabled()) {
-            instanceCount += mInactiveModelList.size();
-        }
-        return instanceCount < mMaxInstanceCount;
+        return mActiveModelList.size() < mMaxInstanceCount;
     }
 
     private void removeInstances(List<Integer> instanceIds) {
@@ -820,14 +788,12 @@ public class InstanceSwitcherCoordinator {
     private static boolean canSkipConfirm(InstanceInfo item) {
         // Unrestorable, invisible instance can be deleted without confirmation.
         if (UiUtils.totalTabCount(item) == 0 && item.type == InstanceInfo.Type.OTHER) return true;
-        return ChromeSharedPreferences.getInstance()
-                .readBoolean(ChromePreferenceKeys.MULTI_INSTANCE_CLOSE_WINDOW_SKIP_CONFIRM, false);
+        return MultiInstancePersistentStore.readCloseWindowSkipConfirm();
     }
 
     @VisibleForTesting
     static void setSkipCloseConfirmation() {
-        ChromeSharedPreferences.getInstance()
-                .writeBoolean(ChromePreferenceKeys.MULTI_INSTANCE_CLOSE_WINDOW_SKIP_CONFIRM, true);
+        MultiInstancePersistentStore.writeCloseWindowSkipConfirm(true);
     }
 
     private void showConfirmationMessage(InstanceInfo item) {
@@ -930,7 +896,6 @@ public class InstanceSwitcherCoordinator {
     }
 
     private void updateMoreMenu() {
-        if (!UiUtils.isRobustWindowManagementBulkCloseEnabled()) return;
         assumeNonNull(mDialog);
 
         // If there are no visible instances in the current list, hide the more menu.

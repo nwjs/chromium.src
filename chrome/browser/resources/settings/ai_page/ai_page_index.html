@@ -25,6 +25,15 @@
     </settings-glic-subpage>
   </template>
 
+   <template is="dom-if" if="[[shouldShowPermissionsPage_(showGlicSettings_,
+        actorLoginFederatedLoginSupportEnabled_)]]">
+    <settings-glic-login-permissions-page slot="view"
+        id="geminiLoginPermissions"
+        data-parent-view-id="gemini" prefs="{{prefs}}"
+        route-path$="[[routes_.GEMINI_LOGIN.path]]">
+    </settings-glic-login-permissions-page>
+  </template>
+
   <template is="dom-if" if="[[showAiPageAiFeatureSection_]]">
     <settings-ai-page slot="view" id="parent" prefs="{{prefs}}">
     </settings-ai-page>
@@ -37,17 +46,17 @@
     </settings-history-search-page>
   </template>
 
+  <template is="dom-if" if="[[enableAiModeSearchSetting_]]">
+    <settings-ai-mode-search-page slot="view" id="aiModeSearch"
+        data-parent-view-id="parent" prefs="{{prefs}}"
+        route-path$="[[routes_.AI_MODE_SEARCH.path]]">
+    </settings-ai-mode-search-page>
+  </template>
+
   <template is="dom-if" if="[[showComposeControl_]]">
     <settings-offer-writing-help-page slot="view" id="compose"
         data-parent-view-id="parent" prefs="{{prefs}}"
         route-path$="[[routes_.OFFER_WRITING_HELP.path]]">
     </settings-offer-writing-help-page>
-  </template>
-
-  <template is="dom-if" if="[[showTabOrganizationControl_]]">
-    <settings-ai-tab-organization-subpage slot="view" id="tabOrganization"
-        data-parent-view-id="parent" prefs="{{prefs}}"
-        route-path$="[[routes_.AI_TAB_ORGANIZATION.path]]">
-    </settings-ai-tab-organization-subpage>
   </template>
 </cr-view-manager>

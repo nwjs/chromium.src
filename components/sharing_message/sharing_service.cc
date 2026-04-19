@@ -86,7 +86,7 @@ std::optional<SharingTargetDeviceInfo> SharingService::GetDeviceByGuid(
 }
 
 SharingService::SharingDeviceList SharingService::GetDeviceCandidates(
-    sync_pb::SharingSpecificFields::EnabledFeatures required_feature) const {
+    syncer::DeviceInfo::SharingFeature required_feature) const {
   return device_source_->GetDeviceCandidates(required_feature);
 }
 
@@ -194,6 +194,7 @@ void SharingService::Shutdown() {
   // and objects that maintain `raw_ptr`s to things owned by other services.
   ResetConnectionToSyncService();
   sharing_device_registration_.reset();
+  send_tab_to_self_scoped_observation_.Reset();
 }
 
 void SharingService::OnSyncShutdown(syncer::SyncService* sync) {
@@ -218,7 +219,7 @@ void SharingService::RegisterDevice() {
 }
 
 void SharingService::RegisterDeviceInTesting(
-    std::set<sync_pb::SharingSpecificFields_EnabledFeatures> enabled_features,
+    std::set<syncer::DeviceInfo::SharingFeature> enabled_features,
     SharingDeviceRegistration::RegistrationCallback callback) {
   sharing_device_registration_->SetEnabledFeaturesForTesting(
       std::move(enabled_features));

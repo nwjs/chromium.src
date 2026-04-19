@@ -6,6 +6,7 @@
 #define COMPONENTS_CONSENT_AUDITOR_CONSENT_AUDITOR_H_
 
 #include "base/memory/weak_ptr.h"
+#include "base/uuid.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/sync/model/data_type_controller_delegate.h"
 #include "components/sync/protocol/user_consent_types.pb.h"
@@ -42,12 +43,21 @@ enum class ConsentStatus { NOT_GIVEN, GIVEN };
 // TODO(markusheintz): Document this class.
 class ConsentAuditor : public KeyedService {
  public:
+  // A Uuid that can optionally be associated with a consent, so multiple
+  // consents can be linked together. See go/ari/integration/sessions.
+  using SessionId = base::Uuid;
+
   ConsentAuditor() = default;
 
   ConsentAuditor(const ConsentAuditor&) = delete;
   ConsentAuditor& operator=(const ConsentAuditor&) = delete;
 
   ~ConsentAuditor() override = default;
+
+  // Generates a `SessionId` to identify a consent.
+  static SessionId GenerateSessionId() {
+    return base::Uuid::GenerateRandomV4();
+  }
 
   // Records the ARC Play |consent| for the signed-in GAIA account with the ID
   // |gaia_id| (as defined in AccountInfo).
@@ -81,6 +91,14 @@ class ConsentAuditor : public KeyedService {
       const GaiaId& gaia_id,
       const sync_pb::UserConsentTypes::RecorderSpeakerLabelConsent&
           consent) = 0;
+
+  // Records the Wallet Private Pass `consent` for the signed-in GAIA
+  // account with the ID `gaia_id` (as defined in Account Info).
+  // The `session_id` is associated with the consent.
+  virtual void RecordWalletPrivatePassConsent(
+      const GaiaId& gaia_id,
+      const SessionId& session_id,
+      const sync_pb::UserConsentTypes::WalletPrivatePassConsent& consent) = 0;
 
   // Returns the underlying Sync integration point.
   virtual base::WeakPtr<syncer::DataTypeControllerDelegate>

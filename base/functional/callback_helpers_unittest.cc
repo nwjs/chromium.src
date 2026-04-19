@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/memory/raw_ref.h"
 #include "base/test/gtest_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -234,9 +235,7 @@ TEST(CallbackHelpersTest, SplitOnceCallback_FirstCallback) {
   std::move(split.first).Run(&count);
   EXPECT_EQ(1, count);
 
-#if GTEST_HAS_DEATH_TEST
   EXPECT_CHECK_DEATH(std::move(split.second).Run(&count));
-#endif  // GTEST_HAS_DEATH_TEST
 }
 
 TEST(CallbackHelpersTest, SplitOnceCallback_SecondCallback) {
@@ -398,6 +397,58 @@ TEST(CallbackHelpersTest, ReturnValueOnce) {
   static_assert(std::is_same_v<decltype(unique_ptr_factory),
                                base::OnceCallback<std::unique_ptr<int>(void)>>);
   EXPECT_EQ(*std::move(unique_ptr_factory).Run(), 42);
+}
+
+TEST(CallbackHelpersTest, DoNothingWithBoundArgs) {
+  class DestructionObserver {
+   public:
+    explicit DestructionObserver(bool& destroyed) : destroyed_(destroyed) {}
+
+    ~DestructionObserver() { *destroyed_ = true; }
+
+   private:
+    const raw_ref<bool> destroyed_;
+  };
+
+  // OnceCallback construction from DoNothingWithBoundArgs.
+  {
+    bool was_destroyed = false;
+    base::OnceCallback<void(int)> cb(
+        base::DoNothingWithBoundArgs(DestructionObserver(was_destroyed)));
+    ASSERT_TRUE(cb);
+    std::move(cb).Run(4);
+    EXPECT_TRUE(was_destroyed);
+  }
+
+  // OnceCallback assignment from DoNothingWithBoundArgs.
+  {
+    bool was_destroyed = false;
+    base::OnceCallback<void(int)> cb;
+    cb = base::DoNothingWithBoundArgs(DestructionObserver(was_destroyed));
+    ASSERT_TRUE(cb);
+    std::move(cb).Run(4);
+    EXPECT_TRUE(was_destroyed);
+  }
+
+  // RepeatingCallback construction from DoNothingWithBoundArgs.
+  {
+    bool was_destroyed = false;
+    base::RepeatingCallback<void(int)> cb(
+        base::DoNothingWithBoundArgs(DestructionObserver(was_destroyed)));
+    ASSERT_TRUE(cb);
+    cb.Run(4);
+    EXPECT_TRUE(was_destroyed);
+  }
+
+  // RepeatingCallback assignment from DoNothingWithBoundArgs.
+  {
+    bool was_destroyed = false;
+    base::RepeatingCallback<void(int)> cb;
+    cb = base::DoNothingWithBoundArgs(DestructionObserver(was_destroyed));
+    ASSERT_TRUE(cb);
+    cb.Run(4);
+    EXPECT_TRUE(was_destroyed);
+  }
 }
 
 }  // namespace

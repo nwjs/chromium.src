@@ -8,6 +8,7 @@
 
 #include "base/notimplemented.h"
 #include "build/build_config.h"
+#include "components/surface_embed/buildflags/buildflags.h"
 #include "content/browser/renderer_host/render_frame_proxy_host.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -22,6 +23,10 @@
 #if BUILDFLAG(IS_MAC)
 #include "content/browser/renderer_host/popup_menu_helper_mac.h"
 #endif
+
+#if BUILDFLAG(ENABLE_SURFACE_EMBED)
+#include "content/browser/surface_embed/surface_embed_connector_impl.h"
+#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
 using blink::DragOperationsMask;
 
@@ -54,22 +59,38 @@ WebContentsView* WebContentsViewChildFrame::GetOuterView() {
     return outer_web_contents->GetView();
   }
 
+#if BUILDFLAG(ENABLE_SURFACE_EMBED)
+  if (auto* surface_embed_connector =
+          web_contents_->GetSurfaceEmbedConnector()) {
+    return static_cast<SurfaceEmbedConnectorImpl*>(surface_embed_connector)
+        ->GetParentWebContentsView();
+  }
+#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
+
   return nullptr;
 }
 
 const WebContentsView* WebContentsViewChildFrame::GetOuterView() const {
-  if (auto* outer_web_contents = web_contents_->GetOuterWebContents()) {
-    return outer_web_contents->GetView();
-  }
-
-  return nullptr;
+  return const_cast<WebContentsViewChildFrame*>(this)->GetOuterView();
 }
 
 RenderViewHostDelegateView* WebContentsViewChildFrame::GetOuterDelegateView() {
-  RenderViewHostImpl* outer_rvh = static_cast<RenderViewHostImpl*>(
-      web_contents_->GetOuterWebContents()->GetRenderViewHost());
-  CHECK(outer_rvh);
-  return outer_rvh->GetDelegate()->GetDelegateView();
+  if (auto* outer_web_contents = web_contents_->GetOuterWebContents()) {
+    RenderViewHostImpl* outer_rvh = static_cast<RenderViewHostImpl*>(
+        outer_web_contents->GetRenderViewHost());
+    CHECK(outer_rvh);
+    return outer_rvh->GetDelegate()->GetDelegateView();
+  }
+
+#if BUILDFLAG(ENABLE_SURFACE_EMBED)
+  if (auto* surface_embed_connector =
+          web_contents_->GetSurfaceEmbedConnector()) {
+    return static_cast<SurfaceEmbedConnectorImpl*>(surface_embed_connector)
+        ->GetParentRenderViewHostDelegateView();
+  }
+#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
+
+  NOTREACHED();
 }
 
 gfx::NativeView WebContentsViewChildFrame::GetNativeView() const {
@@ -237,10 +258,14 @@ void WebContentsViewChildFrame::TakeFocus(bool reverse) {
 void WebContentsViewChildFrame::ShowContextMenu(
     RenderFrameHost& render_frame_host,
     const ContextMenuParams& params) {
+#if BUILDFLAG(IS_ANDROID)
+  return GetOuterDelegateView()->ShowContextMenu(render_frame_host, params);
+#else
   if (delegate_) {
     delegate_->ShowContextMenu(render_frame_host, params);
     // WARNING: we may have been deleted during the call to ShowContextMenu().
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
@@ -264,19 +289,19 @@ void WebContentsViewChildFrame::ShowPopupMenu(
 #endif  // BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
 
 void WebContentsViewChildFrame::StartDragging(
+    RenderFrameHost& source_rfh,
     const DropData& drop_data,
-    const url::Origin& source_origin,
     DragOperationsMask ops,
     const gfx::ImageSkia& image,
     const gfx::Vector2d& cursor_offset,
     const gfx::Rect& drag_obj_rect,
-    const blink::mojom::DragEventSourceInfo& event_info,
-    RenderWidgetHostImpl* source_rwh) {
+    const blink::mojom::DragEventSourceInfo& event_info) {
   if (auto* view = GetOuterDelegateView()) {
-    view->StartDragging(drop_data, source_origin, ops, image, cursor_offset,
-                        drag_obj_rect, event_info, source_rwh);
+    view->StartDragging(source_rfh, drop_data, ops, image, cursor_offset,
+                        drag_obj_rect, event_info);
   } else {
-    web_contents_->GetOuterWebContents()->SystemDragEnded(source_rwh);
+    web_contents_->GetOuterWebContents()->SystemDragEnded(
+        source_rfh.GetRenderWidgetHost());
   }
 }
 

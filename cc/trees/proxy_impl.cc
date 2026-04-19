@@ -330,14 +330,6 @@ void ProxyImpl::MainFrameWillHappenOnImplForTesting(
   completion->Signal();
 }
 
-void ProxyImpl::RequestBeginMainFrameNotExpectedOnImpl(bool new_state) {
-  DCHECK(IsImplThread());
-  DCHECK(scheduler_);
-  TRACE_EVENT1("cc", "ProxyImpl::RequestBeginMainFrameNotExpectedOnImpl",
-               "new_state", new_state);
-  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(new_state);
-}
-
 bool ProxyImpl::IsInSynchronousComposite() const {
   return false;
 }
@@ -577,17 +569,8 @@ void ProxyImpl::RenewTreePriority() {
   // have a scroll listener. This gives the scroll listener a better chance of
   // handling scroll updates within the same frame. The tree itself is still
   // kept in prefer smoothness mode to allow checkerboarding.
-  //
-  // Note: `is_current_scroll_main_painted` does not imply
-  // SCROLL_AFFECTS_SCROLL_HANDLER, as on some platforms we don't attempt to
-  // synchronize non=passive scroll handlers. See `kSynchronizedScrolling`.
-  ScrollHandlerState scroll_handler_state =
-      host_impl_->ScrollAffectsScrollHandler()
-          ? ScrollHandlerState::SCROLL_AFFECTS_SCROLL_HANDLER
-          : ScrollHandlerState::SCROLL_DOES_NOT_AFFECT_SCROLL_HANDLER;
-
-  scheduler_->SetTreePrioritiesAndScrollState(
-      tree_priority, scroll_handler_state, is_current_scroll_main_painted);
+  scheduler_->SetTreePrioritiesAndScrollState(tree_priority,
+                                              is_current_scroll_main_painted);
 }
 
 void ProxyImpl::PostDelayedAnimationTaskOnImplThread(base::OnceClosure task,
@@ -879,21 +862,6 @@ void ProxyImpl::ScheduledActionPerformImplSideInvalidation() {
   host_impl_->InvalidateContentOnImplSide();
 }
 
-void ProxyImpl::SendBeginMainFrameNotExpectedSoon() {
-  DCHECK(IsImplThread());
-  MainThreadTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&ProxyMain::BeginMainFrameNotExpectedSoon,
-                                proxy_main_weak_ptr_));
-}
-
-void ProxyImpl::ScheduledActionBeginMainFrameNotExpectedUntil(
-    base::TimeTicks time) {
-  DCHECK(IsImplThread());
-  MainThreadTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&ProxyMain::BeginMainFrameNotExpectedUntil,
-                                proxy_main_weak_ptr_, time));
-}
-
 void ProxyImpl::OnBeginImplFrameDeadline() {
   DCHECK(IsImplThread());
   host_impl_->OnBeginImplFrameDeadline();
@@ -1019,13 +987,6 @@ void ProxyImpl::QueueImageDecodeOnImpl(int request_id,
 void ProxyImpl::SetSourceURL(ukm::SourceId source_id, const GURL& url) {
   DCHECK(IsImplThread());
   host_impl_->SetActiveURL(url, source_id);
-}
-
-void ProxyImpl::SetUkmDroppedFramesDestination(
-    base::WritableSharedMemoryMapping ukm_dropped_frames_data) {
-  DCHECK(IsImplThread());
-  host_impl_->SetUkmDroppedFramesDestination(
-      std::move(ukm_dropped_frames_data));
 }
 
 void ProxyImpl::ClearHistory() {

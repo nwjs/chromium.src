@@ -147,6 +147,7 @@
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
 #include "third_party/blink/public/mojom/choosers/color_chooser.mojom.h"
 #include "third_party/blink/public/mojom/contacts/contacts_manager.mojom.h"
+#include "third_party/blink/public/mojom/content_extraction/script_tools.mojom.h"
 #include "third_party/blink/public/mojom/content_index/content_index.mojom.h"
 #include "third_party/blink/public/mojom/cookie_store/cookie_store.mojom.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_manager.mojom.h"
@@ -392,12 +393,10 @@ void BindFileUtilitiesHost(
     mojo::PendingReceiver<blink::mojom::FileUtilitiesHost> receiver) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  task_runner->PostTask(FROM_HERE,
-                        base::BindOnce(&FileUtilitiesHostImpl::Create,
-                                       content::ChildProcessId::FromUnsafeValue(
-                                           host->worker_process_id()),
-                                       std::move(receiver)));
+  task_runner->PostTask(
+      FROM_HERE,
+      base::BindOnce(&FileUtilitiesHostImpl::Create, host->worker_process_id(),
+                     std::move(receiver)));
 }
 
 // The following two functions bind the RenderFrameHost ID, the storage key, and
@@ -421,8 +420,9 @@ BindNotificationService(
         auto* process_host =
             static_cast<RenderProcessHostImpl*>(host->GetProcessHost());
         CHECK(process_host);
-        process_host->CreateNotificationService(
-            rfh_id, creator_type, host->GetStorageKey(), std::move(receiver));
+        process_host->CreateNotificationService(rfh_id, creator_type,
+                                                host->GetWorkerStorageKey(),
+                                                std::move(receiver));
       },
       base::Unretained(host), rfh_id, creator_type);
 }
@@ -506,7 +506,8 @@ BindWorkerReceiverForStorageKey(
         auto* process_host =
             static_cast<RenderProcessHostImpl*>(host->GetProcessHost());
         if (process_host)
-          (process_host->*method)(host->GetStorageKey(), std::move(receiver));
+          (process_host->*method)(host->GetWorkerStorageKey(),
+                                  std::move(receiver));
       },
       base::Unretained(host), method);
 }
@@ -528,7 +529,7 @@ BindWorkerReceiverForStorageKeyAndBucketContext(
         auto* process_host =
             static_cast<RenderProcessHostImpl*>(host->GetProcessHost());
         if (process_host)
-          (process_host->*method)(host->GetStorageKey(), *host,
+          (process_host->*method)(host->GetWorkerStorageKey(), *host,
                                   std::move(receiver));
       },
       base::Unretained(host), method);
@@ -742,6 +743,23 @@ void PopulateBinderMapWithContext(
       &EmptyBinderForFrame<blink::mojom::CredentialManager>);
   map->Add<blink::mojom::LCPCriticalPathPredictorHost>(
       &EmptyBinderForFrame<blink::mojom::LCPCriticalPathPredictorHost>);
+  map->Add<blink::mojom::ScriptToolHost>(
+      &EmptyBinderForFrame<blink::mojom::ScriptToolHost>);
+
+  // Currently defined in content/shell/common/shell_switches.h which we cannot
+  // have a DEPS on.
+  constexpr char kExposeInternalsForTesting[] = "expose-internals-for-testing";
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kExposeInternalsForTesting)) {
+    map->Add<blink::mojom::FrameWidgetHost>(base::BindRepeating(
+        [](RenderFrameHost* host,
+           mojo::PendingReceiver<blink::mojom::FrameWidgetHost> receiver) {
+          static_cast<RenderFrameHostImpl*>(host)
+              ->GetRenderWidgetHost()
+              ->BindFrameWidgetHostReceiver(std::move(receiver));
+        }));
+  }
+
   if (base::FeatureList::IsEnabled(network::features::kBrowsingTopics) &&
       base::FeatureList::IsEnabled(
           blink::features::kBrowsingTopicsDocumentAPI)) {
@@ -1281,7 +1299,7 @@ RenderFrameHost* GetContextForHost(RenderFrameHostImpl* host) {
 
 // Dedicated workers
 const url::Origin& GetContextForHost(DedicatedWorkerHost* host) {
-  return host->GetStorageKey().origin();
+  return host->GetWorkerStorageKey().origin();
 }
 
 void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
@@ -1404,7 +1422,7 @@ void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
         auto* process_host = host->GetProcessHost();
         GetContentClient()->browser()->BindTranslationManager(
             process_host, process_host->GetBrowserContext(), host,
-            host->GetStorageKey().origin(), std::move(receiver));
+            host->GetWorkerStorageKey().origin(), std::move(receiver));
       },
       base::Unretained(host)));
   map->Add<language_detection::mojom::ContentLanguageDetectionDriver>(
@@ -1524,7 +1542,7 @@ void PopulateSharedWorkerBinders(SharedWorkerHost* host, mojo::BinderMap* map) {
         auto* process_host = host->GetProcessHost();
         GetContentClient()->browser()->BindTranslationManager(
             process_host, process_host->GetBrowserContext(), host,
-            host->GetStorageKey().origin(), std::move(receiver));
+            host->GetWorkerStorageKey().origin(), std::move(receiver));
       },
       base::Unretained(host)));
   map->Add<language_detection::mojom::ContentLanguageDetectionDriver>(

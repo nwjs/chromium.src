@@ -98,6 +98,10 @@ inline constexpr char kChromeUIContentAnnotatorInternalsURL[] =
 inline constexpr char kChromeUIContextualTasksHost[] = "contextual-tasks";
 inline constexpr char kChromeUIContextualTasksURL[] =
     "chrome://contextual-tasks/";
+#if BUILDFLAG(IS_ANDROID)
+inline constexpr char kChromeUINativeContextualTasksHost[] =
+    "contextual-tasks-page";
+#endif
 inline constexpr char kChromeUIContentSettingsURL[] =
     "chrome://settings/content";
 inline constexpr char16_t kChromeUIContentSettingsURL16[] =
@@ -302,6 +306,10 @@ inline constexpr char kChromeUISyncConfirmationURL[] =
     "chrome://sync-confirmation/";
 inline constexpr char kChromeUISyncInternalsHost[] = "sync-internals";
 inline constexpr char kChromeUISystemInfoHost[] = "system";
+inline constexpr char kChromeUIAiOverlayDialogUntrustedHost[] =
+    "ai-overlay-dialog";
+inline constexpr char kChromeUIAiOverlayDialogUntrustedURL[] =
+    "chrome-untrusted://ai-overlay-dialog/";
 inline constexpr char kChromeUITermsHost[] = "terms";
 inline constexpr char kChromeUITermsURL[] = "chrome://terms/";
 inline constexpr char kChromeUIThemeHost[] = "theme";
@@ -403,9 +411,15 @@ inline constexpr char kChromeUISearchEngineChoiceHost[] =
     "search-engine-choice";
 inline constexpr char kChromeUISearchEngineChoiceURL[] =
     "chrome://search-engine-choice";
+inline constexpr char kChromeUISearchEngineSettingsPath[] = "/searchEngines";
+inline constexpr char kChromeUISearchSettingsPath[] = "/search";
 inline constexpr char kChromeUITabSearchHost[] = "tab-search.top-chrome";
 inline constexpr char kChromeUITabSearchURL[] =
     "chrome://tab-search.top-chrome/";
+inline constexpr char kChromeUITabsFromOtherDevicesSidePanelHost[] =
+    "tabs-from-other-devices.top-chrome";
+inline constexpr char kChromeUITabsFromOtherDevicesSidePanelURL[] =
+    "chrome://tabs-from-other-devices.top-chrome/";
 inline constexpr char kChromeUIUntrustedFeedURL[] = "chrome-untrusted://feed/";
 inline constexpr char kChromeUIUntrustedReadAnythingSidePanelHost[] =
     "read-anything-side-panel.top-chrome";
@@ -465,6 +479,9 @@ inline constexpr char kChromeUIManagedUserProfileNoticeHost[] =
     "managed-user-profile-notice";
 inline constexpr char kChromeUIManagedUserProfileNoticeUrl[] =
     "chrome://managed-user-profile-notice/";
+inline constexpr char kChromeUIManagedUserProfileNoticeRefreshURL[] =
+    "chrome://managed-user-profile-notice/"
+    "managed_user_profile_notice_refresh.html";
 inline constexpr char kChromeUIProfileCustomizationHost[] =
     "profile-customization";
 inline constexpr char kChromeUIProfileCustomizationURL[] =

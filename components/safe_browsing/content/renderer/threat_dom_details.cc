@@ -12,7 +12,6 @@
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -154,7 +153,7 @@ void HandleElement(
     const std::vector<std::string> attributes_to_collect =
         tag_attribute_iter->attributes;
     for (const std::string& attribute : attributes_to_collect) {
-      blink::WebString attr_webstring = blink::WebString::FromASCII(attribute);
+      blink::WebString attr_webstring = blink::WebString::FromAscii(attribute);
       if (!element.HasAttribute(attr_webstring)) {
         continue;
       }
@@ -224,7 +223,7 @@ bool ShouldHandleElement(
   const std::vector<std::string>& valid_attributes =
       tag_attribute_iter->attributes;
   for (const std::string& attribute : valid_attributes) {
-    if (element.HasAttribute(blink::WebString::FromASCII(attribute))) {
+    if (element.HasAttribute(blink::WebString::FromAscii(attribute))) {
       return true;
     }
   }

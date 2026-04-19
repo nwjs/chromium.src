@@ -100,10 +100,10 @@ void HTMLObjectElement::ParseAttribute(
   if (name == html_names::kFormAttr) {
     FormAttributeChanged();
   } else if (name == html_names::kTypeAttr) {
-    SetServiceType(params.new_value.LowerASCII());
+    SetServiceType(params.new_value.ToAsciiLower());
     wtf_size_t pos = service_type_.find(';');
     if (pos != kNotFound)
-      SetServiceType(service_type_.Left(pos));
+      SetServiceType(service_type_.substr(0, pos));
     // TODO(crbug.com/572908): What is the right thing to do here? Should we
     // suppress the reload stuff when a persistable widget-type is specified?
     ReloadPluginOnAttributeChange(name);

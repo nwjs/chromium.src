@@ -28,6 +28,7 @@ source_set("watermark_view_lib") {
 
 executable("watermark_app") {
   testonly = true
+  configs += [ "//components/enterprise:extra_warnings" ]
 
   sources = [
     "example_app.cc",

@@ -28,6 +28,12 @@ enum Scope {
                    // profile label.
 };
 
+// The restriction on the policy source.
+enum PolicySourceRestriction {
+  kSourceRestrictionNone,
+  kSourceRestrictionCloudOnly,
+};
+
 // Contains read-only metadata about a Chrome policy.
 struct POLICY_EXPORT PolicyDetails {
   // True if this policy has been deprecated.
@@ -38,6 +44,9 @@ struct POLICY_EXPORT PolicyDetails {
 
   // The scope of the policy.
   Scope scope;
+
+  // The restriction on the policy source.
+  PolicySourceRestriction source_restriction;
 
   // The id of the protobuf field that contains this policy,
   // in the cloud policy protobuf.
@@ -50,6 +59,10 @@ struct POLICY_EXPORT PolicyDetails {
 
   // Contains tags that describe impact on a user's privacy or security.
   RiskTag risk_tags[kMaxRiskTagCount];
+
+  // True if the policy can be set at both the machine and
+  // user scopes simultaneously.
+  bool uses_local_state_and_profile_prefs : 1;
 };
 
 // A typedef for functions that match the signature of

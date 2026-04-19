@@ -40,6 +40,7 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.util.ColorUtils;
 
@@ -485,6 +486,17 @@ public class OmniboxResourceProvider {
     }
 
     /**
+     * Returns the background color for the toolbar pill for tablets. Because tablets always ignore
+     * any branded theme, can collapse to if incog or not.
+     */
+    public static @ColorInt int getTabletToolbarTextBoxBackgroundColor(
+            Context context, @BrandedColorScheme int brandedColorScheme) {
+        return brandedColorScheme == BrandedColorScheme.INCOGNITO
+                ? context.getColor(R.color.toolbar_text_box_background_incognito)
+                : context.getColor(R.color.toolbar_text_box_bg_color);
+    }
+
+    /**
      * Resolves the attribute based on the current theme.
      *
      * @param context The {@link Context} used to retrieve resources.
@@ -815,8 +827,16 @@ public class OmniboxResourceProvider {
             Context context, @BrandedColorScheme int brandedColorScheme) {
         boolean isIncognito =
                 convertBrandedColorSchemeToIncognitoOrDayNightAdaptive(brandedColorScheme);
+
         @DrawableRes
-        int resId = isIncognito ? R.drawable.menu_bg_tinted_on_dark_bg : R.drawable.menu_bg_tinted;
+        int resId =
+                OmniboxFeatures.sShowBottomSheetPopup.getValue()
+                        ? isIncognito
+                                ? R.drawable.fusebox_popup_bg_tinted_on_dark_bg
+                                : R.drawable.fusebox_popup_bg_tinted
+                        : isIncognito
+                                ? R.drawable.menu_bg_tinted_on_dark_bg
+                                : R.drawable.menu_bg_tinted;
         return getDrawable(context, resId);
     }
 

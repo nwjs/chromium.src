@@ -165,6 +165,8 @@ void PageActionView::OnPageActionModelChanged(
 
 void PageActionView::OnPageActionModelWillBeDeleted(
     const PageActionModelInterface& model) {
+  anchored_message_ = nullptr;
+  anchored_message_widget_ = nullptr;
   observation_.Reset();
   action_item_controller_subscription_ = {};
   SetVisible(false);
@@ -353,11 +355,12 @@ void PageActionView::CreateAndShowAnchoredMessage(
   const std::u16string chip_text(label()->GetText());
 
   if (anchored_message_) {
+    anchored_message_->UpdateContent(model);
     return;
   }
 
   auto message_delegate = std::make_unique<AnchoredMessageBubbleView>(
-      this, model,
+      views::BubbleAnchor(this), model,
       base::BindRepeating(&PageActionView::AnchoredMessageClick,
                           base::Unretained(this)),
       base::BindRepeating(&PageActionView::CloseAnchoredMessage,

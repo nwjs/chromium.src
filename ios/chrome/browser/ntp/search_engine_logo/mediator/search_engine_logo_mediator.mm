@@ -320,6 +320,8 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
     _fingerprint = "";
     [self.containerView setLogoState:self.logoState animated:YES];
     self.containerView.isAccessibilityElement = YES;
+    self.view.hidden = (self.logoState == SearchEngineLogoState::kNone);
+    [self.consumer searchEngineLogoStateDidChange:self.logoState];
   }
 
   if (_defaultSearchProvider) {
@@ -374,7 +376,9 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
       &OnLogoAvailable, weakSelf, searchEngineKeyword, /*from_cache=*/true);
   callbacks.on_fresh_decoded_logo_available = base::BindOnce(
       &OnLogoAvailable, weakSelf, searchEngineKeyword, /*from_cache=*/false);
-  _logoService->GetLogo(std::move(callbacks), false);
+  _logoService->GetLogo(std::move(callbacks),
+                        /*for_webui_ntp=*/false,
+                        /*enable_animated_logo=*/false);
 }
 
 // Handler for taps on the doodle. Navigates the to the doodle's URL.
@@ -472,7 +476,7 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
     return;
   }
 
-  // Animate this view seperately in case the doodle has updated multiple times.
+  // Animate this view separately in case the doodle has updated multiple times.
   // This can happen when a particular doodle cycles thru multiple images.
   __weak __typeof(self) weakSelf = self;
   SearchEngineLogoState logoState = self.logoState;

@@ -56,8 +56,10 @@ class BnplManagerTestApi {
 
   void Reset() { bnpl_manager_->Reset(); }
 
-  void OnIssuerSelected(BnplIssuer selected_issuer) {
-    bnpl_manager_->OnIssuerSelected(selected_issuer);
+  void CancelOngoingRequests() { bnpl_manager_->CancelOngoingRequests(); }
+
+  void OnIssuerAccepted(BnplIssuer selected_issuer) {
+    bnpl_manager_->OnIssuerAccepted(selected_issuer);
   }
 
   BnplManager::OngoingFlowState* GetOngoingFlowState() {
@@ -75,6 +77,14 @@ class BnplManagerTestApi {
     bnpl_manager_->OnRedirectUrlFetched(result, response);
   }
 
+  void OnDidGetLegalMessageFromServer(
+      PaymentsAutofillClient::PaymentsRpcResult result,
+      std::string context_token,
+      LegalMessageLines legal_message) {
+    bnpl_manager_->OnDidGetLegalMessageFromServer(
+        result, std::move(context_token), std::move(legal_message));
+  }
+
   void GetDetailsForUpdateBnplPaymentInstrument() {
     bnpl_manager_->GetDetailsForUpdateBnplPaymentInstrument();
   }
@@ -85,6 +95,23 @@ class BnplManagerTestApi {
 
   bool HasSeenAmountExtractionAiTerms() {
     return bnpl_manager_->HasSeenAmountExtractionAiTerms();
+  }
+
+  void ReplaceLoadingThrobberWithIssuerSuggestions(
+      const std::vector<BnplIssuerContext>& issuer_contexts) {
+    bnpl_manager_->ReplaceLoadingThrobberWithIssuerSuggestions(issuer_contexts);
+  }
+
+  void ReplaceIssuerSuggestionsWithLoadingThrobber() {
+    bnpl_manager_->ReplaceIssuerSuggestionsWithLoadingThrobber();
+  }
+
+  void SetIsCardNumberFieldEmpty(bool is_card_number_field_empty) {
+    bnpl_manager_->is_card_number_field_empty_ = is_card_number_field_empty;
+  }
+
+  void SetCachedSuggestions(std::vector<Suggestion> suggestions) {
+    bnpl_manager_->cached_suggestions_ = std::move(suggestions);
   }
 
  private:

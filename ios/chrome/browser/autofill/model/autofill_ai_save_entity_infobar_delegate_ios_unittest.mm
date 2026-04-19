@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/autofill/model/autofill_ai_save_entity_infobar_delegate_ios.h"
 
 #import "base/functional/callback_helpers.h"
+#import "base/notimplemented.h"
 #import "base/test/task_environment.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #import "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
@@ -46,6 +47,8 @@ class AutofillAiSaveEntityInfoBarDelegateIOSTest
         return test::GetOrderEntityInstance();
       case EntityTypeName::kFlightReservation:
         return test::GetFlightReservationEntityInstance();
+      case EntityTypeName::kShipment:
+        return test::GetShipmentEntityInstance();
     }
     NOTREACHED();
   }
@@ -58,7 +61,7 @@ class AutofillAiSaveEntityInfoBarDelegateIOSTest
 TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetMessageTextSave) {
   EntityInstance entity = GetEntityInstanceForType(GetParam());
   SaveEntityParams params(entity, std::nullopt, kTestUserEmail,
-                          base::DoNothing());
+                          /*bool save_is_synchronous=*/true, base::DoNothing());
   AutofillAiSaveEntityInfoBarDelegateIOS delegate(std::move(params),
                                                   base::DoNothing());
 
@@ -72,7 +75,8 @@ TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetMessageTextSave) {
 // to save the new entity to the device.
 TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetMessageTextUpdate) {
   EntityInstance entity = GetEntityInstanceForType(GetParam());
-  SaveEntityParams params(entity, entity, kTestUserEmail, base::DoNothing());
+  SaveEntityParams params(entity, entity, kTestUserEmail,
+                          /*bool save_is_synchronous=*/true, base::DoNothing());
   AutofillAiSaveEntityInfoBarDelegateIOS delegate(std::move(params),
                                                   base::DoNothing());
 
@@ -84,7 +88,7 @@ TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetMessageTextUpdate) {
 TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetButtonLabelSave) {
   EntityInstance entity = GetEntityInstanceForType(GetParam());
   SaveEntityParams params(entity, std::nullopt, kTestUserEmail,
-                          base::DoNothing());
+                          /*bool save_is_synchronous=*/true, base::DoNothing());
   AutofillAiSaveEntityInfoBarDelegateIOS delegate(std::move(params),
                                                   base::DoNothing());
 
@@ -99,7 +103,8 @@ TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetButtonLabelSave) {
 // Tests that the button labels are correct for the update case.
 TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetButtonLabelUpdate) {
   EntityInstance entity = GetEntityInstanceForType(GetParam());
-  SaveEntityParams params(entity, entity, kTestUserEmail, base::DoNothing());
+  SaveEntityParams params(entity, entity, kTestUserEmail,
+                          /*bool save_is_synchronous=*/true, base::DoNothing());
   AutofillAiSaveEntityInfoBarDelegateIOS delegate(std::move(params),
                                                   base::DoNothing());
 
@@ -116,7 +121,7 @@ TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetButtonLabelUpdate) {
 TEST_P(AutofillAiSaveEntityInfoBarDelegateIOSTest, GetIcon) {
   EntityInstance entity = GetEntityInstanceForType(GetParam());
   SaveEntityParams params(entity, std::nullopt, kTestUserEmail,
-                          base::DoNothing());
+                          /*bool save_is_synchronous=*/true, base::DoNothing());
   AutofillAiSaveEntityInfoBarDelegateIOS delegate(std::move(params),
                                                   base::DoNothing());
 
@@ -134,6 +139,7 @@ INSTANTIATE_TEST_SUITE_P(AllEntityTypes,
                                            EntityTypeName::kNationalIdCard,
                                            EntityTypeName::kKnownTravelerNumber,
                                            EntityTypeName::kRedressNumber,
-                                           EntityTypeName::kFlightReservation));
+                                           EntityTypeName::kFlightReservation,
+                                           EntityTypeName::kShipment));
 
 }  // namespace autofill

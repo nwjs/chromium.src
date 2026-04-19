@@ -11,7 +11,6 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
@@ -53,6 +52,7 @@
 #include "ui/gfx/image/image_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/time/time.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -105,12 +105,14 @@ std::u16string CoreTabHelper::GetStatusText() const {
 void CoreTabHelper::UpdateContentRestrictions(int content_restrictions) {
   content_restrictions_ = content_restrictions;
 #if !BUILDFLAG(IS_ANDROID)
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
   if (!browser) {
     return;
   }
 
-  browser->command_controller()->ContentRestrictionsChanged();
+  browser->GetFeatures()
+      .browser_command_controller()
+      ->ContentRestrictionsChanged();
 #endif
 }
 
@@ -455,9 +457,11 @@ void CoreTabHelper::NavigationEntriesDeleted() {
 void CoreTabHelper::OnWebContentsFocused(
     content::RenderWidgetHost* render_widget_host) {
 #if !BUILDFLAG(IS_ANDROID)
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
   if (browser) {
-    browser->command_controller()->WebContentsFocusChanged();
+    browser->GetFeatures()
+        .browser_command_controller()
+        ->WebContentsFocusChanged();
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -465,9 +469,11 @@ void CoreTabHelper::OnWebContentsFocused(
 void CoreTabHelper::OnWebContentsLostFocus(
     content::RenderWidgetHost* render_widget_host) {
 #if !BUILDFLAG(IS_ANDROID)
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
   if (browser) {
-    browser->command_controller()->WebContentsFocusChanged();
+    browser->GetFeatures()
+        .browser_command_controller()
+        ->WebContentsFocusChanged();
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 }

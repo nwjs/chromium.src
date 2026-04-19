@@ -12,8 +12,6 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,27 +70,18 @@ final class ExtensionWindowControllerBridgeImpl implements ExtensionWindowContro
         sExtensionInternalEventsForTesting.put(extensionWindowId, events);
     }
 
-    private final ChromeAndroidTask mChromeAndroidTask;
-
-    private final Profile mProfile;
-
     private long mNativeExtensionWindowControllerBridge;
 
-    ExtensionWindowControllerBridgeImpl(ChromeAndroidTask chromeAndroidTask, Profile profile) {
-        mChromeAndroidTask = chromeAndroidTask;
-        mProfile = profile;
-    }
+    ExtensionWindowControllerBridgeImpl() {}
 
     @Override
-    public void onAddedToTask() {
+    public void onAddedToTask(long nativeBrowserWindowPtr) {
         assert mNativeExtensionWindowControllerBridge == 0
                 : "ExtensionWindowControllerBridge is already added to a task.";
 
         mNativeExtensionWindowControllerBridge =
                 ExtensionWindowControllerBridgeImplJni.get()
-                        .create(
-                                /* caller= */ this,
-                                mChromeAndroidTask.getOrCreateNativeBrowserWindowPtr(mProfile));
+                        .create(/* caller= */ this, nativeBrowserWindowPtr);
     }
 
     @Override

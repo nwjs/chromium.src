@@ -41,7 +41,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_mojo_handle.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_offscreen_canvas.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_readable_stream.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_string_resource.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_float16array_float32array_uint8clampedarray.h"
 #include "third_party/blink/renderer/core/context_features/context_feature_settings.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -224,6 +223,20 @@ TEST(V8ScriptValueSerializerTest, DeserializationErrorReturnsNull) {
       V8ScriptValueDeserializer(script_state, invalid).Deserialize();
   EXPECT_TRUE(result->IsNull());
   EXPECT_FALSE(scope.GetExceptionState().HadException());
+}
+
+TEST(V8ScriptValueSerializerTest, DeserializationErrorSetsHasError) {
+  test::TaskEnvironment task_environment;
+  V8TestingScope scope;
+  // This is a fundamentally invalid serialized payload.
+  scoped_refptr<SerializedScriptValue> serialized_script_value =
+      SerializedScriptValue::Create(
+          base::span<const uint8_t>({0xFF, 0xFF, 0xFF}));
+  SerializedScriptValue::DeserializeOptions options;
+  V8ScriptValueDeserializer deserializer(scope.GetScriptState(),
+                                         serialized_script_value, options);
+  deserializer.Deserialize();
+  EXPECT_TRUE(deserializer.HasError());
 }
 
 TEST(V8ScriptValueSerializerTest, DetachHappensAfterSerialization) {

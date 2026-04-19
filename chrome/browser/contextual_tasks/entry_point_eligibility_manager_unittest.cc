@@ -49,9 +49,10 @@ class MockContextualTasksUiService : public ContextualTasksUiService {
                                ContextualTasksService* contextual_tasks_service,
                                signin::IdentityManager* identity_manager)
       : ContextualTasksUiService(profile,
+                                 /*delegate=*/nullptr,
                                  contextual_tasks_service,
                                  identity_manager,
-                                 nullptr) {}
+                                 /*aim_eligibility_service=*/nullptr) {}
   ~MockContextualTasksUiService() override = default;
 
   MOCK_METHOD(bool, IsSignedInToBrowserWithValidCredentials, (), (override));
@@ -171,6 +172,7 @@ TEST_F(EntryPointEligibilityManagerTest, AreEntryPointsEligible_True) {
 
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = true;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())
@@ -190,6 +192,7 @@ TEST_F(EntryPointEligibilityManagerTest, AreEntryPointsEligible_NotSignedIn) {
 
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = true;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())
@@ -213,6 +216,7 @@ TEST_F(EntryPointEligibilityManagerTest, AreEntryPointsEligible_CookieMissing) {
 
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = true;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())
@@ -239,6 +243,7 @@ TEST_F(EntryPointEligibilityManagerTest,
   // Feature disabled.
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = false;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())
@@ -264,6 +269,7 @@ TEST_F(EntryPointEligibilityManagerTest, AreEntryPointsEligible_AimNotAllowed) {
 
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = true;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())
@@ -299,6 +305,7 @@ TEST_F(EntryPointEligibilityManagerTest,
       .WillRepeatedly(Return(true));
   FeatureEligibility eligibility;
   eligibility.contextual_tasks_enabled = true;
+  eligibility.cobrowse_eligible = true;
   eligibility.aim_eligible = true;
   eligibility.context_sharing_enabled = true;
   EXPECT_CALL(*mock_contextual_tasks_service_, GetFeatureEligibility())

@@ -48,6 +48,9 @@ class TabInterface;
 }  // namespace tabs
 
 namespace actor {
+
+struct TaskSourceInfo;
+
 template <typename T>
 auto UiEventDispatcherCallback(
     base::RepeatingCallback<mojom::ActionResultPtr()> result_fn) {
@@ -59,13 +62,8 @@ auto UiEventDispatcherCallback(
 }
 
 using ActResultFuture =
-    base::test::TestFuture<mojom::ActionResultPtr,
-                           std::optional<size_t>,
-                           std::vector<ActionResultWithLatencyInfo>>;
-using PerformActionsFuture =
-    base::test::TestFuture<mojom::ActionResultCode,
-                           std::optional<size_t>,
-                           std::vector<ActionResultWithLatencyInfo>>;
+    base::test::TestFuture<std::vector<ActionResultWithLatencyInfo>>;
+using PerformActionsFuture = ActResultFuture;
 
 /////////////////////////
 // Proto action makers
@@ -221,6 +219,10 @@ std::unique_ptr<ToolRequest> MakeAttemptLoginRequest(
     tabs::TabInterface& tab,
     std::optional<PageTarget> password_button = std::nullopt,
     std::optional<PageTarget> sign_in_with_google_button = std::nullopt);
+std::unique_ptr<ToolRequest> MakeAttemptLoginRequestByNodeIds(
+    tabs::TabInterface& tab,
+    std::optional<int> password_button_id,
+    std::optional<int> sign_in_with_google_button_id);
 std::unique_ptr<ToolRequest> MakeScriptToolRequest(
     content::RenderFrameHost& rfh,
     const std::string& name,
@@ -254,9 +256,6 @@ void ExpectOkResult(const mojom::ActionResult& result);
 void ExpectOkResult(base::test::TestFuture<mojom::ActionResultPtr>& future);
 void ExpectOkResult(ActResultFuture& future);
 void ExpectErrorResult(ActResultFuture& future,
-                       mojom::ActionResultCode expected_code);
-void ExpectOkResult(PerformActionsFuture& future);
-void ExpectErrorResult(PerformActionsFuture& future,
                        mojom::ActionResultCode expected_code);
 
 // Sets up GLIC_ACTION_PAGE_BLOCK to block the given host via component updater.
@@ -315,7 +314,7 @@ class ActorTaskStateWaiter {
   ~ActorTaskStateWaiter();
 
  private:
-  void StateChanged(TaskId task_id, ActorTask::State state);
+  void StateChanged(ActorTask& task);
 
   base::OnceClosure callback_;
   TaskId task_id_;
@@ -346,6 +345,9 @@ class MockPolicyChecker : public EnterprisePolicyUrlChecker {
 // Returns a passthrough EnterprisePolicyUrlChecker tests can use to avoid
 // policy checks.
 const EnterprisePolicyUrlChecker* NoEnterprisePolicyChecker();
+
+// Returns a common mock TaskSourceInfo used by actor tests.
+const TaskSourceInfo& TestTaskSourceInfo();
 
 // Helper struct for unit tests that require a mock TabInterface and its
 // associated ActorTabData.

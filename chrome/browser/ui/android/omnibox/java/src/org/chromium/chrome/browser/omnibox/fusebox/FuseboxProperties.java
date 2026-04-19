@@ -6,8 +6,12 @@ package org.chromium.chrome.browser.omnibox.fusebox;
 
 import android.graphics.Bitmap;
 
+import androidx.annotation.IntDef;
+
+import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -15,9 +19,20 @@ import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /** The properties associated with the Fusebox bar. */
 @NullMarked
 class FuseboxProperties {
+    @IntDef({PopupButtonType.ATTACHMENT, PopupButtonType.TOOL, PopupButtonType.MODEL})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PopupButtonType {
+        int ATTACHMENT = 0;
+        int TOOL = 1;
+        int MODEL = 2;
+    }
+
     /** Encapsulates the state for a button in the Fusebox popup. */
     public static class PopupButtonData {
         public final Runnable onClicked;
@@ -25,14 +40,24 @@ class FuseboxProperties {
         public final /*IconResourceIds*/ int iconId;
         public final boolean enabled;
         public final boolean selected;
+        public final @PopupButtonType int type;
+        public final int protoId;
 
         public PopupButtonData(
-                Runnable onClicked, String text, int iconId, boolean enabled, boolean selected) {
-            this.onClicked = onClicked;
+                Callback<PopupButtonData> onClicked,
+                String text,
+                int iconId,
+                boolean enabled,
+                boolean selected,
+                @PopupButtonType int type,
+                int protoId) {
+            this.onClicked = onClicked.bind(this);
             this.text = text;
             this.iconId = iconId;
             this.enabled = enabled;
             this.selected = selected;
+            this.type = type;
+            this.protoId = protoId;
         }
     }
 
@@ -42,10 +67,6 @@ class FuseboxProperties {
 
     /** Whether the add button is visible. */
     public static final WritableBooleanPropertyKey ADD_BUTTON_VISIBLE =
-            new WritableBooleanPropertyKey();
-
-    /** Whether the attachments toolbar is visible. */
-    public static final WritableBooleanPropertyKey ATTACHMENTS_TOOLBAR_VISIBLE =
             new WritableBooleanPropertyKey();
 
     /** Whether the attachments RecyclerView is visible. */
@@ -68,8 +89,9 @@ class FuseboxProperties {
     public static final WritableObjectPropertyKey<@BrandedColorScheme Integer> COLOR_SCHEME =
             new WritableObjectPropertyKey<>();
 
-    /** Whether the UI is in compact mode. */
-    public static final WritableBooleanPropertyKey COMPACT_UI = new WritableBooleanPropertyKey();
+    /** The state the the UI of the fusebox should currently be in. */
+    public static final WritableObjectPropertyKey<@FuseboxState Integer> FUSEBOX_STATE =
+            new WritableObjectPropertyKey<>();
 
     /** Action to perform when the user clicks the Camera button in the popup. */
     public static final WritableObjectPropertyKey<Runnable> POPUP_ATTACH_CAMERA_CLICKED =
@@ -229,13 +251,12 @@ class FuseboxProperties {
         // go/keep-sorted start
         ADAPTER,
         ADD_BUTTON_VISIBLE,
-        ATTACHMENTS_TOOLBAR_VISIBLE,
         ATTACHMENTS_VISIBLE,
         AUTOCOMPLETE_REQUEST_TYPE,
         AUTOCOMPLETE_REQUEST_TYPE_CLICKED,
         BUTTON_ADD_CLICKED,
         COLOR_SCHEME,
-        COMPACT_UI,
+        FUSEBOX_STATE,
         POPUP_ATTACH_CAMERA_CLICKED,
         POPUP_ATTACH_CAMERA_ENABLED,
         POPUP_ATTACH_CAMERA_VISIBLE,

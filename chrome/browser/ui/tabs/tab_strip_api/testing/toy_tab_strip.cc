@@ -15,13 +15,13 @@ ToyTabStrip::ToyTabStrip()
   GetNextId();
 }
 
-ToyTab ToyTabStrip::GetToyTabFor(tabs::TabHandle handle) const {
+std::optional<ToyTab> ToyTabStrip::GetToyTabFor(tabs::TabHandle handle) const {
   for (auto& tab : root_.tabs) {
     if (tab.tab_handle == handle) {
       return tab;
     }
   }
-  NOTREACHED() << "unknown handle passed in";
+  return std::nullopt;
 }
 
 void ToyTabStrip::AddTab(ToyTab tab) {
@@ -37,11 +37,17 @@ std::vector<tabs::TabHandle> ToyTabStrip::GetTabs() {
 }
 
 void ToyTabStrip::CloseTab(size_t index) {
-  if (index < 0 || index >= root_.tabs.size()) {
+  if (index >= root_.tabs.size()) {
     LOG(FATAL) << "invalid idx passed in: " << index
                << ", tab size is: " << root_.tabs.size();
   }
   root_.tabs.erase(root_.tabs.begin() + index);
+}
+
+void ToyTabStrip::CloseTabGroup(const tab_groups::TabGroupId& group_id) {
+  std::erase_if(root_.tabs, [&group_id](const ToyTab& tab) {
+    return tab.group_id == group_id;
+  });
 }
 
 std::optional<int> ToyTabStrip::GetIndexForHandle(tabs::TabHandle tab_handle) {
@@ -112,8 +118,13 @@ std::optional<tab_groups::TabGroupId> ToyTabStrip::GetGroupIdFor(
 
 tabs::TabCollectionHandle ToyTabStrip::AddGroup(
     const tab_groups::TabGroupVisualData& visual_data) {
-  ToyTabGroupData new_group{tab_groups::TabGroupId::GenerateNew(),
-                            tabs::TabCollectionHandle(GetNextId()),
+  return AddGroup(tab_groups::TabGroupId::GenerateNew(), visual_data);
+}
+
+tabs::TabCollectionHandle ToyTabStrip::AddGroup(
+    const tab_groups::TabGroupId& group_id,
+    const tab_groups::TabGroupVisualData& visual_data) {
+  ToyTabGroupData new_group{group_id, tabs::TabCollectionHandle(GetNextId()),
                             visual_data};
   auto handle = new_group.handle;
   groups_with_visuals_.push_back(std::move(new_group));
@@ -151,6 +162,42 @@ void ToyTabStrip::SetTabSelection(std::set<tabs::TabHandle> selection) {
   for (auto& tab : root_.tabs) {
     tab.selected = selection.contains(tab.tab_handle);
   }
+}
+
+std::optional<tab_groups::TabGroupId> ToyTabStrip::GetTabGroupForTab(
+    int index) const {
+  if (index < 0 || static_cast<size_t>(index) >= root_.tabs.size()) {
+    return std::nullopt;
+  }
+  return root_.tabs[index].group_id;
+}
+
+tabs::TabCollectionHandle ToyTabStrip::GetCollectionHandleForTabGroupId(
+    tab_groups::TabGroupId group_id) const {
+  for (const auto& group : groups_with_visuals_) {
+    if (group.id == group_id) {
+      return group.handle;
+    }
+  }
+  return tabs::TabCollectionHandle::Null();
+}
+
+tabs::TabCollectionHandle ToyTabStrip::GetCollectionHandleForSplitTabId(
+    split_tabs::SplitTabId split_id) const {
+  for (const auto& split : splits_) {
+    if (split.id == split_id) {
+      return split.handle;
+    }
+  }
+  return tabs::TabCollectionHandle::Null();
+}
+
+tabs::TabCollectionHandle ToyTabStrip::AddSplit(
+    split_tabs::SplitTabId split_id) {
+  ToySplitTabData new_split{split_id, tabs::TabCollectionHandle(GetNextId())};
+  auto handle = new_split.handle;
+  splits_.push_back(std::move(new_split));
+  return handle;
 }
 
 }  // namespace tabs_api::testing

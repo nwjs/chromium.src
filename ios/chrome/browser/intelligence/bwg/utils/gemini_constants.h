@@ -22,8 +22,7 @@ enum class EntryPoint {
   AIHub = 2,
   // Gemini was opened directly from the Omnibox chip, skipping the AI Hub.
   OmniboxChip = 3,
-  // Gemini was opened via re opening a tab that had Gemini open.
-  TabReopen = 4,
+  // TabReopen = 4, // Deprecated, no longer used.
   // Gemini was opened from the AppBar.
   AppBar = 5,
   // Gemini was opened via the image long-press context menu.
@@ -32,7 +31,9 @@ enum class EntryPoint {
   ImageRemixIPH = 7,
   // Gemini was opened via the edit menu to explain the selection.
   EditMenu = 8,
-  kMaxValue = EditMenu,
+  // Gemini was opened directly from the omnibox badge, skipping the AI Hub.
+  DirectOmniboxBadge = 9,
+  kMaxValue = DirectOmniboxBadge,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiEntryPoint)
 
@@ -57,7 +58,8 @@ enum class FloatyUpdateSource {
   Banner = 12,
   Keyboard = 13,
   GestureIph = 14,
-  kMaxValue = GestureIph,
+  SearchRelatedPage = 15,
+  kMaxValue = SearchRelatedPage,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiFloatyUpdateSource)
 
@@ -103,7 +105,28 @@ enum class GenAiDefaultSettingsPolicy {
   // Do not allow GenAI features.
   kNotAllowed = 2,
 };
+
+// Current state of the Gemini FRE.
+// LINT.IfChange(FREState)
+enum class FREState {
+  // Initial state, when the flow was never started by the user.
+  kPending = 0,
+  // The FRE flow was shown to the user but they did not proceed til the end and
+  // give their explicit consent to Gemini usage.
+  kStarted = 1,
+  // The user completed the FRE flow and gave their consent to Gemini usage.
+  kCompleted = 2,
+  kMaxValue = kCompleted
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiFREState)
+
 }  // namespace gemini
+
+// Types of Gemini First Run Experience (FRE).
+enum class GeminiFREType {
+  kNewUser,
+  kLive,
+};
 
 // Set of parameters for starting a Gemini session.
 @interface GeminiStartupState : NSObject
@@ -151,6 +174,9 @@ extern const char kFootnoteLinkURLManagedAccount[];
 extern const char kSecondBoxLinkURLManagedAccount[];
 extern const char kSecondBoxLink1URLNonManagedAccount[];
 extern const char kSecondBoxLink2URLNonManagedAccount[];
+extern const char kLivePrivacyNoticeLinkURL[];
+extern const char kLiveLearnMoreLinkURL[];
+extern const char kLivePrivacyPolicyLinkURL[];
 
 // Action identifier on a tap on links in the footnote.
 extern NSString* const kGeminiFirstFootnoteLinkAction;
@@ -159,6 +185,9 @@ extern NSString* const kGeminiFootnoteLinkActionManagedAccount;
 extern NSString* const kGeminiSecondBoxLinkActionManagedAccount;
 extern NSString* const kGeminiSecondBoxLink1ActionNonManagedAccount;
 extern NSString* const kGeminiSecondBoxLink2ActionNonManagedAccount;
+extern NSString* const kGeminiLivePrivacyNoticeLinkAction;
+extern NSString* const kGeminiLiveLearnMoreLinkAction;
+extern NSString* const kGeminiLivePrivacyPolicyLinkAction;
 
 // The sliding window for displaying a Gemini contextual cue chip. Chips are
 // shown within this time range (in hours) relative to the last chip that was

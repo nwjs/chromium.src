@@ -160,6 +160,8 @@ class AwMetricsServiceClient
   // was given).
   metrics::MetricsService* GetMetricsServiceIfStarted();
 
+  // This should only be called after Initialize().
+  PrefService* GetLocalState() const;
   // MetricsServiceClient:
   variations::SyntheticTrialRegistry* GetSyntheticTrialRegistry() override;
   metrics::MetricsService* GetMetricsService() override;
@@ -290,7 +292,7 @@ class AwMetricsServiceClient
   base::ScopedMultiSourceObservation<content::RenderProcessHost,
                                      content::RenderProcessHostObserver>
       host_observation_{this};
-  raw_ptr<PrefService> pref_service_ = nullptr;
+  raw_ptr<PrefService> local_state_ = nullptr;
   bool init_finished_ = false;
   bool set_consent_finished_ = false;
   bool user_consent_ = false;

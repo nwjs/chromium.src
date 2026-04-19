@@ -240,6 +240,8 @@ void SingleThreadProxy::DoCommit(const viz::BeginFrameArgs& commit_args) {
   devtools_instrumentation::ScopedCommitTrace commit_task(
       layer_tree_host_->GetId(), commit_args.frame_id.sequence_number);
 
+  layer_tree_host_->WillBeginImplCommit();
+
   // Commit immediately.
   DebugScopedSetMainThreadBlocked main_thread_blocked(task_runner_provider_);
   DebugScopedSetImplThread impl(task_runner_provider_);
@@ -752,11 +754,6 @@ void SingleThreadProxy::FrameSinksToThrottleUpdated(
 
 void SingleThreadProxy::RequestBeginMainFrameNotExpected(bool new_state) {
   DCHECK(task_runner_provider_->IsMainThread());
-  if (scheduler_on_impl_thread_) {
-    DebugScopedSetImplThread impl(task_runner_provider_);
-    scheduler_on_impl_thread_->SetMainThreadWantsBeginMainFrameNotExpected(
-        new_state);
-  }
 }
 
 viz::BeginFrameArgs SingleThreadProxy::BeginImplFrameForTest(
@@ -947,11 +944,6 @@ void SingleThreadProxy::SetSourceURL(ukm::SourceId source_id, const GURL& url) {
   // need to record UKM in that case.
 }
 
-void SingleThreadProxy::SetUkmDroppedFramesDestination(
-    base::WritableSharedMemoryMapping ukm_smoothness_data) {
-  DCHECK(task_runner_provider_->IsMainThread());
-}
-
 void SingleThreadProxy::ClearHistory() {
   DCHECK(task_runner_provider_->IsImplThread());
   if (scheduler_on_impl_thread_)
@@ -1055,23 +1047,6 @@ void SingleThreadProxy::FrameIntervalUpdated(base::TimeDelta interval) {
 
 void SingleThreadProxy::OnBeginImplFrameDeadline() {
   host_impl_->OnBeginImplFrameDeadline();
-}
-
-void SingleThreadProxy::SendBeginMainFrameNotExpectedSoon() {
-  // DebugScopedSetImplThread here is just a formality; all SchedulerClient
-  // methods should have it.
-  DebugScopedSetImplThread impl(task_runner_provider_);
-  DebugScopedSetMainThread main(task_runner_provider_);
-  layer_tree_host_->BeginMainFrameNotExpectedSoon();
-}
-
-void SingleThreadProxy::ScheduledActionBeginMainFrameNotExpectedUntil(
-    base::TimeTicks time) {
-  // DebugScopedSetImplThread here is just a formality; all SchedulerClient
-  // methods should have it.
-  DebugScopedSetImplThread impl(task_runner_provider_);
-  DebugScopedSetMainThread main(task_runner_provider_);
-  layer_tree_host_->BeginMainFrameNotExpectedUntil(time);
 }
 
 void SingleThreadProxy::BeginMainFrame(
@@ -1187,7 +1162,6 @@ void SingleThreadProxy::DoPainting() {
   layer_tree_host_->UpdateLayers();
   update_layers_requested_ = false;
 
-  layer_tree_host_->WillBeginImplCommit();
   std::unique_ptr<BeginMainFrameMetrics> begin_main_frame_metrics =
       layer_tree_host_->TakeBeginMainFrameMetrics();
   host_impl_->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,

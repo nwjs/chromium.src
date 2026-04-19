@@ -11,13 +11,13 @@
 #include "ash/public/cpp/app_menu_constants.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
 #include "chrome/browser/ash/app_list/app_context_menu_delegate.h"
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ash/app_list/chrome_app_list_model_updater.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
@@ -157,7 +157,7 @@ const gfx::VectorIcon& AppContextMenu::GetMenuItemVectorIcon(int command_id,
                       "added to the model by NotificationMenuController.";
     case ash::SHUTDOWN_GUEST_OS:
     case ash::SHUTDOWN_BRUSCHETTA_OS:
-      return kShutdownGuestOsIcon;
+      return ash::kShutdownGuestOsIcon;
     default:
       NOTREACHED() << "No icon for command_id: " << command_id;
   }

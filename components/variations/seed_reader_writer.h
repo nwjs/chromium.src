@@ -31,8 +31,8 @@ class EntropyProviders;
 // Trial and group names for the seed file experiment.
 const char kSeedFileTrial[] = "SeedFileTrial";
 const char kDefaultGroup[] = "Default";
-const char kControlGroup[] = "Control_V8";
-const char kSeedFilesGroup[] = "SeedFiles_V8";
+const char kControlGroup[] = "Control_V10";
+const char kSeedFilesGroup[] = "SeedFiles_V10";
 
 // A sentinel value that may be stored as the latest variations seed value in
 // to indicate that the latest seed is identical to the safe seed. Used to avoid
@@ -47,6 +47,7 @@ struct COMPONENT_EXPORT(VARIATIONS) SeedInfo {
            base::Time seed_date,
            base::Time client_fetch_time,
            std::string_view session_country_code,
+           std::string_view session_geo_level1,
            std::string_view permanent_country_code,
            std::string_view permanent_country_version);
   ~SeedInfo();
@@ -67,6 +68,10 @@ struct COMPONENT_EXPORT(VARIATIONS) SeedInfo {
   // Latest country code fetched from the server. Used for evaluating session
   // consistency studies.
   const std::string session_country_code;
+  // Latest administrative area code fetched from the server. Mirrors the
+  // `session_country_code` field, but is not currently used for evaluating
+  // studies.
+  const std::string session_geo_level1;
   // Country code used for evaluating permanent consistency studies.
   const std::string permanent_country_code;
   // Chrome version at the time `permanent_country_code` was updated.
@@ -83,6 +88,7 @@ struct ValidatedSeedInfo {
   const base::Time seed_date;
   const base::Time client_fetch_time;
   const std::string_view session_country_code;
+  const std::string_view session_geo_level1;
   const std::string_view permanent_country_code;
   const std::string_view permanent_country_version;
 };
@@ -94,6 +100,8 @@ struct SeedFieldsPrefs {
   const char* seed_date;
   const char* client_fetch_time;
   const char* session_country_code;
+  // `session_geo_level1` may be null.
+  const char* session_geo_level1;
   const char* permanent_country_code_version;
 };
 

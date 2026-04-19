@@ -14,7 +14,9 @@
 
 #include "base/check.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
@@ -127,22 +129,65 @@ std::optional<std::string> GetModelResponsePrefix(
 
 }  // namespace
 
-// Handles sending and canceling responses.
+// Handles sending and canceling responses. Created and destroyed on the
+// owning sequence. The output callback returned by CreateOutputFn() is invoked
+// on the model thread; it posts results back to the owning sequence.
 class Responder final {
  public:
   explicit Responder(
       mojo::PendingRemote<on_device_model::mojom::StreamingResponder> responder,
       base::OnceClosure on_complete,
-      SessionAccessor::Ptr session)
+      SessionAccessor::Ptr session,
+      base::RepeatingClosure on_tool_calls_emitted)
       : responder_(std::move(responder)),
         session_(std::move(session)),
-        on_complete_(std::move(on_complete)) {
+        on_complete_(std::move(on_complete)),
+        on_tool_calls_emitted_(std::move(on_tool_calls_emitted)) {
     responder_.set_disconnect_handler(
         base::BindOnce(&Responder::Cancel, base::Unretained(this)));
   }
   ~Responder() { Cancel(); }
 
+  const perfetto::Track& perfetto_id() { return perfetto_id_; }
+
   ChromeMLCancelFn* GetCancelFn() { return &cancel_; }
+
+  // Converts tool calls from the ChromeML C API output to Mojo and posts
+  // them to the owning sequence. Called on the model thread.
+  static void HandleToolCallOutput(base::WeakPtr<Responder> weak_ptr,
+                                   base::SequencedTaskRunner* task_runner,
+                                   const ChromeMLExecutionOutput* output) {
+    // SAFETY: `tool_calls_size` describes the size of `tool_calls`.
+    auto tool_calls_span =
+        UNSAFE_BUFFERS(base::span(output->tool_calls, output->tool_calls_size));
+    std::vector<on_device_model::mojom::ToolCallPtr> mojo_tool_calls;
+    mojo_tool_calls.reserve(output->tool_calls_size);
+    for (const auto& call : tool_calls_span) {
+      if (!call.call_id || !call.name || !call.arguments_json) {
+        LOG(ERROR) << "Invalid tool call: missing call_id, name, or arguments.";
+        task_runner->PostTask(FROM_HERE,
+                              base::BindOnce(&Responder::Cancel, weak_ptr));
+        return;
+      }
+      auto tc = on_device_model::mojom::ToolCall::New();
+      tc->call_id = call.call_id;
+      tc->name = call.name;
+      auto parsed =
+          base::JSONReader::Read(call.arguments_json, base::JSON_PARSE_RFC);
+      if (!parsed.has_value() || !parsed->is_dict()) {
+        LOG(ERROR) << "Invalid tool call arguments JSON.";
+        task_runner->PostTask(FROM_HERE,
+                              base::BindOnce(&Responder::Cancel, weak_ptr));
+        return;
+      }
+      tc->arguments = std::move(parsed->GetDict());
+      mojo_tool_calls.push_back(std::move(tc));
+    }
+    // Post to the owning sequence since this runs on the model thread.
+    task_runner->PostTask(FROM_HERE,
+                          base::BindOnce(&Responder::OnToolCalls, weak_ptr,
+                                         std::move(mojo_tool_calls)));
+  }
 
   ChromeMLExecutionOutputFn CreateOutputFn() {
     return [weak_ptr = weak_ptr_factory_.GetWeakPtr(),
@@ -151,6 +196,11 @@ class Responder final {
       std::optional<std::string> text;
       switch (output->status) {
         case ChromeMLExecutionStatus::kInProgress:
+          if (output->tool_calls_size > 0) {
+            DCHECK(!output->text);
+            HandleToolCallOutput(weak_ptr, task_runner.get(), output);
+            return;
+          }
           CHECK(output->text);
           text.emplace(output->text);
           break;
@@ -159,10 +209,11 @@ class Responder final {
           break;
         case ChromeMLExecutionStatus::kInvalidConstraint:
           DCHECK(!output->text);
-          // TODO(crbug.com/391919456): Propagate error.
-          if (weak_ptr) {
-            weak_ptr->Cancel();
-          }
+          task_runner->PostTask(
+              FROM_HERE,
+              base::BindOnce(
+                  &Responder::OnError, weak_ptr,
+                  on_device_model::mojom::GenerateError::kInvalidConstraint));
           return;
       }
 
@@ -176,12 +227,31 @@ class Responder final {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
+  void OnError(on_device_model::mojom::GenerateError error) {
+    responder_.ResetWithReason(static_cast<uint32_t>(error), "Error");
+    Cancel();
+  }
+
  private:
+  // Forwards tool calls and notifies that tool responses are now expected.
+  void OnToolCalls(
+      std::vector<on_device_model::mojom::ToolCallPtr> tool_calls) {
+    // Tool calls should only arrive when tool declarations were provided.
+    if (!on_tool_calls_emitted_) {
+      Cancel();
+      return;
+    }
+    responder_->OnToolCalls(std::move(tool_calls));
+    on_tool_calls_emitted_.Run();
+  }
+
   void OnOutput(std::optional<std::string> text) {
     if (text) {
       num_output_tokens_++;
       output_so_far_ += *text;
       if (first_token_time_ == base::TimeTicks()) {
+        // Ends the `TTFT` trace.
+        TRACE_EVENT_END("optimization_guide", perfetto_id());
         first_token_time_ = base::TimeTicks::Now();
       }
 
@@ -189,6 +259,9 @@ class Responder final {
       chunk->text = *text;
       responder_->OnResponse(std::move(chunk));
     } else if (session_) {
+      // Ends the `Decode` trace.
+      TRACE_EVENT_END("optimization_guide", perfetto_id());
+
       // Empty text means the output is finished. Delete the session immediately
       // to free up any resources.
       session_ = nullptr;
@@ -225,6 +298,7 @@ class Responder final {
     }
   }
 
+  perfetto::Track perfetto_id_{reinterpret_cast<uintptr_t>(this)};
   base::ElapsedTimer timer_;
   base::TimeTicks first_token_time_;
   int num_output_tokens_ = 0;
@@ -233,6 +307,7 @@ class Responder final {
   SessionAccessor::Ptr session_;
   ChromeMLCancelFn cancel_;
   base::OnceClosure on_complete_;
+  base::RepeatingClosure on_tool_calls_emitted_;
   base::WeakPtrFactory<Responder> weak_ptr_factory_{this};
 };
 
@@ -303,6 +378,8 @@ class ContextHolder final {
     }
   }
 
+  const perfetto::Track& perfetto_id() { return perfetto_id_; }
+
   ChromeMLCancelFn* GetCancelFn() { return &cancel_; }
 
   ChromeMLContextSavedFn CreateContextSavedFn() {
@@ -315,6 +392,8 @@ class ContextHolder final {
 
  private:
   void OnComplete(int tokens_processed) {
+    // Ends the `Prefill` trace.
+    TRACE_EVENT_END("optimization_guide", perfetto_id());
     TRACE_EVENT("optimization_guide", "ContextHolder::OnComplete");
     if (tokens_processed > 0) {
       base::UmaHistogramCounts10000("OnDeviceModel.TokenCount.Context",
@@ -340,6 +419,7 @@ class ContextHolder final {
     // this may be deleted.
   }
 
+  perfetto::Track perfetto_id_{reinterpret_cast<uintptr_t>(this)};
   base::ElapsedTimer timer_;
   mojo::Remote<on_device_model::mojom::ContextClient> client_;
   base::OnceCallback<void(ContextHolder*)> on_disconnect_;
@@ -437,6 +517,20 @@ void SessionImpl::Append(
     base::OnceClosure on_complete) {
   TRACE_EVENT("optimization_guide", "SessionImpl::Append");
   model_response_prefix_ = GetModelResponsePrefix(options->input->pieces);
+  // Scan input pieces for tool declarations and responses.
+  for (const auto& piece : options->input->pieces) {
+    if (has_tool_declarations_ && !awaiting_tool_responses_) {
+      break;
+    }
+    if (std::holds_alternative<ml::ToolDeclaration>(piece)) {
+      has_tool_declarations_ = true;
+    }
+    if (std::holds_alternative<ml::ToolResponse>(piece)) {
+      // TODO(crbug.com/422803232): Tally expected tool responses and validate
+      // call_ids instead of clearing on any tool response.
+      awaiting_tool_responses_ = false;
+    }
+  }
   auto context_holder = std::make_unique<ContextHolder>(
       std::move(client),
       base::BindOnce(&SessionImpl::RemoveContext, base::Unretained(this)),
@@ -444,10 +538,15 @@ void SessionImpl::Append(
   if (options->max_tokens == 0 || options->max_tokens > max_tokens_) {
     options->max_tokens = max_tokens_;
   }
+
   ChromeMLContextSavedFn context_saved_fn =
       context_holder->CreateContextSavedFn();
-  *context_holder->GetCancelFn() =
-      session_->Append(std::move(options), context_saved_fn);
+
+  TRACE_EVENT_BEGIN("optimization_guide", "Prefill",
+                    context_holder->perfetto_id());
+  *context_holder->GetCancelFn() = session_->Append(
+      context_holder->perfetto_id(), std::move(options), context_saved_fn);
+
   context_holders_.insert(std::move(context_holder));
 }
 
@@ -457,14 +556,35 @@ void SessionImpl::Generate(
     mojo::PendingRemote<on_device_model::mojom::StreamingResponder> response,
     base::OnceClosure on_complete) {
   TRACE_EVENT("optimization_guide", "SessionImpl::Generate");
+  // Reject generation if tool responses are still expected.
+  // The responder pipe is dropped, signaling the error to the client.
+  if (awaiting_tool_responses_) {
+    TRACE_EVENT("optimization_guide",
+                "SessionImpl::Generate rejected: awaiting tool responses");
+    std::move(on_complete).Run();
+    return;
+  }
   auto cloned = session_->Clone();
   auto cloned_raw = cloned.get();  // For Generate after std::move
+
+  // Create tool-call emitted closure when tool declarations were provided.
+  base::RepeatingClosure on_tool_calls_emitted;
+  if (has_tool_declarations_) {
+    on_tool_calls_emitted = base::BindRepeating(
+        [](bool* flag) { *flag = true; }, &awaiting_tool_responses_);
+  }
+
   responder_ = std::make_unique<Responder>(
-      std::move(response), std::move(on_complete), std::move(cloned));
+      std::move(response), std::move(on_complete), std::move(cloned),
+      std::move(on_tool_calls_emitted));
+
+  TRACE_EVENT_BEGIN("optimization_guide", "Decode", responder_->perfetto_id());
+  TRACE_EVENT_BEGIN("optimization_guide", "TTFT", responder_->perfetto_id());
   ChromeMLExecutionOutputFn output_fn = responder_->CreateOutputFn();
+
   *responder_->GetCancelFn() = cloned_raw->Generate(
-      std::move(options), executor_->GetConstraintFactory(),
-      model_response_prefix_, output_fn);
+      responder_->perfetto_id(), std::move(options),
+      executor_->GetConstraintFactory(), model_response_prefix_, output_fn);
 }
 
 DISABLE_CFI_DLSYM
@@ -516,8 +636,11 @@ void SessionImpl::AsrAddAudioChunk(odmm::AudioDataPtr data) {
 
 std::unique_ptr<on_device_model::BackendSession> SessionImpl::Clone() {
   TRACE_EVENT("optimization_guide", "SessionImpl::Clone");
-  return std::make_unique<SessionImpl>(*executor_, session_->Clone(),
-                                       max_tokens_, adaptation_id_);
+  auto clone = std::make_unique<SessionImpl>(*executor_, session_->Clone(),
+                                             max_tokens_, adaptation_id_);
+  clone->has_tool_declarations_ = has_tool_declarations_;
+  clone->awaiting_tool_responses_ = awaiting_tool_responses_;
+  return clone;
 }
 
 void SessionImpl::RemoveContext(ContextHolder* context) {

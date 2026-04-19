@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Notifications.Actions" enum="NotificationActionType"
-    expires_after="2026-07-12">
+    expires_after="2026-09-13">
   <owner>dewittj@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
@@ -212,7 +212,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobNativeStartupDuration{IntentAction}"
-    units="ms" expires_after="2026-07-05">
+    units="ms" expires_after="2026-09-06">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -267,7 +267,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobStage{IntentAction}"
-    enum="NotificationJobStage" expires_after="2026-07-12">
+    enum="NotificationJobStage" expires_after="2026-09-13">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -493,8 +493,54 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Notifications.ChromeFinds.NotificationInteraction"
+    enum="FindsNotificationUserInteraction" expires_after="2026-08-25">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>evanluo@google.com</owner>
+  <summary>
+    Records interactions with a Chrome finds notification, such as a
+    notification body click, dismissal, or button clicks (helpful or unhelpful
+    buttons).
+  </summary>
+</histogram>
+
+<histogram name="Notifications.ChromeFinds.NotificationShown" enum="Boolean"
+    expires_after="2026-08-25">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>evanluo@google.com</owner>
+  <summary>
+    Records when a Chrome finds notification is shown to the user.
+  </summary>
+</histogram>
+
+<histogram name="Notifications.ChromeFinds.OptInCriteriaFulfilled.Reason"
+    enum="FindsOptInTriggerReason" expires_after="2026-08-25">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>evanluo@google.com</owner>
+  <summary>
+    Records the reason why the opt-in criteria was fulfilled for Chrome Finds.
+    Recorded when the user reaches some trigger criteria.
+  </summary>
+</histogram>
+
+<histogram name="Notifications.ChromeFinds.OptInEvent"
+    enum="ChromeFindsOptInEvent" expires_after="2026-08-25">
+  <owner>wylieb@google.com</owner>
+  <owner>bjfong@google.com</owner>
+  <owner>evanluo@google.com</owner>
+  <summary>
+    Records everything around the opt-in flow journey for Chrome Finds. Recorded
+    when the bottom sheet is shown, accepted (first-time vs re-opt-in),
+    declined, dismissed, or when the action in the confirmation snackbar is
+    clicked.
+  </summary>
+</histogram>
+
 <histogram name="Notifications.Cros.Actions.{NotificationAction}"
-    enum="NotificationTypeDetailed" expires_after="2026-07-12">
+    enum="NotificationTypeDetailed" expires_after="2026-09-13">
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -803,7 +849,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.NonPersistentNotificationThirdPartyCount"
-    enum="Boolean" expires_after="2026-07-05">
+    enum="Boolean" expires_after="2026-09-06">
   <owner>awillia@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -969,7 +1015,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PersistentNotificationDisplayResult"
-    enum="PersistentNotificationDisplayResult" expires_after="2026-07-12">
+    enum="PersistentNotificationDisplayResult" expires_after="2026-09-13">
   <owner>knollr@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -983,7 +1029,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PersistentNotificationThirdPartyCount"
-    enum="Boolean" expires_after="2026-07-12">
+    enum="Boolean" expires_after="2026-09-13">
   <owner>awillia@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1049,6 +1095,7 @@ chromium-metrics-reviews@google.com.
   <token key="NotificationSchedulerClientType">
     <variant name=""/>
     <variant name=".__Test__" summary=""/>
+    <variant name=".ChromeFinds" summary=""/>
     <variant name=".ChromeUpdate" summary=""/>
     <variant name=".FeatureGuide" summary="Deprecated"/>
     <variant name=".Prefetch" summary=""/>

@@ -21,9 +21,11 @@
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "components/autofill/core/browser/ui/suggestion_button_action.h"
+#include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -223,7 +225,7 @@ class AutofillExternalDelegateForPopupTest : public AutofillExternalDelegate {
               OnSuggestionsShown,
               (base::span<const Suggestion>),
               (override));
-  MOCK_METHOD(void, OnSuggestionsHidden, (), (override));
+  MOCK_METHOD(void, OnSuggestionsHidden, (SuggestionHidingReason), (override));
   MOCK_METHOD(void, DidSelectSuggestion, (const Suggestion&), (override));
   MOCK_METHOD(void,
               DidAcceptSuggestion,
@@ -235,6 +237,7 @@ class AutofillExternalDelegateForPopupTest : public AutofillExternalDelegate {
               (const Suggestion&, const SuggestionButtonAction&),
               (override));
   MOCK_METHOD(bool, RemoveSuggestion, (const Suggestion&), (override));
+  MOCK_METHOD(void, OnTabSelected, (TabbedPaneTabType), (override));
 };
 
 using AutofillSuggestionControllerForTestBase =

@@ -33,6 +33,10 @@ class HTMLParamElement final : public HTMLElement {
  public:
   explicit HTMLParamElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLParamElement;
+  }
+
   const AtomicString& GetName() const;
   const AtomicString& Value() const;
 };

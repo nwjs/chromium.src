@@ -193,11 +193,15 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Network error"/>
 </enum>
 
+<!-- LINT.IfChange(NewTabPageLogoClick) -->
+
 <enum name="NewTabPageLogoClick">
   <int value="0" label="Static logo clicked"/>
-  <int value="1" label="CTA image clicked"/>
+  <int value="1" label="(Deprecated) CTA image clicked"/>
   <int value="2" label="Animated logo clicked"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/search/ntp_user_data_logger.h:LogoClickType) -->
 
 <enum name="NewTabPageLogoDownloadOutcome">
   <summary>
@@ -213,10 +217,15 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Missing image"/>
 </enum>
 
+<!-- LINT.IfChange(NewTabPageLogoShown) -->
+
 <enum name="NewTabPageLogoShown">
   <int value="0" label="Static logo shown"/>
-  <int value="1" label="CTA image shown"/>
+  <int value="1" label="(Deprecated) CTA image shown"/>
+  <int value="2" label="Animated logo shown"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/search/ntp_user_data_logger.h:LogoImpressionType) -->
 
 <!-- LINT.IfChange(NewTabPageLogoShowniOSGoogleDSEEnum) -->
 
@@ -563,6 +572,20 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="NTP Promo restored"/>
 </enum>
 
+<!-- LINT.IfChange(NtpShortcutsAutoRemovalReason) -->
+
+<enum name="NtpShortcutsAutoRemovalReason">
+  <summary>
+    Reason for skipping the auto-removal of shortcuts on the NTP.
+  </summary>
+  <int value="0" label="ManagedPreference"/>
+  <int value="1" label="NotVisible"/>
+  <int value="2" label="Disabled"/>
+  <int value="3" label="StaleDaysCount"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/new_tab_page/new_tab_page_util.h:NtpShortcutsAutoRemovalReason) -->
+
 <enum name="NtpTabResumeResultStatus">
   <int value="0" label="Error"/>
   <int value="1" label="Success"/>
@@ -722,26 +745,10 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="Prewarm Glic FRE"/>
   <int value="19" label="[Deprecated] Open Split View"/>
   <int value="20" label="Open Autofill Settings"/>
+  <int value="21" label="Enable Vertical Tabs"/>
 </enum>
 
 <!-- LINT.ThenChange(//ui/webui/resources/js/browser_command/browser_command.mojom:Command) -->
-
-<enum name="SearchResumptionModule.ModuleNotShownReason">
-  <int value="0" label="Not enough suggestions available"/>
-  <int value="1" label="Feature flags aren't enabled"/>
-  <int value="2" label="The user doesn't sign in"/>
-  <int value="3" label="The user doesn't turn on sync"/>
-  <int value="4" label="The default search engine isn't google"/>
-  <int value="5" label="There isn't a tab to track"/>
-  <int value="6" label="The tracking tab isn't valid"/>
-  <int value="7" label="The tracking tab is expired"/>
-  <int value="8" label="The tracking tab has changed"/>
-</enum>
-
-<enum name="SearchResumptionModule.ModuleShowStatus">
-  <int value="0" label="Module is shown and expanded"/>
-  <int value="1" label="Module is shown and collapsed"/>
-</enum>
 
 <!-- LINT.IfChange(TabLaunchType) -->
 

@@ -12,6 +12,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/actor/resources/grit/actor_browser_resources.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
+#include "chrome/browser/multistep_filter/ui/filter_ui_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -37,6 +38,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/data_sharing/public/features.h"
+#include "components/multistep_filter/core/features.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/core/common/features.h"
@@ -326,6 +328,7 @@ void ToastService::RegisterToasts(
                   },
                   base::Unretained(browser_window_interface)))
           .AddCloseButton()
+          .AddGlobalScoped()
           .Build());
 
   toast_registry_->RegisterToast(
@@ -339,7 +342,11 @@ void ToastService::RegisterToasts(
                                      ->InvokeLastSavedSkill();
                                },
                                base::Unretained(browser_window_interface)))
-          .AddGlobalScoped()
+          .Build());
+
+  toast_registry_->RegisterToast(
+      ToastId::kSkillSavedWithoutInvokeButton,
+      ToastSpecification::Builder(kCheckIcon, IDS_SKILL_SAVED_TOAST_BODY)
           .Build());
 
   toast_registry_->RegisterToast(
@@ -368,36 +375,76 @@ void ToastService::RegisterToasts(
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillAiWalletPrivatePasses)) {
     toast_registry_->RegisterToast(
-        ToastId::kAutofillAiWalletErrorMessage,
-        ToastSpecification::Builder(vector_icons::kPersonTextIcon)
+        ToastId::kAutofillAiFetchFromWalletErrorMessage,
+        ToastSpecification::Builder(
+            vector_icons::kPersonTextIcon,
+            IDS_AUTOFILL_AI_WALLET_FETCH_FAILURE_NOTIFICATION)
+            .AddGlobalScoped()
+            .Build());
+    toast_registry_->RegisterToast(
+        ToastId::kAutofillAiSaveToWalletErrorMessage,
+        ToastSpecification::Builder(
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+            vector_icons::kGoogleWalletMonochromeIcon,
+#else
+            vector_icons::kPersonTextIcon,
+#endif
+            IDS_AUTOFILL_AI_WALLET_UPDATE_OR_MIGRATE_FAILURE_NOTIFICATION)
             .AddGlobalScoped()
             .Build());
   }
-#if 0
-  if (base::FeatureList::IsEnabled(toast_features::kTranslateToast)) {
+
+  if (base::FeatureList::IsEnabled(multistep_filter::kMultistepFilter)) {
     toast_registry_->RegisterToast(
-        ToastId::kTranslate,
-        ToastSpecification::Builder(vector_icons::kTranslateIcon,
-                                    IDS_TRANSLATE_TOAST_BODY)
+        ToastId::kMultistepFilterSuggestion,
+        ToastSpecification::Builder(
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+            vector_icons::kPlayCircleSparkIcon,
+#else
+            vector_icons::kPlayArrowChromeRefreshIcon,
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+            IDS_MULTISTEP_FILTER_SUGGESTION_TITLE)
             .AddActionButton(
-                IDS_TRANSLATE_TOAST_UNDO_BUTTON,
+                IDS_MULTISTEP_FILTER_SUGGESTION_APPLY_BUTTON,
                 base::BindRepeating(
                     [](BrowserWindowInterface* window) {
-                      content::WebContents* web_contents =
-                          window->GetActiveTabInterface()->GetContents();
-                      if (!web_contents) {
-                        return;
+                      if (tabs::TabInterface* tab =
+                              window->GetActiveTabInterface()) {
+                        if (multistep_filter::FilterUiController* controller =
+                                multistep_filter::FilterUiController::From(
+                                    tab)) {
+                          controller->ApplySuggestion();
+                        }
                       }
-                      ChromeTranslateClient* chrome_translate_client =
-                          ChromeTranslateClient::FromWebContents(web_contents);
-                      if (chrome_translate_client) {
-                        chrome_translate_client->UndoTranslate();
+                    },
+                    base::Unretained(browser_window_interface)))
+            .AddCloseButton()
+            .Build());
+    toast_registry_->RegisterToast(
+        ToastId::kMultistepFilterSuggestionRecent,
+        ToastSpecification::Builder(
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+            vector_icons::kPlayCircleSparkIcon,
+#else
+            vector_icons::kPlayArrowChromeRefreshIcon,
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+            IDS_MULTISTEP_FILTER_SUGGESTION_RECENT_TITLE)
+            .AddActionButton(
+                IDS_MULTISTEP_FILTER_SUGGESTION_RECENT_APPLY_BUTTON,
+                base::BindRepeating(
+                    [](BrowserWindowInterface* window) {
+                      if (tabs::TabInterface* tab =
+                              window->GetActiveTabInterface()) {
+                        if (multistep_filter::FilterUiController* controller =
+                                multistep_filter::FilterUiController::From(
+                                    tab)) {
+                          controller->ApplySuggestion();
+                        }
                       }
                     },
                     base::Unretained(browser_window_interface)))
             .AddCloseButton()
             .Build());
   }
-#endif
 
 }  // RegisterToasts() end.

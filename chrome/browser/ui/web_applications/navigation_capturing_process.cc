@@ -80,6 +80,7 @@ bool IsDispositionValidForNavigationCapturing(
     case WindowOpenDisposition::IGNORE_ACTION:
     case WindowOpenDisposition::SWITCH_TO_TAB:
     case WindowOpenDisposition::NEW_PICTURE_IN_PICTURE:
+    case WindowOpenDisposition::NEW_SPLIT_VIEW:
       return false;
   }
 }
@@ -194,7 +195,7 @@ void ReparentWebContentsToTabbedBrowser(content::WebContents* old_web_contents,
   CHECK(!source_browser->app_controller() ||
         !source_browser->app_controller()->IsIsolatedWebApp());
 
-  Browser* existing_browser_window =
+  BrowserWindowInterface* existing_browser_window =
       navigate_params_browser &&
               !AppBrowserController::IsWebApp(navigate_params_browser)
           ? navigate_params_browser
@@ -203,7 +204,7 @@ void ReparentWebContentsToTabbedBrowser(content::WebContents* old_web_contents,
 
   // Create a new browser window if the navigation was triggered via a
   // shift-click, or if there are no open tabbed browser windows at the moment.
-  Browser* target_browser_window =
+  BrowserWindowInterface* target_browser_window =
       (disposition == WindowOpenDisposition::NEW_WINDOW ||
        !existing_browser_window)
           ? Browser::Create(Browser::CreateParams(source_browser->profile(),
@@ -718,12 +719,18 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
       }
       Browser* app_host_window;
       if (app_display_mode == DisplayMode::kBrowser) {
-        // For a 'new tab' with the 'browser' requested display mode, prefer
-        // using an existing browser window.
-        app_host_window = client_mode_and_browser->browser
-                              ? client_mode_and_browser->browser.get()
-                              : Browser::Create(Browser::CreateParams(
-                                    &*profile_, params.user_gesture));
+        // For a 'new tab' with the 'browser' requested display mode, use
+        // the originating browser to ensure the new tab pops under in the
+        // typical place.
+        if (navigation_params_browser_ &&
+            !navigation_params_browser_->app_controller()) {
+          app_host_window = navigation_params_browser_.get();
+        } else if (client_mode_and_browser->browser) {
+          app_host_window = client_mode_and_browser->browser.get();
+        } else {
+          app_host_window = Browser::Create(
+              Browser::CreateParams(&*profile_, params.user_gesture));
+        }
       } else {
         if (is_target_iwa_with_https_url) {
           LaunchIsolatedWebAppInNewWindow(provider, app_id, params.url);
@@ -863,6 +870,7 @@ NavigationCapturingProcess::HandleIsolatedWebAppNavigation(
       case WindowOpenDisposition::OFF_THE_RECORD:
       case WindowOpenDisposition::IGNORE_ACTION:
       case WindowOpenDisposition::SWITCH_TO_TAB:
+      case WindowOpenDisposition::NEW_SPLIT_VIEW:
         // These are not supposed to be reachable with IWA URLs.
         return true;
     }

@@ -71,7 +71,7 @@ void SidePanelEntry::ClearCachedView() {
 #if !BUILDFLAG(IS_ANDROID)
   content_view_.reset(nullptr);
 #else
-  content_view_.Reset();
+  content_view_->Reset();
 #endif
 }
 
@@ -99,6 +99,13 @@ void SidePanelEntry::OnEntryHidden() {
                                              entry_shown_timestamp_);
   observers_.Notify(&SidePanelEntryObserver::OnEntryHidden, this);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void SidePanelEntry::OnEntryHiddenWithReason(SidePanelEntryHideReason reason) {
+  observers_.Notify(&SidePanelEntryObserver::OnEntryHiddenWithReason, this,
+                    reason);
+}
+#endif
 
 void SidePanelEntry::AddObserver(SidePanelEntryObserver* observer) {
   observers_.AddObserver(observer);

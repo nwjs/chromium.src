@@ -5,6 +5,7 @@
 package org.chromium.components.browser_ui.bottomsheet;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -13,20 +14,20 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Robolectric.buildActivity;
 
 import android.app.Activity;
-import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -44,6 +45,7 @@ import java.util.function.Supplier;
 @Config(manifest = Config.NONE)
 public class BottomSheetControllerImplUnitTest {
     private static final int APP_HEADER_HEIGHT = 42;
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ScrimManager mScrimManager;
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
@@ -57,7 +59,6 @@ public class BottomSheetControllerImplUnitTest {
     private BottomSheetControllerImpl mController;
     private final OneshotSupplierImpl<ScrimManager> mScrimManagerSupplier =
             new OneshotSupplierImpl<>();
-    private final Callback<View> mInitializedCallback = view -> {};
     private Window mWindow;
     private final OneshotSupplierImpl<ViewGroup> mRootSupplier = new OneshotSupplierImpl<>();
     private final SettableMonotonicObservableSupplier<Integer> mEdgeToEdgeBottomInsetSupplier =
@@ -65,7 +66,6 @@ public class BottomSheetControllerImplUnitTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.openMocks(this);
         Activity activity = buildActivity(Activity.class).setup().get();
         activity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mWindow = activity.getWindow();
@@ -76,7 +76,6 @@ public class BottomSheetControllerImplUnitTest {
         mController =
                 new BottomSheetControllerImpl(
                         mScrimManagerSupplier,
-                        mInitializedCallback,
                         mWindow,
                         mKeyboardVisibilityDelegate,
                         mRootSupplier,
@@ -171,13 +170,23 @@ public class BottomSheetControllerImplUnitTest {
     }
 
     @Test
+    public void testHasBottomInset() {
+        assertFalse(mController.hasBottomInset());
+
+        mEdgeToEdgeBottomInsetSupplier.set(0);
+        assertFalse(mController.hasBottomInset());
+
+        mEdgeToEdgeBottomInsetSupplier.set(100);
+        assertTrue(mController.hasBottomInset());
+    }
+
+    @Test
     public void testRequestShowContent_FailsIfRootViewIsNull() {
         // Create a new supplier that returns null to simulate a destroyed activity.
         Supplier<ViewGroup> nullRootSupplier = () -> null;
         BottomSheetControllerImpl controllerWithNullRoot =
                 new BottomSheetControllerImpl(
                         mScrimManagerSupplier,
-                        mInitializedCallback,
                         mWindow,
                         mKeyboardVisibilityDelegate,
                         nullRootSupplier,

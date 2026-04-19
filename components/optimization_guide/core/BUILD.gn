@@ -95,6 +95,9 @@ component("features") {
     "//third_party/metrics_proto",
     "//ui/base",
   ]
+  if (is_android) {
+    deps += [ "//components/version_info/android:channel_getter" ]
+  }
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
   defines = [ "IS_OPTIMIZATION_GUIDE_FEATURES_IMPL" ]
 }
@@ -375,33 +378,63 @@ source_set("ondevice") {
   }
 }
 
-source_set("manifest_broker") {
-  sources = [
-    "model_execution/manifest_broker/manifest.cc",
-    "model_execution/manifest_broker/manifest.h",
-  ]
-  deps = [
-    ":ondevice",
-    "//base",
-    "//components/optimization_guide/proto:optimization_guide_proto",
-    "//components/optimization_guide/public/mojom",
-  ]
-}
+if (build_with_model_execution) {
+  source_set("manifest_broker") {
+    sources = [
+      "model_execution/manifest_broker/manifest.cc",
+      "model_execution/manifest_broker/manifest.h",
+      "model_execution/manifest_broker/manifest_asset_manager.cc",
+      "model_execution/manifest_broker/manifest_asset_manager.h",
+      "model_execution/manifest_broker/manifest_broker_state.cc",
+      "model_execution/manifest_broker/manifest_broker_state.h",
+      "model_execution/manifest_broker/manifest_monitor.cc",
+      "model_execution/manifest_broker/manifest_monitor.h",
+      "model_execution/manifest_broker/manifest_solution_factory.cc",
+      "model_execution/manifest_broker/manifest_solution_factory.h",
+    ]
+    deps = [
+      ":features",
+      ":ondevice",
+      "//base",
+      "//components/optimization_guide/core:features",
+      "//components/optimization_guide/proto:optimization_guide_proto",
+      "//components/optimization_guide/public/mojom",
+      "//components/prefs",
+      "//services/on_device_model/public/cpp",
+    ]
+  }
 
-static_library("manifest_broker_test_support") {
-  sources = [
-    "model_execution/manifest_broker/test/example_manifest.cc",
-    "model_execution/manifest_broker/test/example_manifest.h",
-    "model_execution/manifest_broker/test/manifest_builder.cc",
-    "model_execution/manifest_broker/test/manifest_builder.h",
-  ]
-  deps = [
-    ":manifest_broker",
-    "//base",
-    "//components/optimization_guide/proto:optimization_guide_proto",
-    "//components/optimization_guide/public/mojom",
-  ]
-}
+  static_library("manifest_broker_dev_support") {
+    sources = [
+      "model_execution/manifest_broker/test/example_manifest.cc",
+      "model_execution/manifest_broker/test/example_manifest.h",
+      "model_execution/manifest_broker/test/manifest_builder.cc",
+      "model_execution/manifest_broker/test/manifest_builder.h",
+    ]
+    deps = [
+      ":manifest_broker",
+      "//base",
+      "//components/optimization_guide/proto:optimization_guide_proto",
+      "//components/optimization_guide/public/mojom",
+    ]
+  }
+
+  static_library("manifest_broker_test_support") {
+    testonly = true
+    sources = [
+      "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.cc",
+      "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h",
+    ]
+    deps = [
+      ":manifest_broker",
+      ":manifest_broker_dev_support",
+      ":model_execution_test_support",
+      "//base",
+      "//base/test:test_support",
+      "//testing/gmock",
+    ]
+  }
+}  # if (build_with_model_execution)
 
 static_library("core") {
   sources = [
@@ -421,16 +454,16 @@ static_library("core") {
     "//components/leveldb_proto",
     "//components/optimization_guide:machine_learning_tflite_buildflags",
     "//components/optimization_guide/core:interfaces",
+    "//components/optimization_guide/core/inference",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//third_party/re2",
-  ]
-  if (build_with_tflite_lib) {
-    public_deps += [
-      "//components/optimization_guide/core/inference",
 
-      # TODO: crbug.com/421262905 - Don't provide compression_utils
-      "//third_party/zlib/google:compression_utils",
-    ]
+    # TODO: crbug.com/421262905 - Don't provide compression_utils
+    "//third_party/zlib/google:compression_utils",
+  ]
+
+  if (build_with_model_execution) {
+    public_deps += [ ":manifest_broker" ]
   }
 }
 
@@ -618,11 +651,8 @@ group("test_support") {
     ":filters_test_support",
     ":hints_test_support",
     ":model_execution_test_support",
+    "//components/optimization_guide/core/inference:test_support",
   ]
-  if (build_with_tflite_lib) {
-    public_deps +=
-        [ "//components/optimization_guide/core/inference:test_support" ]
-  }
 }
 
 if (is_ios) {
@@ -769,6 +799,7 @@ source_set("model_execution_unit_tests") {
       "model_execution/aqa_response_parser_unittest.cc",
       "model_execution/fieldwise_response_parser_unittest.cc",
       "model_execution/json_response_parser_unittest.cc",
+      "model_execution/manifest_broker/manifest_asset_manager_unittest.cc",
       "model_execution/manifest_broker/manifest_unittest.cc",
       "model_execution/model_broker_client_unittest.cc",
       "model_execution/model_execution_features_controller_unittest.cc",
@@ -797,6 +828,7 @@ source_set("model_execution_unit_tests") {
     ]
     deps += [
       ":manifest_broker",
+      ":manifest_broker_dev_support",
       ":manifest_broker_test_support",
       ":prediction",
       "//components/component_updater",
@@ -846,6 +878,7 @@ source_set("unit_tests") {
     ":unit_tests_bundle_data",
     "//base",
     "//base/test:test_support",
+    "//components/optimization_guide/core/inference:unit_tests",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs:test_support",
     "//components/sync_preferences:test_support",
@@ -854,9 +887,6 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
-  if (build_with_tflite_lib) {
-    deps += [ "//components/optimization_guide/core/inference:unit_tests" ]
-  }
 }
 
 bundle_data("unit_tests_bundle_data") {

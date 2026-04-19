@@ -28,9 +28,8 @@ SyncSessionsRouterTabHelper::SyncSessionsRouterTabHelper(
     favicon::FaviconDriver* favicon_driver)
     : content::WebContentsObserver(web_contents),
       router_(router),
-      chrome_translate_client_(nullptr),
+      chrome_translate_client_(chrome_translate_client),
       favicon_driver_(favicon_driver) {
-#if 0
   // A translate client is not always attached to web contents (e.g. tests).
   if (chrome_translate_client_) {
     chrome_translate_client_->GetTranslateDriver()
@@ -40,7 +39,6 @@ SyncSessionsRouterTabHelper::SyncSessionsRouterTabHelper(
   if (favicon_driver_) {
     favicon_driver_->AddObserver(this);
   }
-#endif
 }
 
 SyncSessionsRouterTabHelper::~SyncSessionsRouterTabHelper() {

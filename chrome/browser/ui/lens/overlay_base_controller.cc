@@ -26,6 +26,7 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
@@ -807,11 +808,6 @@ void OverlayBaseController::SetOverlayRoundedCorner() {
 }
 
 void OverlayBaseController::ShowPreselectionBubble() {
-  // Don't show the preselection bubble if the overlay is not being shown.
-  if (IsResultsSidePanelShowing()) {
-    return;
-  }
-
 #if BUILDFLAG(IS_MAC)
   // On Mac, the kShowFullscreenToolbar pref is used to determine whether the
   // toolbar is always shown. This causes the toolbar to never unreveal, meaning
@@ -848,6 +844,12 @@ void OverlayBaseController::ShowPreselectionBubble() {
                            weak_factory_.GetWeakPtr(),
                            DismissalSource::kPreselectionToastEscapeKeyPress)));
     preselection_widget_observer_.Observe(preselection_widget_);
+
+    PreselectionBubbleResources resources = GetPreselectionBubbleResources();
+    static_cast<lens::LensPreselectionBubble*>(
+        preselection_widget_->widget_delegate())
+        ->SetLabelText(resources.message_string_id);
+
     // Setting the parent allows focus traversal out of the preselection widget.
     preselection_widget_->SetFocusTraversableParent(
         preselection_widget_anchor_->GetWidget()->GetFocusTraversable());

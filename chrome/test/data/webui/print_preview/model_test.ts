@@ -34,7 +34,7 @@ suite('ModelTest', function() {
    * Tests state restoration with all boolean settings set to true, scaling =
    * 90, dpi = 100, custom square paper, and custom margins.
    */
-  test('SetStickySettings', function() {
+  test('SetStickySettings', async function() {
     // Default state of the model.
     const stickySettingsDefault: {[key: string]: any} = {
       version: 2,
@@ -88,50 +88,43 @@ suite('ModelTest', function() {
      *     the saved string has been validated, and the setting has been
      *     reset to its default value.
      */
-    const testStickySetting = function(
-        setting: keyof Settings, field: string): Promise<void> {
+    const testStickySetting =
+        async function(setting: keyof Settings, field: string): Promise<void> {
       const promise = eventToPromise('sticky-setting-changed', model);
       model.setSetting(setting, stickySettingsChange[field]);
       settingsSet.push(field);
-      return promise.then(
-          /**
-           * @param e Event containing the serialized settings
-           * @return Promise that resolves when setting is reset.
-           */
-          function(e: CustomEvent<string>): Promise<void> {
-            const settings = JSON.parse(e.detail);
-            Object.keys(stickySettingsDefault).forEach(settingName => {
-              const set = settingsSet.includes(settingName);
-              assertEquals(set, settings[settingName] !== undefined);
-              if (set) {
-                const toCompare = settingName === field ? stickySettingsChange :
-                                                          stickySettingsDefault;
-                assertDeepEquals(toCompare[settingName], settings[settingName]);
-              }
-            });
-            const restorePromise =
-                eventToPromise('sticky-setting-changed', model);
-            model.setSetting(setting, stickySettingsDefault[field]);
-            return restorePromise;
-          });
+
+      const e = await promise;
+      const settings = JSON.parse(e.detail);
+      Object.keys(stickySettingsDefault).forEach(settingName => {
+        const set = settingsSet.includes(settingName);
+        assertEquals(set, settings[settingName] !== undefined);
+        if (set) {
+          const toCompare = settingName === field ? stickySettingsChange :
+                                                    stickySettingsDefault;
+          assertDeepEquals(toCompare[settingName], settings[settingName]);
+        }
+      });
+      const restorePromise = eventToPromise('sticky-setting-changed', model);
+      model.setSetting(setting, stickySettingsDefault[field]);
+      return restorePromise;
     };
 
     model.applyStickySettings();
-    return testStickySetting('collate', 'isCollateEnabled')
-        .then(() => testStickySetting('color', 'isColorEnabled'))
-        .then(
-            () => testStickySetting('cssBackground', 'isCssBackgroundEnabled'))
-        .then(() => testStickySetting('dpi', 'dpi'))
-        .then(() => testStickySetting('duplex', 'isDuplexEnabled'))
-        .then(() => testStickySetting('duplexShortEdge', 'isDuplexShortEdge'))
-        .then(() => testStickySetting('headerFooter', 'isHeaderFooterEnabled'))
-        .then(() => testStickySetting('layout', 'isLandscapeEnabled'))
-        .then(() => testStickySetting('margins', 'marginsType'))
-        .then(() => testStickySetting('mediaSize', 'mediaSize'))
-        .then(() => testStickySetting('scaling', 'scaling'))
-        .then(() => testStickySetting('scalingType', 'scalingType'))
-        .then(() => testStickySetting('scalingTypePdf', 'scalingTypePdf'))
-        .then(() => testStickySetting('vendorItems', 'vendorOptions'));
+    await testStickySetting('collate', 'isCollateEnabled');
+    await testStickySetting('color', 'isColorEnabled');
+    await testStickySetting('cssBackground', 'isCssBackgroundEnabled');
+    await testStickySetting('dpi', 'dpi');
+    await testStickySetting('duplex', 'isDuplexEnabled');
+    await testStickySetting('duplexShortEdge', 'isDuplexShortEdge');
+    await testStickySetting('headerFooter', 'isHeaderFooterEnabled');
+    await testStickySetting('layout', 'isLandscapeEnabled');
+    await testStickySetting('margins', 'marginsType');
+    await testStickySetting('mediaSize', 'mediaSize');
+    await testStickySetting('scaling', 'scaling');
+    await testStickySetting('scalingType', 'scalingType');
+    await testStickySetting('scalingTypePdf', 'scalingTypePdf');
+    return testStickySetting('vendorItems', 'vendorOptions');
   });
 
   /**
@@ -556,10 +549,10 @@ suite('ModelTest', function() {
     model.applyStickySettings();
 
     // Confirm some defaults.
-    assertEquals(false, model.getSettingValue('color'));
+    assertFalse(model.getSettingValue('color'));
     assertEquals('NA_LETTER', model.getSettingValue('mediaSize').name);
     assertEquals(200, model.getSettingValue('dpi').horizontal_dpi);
-    assertEquals(false, model.getSettingValue('duplex'));
+    assertFalse(model.getSettingValue('duplex'));
 
     // Toggle some printer specified settings.
     model.setSetting('duplex', true);
@@ -571,10 +564,10 @@ suite('ModelTest', function() {
         'dpi', testDestination.capabilities!.printer.dpi!.option[1]!);
 
     // Confirm toggles.
-    assertEquals(true, model.getSettingValue('color'));
+    assertTrue(model.getSettingValue('color'));
     assertEquals('CUSTOM', model.getSettingValue('mediaSize').name);
     assertEquals(100, model.getSettingValue('dpi').horizontal_dpi);
-    assertEquals(true, model.getSettingValue('duplex'));
+    assertTrue(model.getSettingValue('duplex'));
 
     // Set to a new destination with the same capabilities. Confirm that
     // everything stays the same, except for 'mediaSize' which is reverted back
@@ -632,10 +625,10 @@ suite('ModelTest', function() {
     // Verify things changed.
     const updatedSettings = JSON.stringify(model.observable.getTarget());
     assertNotEquals(oldSettings, updatedSettings);
-    assertEquals(false, model.getSettingValue('color'));
+    assertFalse(model.getSettingValue('color'));
     assertEquals('ISO_A4', model.getSettingValue('mediaSize').name);
     assertEquals(400, model.getSettingValue('dpi').horizontal_dpi);
-    assertEquals(false, model.getSettingValue('duplex'));
+    assertFalse(model.getSettingValue('duplex'));
   });
 
   /**

@@ -57,6 +57,19 @@ bool BnplIssuerContext::IsEligible() const {
     case BnplIssuerEligibilityForPage::kNotEligibleIssuerDoesNotSupportMerchant:
     case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooLow:
     case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooHigh:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorFailureToGenerateApc:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorMissingServerResponse:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorNegativeAmount:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorAmountMissing:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorMissingCurrency:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorUnsupportedCurrency:
+    case BnplIssuerEligibilityForPage::kNotEligibleAmountExtractionErrorTimeout:
       return false;
   }
   NOTREACHED();
@@ -78,21 +91,27 @@ bool BnplTosModel::operator==(const BnplTosModel&) const = default;
 
 std::vector<BnplIssuerContext> GetSortedBnplIssuerContext(
     const AutofillClient& client,
-    std::optional<int64_t> checkout_amount) {
+    std::optional<int64_t> checkout_amount,
+    std::optional<AiAmountExtractionResult::Error> amount_extraction_error,
+    std::vector<BnplIssuer> enforced_order) {
   AutofillOptimizationGuideDecider* autofill_optimization_guide =
       client.GetAutofillOptimizationGuideDecider();
   const GURL& merchant_url =
       client.GetLastCommittedPrimaryMainFrameOrigin().GetURL();
 
+  const std::vector<BnplIssuer>& issuers =
+      enforced_order.empty() ? client.GetPaymentsAutofillClient()
+                                   ->GetPaymentsDataManager()
+                                   .GetBnplIssuers()
+                             : enforced_order;
+
   // Check BNPL issuer eligibility for the current page and save the
   // eligibility with the corresponding issuer to the vector of
   // `BnplIssuerContext`.
   std::vector<BnplIssuerContext> result = base::ToVector(
-      client.GetPaymentsAutofillClient()
-          ->GetPaymentsDataManager()
-          .GetBnplIssuers(),
-      [&autofill_optimization_guide, &merchant_url,
-       checkout_amount](const BnplIssuer& issuer) -> BnplIssuerContext {
+      issuers,
+      [&autofill_optimization_guide, &merchant_url, checkout_amount,
+       amount_extraction_error](const BnplIssuer& issuer) -> BnplIssuerContext {
         // For MVP, BNPL will only target US users and support USD.
         const base::optional_ref<const BnplIssuer::EligiblePriceRange>
             price_range =
@@ -100,11 +119,41 @@ std::vector<BnplIssuerContext> GetSortedBnplIssuerContext(
         CHECK(price_range.has_value());
 
         BnplIssuerEligibilityForPage eligibility;
-
         if (!autofill_optimization_guide->IsUrlEligibleForBnplIssuer(
                 issuer.issuer_id(), merchant_url)) {
           eligibility = BnplIssuerEligibilityForPage::
               kNotEligibleIssuerDoesNotSupportMerchant;
+        } else if (amount_extraction_error.has_value()) {
+          switch (amount_extraction_error.value()) {
+            case AiAmountExtractionResult::Error::kFailureToGenerateApc:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorFailureToGenerateApc;
+              break;
+            case AiAmountExtractionResult::Error::kMissingServerResponse:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorMissingServerResponse;
+              break;
+            case AiAmountExtractionResult::Error::kNegativeAmount:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorNegativeAmount;
+              break;
+            case AiAmountExtractionResult::Error::kAmountMissing:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorAmountMissing;
+              break;
+            case AiAmountExtractionResult::Error::kMissingCurrency:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorMissingCurrency;
+              break;
+            case AiAmountExtractionResult::Error::kUnsupportedCurrency:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorUnsupportedCurrency;
+              break;
+            case AiAmountExtractionResult::Error::kTimeout:
+              eligibility = BnplIssuerEligibilityForPage::
+                  kNotEligibleAmountExtractionErrorTimeout;
+              break;
+          }
         } else if (!checkout_amount) {
           // The only case this code gets hit is if the BNPL issuer needs to be
           // shown before the LLM call returns a valid checkout amount.
@@ -122,49 +171,45 @@ std::vector<BnplIssuerContext> GetSortedBnplIssuerContext(
         return {issuer, eligibility};
       });
 
-  // Shuffle `result` before sorting so that the order of two
-  // equivalently-sorted elements are randomized. This is to ensure there is no
-  // implicit preference towards any issuers.
-  base::RandomShuffle(result.begin(), result.end());
+  if (enforced_order.empty()) {
+    // Shuffle `result` before sorting so that the order of two
+    // equivalently-sorted elements are randomized. This is to ensure there is
+    // no implicit preference towards any issuers.
+    base::RandomShuffle(result.begin(), result.end());
 
-  // Sort the `BnplIssuerContext` vector so that it follows below rules:
-  // 1. Eligible issuers should be in front of uneligible ones in a sorted
-  //    vector.
-  // 2. Linked issuers must go before unlinked ones if they have the same
-  //    eligibility.
-  // Note: If one issuer has a payment instrument and the other doesn't,
-  //    then one is linked and the other is unlinked.
-  std::ranges::stable_sort(
-      result, [](const BnplIssuerContext& rhs, const BnplIssuerContext& lhs) {
-        // Lambda comparator which returns true if `rhs` should be in front of
-        // `lhs`.
-        // Note: Boolean value `false` is less than boolean value `true`.
-        return std::forward_as_tuple(
-                   rhs.eligibility == BnplIssuerEligibilityForPage::kIsEligible,
-                   rhs.issuer.payment_instrument().has_value()) >
-               std::forward_as_tuple(
-                   lhs.eligibility == BnplIssuerEligibilityForPage::kIsEligible,
-                   lhs.issuer.payment_instrument().has_value());
-      });
+    // Sort the `BnplIssuerContext` vector so that it follows below rules:
+    // 1. Eligible issuers should be in front of uneligible ones in a sorted
+    //    vector.
+    // 2. Linked issuers must go before unlinked ones if they have the same
+    //    eligibility.
+    // Note: If one issuer has a payment instrument and the other doesn't,
+    //    then one is linked and the other is unlinked.
+    std::ranges::stable_sort(result, [](const BnplIssuerContext& rhs,
+                                        const BnplIssuerContext& lhs) {
+      // Lambda comparator which returns true if `rhs` should be in front of
+      // `lhs`.
+      // Note: Boolean value `false` is less than boolean value `true`.
+      return std::forward_as_tuple(
+                 rhs.IsEligible(),
+                 rhs.issuer.payment_instrument().has_value()) >
+             std::forward_as_tuple(lhs.IsEligible(),
+                                   lhs.issuer.payment_instrument().has_value());
+    });
+  }
 
   return result;
 }
 
-Suggestion::Icon GetBnplSuggestionIcon(BnplIssuer::IssuerId issuer_id,
-                                       bool is_linked) {
+Suggestion::Icon GetBnplSuggestionIcon(BnplIssuer::IssuerId issuer_id) {
   switch (issuer_id) {
     case BnplIssuer::IssuerId::kBnplAffirm:
-      return is_linked ? Suggestion::Icon::kBnplAffirmLinked
-                       : Suggestion::Icon::kBnplAffirmUnlinked;
+      return Suggestion::Icon::kBnplAffirm;
     case BnplIssuer::IssuerId::kBnplAfterpay:
-      return is_linked ? Suggestion::Icon::kBnplAfterpayLinked
-                       : Suggestion::Icon::kBnplAfterpayUnlinked;
+      return Suggestion::Icon::kBnplAfterpay;
     case BnplIssuer::IssuerId::kBnplKlarna:
-      return is_linked ? Suggestion::Icon::kBnplKlarnaLinked
-                       : Suggestion::Icon::kBnplKlarnaUnlinked;
+      return Suggestion::Icon::kBnplKlarna;
     case BnplIssuer::IssuerId::kBnplZip:
-      return is_linked ? Suggestion::Icon::kBnplZipLinked
-                       : Suggestion::Icon::kBnplZipUnlinked;
+      return Suggestion::Icon::kBnplZip;
   }
 }
 
@@ -248,11 +293,24 @@ std::u16string GetBnplIssuerSelectionOptionText(
       }
       NOTREACHED();
     case BnplIssuerEligibilityForPage::kNotEligibleIssuerDoesNotSupportMerchant:
-      return l10n_util::GetStringUTF16(
-          IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_NOT_SUPPORTED_BY_MERCHANT);
+      if (base::FeatureList::IsEnabled(
+              features::kAutofillEnablePayNowPayLaterTabs)) {
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_NOT_AVAILABLE_FOR_MERCHANT);
+      } else {
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_NOT_SUPPORTED_BY_MERCHANT);
+      }
     case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooLow:
       // Divide displayed price by `1'000'000.0` to convert from micros and
       // retain decimals.
+      if (base::FeatureList::IsEnabled(
+              features::kAutofillEnablePayNowPayLaterTabs)) {
+        return l10n_util::GetStringFUTF16(
+            IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_CHECKOUT_AMOUNT_TOO_LOW,
+            formatter.Format(base::NumberToString(
+                eligible_price_range->price_lower_bound / 1'000'000.0)));
+      }
       return l10n_util::GetStringFUTF16(
           IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_CHECKOUT_AMOUNT_TOO_LOW,
           formatter.Format(base::NumberToString(
@@ -260,10 +318,40 @@ std::u16string GetBnplIssuerSelectionOptionText(
     case BnplIssuerEligibilityForPage::kNotEligibleCheckoutAmountTooHigh:
       // Divide displayed price by `1'000'000.0` to convert from micros and
       // retain decimals.
+      if (base::FeatureList::IsEnabled(
+              features::kAutofillEnablePayNowPayLaterTabs)) {
+        return l10n_util::GetStringFUTF16(
+            IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_CHECKOUT_AMOUNT_TOO_HIGH,
+            formatter.Format(base::NumberToString(
+                eligible_price_range->price_upper_bound / 1'000'000.0)));
+      }
       return l10n_util::GetStringFUTF16(
           IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_PAYMENT_OPTION_CHECKOUT_AMOUNT_TOO_HIGH,
           formatter.Format(base::NumberToString(
               eligible_price_range->price_upper_bound / 1'000'000.0)));
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorFailureToGenerateApc:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorMissingServerResponse:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorAmountMissing:
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorMissingCurrency:
+    case BnplIssuerEligibilityForPage::kNotEligibleAmountExtractionErrorTimeout:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_NOT_AVAILABLE_RIGHT_NOW);
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorNegativeAmount:
+      // Divide displayed price by `1'000'000.0` to convert from micros and
+      // retain decimals.
+      return l10n_util::GetStringFUTF16(
+          IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_CHECKOUT_AMOUNT_TOO_LOW,
+          formatter.Format(base::NumberToString(
+              eligible_price_range->price_lower_bound / 1'000'000.0)));
+    case BnplIssuerEligibilityForPage::
+        kNotEligibleAmountExtractionErrorUnsupportedCurrency:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_CARD_BNPL_PAY_LATER_PAYMENT_OPTION_CURRENCY_NOT_SUPPORTED);
   }
   NOTREACHED();
 }
@@ -290,7 +378,9 @@ TextWithLink GetBnplUiFooterTextForAi(
       IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT);
   size_t offset = 0;
   text_with_link.text = l10n_util::GetStringFUTF16(
-      IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_AI_FOOTNOTE,
+      base::FeatureList::IsEnabled(features::kAutofillEnablePayNowPayLaterTabs)
+          ? IDS_AUTOFILL_CARD_BNPL_PAY_LATER_OPTIONS_AI_FOOTNOTE
+          : IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_AI_FOOTNOTE,
       payments_settings_link_text, &offset);
 
   text_with_link.offset =
@@ -355,6 +445,15 @@ bool ShouldStartPayLaterWithLoadingSpinner(
     const PaymentsDataManager& payments_data_manager) {
   return payments_data_manager
       .IsAutofillAmountExtractionAiTermsSeenPrefEnabled();
+}
+
+bool ShouldShowBnplLinkedPill(const Suggestion& suggestion) {
+  const auto* bnpl_payload =
+      std::get_if<Suggestion::BnplIssuer>(&suggestion.payload);
+  return suggestion.type == SuggestionType::kBnplEntry && bnpl_payload &&
+         bnpl_payload->value().payment_instrument().has_value() &&
+         base::FeatureList::IsEnabled(
+             features::kAutofillEnablePayNowPayLaterTabs);
 }
 
 }  // namespace autofill::payments

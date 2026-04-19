@@ -39,7 +39,7 @@ namespace web_app {
 class WebAppUninstallBrowserTest : public WebAppBrowserTestBase {
  public:
   GURL GetSecureAppURL() {
-    return https_server()->GetURL("app.com", "/ssl/google.html");
+    return embedded_https_test_server().GetURL("app.com", "/ssl/google.html");
   }
 
   void UninstallWebApp(const webapps::AppId& app_id) {
@@ -111,7 +111,8 @@ IN_PROC_BROWSER_TEST_F(WebAppUninstallBrowserTest,
 
   EXPECT_TRUE(IsBrowserOpen(app_browser));
 
-  Browser* const tabbed_browser = chrome::OpenInChrome(app_browser);
+  BrowserWindowInterface* const tabbed_browser =
+      chrome::OpenInChrome(app_browser);
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(IsBrowserOpen(tabbed_browser));
@@ -121,7 +122,7 @@ IN_PROC_BROWSER_TEST_F(WebAppUninstallBrowserTest,
   UninstallWebApp(app_id);
 
   EXPECT_TRUE(IsBrowserOpen(tabbed_browser));
-  EXPECT_EQ(tabbed_browser->tab_strip_model()
+  EXPECT_EQ(tabbed_browser->GetTabStripModel()
                 ->GetActiveWebContents()
                 ->GetLastCommittedURL(),
             GetSecureAppURL());

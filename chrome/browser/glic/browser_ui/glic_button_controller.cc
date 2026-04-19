@@ -10,7 +10,7 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/feature_engagement/public/feature_list.h"
 #include "components/prefs/pref_service.h"
@@ -46,7 +46,7 @@ GlicButtonController::GlicButtonController(
   subscriptions_.push_back(
       glic_keyed_service_->enabling().RegisterAllowedChanged(update_callback));
   subscriptions_.push_back(
-      glic_keyed_service_->window_controller().AddGlobalShowHideCallback(
+      glic_keyed_service_->instance_coordinator().AddGlobalShowHideCallback(
           update_callback));
   subscriptions_.push_back(
       glic_keyed_service_->fre_controller().AddWebUiStateChangedCallback(
@@ -57,6 +57,14 @@ GlicButtonController::GlicButtonController(
 GlicButtonController::~GlicButtonController() = default;
 
 void GlicButtonController::UpdateButton() {
+  // Attempt to record startup metrics when the button controller is first
+  // created, no-op if startup metrics have already been measured.
+  // Note that this will not record metrics for profiles that are not eligible
+  // for Glic (i.e. GlicEnabling::IsProfileEligible() is false), as they will
+  // never have a GlicButtonController created. Recording metrics for those
+  // cases is handled by GlicProfileManager instead.
+  glic_keyed_service_->enabling().MaybeRecordStartupMetrics();
+
   const bool is_enabled_for_profile =
       GlicEnabling::IsEnabledForProfile(profile_);
   const bool is_pinned_to_tabstrip =
@@ -70,9 +78,6 @@ void GlicButtonController::UpdateButton() {
 
   tab_strip_glic_controller_delegate_->SetGlicShowState(true);
   toolbar_glic_controller_delegate_->SetGlicShowState(true);
-
-  // Try preloading since we know the button is visible.
-  glic_keyed_service_->TryPreload();
 
   bool is_glic_panel_open =
       glic_keyed_service_->IsFreShowing() ||

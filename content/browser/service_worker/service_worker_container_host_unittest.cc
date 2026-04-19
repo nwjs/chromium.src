@@ -32,14 +32,13 @@
 #include "content/common/content_navigation_policy.h"
 #include "content/common/url_schemes.h"
 #include "content/public/browser/child_process_host.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/origin_util.h"
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_content_browser_client.h"
+#include "content/public/test/test_content_client.h"
 #include "content/public/test/test_utils.h"
-#include "content/test/test_content_browser_client.h"
-#include "content/test/test_content_client.h"
 #include "mojo/public/cpp/system/functions.h"
 #include "net/cookies/site_for_cookies.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
@@ -884,39 +883,22 @@ TEST_F(ServiceWorkerContainerHostTest,
   EXPECT_EQ(3u, bad_messages_.size());
 }
 
-class WebUIUntrustedServiceWorkerContainerHostTest
-    : public ServiceWorkerContainerHostTest,
-      public testing::WithParamInterface<bool> {
- public:
-  WebUIUntrustedServiceWorkerContainerHostTest() {
-    if (GetParam()) {
-      features_.InitAndEnableFeature(
-          features::kEnableServiceWorkersForChromeUntrusted);
-    } else {
-      features_.InitAndDisableFeature(
-          features::kEnableServiceWorkersForChromeUntrusted);
-    }
-  }
-
- private:
-  base::test::ScopedFeatureList features_;
-};
-
-// Test that chrome:// webuis can't register service workers even if the
-// chrome-untrusted:// SW flag is on.
-TEST_P(WebUIUntrustedServiceWorkerContainerHostTest,
-       Register_RegistrationShouldFail) {
+// Test that chrome:// service workers are natively disallowed.
+TEST_F(ServiceWorkerContainerHostTest, Register_ChromeRegistrationShouldFail) {
   CommittedServiceWorkerClient service_worker_client =
       PrepareServiceWorkerContainerHost(GURL("chrome://testwebui/"));
 
   ASSERT_TRUE(bad_messages_.empty());
   Register(service_worker_client.host_remote().get(),
            GURL("chrome://testwebui/"), GURL("chrome://testwebui/sw.js"));
+
+  // Registration should trigger a bad message since the scheme is unsupported.
   EXPECT_EQ(1u, bad_messages_.size());
 }
 
-TEST_P(WebUIUntrustedServiceWorkerContainerHostTest,
-       Register_UntrustedRegistrationShouldFail) {
+// Test that chrome-untrusted:// service workers are natively disallowed.
+TEST_F(ServiceWorkerContainerHostTest,
+       Register_ChromeUntrustedRegistrationShouldFail) {
   CommittedServiceWorkerClient service_worker_client =
       PrepareServiceWorkerContainerHost(GURL("chrome-untrusted://testwebui/"));
 
@@ -924,70 +906,10 @@ TEST_P(WebUIUntrustedServiceWorkerContainerHostTest,
   Register(service_worker_client.host_remote().get(),
            GURL("chrome-untrusted://testwebui/"),
            GURL("chrome-untrusted://testwebui/sw.js"));
+
+  // Registration should trigger a bad message since the scheme is unsupported.
   EXPECT_EQ(1u, bad_messages_.size());
 }
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         WebUIUntrustedServiceWorkerContainerHostTest,
-                         testing::Bool(),
-                         [](const ::testing::TestParamInfo<bool>& info) {
-                           if (info.param) {
-                             return "ServiceWorkersForChromeUntrustedEnabled";
-                           }
-                           return "ServiceWorkersForChromeUntrustedDisabled";
-                         });
-
-class WebUIServiceWorkerContainerHostTest
-    : public ServiceWorkerContainerHostTest,
-      public testing::WithParamInterface<bool> {
- public:
-  WebUIServiceWorkerContainerHostTest() {
-    if (GetParam()) {
-      features_.InitAndEnableFeature(
-          features::kEnableServiceWorkersForChromeScheme);
-    } else {
-      features_.InitAndDisableFeature(
-          features::kEnableServiceWorkersForChromeScheme);
-    }
-  }
-
- private:
-  base::test::ScopedFeatureList features_;
-};
-
-TEST_P(WebUIServiceWorkerContainerHostTest, Register_RegistrationShouldFail) {
-  CommittedServiceWorkerClient service_worker_client =
-      PrepareServiceWorkerContainerHost(GURL("chrome://testwebui/"));
-
-  ASSERT_TRUE(bad_messages_.empty());
-  Register(service_worker_client.host_remote().get(),
-           GURL("chrome://testwebui/"), GURL("chrome://testwebui/sw.js"));
-  EXPECT_EQ(1u, bad_messages_.size());
-}
-
-// Test that chrome-untrusted:// service workers are disallowed with the
-// chrome:// flag turned on.
-TEST_P(WebUIServiceWorkerContainerHostTest,
-       Register_UntrustedRegistrationShouldFail) {
-  CommittedServiceWorkerClient service_worker_client =
-      PrepareServiceWorkerContainerHost(GURL("chrome-untrusted://testwebui/"));
-
-  ASSERT_TRUE(bad_messages_.empty());
-  Register(service_worker_client.host_remote().get(),
-           GURL("chrome-untrusted://testwebui/"),
-           GURL("chrome-untrusted://testwebui/sw.js"));
-  EXPECT_EQ(1u, bad_messages_.size());
-}
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         WebUIServiceWorkerContainerHostTest,
-                         testing::Bool(),
-                         [](const ::testing::TestParamInfo<bool>& info) {
-                           if (info.param) {
-                             return "ServiceWorkersForChromeEnabled";
-                           }
-                           return "ServiceWorkersForChromeDisabled";
-                         });
 
 TEST_F(ServiceWorkerContainerHostTest, EarlyContextDeletion) {
   CommittedServiceWorkerClient service_worker_client =
@@ -1085,7 +1007,6 @@ class ServiceWorkerContainerHostTestByClientType
  public:
   ServiceWorkerContainerHostTestByClientType() = default;
 
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
   ScopedServiceWorkerClient CreateClient() {
     switch (GetParam()) {
       case ClientType::kWindow:
@@ -1095,16 +1016,14 @@ class ServiceWorkerContainerHostTestByClientType
             helper_->context()
                 ->service_worker_client_owner()
                 .CreateServiceWorkerClientForWorker(
-                    ChildProcessId::FromUnsafeValue(
-                        helper_->mock_render_process_id()),
+                    helper_->mock_render_process_id(),
                     ServiceWorkerClientInfo(blink::DedicatedWorkerToken())));
       case ClientType::kSharedWorker:
         return ScopedServiceWorkerClient(
             helper_->context()
                 ->service_worker_client_owner()
                 .CreateServiceWorkerClientForWorker(
-                    ChildProcessId::FromUnsafeValue(
-                        helper_->mock_render_process_id()),
+                    helper_->mock_render_process_id(),
                     ServiceWorkerClientInfo(blink::SharedWorkerToken())));
     }
   }

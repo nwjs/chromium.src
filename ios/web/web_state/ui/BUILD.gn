@@ -51,6 +51,7 @@ source_set("ui") {
     "//ios/web/web_state:user_interaction",
     "//ios/web/web_state:web_state_impl_header",
     "//ios/web/web_state:web_view_internal_creation_util",
+    "//ios/web/web_state:web_view_pass_key",
     "//ios/web/web_state/ui:wk_web_view_configuration_provider",
     "//ios/web/webui",
     "//net",
@@ -93,7 +94,10 @@ source_set("web_controller_header") {
     "crw_web_controller.h",
   ]
 
-  deps = [ ":crw_web_view_navigation_proxy" ]
+  deps = [
+    ":crw_web_view_navigation_proxy",
+    "//ios/web/web_state:web_view_pass_key",
+  ]
 
   public_deps = [ "//base" ]
 }
@@ -153,6 +157,7 @@ source_set("wk_web_view_configuration_provider") {
     "//base",
     "//components/safe_browsing/core/common",
     "//ios/components/security_interstitials/https_only_mode:feature",
+    "//ios/public/provider/web:cobalt",
     "//ios/third_party/webkit",
     "//ios/web/common",
     "//ios/web/js_features/window_error",

@@ -23,7 +23,6 @@ namespace blink {
 class WebString;
 class LayoutBoxModelObject;
 class LocalFrameView;
-class PaintTimingCallbackManager;
 class PropertyTreeStateOrAlias;
 class TextElementTiming;
 struct DOMPaintTimingInfo;
@@ -95,9 +94,6 @@ class CORE_EXPORT TextPaintTimingDetector final
   TakePaintTimingCallback();
   void LayoutObjectWillBeDestroyed(const LayoutObject&);
   void StopRecordingLargestTextPaint();
-  void ResetCallbackManager(PaintTimingCallbackManager* manager) {
-    callback_manager_ = manager;
-  }
 
   // Mark that the `LayoutObject` should be considered for paint timing, even if
   // it's already been painted, because it was modified as part of an
@@ -144,7 +140,6 @@ class CORE_EXPORT TextPaintTimingDetector final
   // Text records queued for paint time.
   HeapDeque<Member<TextRecord>> texts_queued_for_paint_time_;
 
-  Member<PaintTimingCallbackManager> callback_manager_;
   Member<LocalFrameView> frame_view_;
   Member<PaintTimingDetector> paint_timing_detector_;
   // Set lazily because we may not have the correct Window when first

@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.AccumulatingTabCreator;
 import org.chromium.chrome.browser.tabmodel.MismatchedIndicesHandler;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
+import org.chromium.chrome.browser.tabmodel.RecordingTabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -72,6 +73,8 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
     private @MonotonicNonNull ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     private @Nullable Supplier<TabModel> mArchivedHistoricalObserverSupplier;
 
+    private @MonotonicNonNull RecordingTabCreatorManager mRecordingTabCreatorManager;
+
     private @WindowId int mWindowId;
     private final AccumulatingTabCreator mRegularShadowTabCreator = new AccumulatingTabCreator();
     private final AccumulatingTabCreator mIncognitoShadowTabCreator = new AccumulatingTabCreator();
@@ -108,6 +111,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         "mTabPersistencePolicy",
         "mTabModelSelector",
         "mProfileProviderSupplier",
+        "mRecordingTabCreatorManager"
     })
     private void assertCreated() {
         assert mTabPersistentStore != null;
@@ -115,6 +119,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
         assert mWindowId != TabWindowManager.INVALID_WINDOW_ID;
         assert mTabModelSelector != null;
         assert mProfileProviderSupplier != null;
+        assert mRecordingTabCreatorManager != null;
     }
 
     /**
@@ -136,10 +141,10 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
             OneshotSupplier<ProfileProvider> profileProviderSupplier,
             TabCreatorManager tabCreatorManager,
             NextTabPolicySupplier nextTabPolicySupplier,
-            MultiInstanceManager multiInstanceManager,
             MismatchedIndicesHandler mismatchedIndicesHandler,
             int selectorIndex) {
         mProfileProviderSupplier = profileProviderSupplier;
+        mRecordingTabCreatorManager = new RecordingTabCreatorManager(tabCreatorManager);
         boolean mergeTabsOnStartup = shouldMergeTabs(activity);
         if (mergeTabsOnStartup) {
             MultiInstanceManager.mergedOnStartup();
@@ -154,7 +159,6 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
                         profileProviderSupplier,
                         tabCreatorManager,
                         nextTabPolicySupplier,
-                        multiInstanceManager,
                         mismatchedIndicesHandler,
                         selectorIndex);
         if (selectorAssignment == null) {
@@ -192,7 +196,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
                         mMigrationManager,
                         mTabPersistencePolicy,
                         mTabModelSelector,
-                        tabCreatorManager,
+                        mRecordingTabCreatorManager,
                         tabWindowManager,
                         windowTag,
                         mCipherFactory,
@@ -208,7 +212,7 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
             // For multi-instance on Android S, this is a restart after the upgrade or fresh
             // installation. Allow merging tabs from CTA/CTA2 used by the previous version
             // if present.
-            return MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ANY) == 0;
+            return MultiWindowUtils.getInstanceCount(PersistedInstanceType.ANY) == 0;
         }
 
         // Merge tabs if this TabModelSelector is for a ChromeTabbedActivity created in
@@ -260,11 +264,13 @@ public class TabbedModeTabModelOrchestrator extends TabModelOrchestrator {
                             mRegularShadowTabCreator,
                             mIncognitoShadowTabCreator,
                             mTabModelSelector,
+                            mRecordingTabCreatorManager,
                             mTabPersistencePolicy,
                             mTabPersistentStore,
                             windowTag,
                             mCipherFactory,
-                            TABBED_TAG);
+                            TABBED_TAG,
+                            /* isNonOtrOnly= */ false);
             if (mShadowTabPersistentStore != null) {
                 mShadowTabPersistentStore.onNativeLibraryReady();
             }

@@ -109,7 +109,9 @@ enum class GlicInstanceEvent {
   kTurnCompleted = 45,
   kReaction = 46,
   kShown = 47,
-  kMaxValue = kShown,
+  kOpen = 48,
+  kWebUiStateWarmed = 49,
+  kMaxValue = kWebUiStateWarmed,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInstanceEvent)
 
@@ -231,6 +233,10 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
                 const ShowOptions& options,
                 bool is_showing);
 
+  // Called when the UI is shown and it was not already showing for this
+  // instance.
+  void OnOpen(glic::mojom::InvocationSource source, const ShowOptions& options);
+
   // Called when a tab that was bound to this instance is destroyed.
   void OnBoundTabDestroyed();
 
@@ -277,6 +283,10 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // metrics funnels.
   void RecordSkillsWebClientEvent(mojom::SkillsWebClientEvent action);
 
+  // Called when the web client sends a browser actuation result over the
+  // network.
+  void OnActionSubmitted(bool is_retry);
+
   int GetPinnedTabCount() const;
 
   bool is_active() const {
@@ -296,7 +306,11 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // Stores info scoped to the current turn. These members are cleared in
   // OnResponseStopped.
   struct TurnInfo {
+    TurnInfo();
+    ~TurnInfo();
+
     base::TimeTicks input_submitted_time_;
+    base::TimeTicks action_result_submitted_time_;
     // Set to true in OnResponseStarted() and set to false in
     // OnResponseStopped(). This is a workaround copied from GlicMetrics and
     // should be removed, see crbug.com/399151164.
@@ -318,9 +332,6 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // Called by the session manager when it starts and ends.
   void OnSessionStarted();
   void OnSessionFinished();
-
-  // Called when the instance is opened from a closed state.
-  void OnOpen(glic::mojom::InvocationSource source, const ShowOptions& options);
 
   void OnPinnedTabsChanged(
       const std::vector<content::WebContents*>& pinned_contents);

@@ -436,6 +436,18 @@ net::NetworkTrafficAnnotationTag GetNetworkTrafficAnnotation(
     case ModelBasedCapabilityKey::kContentAnnotation:
       // TODO(crbug.com/486232932): Add network traffic annotation.
       return MISSING_TRAFFIC_ANNOTATION;
+    case ModelBasedCapabilityKey::kFinds:
+      // TODO(crbug.com/490501055): Add network traffic annotation.
+      return MISSING_TRAFFIC_ANNOTATION;
+    case ModelBasedCapabilityKey::kAnnotationReducerOnePResolver:
+      // TODO(crbug.com/487416734): Add network traffic annotation.
+      return MISSING_TRAFFIC_ANNOTATION;
+    case ModelBasedCapabilityKey::kAnnotationReducerQueryClassifier:
+      // TODO(crbug.com/492168146): Add network traffic annotation.
+      return MISSING_TRAFFIC_ANNOTATION;
+    case ModelBasedCapabilityKey::kContextualCueing:
+      // TODO(crbug.com/495507631): Add network traffic annotation.
+      return MISSING_TRAFFIC_ANNOTATION;
   }
 }
 
@@ -449,6 +461,7 @@ void AppendHeadersIfNeeded(network::ResourceRequest& request) {
       kOptimizationGuideModelExecutionDebugLogsHeaderKey, "");
 }
 
+
 // Returns whether model executions for the `feature` require an access token.
 bool IsAccessTokenRequiredForFeature(ModelBasedCapabilityKey feature) {
   switch (feature) {
@@ -461,16 +474,20 @@ bool IsAccessTokenRequiredForFeature(ModelBasedCapabilityKey feature) {
     case ModelBasedCapabilityKey::kEnhancedCalendar:
     case ModelBasedCapabilityKey::kZeroStateSuggestions:
     case ModelBasedCapabilityKey::kWalletablePassExtraction:
-    case ModelBasedCapabilityKey::kAmountExtraction:
     case ModelBasedCapabilityKey::kIosSmartTabGrouping:
     case ModelBasedCapabilityKey::kSkills:
     case ModelBasedCapabilityKey::kContentAnnotation:
+    case ModelBasedCapabilityKey::kFinds:
+    case ModelBasedCapabilityKey::kAnnotationReducerOnePResolver:
+    case ModelBasedCapabilityKey::kAnnotationReducerQueryClassifier:
+    case ModelBasedCapabilityKey::kContextualCueing:
       return true;
     case ModelBasedCapabilityKey::kFormsClassifications:
       return !base::FeatureList::IsEnabled(
           features::kOptimizationGuideBypassFormsClassificationAuth);
     case ModelBasedCapabilityKey::kScamDetection:
     case ModelBasedCapabilityKey::kGeminiAntiscamProtection:
+    case ModelBasedCapabilityKey::kAmountExtraction:
       return false;
     case ModelBasedCapabilityKey::kPasswordChangeSubmission:
       return !base::FeatureList::IsEnabled(
@@ -556,14 +573,19 @@ void ModelExecutionFetcherImpl::OnAccessTokenReceived(
   }
 
   auto resource_request = std::make_unique<network::ResourceRequest>();
-  if (!access_token.empty()) {
+  // Use API key if no access token is attached.
+  resource_request->url = optimization_guide_service_url_;
+  if (access_token.empty()) {
+    resource_request->url = net::AppendOrReplaceQueryParameter(
+        resource_request->url, "key",
+        features::GetOptimizationGuideServiceAPIKey());
+  } else {
     PopulateAuthorizationRequestHeader(resource_request.get(), access_token);
   }
   if (timeout && timeout->is_positive()) {
     PopulateServerTimeoutRequestHeader(resource_request.get(), *timeout);
   }
 
-  resource_request->url = optimization_guide_service_url_;
   resource_request->method = "POST";
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   AppendHeadersIfNeeded(*resource_request);

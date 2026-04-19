@@ -7,6 +7,9 @@
 
 #include "base/types/pass_key.h"
 
+class RenderViewContextMenu;
+class TabStripActionContainer;
+
 namespace extensions {
 class PdfViewerPrivateGlicSummarizeFunction;
 }
@@ -14,6 +17,8 @@ class PdfViewerPrivateGlicSummarizeFunction;
 class PasswordChangeFromCheckupDelegate;
 
 namespace glic {
+
+class GlicInternalsPageHandler;
 
 // Passkey for invoking glic with auto submit. Reach out to OWNERS before
 // adding new callers.
@@ -27,8 +32,13 @@ class InvokeWithAutoSubmitPasskeyProvider {
   // Example of how to add new friends:
   // friend class SomeClassThatNeedsAutoSubmit;
   // friend void SomeClass::SomeFunctionThatNeedsAutoSubmit();
+  friend class ::RenderViewContextMenu;
+  friend class ::TabStripActionContainer;
   friend class extensions::PdfViewerPrivateGlicSummarizeFunction;
   friend class ::PasswordChangeFromCheckupDelegate;
+  friend class GlicInternalsPageHandler;
+  friend class GlicInstanceCoordinatorBrowserTest;
+  friend class GlicInstanceCoordinatorTrustFirstOnboardingArm1BrowserTest;
 };
 
 using InvokeWithAutoSubmitPasskey =

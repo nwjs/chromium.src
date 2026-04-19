@@ -56,4 +56,13 @@ SharedImageBackingType DawnImageBackingFactory::GetBackingType() {
   return SharedImageBackingType::kDawn;
 }
 
+bool DawnImageBackingFactory::IsSupportedForAccessStream(
+    SharedImageAccessStream stream,
+    viz::SharedImageFormat format,
+    const AccessParams* params) const {
+  AccessParams default_params;
+  return DawnImageBacking::CheckSupportForAccessStream(
+      stream, params ? *params : default_params, /*backing_device=*/{});
+}
+
 }  // namespace gpu

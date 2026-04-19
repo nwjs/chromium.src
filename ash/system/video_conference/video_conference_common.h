@@ -13,7 +13,7 @@
 #include "base/functional/callback.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
-#include "chromeos/crosapi/mojom/video_conference.mojom-forward.h"
+#include "url/gurl.h"
 
 namespace ash {
 
@@ -104,6 +104,51 @@ struct ASH_EXPORT VideoConferenceMediaUsageStatus {
   bool operator==(const VideoConferenceMediaUsageStatus& other) const;
 };
 
+// Native app type used by the in-process Ash/Chrome video conference pipeline.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(VideoConferenceAppType)
+enum class VideoConferenceAppType {
+  kBrowserUnknown,
+  kChromeTab,
+  kChromeExtension,
+  kChromeApp,
+  kWebApp,
+  kArcApp,
+  kAppServiceUnknown,
+  kCrostiniVm,
+  kPluginVm,
+  kBorealis,
+  kAshClientUnknown,
+  kAshCaptureMode,
+  kMaxValue = kAshCaptureMode,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/ash/enums.xml:VideoConferenceAppType)
+
+// Native media-app info used by the in-process Ash/Chrome video conference
+// pipeline.
+struct ASH_EXPORT VideoConferenceMediaAppInfo {
+  VideoConferenceMediaAppInfo();
+  VideoConferenceMediaAppInfo(const VideoConferenceMediaAppInfo&);
+  VideoConferenceMediaAppInfo& operator=(const VideoConferenceMediaAppInfo&);
+  VideoConferenceMediaAppInfo(VideoConferenceMediaAppInfo&&) noexcept;
+  VideoConferenceMediaAppInfo& operator=(
+      VideoConferenceMediaAppInfo&&) noexcept;
+  ~VideoConferenceMediaAppInfo();
+
+  base::UnguessableToken id;
+  base::Time last_activity_time;
+  bool is_capturing_camera = false;
+  bool is_capturing_microphone = false;
+  bool is_capturing_screen = false;
+  std::u16string title;
+  std::optional<GURL> url;
+  VideoConferenceAppType app_type = VideoConferenceAppType::kBrowserUnknown;
+
+  bool operator==(const VideoConferenceMediaAppInfo& other) const;
+};
+
 // Represents the media devices that can be captured by a video conferencing
 // app.
 enum class VideoConferenceMediaDevice {
@@ -115,7 +160,7 @@ enum class VideoConferenceMediaDevice {
 // VideoConferenceManagerAsh.
 class ASH_EXPORT VideoConferenceManagerClient {
  public:
-  using MediaApps = std::vector<crosapi::mojom::VideoConferenceMediaAppInfoPtr>;
+  using MediaApps = std::vector<VideoConferenceMediaAppInfo>;
 
   virtual ~VideoConferenceManagerClient() = default;
 
@@ -132,17 +177,17 @@ class ASH_EXPORT VideoConferenceManagerClient {
                                           bool enabled) = 0;
 };
 
-// This class defines the public interfaces of VideoConferenceManagerAsh exposed
-// to VideoConferenceTrayController. Although these public functions serve
-// similar purposes to VideoConferenceManagerClient, we should not use
-// VideoConferenceManagerClient here because they represent different concepts.
-// The signal will be passed from VideoConferenceTrayController to
-// VideoConferenceManagerAsh to VideoConferenceManagerClient.
+// This class defines the public interfaces of `VideoConferenceManagerAsh`
+// exposed to `VideoConferenceTrayController`. Although these public functions
+// serve similar purposes to `VideoConferenceManagerClient`, we should not use
+// `VideoConferenceManagerClient` here because they represent different
+// concepts. The signal will be passed from `VideoConferenceTrayController` to
+// `VideoConferenceManagerAsh` to `VideoConferenceManagerClient`.
 class VideoConferenceManagerBase {
  public:
-  using MediaApps = std::vector<crosapi::mojom::VideoConferenceMediaAppInfoPtr>;
-  // Gets all media apps from VideoConferenceManagerAsh and runs the callback on
-  // that.
+  using MediaApps = std::vector<VideoConferenceMediaAppInfo>;
+  // Gets all media apps from `VideoConferenceManagerAsh` and runs the callback
+  // on that.
   virtual void GetMediaApps(base::OnceCallback<void(MediaApps)>) = 0;
 
   // Calls VideoConferenceManagerAsh to return to App identified by `id`.

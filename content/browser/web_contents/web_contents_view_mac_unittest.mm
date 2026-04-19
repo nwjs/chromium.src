@@ -12,8 +12,8 @@
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/common/drop_data.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_content_browser_client.h"
 #include "content/public/test/test_renderer_host.h"
-#include "content/test/test_content_browser_client.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -85,10 +85,9 @@ TEST_F(WebContentsViewMacTest, StartDragging_DisallowedByPolicy) {
   DropData drop_data;
   drop_data.text = u"test data";
 
-  view()->StartDragging(drop_data, url::Origin(), blink::kDragOperationCopy,
+  view()->StartDragging(*main_rfh(), drop_data, blink::kDragOperationCopy,
                         CreateValidDragImage(), gfx::Vector2d(), gfx::Rect(),
-                        blink::mojom::DragEventSourceInfo(),
-                        GetRenderWidgetHost());
+                        blink::mojom::DragEventSourceInfo());
 
   EXPECT_TRUE(fake_client().was_called());
 }

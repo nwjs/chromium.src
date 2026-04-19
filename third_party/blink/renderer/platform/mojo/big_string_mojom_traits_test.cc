@@ -23,7 +23,7 @@ TEST(BigStringMojomTraitsTest, BigString_Null) {
 }
 
 TEST(BigStringMojomTraitsTest, BigString_Empty) {
-  String str = String::FromUTF8("");
+  String str = "";
   String output;
 
   ASSERT_TRUE(
@@ -33,7 +33,7 @@ TEST(BigStringMojomTraitsTest, BigString_Empty) {
 }
 
 TEST(BigStringMojomTraitsTest, BigString_Short) {
-  String str = String::FromUTF8("hello world");
+  String str = "hello world";
   ASSERT_TRUE(str.Is8Bit());
   String output;
 
@@ -44,7 +44,7 @@ TEST(BigStringMojomTraitsTest, BigString_Short) {
 
   // Replace the "o"s in "hello world" with "o"s with acute, so that |str| is
   // 16-bit.
-  str = String::FromUTF8("hell\xC3\xB3 w\xC3\xB3rld");
+  str = String::FromUtf8("hell\xC3\xB3 w\xC3\xB3rld");
   ASSERT_FALSE(str.Is8Bit());
 
   ASSERT_TRUE(

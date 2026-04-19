@@ -70,24 +70,6 @@ GlicGetContextResult TransformFetcherResult(
 }
 }  // namespace
 
-#if !BUILDFLAG(IS_ANDROID)
-GlicSharingManagerImpl::GlicSharingManagerImpl(
-    Profile* profile,
-    GlicWindowControllerInterface* window_controller,
-    GlicMetrics* metrics)
-    : focused_browser_manager_(
-          std::make_unique<GlicFocusedBrowserManagerImpl>(window_controller,
-                                                          profile)),
-      focused_tab_manager_(std::make_unique<GlicFocusedTabManager>(
-          focused_browser_manager_.get())),
-      pinned_tab_manager_(
-          std::make_unique<GlicPinnedTabManagerImpl>(profile,
-                                                     window_controller,
-                                                     metrics)),
-      profile_(profile),
-      metrics_(metrics) {}
-#endif
-
 GlicSharingManagerImpl::GlicSharingManagerImpl(
     std::unique_ptr<GlicFocusedTabManagerInterface> focused_tab_manager,
     std::unique_ptr<GlicFocusedBrowserManager> focused_browser_manager,
@@ -142,14 +124,12 @@ GlicSharingManagerImpl::AddTabPinningStatusEventCallback(
 bool GlicSharingManagerImpl::PinTabs(
     base::span<const tabs::TabHandle> tab_handles,
     GlicPinTrigger trigger) {
-  CHECK(base::FeatureList::IsEnabled(mojom::features::kGlicMultiTab));
   return pinned_tab_manager()->PinTabs(tab_handles, trigger);
 }
 
 bool GlicSharingManagerImpl::UnpinTabs(
     base::span<const tabs::TabHandle> tab_handles,
     GlicUnpinTrigger trigger) {
-  CHECK(base::FeatureList::IsEnabled(mojom::features::kGlicMultiTab));
   return pinned_tab_manager()->UnpinTabs(tab_handles, trigger);
 }
 

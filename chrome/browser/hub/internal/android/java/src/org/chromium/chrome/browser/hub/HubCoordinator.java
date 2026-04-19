@@ -132,7 +132,7 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
 
         // Get bottom toolbar delegate and visibility supplier
         HubBottomToolbarDelegate bottomToolbarDelegate =
-                HubBottomToolbarDelegateFactory.createDelegate();
+                HubBottomToolbarDelegateFactory.createDelegate(activity);
         NonNullObservableSupplier<Boolean> bottomToolbarVisibilitySupplier =
                 bottomToolbarDelegate != null
                         ? bottomToolbarDelegate.getBottomToolbarVisibilitySupplier()
@@ -367,6 +367,18 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
     /** Returns the view group to contain the snackbar. */
     public ViewGroup getSnackbarContainer() {
         return mHubPaneHostCoordinator.getSnackbarContainer();
+    }
+
+    /** Attaches the provided bottom bar view to the container. */
+    public void attachBottomBarView(View view) {
+        if (mHubBottomToolbarCoordinator != null) {
+            mHubBottomToolbarCoordinator.attachBottomBarView(view);
+        }
+    }
+
+    /** Returns whether the hub has a bottom toolbar. */
+    public boolean hasBottomToolbar() {
+        return mHubBottomToolbarCoordinator != null;
     }
 
     private @Nullable Pane getFocusedPane() {

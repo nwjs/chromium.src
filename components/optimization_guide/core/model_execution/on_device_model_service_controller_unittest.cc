@@ -454,6 +454,29 @@ TEST_F(OnDeviceModelServiceControllerTest, AdaptationModelExecutionSuccess) {
   EXPECT_FALSE(broker_.launcher().is_service_running());
 }
 
+TEST_F(OnDeviceModelServiceControllerTest, ExecutionDisconnectUnknown) {
+  Initialize(standard_assets_);
+  auto session = CreateSession(SessionConfigParams{});
+  broker_.settings().set_execute_error(
+      on_device_model::mojom::GenerateError::kUnknown);
+  session->ExecuteModel(PageUrlRequest("foo"),
+                        response_.GetStreamingCallback());
+  EXPECT_FALSE(response_.GetFinalStatus());
+  EXPECT_EQ(response_.error(), OnDeviceError::kCancelled);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       ExecutionDisconnectInvalidConstraint) {
+  Initialize(standard_assets_);
+  auto session = CreateSession(SessionConfigParams{});
+  broker_.settings().set_execute_error(
+      on_device_model::mojom::GenerateError::kInvalidConstraint);
+  session->ExecuteModel(PageUrlRequest("foo"),
+                        response_.GetStreamingCallback());
+  EXPECT_FALSE(response_.GetFinalStatus());
+  EXPECT_EQ(response_.error(), OnDeviceError::kInvalidRequest);
+}
+
 // Sessions using different adaptations should be able to execute
 // concurrently.
 TEST_F(OnDeviceModelServiceControllerTest,
@@ -2506,7 +2529,9 @@ TEST_F(OnDeviceModelServiceControllerTest, GetCapabilities) {
   });
   task_environment_.RunUntilIdle();
 
-  EXPECT_EQ(broker_.GetOrCreateBrokerState().GetOnDeviceCapabilities(),
+  EXPECT_EQ(broker_.GetOrCreateBrokerState()
+                .base_model_controller()
+                .GetCapabilities(),
             on_device_model::Capabilities(
                 {on_device_model::CapabilityFlags::kImageInput}));
 }

@@ -95,14 +95,6 @@ class FeaturedSearchProviderTest : public testing::Test {
   void SetUp() override {
     toolbelt_scoped_config_.Get().enabled = true;
     client_ = std::make_unique<FakeAutocompleteProviderClient>();
-
-    MockAimEligibilityService* mock_aim_eligibility_service =
-        static_cast<MockAimEligibilityService*>(
-            client_->GetAimEligibilityService());
-    EXPECT_CALL(*mock_aim_eligibility_service, IsAimEligible())
-        .WillRepeatedly(testing::Return(true));
-    EXPECT_CALL(*mock_aim_eligibility_service, IsAimLocallyEligible())
-        .WillRepeatedly(testing::Return(true));
     provider_ =
         new FeaturedSearchProvider(client_.get(), /*show_iph_matches=*/true);
     omnibox::RegisterProfilePrefs(
@@ -405,6 +397,25 @@ TEST_F(FeaturedSearchProviderTest, FeaturedEnterpriseSearch) {
   };
 
   RunTest(typing_scheme_cases);
+}
+
+TEST_F(FeaturedSearchProviderTest, AssociatedKeyword) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      {omnibox::kStarterPackExpansion, omnibox::kAiModeStartPack}, {});
+
+  AddStarterPackEntriesToTemplateUrlService();
+  AddFeaturedEnterpriseSearchEngine(FeaturedKeywordN(1), FeaturedUrlN(1),
+                                    TemplateURLData::PolicyOrigin::kSiteSearch);
+
+  AutocompleteInput input(u"@", metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  provider_->Start(input, false);
+
+  for (const auto& match : provider_->matches()) {
+    EXPECT_FALSE(match.keyword.empty());
+    EXPECT_EQ(match.associated_keyword, match.keyword);
+  }
 }
 
 TEST_F(FeaturedSearchProviderTest, ZeroSuggestStarterPackIPHSuggestion) {

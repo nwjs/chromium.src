@@ -17,7 +17,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -67,6 +66,7 @@
 #include "components/sync/base/time.h"
 #include "components/sync/protocol/web_app_specifics.pb.h"
 #include "components/webapps/browser/uninstall_result_code.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
@@ -371,6 +371,7 @@ void FinalizeInstallJob::OnOriginAssociationValidated(
       web_app->SetUserDisplayMode(*web_app_info_.user_display_mode);
     }
   }
+  web_app->SetOriginAssociationLastValidationCheckTime(now_time);
 
   // The UI may initiate a full install to overwrite the existing
   // non-locally-installed app. Therefore, `install_state` can be
@@ -520,6 +521,28 @@ void FinalizeInstallJob::OnOriginAssociationValidated(
   if (options_.overwrite_existing_manifest_fields) {
     web_app->SetPendingUpdateInfo(std::nullopt);
   }
+
+  // Filter out shortcuts that are not in the scope or extended scope.
+  // Note: This must be called after the scope and validated scope extensions
+  // are set.
+  std::vector<WebAppShortcutsMenuItemInfo> valid_shortcuts;
+  std::vector<IconBitmaps> valid_shortcut_icon_bitmaps;
+  WebAppScope effective_scope = web_app->GetScope();
+  for (size_t i = 0; i < web_app_info_.shortcuts_menu_item_infos.size(); ++i) {
+    const auto& shortcut = web_app_info_.shortcuts_menu_item_infos[i];
+    if (effective_scope.IsInScope(shortcut.url)) {
+      valid_shortcuts.push_back(shortcut);
+      if (i < web_app_info_.shortcuts_menu_icon_bitmaps.size()) {
+        valid_shortcut_icon_bitmaps.push_back(
+            std::move(web_app_info_.shortcuts_menu_icon_bitmaps[i]));
+      }
+    }
+  }
+  web_app_info_.shortcuts_menu_item_infos = std::move(valid_shortcuts);
+  web_app_info_.shortcuts_menu_icon_bitmaps =
+      std::move(valid_shortcut_icon_bitmaps);
+  CHECK_EQ(web_app_info_.shortcuts_menu_item_infos.size(),
+           web_app_info_.shortcuts_menu_icon_bitmaps.size());
 
   if (options_.overwrite_existing_manifest_fields || !existing_web_app) {
     SetWebAppManifestFieldsAndWriteData(

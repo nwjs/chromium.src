@@ -20,7 +20,6 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/native_library.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/power_monitor/power_monitor.h"
@@ -38,6 +37,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
+#include "base/check.h"
 #endif
 
 namespace gpu {
@@ -84,7 +84,7 @@ GpuWatchdogThread::GpuWatchdogThread(base::TimeDelta timeout,
                                      int restart_factor,
                                      bool is_test_mode,
                                      const std::string& thread_name)
-    : base::Thread(thread_name),
+    : base::Thread(thread_name, Thread::Restartable{}),
       watchdog_timeout_(timeout),
       watchdog_restart_factor_(restart_factor),
       is_test_mode_(is_test_mode) {
@@ -533,9 +533,9 @@ void GpuWatchdogThread::ContinueWithNextWatchdogTimeoutTask() {
 }
 
 bool GpuWatchdogThread::SlowWatchdogThread() {
-  // If it takes 15 more seconds than the expected time between two
-  // OnWatchdogTimeout() calls, the system is considered slow and it's not a GPU
-  // hang.
+  // If it takes longer than kUnreasonableTimeoutDelay past the expected time
+  // between two OnWatchdogTimeout() calls, the system is considered slow and
+  // it's not a GPU hang.
   bool slow_watchdog_thread =
       (base::Time::Now() - next_on_watchdog_timeout_time_) >=
       kUnreasonableTimeoutDelay;

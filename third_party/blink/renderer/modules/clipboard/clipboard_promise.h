@@ -28,11 +28,14 @@
 
 namespace blink {
 
+class Blob;
 class ClipboardWriter;
 class LocalFrame;
 class ExceptionState;
 class ExecutionContext;
+class ClipboardItem;
 class ClipboardReadOptions;
+class SystemClipboard;
 
 // Represents a promise to execute Async Clipboard API functions off the main
 // thread. It handles read and write operations on the clipboard, including
@@ -42,7 +45,8 @@ class ClipboardReadOptions;
 // types. Spec: https://w3c.github.io/clipboard-apis/#async-clipboard-api
 class MODULES_EXPORT ClipboardPromise final
     : public GarbageCollected<ClipboardPromise>,
-      public ExecutionContextLifecycleObserver {
+      public ExecutionContextLifecycleObserver,
+      public ClipboardReaderResultHandler {
  public:
   // Creates a promise for reading clipboard data.
   // Spec: https://w3c.github.io/clipboard-apis/#dom-clipboard-read
@@ -94,22 +98,29 @@ class MODULES_EXPORT ClipboardPromise final
   // Handles rejections originating from the ClipboardWriter.
   void RejectFromReadOrDecodeFailure();
 
+  // TODO(crbug.com/487128731): Remove ClipboardReaderResultHandler interface
+  // from ClipboardPromise once lazy read getType is stable.
   // Adds the given `blob` to the `clipboard_item_data_`.
-  void OnRead(Blob* blob);
+  void OnRead(Blob* blob, const String& mime_type) override;
 
   // Returns the local frame associated with the promise.
-  LocalFrame* GetLocalFrame() const;
+  LocalFrame* GetLocalFrame() const override;
+
+  // Returns the execution context associated with the promise.
+  ExecutionContext* GetExecutionContext() const override {
+    return ExecutionContextLifecycleObserver::GetExecutionContext();
+  }
+
+  SystemClipboard* GetSystemClipboard() const;
 
   // Returns the script state associated with the promise.
   ScriptState* GetScriptState() const;
-
   // ExecutionContextLifecycleObserver
   void Trace(Visitor* visitor) const override;
 
  private:
   class ClipboardItemDataPromiseFulfill;
   class ClipboardItemDataPromiseReject;
-
   void HandlePromiseWrite(
       GCedHeapVector<Member<V8UnionBlobOrString>>* clipboard_item_list);
   void WriteClipboardItemData(
@@ -127,10 +138,12 @@ class MODULES_EXPORT ClipboardPromise final
   void HandleWriteText(const String& text);
 
   // Reads/Writes after permission check.
-  void HandleReadWithPermission(mojom::blink::PermissionStatus permission);
-  void HandleReadTextWithPermission(mojom::blink::PermissionStatus permission);
-  void HandleWriteWithPermission(mojom::blink::PermissionStatus permission);
-  void HandleWriteTextWithPermission(mojom::blink::PermissionStatus permission);
+  void HandleReadWithPermission(mojom::blink::PermissionStatusWithDetailsPtr);
+  void HandleReadTextWithPermission(
+      mojom::blink::PermissionStatusWithDetailsPtr);
+  void HandleWriteWithPermission(mojom::blink::PermissionStatusWithDetailsPtr);
+  void HandleWriteTextWithPermission(
+      mojom::blink::PermissionStatusWithDetailsPtr);
 
 #if BUILDFLAG(IS_MAC)
   // Callback for macOS platform permission check for readText()
@@ -167,7 +180,8 @@ class MODULES_EXPORT ClipboardPromise final
   void ValidatePreconditions(
       mojom::blink::PermissionName permission,
       bool will_be_sanitized,
-      base::OnceCallback<void(mojom::blink::PermissionStatus)> callback);
+      base::OnceCallback<void(mojom::blink::PermissionStatusWithDetailsPtr)>
+          callback);
 
   scoped_refptr<base::SingleThreadTaskRunner> GetClipboardTaskRunner();
 
@@ -197,6 +211,7 @@ class MODULES_EXPORT ClipboardPromise final
   // Stores the types that the web author requested to receive for a clipboard
   // read operation
   std::optional<HashSet<String>> read_clipboard_item_types_;
+  HeapVector<String> item_mime_types_;
   SEQUENCE_CHECKER(sequence_checker_);
 };
 

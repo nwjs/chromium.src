@@ -699,11 +699,11 @@ TEST_F(ElementTest, IsFocusableForInertInContentVisibility) {
   // Mark the element as inert. Due to content-visibility, the LayoutObject
   // will still think that it's not inert.
   target->SetBooleanAttribute(html_names::kInertAttr, true);
-  ASSERT_FALSE(target->GetLayoutObject()->Style()->IsInert());
+  ASSERT_FALSE(target->GetLayoutObject()->StyleRef().IsInert());
 
   // IsFocusable() should update the LayoutObject and notice that it's inert.
   ASSERT_FALSE(target->IsFocusable());
-  ASSERT_TRUE(target->GetLayoutObject()->Style()->IsInert());
+  ASSERT_TRUE(target->GetLayoutObject()->StyleRef().IsInert());
 }
 
 TEST_F(ElementTest, ParseFocusgroupAttrDefaultValuesWhenEmptyValue) {
@@ -770,13 +770,13 @@ TEST_F(ElementTest, ParseFocusgroupAttrSupportedAxesAreValid) {
       FocusgroupData(FocusgroupBehavior::kTablist,
                      FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock));
 
-  // 3. No axis specified so both should be supported
+  // 3. Listbox defaults to block axis only.
   auto* fg3 = document.getElementById(AtomicString("fg3"));
   ASSERT_TRUE(fg3);
 
-  EXPECT_EQ(fg3->GetFocusgroupData(),
-            FocusgroupData(FocusgroupBehavior::kListbox,
-                           FocusgroupFlags::kInline | FocusgroupFlags::kBlock));
+  EXPECT_EQ(
+      fg3->GetFocusgroupData(),
+      FocusgroupData(FocusgroupBehavior::kListbox, FocusgroupFlags::kBlock));
 
   // 4. Only support inline because it's specified; menu default wrap in inline.
   auto* fg3_a = document.getElementById(AtomicString("fg3_a"));
@@ -797,13 +797,15 @@ TEST_F(ElementTest, ParseFocusgroupAttrSupportedAxesAreValid) {
       FocusgroupData(FocusgroupBehavior::kMenubar,
                      FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock));
 
-  // 6. Child specifying only behavior should still support both axes.
+  // 6. Radiogroup defaults to both axes with wrap.
   auto* fg3_b_1 = document.getElementById(AtomicString("fg3_b_1"));
   ASSERT_TRUE(fg3_b_1);
 
   EXPECT_EQ(fg3_b_1->GetFocusgroupData(),
             FocusgroupData(FocusgroupBehavior::kRadiogroup,
-                           FocusgroupFlags::kInline | FocusgroupFlags::kBlock));
+                           FocusgroupFlags::kInline | FocusgroupFlags::kBlock |
+                               FocusgroupFlags::kWrapInline |
+                               FocusgroupFlags::kWrapBlock));
 }
 
 TEST_F(ElementTest, ParseFocusgroupAttrWrapIgnoredInDescendantsWithoutOwnWrap) {
@@ -1607,17 +1609,19 @@ TEST_F(ElementTest, ParseFocusgroupAttrBehaviorFirstRequirement) {
   auto* valid_radiogroup =
       document.getElementById(AtomicString("valid_radiogroup"));
   ASSERT_TRUE(valid_radiogroup);
+  // Radiogroup explicit block + default wrap applies in block axis.
   EXPECT_EQ(
       valid_radiogroup->GetFocusgroupData(),
-      FocusgroupData(FocusgroupBehavior::kRadiogroup, FocusgroupFlags::kBlock));
+      FocusgroupData(FocusgroupBehavior::kRadiogroup,
+                     FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock));
 
   auto* valid_listbox = document.getElementById(AtomicString("valid_listbox"));
   ASSERT_TRUE(valid_listbox);
-  EXPECT_EQ(valid_listbox->GetFocusgroupData(),
-            FocusgroupData(FocusgroupBehavior::kListbox,
-                           FocusgroupFlags::kInline | FocusgroupFlags::kBlock |
-                               FocusgroupFlags::kWrapInline |
-                               FocusgroupFlags::kWrapBlock));
+  // Listbox default block axis + explicit wrap applies in block axis.
+  EXPECT_EQ(
+      valid_listbox->GetFocusgroupData(),
+      FocusgroupData(FocusgroupBehavior::kListbox,
+                     FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock));
 
   auto* valid_menu = document.getElementById(AtomicString("valid_menu"));
   ASSERT_TRUE(valid_menu);
@@ -1640,6 +1644,25 @@ TEST_F(ElementTest, ParseFocusgroupAttrBehaviorFirstRequirement) {
   EXPECT_EQ(
       valid_none->GetFocusgroupData(),
       FocusgroupData(FocusgroupBehavior::kOptOut, FocusgroupFlags::kNone));
+}
+
+TEST_F(ElementTest, HeuristicCustomPasswordDetectionCSS) {
+  SetBodyInnerHTML("<div id='target'>abc</div>");
+  auto* target = To<HTMLElement>(GetElementById("target"));
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(target->HasBeenHeuristicCustomPasswordCSS());
+
+  // Applying -webkit-text-security should trigger detection for any
+  // HTMLElement.
+  target->setAttribute(html_names::kStyleAttr,
+                       AtomicString("-webkit-text-security: disc;"));
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(target->HasBeenHeuristicCustomPasswordCSS());
+
+  // Removing the style should not clear the "has ever been" state.
+  target->removeAttribute(html_names::kStyleAttr);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(target->HasBeenHeuristicCustomPasswordCSS());
 }
 
 // Provide assertion-prettify function for gtest.

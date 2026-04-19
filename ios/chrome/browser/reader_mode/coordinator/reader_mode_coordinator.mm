@@ -8,7 +8,7 @@
 #import "ios/chrome/browser/dom_distiller/model/distiller_service.h"
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/reader_mode/coordinator/reader_mode_mediator.h"
 #import "ios/chrome/browser/reader_mode/coordinator/reader_mode_options_coordinator.h"
 #import "ios/chrome/browser/reader_mode/ui/reader_mode_view_controller.h"
@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_commands.h"
+#import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reader_mode_options_commands.h"
 
 @interface ReaderModeCoordinator () <ReaderModeOptionsCommands>
@@ -33,9 +34,11 @@
 - (void)startAnimated:(BOOL)animated {
   _viewController = [[ReaderModeViewController alloc] init];
   _viewController.overscrollDelegate = self.overscrollDelegate;
+  _viewController.readerModeHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), ReaderModeCommands);
   _viewController.delegate = self;
   ProfileIOS* profile = self.browser->GetProfile();
-  BwgService* BWGService = BwgServiceFactory::GetForProfile(profile);
+  BwgService* BWGService = GeminiServiceFactory::GetForProfile(profile);
   DistillerService* distiller_service =
       DistillerServiceFactory::GetForProfile(self.browser->GetProfile());
   dom_distiller::DistilledPagePrefs* distilledPagePrefs =

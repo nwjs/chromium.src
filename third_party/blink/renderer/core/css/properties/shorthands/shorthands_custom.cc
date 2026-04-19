@@ -173,7 +173,10 @@ const CSSValue* CSSValueFromComputedAnimation(
     CSSValueList* animations_list = CSSValueList::CreateCommaSeparated();
     for (wtf_size_t i = 0; i < animation_data->NameList().size(); ++i) {
       CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-      const AtomicString& name = animation_data->NameList()[i];
+      const ScopedCSSName* scoped_name = animation_data->NameList()[i];
+      const AtomicString& name = scoped_name
+                                     ? scoped_name->GetName()
+                                     : CSSAnimationData::InitialNameString();
       AnimationNameConflcit conflict = CheckAnimationNameConflicts(name);
       auto duration =
           CSSTimingData::GetRepeated(animation_data->DurationList(), i);
@@ -227,7 +230,7 @@ const CSSValue* CSSValueFromComputedAnimation(
         list->Append(
             *ComputedStyleUtils::ValueForAnimationPlayState(play_state));
       }
-      if (name != CSSAnimationData::InitialName()) {
+      if (scoped_name) {
         list->Append(*ComputedStyleUtils::ValueForAnimationName(name));
       }
       if (list->length() == 0) {
@@ -5605,7 +5608,7 @@ bool RuleVisibilityItems::ParseShorthand(
     HeapVector<CSSPropertyValue, 64>& properties) const {
   DCHECK_EQ(ruleVisibilityItemsShorthand().length(), 2u);
   CSSValue* rule_visibility_items =
-      css_parsing_utils::ConsumeIdent<CSSValueID::kAuto, CSSValueID::kAll,
+      css_parsing_utils::ConsumeIdent<CSSValueID::kNormal, CSSValueID::kAll,
                                       CSSValueID::kAround,
                                       CSSValueID::kBetween>(stream);
 

@@ -16,18 +16,17 @@
 #include "base/test/simple_test_tick_clock.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/fake_tab_slot_controller.h"
+#include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
-#include "chrome/browser/ui/views/tabs/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -39,6 +38,7 @@
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "components/tabs/public/tab_alert.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -107,6 +107,12 @@ class TabTest : public ChromeViewsTestBase {
   static void EndTitleAnimation(Tab* tab) { tab->title_animation_.End(); }
 
   static void LayoutTab(Tab* tab) { views::test::RunScheduledLayout(tab); }
+
+  static SkPath GetTabPath(Tab* tab,
+                           TabStyle::PathType path_type,
+                           float scale) {
+    return tab->tab_style_views()->GetPath(path_type, scale, {});
+  }
 
   static int VisibleIconCount(const Tab& tab) {
     return tab.showing_icon_ + tab.showing_alert_indicator_ +
@@ -271,6 +277,35 @@ class TabTest : public ChromeViewsTestBase {
   std::string original_locale_;
   base::SimpleTestTickClock fake_clock_;
 };
+
+TEST_F(TabTest, DetachedGroupedTabLayout) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kDetachedTabs);
+
+  FakeTabSlotController tab_slot_controller;
+  Tab tab(tabs::TabHandle(1), &tab_slot_controller);
+  tab.SetGroup(tab_groups::TabGroupId::GenerateNew());
+
+  // Height should be kTabStripHeight (41).
+  const int height = GetLayoutConstant(LayoutConstant::kTabStripHeight);
+  tab.SetBounds(0, 0, 200, height);
+
+  // Check visual path in TabStyleViews at 1x scale.
+  const float scale = 1.0f;
+  SkPath path = GetTabPath(&tab, TabStyle::PathType::kFill, scale);
+  SkRect path_bounds = path.getBounds();
+
+  // With kDetachedTabs and grouped, top should be 7 (6 + 1).
+  // Height should be 26 (28 - 2).
+  EXPECT_EQ(7.0f, path_bounds.fTop);
+  EXPECT_EQ(26.0f, path_bounds.height());
+
+  // Check contents insets.
+  // Normal top inset is 12. Grouped detached should be 13.
+  gfx::Insets insets = tab.tab_style_views()->GetContentsInsets();
+  EXPECT_EQ(13, insets.top());
+  EXPECT_EQ(14, insets.bottom());
+}
 
 class TabContentsTest : public ChromeViewsTestBase {
  public:
@@ -459,7 +494,7 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
         data.pinned = is_pinned_tab;
         controller->set_active_tab(is_active_tab ? tab : nullptr);
         data.alert_state = alert_state;
-        tab->SetData(data);
+        tab->SetDataForTesting(data);
         StopFadeAnimationIfNecessary(*tab);
 
         // Test layout for every width from standard to minimum.
@@ -536,65 +571,65 @@ TEST_F(TabTest, LayeredThrobber) {
   tabs::TabData data;
   data.visible_url = GURL("http://example.com");
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
-  EXPECT_EQ(TabNetworkState::kNone, tab->data().network_state);
+  EXPECT_EQ(tabs::TabNetworkState::kNone, tab->data().network_state);
 
   // Simulate a "normal" tab load: should paint to a layer.
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(tab_slot_controller->CanPaintThrobberToLayer());
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
-  data.network_state = TabNetworkState::kLoading;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kLoading;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // Simulate a tab that should hide throbber.
   data.should_hide_throbber = true;
-  tab->SetData(data);
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
-  data.network_state = TabNetworkState::kLoading;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kLoading;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // Simulate a tab that should not hide throbber.
   data.should_hide_throbber = false;
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(tab_slot_controller->CanPaintThrobberToLayer());
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
-  data.network_state = TabNetworkState::kLoading;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kLoading;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // After loading is done, simulate another resource starting to load.
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
 
   // Reset.
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // Simulate a drag started and stopped during a load: layer painting stops
   // temporarily.
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
   tab_slot_controller->set_paint_throbber_to_layer(false);
@@ -605,19 +640,19 @@ TEST_F(TabTest, LayeredThrobber) {
   tab->StepLoadingAnimation(base::Milliseconds(100));
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_TRUE(icon->layer());
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // Simulate a tab load starting and stopping during tab dragging:
   // no layer painting.
   tab_slot_controller->set_paint_throbber_to_layer(false);
-  data.network_state = TabNetworkState::kWaiting;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kWaiting;
+  tab->SetDataForTesting(data);
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
   EXPECT_FALSE(icon->layer());
-  data.network_state = TabNetworkState::kNone;
-  tab->SetData(data);
+  data.network_state = tabs::TabNetworkState::kNone;
+  tab->SetDataForTesting(data);
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 }
 
@@ -645,7 +680,7 @@ TEST_F(TabTest, FaviconDoesntMoveWhenShowingAlertIndicator) {
     int icon_x = icon->x();
     tabs::TabData data;
     data.alert_state = {tabs::TabAlert::kAudioPlaying};
-    tab->SetData(data);
+    tab->SetDataForTesting(data);
     EXPECT_EQ(icon_x, icon->x());
   }
 }
@@ -676,27 +711,38 @@ TEST_F(TabTest, CloseButtonVisibilityInDeclutteredState) {
       CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
   Tab* tab = widget->SetContentsView(
       std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
-  const int min_width = ui::TouchUiController::Get()->touch_ui()
-                            ? Tab::kTouchMinimumContentsWidthForCloseButtons
-                            : Tab::kMinimumContentsWidthForCloseButtons;
-  const int width =
-      tab->tab_style_views()->GetContentsInsets().width() + min_width;
-  tab->SetBounds(0, 0, width, 50);
+
+  // Use a large enough initial width to ensure non-decluttered state.
+  const int initial_available_width = 150;
+  const int initial_width =
+      tab->tab_style_views()->GetContentsInsets().width() +
+      initial_available_width + gfx::kFaviconSize;
+  tab->parent()->SetBounds(0, 0, initial_width, 50);
   const views::View* close = GetCloseButton(tab);
 
   widget->Show();
   widget->Activate();
+  tab->GetFocusManager()->ClearFocus();
 
-  // In non-decluttered state (tab count < min), close button should be visible.
-  controller->set_tab_count(TabStyle::kTabStripDeclutterMinTabsForCloseHide -
-                            1);
+  // In non-decluttered state (available width > max), close button should be
+  // visible. We add favicon width because it's subtracted before the declutter
+  // check.
+  const int non_decluttered_available_width = 150;
+  const int non_decluttered_width =
+      tab->tab_style_views()->GetContentsInsets().width() +
+      non_decluttered_available_width + gfx::kFaviconSize;
+  tab->parent()->SetBounds(0, 0, non_decluttered_width, 50);
   tab->InvalidateLayout();
   LayoutTab(tab);
   EXPECT_TRUE(close->GetVisible());
 
-  // In decluttered state (tab count >= min), close button should be hidden for
-  // an inactive, unhovered tab.
-  controller->set_tab_count(TabStyle::kTabStripDeclutterMinTabsForCloseHide);
+  // In decluttered state (available width <= max), close button should be
+  // hidden for an inactive, unhovered tab.
+  const int decluttered_available_width = 80;
+  const int decluttered_width =
+      tab->tab_style_views()->GetContentsInsets().width() +
+      decluttered_available_width + gfx::kFaviconSize;
+  tab->parent()->SetBounds(0, 0, decluttered_width, 50);
   tab->InvalidateLayout();
   LayoutTab(tab);
   EXPECT_FALSE(close->GetVisible());
@@ -717,19 +763,22 @@ TEST_F(TabTest, CloseButtonVisibilityInDeclutteredState) {
   // If the tab is focused, the close button becomes visible and can then be
   // focused.
   tab->GetFocusManager()->SetFocusedView(tab);
+  tab->InvalidateLayout();
   LayoutTab(tab);
   EXPECT_TRUE(close->GetVisible());
 
   // If focus moves to the close button, it should remain visible.
   tab->GetFocusManager()->SetFocusedView(const_cast<views::View*>(close));
+  tab->InvalidateLayout();
   LayoutTab(tab);
   EXPECT_TRUE(close->GetVisible());
 
   tab->GetFocusManager()->ClearFocus();
+  tab->InvalidateLayout();
   LayoutTab(tab);
   EXPECT_FALSE(close->GetVisible());
 
-  // Active tab should always show close button.
+  // Active tab should always show close button, even at decluttered width.
   controller->set_active_tab(tab);
   tab->InvalidateLayout();
   LayoutTab(tab);
@@ -750,7 +799,7 @@ TEST_F(TabTest, ExtraLeftPaddingShownOnSiteWithoutFavicon) {
   // Remove the favicon.
   tabs::TabData data;
   data.should_display_favicon = false;
-  tab->SetData(data);
+  tab->SetDataForTesting(data);
   EndTitleAnimation(tab);
   EXPECT_FALSE(icon->GetVisible());
   // Title should be placed where the favicon was.
@@ -766,7 +815,7 @@ TEST_F(TabTest, ExtraAlertPaddingNotShownOnSmallActiveTab) {
   controller->set_active_tab(tab);
   tabs::TabData data;
   data.alert_state = {tabs::TabAlert::kAudioPlaying};
-  tab->SetData(data);
+  tab->SetDataForTesting(data);
 
   tab->SetBounds(0, 0, 200, 50);
   EXPECT_TRUE(GetTabIcon(tab)->GetVisible());
@@ -873,7 +922,7 @@ TEST_F(TabContentsTest, ShowsAndHidesAlertIndicator) {
   tabs::TabData start_media;
   start_media.alert_state = {tabs::TabAlert::kAudioPlaying};
   start_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(start_media));
+  media_tab->SetDataForTesting(std::move(start_media));
 
   // When audio starts, pinned inactive tab shows indicator.
   EXPECT_FALSE(showing_icon(media_tab));
@@ -882,7 +931,7 @@ TEST_F(TabContentsTest, ShowsAndHidesAlertIndicator) {
 
   tabs::TabData stop_media;
   stop_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(stop_media));
+  media_tab->SetDataForTesting(std::move(stop_media));
 
   // When audio ends, pinned inactive tab fades out indicator.
   EXPECT_FALSE(showing_icon(media_tab));
@@ -914,7 +963,7 @@ TEST_F(TabContentsTest, MinHoldDurationTest) {
   tabs::TabData start_media;
   start_media.alert_state = {tabs::TabAlert::kMediaRecording};
   start_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(start_media));
+  media_tab->SetDataForTesting(std::move(start_media));
 
   // When audio starts, pinned inactive tab shows indicator.
   EXPECT_TRUE(showing_alert_indicator(media_tab));
@@ -922,7 +971,7 @@ TEST_F(TabContentsTest, MinHoldDurationTest) {
 
   tabs::TabData stop_media;
   stop_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(stop_media));
+  media_tab->SetDataForTesting(std::move(stop_media));
 
   // The indicator's start time should be reset.
   EXPECT_EQ(base::Time(), get_camera_mic_indicator_start_time(media_tab));
@@ -945,7 +994,7 @@ TEST_F(TabContentsTest, 1SecondFadeoutAnimationTest) {
   tabs::TabData start_media;
   start_media.alert_state = {tabs::TabAlert::kMediaRecording};
   start_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(start_media));
+  media_tab->SetDataForTesting(std::move(start_media));
 
   // When audio starts, pinned inactive tab shows indicator.
   EXPECT_TRUE(showing_alert_indicator(media_tab));
@@ -958,7 +1007,7 @@ TEST_F(TabContentsTest, 1SecondFadeoutAnimationTest) {
 
   tabs::TabData stop_media;
   stop_media.pinned = media_tab->data().pinned;
-  media_tab->SetData(std::move(stop_media));
+  media_tab->SetDataForTesting(std::move(stop_media));
 
   // The indicator's start time should be reset.
   EXPECT_EQ(base::Time(), get_camera_mic_indicator_start_time(media_tab));
@@ -1105,4 +1154,80 @@ TEST_F(TabTest, TabCloseButtonSizeInTouchMode) {
   TabCloseButton* button = GetCloseButton(tab);
   EXPECT_EQ(24, GetLayoutConstant(LayoutConstant::kTabCloseButtonSize));
   EXPECT_EQ(gfx::Size(36, 36), button->GetPreferredSize());
+}
+
+TEST_F(TabTest, SingleElementCentering) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kTabStripDeclutter);
+
+  auto controller = std::make_unique<FakeTabSlotController>();
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+
+  // Put the tab in a container to prevent the widget from resizing it.
+  views::View* container =
+      widget->SetContentsView(std::make_unique<views::View>());
+  Tab* tab = container->AddChildView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
+
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(16, 16);
+
+  {
+    SCOPED_TRACE("Favicon only");
+    tabs::TabData data;
+    data.favicon = ui::ImageModel::FromImageSkia(
+        gfx::ImageSkia::CreateFrom1xBitmap(bitmap));
+    data.should_display_favicon = true;
+    data.alert_state = std::nullopt;
+    tab->SetDataForTesting(data);
+    StopFadeAnimationIfNecessary(*tab);
+    // Inactive tab doesn't show close button by default if small.
+    controller->set_active_tab(nullptr);
+    // Small width to hide title, but large enough for favicon.
+    tab->SetBounds(0, 0, 40, 50);
+    LayoutTab(tab);
+    EXPECT_TRUE(tab->showing_icon());
+    EXPECT_FALSE(tab->showing_alert_indicator());
+    EXPECT_FALSE(tab->showing_close_button());
+    EXPECT_FALSE(GetTabTitle(tab)->GetVisible());
+    EXPECT_EQ(tab->width() / 2, GetTabIcon(tab)->bounds().CenterPoint().x());
+  }
+
+  {
+    SCOPED_TRACE("Alert indicator only");
+    tabs::TabData data;
+    data.should_display_favicon = false;
+    data.alert_state = {tabs::TabAlert::kAudioPlaying};
+    tab->SetDataForTesting(data);
+    StopFadeAnimationIfNecessary(*tab);
+    tab->SetBounds(0, 0, 40, 50);
+    LayoutTab(tab);
+    EXPECT_FALSE(tab->showing_icon());
+    EXPECT_TRUE(tab->showing_alert_indicator());
+    EXPECT_FALSE(tab->showing_close_button());
+    EXPECT_EQ(tab->width() / 2,
+              GetAlertIndicator(tab)->bounds().CenterPoint().x());
+  }
+
+  {
+    SCOPED_TRACE("Close button only");
+    tabs::TabData data;
+    data.should_display_favicon = false;
+    data.alert_state = std::nullopt;
+    tab->SetDataForTesting(data);
+    StopFadeAnimationIfNecessary(*tab);
+    // Active tab always shows close button.
+    controller->set_active_tab(tab);
+    tab->ActiveStateChanged();
+    // Width small enough that favicon/alert wouldn't fit, and title is hidden.
+    tab->SetBounds(0, 0, 40, 50);
+    LayoutTab(tab);
+    EXPECT_TRUE(tab->IsActive());
+    EXPECT_FALSE(tab->showing_icon());
+    EXPECT_FALSE(tab->showing_alert_indicator());
+    EXPECT_TRUE(tab->showing_close_button());
+    EXPECT_EQ(tab->width() / 2,
+              GetCloseButton(tab)->bounds().CenterPoint().x());
+  }
 }

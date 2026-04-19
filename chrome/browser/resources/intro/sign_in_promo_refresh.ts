@@ -4,6 +4,7 @@
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
+import 'chrome://resources/cr_elements/cr_lottie/cr_lottie.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import '/strings.m.js';
 
@@ -17,6 +18,14 @@ import type {IntroBrowserProxy} from './browser_proxy.js';
 import {IntroBrowserProxyImpl} from './browser_proxy.js';
 import {getCss} from './sign_in_promo_refresh.css.js';
 import {getHtml} from './sign_in_promo_refresh.html.js';
+
+// LINT.IfChange(Variation)
+export enum Variation {
+  DEFAULT = 0,
+  DONT_SIGN_IN_IN_TOP_RIGHT_CORNER = 1,
+  DONT_SIGN_IN_ON_GAIA = 2,
+}
+// LINT.ThenChange(//components/signin/public/base/signin_switches.h:FirstRunDesktopSignInPromoVariation)
 
 export interface SignInPromoRefreshElement {
   $: {
@@ -61,21 +70,35 @@ export class SignInPromoRefreshElement extends SignInPromoRefreshElementBase {
       isDeviceManaged_: {type: Boolean},
       anyButtonClicked_: {type: Boolean},
       usePrimaryAndTonalButtonsForPromos_: {type: Boolean},
+      shouldDisableAnimations_: {type: Boolean},
+      isDarkMode_: {type: Boolean},
     };
   }
 
-  private browserProxy_: IntroBrowserProxy =
-      IntroBrowserProxyImpl.getInstance();
   protected accessor benefitCards_: BenefitCard[];
   protected accessor managedDeviceDisclaimer_: string = '';
   protected accessor isDeviceManaged_: boolean =
       loadTimeData.getBoolean('isDeviceManaged');
   protected accessor usePrimaryAndTonalButtonsForPromos_: boolean =
       loadTimeData.getBoolean('usePrimaryAndTonalButtonsForPromos');
+  protected accessor shouldDisableAnimations_: boolean =
+      loadTimeData.getBoolean('disableAnimations');
+  protected accessor isDarkMode_: boolean;
   private accessor anyButtonClicked_: boolean = false;
+  private browserProxy_: IntroBrowserProxy =
+      IntroBrowserProxyImpl.getInstance();
+  private variation_: Variation =
+      loadTimeData.getInteger('signInPromoVariation') as Variation;
+  private darkModeListener_: (e: MediaQueryListEvent) => void;
+  private matchMedia_: MediaQueryList;
 
   constructor() {
     super();
+    this.matchMedia_ = window.matchMedia('(prefers-color-scheme: dark)');
+    this.isDarkMode_ = this.matchMedia_.matches;
+    this.darkModeListener_ = (e) => {
+      this.isDarkMode_ = e.matches;
+    };
     this.benefitCards_ = [
       {
         title: this.i18n('devicesCardTitle'),
@@ -107,6 +130,12 @@ export class SignInPromoRefreshElement extends SignInPromoRefreshElementBase {
     }
 
     this.addWebUiListener('reset-intro-buttons', this.resetButtons_.bind(this));
+    this.matchMedia_.addEventListener('change', this.darkModeListener_);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.matchMedia_.removeEventListener('change', this.darkModeListener_);
   }
 
   private resetButtons_() {
@@ -144,6 +173,19 @@ export class SignInPromoRefreshElement extends SignInPromoRefreshElementBase {
   protected getDisclaimerVisibilityClass_(): string {
     return this.managedDeviceDisclaimer_.length === 0 ? 'temporarily-hidden' :
                                                         'fast-fade-in';
+  }
+
+  protected get isDefaultVariation_(): boolean {
+    return this.variation_ === Variation.DEFAULT;
+  }
+
+  protected get isTopRightCornerVariation_(): boolean {
+    return this.variation_ === Variation.DONT_SIGN_IN_IN_TOP_RIGHT_CORNER;
+  }
+
+  protected getAnimationUrl_(position: 'left'|'right'|'bottom'): string {
+    return `chrome://intro/animations/signin_benefits_${
+        this.isDarkMode_ ? 'dark' : 'light'}_${position}.json`;
   }
 }
 

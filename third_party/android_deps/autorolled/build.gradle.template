@@ -33,6 +33,7 @@ dependencies {
     compileLatest 'com.google.android.libraries.identity.googleid:googleid:+'
     compileLatest 'com.google.android.material:material:+'
     compileLatest 'com.google.android.play:feature-delivery:+'
+    compileLatest 'com.google.android.play:review:+'
     compileLatest 'com.google.code.gson:gson:+'
     compileLatest 'com.google.mlkit:common:+'
     compileLatest 'com.google.mlkit:genai-common:+'
@@ -48,7 +49,7 @@ dependencies {
 
     // A dependency of androidx.xr.runtime:runtime, but must be listed here in
     // order to be auto-rolled and not manually rolled.
-    compileLatest 'com.google.ar:impress:+'
+    compileLatest 'com.google.ar:impress:0.0.10'
 
     // Play Services & Firebase
     compileLatest 'com.google.android.gms:play-services-auth-api-phone:+'

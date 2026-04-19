@@ -20,7 +20,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -131,14 +130,16 @@
 #include "chrome/browser/download/download_item_web_app_data.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/actor.mojom-shared.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/api/downloads/downloads_api.h"
-#include "chrome/browser/extensions/webstore_installer.h"
 #include "extensions/browser/crx_installer.h"
+#include "extensions/browser/extension_util.h"
+#include "extensions/browser/webstore_installer.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/user_script.h"
 #endif
@@ -166,11 +167,6 @@
 
 #if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
-#endif
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
@@ -1012,7 +1008,7 @@ bool ChromeDownloadManagerDelegate::ShouldOpenDownload(
     DownloadItem* item,
     content::DownloadOpenDelayedCallback callback) {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  if (download_crx_util::IsExtensionDownload(*item) &&
+  if (extensions::util::IsExtensionDownload(*item) &&
       !extensions::WebstoreInstaller::GetAssociatedApproval(*item)) {
     scoped_refptr<CrxInstaller> installer(
         download_crx_util::CreateCrxInstaller(profile_, *item));
@@ -2300,13 +2296,13 @@ void ChromeDownloadManagerDelegate::AttachExtraInfo(
     download::DownloadItem* item) {
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(item);
-  Browser* browser =
+  BrowserWindowInterface* browser =
       web_contents ? chrome::FindBrowserWithTab(web_contents) : nullptr;
   // Attach the info for whether the download came from a web app.
   if (browser && web_app::AppBrowserController::IsWebApp(browser) &&
-      browser->app_controller()) {
+      web_app::AppBrowserController::From(browser)) {
     DownloadItemWebAppData::CreateAndAttachToItem(
-        item, browser->app_controller()->app_id());
+        item, web_app::AppBrowserController::From(browser)->app_id());
   }
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

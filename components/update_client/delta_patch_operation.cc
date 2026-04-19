@@ -4,6 +4,7 @@
 
 #include "components/update_client/delta_patch_operation.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -40,6 +41,7 @@ DeltaPatchOperation::DeltaPatchOperation(
     int expected_success_result,
     const base::FilePath& patch_file,
     int event_type,
+    bool is_foreground,
     base::OnceCallback<void(base::expected<base::FilePath, CategorizedError>)>
         callback)
     : crx_cache_(crx_cache),
@@ -51,6 +53,7 @@ DeltaPatchOperation::DeltaPatchOperation(
       expected_success_result_(expected_success_result),
       patch_file_(patch_file),
       event_type_(event_type),
+      is_foreground_(is_foreground),
       callback_(std::move(callback)) {}
 
 DeltaPatchOperation::~DeltaPatchOperation() = default;
@@ -87,7 +90,8 @@ void DeltaPatchOperation::CacheLookupDone(
     return;
   }
 
-  base::ThreadPool::CreateSequencedTaskRunner(kTaskTraits)
+  base::ThreadPool::CreateSequencedTaskRunner(
+      is_foreground_ ? kTaskTraits : kTaskTraitsBackgroundDecompression)
       ->PostTask(FROM_HERE, base::BindOnce(&DeltaPatchOperation::Patch, this,
                                            result.value()));
 }

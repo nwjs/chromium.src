@@ -34,7 +34,6 @@
 <translation id="132092532143527429">Chromium의 Gemini로 사용해 보기</translation>
 <translation id="1324107359134968521">블루투스 기기를 탐색하려면 Chromium에 블루투스 액세스 권한이 필요합니다. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">언어 감지</translation>
-<translation id="1330742950061766891">Chromium 권장 브라우저 설정 사용</translation>
 <translation id="1342274909142618978">Chromium(<ph name="URL" />)에서도 데이터 삭제</translation>
 <translation id="1345251407431278948">고정되었습니다. 툴바의 새 버튼에서 이미지 검색을 다시 이용할 수 있습니다</translation>
 <translation id="1356661055722410047">New! 화면의 텍스트와 이미지를 모두 번역할 수 있습니다.</translation>
@@ -56,8 +55,10 @@
 <translation id="1594928384848033697">Chromium에서 비밀번호 관리자 데이터를 삭제하려고 합니다. 허용하려면 Windows 비밀번호를 입력하세요.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{관리자의 요구에 따라 업데이트를 적용하려면 Chromium을 다시 실행해야 합니다.}=1{관리자의 요구에 따라 업데이트를 적용하려면 Chromium을 다시 실행해야 합니다. 시크릿 창이 다시 열리지 않습니다.}other{관리자의 요구에 따라 업데이트를 적용하려면 Chromium을 다시 실행해야 합니다. 시크릿 창 #개가 다시 열리지 않습니다.}}</translation>
 <translation id="1625909126243026060">Chromium의 주요 개인 정보 보호 및 보안 제어 기능을 검토합니다.</translation>
+<translation id="1639380494700489405">페이지를 나가지 않고 탭에 관해 AI 모드에게 물어보려면 Chromium에 로그인하세요. 이렇게 하면 이용 중인 모든 기기에서 비밀번호 등도 사용할 수 있습니다.</translation>
 <translation id="1640672724030957280">다운로드 중...</translation>
 <translation id="1680687534629375545">이미지 검색에 이 페이지에 관해 질문하기</translation>
+<translation id="1708414395296835197">언제든지 메시지, 문서, 기타 앱에서 링크를 클릭하여 Chromium을 사용할 수 있습니다. 작업 표시줄에도 고정됩니다.</translation>
 <translation id="1709772298389099340"><ph name="BROWSER_NAME" />에 승격된 권한을 제공합니다.</translation>
 <translation id="1715127912119967311">Chromium은 이러한 기능을 개선하도록 사용자와의 상호작용을 Google에 전송합니다. 검토자가 이 데이터를 읽고 처리하고 이 데이터에 주석을 달 수 있습니다.</translation>
 <translation id="1722488837206509557">이렇게 하면 사용 가능한 기기 중에서 선택하고 해당 기기에 콘텐츠를 표시할 수 있습니다.</translation>
@@ -197,6 +198,7 @@
 <translation id="3045032126857188731">번역된 언어, <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">의견 닫기 대화상자</translation>
 <translation id="3068187312562070417">기타 Chromium 프로필</translation>
+<translation id="3068290154869370196">확장 프로그램은 Chromium을 맞춤설정할 수 있는 부가기능입니다. 정리부터 일상적인 할 일을 간소화하는 것까지, 확장 프로그램을 통해 Chromium을 나만의 브라우저로 만들 수 있습니다.</translation>
 <translation id="3068515742935458733">비정상 종료 보고서와 <ph name="UMA_LINK" />을(를) Google로 전송하여 Chromium 개선에 참여합니다.</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{하나 이상의 Chromium 확장 프로그램에서 USB 기기 1대에 액세스함}=1{하나 이상의 Chromium 확장 프로그램에서 USB 기기 1대에 액세스 중}other{하나 이상의 Chromium 확장 프로그램에서 USB 기기 #대에 액세스 중}}</translation>
 <translation id="3095811995836568724">Chromium 방문 기록</translation>
@@ -227,7 +229,6 @@
 <translation id="3313189106987092621">Chromium에서 안전하지 않은 연결을 사용해 사이트를 로드하기 전에 경고를 표시합니다.</translation>
 <translation id="3316771292331273802">Chromium에 로그인한 경우 Google 계정을 제외한 모든 Chromium 창을 닫으면 대부분의 사이트에서 로그아웃됩니다. 사이트에서 나를 기억하도록 하려면 <ph name="SETTINGS_LINK" />하세요.</translation>
 <translation id="3322413454779348750">Chromium 외부에서 기본 검색엔진이 변경되었습니다. 사용자를 보호하기 위해 Chromium에서 기본 검색엔진을 재설정했습니다.</translation>
-<translation id="3331557257666250900">Chromium에 로그인하여 모든 기기에서 내 비밀번호, 북마크 등을 사용하세요.</translation>
 <translation id="3352986031709923790">검색 영역의 오른쪽 상단: 오른쪽 <ph name="RIGHT" />%, 상단 <ph name="TOP" />%</translation>
 <translation id="3366305173356742781">사용자 계정의 Chromium 데이터</translation>
 <translation id="3369405342922656244">이미지 검색으로 이 페이지 검색하기</translation>
@@ -438,6 +439,7 @@
 <translation id="5895138241574237353">다시 시작</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - 네트워크 로그인</translation>
 <translation id="5924017743176219022">인터넷에 연결 중...</translation>
+<translation id="5939553720811388432">Chromium을 사용할 준비가 되셨나요?</translation>
 <translation id="5941711191222866238">최소화</translation>
 <translation id="5949225980829865667">모든 기기에서 이 북마크 등을 사용하려면 Chromium에 로그인하세요.</translation>
 <translation id="5953657885167112863">나만의 Chromium 만들기</translation>
@@ -591,6 +593,7 @@ Chromium에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7352651011704765696">문제가 발생했습니다</translation>
 <translation id="7368826207863345663">향후 Chromium 업데이트를 받으려면 macOS 13 이상이 필요합니다. 이 컴퓨터에서는 macOS 12를 사용 중입니다.</translation>
 <translation id="7376384068949534168">최근에 사이트를 방문하지 않았습니다. Chromium에서 <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> 권한을 삭제했습니다.</translation>
+<translation id="73786666777299047">Chrome 웹 스토어 열기</translation>
 <translation id="7384121030444253939">이 확장 프로그램은 더 이상 지원되지 않습니다. 대신 Chromium에서는 이 프로그램을 삭제할 것을 권장합니다.</translation>
 <translation id="7413153308467572558">중단한 위치에서 계속하기: Chromium은 다시 시작할 때마다 탭을 복원합니다. 이 기능을 사용 중지하려면 다음으로 이동하세요.</translation>
 <translation id="7427879960656355200">Chromium으로 비밀번호 가져오기</translation>

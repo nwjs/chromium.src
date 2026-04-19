@@ -45,7 +45,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.AiPage.NavigationInterceptionSource"
-    enum="ContextualTasksEntrypointSource" expires_after="2026-07-12">
+    enum="ContextualTasksEntrypointSource" expires_after="2026-09-13">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -87,7 +87,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualTasks.Composebox.UserAction.AddedActiveTabAfterDeletingAutoSuggestion"
-    enum="Boolean" expires_after="2026-07-12">
+    enum="Boolean" expires_after="2026-09-27">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -119,7 +119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.DurationSinceLastActive"
-    units="seconds" expires_after="2026-03-22">
+    units="seconds" expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -129,7 +129,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.EmbeddingSimilarityScore"
-    units="count" expires_after="2026-03-22">
+    units="count" expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -140,7 +140,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.ExplicitTabsCount" units="count"
-    expires_after="2026-03-22">
+    expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -152,7 +152,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.MatchingWordsCount" units="count"
-    expires_after="2026-03-22">
+    expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -173,7 +173,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.RelevantTabsCount" units="count"
-    expires_after="2026-07-05">
+    expires_after="2026-09-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -183,8 +183,61 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="ContextualTasks.Context.SiteExclusions.ActiveTab.ExclusionsChecked"
+    units="count" expires_after="2026-09-17">
+  <owner>orinj@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time a query is made and the active tab eligibility
+    determined. Records the number of site exclusions checked to determine
+    eligibility of active tab.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Context.SiteExclusions.ActiveTab.Filtered"
+    enum="Boolean" expires_after="2026-09-17">
+  <owner>orinj@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time a query is made and the active tab eligibility
+    determined. Records whether the active tab was filtered by site exclusions.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.Context.SiteExclusions.AllTabs.CheckingDuration"
+    units="ms" expires_after="2026-09-17">
+  <owner>orinj@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when eligibility is determined for all tabs. Records the number of
+    milliseconds spent on site exclusion checking/filtering for all tabs.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Context.SiteExclusions.AllTabs.TabsChecked"
+    units="count" expires_after="2026-09-17">
+  <owner>orinj@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when eligibility is determined for all tabs. Records the number of
+    tabs checked for site exclusions.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Context.SiteExclusions.AllTabs.TabsFiltered"
+    units="count" expires_after="2026-09-17">
+  <owner>orinj@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when eligibility is determined for all tabs. Records the number of
+    tabs filtered out by site exclusions.
+  </summary>
+</histogram>
+
 <histogram name="ContextualTasks.Context.TabExcessCount" units="count"
-    expires_after="2026-07-12">
+    expires_after="2026-09-13">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -196,7 +249,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.TabOverlapCount" units="count"
-    expires_after="2026-07-12">
+    expires_after="2026-09-13">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -208,7 +261,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.TabOverlapPercentage" units="%"
-    expires_after="2026-07-12">
+    expires_after="2026-09-13">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -222,13 +275,25 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.TabScore" units="count"
-    expires_after="2026-03-22">
+    expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
     Recorded every time a query is successfully made in the contextual tasks
     framework when using multi-signal scoring. Records the final computed score
     for each tab, multiplied by 100.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.HistoryNavigation.UserAction.NavigatedInFullTab"
+    enum="Boolean" expires_after="2026-06-28">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Logged when the back or forward button is clicked while the user is viewing
+    the Contextual Tasks full tab, causing a task switch. Always recorded as
+    true.
   </summary>
 </histogram>
 
@@ -280,7 +345,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.TabChange.UserAction{ActionType}"
-    enum="Boolean" expires_after="2026-03-22">
+    enum="Boolean" expires_after="2026-09-17">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -304,7 +369,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.VoiceSearch.State" enum="VoiceSearchState"
-    expires_after="2026-06-10">
+    expires_after="2026-09-20">
   <owner>jamesleung@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -314,7 +379,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.WebUI.OAuthError"
-    units="GoogleServiceAuthError" expires_after="2026-06-01">
+    units="GoogleServiceAuthError" expires_after="2026-09-17">
   <owner>mercerd@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -350,7 +415,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.{EntrypointType}.UserAction{ActionType}"
-    enum="Boolean" expires_after="2026-07-05">
+    enum="Boolean" expires_after="2026-09-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>

@@ -86,7 +86,8 @@ class AccountsPolicyManager::DeleteProfileDialogManager
         ProfileBrowserCollection::GetForProfile(profile);
     browser_collection_observation_.Observe(browser_collection);
     // Find the last active browser window for the profile.
-    Browser* active_browser = chrome::FindLastActiveWithProfile(profile);
+    BrowserWindowInterface* const active_browser =
+        chrome::FindLastActiveWithProfile(profile);
     if (active_browser) {
       OnBrowserActivated(active_browser);
     }
@@ -267,6 +268,14 @@ void AccountsPolicyManager::EnsurePrimaryAccountAllowedForProfile(
       CanOfferSignin(profile, primary_account.gaia, primary_account.email,
                      /*allow_account_from_other_profile=*/true);
   if (signin_ui_error.IsOk()) {
+    return;
+  }
+
+  if (signin_ui_error.type() == SigninUIError::Type::kSigninCookiesDisallowed) {
+    // Ignore cookie errors for profile deletion. Deleting the profile because
+    // cookies are blocked would be very surprising for the user, and is not
+    // absolutely required. Even though new sign-ins are disallowed, existing
+    // sessions can remain.
     return;
   }
 

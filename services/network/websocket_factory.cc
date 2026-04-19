@@ -4,10 +4,13 @@
 
 #include "services/network/websocket_factory.h"
 
+#include <algorithm>
+
 #include "base/functional/bind.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "net/base/isolation_info.h"
 #include "net/base/url_util.h"
+#include "net/log/net_log.h"
 #include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/network_context.h"
@@ -89,7 +92,8 @@ void WebSocketFactory::CreateWebSocket(
         url_loader_network_observer,
     mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
     mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
-    const std::optional<base::UnguessableToken>& throttling_profile_id) {
+    const std::optional<base::UnguessableToken>& throttling_profile_id,
+    const std::optional<base::UnguessableToken>& network_restrictions_id) {
   if (isolation_info.request_type() !=
       net::IsolationInfo::RequestType::kOther) {
     mojo::ReportBadMessage(
@@ -123,7 +127,23 @@ void WebSocketFactory::CreateWebSocket(
     return;
   }
   if (isolation_info.nonce().has_value() &&
-      !context_->IsNetworkForNonceAndUrlAllowed(*isolation_info.nonce(), url)) {
+      !context_->IsNetworkForNonceAndUrlAllowed(
+          *isolation_info.nonce(), url,
+          isolation_info.network_anonymization_key())) {
+    mojo::Remote<mojom::WebSocketHandshakeClient> handshake_client_remote(
+        std::move(handshake_client));
+    handshake_client_remote->OnFailure("Network access revoked",
+                                       net::ERR_NETWORK_ACCESS_REVOKED, -1);
+    handshake_client_remote.reset();
+    return;
+  }
+  // Enforce Connection-Allowlist restrictions for WebSocket connections. Convert
+  // ws(s):// to http(s):// for allowlist matching, since the allowlist patterns
+  // use HTTP schemes.
+  if (network_restrictions_id.has_value() &&
+      !context_->IsNetworkForNonceAndUrlAllowed(
+          *network_restrictions_id, net::ChangeWebSocketSchemeToHttpScheme(url),
+          isolation_info.network_anonymization_key())) {
     mojo::Remote<mojom::WebSocketHandshakeClient> handshake_client_remote(
         std::move(handshake_client));
     handshake_client_remote->OnFailure("Network access revoked",
@@ -163,6 +183,27 @@ void WebSocketFactory::RemoveIfNonceMatches(
   std::erase_if(connections_, [&nonce](const auto& connection) {
     return connection->RevokeIfNonceMatches(nonce);
   });
+}
+
+void WebSocketFactory::CreateNetLogEntriesForActiveConnections(
+    net::NetLog::ThreadSafeObserver* observer) const {
+  // Collect all connections into a sortable vector.
+  std::vector<WebSocket*> connections;
+  for (const auto& connection : connections_) {
+    connections.push_back(connection.get());
+  }
+
+  // Sort chronologically (oldest first), with pending/throttled connections
+  // (no channel yet) at the end.
+  std::ranges::sort(connections, [](const WebSocket* a, const WebSocket* b) {
+    return WebSocket::CompareForNetlog(*a, *b);
+  });
+
+  // Create synthetic WEBSOCKET_ALIVE events. AddActiveEntryIfActive skips
+  // connections where the channel hasn't been created yet (pending/throttled).
+  for (WebSocket* websocket : connections) {
+    websocket->AddActiveEntryIfActive(observer);
+  }
 }
 
 }  // namespace network

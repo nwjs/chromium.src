@@ -55,7 +55,8 @@ class CliOptions:
     self.unshared_header_files = None if is_final else []
     self.header_path = None
     self.enable_jni_multiplexing = False
-    self.enable_definition_macros = False
+    self.enable_definition_macros = self.action == 'from-source'
+    self.use_std_primitive_types = self.action.startswith('from')
     self.package_prefix = None
     self.package_prefix_filter = None
     self.use_proxy_hash = False
@@ -78,6 +79,8 @@ class CliOptions:
       ret.append('--enable-jni-multiplexing')
     if self.enable_definition_macros:
       ret.append('--enable-definition-macros')
+    if self.use_std_primitive_types:
+      ret.append('--use-std-primitive-types')
     if self.package_prefix:
       ret += ['--package-prefix', self.package_prefix]
     if self.package_prefix_filter:
@@ -310,6 +313,9 @@ class BaseTest(unittest.TestCase):
 
       logging.info('Running: %s', shlex.join(cmd))
       result = subprocess.run(cmd, capture_output=True, check=False, text=True)
+      if 'Traceback' in result.stderr:
+        sys.stderr.write(result.stderr)
+        result.check_returncode()
       self.assertIn('MyFile.java', result.stderr)
       self.assertIn(error_snippet, result.stderr)
       self.assertEqual(result.returncode, 1)
@@ -370,12 +376,16 @@ class BaseTest(unittest.TestCase):
 
 @unittest.skipIf(os.name == 'nt', 'Not intended to work on Windows')
 class Tests(BaseTest):
+
+  def testGenerics(self):
+    self._TestEndToEndGeneration(['SampleGenerics.java'], srcjar=True)
+
   def testNonProxy(self):
     self._TestEndToEndGeneration(['SampleNonProxy.java'])
 
   def testBirectionalNonProxy(self):
     self._TestEndToEndGeneration(['SampleBidirectionalNonProxy.java'],
-                                 enable_definition_macros=True)
+                                 enable_definition_macros=False)
 
   def testBidirectionalClass(self):
     self._TestEndToEndGeneration(['SampleForTests.java'], srcjar=True)
@@ -383,6 +393,9 @@ class Tests(BaseTest):
 
   def testFromClassFile(self):
     self._TestEndToEndGeneration(['JavapClass.class'])
+
+  def testJavaUtilList(self):
+    self._TestEndToEndGeneration(['List.class'])
 
   def testUniqueAnnotations(self):
     self._TestEndToEndGeneration(['SampleUniqueAnnotations.java'], srcjar=True)

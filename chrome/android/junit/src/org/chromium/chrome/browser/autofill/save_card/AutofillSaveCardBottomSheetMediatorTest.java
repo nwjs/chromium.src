@@ -24,8 +24,8 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.browser.autofill.AutofillSheetUiController;
 import org.chromium.chrome.browser.autofill.save_card.AutofillSaveCardBottomSheetMediator.SaveCardPromptResult;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -36,7 +36,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private AutofillSaveCardBottomSheetContent mBottomSheetContent;
     @Mock private AutofillSaveCardBottomSheetLifecycle mLifeCycle;
-    @Mock private BottomSheetController mBottomSheetController;
+    @Mock private AutofillSheetUiController mUiController;
     private PropertyModel mModel;
     @Mock private AutofillSaveCardBottomSheetBridge mDelegate;
     private AutofillSaveCardBottomSheetMediator mMediator;
@@ -48,7 +48,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
                 new AutofillSaveCardBottomSheetMediator(
                         mBottomSheetContent,
                         mLifeCycle,
-                        mBottomSheetController,
+                        mUiController,
                         mModel,
                         mDelegate,
                         /* isServerCard= */ true,
@@ -57,12 +57,12 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
 
     @Test
     public void testRequestShowContent() {
-        when(mBottomSheetController.requestShowContent(
+        when(mUiController.requestShowContent(
                         any(AutofillSaveCardBottomSheetContent.class), eq(true)))
                 .thenReturn(true);
         mMediator.requestShowContent();
 
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .requestShowContent(
                         any(AutofillSaveCardBottomSheetContent.class), /* animate= */ eq(true));
         verify(mLifeCycle).begin(mMediator);
@@ -71,7 +71,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
 
     @Test
     public void testRequestShowContent_whenBottomSheetReturnsFalse() {
-        when(mBottomSheetController.requestShowContent(
+        when(mUiController.requestShowContent(
                         any(AutofillSaveCardBottomSheetContent.class), eq(true)))
                 .thenReturn(false);
         mMediator.requestShowContent();
@@ -85,7 +85,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mMediator.onAccepted();
 
         verifyNoInteractions(mLifeCycle);
-        verifyNoInteractions(mBottomSheetController);
+        verifyNoInteractions(mUiController);
         verify(mDelegate).onUiAccepted();
         assertTrue(mModel.get(AutofillSaveCardBottomSheetProperties.SHOW_LOADING_STATE));
     }
@@ -97,7 +97,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
                 new AutofillSaveCardBottomSheetMediator(
                         mBottomSheetContent,
                         mLifeCycle,
-                        mBottomSheetController,
+                        mUiController,
                         mModel,
                         mDelegate,
                         /* isServerCard= */ false,
@@ -105,7 +105,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mediator.onAccepted();
 
         verify(mLifeCycle).end();
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .hideContent(
                         any(AutofillSaveCardBottomSheetContent.class),
                         /* animate= */ eq(true),
@@ -121,7 +121,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
                 new AutofillSaveCardBottomSheetMediator(
                         mBottomSheetContent,
                         mLifeCycle,
-                        mBottomSheetController,
+                        mUiController,
                         mModel,
                         mDelegate,
                         /* isServerCard= */ true,
@@ -129,7 +129,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mediator.onAccepted();
 
         verify(mLifeCycle).end();
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .hideContent(
                         any(AutofillSaveCardBottomSheetContent.class),
                         /* animate= */ eq(true),
@@ -143,7 +143,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mMediator.onCanceled();
 
         verify(mLifeCycle).end();
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .hideContent(
                         any(AutofillSaveCardBottomSheetContent.class),
                         /* animate= */ eq(true),
@@ -156,7 +156,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mMediator.onIgnored();
 
         verify(mLifeCycle).end();
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .hideContent(
                         any(AutofillSaveCardBottomSheetContent.class),
                         /* animate= */ eq(true),
@@ -169,7 +169,7 @@ public final class AutofillSaveCardBottomSheetMediatorTest {
         mMediator.hide(StateChangeReason.INTERACTION_COMPLETE);
 
         verify(mLifeCycle).end();
-        verify(mBottomSheetController)
+        verify(mUiController)
                 .hideContent(
                         any(AutofillSaveCardBottomSheetContent.class),
                         /* animate= */ eq(true),

@@ -42,13 +42,17 @@ BASE_DECLARE_FEATURE_PARAM(bool, kGlicPromptUserForSensitiveNavigations);
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicConfirmNavigationToNewOrigins);
 // Toggles displaying a user confirmation to confirm the navigation instead of
 // relying on the web client making a server call.
+// kGlicConfirmNavigationToNewOrigins must be enabled for this feature to work.
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicPromptUserForNavigationToNewOrigins);
+// Toggles whether we are in "dark launch" mode where we ask the server for
+// validation but only log the response.
+// kGlicConfirmNavigationToNewOrigins must be enabled for this feature to work.
+BASE_DECLARE_FEATURE_PARAM(bool, kGlicConfirmNavigationToNewOriginsDarkLaunch);
 // Toggles whether novel origin gating is based on site (true) or origin
 // (false). Note that gating sensitive sites will still be origin based.
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicNavigationGatingUseSiteNotOrigin);
-// Controls whether a hardcoded block list is enabled for the static block list.
-// TODO(crbug.com/453660392): Remove flag once Component Updater rollout starts.
-BASE_DECLARE_FEATURE_PARAM(bool, kGlicIncludeHardcodedBlockListEntries);
+// Controls whether the component updater provided blocklist should be enforced.
+BASE_DECLARE_FEATURE_PARAM(bool, kGlicEnforceComponentUpdaterBlockListEntries);
 // Controls whether tool requests can implicitly allow new origins.
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicAllowImplicitToolOriginGrants);
 
@@ -60,15 +64,6 @@ BASE_DECLARE_FEATURE(kGlicRecordNavigationConfirmationRequestMetrics);
 // indicating the dialog outcome will be called with `true`.
 // Warning: Enabling this feature can lead to data loss when navigating.
 BASE_DECLARE_FEATURE(kGlicSkipBeforeUnloadDialogAndNavigate);
-
-// When enabled, the actor will send a dialog request to the web client to
-// allow the user to select a credential to use for a site. When disabled, the
-// actor will automatically use the first credential.
-// TODO(crbug.com/427815202): Remove this once the front end is wired up.
-BASE_DECLARE_FEATURE(kGlicEnableAutoLoginDialogs);
-
-// Kill switch for selecting previously selected credentials.
-BASE_DECLARE_FEATURE(kGlicEnableAutoLoginPersistedPermissions);
 
 // Kill switch for skipping waiting for visual state update on new tabs.
 BASE_DECLARE_FEATURE(kGlicSkipAwaitVisualStateForNewTabs);
@@ -113,6 +108,11 @@ BASE_DECLARE_FEATURE(kActorSendBrowserSignalForAction);
 BASE_DECLARE_FEATURE(kGlicActorLoadAndExtractContentTool);
 extern const base::FeatureParam<base::TimeDelta>
     kGlicActorLoadAndExtractContentToolTimeout;
+
+BASE_DECLARE_FEATURE(kGlicActorEnableScriptTools);
+
+BASE_DECLARE_FEATURE(kActorScriptToolDelayObservation);
+extern const base::FeatureParam<int> kActorScriptToolDelayObservationMillis;
 
 }  // namespace actor
 

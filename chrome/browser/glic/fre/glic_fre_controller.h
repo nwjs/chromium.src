@@ -81,7 +81,7 @@ enum class GlicFreWidgetClosedReason {
 ///////////
 
 // This class owns and manages the glic FRE modal dialog, and is owned by a
-// GlicWindowController.
+// GlicInstanceCoordinator.
 //
 // Warning: This class is used both for the FRE dialog and for the Unified
 // FRE which has no dialog. Parts of this class which relate to the dialog
@@ -121,7 +121,7 @@ class GlicFreController {
 
   // Open the new tab page in the browser and show the FRE in that tab if
   // possible.
-  void OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
+  void OpenFreDialogInNewTab(base::WeakPtr<BrowserWindowInterface> bwi,
                              mojom::InvocationSource source);
 
   // Shows the FRE dialog. This should only be called if `ShouldShowFreDialog`

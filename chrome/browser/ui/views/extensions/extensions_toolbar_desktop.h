@@ -230,7 +230,7 @@ class ExtensionsToolbarDesktop : public ToolbarIconContainerView,
       const ToolbarActionsModel::ActionId& action_id,
       ExtensionsContainer* extensinos_container) override;
   void HideActivePopup() override;
-  bool CloseOverflowMenuIfOpen() override;
+  void CloseExtensionsMenuIfOpen() override;
   bool CanShowToolbarActionPopupForAPICall(
       const ToolbarActionsModel::ActionId&) override;
   void ToggleExtensionsMenu() override;
@@ -241,7 +241,8 @@ class ExtensionsToolbarDesktop : public ToolbarIconContainerView,
   void OnActionRemoved(const ToolbarActionsModel::ActionId& action_id) override;
   void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id) override;
   void OnPinnedActionsChanged() override;
-  void OnActiveWebContentsChanged(bool is_same_document) override;
+  void OnActiveWebContentsChanged(bool is_same_document,
+                                  content::WebContents* web_contents) override;
   void OnRequestAccessButtonParamsChanged(
       content::WebContents* web_contents) override;
   void OnToolbarControlStateUpdated() override;

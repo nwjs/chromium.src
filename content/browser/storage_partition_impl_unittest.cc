@@ -175,8 +175,8 @@ class RemoveCookieTester {
     std::unique_ptr<net::CanonicalCookie> cc(
         net::CanonicalCookie::CreateForTesting(
             origin.GetURL(), cookie_str, base::Time::Now(),
-            /*server_time=*/std::nullopt, cookie_partition_key,
-            net::CookieSourceType::kUnknown, &status));
+            net::CookieSourceType::kOther,
+            /*server_time=*/std::nullopt, cookie_partition_key, &status));
     base::RunLoop loop;
     storage_partition_->GetCookieManagerForBrowserProcess()->SetCanonicalCookie(
         *cc, origin.GetURL(), net::CookieOptions::MakeAllInclusive(),
@@ -568,7 +568,7 @@ class RemoveCodeCacheTester {
   // Returns the origin to which the render frame host is locked.
   GURL GetOriginLock() {
     return ChildProcessSecurityPolicyImpl::GetInstance()
-        ->GetProcessLock(render_frame_host_->GetProcess()->GetDeprecatedID())
+        ->GetProcessLock(render_frame_host_->GetProcess()->GetID())
         .GetProcessLockURL();
   }
 
@@ -1786,20 +1786,21 @@ TEST(StoragePartitionImplStaticTest, CreatePredicateForHostCookies) {
 
   base::Time now = base::Time::Now();
   std::vector<std::unique_ptr<CanonicalCookie>> valid_cookies;
-  valid_cookies.push_back(
-      CanonicalCookie::CreateForTesting(url, "A=B", now, server_time));
-  valid_cookies.push_back(
-      CanonicalCookie::CreateForTesting(url, "C=F", now, server_time));
+  valid_cookies.push_back(CanonicalCookie::CreateForTesting(
+      url, "A=B", now, net::CookieSourceType::kOther, server_time));
+  valid_cookies.push_back(CanonicalCookie::CreateForTesting(
+      url, "C=F", now, net::CookieSourceType::kOther, server_time));
   // We should match a different scheme with the same host.
-  valid_cookies.push_back(
-      CanonicalCookie::CreateForTesting(url2, "A=B", now, server_time));
+  valid_cookies.push_back(CanonicalCookie::CreateForTesting(
+      url2, "A=B", now, net::CookieSourceType::kOther, server_time));
 
   std::vector<std::unique_ptr<CanonicalCookie>> invalid_cookies;
   // We don't match domain cookies.
   invalid_cookies.push_back(CanonicalCookie::CreateForTesting(
-      url2, "A=B;domain=.example.com", now, server_time));
-  invalid_cookies.push_back(
-      CanonicalCookie::CreateForTesting(url3, "A=B", now, server_time));
+      url2, "A=B;domain=.example.com", now, net::CookieSourceType::kOther,
+      server_time));
+  invalid_cookies.push_back(CanonicalCookie::CreateForTesting(
+      url3, "A=B", now, net::CookieSourceType::kOther, server_time));
 
   for (const auto& cookie : valid_cookies) {
     EXPECT_TRUE(FilterMatchesCookie(deletion_filter, *cookie))

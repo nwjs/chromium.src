@@ -665,16 +665,6 @@ void PasswordManager::RegisterLocalPrefs(PrefRegistrySimple* registry) {
                              PrefRegistry::NO_REGISTRATION_FLAGS);
 }
 
-bool PasswordManager::ShouldAllowSavingPasswordsWithInFlowRecovery() {
-#if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/483652520): Also check if the client is in the correct error state.
-  return base::FeatureList::IsEnabled(
-      password_manager::features::kInFlowTrustedVaultKeyRetrievalAndroid);
-#else
-  return false;
-#endif
-}
-
 PasswordManager::PasswordManager(PasswordManagerClient* client)
     : client_(client),
       account_store_cb_list_subscription_(
@@ -833,6 +823,14 @@ void PasswordManager::UpdateFormManagers() {
       driver->GetPasswordAutofillManager()->DeleteFillData();
     }
   }
+}
+
+void PasswordManager::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void PasswordManager::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
 }
 
 void PasswordManager::DropFormManagers() {
@@ -1604,6 +1602,9 @@ void PasswordManager::OnLoginSuccessful() {
       submitted_form->federation_origin,
       submitted_manager->GetPendingCredentials().username_value);
   client_->NotifyOnSuccessfulLogin(submitted_form->username_value);
+  for (Observer& observer : observers_) {
+    observer.OnLoginSuccessful(submitted_manager->GetPendingCredentials());
+  }
 
   auto submission_event =
       submitted_manager->GetSubmittedForm()->submission_event;
@@ -1628,7 +1629,7 @@ void PasswordManager::OnLoginSuccessful() {
 
   UMA_HISTOGRAM_BOOLEAN("PasswordManager.AbleToSavePasswordsOnSuccessfulLogin",
                         able_to_save_passwords);
-  if (!submitted_manager->IsPasswordUpdate() && !(able_to_save_passwords || ShouldAllowSavingPasswordsWithInFlowRecovery())) {
+  if (!submitted_manager->IsPasswordUpdate() && !able_to_save_passwords) {
     return;
   }
 

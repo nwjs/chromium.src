@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/popup_interaction.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
+#include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/aliases.h"
 #include "content/public/browser/render_widget_host.h"
 
@@ -84,6 +85,7 @@ class AutofillPopupControllerImpl : public AutofillPopupController,
   const std::vector<Suggestion>& GetSuggestions() const override;
   const Suggestion& GetSuggestionAt(int row) const override;
   FillingProduct GetMainFillingProduct() const override;
+  AutofillSuggestionTriggerSource GetSuggestionTriggerSource() const;
   void Hide(SuggestionHidingReason reason) override;
   void ViewDestroyed() override;
   void Show(UiSessionId ui_session_id,
@@ -110,10 +112,14 @@ class AutofillPopupControllerImpl : public AutofillPopupController,
       const SuggestionButtonAction& button_action) override;
   const std::vector<SuggestionFilterMatch>& GetSuggestionFilterMatches()
       const override;
-  void SetFilter(std::optional<SuggestionFilter> filter) override;
+  void SetFilter(std::optional<SuggestionFilter> filter,
+                 FilterSource source) override;
   bool HasFilteredOutSuggestions() const override;
+  bool ShouldShowNoSuggestionsMessage() const override;
   bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event) override;
   void OnPopupPainted() override;
+  void OnTabSelected(int tab_index,
+                     TabbedPaneTabType tabbed_pane_tab_type) override;
   base::WeakPtr<AutofillPopupController> GetWeakPtr() override;
 
  protected:
@@ -178,6 +184,11 @@ class AutofillPopupControllerImpl : public AutofillPopupController,
   // Returns the search bar configuration for the given `trigger_source`.
   std::optional<AutofillPopupView::SearchBarConfig> GetSearchBarConfig(
       AutofillSuggestionTriggerSource trigger_source) const;
+
+  // Attempts to start an asynchronous search query if the current filling
+  // product supports it. Returns `true` if the search process was initiated or
+  // handled.
+  bool TryStartSearch(FilterSource source);
 
   void UpdateFilteredSuggestions();
 

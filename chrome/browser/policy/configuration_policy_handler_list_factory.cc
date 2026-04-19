@@ -446,7 +446,10 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::BOOLEAN},
   { key::kSharedWorkerBlobURLFixEnabled,
     prefs::kSharedWorkerBlobURLFixEnabled,
-    base::Value::Type::BOOLEAN},
+    base::Value::Type::BOOLEAN },
+  { key::kSharedWorkerExtendedLifetimeEnabled,
+    prefs::kSharedWorkerExtendedLifetimeEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kGeminiSettings,
     prefs::kGeminiSettings,
     base::Value::Type::INTEGER },
@@ -471,6 +474,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kLocalNetworkAccessPermissionsPolicyDefaultEnabled,
     policy_prefs::kLocalNetworkAccessPermissionsPolicyDefaultEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kMaxConnectionsPerProxy,
+    prefs::kMaxConnectionsPerProxy,
+    base::Value::Type::INTEGER },
+  { key::kMaxConnectionsPerProxyForWebSocket,
+    prefs::kMaxConnectionsPerProxyForWebSocket,
+    base::Value::Type::INTEGER },
 // Policies for all platforms - End
 #if BUILDFLAG(IS_ANDROID)
   { key::kAccessibilityPerformanceFilteringAllowed,
@@ -710,9 +719,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kLocalFontsBlockedForUrls,
     prefs::kManagedLocalFontsBlockedForUrls,
     base::Value::Type::LIST },
-  { key::kMaxConnectionsPerProxy,
-    prefs::kMaxConnectionsPerProxy,
-    base::Value::Type::INTEGER },
   { key::kMediaRouterCastAllowAllIPs,
     media_router::prefs::kMediaRouterCastAllowAllIPs,
     base::Value::Type::BOOLEAN },
@@ -1119,7 +1125,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 
 #if BUILDFLAG(IS_CHROMEOS)
   { key::kKerberosEnabled,
-    prefs::kKerberosEnabled,
+    ash::prefs::kKerberosEnabled,
     base::Value::Type::BOOLEAN },
   { key::kReportWebsiteActivityAllowlist,
     ::reporting::kReportWebsiteActivityAllowlist,
@@ -1224,6 +1230,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAudioOutputAllowed,
     ash::prefs::kAudioOutputAllowed,
     base::Value::Type::BOOLEAN },
+  { key::kKrispNoiseCancellationEnabled,
+    ash::prefs::kInputKrispNoiseCancellationEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kShowLogoutButtonInTray,
     ash::prefs::kShowLogoutButtonInTray,
     base::Value::Type::BOOLEAN },
@@ -1240,10 +1249,10 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kManagedGuestSessionPrivacyWarningsEnabled,
     base::Value::Type::BOOLEAN },
   { key::kSessionLengthLimit,
-    prefs::kSessionLengthLimit,
+    ash::prefs::kSessionLengthLimit,
     base::Value::Type::INTEGER },
   { key::kWaitForInitialUserActivity,
-    prefs::kSessionWaitForInitialUserActivity,
+    ash::prefs::kSessionWaitForInitialUserActivity,
     base::Value::Type::BOOLEAN },
   { key::kPowerManagementUsesAudioActivity,
     ash::prefs::kPowerUseAudioActivity,
@@ -1586,19 +1595,19 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kUsbPowerShareEnabled,
     base::Value::Type::BOOLEAN },
   { key::kKerberosRememberPasswordEnabled,
-    prefs::kKerberosRememberPasswordEnabled,
+    ash::prefs::kKerberosRememberPasswordEnabled,
     base::Value::Type::BOOLEAN },
   { key::kKerberosAddAccountsAllowed,
-    prefs::kKerberosAddAccountsAllowed,
+    ash::prefs::kKerberosAddAccountsAllowed,
     base::Value::Type::BOOLEAN },
   { key::kKerberosDomainAutocomplete,
-    prefs::kKerberosDomainAutocomplete,
+    ash::prefs::kKerberosDomainAutocomplete,
     base::Value::Type::STRING },
   { key::kKerberosUseCustomPrefilledConfig,
-    prefs::kKerberosUseCustomPrefilledConfig,
+    ash::prefs::kKerberosUseCustomPrefilledConfig,
     base::Value::Type::BOOLEAN },
   { key::kKerberosCustomPrefilledConfig,
-    prefs::kKerberosCustomPrefilledConfig,
+    ash::prefs::kKerberosCustomPrefilledConfig,
     base::Value::Type::STRING },
   { key::kStartupBrowserWindowLaunchSuppressed,
     prefs::kStartupBrowserWindowLaunchSuppressed,
@@ -2302,6 +2311,11 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kRestrictCoreSharingOnRenderer,
     base::Value::Type::BOOLEAN },
 #endif  // BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_ANDROID)
+    { key::kAndroidEntraSsoEnabled,
+    prefs::kAndroidEntraSSOEnabled,
+    base::Value::Type::INTEGER },
+#endif
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
   { key::kOutOfProcessSystemDnsResolutionEnabled,
     prefs::kOutOfProcessSystemDnsResolutionEnabled,
@@ -2349,9 +2363,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 #endif // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #endif // BUILDFLAG(ENABLE_EXTENSIONS)
 #if !BUILDFLAG(IS_ANDROID)
-  { key::kAutofillPredictionSettings,
-    optimization_guide::prefs::kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-    base::Value::Type::INTEGER},
   { key::kHelpMeWriteSettings,
     optimization_guide::prefs::kComposeEnterprisePolicyAllowed,
     base::Value::Type::INTEGER},
@@ -2361,10 +2372,18 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kHistorySearchSettings,
     optimization_guide::prefs::kHistorySearchEnterprisePolicyAllowed,
     base::Value::Type::INTEGER},
-#endif
+#endif // !BUILDFLAG(IS_ANDROID)
   { key::kTabCompareSettings,
     optimization_guide::prefs::kProductSpecificationsEnterprisePolicyAllowed,
     base::Value::Type::INTEGER},
+  { key::kAutofillPredictionSettings,
+    optimization_guide::prefs::kAutofillPredictionImprovementsEnterprisePolicyAllowed,
+    base::Value::Type::INTEGER},
+#if BUILDFLAG(IS_ANDROID)
+  { key::kFindsSettings,
+    optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+    base::Value::Type::INTEGER},
+#endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   { key::kChromeForTestingAllowed,
     prefs::kChromeForTestingAllowed,
@@ -2866,9 +2885,9 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(std::make_unique<ForceYouTubeSafetyModePolicyHandler>());
   handlers->AddHandler(std::make_unique<HomepageLocationPolicyHandler>());
   handlers->AddHandler(std::make_unique<proxy_config::ProxyPolicyHandler>());
-  handlers->AddHandler(std::make_unique<CloudOnlyPolicyChecker>(
+  handlers->AddHandler(
       std::make_unique<proxy_config::ProxyOverrideRulesPolicyHandler>(
-          chrome_schema)));
+          chrome_schema));
   handlers->AddHandler(std::make_unique<SecureDnsPolicyHandler>());
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kCertificateTransparencyEnforcementDisabledForUrls,
@@ -2967,10 +2986,9 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           policy::SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
           policy::SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
 
-  handlers->AddHandler(std::make_unique<CloudOnlyPolicyChecker>(
-      std::make_unique<URLSchemeListPolicyHandler>(
-          key::kSaasUsageReportingDomainUrlsForBrowsers,
-          enterprise_reporting::kSaasUsageDomainUrlsForBrowser)));
+  handlers->AddHandler(std::make_unique<URLSchemeListPolicyHandler>(
+      key::kSaasUsageReportingDomainUrlsForBrowsers,
+      enterprise_reporting::kSaasUsageDomainUrlsForBrowser));
   handlers->AddHandler(std::make_unique<CloudUserOnlyPolicyChecker>(
       std::make_unique<URLSchemeListPolicyHandler>(
           key::kSaasUsageReportingDomainUrlsForProfiles,
@@ -3220,7 +3238,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kSecondaryGoogleAccountSigninAllowed,
       ::account_manager::prefs::kSecondaryGoogleAccountSigninAllowed));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kUsageTimeLimit, prefs::kUsageTimeLimit, chrome_schema,
+      key::kUsageTimeLimit, ash::prefs::kUsageTimeLimit, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
@@ -3252,18 +3270,19 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kParentAccessCodeConfig, prefs::kParentAccessCodeConfig,
+      key::kParentAccessCodeConfig, ash::prefs::kParentAccessCodeConfig,
       chrome_schema, SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kPerAppTimeLimits, prefs::kPerAppTimeLimitsPolicy, chrome_schema,
+      key::kPerAppTimeLimits, ash::prefs::kPerAppTimeLimitsPolicy,
+      chrome_schema, SCHEMA_ALLOW_UNKNOWN,
+      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
+      key::kPerAppTimeLimitsAllowlist,
+      ash::prefs::kPerAppTimeLimitsAllowlistPolicy, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
-      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
-      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
-  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kPerAppTimeLimitsAllowlist, prefs::kPerAppTimeLimitsAllowlistPolicy,
-      chrome_schema, SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
@@ -3272,7 +3291,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kKerberosAccounts, prefs::kKerberosAccounts, chrome_schema,
+      key::kKerberosAccounts, ash::prefs::kKerberosAccounts, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
@@ -3455,10 +3474,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
   gen_ai_default_policies.emplace_back(
-      key::kAutofillPredictionSettings,
-      optimization_guide::prefs::
-          kAutofillPredictionImprovementsEnterprisePolicyAllowed);
-  gen_ai_default_policies.emplace_back(
       key::kHelpMeWriteSettings,
       optimization_guide::prefs::kComposeEnterprisePolicyAllowed);
   gen_ai_default_policies.emplace_back(
@@ -3482,6 +3497,10 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           kAutomatedPasswordChangeEnterprisePolicyAllowed);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
+  gen_ai_default_policies.emplace_back(
+      key::kAutofillPredictionSettings,
+      optimization_guide::prefs::
+          kAutofillPredictionImprovementsEnterprisePolicyAllowed);
 #if BUILDFLAG(IS_CHROMEOS)
   gen_ai_default_policies.emplace_back(key::kGenAIWallpaperSettings,
                                        ash::prefs::kGenAIWallpaperSettings);
@@ -3502,6 +3521,11 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kGenAIInlineImageSettings,
       ash::prefs::kLobsterEnterprisePolicySettings);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID)
+  gen_ai_default_policies.emplace_back(
+      key::kFindsSettings,
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed);
+#endif  // BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_ANDROID)
   gen_ai_default_policies.emplace_back(
       key::kLensOverlaySettings, lens::prefs::kLensOverlaySettings,

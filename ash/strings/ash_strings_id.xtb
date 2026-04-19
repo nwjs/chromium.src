@@ -8,6 +8,7 @@
 <translation id="1017556409696559990">Minimalkan jendela atas saat tidak ada histori sebelumnya di Chrome</translation>
 <translation id="101823271612280837">Perekaman dihentikan. Tidak dapat menggunakan Dasbor game dalam mode tablet.</translation>
 <translation id="1024364763893396229">Simpan <ph name="NAME" /> Anda</translation>
+<translation id="103279545524624934">Kosongkan ruang disk untuk meluncurkan aplikasi Android.</translation>
 <translation id="1032891413405719768">Baterai stilus lemah</translation>
 <translation id="1036348656032585052">Nonaktifkan</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> ditambahkan</translation>
@@ -20,6 +21,11 @@
 <translation id="1059120031266247284">Dibagikan kepada Anda</translation>
 <translation id="1060847216467038176"><ph name="ITEM_LABEL" /> dengan tombol hapus</translation>
 <translation id="1062407476771304334">Ganti</translation>
+<translation id="1065931689816135472"><ph name="BEGIN_PARAGRAPH1" />Cadangkan ke Google Drive. Pulihkan data Anda atau berpindah perangkat kapan saja dengan mudah. Cadangan Anda mencakup data aplikasi.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Data cadangan Anda diupload ke Google dan dienkripsi menggunakan sandi Akun Google Anda.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Data aplikasi dapat berupa data yang telah disimpan oleh aplikasi (berdasarkan setelan developer), termasuk data seperti kontak, pesan, dan foto.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Data cadangan tidak akan mengurangi kuota penyimpanan Drive Anda.<ph name="END_PARAGRAPH4" />
+        <ph name="BEGIN_PARAGRAPH5" />Anda dapat menonaktifkan layanan ini di Setelan.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="1073899992769346247">Ganti atau isi daya baterai</translation>
 <translation id="1081015718268701546">Aplikasi Linux saat ini tidak didukung. Aplikasi lainnya akan disimpan.</translation>
 <translation id="108486256082349153">Seluler: <ph name="ADDRESS" /></translation>
@@ -35,6 +41,7 @@
 <translation id="1129383337808748948">Muat ulang <ph name="CONTENT_TITLE" /></translation>
 <translation id="1142002900084379065">Foto terbaru</translation>
 <translation id="114221662579355151">Tindakan ini akan mengizinkan akses kamera untuk <ph name="APP1_NAME" />, <ph name="APP2_NAME" />, dan semua aplikasi serta situs yang memiliki izin kamera. Anda mungkin perlu memuat ulang halaman web atau memulai ulang aplikasi.</translation>
+<translation id="1147991416141538220">Untuk meminta akses, hubungi administrator perangkat ini.</translation>
 <translation id="1148499908455722006">Buka dialog info untuk <ph name="USER_NAME" /></translation>
 <translation id="1150989369772528668">Kalender</translation>
 <translation id="1153356358378277386">Perangkat yang tersambung</translation>
@@ -50,9 +57,10 @@
 <translation id="1175944128323889279">Level baterai saat ini <ph name="BATTERY_PERCENTAGE" />%, <ph name="TIME" /> lagi</translation>
 <translation id="1178581264944972037">Jeda</translation>
 <translation id="1179776263021875437">Berhenti berfokus pada tugas</translation>
+<translation id="1180117276105724040">Memulihkan jendela dari sesi sebelumnya...</translation>
 <translation id="1181037720776840403">Hapus</translation>
 <translation id="1182225749592316782">Tindakan ini akan mengizinkan akses untuk semua aplikasi dan situs yang memiliki izin kamera dan mikrofon</translation>
-<translation id="1182876754474670069">home</translation>
+<translation id="1183237619868651138">Tidak dapat memasang <ph name="EXTERNAL_CRX_FILE" /> di cache lokal.</translation>
 <translation id="1183863904939664422">Tidak tertarik dengan saran ini</translation>
 <translation id="1184126796192815024">Jaringan ini tidak mendukung streaming aplikasi dari ponsel Anda. Coba gunakan hotspot ponsel Anda. <ph name="LEARN_MORE" /></translation>
 <translation id="118437560755358292">Masukkan sandi atau PIN untuk keamanan tambahan</translation>
@@ -63,6 +71,7 @@
 <translation id="119944043368869598">Hapus semua</translation>
 <translation id="1199716647557067911">Yakin ingin menonaktifkan Tombol Akses?</translation>
 <translation id="1201402288615127009">Berikutnya</translation>
+<translation id="1202596434010270079">Aplikasi Kios telah diperbarui. Lepaskan stik USB.</translation>
 <translation id="1210557957257435379">perekaman layar</translation>
 <translation id="121097972571826261">Maju per kata</translation>
 <translation id="1218444235442067213"><ph name="APP_NAME" />, Aplikasi Play Store</translation>
@@ -112,6 +121,7 @@
 <translation id="1340378040547539434">Perkecil halaman</translation>
 <translation id="1341651618736211726">Luapan</translation>
 <translation id="1341926407152459446">Gunakan "<ph name="DEVICE_NAME" />" untuk input dan output audio</translation>
+<translation id="1346403631707626730">Kirim data penggunaan dan diagnostik. Bantu tingkatkan pengalaman penggunaan Android anak Anda dengan otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini tidak akan digunakan untuk mengidentifikasi anak Anda serta akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. Jika Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="1346748346194534595">Kanan</translation>
 <translation id="1350494136075914725">Sedang berlangsung · Beralih ke tab</translation>
 <translation id="1351937230027495976">Ciutkan menu</translation>
@@ -132,6 +142,7 @@
 <translation id="1414271762428216854"><ph name="APP_NAME" />, Aplikasi yang Diinstal</translation>
 <translation id="1414919006379339073">Tutup jendela saat ini</translation>
 <translation id="1415846719612499304">Tampilkan daftar jaringan. <ph name="STATE_TEXT" />.</translation>
+<translation id="1418559532423038045">Menghapus <ph name="VM_NAME" /> dari <ph name="DEVICE_TYPE" /> Anda. Tindakan ini akan menghapus semua aplikasi dan data di virtual machine tersebut.</translation>
 <translation id="1419738280318246476">Buka kunci perangkat untuk melakukan tindakan notifikasi</translation>
 <translation id="1420408895951708260">Beralih ke Cahaya Malam. <ph name="STATE_TEXT" /></translation>
 <translation id="1421166164855200062">Saran grup</translation>
@@ -160,6 +171,7 @@
 <translation id="1501946871587957338">Ganti sumber audio?</translation>
 <translation id="1505542291183484463">Mengubah ukuran jendela bersusun ke bawah</translation>
 <translation id="1510238584712386396">Peluncur</translation>
+<translation id="1519090060276706457">Pemulihan jendela memerlukan waktu lebih lama dari yang diperkirakan</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Tampilkan setelan notifikasi. Notifikasi nonaktif untuk satu aplikasi}other{Tampilkan setelan notifikasi. Notifikasi nonaktif untuk # aplikasi}}</translation>
 <translation id="1521655867290435174">Google Spreadsheet</translation>
 <translation id="1523032696246003">Baterai <ph name="BATTERY_PERCENTAGE" />% | <ph name="TIME" /> sampai penuh</translation>
@@ -178,6 +190,7 @@
 <translation id="1555130319947370107">Biru</translation>
 <translation id="1557622599341396706">Tampilkan nama desktop</translation>
 <translation id="1569384531973824928">Tindakan ini akan mengizinkan akses untuk semua aplikasi serta situs yang memiliki izin kamera dan mikrofon. Anda mungkin perlu memuat ulang halaman web atau memulai ulang aplikasi.</translation>
+<translation id="1570235441606255261">Penginstal Steam</translation>
 <translation id="1571697193564730395">Alihkan mode Jangan Ganggu. <ph name="STATE_TEXT" /></translation>
 <translation id="1574691582236909946">Tuas tepi kiri dipilih, gunakan tombol panah untuk memindahkan</translation>
 <translation id="1576623706766186887">Perkecil saat kaca pembesar diaktifkan</translation>
@@ -192,12 +205,14 @@
 <translation id="1610778689852195798">"Urungkan"</translation>
 <translation id="1611993646327628135">Aktif</translation>
 <translation id="1612679292338846734">Saat Anda mengaktifkan fitur ini, teks input, konten dokumen, dan URL halaman web mungkin dikirimkan ke server AI Google. Informasi ini digunakan untuk membuat saran penulisan, membuat ringkasan, menjawab pertanyaan, dan meningkatkan kualitas produk, yang tunduk pada <ph name="LINK_TO_SERVICE_TERMS" />. Jangan menyertakan informasi apa pun yang bersifat pribadi, sensitif, atau rahasia.</translation>
+<translation id="1619879934359211038">Tidak dapat terhubung ke Google Play. Periksa koneksi jaringan Anda, lalu coba lagi. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="1623768535032616219">Ciutkan Google Classroom</translation>
 <translation id="163032029566320584"><ph name="UNAVAILABLE_DLC" /> tidak tersedia.</translation>
 <translation id="1632985212731562677">Tombol Akses dapat dinonaktifkan di Setelan &gt; Aksesibilitas.</translation>
 <translation id="1637505162081889933"><ph name="NUM_DEVICES" /> perangkat</translation>
 <translation id="1639239467298939599">Memuat</translation>
+<translation id="1642895994345928121">Penyimpanan perangkat tidak cukup untuk membuka aplikasi ini. Kosongkan ruang penyimpanan, lalu coba lagi.</translation>
 <translation id="1647986356840967552">Halaman sebelumnya</translation>
 <translation id="1651914502370159744">Buka halaman Histori</translation>
 <translation id="1668469839109562275">VPN bawaan</translation>
@@ -219,8 +234,10 @@
 <translation id="1719094688023114093">Teks Otomatis aktif.</translation>
 <translation id="1720011244392820496">Aktifkan Wi-Fi Sync</translation>
 <translation id="1720230731642245863">Hotspot nonaktif</translation>
+<translation id="1730917990259790240"><ph name="BEGIN_PARAGRAPH1" />Untuk menghapus aplikasi, buka Setelan &gt; Google Play Store &gt; Kelola preferensi Android &gt; Aplikasi atau Pengelola aplikasi. Lalu, ketuk aplikasi yang ingin di-uninstal (Anda mungkin perlu menggeser ke kanan atau ke kiri untuk mencari aplikasi). Selanjutnya, ketuk Uninstal atau Nonaktifkan.<ph name="END_PARAGRAPH1" /></translation>
 <translation id="1731815243805539470">Beralih ke pengguna sebelumnya</translation>
 <translation id="1733996486177697563">Berpindah-pindah antara tema gelap dan terang. Sentuh lama desktop, lalu pilih Wallpaper &amp; Gaya.</translation>
+<translation id="1734230530703461088">Gagal memuat ekstensi sebelum batas waktu. Harap hubungi administrator Anda.</translation>
 <translation id="1735992454301033090">Area dipilih, gunakan tombol panah untuk memindahkan</translation>
 <translation id="1736898441010944794">"<ph name="NAME" />" dapat dilihat oleh perangkat Bluetooth.</translation>
 <translation id="1737078180382804488">Tutup penyiapan untuk melihat notifikasi ponsel Anda</translation>
@@ -249,6 +266,7 @@
 <translation id="1786487376942610288">Beralih antara ukuran jendela picture-in-picture maksimum atau saat ini</translation>
 <translation id="1787955149152357925">Nonaktif</translation>
 <translation id="1796561540704213354">Situs, termasuk halaman yang telah Anda kunjungi dan halaman yang dibuka</translation>
+<translation id="1799852120691957794">Tidak dapat memulihkan jendela dari sesi sebelumnya</translation>
 <translation id="1805407494113167797">Tidak dapat memutar suara Fokus</translation>
 <translation id="181103072419391116">Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" />, Dikelola oleh Administrator Anda</translation>
 <translation id="1815039896005206046">Memberi tanda Tidak suka akan mengirimkan masukan bahwa Anda tidak menyukai saran grup ini</translation>
@@ -271,6 +289,7 @@
 <translation id="1882814835921407042">Tidak ada jaringan seluler</translation>
 <translation id="1882897271359938046">Mencerminkan ke <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Buka kunci dengan sidik jari</translation>
+<translation id="1891362123137972260">Ruang disk hampir habis. Kosongkan ruang disk.</translation>
 <translation id="1894024878080591367">Siapkan untuk bermain dengan keyboard</translation>
 <translation id="1896383923047738322">Sesuaikan keyboard Anda</translation>
 <translation id="1904997243703671177">Jika Anda menonaktifkan Bluetooth, koneksi <ph name="DEVICE_COUNT" /> perangkat eksternal akan diputuskan dari <ph name="DEVICE_TYPE" />, termasuk:</translation>
@@ -303,11 +322,13 @@
 <translation id="1996162290124031907">Membuka tab berikutnya</translation>
 <translation id="1998100899771863792">Desktop saat ini</translation>
 <translation id="2001444736072756133">Telusuri <ph name="CATEGORY" />, file, aplikasi, dan lainnya.</translation>
+<translation id="2011174342667534258">Versi SDK:</translation>
 <translation id="2017998995161831444">Buka "Bantuan" di aplikasi Jelajahi</translation>
 <translation id="2021864487439853900">Klik untuk membuka kunci</translation>
 <translation id="2034971124472263449">Simpan saja</translation>
 <translation id="2041220428661959602">Tingkat daya baterai: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Pintasan <ph name="SIX_PACK_KEY_NAME" /> saat ini nonaktif</translation>
+<translation id="2048653237708779538">Tindakan tidak tersedia</translation>
 <translation id="2049240716062114887">Nama desktop diubah menjadi <ph name="DESK_NAME" /></translation>
 <translation id="2064048859448024834">Pratinjau kamera aktif</translation>
 <translation id="2065098273523946419">Pelajari lebih lanjut link. Alihkan ke browser saat diaktifkan</translation>
@@ -317,11 +338,13 @@
 <translation id="2079545284768500474">Urungkan</translation>
 <translation id="2086334242442703436">Buka Alat Pilih Emoji</translation>
 <translation id="2088116547584365419">game</translation>
+<translation id="2089550919269323883">Penginstalan <ph name="VM_NAME" /> diblokir oleh kebijakan perusahaan. Hubungi administrator sistem Anda untuk mendapatkan dukungan. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="2093792000875799555">Berita Steam untuk Chromebook</translation>
 <translation id="209965399369889474">Tidak terhubung ke jaringan</translation>
 <translation id="2107581415810719320">Tombol Lainnya <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Kabel USB-C Anda tidak mendukung Thunderbolt. Performa perangkat mungkin dibatasi.</translation>
 <translation id="2108303511227308752">Pintasan keyboard Alt + Backspace telah diubah. Untuk menggunakan tombol Delete, tekan tombol <ph name="LAUNCHER_KEY_NAME" /> + backspace.</translation>
+<translation id="2114145607116268663">Tidak dapat menginstal, perlu memulai ulang. Mulai ulang komputer, lalu coba lagi. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="2115680839221566783">Baterai <ph name="PERCENTAGE" />%. Pengisian daya dihentikan sementara.</translation>
 <translation id="2126242104232412123">Desktop baru</translation>
 <translation id="2132302418721800944">Rekam dalam layar penuh</translation>
@@ -347,7 +370,9 @@
 <translation id="2224075387478458881">Perekaman layar tidak diizinkan saat konten yang dilindungi terlihat</translation>
 <translation id="2227179592712503583">Hapus saran</translation>
 <translation id="2248634276911611268">Buka link di tab baru dan beralih ke tab baru ini</translation>
+<translation id="2251809247798634662">Jendela Samaran baru</translation>
 <translation id="2253808149208613283">Instal aplikasi untuk menyesuaikan perangkat ini</translation>
+<translation id="225614027745146050">Selamat Datang</translation>
 <translation id="225680501294068881">Memindai perangkat...</translation>
 <translation id="2257486738914982088">Terjadi error saat mendownload <ph name="FILENAME" /></translation>
 <translation id="2258734398699965611">File yang disarankan</translation>
@@ -368,17 +393,21 @@
 <translation id="2305738328104302723">Daftar tugas Google: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: screenshot, download, dan file tersemat yang terbaru</translation>
 <translation id="2318576281648121272">Hari ini <ph name="TODAY_DATE" /></translation>
+<translation id="2318817390901984578">Untuk menggunakan aplikasi Android, isi daya baterai &amp; update <ph name="DEVICE_TYPE" /> Anda.</translation>
 <translation id="2322065293366551060"><ph name="CATEGORY" />, kategori hasil penelusuran</translation>
 <translation id="2322173485024759474">Mundur per huruf</translation>
 <translation id="2326112202058075478">Tampilkan lebih banyak emoji</translation>
 <translation id="2335091074961603075">Chromebook atau perangkat Bluetooth Anda menggunakan Bluetooth versi lama. Gunakan mikrofon internal untuk kualitas audio yang lebih baik.</translation>
 <translation id="2339073806695260576">Ketuk tombol stilus di rak untuk mencatat, mengambil screenshot, serta menggunakan penunjuk laser, atau kaca pembesar.</translation>
 <translation id="2341729377289034582">Terkunci ke vertikal</translation>
+<translation id="2344032937402519675">Tidak dapat terhubung dengan server. Periksa koneksi jaringan Anda, lalu coba lagi. Jika Anda masih mengalami masalah, coba mulai ulang Chromebook.</translation>
 <translation id="2345226652884463045">Tekan enter atau penelusuran + spasi untuk memilih teks yang akan diedit.</translation>
 <translation id="2349785431103945039">Tampilkan detail hotspot. Hubungkan ke jaringan seluler untuk menggunakan hotspot.</translation>
+<translation id="2350182423316644347">Memulai aplikasi...</translation>
 <translation id="2350794187831162545">Ucapan dalam bahasa <ph name="LANGUAGE" /> sekarang diproses secara lokal dan berfungsi secara offline. Anda dapat mengubah bahasa Dikte di Setelan &gt; Aksesibilitas.</translation>
 <translation id="2352467521400612932">Setelan stilus</translation>
 <translation id="2354174487190027830">Mengaktifkan <ph name="NAME" /></translation>
+<translation id="2355314311311231464">Penyediaan gagal karena detail akun Anda tidak dapat diambil. Coba lagi. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="2359808026110333948">Lanjutkan</translation>
 <translation id="2360398059912971776">baterai</translation>
 <translation id="2361210043495191221">Aktifkan/nonaktifkan Wi-Fi. <ph name="STATE" />.</translation>
@@ -392,6 +421,7 @@
 <translation id="2383521554963939360">Grup tab &amp; aplikasi</translation>
 <translation id="2386292613071805067">Pilih semuanya di halaman</translation>
 <translation id="2389423187722941333">Aktifkan/nonaktifkan Gemini</translation>
+<translation id="2391805183137601570">Buka Steam</translation>
 <translation id="2392659840443812875">Tidak ada hotspot yang tersedia. Pastikan perangkat berada di sekitar dan Bluetooth diaktifkan.</translation>
 <translation id="2397416548179033562">Tampilkan Menu Chrome</translation>
 <translation id="240006516586367791">Kontrol media</translation>
@@ -400,6 +430,7 @@
 <translation id="240545663114741956">Tekan <ph name="ACCELERATOR" /> dua kali untuk logout.</translation>
 <translation id="2405664212338326887">Tidak terhubung</translation>
 <translation id="2406710117564540804">Aktifkan/nonaktifkan mode Jangan Ganggu</translation>
+<translation id="240789602312469910">Kirim data penggunaan dan diagnostik. Bantu tingkatkan pengalaman penggunaan Android anak Anda dengan otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini tidak akan digunakan untuk mengidentifikasi anak Anda serta akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. <ph name="BEGIN_LINK1" />Setelan<ph name="END_LINK1" /> ini diterapkan oleh pemilik. Pemilik dapat memilih untuk mengirim data diagnostik dan penggunaan untuk perangkat ini ke Google. Jika setelan Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="2408955596600435184">Masukkan PIN</translation>
 <translation id="2412593942846481727">Update tersedia</translation>
 <translation id="2416438829169535743">Keluar dari tampilan?</translation>
@@ -413,12 +444,14 @@
 <translation id="243878895369688216">Dibuka kemarin</translation>
 <translation id="2440978926514840421">Rekaman GIF diambil</translation>
 <translation id="2441427462554639370">Rekaman berakhir karena ruang penyimpanan hampir habis</translation>
+<translation id="2447587550790814052">Anda kini dapat menggunakan Steam untuk Chromebook (Beta)</translation>
 <translation id="2449089818483227734">Baterai Lemah</translation>
 <translation id="2450205753526923158">Mode screenshot</translation>
 <translation id="2453860139492968684">Selesai</translation>
 <translation id="2455994958736234930">Tambahkan www. dan .com ke kolom URL, lalu buka situs</translation>
 <translation id="2456008742792828469">Kalender, <ph name="CURRENT_MONTH_YEAR" /></translation>
 <translation id="246052086404491029">Lihat perincian</translation>
+<translation id="2462332841984057083">Steam sedang disiapkan. Tunggu hingga penyiapan selesai.</translation>
 <translation id="2465145153332031561">Kesehatan baterai <ph name="BATTERY_HEALTH_PERCENTAGE" />%, jumlah siklus pengisian daya penuh <ph name="CYCLE_COUNT" /></translation>
 <translation id="2473177541599297363">Konfirmasi Resolusi</translation>
 <translation id="2475783092753560388">Sisipkan <ph name="SEARCH_RESULT_TEXT" /></translation>
@@ -430,6 +463,7 @@
 <translation id="2486214324139475545">Pratinjau <ph name="DESK_NAME" />. Desktop virtual aktif.</translation>
 <translation id="2486405091093637109">"<ph name="DISPLAY_NAME" />" diubah ke resolusi <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Tanpa mengonfirmasi, setelan sebelumnya akan dipulihkan dalam <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Gabung</translation>
+<translation id="2494555621641843783">Tidak dapat menginstal Steam</translation>
 <translation id="2496180316473517155">Histori penjelajahan</translation>
 <translation id="2499445554382787206">Menu profil desktop virtual. <ph name="DESK_NAME" /></translation>
 <translation id="2501920221385095727">Tombol lekat</translation>
@@ -449,6 +483,7 @@
 <translation id="2531025035050312891">perangkat lambat</translation>
 <translation id="2531107890083353124">Saat menyeret tab, tekan <ph name="KEY_ONE" /></translation>
 <translation id="2532199152994248594">Tarik atau tekan Spasi untuk memilih area yang akan diambil gambar</translation>
+<translation id="2540651571961486573">Terjadi error. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="2545334090614121435">Mencoba menggunakan Home? Gunakan</translation>
 <translation id="254900897760075745">Salin konten yang dipilih ke papan klip</translation>
 <translation id="2549711466868162843">Koreksi pencahayaan</translation>
@@ -463,6 +498,7 @@
 <translation id="2596078834055697711">Mengambil screenshot jendela</translation>
 <translation id="2598725286293895280">Aplikasi tidak didukung di desktop</translation>
 <translation id="2607678425161541573">Perlu login online</translation>
+<translation id="2611702650078660078">Terjadi error</translation>
 <translation id="2612072250312279703">pemantauan aktivitas</translation>
 <translation id="261210853165551493">Salin dengan pemformatan</translation>
 <translation id="2612614436418177118">Pindahkan ikon aplikasi dalam petak aplikasi</translation>
@@ -482,6 +518,7 @@
 <translation id="2658778018866295321">Klik dan tarik</translation>
 <translation id="2665788051462227163"><ph name="UNAVAILABLE_APPS_ONE" /> dan <ph name="UNAVAILABLE_APPS_TWO" /> tidak ada di perangkat ini.</translation>
 <translation id="2670350619068134931">Sedikit animasi</translation>
+<translation id="2672142220933875349">File crx yang buruk. Gagal membuka kemasan.</translation>
 <translation id="2673968385134502798">Game</translation>
 <translation id="2678852583403169292">Menu Klik untuk Diucapkan</translation>
 <translation id="2683887737780133806"><ph name="DAY_OF_WEEK" /> minggu lalu</translation>
@@ -495,12 +532,17 @@
 <translation id="2701576323154693023">Hotspot aktif (Wi-Fi nonaktif)</translation>
 <translation id="2704781753052663061">Bergabung dengan jaringan Wi-Fi lain</translation>
 <translation id="2705001408393684014">Alihkan Status Mikrofon. <ph name="STATE_TEXT" /></translation>
+<translation id="2706304388244371417">Cadangkan ke Google Drive. Memulihkan data atau mengganti perangkat dengan mudah kapan saja. Cadangan ini mencakup data aplikasi. Cadangan diupload ke Google dan dienkripsi menggunakan sandi Akun Google anak Anda. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut pencadangan<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="2706462751667573066">Atas</translation>
+<translation id="2710101514844343743">Data penggunaan dan diagnostik</translation>
 <translation id="2710984741481549981">Kunci jendela</translation>
+<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2718395828230677721">Cahaya Malam</translation>
 <translation id="2726420622004325180">Ponsel harus memiliki data seluler agar dapat mengaktifkan hotspot</translation>
 <translation id="2727175239389218057">Balas</translation>
+<translation id="2727744317940422214">Maaf, terjadi error. Berikan masukan dan cantumkan #bruschetta di deskripsi. Kode error adalah <ph name="ERROR" />. Pembersihan gagal, Anda mungkin perlu melakukannya secara manual.</translation>
 <translation id="2727977024730340865">Dipasang ke pengisi daya rendah. Pengisian daya baterai mungkin tidak dapat diandalkan.</translation>
+<translation id="2737538893171115082">Steam untuk Chromebook (Beta) diblokir oleh administrator Anda. Administrator Anda perlu mengaktifkan kebijakan berikut:</translation>
 <translation id="2743301740238894839">Mulai</translation>
 <translation id="2743387203779672305">Salin ke papan klip</translation>
 <translation id="2749082172777216925"><ph name="APP_NAME_INFO" />, <ph name="PRICE" /></translation>
@@ -523,6 +565,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="2802938996245446490"><ph name="BUTTON_LABEL" />, dipilih</translation>
 <translation id="2804617685448902294"><ph name="TITLE" /> <ph name="BODY" /></translation>
 <translation id="2805756323405976993">Aplikasi</translation>
+<translation id="2805760958323556153">Nilai kebijakan ExtensionInstallForcelist tidak valid. Harap hubungi administrator Anda.</translation>
 <translation id="2814448776515246190">Tangkapan layar sebagian</translation>
 <translation id="2815594810045873507">Coba pengisi daya dengan lebih banyak watt (W) atau gunakan pengisi daya asli Anda.</translation>
 <translation id="2819276065543622893">Anda akan dikeluarkan sekarang.</translation>
@@ -530,6 +573,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="2825619548187458965">Rak</translation>
 <translation id="2831035692318564937">Aktif sampai matahari terbit</translation>
 <translation id="2834813915651407382">Dibuka baru-baru ini</translation>
+<translation id="2838379631617906747">Memasang</translation>
 <translation id="2838589015763961627">Keluar dari layar penuh untuk mengubah ukuran</translation>
 <translation id="2840766858109427815">Maju ke halaman berikutnya</translation>
 <translation id="2841907151129139818">Beralih ke mode tablet</translation>
@@ -539,6 +583,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="2848120746144143659">Tekan Enter untuk mengambil screenshot layar penuh</translation>
 <translation id="2849936225196189499">Kritis</translation>
 <translation id="2850207700020959936">Aplikasi dapat mengakses kamera</translation>
+<translation id="2852045827873867442">Memerlukan koneksi internet.</translation>
 <translation id="2860184359326882502">Paling Cocok</translation>
 <translation id="2865888419503095837">Info jaringan</translation>
 <translation id="2869095047958348710"><ph name="DAY_OF_WEEK" /> yang lalu</translation>
@@ -551,8 +596,11 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="2883271196820422439">Lanjutkan tombol mouse</translation>
 <translation id="2885950158625301909">Pelajari lebih lanjut</translation>
 <translation id="2891209721153296020">"Batalkan pilihan"</translation>
+<translation id="2893701697603065178">Lingkungan Pengembangan Terkelola</translation>
 <translation id="2894949423239620203">Kabel dapat memengaruhi performa</translation>
 <translation id="2902312830803030883">Tindakan lainnya</translation>
+<translation id="2909506265808101667">Tidak dapat terhubung dengan layanan Google. Periksa koneksi jaringan Anda, lalu coba lagi. Kode error: <ph name="ERROR_CODE" />.</translation>
+<translation id="2910718431259223434">Terjadi error. Coba lagi atau hubungi pemilik atau administrator perangkat Anda. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="2914580577416829331">Screenshot</translation>
 <translation id="2924416280450782352">Tidak dapat menampilkan item. Coba buka kembali panel ini.</translation>
 <translation id="292506373491190801">Dari acara yang sedang berlangsung</translation>
@@ -575,6 +623,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="2970920913501714344">Instal aplikasi, ekstensi, dan tema</translation>
 <translation id="2977598380246111477">Nomor berikutnya</translation>
 <translation id="2980700224869191055">Emotikon <ph name="EMOTICON_NAME" /></translation>
+<translation id="2981033191524548279">Maaf, terjadi error. Berikan masukan dan cantumkan #bruschetta di deskripsi. Kode error adalah <ph name="ERROR" />. Masalah ini dapat diperbaiki dengan memulai ulang dan mencoba lagi.</translation>
 <translation id="2985148236010982088">Lihat semua aplikasi</translation>
 <translation id="2992272421330787632">Sembunyikan semua saran media</translation>
 <translation id="2992327365391326550">Tombol mikrofon perangkat dinonaktifkan.</translation>
@@ -592,6 +641,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3033912566804961911">Gabungkan dengan <ph name="DESK_NAME" /></translation>
 <translation id="3039939407102840004">Baterai stilus <ph name="PERCENTAGE" /> persen.</translation>
 <translation id="304097922505898963">Buka aplikasi Pintasan Keyboard</translation>
+<translation id="3040982432432547149">Bantu kami meningkatkan kualitas Steam untuk Chromebook</translation>
 <translation id="304417730895741346">Aplikasi yang disematkan dan terbuka ada di rak. Untuk menyematkan aplikasi ke rak, klik kanan aplikasi atau ketuk touchpad menggunakan dua jari.</translation>
 <translation id="3045670165536837541">Tuas kanan atas dipilih, gunakan tombol panah untuk memindahkan</translation>
 <translation id="3047761520276763270">Coba ucapkan:</translation>
@@ -603,12 +653,16 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Luaskan menu</translation>
 <translation id="3087734570205094154">Bawah</translation>
+<translation id="3088128611727407543">Menyiapkan profil aplikasi ...</translation>
 <translation id="3090214513075567547">Membuka menu konteks</translation>
+<translation id="3090819949319990166">Tidak dapat menyalin file crx eksternal ke <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090989381251959936">Tombol <ph name="FEATURE_NAME" />. <ph name="STATE_TEXT" /></translation>
 <translation id="3093423061078042895">Hilang</translation>
 <translation id="3095995014811312755">versi</translation>
 <translation id="309749186376891736">Pindahkan kursor</translation>
+<translation id="3100071818310370858">Gunakan lokasi. Izinkan aplikasi dan layanan yang memiliki izin akses lokasi untuk menggunakan lokasi perangkat ini. Google dapat mengumpulkan data lokasi secara berkala dan menggunakan data ini secara anonim untuk meningkatkan akurasi lokasi serta layanan yang berbasis lokasi. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut lokasi<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="3100274880412651815">Tutup mode tangkapan layar</translation>
+<translation id="3104948640446684649">Kirim data penggunaan dan diagnostik. Perangkat ini saat ini otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. Jika setelan Aktivitas Web &amp; Aplikasi tambahan Anda diaktifkan, data ini mungkin akan disimpan ke Akun Google Anda. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="3105917916468784889">Ambil screenshot</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3107155169630537783">Notifikasi sambutan <ph name="STATE" /></translation>
@@ -639,6 +693,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3181441307743005334">Mulai ulang dapat memerlukan waktu beberapa saat</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Terhubung ke satu perangkat}other{Terhubung ke # perangkat}}</translation>
 <translation id="3203405173652969239">Tombol Akses diaktifkan</translation>
+<translation id="3204648577100496185">Data yang terkait dengan aplikasi ini dapat dihapus dari perangkat ini</translation>
 <translation id="3206735939915734551">Aktifkan/nonaktifkan Caps Lock</translation>
 <translation id="3207953481422525583">Setelan Pengguna</translation>
 <translation id="3208321278970793882">Aplikasi</translation>
@@ -659,6 +714,8 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3269597722229482060">Klik Kanan</translation>
 <translation id="3271554781793662131">Telusuri untuk menyisipkan</translation>
 <translation id="3274634049061007184">Lihat aplikasi ponsel Anda</translation>
+<translation id="3279230909244266691">Proses ini dapat memerlukan waktu beberapa menit. Memulai mesin virtual.</translation>
+<translation id="3285465040399788513">Penyimpanan perangkat tidak cukup untuk menyelesaikan penyiapan. Kosongkan ruang penyimpanan, lalu coba lagi.</translation>
 <translation id="3289364673986435196">Menu daya</translation>
 <translation id="3289544412142055976">Aplikasi Linux saat ini tidak didukung</translation>
 <translation id="3289674678944039601">Mengisi daya melalui adaptor</translation>
@@ -669,6 +726,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3306386552969601301"><ph name="DEVICECOUNT" /> perangkat terhubung ke hotspot <ph name="DEVICE_NAME" /></translation>
 <translation id="3307642347673023554">Beralih ke mode laptop</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> tetap dapat login di lain waktu.</translation>
+<translation id="3313950410573257029">Periksa koneksi</translation>
 <translation id="3321628682574733415">Kode induk salah</translation>
 <translation id="332827762492701193">Notifikasi disembunyikan</translation>
 <translation id="3333674550998107387">Luaskan notifikasi <ph name="NOTIFICATION_TITLE" /></translation>
@@ -684,6 +742,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3368922792935385530">Terhubung</translation>
 <translation id="3369111525500416043">Mendekati tenggat</translation>
 <translation id="3371140690572404006">Perangkat USB-C (port depan sebelah kanan)</translation>
+<translation id="3373196968211632036">Steam untuk Chromebook (Beta) tidak tersedia untuk Akun Google anak</translation>
 <translation id="3375634426936648815">Terhubung</translation>
 <translation id="3386978599540877378">kaca pembesar layar penuh</translation>
 <translation id="3387527074123400161">ChromiumOS</translation>
@@ -709,6 +768,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3444385531800624797">Memuat hasil</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" /> menit</translation>
 <translation id="3445925074670675829">Perangkat USB-C</translation>
+<translation id="3449393517661170867">Jendela dengan tab baru</translation>
 <translation id="3454555520521576458">Dapat diubah ukurannya</translation>
 <translation id="3455468639467374593">Template, <ph name="TEMPLATE_NAME" /></translation>
 <translation id="3456931972722214204">1 perangkat terhubung ke hotspot <ph name="DEVICE_NAME" /></translation>
@@ -718,8 +778,13 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3470502288861289375">Menyalin...</translation>
 <translation id="347117769229524881"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, lalu <ph name="KEY_TWO" /> atau <ph name="KEY_THREE" /></translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
+<translation id="3484174798079475132"><ph name="BEGIN_PARAGRAPH1" />Jika Akurasi Lokasi diaktifkan, informasi tentang sinyal nirkabel, seperti titik akses Wi-Fi dan menara BTS, serta data sensor perangkat, seperti akselerometer dan giroskop, akan digunakan untuk memperkirakan lokasi perangkat yang lebih akurat. Perkiraan lokasi perangkat yang lebih akurat tersebut digunakan oleh aplikasi dan layanan Android untuk menyediakan fitur berdasarkan lokasi. Untuk melakukannya, Google secara berkala mengumpulkan informasi tentang sensor perangkat dan sinyal nirkabel di dekat Anda untuk berkontribusi pada lokasi sinyal nirkabel yang diperoleh melalui crowdsource.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Google menggunakan informasi ini untuk: meningkatkan akurasi lokasi dan layanan berdasarkan lokasi; dan secara umum meningkatkan, menyediakan, serta mengelola layanan Google. Dalam menggunakan informasi tersebut, Google tidak akan mengidentifikasi Anda. Kami memproses informasi ini berdasarkan kepentingan yang sah milik Google dan pihak ketiga untuk melayani kebutuhan pengguna.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Anda dapat menonaktifkan Akurasi Lokasi kapan saja di setelan lokasi perangkat Anda di bagian Setelan &gt; Privasi dan keamanan &gt; Kontrol privasi &gt; Akses lokasi &gt; Setelan lokasi lanjutan. Jika Akurasi Lokasi nonaktif, data Akurasi Lokasi tidak akan dikumpulkan. Untuk aplikasi dan layanan Android, hanya alamat IP yang digunakan, jika tersedia, untuk menentukan lokasi perangkat Anda, yang dapat memengaruhi ketersediaan dan akurasi lokasi untuk aplikasi dan layanan Android seperti Google Maps.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" /><ph name="LINK_BEGIN" />Pelajari lebih lanjut Akurasi Lokasi<ph name="LINK_END" /><ph name="END_PARAGRAPH4" /></translation>
 <translation id="3485319357743610354"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="348799646910989694">Rak otomatis disembunyikan</translation>
+<translation id="3496797737329654668">Ayo mulai bermain game</translation>
 <translation id="3505066820268455558">Mengisi Daya Baterai</translation>
 <translation id="3509391053705095206">Tidak dapat menemukan ponsel Anda. Pastikan Bluetooth ponsel Anda aktif.</translation>
 <translation id="3510164367642747937">Sorot kursor mouse</translation>
@@ -742,6 +807,8 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3554928024630051016">Untuk menambahkan perangkat USB tambahan, coba lepaskan salah satu perangkat lebih dulu, lalu colokkan perangkat baru</translation>
 <translation id="3558768885091059911">Aktifkan akses kamera dan mikrofon?</translation>
 <translation id="3560174576767922131">Rekam video</translation>
+<translation id="3563432852173030730">Aplikasi Kios tidak dapat didownload.</translation>
+<translation id="3563558822383875692">Mengonfigurasi DLC.</translation>
 <translation id="3563775809269155755">Aktifkan hotspot</translation>
 <translation id="3566240529365775567">Baru saja dibuka</translation>
 <translation id="3571734092741541777">Siapkan</translation>
@@ -766,6 +833,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3615926715408477684">Mengaktifkan data seluler akan mengaktifkan Bluetooth</translation>
 <translation id="3616113530831147358">Audio</translation>
 <translation id="3616883743181209306">Menu dipindahkan ke pojok kanan atas layar.</translation>
+<translation id="3618286417582819036">Maaf, terjadi error</translation>
 <translation id="3619536907358025872">Setelan screenshot</translation>
 <translation id="3621202678540785336">Input</translation>
 <translation id="3621712662352432595">Setelan Audio</translation>
@@ -778,7 +846,9 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECO
 <translation id="3633851487917460983">Membuka Papan klip</translation>
 <translation id="363473492175527493">Tugas yang ditetapkan untuk difokuskan: <ph name="TASK_NAME" />. Tekan enter untuk mengedit tugas.</translation>
 <translation id="3638400994746983214">Alihkan ke layar privasi. <ph name="STATE_TEXT" />.</translation>
+<translation id="3641070112313110357">Steam untuk Chromebook (Beta) perlu diupdate. Mulai ulang Chromebook Anda, lalu coba lagi.</translation>
 <translation id="3649256019230929621">Meminimalkan jendela</translation>
+<translation id="3650952250015018111">Izinkan "<ph name="APP_NAME" />" untuk mengakses:</translation>
 <translation id="3653999174677652346"><ph name="EVENT_POSITION" />
         <ph name="EVENT_SUMMARY" />,
         <ph name="START_TIME" /> sampai
@@ -801,11 +871,13 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="3702809606464356667">Menampilkan jendela dari desktop saat ini, tekan tombol Panah atas untuk menampilkan jendela dari semua desktop</translation>
 <translation id="3705722231355495246">-</translation>
 <translation id="3706423975342040244">Hiburan</translation>
+<translation id="370665806235115550">Memuat...</translation>
 <translation id="3707093869106077605"><ph name="UNAVAILABLE_DLC_ONE" /> dan <ph name="UNAVAILABLE_DLC_TWO" /> tidak tersedia.</translation>
 <translation id="3708186454126126312">Terhubung sebelumnya</translation>
 <translation id="3712143870407382523">Pilih jendela untuk sisi ini</translation>
 <translation id="371370241367527062">Mikrofon depan</translation>
 <translation id="3713734891607377840">Buka saat selesai</translation>
+<translation id="3716065403310915079">Penginstal <ph name="VM_NAME" /></translation>
 <translation id="3726171378575546917"><ph name="UNAVAILABLE_APPS_ONE" />, <ph name="UNAVAILABLE_APPS_TWO" />, dan <ph name="UNAVAILABLE_APPS_COUNT" /> lainnya tidak ada di perangkat ini.</translation>
 <translation id="3727231512028252576">Tidak dapat memuat item. Coba lagi saat online.</translation>
 <translation id="3735740477244556633">Urutkan menurut</translation>
@@ -814,6 +886,9 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="3742055079367172538">Screenshot telah diambil</translation>
 <translation id="3743775386021959186">Fokus aktif, <ph name="REMAINING_TIME" /> lagi</translation>
 <translation id="3750403286520637847">Sembunyikan saran cuaca</translation>
+<translation id="3755239467337474637"><ph name="BEGIN_PARAGRAPH1" />Data aplikasi dapat berupa data yang telah disimpan oleh aplikasi (berdasarkan setelan developer), termasuk data seperti kontak, pesan, dan foto.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Data cadangan tidak akan mengurangi kuota penyimpanan Drive anak Anda.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Anda dapat menonaktifkan layanan ini di Setelan.<ph name="END_PARAGRAPH3" /></translation>
 <translation id="3756485814916578707">Mentransmisikan layar</translation>
 <translation id="3765841382945324995">Pintasan <ph name="SIX_PACK_KEY_NAME" /> diperbarui dari <ph name="OLD_SHORTCUT" /> menjadi <ph name="NEW_SHORTCUT" /></translation>
 <translation id="3765841986579723851">Diedit hari ini</translation>
@@ -822,19 +897,24 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="3779139509281456663">Menghubungkan <ph name="NAME" /></translation>
 <translation id="3781910048497807059">Pindahkan fokus ke panel sebelumnya</translation>
 <translation id="3783640748446814672">alt</translation>
+<translation id="3783889407390048282">Kosongkan ruang penyimpanan agar tidak kehilangan akses ke Android.</translation>
 <translation id="3784455785234192852">Kunci</translation>
+<translation id="3788301286821743879">Aplikasi kios tidak dapat diluncurkan.</translation>
+<translation id="3789841737615482174">Instal</translation>
 <translation id="3796215473395753611">alt + panah atas</translation>
 <translation id="3798670284305777884">Speaker (internal)</translation>
 <translation id="3799080171973636491">Anda menekan pintasan keyboard untuk kaca pembesar layar penuh. Ingin mengaktifkannya?</translation>
 <translation id="3804737937830804242">Ciutkan kamera</translation>
 <translation id="3808558065322073119">{NUM_RESULTS,plural, =1{1 emoji. Tidak ada hasil lainnya.}other{# emoji. Tidak ada hasil lainnya.}}</translation>
 <translation id="3822403841174077928">Tidak dapat menyalin dengan pemformatan</translation>
+<translation id="3824621460022590830">Token pendaftaran perangkat tidak valid. Hubungi pemilik atau administrator perangkat Anda. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="3824784079442479685">Tindakan ini akan mengizinkan akses kamera untuk <ph name="APP_NAME" /> dan semua aplikasi serta situs yang memiliki izin kamera. Anda mungkin perlu memuat ulang halaman web atau memulai ulang aplikasi.</translation>
 <translation id="3826099427150913765">Ganti ke sandi</translation>
 <translation id="383058930331066723">Mode penghemat baterai aktif</translation>
 <translation id="3831226344927851293">Keluar dari tampilan tutorial</translation>
 <translation id="383629559565718788">Tampilkan setelan keyboard</translation>
 <translation id="384082539148746321">Hapus template?</translation>
+<translation id="3841282988425489367">Tidak dapat menyiapkan Steam untuk Chromebook (Beta)</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, lalu <ph name="KEY_ONE" /> atau <ph name="KEY_TWO" /> atau <ph name="KEY_THREE" /> atau <ph name="KEY_FOUR" /></translation>
 <translation id="3846575436967432996">Tidak tersedia informasi jaringan</translation>
 <translation id="3848526302597027234">Mengakses izin berikut:</translation>
@@ -852,7 +932,9 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="3898464793473355515">Putar layar 90 derajat searah jarum jam</translation>
 <translation id="3900355044994618856">Sesi akan berakhir dalam <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Menghubungkan ke <ph name="NAME" /></translation>
+<translation id="3904326018476041253">Layanan Lokasi</translation>
 <translation id="3904768293285573640">Mengubah ukuran jendela bersusun ke kiri</translation>
+<translation id="3923221004758245114">Hapus <ph name="VM_NAME" /> dari <ph name="DEVICE_TYPE" /> Anda? Tindakan ini akan menghapus semua aplikasi dan data di virtual machine tersebut.</translation>
 <translation id="3923494859158167397">Tidak ada jaringan seluler yang disiapkan</translation>
 <translation id="3925540965556789199"><ph name="DATE" />, Memuat acara.</translation>
 <translation id="3927049937406914450">Cuaca tidak tersedia karena akses lokasi dinonaktifkan. Anda dapat mengubahnya di setelan.</translation>
@@ -865,6 +947,7 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="3950272133184491871">Logout sekarang?</translation>
 <translation id="3950820424414687140">Login</translation>
 <translation id="3953130726459169782">Belum ada tugas yang diselesaikan.</translation>
+<translation id="3957844511978444971">Ketuk “Setuju” untuk mengonfirmasi pilihan setelan layanan Google ini.</translation>
 <translation id="3958714870339660776">Sepanjang Hari</translation>
 <translation id="3962859241508114581">Lagu Sebelumnya</translation>
 <translation id="3963124517343721543">Lanjutkan dengan mudah dari bagian terakhir yang dibuka dengan membuka jendela dan tab sebelumnya. Anda juga akan melihat saran yang dipersonalisasi untuk rekomendasi aktivitas berikutnya.</translation>
@@ -905,6 +988,7 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="4069532248403319695">Buka halaman Download</translation>
 <translation id="4072264167173457037">Sinyal sedang</translation>
 <translation id="4072805772816336153">Coba lagi nanti</translation>
+<translation id="4077623680826964850">Waktu tunggu habis saat melakukan booting atau menghubungkan kembali ke VM.</translation>
 <translation id="4086921558679520050">Aktifkan tombol mikrofon fisik di perangkat</translation>
 <translation id="4101772068965291327">Buka beranda</translation>
 <translation id="4112140312785995938">Cari Mundur</translation>
@@ -917,12 +1001,14 @@ Hubungkan perangkat ke sumber listrik.</translation>
 <translation id="4123259114412175274">Untuk membuka kunci Chromebook, pastikan Bluetooth ponsel Anda aktif</translation>
 <translation id="4123868835475902435">Itulah dasar-dasarnya. Lanjutkan di Jelajahi, aplikasi bawaan kami untuk mendapatkan tips dan bantuan. Anda akan menemukan tips untuk memulai, penawaran spesial, dan fitur <ph name="PRODUCT_NAME" /> terbaru.</translation>
 <translation id="4125970834901680537">Mode tablet tidak mendukung streaming aplikasi. Coba lagi dengan mode laptop.</translation>
+<translation id="4126375522951286587">Matikan <ph name="VM_NAME" /></translation>
 <translation id="4131973331381812765">Suhu: <ph name="TEMPERATURE" />°C - Kecepatan saat ini: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="4136724716305260864">Aktif sampai matahari terbit</translation>
 <translation id="4141710407113804517"><ph name="LAUNCHER_KEY_NAME" /> + panah kanan</translation>
 <translation id="4146671046252289537">Pindah ke akhir kata berikutnya</translation>
 <translation id="4150201353443180367">Tampilan</translation>
 <translation id="4151054805501931758">Sempurnakan penampilan</translation>
+<translation id="4151449637210235443">Beri tahu kami mengenai gameplay terbaru Anda</translation>
 <translation id="4156293514828496577">Daya baterai tersisa <ph name="PERCENTAGE" />% (sekitar <ph name="TIME_LEFT" />).
 Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4158003972857765638">Atur di desktop virtual baru</translation>
@@ -933,12 +1019,14 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4177913004758410636">{0,plural, =1{Update perangkat dalam 1 hari}other{Update perangkat dalam # hari}}</translation>
 <translation id="4181841719683918333">Bahasa</translation>
 <translation id="4185671786623711291">Pindahkan jendela aktif ke desktop di sisi kanan</translation>
+<translation id="4186749321808907788"><ph name="QUERY_NAME" /> - <ph name="DEFAULT_SEARCH_ENGINE_NAME" /> Penelusuran</translation>
 <translation id="4189826113259617332">Simpan semua halaman yang terbuka di jendela saat ini sebagai bookmark dalam folder baru</translation>
 <translation id="4190143678693626113">Hemat waktu dengan membalas pesan di ponsel Anda dari Chromebook dengan cepat</translation>
 <translation id="4190780880566297084">Tutup penyiapan untuk melihat foto, media, dan aplikasi terbaru ponsel Anda</translation>
 <translation id="4192112279662688596">Atau</translation>
 <translation id="4193857202545160520">Tampilkan klik dan tombol</translation>
 <translation id="4193969623755915875">Buka "Bantuan" di aplikasi Jelajahi dengan "<ph name="NEW_SHORTCUT" />".</translation>
+<translation id="4195001808989442226">Tidak dapat membuka Steam untuk Chromebook (Beta)</translation>
 <translation id="4195579532193195633">Versi sekarang <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
 <translation id="4195814663415092787">Lanjutkan dari halaman terakhir yang dibuka</translation>
 <translation id="4195877955194704651">Tombol klik otomatis</translation>
@@ -954,11 +1042,13 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4221957499226645091"><ph name="APP_NAME" />, Aplikasi Terinstal, Dijeda</translation>
 <translation id="4228078597006700451">Kontrol belum disiapkan</translation>
 <translation id="4230560241506423345">Baru</translation>
+<translation id="4231231258999726714">Menyiapkan Steam untuk Chromebook</translation>
 <translation id="4236726631849783264">Pengingat tentang tindakan yang disarankan</translation>
 <translation id="4239069858505860023">GPRS</translation>
 <translation id="4240486403425279990">Mode ringkasan</translation>
 <translation id="4242533952199664413">Buka setelan</translation>
 <translation id="4247123849143712100">Update dan matikan</translation>
+<translation id="4249248555939881673">Menunggu koneksi jaringan...</translation>
 <translation id="4250229828105606438">Screenshot</translation>
 <translation id="425364040945105958">Tidak ada SIM</translation>
 <translation id="4261870227682513959">Tampilkan setelan notifikasi. Notifikasi nonaktif.</translation>
@@ -969,8 +1059,11 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4274537685965975248">Pintasan keyboard Ctrl + Alt + Panah Bawah telah diubah. Untuk menggunakan tombol End, tekan tombol <ph name="LAUNCHER_KEY_NAME" /> + Panah Kanan.</translation>
 <translation id="4275283744500212192">Buka opsi tata letak jendela</translation>
 <translation id="4275663329226226506">Media</translation>
+<translation id="4276856098224910511">Tidak dapat menginstal, update OS tertunda. Terapkan update OS yang tertunda, mulai ulang, dan coba lagi. Kode error adalah <ph name="ERROR" />.</translation>
+<translation id="4278779213160967034">Proses ini mungkin memerlukan waktu beberapa menit. Mendownload file.</translation>
 <translation id="4279490309300973883">Mencerminkan</translation>
 <translation id="4280601795273309128">Update keamanan telah berakhir. Upgrade perangkat Anda.</translation>
+<translation id="4281844954008187215">Persyaratan Layanan</translation>
 <translation id="4283888303416325161">Masukkan sandi untuk keamanan tambahan</translation>
 <translation id="4285498937028063278">Lepaskan</translation>
 <translation id="428715201724021596">Menghubungkan ke profil. Proses ini mungkin perlu waktu beberapa menit.</translation>
@@ -1015,11 +1108,15 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4406883609789734330">Teks Otomatis</translation>
 <translation id="4412698727486357573">Pusat bantuan</translation>
 <translation id="4412944820643904175"><ph name="FEATURE_NAME" /> nonaktif.</translation>
+<translation id="44141919652824029">Izinkan "<ph name="APP_NAME" />" untuk mendapatkan daftar perangkat USB yang terpasang?</translation>
+<translation id="4414242853388122273">Terjadi error saat menghapus <ph name="VM_NAME" />. Coba lagi.</translation>
 <translation id="4417647906073317561">Setelan fokus. Setel timer, tugas, dan musik untuk mulai fokus.</translation>
 <translation id="4418600384772451109">Tutup Panel</translation>
 <translation id="4424159417645388645">Desktop 5</translation>
 <translation id="4426817706804363424">Anda hebat!</translation>
+<translation id="4426857487270413362">Tidak dapat mendownload file penginstal. Periksa koneksi internet dan pastikan Anda memiliki kapasitas disk yang cukup, lalu coba lagi. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="4430019312045809116">Volume</translation>
+<translation id="4439157218765614426">Dilarang oleh kebijakan.</translation>
 <translation id="4441283832827406317">Aplikasi diurutkan menurut nama</translation>
 <translation id="4445159312344259901">Login untuk membuka kunci</translation>
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 notifikasi penting}other{# notifikasi penting}}</translation>
@@ -1032,6 +1129,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4471432286288241507">{0,plural, =0{Update perangkat sekarang}=1{Update perangkat dalam 1 detik}other{Update perangkat dalam # detik}}</translation>
 <translation id="4472575034687746823">Memulai</translation>
 <translation id="4473489370276014885">Google Kontak</translation>
+<translation id="4473996011558324141">memperkirakan waktu</translation>
 <translation id="4477350412780666475">Lagu Berikutnya</translation>
 <translation id="4477751544736611934">Anda mungkin akan dikenai biaya data.
 1 perangkat terhubung.</translation>
@@ -1052,15 +1150,18 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> sampai penuh</translation>
 <translation id="4538824937723742295">Ambil screenshot dalam layar penuh</translation>
 <translation id="4539127209940689201">Cetak halaman saat ini</translation>
+<translation id="4541123282641193691">Tidak dapat memverifikasi akun Anda. Coba lagi atau mulai ulang Chromebook.</translation>
 <translation id="4541505619120536051">Selalu buka</translation>
 <translation id="4541706525461326392">Menghapus profil. Proses ini mungkin perlu waktu beberapa menit.</translation>
 <translation id="4544483149666270818">Pilih jendela yang akan direkam</translation>
 <translation id="4545950850562423083">Simpan halaman saat ini sebagai bookmark</translation>
 <translation id="4548482551627849548">Pindahkan jendela aktif ke desktop di sisi kiri</translation>
 <translation id="4552748006424994716">Untuk menghindari gema, Anda hanya dapat mendengarkan suara mikrofon Anda menggunakan headphone berkabel.</translation>
+<translation id="4554591392113183336">Versi ekstensi eksternal sama atau lebih rendah dibandingkan yang sudah ada.</translation>
 <translation id="4556953949326137018">Saat Anda menggunakan tindakan yang disarankan seperti “tambahkan ke Kalender” atau “buat Google Dokumen”, konten dari area yang dipilih akan dikirim ke server Google guna menyarankan tindakan yang tunduk pada <ph name="LINK_TO_SERVICE_TERMS" />. Jangan menyertakan informasi apa pun yang bersifat pribadi, sensitif, atau rahasia.</translation>
 <translation id="4560576029703263363">Aktif</translation>
 <translation id="4561267230861221837">3G</translation>
+<translation id="4562091353415772246">Instal update &amp; aplikasi. Dengan melanjutkan, Anda setuju bahwa perangkat ini juga dapat otomatis mendownload serta menginstal update dan aplikasi dari Google, operator Anda, dan produsen perangkat Anda, yang mungkin menggunakan data seluler. Beberapa aplikasi tersebut mungkin menawarkan pembelian dalam aplikasi. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut instal otomatis Play<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="4565377596337484307">Sembunyikan sandi</translation>
 <translation id="4566144812051858745">Tidak tertarik dengan saran apa pun</translation>
 <translation id="4569753163207712681">Lihat foto, media, dan aplikasi terbaru ponsel Anda</translation>
@@ -1072,6 +1173,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4585337515783392668">Hentikan transmisi pada penerima yang tidak dikenal</translation>
 <translation id="4596144739579517758">Tema gelap nonaktif</translation>
 <translation id="4596442969149038771"><ph name="USER" /> berbagi</translation>
+<translation id="4598556348158889687">Pengelolaan penyimpanan</translation>
 <translation id="4610493115106525653">Output bagus</translation>
 <translation id="4611292653554630842">Login</translation>
 <translation id="462160925400706389"><ph name="NAME" /> terhubung</translation>
@@ -1079,8 +1181,10 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4628757576491864469">Perangkat</translation>
 <translation id="4631891353005174729"><ph name="APP_NAME_TYPE" />, Rating bintang <ph name="RATING_SCORE" /></translation>
 <translation id="4633636853437260449">Tekan Ctrl+W untuk menghapus</translation>
+<translation id="4633757335284074492">Cadangkan ke Google Drive. Pulihkan data atau beralih perangkat kapan saja dengan mudah. Cadangan ini mencakup data aplikasi. Cadangan diupload ke Google dan dienkripsi menggunakan sandi Akun Google anak Anda.</translation>
 <translation id="4635501805800894201">{0,plural, =0{Ubah perangkat ke versi sebelumnya sekarang}=1{Ubah perangkat ke versi sebelumnya dalam 1 detik}other{Ubah perangkat ke versi sebelumnya dalam # detik}}</translation>
 <translation id="4642092649622328492">Mengambil screenshot sebagian</translation>
+<translation id="4642587497923912728">Steam untuk Chromebook (Beta) hanya tersedia untuk akun yang digunakan untuk login pertama kali di Chromebook ini.</translation>
 <translation id="4644727592819780893">Wilayah terlalu kecil untuk ditampilkan di pratinjau kamera</translation>
 <translation id="4648249871170053485"><ph name="APP_NAME" />, Rekomendasi aplikasi</translation>
 <translation id="4649019912155580914">Diedit oleh Anda</translation>
@@ -1107,6 +1211,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" /> minggu berikutnya</translation>
 <translation id="4717575069099566988">Kabel USB-C Anda tidak mendukung USB4. Performa perangkat mungkin dibatasi.</translation>
 <translation id="4730374152663651037">SERING DIGUNAKAN</translation>
+<translation id="4731197594811674831">beranda</translation>
 <translation id="4731797938093519117">Akses orang tua</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />% (Kiri)</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -1120,12 +1225,14 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4759238208242260848">Download</translation>
 <translation id="4762160261012420470"><ph name="LAUNCHER_KEY_NAME" /> + panah atas</translation>
 <translation id="4762573482154983647">Sembunyikan aplikasi</translation>
+<translation id="4762718786438001384">Ruang disk perangkat hampir habis</translation>
 <translation id="4763885921995354846">Tindakan ini akan mengizinkan akses kamera untuk semua aplikasi serta situs yang memiliki izin kamera. Anda mungkin perlu memuat ulang halaman web atau memulai ulang aplikasi.</translation>
 <translation id="4774338217796918551">Gunakan lagi besok pukul <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776584068981882959">Sandi Anda masih tidak dapat diverifikasi. Coba lagi.</translation>
 <translation id="4776917500594043016">Sandi untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4777825441726637019">Play Store</translation>
 <translation id="4778095205580009397">Asisten Google tidak tersedia dalam sesi demo.</translation>
+<translation id="4781633367688946589">Lanjutkan ke sesi baru</translation>
 <translation id="4785412405516449976">Hanya kontak Anda yang memiliki Akun Google</translation>
 <translation id="4789348252524569426">Tidak dapat menginstal file ucapan. Perangkat perlu diupdate. Mulai ulang perangkat lalu coba lagi.</translation>
 <translation id="478959186716341421">Mentransmisi</translation>
@@ -1226,6 +1333,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="5077936103761694531">Konfirmasi resolusi?</translation>
 <translation id="5078796286268621944">PIN salah</translation>
 <translation id="5083035541015925118">ctrl + alt + panah atas</translation>
+<translation id="5084328598860513926">Alur penyediaan terganggu. Coba lagi atau hubungi pemilik atau administrator perangkat Anda. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="5091636240353511739">Tampilkan PIN</translation>
 <translation id="5092436659250499817">Aktifkan/nonaktifkan lampu latar keyboard</translation>
 <translation id="5094577350232361255">tentang</translation>
@@ -1235,6 +1343,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 Anda juga dapat menggunakan pintasan keyboard. Pertama, tandai teks, lalu tekan <ph name="MODIFIER" /> + s.</translation>
 <translation id="509790653408515442">Aplikasi yang di-streaming pada ponsel Anda akan ditampilkan di sini</translation>
 <translation id="5098537242461068432">Desktop dan jendela dibuka kembali</translation>
+<translation id="5099599035412142130">Konfirmasi diri Anda</translation>
 <translation id="5103975065730779239">Sampai pukul <ph name="END_TIME_EXPRESSION" /></translation>
 <translation id="5104236669533825617">Tidak dapat membuat screencast</translation>
 <translation id="5107522548814527560">Web</translation>
@@ -1243,10 +1352,15 @@ Anda juga dapat menggunakan pintasan keyboard. Pertama, tandai teks, lalu tekan 
 <translation id="5121628974188116412">Membuka bagian bawah halaman</translation>
 <translation id="5122517996953421795">Pratinjau <ph name="DESK_NAME" />. Desktop virtual tidak aktif.</translation>
 <translation id="5136175204352732067">Keyboard yang berbeda terhubung</translation>
+<translation id="5139112070765735680"><ph name="QUERY_NAME" />, Penelusuran <ph name="DEFAULT_SEARCH_ENGINE_NAME" /></translation>
 <translation id="5144005092084035179">Ganti input audio?</translation>
 <translation id="5147567197700016471">Kunci dibuka</translation>
 <translation id="5150070631291639005">Setelan privasi</translation>
 <translation id="5155897006997040331">Kecepatan baca</translation>
+<translation id="5161445389876829235"><ph name="BEGIN_PARAGRAPH1" />Informasi ini adalah informasi umum tentang perangkat Anda dan cara penggunaannya oleh Anda (seperti level baterai, aktivitas sistem dan aplikasi, serta error). Data ini akan digunakan untuk meningkatkan kualitas Android. Beberapa informasi gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android, membuat aplikasi dan produk mereka menjadi lebih baik.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Menonaktifkan fitur ini tidak akan memengaruhi kemampuan perangkat dalam mengirimkan informasi yang diperlukan bagi layanan esensial seperti keamanan dan update sistem.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Pemilik dapat mengontrol fitur ini dari Setelan &gt; Lanjutan &gt; Otomatis kirimkan data diagnostik dan penggunaan ke Google.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Jika setelan Aktivitas Web &amp; Aplikasi tambahan Anda diaktifkan, data ini mungkin akan disimpan ke Akun Google Anda. Anda dapat melihat atau menghapus data dan mengubah setelan akun Anda di account.google.com.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="5163434717504750796">Kesehatan baterai <ph name="BATTERY_HEALTH_PERCENTAGE" />% | Jumlah siklus pengisian daya penuh <ph name="CYCLE_COUNT" /></translation>
 <translation id="5166007464919321363">Simpan desktop sebagai template</translation>
 <translation id="5168181903108465623">Perangkat transmisi tersedia</translation>
@@ -1254,6 +1368,7 @@ Anda juga dapat menggunakan pintasan keyboard. Pertama, tandai teks, lalu tekan 
 <translation id="5170568018924773124">Tampilkan dalam folder</translation>
 <translation id="5176318573511391780">Rekam sebagian layar</translation>
 <translation id="5187627942836026988">Tampilkan detail hotspot. Hotspot diblokir oleh administrator Anda.</translation>
+<translation id="5188648870018555788">Gunakan lokasi. Izinkan aplikasi, situs, dan layanan Android serta ChromeOS yang memiliki izin akses lokasi untuk menggunakan lokasi perangkat Anda. Akurasi Lokasi memberikan lokasi yang lebih akurat untuk aplikasi dan layanan Android. Agar dapat melakukannya, Google secara berkala memproses informasi tentang sensor perangkat dan sinyal nirkabel dari perangkat Anda untuk melakukan crowdsource lokasi sinyal nirkabel. Informasi ini digunakan tanpa mengidentifikasi Anda untuk meningkatkan akurasi lokasi serta layanan yang berbasis lokasi, serta untuk meningkatkan, menyediakan, dan mengelola layanan Google berdasarkan kepentingan sah Google dan pihak ketiga untuk melayani kebutuhan pengguna. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut cara menggunakan lokasi<ph name="END_LINK1" /></translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5198039720391525849">GIF Unggulan</translation>
 <translation id="5198413532174090167"><ph name="DATE" />, <ph name="NUMBER" /> acara</translation>
@@ -1268,17 +1383,21 @@ Anda juga dapat menggunakan pintasan keyboard. Pertama, tandai teks, lalu tekan 
 <translation id="5229343007215035173">Aktifkan/nonaktifkan layar privasi</translation>
 <translation id="5229860525743792999">Hapus <ph name="ITEM_LABEL" /> dari grup yang disarankan</translation>
 <translation id="5230516054153933099">Jendela</translation>
+<translation id="5233638681132016545">Tab baru</translation>
 <translation id="5234764350956374838">Tutup</translation>
 <translation id="523505283826916779">Setelan aksesibilitas</translation>
 <translation id="5238719049014159442">Buka/tutup Peluncur</translation>
 <translation id="5240725217819182328">Akses cepat ke halaman atau tindakan tertentu dalam aplikasi terinstal</translation>
 <translation id="5243355658487390559">Telusuri tanggal</translation>
+<translation id="5243522832766285132">Coba lagi setelah beberapa saat</translation>
 <translation id="5245201184978705914">Tidak dapat membuat transkrip</translation>
 <translation id="5251174953851719648">Muat ulang konten</translation>
 <translation id="5253783950165989294">Terhubung ke perangkat bernama <ph name="DEVICE_NAME" />, baterai <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="52550593576409946">Aplikasi Kios tidak dapat diluncurkan.</translation>
 <translation id="5256939106029293271">Uji mikrofon Anda</translation>
 <translation id="5258528442992323769">Tidak ada desktop tersimpan</translation>
 <translation id="5260676007519551770">Halaman kerja 4</translation>
+<translation id="5264148714798105376">Tindakan ini perlu waktu beberapa menit.</translation>
 <translation id="5265391159779542051">Hasil dimuat</translation>
 <translation id="5270547718570958938">Google Kalender</translation>
 <translation id="5277869901083657836">Tampilkan/sembunyikan alat stilus</translation>
@@ -1311,6 +1430,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="5352250171825660495">Tema gelap aktif</translation>
 <translation id="5354804064646502504">Anda mungkin akan dikenai biaya data.
 Tidak ada perangkat yang terhubung.</translation>
+<translation id="5355498626146154079">Anda harus mengaktifkan tanda “Borealis Enabled”</translation>
 <translation id="5356963482258194581">Berpindah-pindah antara tema gelap dan terang. Klik kanan desktop lalu pilih Wallpaper &amp; Gaya.</translation>
 <translation id="536019650977002321">Administrator tidak mengizinkan perekaman audio. Hubungi administrator untuk mendapatkan info selengkapnya.</translation>
 <translation id="5361524080961918551">File ucapan <ph name="LANGUAGE" /> didownload sebagian</translation>
@@ -1321,6 +1441,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5377367976106153749">Aktifkan akses kamera?</translation>
 <translation id="5378450298115733949">Lainnya</translation>
 <translation id="5379115545237091094">Terlalu banyak upaya gagal</translation>
+<translation id="5380526436444479273">Tunggu beberapa menit, lalu coba lagi</translation>
 <translation id="5383434787520761436">Tidak ada file Google Drive</translation>
 <translation id="5391307769715781764">Ganti desktop tersimpan?</translation>
 <translation id="5392327145184648521">Menghitung baterai %...</translation>
@@ -1332,6 +1453,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5409208741270395213">Tandai tugas sebagai selesai</translation>
 <translation id="5413656666631274079">Halaman setelan</translation>
 <translation id="5414198321558177633">Memperbarui daftar profil. Proses ini mungkin perlu waktu beberapa menit.</translation>
+<translation id="5415328625985164836">Aplikasi ini merupakan program beta. Anda kini dapat menggunakan Steam untuk memainkan beberapa game di Chromebook.</translation>
 <translation id="5426063383988017631">Menu setelan ditutup</translation>
 <translation id="5428899915242071344">Mulai memilih</translation>
 <translation id="5429993543155113935">Jendela Samaran saat ini tidak didukung</translation>
@@ -1352,6 +1474,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5506975627792768506">Aktifkan atau nonaktifkan kaca pembesar</translation>
 <translation id="5507778598655387680"><ph name="VOLUME_LEVEL" />, Menekan enter akan membisukan audio.</translation>
 <translation id="5512042095225963688">Hapus kata sebelumnya</translation>
+<translation id="5517304475148761050">Aplikasi ini memerlukan akses ke Play Store</translation>
 <translation id="5519005148254860683">Luaskan Google Tasks</translation>
 <translation id="5519195206574732858">LTE</translation>
 <translation id="5520229639206813572">Administrator Anda telah menghapus semua profil eSIM. Hubungi administrator untuk mendapatkan info selengkapnya.</translation>
@@ -1379,6 +1502,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5577281275355252094">Periksa apakah Bluetooth diaktifkan di ponsel untuk menggunakan Phone Hub</translation>
 <translation id="5578188167649348993">memori</translation>
 <translation id="5580000943347215299">Koleksi</translation>
+<translation id="5581972110672966454">Tidak dapat menggabungkan perangkat ke domain. Coba lagi atau hubungi pemilik atau administrator perangkat Anda. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="5586388332127302891">Pembesar Layar Tersemat diaktifkan. Tekan <ph name="ACCELERATOR" /> lagi untuk menonaktifkannya.</translation>
 <translation id="5587506661873751671">Mendownload <ph name="DOWNLOAD_PERCENT" />%</translation>
 <translation id="558849140439112033">Tarik untuk memilih area yang akan diambil gambarnya</translation>
@@ -1399,10 +1523,13 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5632485077360054581">Lihat caranya</translation>
 <translation id="5648021990716966815">Colokan mikrofon</translation>
 <translation id="5652575806481723716">Anda perlu memeriksa <ph name="FOCUSED_APP_NAME" />.</translation>
+<translation id="5657667036353380798">Ekstensi eksternal memerlukan versi chrome <ph name="MINIMUM_CHROME_VERSION" /> atau lebih tinggi untuk dipasang.</translation>
 <translation id="5662075790140998213">Desktop 10</translation>
 <translation id="5662709761327382534">Rekam mikrofon <ph name="CURRENT_STATE" />, Tekan enter agar perekaman mikrofon <ph name="NEW_STATE" /></translation>
 <translation id="5662919923378083468"><ph name="ACTION_DESCRIPTION" />, <ph name="SHORTCUT_HINT" /></translation>
+<translation id="5667546120811588575">Menyiapkan Google Play...</translation>
 <translation id="5669267381087807207">Mengaktifkan</translation>
+<translation id="5671658447180261823">Hapus saran <ph name="SUGGESTION_NAME" /></translation>
 <translation id="5672890847723042801">Utilitas</translation>
 <translation id="5673434351075758678">Dari "<ph name="FROM_LOCALE" />" ke "<ph name="TO_LOCALE" />" setelah menyinkronkan setelan Anda.</translation>
 <translation id="5675363643668471212">Item rak</translation>
@@ -1417,6 +1544,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5691772641933328258">Sidik jari tidak dikenali</translation>
 <translation id="5693255400847650006">Mikrofon sedang digunakan</translation>
 <translation id="5699366815052349604">Menetapkan jendela aktif ke semua desktop</translation>
+<translation id="570043786759263127">Aplikasi dan layanan Google Play</translation>
 <translation id="570390244361237317">Semua Aplikasi, navigasikan dengan tombol panah untuk mengakses semua aplikasi</translation>
 <translation id="5705197514573687092">Tampilkan setelan Fokus. Timer disetel ke <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Perangkat mendukung kecepatan data yang lebih tinggi daripada kabel. Performa perangkat mungkin dibatasi.</translation>
@@ -1425,11 +1553,13 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5712132663381964774">Gunakan aplikasi untuk melakukan semua hal yang Anda perlukan di <ph name="PRODUCT_NAME" />. Anda dapat menemukan aplikasi di Peluncur.</translation>
 <translation id="571295407079589142">Data seluler dinonaktifkan</translation>
 <translation id="5727460725221669831">Jika Anda lupa sandi atau mengubah sandi Akun Google Anda baru-baru ini, coba pulihkan pengguna ini.</translation>
+<translation id="572914206753951782">Pastikan Chromebook Anda menggunakan versi terbaru. Kemudian, mulai ulang Chromebook Anda dan coba lagi.</translation>
 <translation id="5733630091161562207">Notifikasi sambutan</translation>
 <translation id="573413375004481890">Perangkat ini tidak dapat mendukung semua layar Anda, jadi salah satu telah diputuskan sambungannya</translation>
 <translation id="574392208103952083">Sedang</translation>
 <translation id="5744083938413354016">Ketuk tarik</translation>
 <translation id="5745612484876805746">Fitur Cahaya Malam akan otomatis aktif saat matahari terbenam</translation>
+<translation id="5749214722697335450">Kirim data penggunaan dan diagnostik. Bantu tingkatkan pengalaman penggunaan Android Anda dengan otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. Jika setelan Aktivitas Web &amp; Aplikasi tambahan Anda diaktifkan, data ini mungkin akan disimpan ke Akun Google Anda. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="5750765938512549687">Bluetooth nonaktif</translation>
 <translation id="5758114525425072423">Mulai Fokus. Timer disetel ke <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5759522586053040964">Dengarkan suara Anda di telinga orang lain. Untuk berhenti, klik ikon pengujian atau tutup panel panggilan video.</translation>
@@ -1446,6 +1576,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5775936059231769503">Tombol hotspot. Hotspot nonaktif.</translation>
 <translation id="5777841717266010279">Berhenti membagikan layar?</translation>
 <translation id="5779721926447984944">File tersemat</translation>
+<translation id="5780940414249100901">Kirim data penggunaan dan diagnostik. Perangkat ini saat ini otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini tidak akan digunakan untuk mengidentifikasi anak Anda serta akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. <ph name="BEGIN_LINK1" />Setelan<ph name="END_LINK1" /> ini diterapkan oleh pemilik. Jika setelan Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="5785221443435874078">Hapus saran ini</translation>
 <translation id="5787431783058088906">Dapatkan keuntungan</translation>
 <translation id="5788127256798019331">File Play</translation>
@@ -1461,6 +1592,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5823239091726045201">Google Tasks di web</translation>
 <translation id="5825969630400862129">Setelan perangkat yang terhubung</translation>
 <translation id="5830180081891717894"><ph name="WINDOWS" /> lainnya</translation>
+<translation id="583281660410589416">Tidak dikenal</translation>
 <translation id="5837036133683224804">Hentikan <ph name="ROUTE_TITLE" /> di <ph name="RECEIVER_NAME" /></translation>
 <translation id="5840658767386246331">Telusuri dengan Google</translation>
 <translation id="5841296711770970362">Putar lagu berikutnya</translation>
@@ -1487,6 +1619,10 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5916646100036936191">Notifikasi baru, total <ph name="NOTIFICATION_COUNT" /></translation>
 <translation id="5916664084637901428">Aktif</translation>
 <translation id="5920710855273935292">Mikrofon dibisukan.</translation>
+<translation id="5923808736819114609"><ph name="BEGIN_PARAGRAPH1" />Jika Akurasi Lokasi diaktifkan, informasi tentang sinyal nirkabel, seperti titik akses Wi-Fi dan menara BTS, serta data sensor perangkat, seperti akselerometer dan giroskop, akan digunakan untuk memperkirakan lokasi perangkat yang lebih akurat. Perkiraan lokasi perangkat yang lebih akurat tersebut digunakan oleh aplikasi dan layanan Android untuk menyediakan fitur berdasarkan lokasi. Untuk melakukannya, Google secara berkala mengumpulkan informasi tentang sensor perangkat dan sinyal nirkabel di dekat perangkat ini untuk berkontribusi pada lokasi sinyal nirkabel yang diperoleh melalui crowdsource.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Google menggunakan informasi ini yang dikumpulkan dari perangkat ini untuk: meningkatkan akurasi lokasi dan layanan berdasarkan lokasi; dan secara umum meningkatkan, menyediakan, serta mengelola layanan Google. Kami memproses informasi ini berdasarkan kepentingan yang sah milik Google dan pihak ketiga untuk melayani kebutuhan pengguna. Informasi ini tidak digunakan untuk mengidentifikasi individu mana pun.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Anda dapat menonaktifkan Akurasi Lokasi kapan saja di setelan lokasi perangkat ini di bagian Setelan &gt; Privasi dan keamanan &gt; Kontrol privasi &gt; Akses lokasi &gt; Setelan lokasi lanjutan. Jika Akurasi Lokasi nonaktif, data Akurasi Lokasi tidak akan dikumpulkan. Untuk aplikasi dan layanan Android, hanya alamat IP yang digunakan, jika tersedia, untuk menentukan lokasi perangkat ini, yang dapat memengaruhi ketersediaan dan akurasi lokasi untuk aplikasi dan layanan Android seperti Google Maps.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" /><ph name="LINK_BEGIN" />Pelajari lebih lanjut Akurasi Lokasi<ph name="LINK_END" /><ph name="END_PARAGRAPH4" /></translation>
 <translation id="5928083197428724029">Update diperlukan <ph name="MANAGER" /></translation>
 <translation id="5939518447894949180">Reset</translation>
 <translation id="5946788582095584774"><ph name="FEATURE_NAME" /> aktif.</translation>
@@ -1494,6 +1630,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="595202126637698455">Kinerja pelacakan aktif</translation>
 <translation id="5955304353782037793">app</translation>
 <translation id="5958529069007801266">Pengguna yang diawasi</translation>
+<translation id="5959471481388474538">Jaringan tidak tersedia</translation>
 <translation id="596035801491797438">Nonaktifkan Kontrol dengan wajah</translation>
 <translation id="5960410286721553511">Lihat media dan foto terbaru dari ponsel Anda</translation>
 <translation id="5965524703725988602">Tombol Tema gelap. <ph name="STATE_TEXT" />.</translation>
@@ -1502,6 +1639,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5980301590375426705">Hentikan sesi tamu</translation>
 <translation id="5983567367406220847">Karena tidak ada aktivitas, hotspot telah dinonaktifkan.</translation>
 <translation id="598407983968395253">Gunakan template</translation>
+<translation id="5984334442529819751">Terjadi error saat menginstal DLC (seringkali perlu memulai ulang, buka Setelan\&gt;\&gt;Tentang ChromeOS untuk mengetahui informasi selengkapnya).</translation>
 <translation id="5986723678596105470">Bergabung dengan Google Meet</translation>
 <translation id="598882571027504733">Untuk mendapatkan update, nyalakan ulang Chromebook dengan keyboard dalam keadaan terhubung.</translation>
 <translation id="5990992855591814753">Tenangkan pikiran dengan playlist musik khusus untuk fokus. Dapatkan YouTube Music dan YouTube bebas iklan dengan YouTube Premium tanpa biaya selama 3 bulan. Persyaratan berlaku.</translation>
@@ -1525,11 +1663,16 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6032620807120418574">Klik di mana saja untuk merekam dalam layar penuh</translation>
 <translation id="6040071906258664830">Rekam mikrofon <ph name="STATE" /></translation>
 <translation id="6040143037577758943">Tutup</translation>
+<translation id="6042308850641462728">Lainnya</translation>
 <translation id="6043212731627905357">Monitor ini tidak dapat berfungsi dengan <ph name="DEVICE_TYPE" /> Anda (monitor tidak didukung).</translation>
 <translation id="6043994281159824495">Keluar sekarang</translation>
 <translation id="6045629311476491587">Digunakan oleh <ph name="APP_COUNT" /> aplikasi</translation>
 <translation id="6045998054441862242">Mengaktifkan mode kontras tinggi</translation>
 <translation id="6047696787498798094">Berbagi layar akan berhenti saat Anda beralih ke pengguna lain. Ingin melanjutkan?</translation>
+<translation id="6051212890006277572"><ph name="BEGIN_PARAGRAPH1" />Informasi ini adalah informasi umum tentang perangkat ini dan cara penggunaannya (seperti level baterai, aktivitas sistem dan aplikasi, serta error). Data ini akan digunakan untuk meningkatkan kualitas Android. Beberapa informasi gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android, membuat aplikasi dan produk mereka menjadi lebih baik.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Menonaktifkan fitur ini tidak akan memengaruhi kemampuan perangkat ini dalam mengirimkan informasi yang diperlukan bagi layanan esensial seperti keamanan dan update sistem.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Pemilik dapat mengontrol fitur ini dari Setelan &gt; Lanjutan &gt; Otomatis kirimkan data diagnostik dan penggunaan ke Google.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Jika setelan Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. Pelajari lebih lanjut setelan ini dan cara menyesuaikannya di families.google.com.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="6052614013050385269">Mengklik kanan link</translation>
 <translation id="6054305421211936131">Login dengan kartu smart</translation>
 <translation id="6059276912018042191">Tab Chrome terbaru</translation>
@@ -1570,6 +1713,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6166852626429024716">Telusuri perangkat, aplikasi, setelan, web ...</translation>
 <translation id="6168318496333165060">Buka aplikasi Diagnostik</translation>
 <translation id="6168622430237609329">Aplikasi terinstal Anda</translation>
+<translation id="6177412385419165772">Menghapus...</translation>
 <translation id="6180193585172850042">Tombol Kembali</translation>
 <translation id="6180651297859206670">Tombol Teruskan</translation>
 <translation id="6182592640011875895">Buka desktop</translation>
@@ -1603,14 +1747,19 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6274422179279280249">Sisipkan link, emoji, dan lainnya. Anda juga bisa mendapatkan bantuan menulis dengan AI Google. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Lihat sumber halaman</translation>
 <translation id="6285871695023807425">Tambahkan ke Kalender</translation>
+<translation id="628699625505156622">Gunakan lokasi. Izinkan aplikasi, situs, dan layanan ChromeOS serta Android yang memiliki izin akses lokasi untuk menggunakan lokasi perangkat ini. Akurasi Lokasi memberikan lokasi yang lebih akurat untuk aplikasi dan layanan Android. Agar dapat melakukannya, Google secara berkala memproses informasi tentang sensor perangkat dan sinyal nirkabel dari perangkat ini untuk melakukan crowdsource lokasi sinyal nirkabel. Hal ini digunakan tanpa mengidentifikasi individu mana pun untuk meningkatkan akurasi lokasi serta layanan yang berbasis lokasi, serta untuk meningkatkan, menyediakan, dan mengelola layanan Google berdasarkan kepentingan sah Google dan pihak ketiga untuk melayani kebutuhan pengguna. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut cara menggunakan lokasi<ph name="END_LINK1" /></translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" /> dapat ditambahkan ulang nanti dengan izin orang tua.</translation>
 <translation id="6291221004442998378">Tidak mengisi daya</translation>
+<translation id="6297986260307280218">Kirim data penggunaan dan diagnostik. Bantu tingkatkan pengalaman penggunaan Android Anda dengan otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. <ph name="BEGIN_LINK1" />Setelan<ph name="END_LINK1" /> ini diterapkan oleh pemilik. Pemilik dapat memilih untuk mengirim data diagnostik dan penggunaan untuk perangkat ini ke Google. Jika setelan Aktivitas Web &amp; Aplikasi tambahan Anda diaktifkan, data ini mungkin akan disimpan ke Akun Google Anda. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="6298183524022479114">Sesuaikan perangkat ini di aplikasi</translation>
+<translation id="6298962879096096191">Menggunakan Google Play untuk menginstal aplikasi Android</translation>
 <translation id="6304076460080088478">Tutup atau minimalkan jendela Samaran untuk menelusuri layar dengan Google Lens</translation>
 <translation id="6309219492973062892">Klik atau ketuk ikon rak 1-8</translation>
 <translation id="6315170314923504164">Suara</translation>
+<translation id="6317369057005134371">Menunggu jendela aplikasi...</translation>
 <translation id="6319058840130157106">Bergerak mundur antara pojok kanan bawah, Peluncur, kolom URL, kolom bookmark, situs yang terbuka, dan download</translation>
 <translation id="6319503618073410818">Lihat detail di browser</translation>
+<translation id="6324334979701518365">Tidak dapat meluncurkan aplikasi Chrome yang tidak didukung. Beri tahukan masalah ini kepada administrator Anda.</translation>
 <translation id="6324916366299863871">Edit pintasan</translation>
 <translation id="6325525973963619867">Gagal</translation>
 <translation id="6330012934079202188">Menampilkan jendela dari semua desktop, tekan tombol Panah atas untuk menampilkan jendela dari desktop saat ini</translation>
@@ -1632,8 +1781,13 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="639644700271529076">CAPS LOCK tidak aktif</translation>
 <translation id="6406458002328242616">Edit timer. <ph name="FOCUS_DURATION" />.</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="6407887725738521027"><ph name="BEGIN_PARAGRAPH1" />Layanan lokasi Google menggunakan sumber seperti Wi-Fi, jaringan seluler, dan sensor untuk membantu memperkirakan lokasi perangkat Anda.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Anda dapat menonaktifkan Lokasi dengan menonaktifkan setelan Lokasi utama di perangkat Anda. Anda juga dapat menonaktifkan penggunaan Wi-Fi, jaringan seluler, dan sensor untuk lokasi di setelan lokasi.<ph name="END_PARAGRAPH2" /></translation>
+<translation id="6414618057231176439">Pilih versi <ph name="VM_NAME" /> yang akan diinstal.</translation>
+<translation id="641469293210305670">Instal Update dan Aplikasi</translation>
 <translation id="6417265370957905582">Asisten Google</translation>
 <translation id="641817663353603351">page up</translation>
+<translation id="6418511932144861495">Instal update penting</translation>
 <translation id="6424520630891723617"><ph name="SECURITY_STATUS" />, Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="642644398083277086">Hapus semua notifikasi</translation>
 <translation id="6426905245930183644">Membuat...</translation>
@@ -1659,6 +1813,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6482559668224714696">Kaca pembesar layar penuh</translation>
 <translation id="6485086611007560630">Cuaca (tidak tersedia)</translation>
 <translation id="6490471652906364588">Perangkat USB-C (port sebelah kanan)</translation>
+<translation id="6491376743066338510">Otorisasi gagal</translation>
 <translation id="649452524636452238">PIN kartu smart</translation>
 <translation id="6495322433318104734">Menampilkan screensaver, tekan sembarang tombol untuk keluar</translation>
 <translation id="6495400115277918834">Picture-in-picture dimulai, Alt+Shift+V untuk memfokuskan</translation>
@@ -1667,7 +1822,9 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6507042703812908515">Buka aplikasi Pintasan Keyboard dengan "<ph name="NEW_SHORTCUT" />".</translation>
 <translation id="6507618042428827377">Beralih ke metode input berikutnya yang tersedia</translation>
 <translation id="6508923215158854599">Pastikan Chromebook berada di jaringan Wi-Fi yang sama dengan perangkat Chromecast.</translation>
+<translation id="6511607461419653612">Mulai ulang Chromebook Anda, lalu coba lagi</translation>
 <translation id="6515727200518652613">Koneksi kamera terputus, mencoba menghubungkan kembali.</translation>
+<translation id="651753338596587143">Maaf, terjadi error saat menginstal dependensi DLC. Coba mulai ulang. Jika masalah terus berlanjut, berikan masukan dan cantumkan #bruschetta di deskripsi. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="6520517963145875092">Pilih jendela untuk diambil gambarnya</translation>
 <translation id="652139407789908527">Layar Anda akan kosong lebih lama dari biasanya (hingga satu menit) selama update ini berlangsung. Jangan tekan tombol daya saat proses update berlangsung.</translation>
 <translation id="6528179044667508675">Jangan ganggu</translation>
@@ -1691,6 +1848,7 @@ Baru diinstal</translation>
 <translation id="6574587113394758819">Notifikasi <ph name="APP_TITLE" /> disembunyikan karena perlindungan tampilan aktif</translation>
 <translation id="6574622320167699133">Dibuka oleh ponsel Anda. Ketuk atau klik untuk masuk.</translation>
 <translation id="6578407462441924264">Tanpa Nama</translation>
+<translation id="6580060371127789208"><ph name="PERCENTAGE_COMPLETE" />% selesai</translation>
 <translation id="6582012689384648647">Untuk mendapatkan playlist untuk berfokus yang dipersonalisasi, izinkan akses ke YouTube Music</translation>
 <translation id="6582034443359256692">Menghitung tingkat pengisian daya baterai.</translation>
 <translation id="6585808820553845416">Sesi berakhir dalam <ph name="SESSION_TIME_REMAINING" />.</translation>
@@ -1709,10 +1867,12 @@ Baru diinstal</translation>
 <translation id="6625718907317144388">Notifikasi <ph name="APP_1_TITLE" />, <ph name="APP_2_TITLE" />, dan lainnya disembunyikan karena perlindungan tampilan aktif</translation>
 <translation id="6627638273713273709">Tombol Penelusuran+Shift+K</translation>
 <translation id="662830937908749204">Pindahkan fokus ke panel berikutnya</translation>
+<translation id="6635674640674343739">Tidak dapat terhubung ke jaringan. Periksa koneksi jaringan Anda, lalu coba lagi.</translation>
 <translation id="6637729079642709226">Ubah waktu</translation>
 <translation id="6641720045729354415">Tombol Teks Otomatis. <ph name="STATE_TEXT" /></translation>
 <translation id="6643169293433369663">Urungkan tata urutan menurut nama</translation>
 <translation id="664793810957802384">Item dalam grup yang disarankan</translation>
+<translation id="6649018507441623493">Tunggu sebentar...</translation>
 <translation id="6649641931981131786">Sesuaikan kamera untuk memfokuskan Anda di tengah layar.</translation>
 <translation id="6650072551060208490"><ph name="ORIGIN_NAME" /> ingin mengonfirmasi bahwa ini benar-benar Anda</translation>
 <translation id="6650742588569439432">Tidak dapat memuat item.</translation>
@@ -1737,9 +1897,11 @@ Baru diinstal</translation>
 <translation id="6706742084323792866">Sematkan keyboard</translation>
 <translation id="6709719156428404245">Tarik atau tekan Spasi untuk memilih area yang akan direkam</translation>
 <translation id="6710213216561001401">Sebelumnya</translation>
+<translation id="6716798148881908873">Koneksi jaringan terputus. Periksa koneksi jaringan Anda atau coba jaringan Wi-Fi lain.</translation>
 <translation id="6723839937902243910">Daya</translation>
 <translation id="672609503628871915">Lihat apa saja yang baru</translation>
 <translation id="6727969043791803658">Terhubung, baterai <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="6731320427842222405">Proses ini mungkin perlu waktu beberapa menit</translation>
 <translation id="6732087373923685049">kamera</translation>
 <translation id="6732800389263199929">+<ph name="COUNT" /></translation>
 <translation id="6737983188036277605">Kamera dan mikrofon sedang digunakan</translation>
@@ -1762,6 +1924,7 @@ Baru diinstal</translation>
 <translation id="6786750046913594791">Tutup folder</translation>
 <translation id="6790428901817661496">Putar</translation>
 <translation id="6792262051831399889">Tidak tersedia</translation>
+<translation id="6792351896138862473">Tidak dapat meluncurkan aplikasi kios yang tidak didukung. Beri tahukan masalah ini kepada administrator Anda.</translation>
 <translation id="679368458793552943">Perbesar saat kaca pembesar diaktifkan</translation>
 <translation id="6794287755901682422">Item ini memiliki: <ph name="GLANCEABLES_TASK_ITEM_METADATA" />.</translation>
 <translation id="6797745268063125932">Tetap aktifkan</translation>
@@ -1774,6 +1937,7 @@ Baru diinstal</translation>
 <translation id="6819327813400217281">Kamera dipaskan ke pojok kiri bawah</translation>
 <translation id="6820676911989879663">Istirahatlah sebentar</translation>
 <translation id="6827049576281411231">Tutup panel acara</translation>
+<translation id="682971198310367122">Kebijakan privasi Google</translation>
 <translation id="6836499262298959512">File berbahaya</translation>
 <translation id="6837621009301897464">Untuk mengambil screenshot, tekan</translation>
 <translation id="6852052252232534364">Klik untuk mengaktifkan</translation>
@@ -1805,11 +1969,13 @@ Baru diinstal</translation>
 <translation id="6942518653766415536">Menu format rekaman</translation>
 <translation id="6945221475159498467">Pilih</translation>
 <translation id="6945922087561257829">Ponsel Anda menggunakan jaringan seluler. Pastikan ponsel dan Chromebook berada di jaringan Wi-Fi yang sama, lalu coba lagi. <ph name="LEARN_MORE" /></translation>
+<translation id="6950627417367801484">Pulihkan aplikasi</translation>
 <translation id="6960565108681981554">Tidak diaktifkan. Hubungi operator.</translation>
 <translation id="6961121602502368900">Fitur senyapkan ponsel tidak tersedia di profil kerja</translation>
 <translation id="6961840794482373852">Pintasan keyboard Alt + Panah Atas telah diubah. Untuk menggunakan tombol Page Up, tekan tombol <ph name="LAUNCHER_KEY_NAME" /> + Panah Atas.</translation>
 <translation id="696267987219125751">Framing kamera nonaktif.</translation>
 <translation id="6965382102122355670">Oke</translation>
+<translation id="6967112302799758487">Semua aplikasi dan game yang diinstal menggunakan Steam untuk Chromebook (Beta) akan dihapus dari perangkat ini. Data yang terkait dengan aplikasi dan game ini juga akan dihapus. Pastikan untuk mencadangkan aplikasi dan game tersimpan sebelum meng-uninstal.</translation>
 <translation id="6972629891077993081">Perangkat HID</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6980402667292348590">insert</translation>
@@ -1841,6 +2007,7 @@ Baru diinstal</translation>
 <translation id="7067196344162293536">Putar otomatis</translation>
 <translation id="7076293881109082629">Sedang masuk</translation>
 <translation id="7076878155205969899">Mematikan suara</translation>
+<translation id="7083774521940805477">Steam untuk Chromebook (beta) tidak tersedia di Chromebook Anda.</translation>
 <translation id="7083848064787091821">Fokus</translation>
 <translation id="7084678090004350185">Tombol hotspot. Hotspot aktif, <ph name="DEVICECOUNT" /> perangkat terhubung.</translation>
 <translation id="7086931198345821656">Update ini mengharuskan Anda melakukan powerwash <ph name="DEVICE_TYPE" />. Semua data akan dihapus. Pelajari update <ph name="SYSTEM_APP_NAME" /> terbaru lebih lanjut.</translation>
@@ -1858,11 +2025,14 @@ Baru diinstal</translation>
 <translation id="7130207228079676353">MUNGKIN DICARI</translation>
 <translation id="7131634465328662194">Anda akan logout otomatis.</translation>
 <translation id="7143207342074048698">Menghubungkan</translation>
+<translation id="7143409552554575716">Tanda ChromeOS</translation>
+<translation id="7144878232160441200">Coba lagi</translation>
 <translation id="7144942256906679589">Status baterai</translation>
 <translation id="7145639536026937076">Daya baterai <ph name="PERCENTAGE" />% dan masih mengisi daya. Penghemat Baterai aktif.</translation>
 <translation id="7147587499155271409">Tidak ada histori penjelajahan</translation>
 <translation id="7147657298465433425">Untuk mengakses tombol F, tekan tombol fn + tombol baris atas</translation>
 <translation id="7149149900052329230">Kelola file lokal dan file Google Drive Anda, semuanya di aplikasi File.</translation>
+<translation id="7154020516215182599">Sampaikan masukan atau jelaskan masalah Anda. Jika memungkinkan, sertakan langkah-langkah untuk merekonstruksi masalah.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7167913274352523149"><ph name="HOTSPOT" />,
         <ph name="NETWORK" /></translation>
@@ -1899,6 +2069,7 @@ Baru diinstal</translation>
 <translation id="7331646370422660166">alt + panah bawah</translation>
 <translation id="7336943714413713812">Telusuri histori penjelajahan</translation>
 <translation id="7337660433630200387">+10 mnt</translation>
+<translation id="7339898014177206373">Jendela baru</translation>
 <translation id="7340731148882810149">Menu klik otomatis</translation>
 <translation id="7346909386216857016">Oke, mengerti</translation>
 <translation id="7348093485538360975">Keyboard di layar</translation>
@@ -1933,11 +2104,13 @@ Baru diinstal</translation>
 <translation id="7440404390546433462">Google Penelusuran</translation>
 <translation id="7441711280402516925">Sedang diputar · Beralih ke tab</translation>
 <translation id="7453330308669753048">Hasil histori penelusuran dihapus</translation>
+<translation id="7457027286267861992">Kapasitas disk tidak cukup. Kosongkan lebih banyak kapasitas disk, lalu coba lagi. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="7459485586006128091">Karena error internal, hotspot telah dinonaktifkan. Coba hubungkan kembali dalam beberapa menit.</translation>
 <translation id="7461924472993315131">Sematkan</translation>
 <translation id="746232733191930409">Mode perekaman layar</translation>
 <translation id="7466449121337984263">Sentuh sensor</translation>
 <translation id="7477793887173910789">Kontrol musik, video, dan banyak lagi</translation>
+<translation id="7478485216301680444">Aplikasi kios tidak dapat dipasang.</translation>
 <translation id="7488762544858401571">Diedit</translation>
 <translation id="7489261257412536105">Masuk atau keluar dari layar penuh</translation>
 <translation id="7490157877815329797">Untuk mendengarkan musik bebas iklan dan menikmati musik untuk berfokus yang dipersonalisasi, coba YouTube Music Premium</translation>
@@ -1965,11 +2138,14 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7534543072325030705">Memberi tanda Suka akan mengirimkan masukan bahwa Anda menyukai saran grup ini</translation>
 <translation id="7536035074519304529">Alamat IP: <ph name="ADDRESS" /></translation>
 <translation id="7536832381700852123">Perbarui jendela kiri</translation>
+<translation id="7541773865713908457"><ph name="ACTION_NAME" /> dengan Aplikasi <ph name="APP_NAME" /></translation>
 <translation id="7543399541175347147">Aplikasi Linux dan jendela Samaran saat ini tidak didukung. Aplikasi lainnya akan disimpan.</translation>
 <translation id="7544300628205093162">Lampu latar keyboard mati</translation>
+<translation id="7545466883021407599">Tidak dapat terhubung dengan server. Periksa koneksi jaringan Anda, lalu coba lagi. Jika Anda masih mengalami masalah, coba mulai ulang Chromebook. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="7548434653388805669">Waktunya tidur</translation>
 <translation id="7551643184018910560">Sematkan ke rak</translation>
 <translation id="7557816257942363084"><ph name="APP_NAME" /> sedang menggunakan mikrofon Anda</translation>
+<translation id="7559719679815339381">Harap tunggu....aplikasi Kios sedang diperbarui. Jangan lepaskan stik USB.</translation>
 <translation id="7561982940498449837">Tutup menu</translation>
 <translation id="7564874036684306347">Memindahkan jendela ke desktop lain dapat mengakibatkan perilaku tak terduga. Notifikasi, jendela, dan dialog berikutnya dapat terpisah antardesktop.</translation>
 <translation id="7568154670718626683">Mencoba Menghapus? Gunakan</translation>
@@ -1981,6 +2157,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7579778809502851308">Screenshot</translation>
 <translation id="7588317312481506627">Disalin ke papan klip.</translation>
 <translation id="7593891976182323525">Telusuri atau Shift</translation>
+<translation id="7595453277607160340">Untuk menggunakan aplikasi Android dan menjaga agar <ph name="DEVICE_TYPE" /> berfungsi dengan benar, login lagi dan update.</translation>
 <translation id="7598054670902114203">Ringkasan penggunaan CPU, <ph name="CPU_USEAGE" />%. Suhu <ph name="TEMPERATURE" /> derajat Celsius, kecepatan saat ini: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="7599378375976398913">Menyisipkan hasil yang dipilih</translation>
 <translation id="7600875258240007829">Lihat semua notifikasi</translation>
@@ -1990,10 +2167,13 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7609951632080598826">Tampilan kalender, <ph name="DATE" />, <ph name="TIME" /></translation>
 <translation id="7611213136657090146">Kamera dihubungkan kembali.</translation>
 <translation id="7613620083300976559">Aktifkan kontrol game</translation>
+<translation id="761530003705945209">Cadangkan ke Google Drive. Pulihkan data Anda atau beralih perangkat kapan saja dengan mudah. Cadangan Anda mencakup data aplikasi. Cadangan Anda diupload ke Google dan dienkripsi menggunakan sandi Akun Google Anda.</translation>
 <translation id="761736749114493194">Aktifkan/nonaktifkan framing kamera. <ph name="STATE_TEXT" /></translation>
 <translation id="7621008024906456933">Setelan Quick Share</translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" /> °F</translation>
 <translation id="7627303771480696593">Ajukan pertanyaan</translation>
+<translation id="7629858978065675960">Hasil tidak diketahui.</translation>
+<translation id="7632948528260659758">Aplikasi kios berikut gagal memperbarui:</translation>
 <translation id="7634648064048557203">Kamera dipaskan ke pojok kanan bawah</translation>
 <translation id="7638572816805275740">Ambil screenshot atau rekaman layar jendela</translation>
 <translation id="7642106959537987271">mode inversi warna</translation>
@@ -2015,6 +2195,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7684531502177797067">Input kamera disetel ke <ph name="CAMERA_NAME" />.</translation>
 <translation id="7687172143976244806">Dibuka oleh Anda</translation>
 <translation id="7689817529363080918">Tindakan ini akan mengizinkan akses mikrofon untuk <ph name="APP1_NAME" />, <ph name="APP2_NAME" />, dan semua aplikasi serta situs yang memiliki izin mikrofon</translation>
+<translation id="7691073721729883399">Cryptohome untuk aplikasi kios tidak dapat dipasang.</translation>
 <translation id="7704000866383261579">Ulangi tindakan terakhir</translation>
 <translation id="7705524343798198388">VPN</translation>
 <translation id="770741401784017797">Membuat GIF</translation>
@@ -2030,10 +2211,12 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7726391492136714301">Lihat notifikasi dan aplikasi ponsel</translation>
 <translation id="7727952505535211425">Buka situs di kolom URL di tab baru</translation>
 <translation id="7728657226117099693">Nonaktifkan Caps Lock</translation>
+<translation id="7732702411411810416">Pastikan perangkat Anda terhubung ke internet, lalu coba lagi</translation>
 <translation id="7742327441377685481">Tidak ada notifikasi</translation>
 <translation id="7748275671948949022">Tandai tombol Peluncur di rak</translation>
 <translation id="7749443890790263709">Jumlah halaman kerja maksimum tercapai.</translation>
 <translation id="7749958366403230681">ExpressKey 4</translation>
+<translation id="7750228210027921155">Picture-in-picture</translation>
 <translation id="7751260505918304024">Tampilkan semua</translation>
 <translation id="7762664108390426952">Persyaratan Layanan dan Kebijakan Privasi Google</translation>
 <translation id="7768784765476638775">Klik untuk diucapkan</translation>
@@ -2055,13 +2238,16 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7830453190047749513">Anda dapat mempersonalisasi tindakan tombol, kecepatan kursor, dan lainnya untuk <ph name="PERIPHERAL_NAME" /></translation>
 <translation id="7842569679327885685">Peringatan: Fitur eksperimental</translation>
 <translation id="7846634333498149051">Keyboard</translation>
+<translation id="7847212883280406910">Tekan Ctrl + Alt + S untuk beralih ke <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="7848989271541991537">Dipindahkan ke Halaman <ph name="PAGE_NUMBER" />, baris <ph name="ROW_NUMBER" />, kolom <ph name="COLUMN_NUMBER" />.</translation>
 <translation id="7850320739366109486">Jangan Ganggu</translation>
 <translation id="7851039877802112575">Pindahkan fokus ke pop-up dan dialog</translation>
 <translation id="7851768487828137624">Canary</translation>
 <translation id="7862292329216937261">Untuk menggunakan perangkat sebagai tamu, Anda harus logout lalu memilih Jelajahi sebagai Tamu di bagian bawah layar.</translation>
 <translation id="7866482334467279021">aktif</translation>
+<translation id="7870790288828963061">Tidak ada aplikasi Kios dengan versi lebih baru yang ditemukan. Tidak ada yang akan diperbarui. Lepaskan stik USB.</translation>
 <translation id="7872786842639831132">Nonaktif</translation>
+<translation id="7873386145597434863">Steam untuk Chromebook</translation>
 <translation id="7875575368831396199">Sepertinya Bluetooth dinonaktifkan di <ph name="DEVICE_TYPE" /> Anda. Aktifkan Bluetooth untuk menggunakan Phone Hub.</translation>
 <translation id="7884446017008693258">Setelan Hotspot</translation>
 <translation id="7884902759927478774">Batalkan penarikkan tab</translation>
@@ -2100,6 +2286,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="7945357288295809525">Tampilkan setelan aksesibilitas, "<ph name="ENABLED_FEATURES" />" diaktifkan.</translation>
 <translation id="7946681191253332687">Update keamanan yang diperpanjang tersedia</translation>
 <translation id="7947798320695032612"><ph name="APP_NAME" /> ingin menggunakan <ph name="DEVICE_NAME" /></translation>
+<translation id="7948239795436419268">Jangan pulihkan jendela</translation>
 <translation id="7951630946012935453">Redupkan keyboard</translation>
 <translation id="7953176344218790168">HURUF BESAR</translation>
 <translation id="7953994493035617347">Konfirmasi resolusi baru?</translation>
@@ -2119,11 +2306,13 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="799296642788192631">Anda dapat menyematkan file penting. Untuk menyematkan, arahkan kursor ke item atau buka File lalu klik kanan item.</translation>
 <translation id="7994370417837006925">Fitur masuk banyak akun</translation>
 <translation id="7995804128062002838">Gagal mengambil screenshot</translation>
+<translation id="7997828719430450286">Berhasil.</translation>
 <translation id="8000020256436988724">Bilah Alat</translation>
 <translation id="8000066093800657092">Tidak ada jaringan</translation>
 <translation id="8001755249288974029">Pilih teks dari kursor ke awal baris</translation>
 <translation id="8004512796067398576">Penambahan</translation>
 <translation id="8005527720597583355">Mulai sesi Fokus</translation>
+<translation id="8008356846765065031">Internet terputus. Periksa koneksi internet Anda.</translation>
 <translation id="8015361438441228492">Tidak dapat mengedit tugas.</translation>
 <translation id="8027187124910699148">Lanjutkan saran grup</translation>
 <translation id="802782383769312836">Desktop virtual sebelumnya: <ph name="DESK_NAME" />. Desktop virtual <ph name="DESK_INDEX" /> dari <ph name="DESK_COUNT" />.</translation>
@@ -2147,6 +2336,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8092380135549145188">Kontrol scroll</translation>
 <translation id="8098591350844501178">Hentikan casting layar ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="810637681351706236">Lepaskan aplikasi dari rak</translation>
+<translation id="8107015733319732394">Menginstal Google Play Store di <ph name="DEVICE_TYPE" />. Tindakan ini dapat memakan waktu beberapa menit.</translation>
 <translation id="8113423164597455979">Aktif, semua</translation>
 <translation id="8113515504791187892">Tombol Klik untuk Diucapkan</translation>
 <translation id="8120151603115102514">Ponsel Anda tidak memiliki layar kunci. Untuk membuka kunci Chromebook, masukkan sandi.</translation>
@@ -2171,6 +2361,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8155628902202578800">Buka dialog info untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8167567890448493835">Menggunakan <ph name="LOCALE_NAME" /></translation>
 <translation id="8168435359814927499">Konten</translation>
+<translation id="8169177848833352618">Sayangnya, mesin ini tidak memenuhi persyaratan untuk menginstal Bruschetta. Kode error adalah <ph name="ERROR" />.</translation>
 <translation id="8172370561760918656">Tuas kiri atas dipilih, gunakan tombol panah untuk memindahkan</translation>
 <translation id="81817143961839203">Penyisipan gambar gagal</translation>
 <translation id="8185090165691050712">Aktifkan/nonaktifkan menu untuk mengubah ukuran mode kunci</translation>
@@ -2193,6 +2384,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8239034820133090126">Aktifkan desktop di sisi kanan</translation>
 <translation id="8241650983304689286">Tambahkan tab ke tampilan terpisah baru</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" />, Baterai Ponsel <ph name="BATTERY_STATUS" /></translation>
+<translation id="8249048954461686687">Folder OEM</translation>
 <translation id="825129991941217170">Tampilkan semua konten Google Drive</translation>
 <translation id="8261506727792406068">Hapus</translation>
 <translation id="8262312463845990408">Putar/Jeda pemutaran</translation>
@@ -2208,6 +2400,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8314772463905284467">Caps Lock aktif</translation>
 <translation id="8315514906653279104">Mengaktifkan...</translation>
 <translation id="8331351032546853669">Download tertunda</translation>
+<translation id="8335587457941836791">Lepaskan dari rak</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="834414266279889566">Output buruk</translation>
 <translation id="8345019317483336363">Jendela <ph name="WINDOW_TITLE" /> dipilih</translation>
@@ -2226,6 +2419,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8388750414311082622">Halaman kerja terakhir tidak dapat dihapus.</translation>
 <translation id="8394567579869570560">Orang tuamu mengunci perangkat ini</translation>
 <translation id="8401850874595457088">Buka menu bahasa</translation>
+<translation id="8410775397654368139">Google Play</translation>
 <translation id="8412677897383510995">Tampilkan setelan layar</translation>
 <translation id="8413272770729657668">Perekaman dimulai dalam 3, 2, 1</translation>
 <translation id="8416730306157376817"><ph name="BATTERY_PERCENTAGE" />% (Casing)</translation>
@@ -2237,10 +2431,13 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8433186206711564395">Setelan jaringan</translation>
 <translation id="8433977262951327081">Pintasan untuk menampilkan balon menu opsi masukan di rak telah diubah. Harap gunakan <ph name="NEW_SHORTCUT" />, bukan <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8437311513256731931">Buka alat masukan</translation>
+<translation id="8440630305826533614">Aplikasi Linux</translation>
 <translation id="8443879455002739353">"Salin"</translation>
 <translation id="8444246603146515890">Desktop <ph name="DESK_TITILE" /> diaktifkan</translation>
 <translation id="8446884382197647889">Pelajari Lebih Lanjut</translation>
 <translation id="8456543082656546101"><ph name="SHORTCUT_KEY_NAME" /> + V</translation>
+<translation id="8458259704995116343">Gagal memulai VM.</translation>
+<translation id="84613761564611563">Antarmuka konfigurasi jaringan diminta, harap tunggu...</translation>
 <translation id="8462305545768648477">Tutup Klik untuk Diucapkan</translation>
 <translation id="8466665972451889002">Tampilkan item di <ph name="GROUP_NAME" /></translation>
 <translation id="8468806060683421065">tenggat <ph name="DUE_DATE_AND_TIME" /></translation>
@@ -2248,10 +2445,15 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" /> telah <ph name="FEATURE_STATE" /> <ph name="FEATURE_NAME" />.</translation>
 <translation id="8477270416194247200">Tekan Alt+Search atau Shift untuk membatalkan.</translation>
 <translation id="8480418399907765580">Tampilkan bilah alat</translation>
+<translation id="8481187309597259238">Konfirmasi Izin USB</translation>
 <translation id="8487660088084188539">Saat Anda mengaktifkan fitur ini, teks input, konten dokumen, dan URL halaman web mungkin dikirimkan ke server Google. Informasi ini digunakan untuk membuat saran penulisan, membuat ringkasan, menjawab pertanyaan, dan meningkatkan kualitas produk, yang tunduk pada <ph name="LINK_TO_SERVICE_TERMS" />. Jangan menyertakan informasi apa pun yang bersifat pribadi, sensitif, atau rahasia.</translation>
 <translation id="8487699605742506766">Hotspot</translation>
+<translation id="8488561391784577756"><ph name="BEGIN_PARAGRAPH1" />Layanan lokasi Google menggunakan sumber seperti Wi-Fi, jaringan seluler, dan sensor untuk membantu memperkirakan lokasi perangkat ini.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Anda dapat menonaktifkan Lokasi dengan menonaktifkan setelan Lokasi utama di perangkat ini. Anda juga dapat menonaktifkan penggunaan Wi-Fi, jaringan seluler, dan sensor untuk lokasi di setelan lokasi.<ph name="END_PARAGRAPH2" /></translation>
+<translation id="8490896350101740396">Aplikasi kios "<ph name="UPDATED_APPS" />" berikut telah diperbarui. Booting ulang perangkat untuk menyelesaikan proses pembaruan.</translation>
 <translation id="8491237443345908933">Buka link di tab baru</translation>
 <translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> tidak mendukung <ph name="SPECIFIED_RESOLUTION" />. Resolusi diubah ke <ph name="FALLBACK_RESOLUTION" />. Klik konfirmasi untuk menyimpan perubahan. Setelan sebelumnya akan dipulihkan dalam <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="8502536196501630039">Untuk menggunakan aplikasi dari Google Play, Anda terlebih dahulu harus memulihkan aplikasi. Beberapa data mungkin telah hilang.</translation>
 <translation id="8507563469658346379">Siapa saja, <ph name="REMAINING_TIME" /></translation>
 <translation id="8511123073331775246">Buat desktop baru</translation>
 <translation id="85123341071060231">Bluetooth Chromebook Anda nonaktif. Untuk membuka kunci Chromebook, masukkan sandi.</translation>
@@ -2260,6 +2462,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="851660987304951246">Gunakan Bantu baca untuk mengajukan pertanyaan atau meringkas konten dengan cepat</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> Anda mungkin tidak diisi daya saat dinyalakan.</translation>
 <translation id="8519329096920173967">Telusuri layar saya dengan Google Lens</translation>
+<translation id="8527869672961320915">Aplikasi <ph name="VM_NAME" /></translation>
 <translation id="8535393432370007982">Urungkan tata urutan menurut warna</translation>
 <translation id="8536886494750559755">Tampilkan setelan Quick Share. Dapat dilihat oleh semua orang selama <ph name="TIME_REMAINING" /></translation>
 <translation id="8539803091108018926">Teks disalin ke Papan Klip</translation>
@@ -2287,6 +2490,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8627191004499078455">Terhubung ke <ph name="DEVICE_NAME" /></translation>
 <translation id="8631727435199967028">Setelan Aksesibilitas</translation>
 <translation id="8634326941504371857">File Anda di perangkat ini dan Google Drive</translation>
+<translation id="8636284842992792762">Melakukan inisialisasi ekstensi...</translation>
 <translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />, Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" />, Dikelola oleh Administrator Anda</translation>
 <translation id="8638637208069328956">Aktifkan/nonaktifkan mikrofon</translation>
 <translation id="8639760480004882931">Sisa <ph name="PERCENTAGE" /></translation>
@@ -2303,6 +2507,8 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8676770494376880701">Pengisi daya rendah terpasang</translation>
 <translation id="8679158879996532670">Tampilkan setelan Fokus. Fokus aktif, <ph name="REMAINING_TIME" /> lagi.</translation>
 <translation id="8683506306463609433">Pelacakan performa aktif</translation>
+<translation id="8698432579173128320">Cadangkan ke Google Drive. Pulihkan data Anda atau beralih perangkat kapan saja dengan mudah. Cadangan Anda mencakup data aplikasi. Cadangan Anda diupload ke Google dan dienkripsi menggunakan sandi Akun Google Anda. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut pencadangan<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
+<translation id="8700087567921985940">Gunakan lokasi. Izinkan aplikasi dan layanan yang memiliki izin akses lokasi untuk menggunakan lokasi perangkat Anda. Google dapat mengumpulkan data lokasi secara berkala dan menggunakan data ini secara anonim untuk meningkatkan akurasi lokasi serta layanan yang berbasis lokasi. <ph name="BEGIN_LINK1" />Pelajari lebih lanjut lokasi<ph name="BEGIN_LINK1_END" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="8703634754197148428">Mulai merekam. Setelah perekaman dimulai, gunakan Alt + Shift + L untuk menuju rak dan temukan tombol hentikan perekaman</translation>
 <translation id="8704155109538237473">Fokus pada jendela picture-in-picture</translation>
 <translation id="870917907284186124">Aktifkan/nonaktifkan dikte (ketik dengan suara Anda)</translation>
@@ -2320,6 +2526,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8734991477317290293">Keyboard mungkin mencoba mencuri ketukan tombol Anda</translation>
 <translation id="8735678380411481005">Warna lampu latar keyboard</translation>
 <translation id="8742057891287715849"><ph name="NAME" /> · <ph name="SERVICE_PROVIDER" />: Mengaktifkan...</translation>
+<translation id="8742395827132970586">Gagal menginstal, membersihkan</translation>
 <translation id="8747464587821437069"><ph name="CAMERA_AND_MICROPHONE_ACCESS_STATUS" />,
         <ph name="SCREEN_SHARE_STATUS" /></translation>
 <translation id="8751299148074971734">Pertahankan!</translation>
@@ -2330,6 +2537,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8759408218731716181">Tidak dapat menyiapkan fitur masuk banyak akun</translation>
 <translation id="8763883995157866248">Setel perangkat ke mode tidur</translation>
 <translation id="878215960996152260"><ph name="APP_NAME" />, Aplikasi Terinstal, Diblokir</translation>
+<translation id="8782565991310229362">Peluncuran aplikasi kios dibatalkan.</translation>
 <translation id="8785070478575117577">Hubungkan ke <ph name="NETWORK_NAME" /></translation>
 <translation id="8788027118671217603"><ph name="STATE_TEXT" />. <ph name="ENTERPRISE_TEXT" /></translation>
 <translation id="8790632710469941716">Bergerak maju antara pojok kanan bawah, Peluncur, kolom URL, kolom bookmark, situs yang terbuka, dan download</translation>
@@ -2357,11 +2565,14 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8860366331836346216">Tambahkan eSIM</translation>
 <translation id="8869149849311827122">Yakin ingin menonaktifkan kontrol kursor mouse?</translation>
 <translation id="8870509716567206129">Aplikasi tidak mendukung layar terpisah.</translation>
+<translation id="8871551568777368300">Diberi pin oleh administrator</translation>
+<translation id="8872155268274985541">File manifes pembaruan eksternal Kios yang tidak valid ditemukan. Gagal memperbarui aplikasi Kios. Lepaskan stik USB.</translation>
 <translation id="8873203135446552888">Konfirmasi bahwa Anda ingin menonaktifkan touchpad bawaan</translation>
 <translation id="8874184842967597500">Tak terhubung</translation>
 <translation id="8875021410787719674">Beralih antara pojok kanan bawah, Peluncur, kolom URL, kolom bookmark, situs yang terbuka, dan download</translation>
 <translation id="8876148469852588625">Acara <ph name="EVENT_POSITION" /> dari <ph name="EVENT_TOTAL_COUNT" /></translation>
 <translation id="8876661425082386199">Periksa koneksi Anda</translation>
+<translation id="8883478023074930307">Kirim data penggunaan dan diagnostik. Perangkat ini saat ini otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. <ph name="BEGIN_LINK1" />Setelan<ph name="END_LINK1" /> ini diterapkan oleh pemilik. Jika setelan Aktivitas Web &amp; Aplikasi tambahan Anda diaktifkan, data ini mungkin akan disimpan ke Akun Google Anda. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="8885424115080869847">Tidak dapat terhubung ke YouTube Music</translation>
 <translation id="888982883502837004">Update firmware tersedia untuk perangkat Anda. Klik untuk meninjau dan mengupdate.</translation>
 <translation id="8896630965521842259"><ph name="DESK_TEMPLATE_NAME" /> akan dihapus secara permanen</translation>
@@ -2371,6 +2582,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="890616557918890486">Ubah sumber</translation>
 <translation id="8909138438987180327">Baterai <ph name="PERCENTAGE" /> persen.</translation>
 <translation id="8916866375277139011">Sembunyikan item di <ph name="GROUP_NAME" /></translation>
+<translation id="8921369299636221117">Layanan Concierge tidak tersedia.</translation>
 <translation id="8921554779039049422">H+</translation>
 <translation id="8921624153894383499">Asisten Google tidak berbicara dalam bahasa ini.</translation>
 <translation id="8926951137623668982">Rak selalu disembunyikan</translation>
@@ -2389,11 +2601,13 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="8956420987536947088">Buka jendela dan aplikasi sebelumnya</translation>
 <translation id="8959380109429710384">Anda menekan pintasan keyboard untuk pembesar layar penuh. Gunakan ctrl + alt + tanda panah untuk berpindah-pindah di tampilan yang diperbesar.</translation>
 <translation id="8964525410783593407">1 jam</translation>
+<translation id="8967548289042494261">Hapus <ph name="VM_NAME" /></translation>
 <translation id="8970887620466824814">Terjadi error.</translation>
 <translation id="8973885907461690937">Tempatkan fokus pada ikon menu</translation>
 <translation id="8980862970816311842">Pindahkan ikon aplikasi ke dalam/luar folder di petak aplikasi</translation>
 <translation id="8982906748181120328">Visibilitas Berbagi Langsung</translation>
 <translation id="8983038754672563810">HSPA</translation>
+<translation id="8985191021574400965">Selamat datang di Steam untuk Chromebook</translation>
 <translation id="8990809378771970590">Menggunakan <ph name="IME_NAME" /></translation>
 <translation id="8991648557324317894">Tekan fn + Penyisipan Cepat atau Shift untuk membatalkan.</translation>
 <translation id="899350903320462459">Buka kunci perangkat sebagai <ph name="LOGIN_ID" /> untuk melakukan tindakan notifikasi</translation>
@@ -2401,15 +2615,18 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="9000771174482730261">KELOLA PENYIMPANAN</translation>
 <translation id="9003374957546315126">Emoji dan lainnya</translation>
 <translation id="9005984960510803406">Membuka jendela Crosh</translation>
+<translation id="901668144954885282">Cadangkan ke Google Drive</translation>
 <translation id="9017320285115481645">Masukkan kode akses orang tua Family Link.</translation>
 <translation id="9024331582947483881">layar penuh</translation>
 <translation id="9029736946581028033">Perangkat akan segera dimatikan</translation>
 <translation id="9030319654231318877">Nonaktif sampai matahari terbenam</translation>
+<translation id="9030515284705930323">Organisasi belum mengaktifkan Google Play Store untuk akun Anda. Hubungi administrator untuk informasi selengkapnya.</translation>
 <translation id="9030665205623277906">Ringkasan penggunaan CPU: <ph name="CPU_USEAGE" />%</translation>
 <translation id="9034924485347205037">File Linux</translation>
 <translation id="9047624247355796468">Buka setelan untuk <ph name="NETWORK_NAME" /></translation>
 <translation id="9050012935252397793">Bluetooth tidak tersedia</translation>
 <translation id="9050999376345823055">Tekan "." untuk melepaskan</translation>
+<translation id="9061694916020926968">Anda harus login ke Akun Google untuk menggunakan Steam untuk Chromebook (Beta). Login, lalu coba lagi.</translation>
 <translation id="906458777597946297">Memaksimalkan jendela</translation>
 <translation id="9065203028668620118">Edit</translation>
 <translation id="9068849894565669697">Pilih warna</translation>
@@ -2453,8 +2670,10 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="9195857219954068558">Chromebook Anda telah diupdate. Buka jendela dan aplikasi sebelumnya.</translation>
 <translation id="9195990613383871904">Besok</translation>
 <translation id="9198992156681343238">Resolusi <ph name="DISPLAY_NAME" /> diubah ke <ph name="RESOLUTION" />. Klik konfirmasi untuk menyimpan perubahan. Setelan sebelumnya akan dipulihkan dalam <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="9199853905755292769">Kirim data penggunaan dan diagnostik. Perangkat ini saat ini otomatis mengirim data diagnostik, perangkat, dan penggunaan aplikasi ke Google. Data ini tidak akan digunakan untuk mengidentifikasi anak Anda serta akan membantu sistem dan stabilitas aplikasi serta peningkatan lainnya. Beberapa data gabungan juga akan membantu aplikasi dan partner Google, seperti developer Android. Jika setelan Aktivitas Web &amp; Aplikasi tambahan diaktifkan untuk anak Anda, data ini mungkin akan disimpan ke Akun Google miliknya. <ph name="BEGIN_LINK2" />Pelajari lebih lanjut metrik<ph name="BEGIN_LINK2_END" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="9201044636667689546">Hubungkan <ph name="NAME" /> ke Chromebook ini</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, Dikelola oleh Administrator Anda</translation>
+<translation id="9201842707396338580">Terjadi error. Hubungi pemilik atau administrator perangkat Anda. Kode error: <ph name="ERROR_CODE" />.</translation>
 <translation id="9207682216934703221">Tindakan ini akan mengizinkan <ph name="APP_NAME" />, <ph name="APP2_NAME" />, dan semua aplikasi dan situs yang memiliki izin lokasi, serta ChromeOS untuk menggunakan lokasi jaringan seluler dan Wi-Fi.</translation>
 <translation id="9210037371811586452">Keluar dari mode desktop terpadu</translation>
 <translation id="9211490828691860325">Semua desktop</translation>
@@ -2467,6 +2686,7 @@ Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translatio
 <translation id="923686485342484400">Tekan Control Shift Q dua kali untuk keluar.</translation>
 <translation id="92580429198593979">Anda menekan pintasan keyboard untuk inversi warna. Ingin mengaktifkannya?</translation>
 <translation id="925832987464884575">Sembunyikan pratinjau</translation>
+<translation id="93140074055951850">Aplikasi Android dihentikan</translation>
 <translation id="938407504481277932">Desktop virtual saat ini: <ph name="DESK_NAME" />. <ph name="PROFILE_NAME" /> <ph name="EMAIL" />. Desktop virtual <ph name="DESK_INDEX" /> dari <ph name="DESK_COUNT" />.</translation>
 <translation id="94468042118567862">Perangkat belum diupdate</translation>
 <translation id="945383118875625837">Tarik link ke kolom bookmark</translation>

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/threading/sequence_bound.h"
+#include "base/time/time.h"
 #include "base/trace_event/memory_allocator_dump_guid.h"
 #include "components/services/storage/dom_storage/db_status.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
@@ -97,6 +98,22 @@ class AsyncDomStorageDatabase {
 
   std::string_view StorageTypeForHistograms() const;
   std::string GetHistogram(std::string_view operation) const;
+  std::string GetDurationHistogram(std::string_view operation) const;
+
+  // Runs `db_task` on the DB sequence, recording status and duration
+  // histograms named after `operation`. Posts `callback` back to the calling
+  // sequence.
+  void RunTaskOnDbSequenceAndRecordHistograms(
+      std::string_view operation,
+      base::OnceCallback<DbStatus(DomStorageDatabase*)> db_task,
+      StatusCallback callback);
+
+  // Overload for operations returning StatusOr<T>.
+  template <typename T>
+  void RunTaskOnDbSequenceAndRecordHistograms(
+      std::string_view operation,
+      base::OnceCallback<StatusOr<T>(DomStorageDatabase*)> db_task,
+      base::OnceCallback<void(StatusOr<T>)> callback);
 
   // Sets `is_database_opened_` to true when `open_status` is ok.  Then runs
   // `callback` with `open_status`.

@@ -473,9 +473,6 @@ int GetInitialDelayForBrokenAlternativeServiceSeconds(
 
 bool DelayMainJobWithAvailableSpdySession(
     const VariationParameters& quic_trial_params) {
-  if (base::FeatureList::IsEnabled(net::features::kAdditionalDelayMainJob)) {
-    return net::features::kDelayMainJobWithAvailableSpdySession.Get();
-  }
   return base::EqualsCaseInsensitiveASCII(
       GetVariationParam(quic_trial_params,
                         "delay_main_job_with_available_spdy_session"),
@@ -495,6 +492,9 @@ bool IsDnsSkippedWithOriginFrame(const VariationParameters& quic_trial_params) {
 
 bool IgnoreIpMatchingWhenFindingExistingSessions(
     const VariationParameters& quic_trial_params) {
+  if (base::FeatureList::IsEnabled(net::features::kIgnoreIpMatching)) {
+    return net::features::kIgnoreIpMatchingWhenFindingExistingSessions.Get();
+  }
   return base::EqualsCaseInsensitiveASCII(
       GetVariationParam(quic_trial_params,
                         "ignore_ip_matching_when_finding_existing_sessions"),

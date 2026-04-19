@@ -19,6 +19,7 @@
 #include "base/types/expected.h"
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/ash/printing/fake_local_printer.h"
 #include "chrome/browser/chromeos/printing/test_cups_wrapper.h"
 #include "chrome/browser/extensions/api/printing/fake_print_job_controller.h"
 #include "chrome/browser/extensions/api/printing/print_job_submitter.h"
@@ -315,12 +316,6 @@ class TestCrosLocalPrinter : public FakeLocalPrinter {
   std::vector<JobInfo> jobs_cancelled() { return jobs_cancelled_; }
 
 
-  void SetCaps(const std::string& id,
-               crosapi::mojom::CapabilitiesResponsePtr caps) {
-    DCHECK(caps);
-    caps_map_[id] = std::move(caps);
-  }
-
   std::vector<crosapi::mojom::PrintJobPtr> TakePrintJobs() {
     return std::exchange(print_jobs_, {});
   }
@@ -329,16 +324,6 @@ class TestCrosLocalPrinter : public FakeLocalPrinter {
                       CreatePrintJobCallback cb) override {
     print_jobs_.push_back(std::move(job));
     std::move(cb).Run();
-  }
-
-  void GetCapability(const std::string& id, GetCapabilityCallback cb) override {
-    auto it = caps_map_.find(id);
-    if (it == caps_map_.end()) {
-      std::move(cb).Run(nullptr);
-      return;
-    }
-    std::move(cb).Run(std::move(it->second));
-    caps_map_.erase(it);
   }
 
   void CancelPrintJob(const std::string& printer_id,
@@ -351,10 +336,9 @@ class TestCrosLocalPrinter : public FakeLocalPrinter {
  private:
   std::vector<crosapi::mojom::PrintJobPtr> print_jobs_;
   std::vector<JobInfo> jobs_cancelled_;
-  std::map<std::string, crosapi::mojom::CapabilitiesResponsePtr> caps_map_;
 };
 
-class TestLocalPrinter : public ash::LocalPrinter {
+class TestLocalPrinter : public ash::FakeLocalPrinter {
  public:
   TestLocalPrinter() = default;
   TestLocalPrinter(TestLocalPrinter&) = delete;
@@ -427,7 +411,6 @@ class PrintingAPIHandlerUnittest : public testing::Test {
     auto mojo_caps = crosapi::mojom::CapabilitiesResponse::New();
     mojo_caps->basic_info = crosapi::mojom::LocalDestinationInfo::New();
     mojo_caps->capabilities = caps;
-    cros_local_printer_.SetCaps(id, std::move(mojo_caps));
     local_printer_.SetCaps(id, std::move(caps));
   }
 

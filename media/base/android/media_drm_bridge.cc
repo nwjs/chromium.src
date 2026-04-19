@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "media/base/android/media_drm_bridge.h"
 
@@ -19,6 +15,7 @@
 #include "base/android/android_info.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -181,12 +178,12 @@ class KeySystemManager {
 
 KeySystemManager::KeySystemManager() {
   // Widevine is always supported in Android.
-  key_system_uuid_map_[kWidevineKeySystem] =
-      UUID(kWidevineUuid, kWidevineUuid + std::size(kWidevineUuid));
+  key_system_uuid_map_[kWidevineKeySystem] = UUID(
+      kWidevineUuid, UNSAFE_TODO(kWidevineUuid + std::size(kWidevineUuid)));
   // External Clear Key is supported only for testing.
   if (base::FeatureList::IsEnabled(kExternalClearKeyForTesting)) {
-    key_system_uuid_map_[kExternalClearKeyKeySystem] =
-        UUID(kClearKeyUuid, kClearKeyUuid + std::size(kClearKeyUuid));
+    key_system_uuid_map_[kExternalClearKeyKeySystem] = UUID(
+        kClearKeyUuid, UNSAFE_TODO(kClearKeyUuid + std::size(kClearKeyUuid)));
   }
   MediaDrmBridgeClient* client = GetMediaDrmBridgeClient();
   if (client) {
@@ -204,11 +201,10 @@ UUID KeySystemManager::GetUUID(const std::string& key_system) {
 
 std::vector<std::string> KeySystemManager::GetPlatformKeySystemNames() {
   std::vector<std::string> key_systems;
-  for (KeySystemUuidMap::iterator it = key_system_uuid_map_.begin();
-       it != key_system_uuid_map_.end(); ++it) {
+  for (auto& it : key_system_uuid_map_) {
     // Rule out the key system handled by Chrome explicitly.
-    if (it->first != kWidevineKeySystem) {
-      key_systems.push_back(it->first);
+    if (it.first != kWidevineKeySystem) {
+      key_systems.push_back(it.first);
     }
   }
   return key_systems;
@@ -235,8 +231,8 @@ bool IsKeySystemSupportedWithTypeImpl(const std::string& key_system,
   }
 
   JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jbyteArray> j_scheme_uuid =
-      base::android::ToJavaByteArray(env, &scheme_uuid[0], scheme_uuid.size());
+  ScopedJavaLocalRef<jbyteArray> j_scheme_uuid = UNSAFE_TODO(
+      base::android::ToJavaByteArray(env, &scheme_uuid[0], scheme_uuid.size()));
   ScopedJavaLocalRef<jstring> j_container_mime_type =
       ConvertUTF8ToJavaString(env, container_mime_type);
   bool supported = Java_MediaDrmBridge_isCryptoSchemeSupported(
@@ -323,13 +319,6 @@ std::string GetSecurityLevelString(
   return "";
 }
 
-int GetFirstApiLevel() {
-  JNIEnv* env = AttachCurrentThread();
-  int first_api_level = Java_MediaDrmBridge_getFirstApiLevel(env);
-  base::UmaHistogramSparse("Media.EME.MediaDrm.FirstApiLevel", first_api_level);
-  return first_api_level;
-}
-
 CreateCdmTypedStatus ConvertMediaDrmCreateError(
     MediaDrmBridge::MediaDrmCreateError error,
     MediaDrmBridge::SecurityLevel security_level) {
@@ -361,6 +350,21 @@ CreateCdmTypedStatus ConvertMediaDrmCreateError(
   return CreateCdmTypedStatus::Codes::kUnknownError;
 }
 
+CdmSessionClosedReason ToCdmSessionClosedReason(
+    MediaDrmBridge::MediaDrmCdmSessionClosedReason reason) {
+  switch (reason) {
+    case MediaDrmBridge::MediaDrmCdmSessionClosedReason::CLOSE:
+      return CdmSessionClosedReason::kClose;
+    case MediaDrmBridge::MediaDrmCdmSessionClosedReason::SESSION_RECLAIMED:
+      return CdmSessionClosedReason::kResourceEvicted;
+    case MediaDrmBridge::MediaDrmCdmSessionClosedReason::SESSION_LOST:
+      return CdmSessionClosedReason::kHardwareContextReset;
+  }
+
+  // Default return a generic close.
+  return CdmSessionClosedReason::kClose;
+}
+
 }  // namespace
 
 // static
@@ -374,7 +378,9 @@ bool MediaDrmBridge::IsPerApplicationProvisioningSupported() {
   // If it is non-zero, then it is the API level.
   // Checking FirstApiLevel is known to be expensive (see crbug.com/1366106),
   // and thus is cached.
-  static int first_api_level = GetFirstApiLevel();
+  static int first_api_level;
+  base::StringToInt(base::SysInfo::GetAndroidFirstApiLevel(), &first_api_level);
+  base::UmaHistogramSparse("Media.EME.MediaDrm.FirstApiLevel", first_api_level);
   DVLOG(1) << "first_api_level = " << first_api_level;
   if (first_api_level >= base::android::android_info::SDK_VERSION_OREO) {
     return true;
@@ -445,7 +451,7 @@ MediaDrmBridge::GetVersionResult MediaDrmBridge::MaybeGetVersion(
   if (!media_drm_bridge.has_value()) {
     DVLOG(1) << "Unable to create MediaDrmBridge for " << key_system
              << ", CreateCdmStatus: "
-             << (media::StatusCodeType)media_drm_bridge.code();
+             << static_cast<media::StatusCodeType>(media_drm_bridge.code());
     return base::unexpected(media_drm_bridge.code());
   }
 
@@ -913,14 +919,17 @@ void MediaDrmBridge::OnSessionMessage(JNIEnv* env,
 }
 
 void MediaDrmBridge::OnSessionClosed(JNIEnv* env,
-                                     const JavaRef<jbyteArray>& j_session_id) {
+                                     const JavaRef<jbyteArray>& j_session_id,
+                                     int32_t j_reason) {
   DVLOG(2) << __func__;
   std::string session_id;
   JavaByteArrayToString(env, j_session_id, &session_id);
-  // TODO(crbug.com/40181810): Support other closed reasons.
   task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(session_closed_cb_, std::move(session_id),
-                                CdmSessionClosedReason::kClose));
+      FROM_HERE,
+      base::BindOnce(
+          session_closed_cb_, std::move(session_id),
+          ToCdmSessionClosedReason(
+              static_cast<MediaDrmCdmSessionClosedReason>(j_reason))));
 }
 
 void MediaDrmBridge::OnSessionKeysChange(
@@ -1030,8 +1039,8 @@ MediaDrmBridge::MediaDrmBridge(
   JNIEnv* env = AttachCurrentThread();
   CHECK(env);
 
-  ScopedJavaLocalRef<jbyteArray> j_scheme_uuid =
-      base::android::ToJavaByteArray(env, &scheme_uuid[0], scheme_uuid.size());
+  ScopedJavaLocalRef<jbyteArray> j_scheme_uuid = UNSAFE_TODO(
+      base::android::ToJavaByteArray(env, &scheme_uuid[0], scheme_uuid.size()));
 
   std::string security_level_str = GetSecurityLevelString(security_level);
   ScopedJavaLocalRef<jstring> j_security_level =

@@ -27,14 +27,22 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.search_engines.ExtensionControlHandler;
+import org.chromium.chrome.browser.search_engines.R;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.search_engines.settings.common.SiteSearchProperties;
+import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
 import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlCategory;
 import org.chromium.components.search_engines.TemplateUrlService;
+import org.chromium.ui.listmenu.BasicListMenu;
+import org.chromium.ui.listmenu.ListMenuDelegate;
+import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
+import org.chromium.ui.modelutil.ModelListAdapter;
+import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
 import java.util.Arrays;
@@ -51,6 +59,8 @@ public class ExtensionSearchEngineMediatorUnitTest {
     @Mock private LargeIconBridgeJni mLargeIconBridgeJni;
     @Mock private TemplateUrl mTemplateUrl;
     @Mock private ModelList mModelList;
+    @Mock private SettingsCustomTabLauncher mSettingsCustomTabLauncher;
+    @Mock private ExtensionControlHandler mMockExtensionControlHandler;
 
     private Context mContext;
     private ExtensionSearchEngineMediator mMediator;
@@ -60,6 +70,7 @@ public class ExtensionSearchEngineMediatorUnitTest {
         mContext = RuntimeEnvironment.application;
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
         LargeIconBridgeJni.setInstanceForTesting(mLargeIconBridgeJni);
+        ExtensionControlHandler.setFactoryForTesting(() -> mMockExtensionControlHandler);
 
         when(mTemplateUrlService.getTemplateUrlsByCategory(TemplateUrlCategory.EXTENSION))
                 .thenReturn(Arrays.asList(mTemplateUrl));
@@ -76,7 +87,9 @@ public class ExtensionSearchEngineMediatorUnitTest {
                 .when(mTemplateUrlService)
                 .runWhenLoaded(any());
 
-        mMediator = new ExtensionSearchEngineMediator(mContext, mModelList, mProfile);
+        mMediator =
+                new ExtensionSearchEngineMediator(
+                        mContext, mModelList, mProfile, mSettingsCustomTabLauncher);
 
         Mockito.clearInvocations(mModelList, mTemplateUrlService);
     }
@@ -110,8 +123,52 @@ public class ExtensionSearchEngineMediatorUnitTest {
     }
 
     @Test
+    public void testMenuDelegate() {
+        // Trigger the refreshList() to call mModelList.add().
+        mMediator.onTemplateURLServiceChanged();
+
+        ArgumentCaptor<ListItem> itemCaptor = ArgumentCaptor.forClass(ListItem.class);
+        verify(mModelList).add(itemCaptor.capture());
+
+        PropertyModel model = itemCaptor.getValue().model;
+        ListMenuDelegate delegate = model.get(SiteSearchProperties.MENU_DELEGATE);
+
+        assertNotNull(delegate);
+
+        BasicListMenu listMenu = (BasicListMenu) delegate.getListMenu();
+        ModelListAdapter adapter = listMenu.getContentAdapter();
+        assertEquals(2, adapter.getCount());
+
+        ListItem activateItem = (ListItem) adapter.getItem(0);
+        assertEquals(
+                R.string.site_search_extensions_menu_manage,
+                activateItem.model.get(ListMenuItemProperties.TITLE_ID));
+
+        ListItem makeDefaultItem = (ListItem) adapter.getItem(1);
+        assertEquals(
+                R.string.site_search_extensions_menu_disable,
+                makeDefaultItem.model.get(ListMenuItemProperties.TITLE_ID));
+    }
+
+    @Test
+    public void testOnMenuItemClicked_Manage() {
+        when(mTemplateUrl.getProvidingExtensionId()).thenReturn("extension_id");
+        mMediator.onMenuItemClicked(R.string.site_search_extensions_menu_manage, mTemplateUrl);
+        verify(mSettingsCustomTabLauncher)
+                .openUrlInCct(mContext, "chrome://extensions/?id=extension_id");
+    }
+
+    @Test
+    public void testOnMenuItemClicked_Disable() {
+        when(mTemplateUrl.getProvidingExtensionId()).thenReturn("extension_id");
+        mMediator.onMenuItemClicked(R.string.site_search_extensions_menu_disable, mTemplateUrl);
+        verify(mMockExtensionControlHandler).disableExtension("extension_id");
+    }
+
+    @Test
     public void testDestroy() {
         mMediator.destroy();
         verify(mTemplateUrlService).removeObserver(mMediator);
+        verify(mMockExtensionControlHandler).destroy();
     }
 }

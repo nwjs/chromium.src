@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/common/webui_url_constants.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/views/style/typography_provider.h"
 
 namespace {
@@ -90,6 +91,8 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--tab-height";
     case kTabStripHeight:
       return "--tab-strip-height";
+    case kDetachedTabGroupUnderlineBottomSpacing:
+      return "--detached-tab-group-underline-bottom-spacing";
     case kTabStripPadding:
       return "--tab-strip-padding";
     case kTabSeparatorHeight:
@@ -134,14 +137,14 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--vertical-tab-strip-uncollapsed-padding";
     case kVerticalTabStripCollapsedPadding:
       return "--vertical-tab-strip-collapsed-padding";
-    case kVerticalTabStripCollapsedSeparatorWidth:
-      return "--vertical-tab-strip-collapsed-separator-width";
-    case kVerticalTabStripTopButtonIconSize:
-      return "--vertical-tab-strip-top-button-icon-size";
+    case kVerticalTabStripCollapsedVerticalPadding:
+      return "--vertical-tab-strip-collapsed-vertical-padding";
+    case kVerticalTabStripCollapsedSeparatorPadding:
+      return "--vertical-tab-strip-collapsed-separator-padding";
+    case kVerticalTabStripButtonIconSize:
+      return "--vertical-tab-strip-button-icon-size";
     case kVerticalTabStripTopButtonPadding:
       return "--vertical-tab-strip-top-button-padding";
-    case kVerticalTabStripBottomButtonIconSize:
-      return "--vertical-tab-strip-bottom-button-icon-size";
     case kVerticalTabStripFlatEdgeButtonPadding:
       return "--vertical-tab-strip-flat-edge-button-padding";
     case kVerticalTabStripTopButtonContainerHeight:
@@ -165,7 +168,21 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
   std::string css_string;
   // At time this was implemented, actual usage was about 2.5K
   css_string.reserve(3 * 1024);
+
+  css_string.append(
+      "@property --touch-mode {\n"
+      "  syntax: \"<number>\";\n"
+      "  inherits: true;\n"
+      "  initial-value: 0;\n"
+      "}\n");
+
   css_string.append(":host{");
+
+  if (ui::TouchUiController::Get()->touch_ui()) {
+    css_string.append("--touch-mode: 1;");
+  } else {
+    css_string.append("--touch-mode: 0;");
+  }
 
   for (int layout_constant_num = 0;
        layout_constant_num <= static_cast<int>(LayoutConstant::kLast);

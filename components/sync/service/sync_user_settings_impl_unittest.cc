@@ -133,7 +133,7 @@ class SyncUserSettingsImplTest : public testing::Test {
     ON_CALL(delegate_, GetSyncAccountStateForPrefs)
         .WillByDefault(Return(sync_account_state));
 
-    if (base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
+    if (IsReplaceSyncPromosWithSignInPromosEnabled()) {
       // Enabling `kBookmarks`, `kReadingList` and `kExtensions` require a
       // sign-in pref to be set. This is handled in the `PrimaryAccountManager`
       // on Sign-in/startup. Set manually for this unittest.
@@ -739,8 +739,7 @@ TEST_F(SyncUserSettingsImplTest, SetInitialSyncFeatureSetupComplete) {
   ASSERT_FALSE(sync_user_settings->IsInitialSyncFeatureSetupComplete());
 
   EXPECT_CALL(delegate_, OnInitialSyncFeatureSetupCompleted());
-  sync_user_settings->SetInitialSyncFeatureSetupComplete(
-      SyncFirstSetupCompleteSource::BASIC_FLOW);
+  sync_user_settings->SetInitialSyncFeatureSetupComplete();
 
   EXPECT_TRUE(sync_user_settings->IsInitialSyncFeatureSetupComplete());
 }

@@ -243,7 +243,7 @@ void AddFieldOverrideToForm(
       form_suggestion);
 }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID)
 // Creates the override specification passed as a parameter to
 // `features::debug::kAutofillOverridePredictions`.
 std::string CreateManualOverridePrediction(
@@ -2595,8 +2595,6 @@ TEST_F(AutofillCrowdsourcingEncoding,
 // Tests that a joined prediction for email or loyalty card fields is generated
 // when the server returns separate predictions for each type.
 TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse_JoinedTypes) {
-  base::test::ScopedFeatureList features{
-      features::kAutofillEnableEmailOrLoyaltyCardsFilling};
   FormData form_data = test::GetFormData(
       {.fields =
            {// Field accepting the user email of loyalty card.
@@ -2636,8 +2634,6 @@ TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse_JoinedTypes) {
 // Tests that a server joined prediction is not generated for email or loyalty
 // card fields if the server does not return separate predictions for each type.
 TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse_NoJoinedTypes) {
-  base::test::ScopedFeatureList features{
-      features::kAutofillEnableEmailOrLoyaltyCardsFilling};
   FormData form_data = test::GetFormData(
       {.fields =
            {// Field accepting the user email of loyalty card.
@@ -3098,7 +3094,7 @@ TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse) {
               ElementsAre(EqualsPrediction(NO_SERVER_DATA)));
 }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_ANDROID)
 // Tests that manually specified (i.e. passed as a feature parameter) field type
 // predictions override server predictions.
 TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse_WithManualOverrides) {

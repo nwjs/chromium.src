@@ -96,11 +96,7 @@ void HTMLImageLoader::ImageNotifyFinished(ImageResourceContent*) {
 
   bool load_error = cached_image->ErrorOccurred();
   if (auto* image = DynamicTo<HTMLImageElement>(*element)) {
-    if (load_error) {
-      image->EnsureCollapsedOrFallbackContent();
-    } else {
-      image->EnsurePrimaryContent();
-    }
+    image->OnImageLoadComplete();
   }
 
   if (auto* input = DynamicTo<HTMLInputElement>(*element)) {

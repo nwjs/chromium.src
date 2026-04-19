@@ -240,7 +240,11 @@ class MockContextualTasksUiService
     : public contextual_tasks::ContextualTasksUiService {
  public:
   explicit MockContextualTasksUiService(Profile* profile)
-      : ContextualTasksUiService(profile, nullptr, nullptr, nullptr) {}
+      : ContextualTasksUiService(profile,
+                                 /*delegate=*/nullptr,
+                                 /*contextual_tasks_service=*/nullptr,
+                                 /*identity_manager=*/nullptr,
+                                 /*aim_eligibility_service=*/nullptr) {}
   ~MockContextualTasksUiService() override = default;
 
   MOCK_METHOD(void,
@@ -728,6 +732,9 @@ class LensQueryFlowRouterContextualTaskEnabledTest
 
   void SetUp() override {
     LensQueryFlowRouterTest::SetUp();
+    PrefService* prefs = profile_->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
+    prefs->SetBoolean(lens::prefs::kLensSharingPageContentEnabled, true);
     mock_context_controller_ = std::make_unique<
         contextual_search::MockContextualSearchContextController>();
     contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()

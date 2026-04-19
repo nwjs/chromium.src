@@ -4,7 +4,11 @@
 
 #include "components/update_client/crx_downloader.h"
 
+#include <cstdint>
+#include <iterator>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/check_op.h"
 #include "base/files/file_util.h"
@@ -19,12 +23,15 @@
 #if BUILDFLAG(IS_WIN)
 #include "components/update_client/background_downloader_win.h"
 #endif
+#include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "components/update_client/network.h"
 #include "components/update_client/task_traits.h"
 #include "components/update_client/update_client_errors.h"
 #include "components/update_client/update_client_metrics.h"
 #include "components/update_client/url_fetcher_downloader.h"
 #include "components/update_client/utils.h"
+#include "url/gurl.h"
 
 namespace update_client {
 
@@ -48,13 +55,14 @@ GURL CrxDownloader::url() const {
 
 const std::vector<CrxDownloader::DownloadMetrics>
 CrxDownloader::download_metrics() const {
-  if (!successor_) {
-    return download_metrics_;
+  std::vector<DownloadMetrics> retval = download_metrics_;
+  if (successor_) {
+    std::vector<DownloadMetrics> successor_metrics =
+        successor_->download_metrics();
+    retval.insert(retval.end(),
+                  std::make_move_iterator(successor_metrics.begin()),
+                  std::make_move_iterator(successor_metrics.end()));
   }
-
-  std::vector<DownloadMetrics> retval(successor_->download_metrics());
-  retval.insert(retval.begin(), download_metrics_.begin(),
-                download_metrics_.end());
   return retval;
 }
 

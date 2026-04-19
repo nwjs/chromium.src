@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {GlicBrowserProxy} from 'chrome://settings/settings.js';
+import type {GlicBrowserProxy, LoginPermission} from 'chrome://settings/settings.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 export enum Shortcut {
@@ -15,9 +15,13 @@ export class TestGlicBrowserProxy extends TestBrowserProxy implements
   private glicShortcutResponse_: string = '';
   private glicFocusToggleShortcutResponse_: string = '';
   private glicDisallowedByAdmin_: boolean = false;
+  private webActuationToggleVisibilityResponse_: boolean = false;
+  private actorLoginPermissions_: LoginPermission[] = [];
 
   constructor() {
     super([
+      'getActorLoginPermissions',
+      'revokeActorLoginPermission',
       'setGlicOsLauncherEnabled',
       'getGlicShortcut',
       'setGlicShortcut',
@@ -25,6 +29,7 @@ export class TestGlicBrowserProxy extends TestBrowserProxy implements
       'setGlicFocusToggleShortcut',
       'setShortcutSuspensionState',
       'getDisallowedByAdmin',
+      'getWebActuationToggleVisibility',
       'getGlicSelectionShortcut',
       'setGlicSelectionShortcut',
     ]);
@@ -34,6 +39,8 @@ export class TestGlicBrowserProxy extends TestBrowserProxy implements
     super.reset();
     this.glicShortcutResponse_ = '';
     this.glicFocusToggleShortcutResponse_ = '';
+    this.webActuationToggleVisibilityResponse_ = false;
+    this.actorLoginPermissions_ = [];
   }
 
   setGlicOsLauncherEnabled(enabled: boolean) {
@@ -92,6 +99,27 @@ export class TestGlicBrowserProxy extends TestBrowserProxy implements
 
   setDisallowedByAdmin(disallowed: boolean) {
     this.glicDisallowedByAdmin_ = disallowed;
+  }
+
+  getWebActuationToggleVisibility() {
+    this.methodCalled('getWebActuationToggleVisibility');
+    return Promise.resolve(this.webActuationToggleVisibilityResponse_);
+  }
+
+  setWebActuationToggleVisibilityResponse(visible: boolean) {
+    this.webActuationToggleVisibilityResponse_ = visible;
+  }
+  getActorLoginPermissions() {
+    this.methodCalled('getActorLoginPermissions');
+    return Promise.resolve(this.actorLoginPermissions_);
+  }
+
+  setActorLoginPermissions(permissions: LoginPermission[]) {
+    this.actorLoginPermissions_ = permissions;
+  }
+
+  revokeActorLoginPermission(signonRealm: string) {
+    this.methodCalled('revokeActorLoginPermission', signonRealm);
   }
 
   getGlicSelectionShortcut() {

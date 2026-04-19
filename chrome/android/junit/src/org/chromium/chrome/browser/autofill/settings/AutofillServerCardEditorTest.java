@@ -62,6 +62,8 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeStringConstants;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
 import org.chromium.chrome.browser.autofill.AutofillImageFetcher;
 import org.chromium.chrome.browser.autofill.AutofillImageFetcherFactory;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
@@ -87,7 +89,10 @@ import org.chromium.url.GURL;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+@DisableFeatures({
+    ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING_V2,
+    ChromeFeatureList.SETTINGS_MULTI_COLUMN
+})
 public class AutofillServerCardEditorTest {
 
     private static final long NATIVE_AUTOFILL_PAYMENTS_METHODS_DELEGATE = 100L;
@@ -100,6 +105,7 @@ public class AutofillServerCardEditorTest {
     @Mock private ChromeBrowserInitializer mInitializer;
     @Mock private ProfileManagerUtilsJni mProfileManagerUtilsJni;
     @Mock private AutofillImageFetcher mImageFetcher;
+    @Mock private ActorKeyedService mActorKeyedService;
     @Mock private Callback<String> mServerCardEditLinkOpenerCallback;
     @Mock private AutofillPaymentMethodsDelegate.Natives mNativeMock;
 
@@ -203,6 +209,7 @@ public class AutofillServerCardEditorTest {
         ProfileManagerUtilsJni.setInstanceForTesting(mProfileManagerUtilsJni);
         ChromeBrowserInitializer.setForTesting(mInitializer);
         ProfileManager.setLastUsedProfileForTesting(mProfile);
+        ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
         AutofillImageFetcherFactory.setInstanceForTesting(mImageFetcher);
     }
 

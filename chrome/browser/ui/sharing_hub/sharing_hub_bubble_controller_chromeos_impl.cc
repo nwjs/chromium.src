@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/sharing_hub/sharing_hub_bubble_controller_chromeos_impl.h"
 
 #include "base/functional/callback_helpers.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
@@ -17,6 +16,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
@@ -56,7 +56,7 @@ void SharingHubBubbleControllerChromeOsImpl::HideBubble() {
 
 void SharingHubBubbleControllerChromeOsImpl::ShowBubble(
     share::ShareAttempt attempt) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
 
   // Ignore subsequent calls to open the Sharesheet if it already is open. This
   // is especially for the Nearby Share dialog, where clicking outside of it

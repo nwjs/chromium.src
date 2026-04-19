@@ -60,7 +60,7 @@
     transform-origin: top;
   }
 
-  :host([enable-csb-motion-tweaks]) cr-searchbox {
+  :host([enable-csb-motion-tweaks]) cr-lens-searchbox {
     display: block;
   }
 
@@ -99,7 +99,7 @@
     inset-inline-end: 28px;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled]) #optionsButtonContainer {
+  :host([is-lens-overlay-contextual-searchbox-visible]) #optionsButtonContainer {
     inset-block-start: 40px;
   }
 
@@ -116,12 +116,12 @@
     inset-inline-end: 84px;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled]) #translateButtonContainer {
+  :host([is-lens-overlay-contextual-searchbox-visible]) #translateButtonContainer {
     inset-inline-end: 84px;
     inset-block-start: 40px;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled][side-panel-opened]) #translateButtonContainer {
+  :host([is-lens-overlay-contextual-searchbox-visible][side-panel-opened]) #translateButtonContainer {
     inset-inline-end: 24px;
   }
 
@@ -159,14 +159,14 @@
     --cr-icon-image: url("icon_clear.svg");
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled]) #closeButton {
+  :host([is-lens-overlay-contextual-searchbox-visible]) #closeButton {
     background-color: var(--color-selection-element);
     height: 48px;
     width: 48px;
     --cr-icon-button-fill-color: var(--color-primary);
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled][enable-csb-motion-tweaks]) #closeButton {
+  :host([is-lens-overlay-contextual-searchbox-visible][enable-csb-motion-tweaks]) #closeButton {
      /* Set opacity to 0 so it can animate in with the searchbox. */
      transition: none;
      opacity: 0;
@@ -192,7 +192,7 @@
     }
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled][enable-close-button-tweaks]) #closeButton {
+  :host([is-lens-overlay-contextual-searchbox-visible][enable-close-button-tweaks]) #closeButton {
     --cr-icon-button-icon-size: 20px;
     --cr-icon-button-size: 36px;
     --cr-icon-button-fill-color: white;
@@ -201,7 +201,7 @@
     width: 36px;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled][enable-close-button-tweaks])
+  :host([is-lens-overlay-contextual-searchbox-visible][enable-close-button-tweaks])
     #optionsButtonContainer {
     inset-block-start: 58px;
     inset-inline-end: 26px;
@@ -216,7 +216,8 @@
     z-index: 7;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled]) #moreOptions {
+  :host([is-lens-overlay-contextual-searchbox-visible]) #moreOptions,
+  :host([is-routing-to-contextual-tasks][side-panel-opened]) #moreOptions {
     display: none;
   }
 
@@ -341,12 +342,12 @@
     z-index: 6;  /* Keep aligned with cursor and context menu. */
   }
 
-  :host(:not([is-lens-overlay-contextual-searchbox-enabled])) #privacyNotice {
+  :host(:not([is-lens-overlay-contextual-searchbox-visible])) #privacyNotice {
     inset-block-start: 34px;
     inset-inline-end: 124px;
   }
 
-  :host([is-lens-overlay-contextual-searchbox-enabled][enable-csb-motion-tweaks]) #privacyNotice {
+  :host([is-lens-overlay-contextual-searchbox-visible][enable-csb-motion-tweaks]) #privacyNotice {
     /* Set opacity to 0 so it can animate in with the searchbox. */
     transition: none;
     opacity: 0;
@@ -485,7 +486,9 @@
    * Show the ghost loader when the searchbox is focused and the searchbox
    * dropdown isn't showing (no results available).
    */
-  :host([show-ghost-loader]) #searchboxContainer:has(cr-searchbox:not([dropdown-is-visible])) cr-searchbox-ghost-loader {
+  :host([show-ghost-loader])
+      #searchboxContainer:has(cr-lens-searchbox:not([dropdown-is-visible]))
+          cr-searchbox-ghost-loader {
     display: block;
   }
 
@@ -493,7 +496,8 @@
    * When CSB motion tweaks are enabled, show the ghost loader when the
    * searchbox is focused.
    */
-  :host([enable-csb-motion-tweaks][show-ghost-loader]) cr-searchbox-ghost-loader {
+  :host([enable-csb-motion-tweaks][show-ghost-loader])
+      cr-searchbox-ghost-loader {
     display: block;
   }
 
@@ -516,14 +520,16 @@
   }
 
   /* Default values for the searchbox dropdown that enable the fade in animation. */
-  :host([enable-csb-motion-tweaks][show-ghost-loader]) cr-searchbox::part(searchbox-dropdown) {
+  :host([enable-csb-motion-tweaks][show-ghost-loader])
+      cr-lens-searchbox::part(searchbox-dropdown) {
     opacity: 0;
     display: block;
   }
 
   /* Fade in the searchbox dropdown once the dropdown becomes visible. */
   :host([enable-csb-motion-tweaks][show-ghost-loader])
-    #searchboxContainer:has(cr-searchbox[dropdown-is-visible]) cr-searchbox::part(searchbox-dropdown) {
+    #searchboxContainer:has(cr-lens-searchbox[dropdown-is-visible])
+        cr-lens-searchbox::part(searchbox-dropdown) {
     transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
     opacity: 1;
   }
@@ -595,12 +601,12 @@
   </lens-selection-overlay>
   <initial-gradient id="initialGradient"></initial-gradient>
   <div id="searchboxContainer" on-focusout="handleSearchboxBlurred">
-    <cr-searchbox
+    <cr-lens-searchbox
       id="searchbox"
       on-focusin="handleSearchboxFocused"
       placeholder-text="{{placeholderText}}"
       searchbox-aria-description="[[getSearchboxAriaDescription(showErrorState, showGhostLoader)]]">
-    </cr-searchbox>
+    </cr-lens-searchbox>
     <cr-searchbox-ghost-loader
       id="searchboxGhostLoader"
       tabindex="-1"

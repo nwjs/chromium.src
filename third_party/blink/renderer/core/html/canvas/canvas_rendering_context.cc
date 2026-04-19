@@ -42,15 +42,21 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_painter.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
+#include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 
 namespace blink {
+namespace {
+BASE_FEATURE(kAllowAcceleratedTexElement, base::FEATURE_ENABLED_BY_DEFAULT);
+}
 
 CanvasRenderingContext::CanvasRenderingContext(
     CanvasRenderingContextHost* host,
@@ -93,35 +99,19 @@ CanvasRenderingContext::GetEnclosingContextForDrawElement(
     Element* element,
     const String& func_name,
     ExceptionState& exception_state) {
-  auto build_error = [&func_name](const char* format) {
-    StringBuilder builder;
-    UNSAFE_TODO(builder.AppendFormat(format, func_name.Utf8().c_str()));
-    return builder.ToString();
-  };
-
-  HTMLCanvasElement* canvas = nullptr;
-  for (Node* ancestor = element->parentNode(); ancestor && !canvas;
-       ancestor = ancestor->parentNode()) {
-    canvas = DynamicTo<HTMLCanvasElement>(ancestor);
-    if (!RuntimeEnabledFeatures::CanvasDrawElementInSubtreeEnabled()) {
-      break;
-    }
-  }
+  HTMLCanvasElement* canvas =
+      DynamicTo<HTMLCanvasElement>(element->parentNode());
   if (!canvas) {
-    exception_state.ThrowTypeError(build_error(
-        RuntimeEnabledFeatures::CanvasDrawElementInSubtreeEnabled()
-            ? ("Only descendants of the <canvas> element can be passed "
-               "to %s.")
-            : ("Only immediate children of the <canvas> element can be "
-               "passed to %s.")));
+    exception_state.ThrowTypeError(
+        "Only immediate children of the <canvas> element can be passed to " +
+        func_name + ".");
 
     return nullptr;
   }
   CanvasRenderingContext* context = canvas->RenderingContext();
   if (!context) {
     exception_state.ThrowTypeError(
-        build_error("%s: containing canvas does not have a rendering "
-                    "context."));
+        func_name + ": containing canvas does not have a rendering context.");
     return nullptr;
   }
   if (!context->IsDrawElementImageEligible(element, func_name,
@@ -136,6 +126,9 @@ bool CanvasRenderingContext::IsDrawElementImageEligible(
     const String& func_name,
     ExceptionState& exception_state) {
   if (!Host() || Host()->IsOffscreenCanvas()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "Elements cannot be drawn into an OffscreenCanvas.");
     return false;
   }
 
@@ -144,26 +137,8 @@ bool CanvasRenderingContext::IsDrawElementImageEligible(
     return false;
   }
 
-  auto build_error = [&func_name](const char* format) {
-    StringBuilder builder;
-    UNSAFE_TODO(builder.AppendFormat(format, func_name.Utf8().c_str()));
-    return builder.ToString();
-  };
-
-  if (element->parentElement() != canvas_element) {
-    exception_state.ThrowTypeError(
-        build_error("Only immediate children of the <canvas> element can be "
-                    "passed to %s."));
-    return false;
-  }
-
-  if (!canvas_element->layoutSubtree()) {
-    exception_state.ThrowTypeError(build_error(
-        "<canvas> elements without layoutsubtree do not support %s."));
-    return false;
-  }
-
-  return true;
+  return canvas_element->VerifyDrawElementImageEligibility(element, func_name,
+                                                           exception_state);
 }
 
 std::optional<CanvasChildPaintRecord>
@@ -179,6 +154,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
     std::optional<float> sheight,
     std::optional<uint32_t> width,
     std::optional<uint32_t> height,
+    gpu::SharedImageUsageSet usage,
     const String& func_name,
     ExceptionState& exception_state) {
   if (!IsDrawElementImageEligible(element, func_name, exception_state)) {
@@ -194,13 +170,11 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
   }
 
   // Element size in physical coordinates.
-  gfx::RectF src_rect(child_paint_record->box_size);
+  gfx::RectF src_rect(child_paint_record->paint_state.box_size);
   if (sx && sy && swidth && sheight) {
-    float dpr = child_paint_record->scale;
+    float dpr = child_paint_record->paint_state.effective_zoom;
     src_rect = gfx::RectF(*sx * dpr, *sy * dpr, *swidth * dpr, *sheight * dpr);
   }
-
-  HTMLCanvasElement* canvas_element = static_cast<HTMLCanvasElement*>(Host());
 
   // The default destination size for GetElementImage is the source content
   // size scaled to canvas grid coordinates. This causes the element to have
@@ -208,7 +182,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
   // were it painted outside the canvas.
   gfx::SizeF intrinsic_size(src_rect.size());
   gfx::Vector2dF canvas_scale =
-      canvas_element->PhysicalPixelToCanvasGridScaleFactor();
+      GetCanvasGridScaleFactor(child_paint_record->paint_state, Host()->Size());
   intrinsic_size.Scale(canvas_scale.x(), canvas_scale.y());
   gfx::Size intrinsic_dest_size = gfx::ToCeiledSize(intrinsic_size);
   gfx::Size dest_size(intrinsic_dest_size);
@@ -219,6 +193,26 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
         static_cast<float>(dest_size.height()) / intrinsic_dest_size.height());
   }
 
+  auto draw_to_canvas = [&](cc::PaintCanvas& canvas) {
+    canvas.scale(canvas_scale.x(), canvas_scale.y());
+    canvas.translate(-src_rect.x(), -src_rect.y());
+    canvas.drawPicture(child_paint_record->record);
+  };
+
+  if (base::FeatureList::IsEnabled(kAllowAcceleratedTexElement) &&
+      SharedGpuContext::IsGpuCompositingEnabled()) {
+    if (auto wrapper = SharedGpuContext::ContextProviderWrapper()) {
+      auto resource_provider = CanvasNon2DResourceProviderSharedImage::Create(
+          dest_size, GetN32FormatForCanvas(), kPremul_SkAlphaType,
+          gfx::ColorSpace::CreateSRGB(), wrapper,
+          gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | usage);
+
+      return resource_provider->DoExternalDrawAndSnapshot(
+          [&](cc::PaintCanvas& canvas) { draw_to_canvas(canvas); },
+          ImageOrientation());
+    }
+  }
+
   sk_sp<SkSurface> surface = SkSurfaces::Raster(
       SkImageInfo::MakeN32Premul(dest_size.width(), dest_size.height()),
       /*surface_props*/ nullptr);
@@ -227,9 +221,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
   }
 
   SkiaPaintCanvas skia_paint_canvas(surface->getCanvas());
-  skia_paint_canvas.scale(canvas_scale.x(), canvas_scale.y());
-  skia_paint_canvas.translate(-src_rect.x(), -src_rect.y());
-  skia_paint_canvas.drawPicture(child_paint_record->record);
+  draw_to_canvas(skia_paint_canvas);
   return UnacceleratedStaticBitmapImage::Create(surface->makeImageSnapshot());
 }
 

@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.media;
 import android.content.Context;
 import android.content.Intent;
 
+import androidx.activity.result.ActivityResult;
+
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
@@ -20,28 +22,13 @@ public interface MediaCapturePickerDelegate {
      *
      * @param context The context.
      * @param params The picker parameters.
-     * @return The intent to launch, or null if not supported.
-     */
-    @Deprecated
-    default @Nullable Intent createScreenCaptureIntent(
-            Context context, MediaCapturePickerManager.Params params) {
-        return null;
-    }
-
-    /**
-     * Creates an intent to launch the screen capture picker with app content sharing.
-     *
-     * @param context The context.
-     * @param params The picker parameters.
      * @param delegate The delegate to filter tabs to show on the picker.
      * @return The intent to launch, or null if not supported.
      */
-    default @Nullable Intent createScreenCaptureIntent(
+    @Nullable Intent createScreenCaptureIntent(
             Context context,
             MediaCapturePickerManager.Params params,
-            MediaCapturePickerManager.Delegate delegate) {
-        return createScreenCaptureIntent(context, params);
-    }
+            MediaCapturePickerManager.Delegate delegate);
 
     /**
      * Returns the tab that was picked by the user, if any. This should be called after the picker
@@ -58,6 +45,15 @@ public interface MediaCapturePickerDelegate {
      * @return True if audio sharing was requested.
      */
     boolean shouldShareAudio();
+
+    /**
+     * Called before starting tab sharing. This is only valid if user has picked a tab i.e. {@link
+     * #getPickedTab()} returns non-null.
+     *
+     * @param webContents The webContents of the capturer tab.
+     * @param result The activity result returned by the android capture prompt.
+     */
+    default void startAppContentMediaProjection(WebContents webContents, ActivityResult result) {}
 
     /**
      * Called when the screen capture picker is done i.e. after user has picked a tab/ window/

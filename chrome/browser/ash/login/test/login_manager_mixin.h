@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ash/login/test/local_state_mixin.h"
 #include "chrome/browser/ash/login/test/session_flags_manager.h"
 #include "chrome/browser/ash/login/test/user_auth_config.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
@@ -40,8 +39,7 @@ class StubAuthenticatorBuilder;
 // initializes user manager with a list of pre-registered users.
 // The mixin will mark the OOBE flow as complete during test setup, so it's not
 // suitable for OOBE tests.
-class LoginManagerMixin : public InProcessBrowserTestMixin,
-                          public LocalStateMixin::Delegate {
+class LoginManagerMixin : public InProcessBrowserTestMixin {
  public:
   // Represents test user.
   struct TestUserInfo {
@@ -82,8 +80,11 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   // result can be used with Login* methods below.
   static UserContext CreateDefaultUserContext(const TestUserInfo& account_id);
 
-  // Convenience method for creating several test accounts.
+  // Convenience method for creating consumer test accounts.
   static AccountId CreateConsumerAccountId(int unique_number);
+
+  // Convenience method for creating enterprise test accounts.
+  static AccountId CreateEnterpriseAccountId(int unique_number);
 
   // Should be called before any InProcessBrowserTestMixin functions.
   void AppendRegularUsers(int n);
@@ -140,9 +141,7 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   bool SetUpUserDataDirectory() override;
   void SetUpOnMainThread() override;
   void TearDownOnMainThread() override;
-
-  // LocalStateMixin::Delegate:
-  void SetUpLocalState() override;
+  void SetUpLocalStatePrefService(PrefService* local_state) override;
 
   // Starts login attempt for a user, using the stub authenticator provided by
   // `authenticator_builder`.
@@ -175,6 +174,13 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   // Currently works for the primary user only.
   // Returns whether the newly logged in user is active when the method exits.
   bool LoginAndWaitForActiveSession(const UserContext& user_context);
+
+  // Logs in with the given user.
+  // Similar to LoginWithDefaultContext, this uses
+  // AttemptLoginUsingAuthenticator with a default stub authenticator. In
+  // addition, it waits for profile creation if this mixin instance is
+  // configured so. See `set_should_wait_for_profile()` for details.
+  void LogIn(const UserContext& user_context);
 
   // Logs in a user using with CreateDefaultUserContext(user_info) context.
   // When |wait_for_profile_prepared| is true, it waits until user profile is
@@ -223,7 +229,6 @@ class LoginManagerMixin : public InProcessBrowserTestMixin,
   // Whether we should wait for profile creation upon login.
   bool wait_for_profile_ = true;
 
-  LocalStateMixin local_state_mixin_;
   raw_ptr<FakeGaiaMixin> fake_gaia_mixin_;
   raw_ptr<CryptohomeMixin> cryptohome_mixin_;
 };

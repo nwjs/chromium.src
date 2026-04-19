@@ -28,69 +28,18 @@
 
 namespace autofill {
 
-// Fetches SuggestionData, used for credit card or cvc field suggestion
-// generation. Fetched data will be used in
-// GenerateCreditCardOrCvcFieldSuggestionsSync.
-std::pair<SuggestionGenerator::SuggestionDataSource,
-          std::vector<SuggestionGenerator::SuggestionData>>
-FetchCreditCardOrCvcFieldSuggestionDataSync(
-    const AutofillClient& client,
-    const FormFieldData& trigger_field,
-    FieldType trigger_field_type,
-    const std::vector<std::string>& four_digit_combinations_in_dom,
-    const std::u16string& autofilled_last_four_digits_in_form_for_filtering,
-    CreditCardSuggestionSummary& summary);
-
-// Generates suggestions for all available credit cards based on the
-// `trigger_field_type` and `trigger_field`. `summary` contains metadata about
-// the returned suggestions. `last_four_set_for_cvc_suggestion_filtering` is a
-// set of card number last four that will be used for suggestion filtering. this
-// is used to avoid showing suggestions that is unrelated to the cards that have
-// already been autofilled in the form.
-// `is_card_number_field_empty` indicates whether the card number field is empty
-// after the value inside of it is sanitized. this is used to decide whether the
-// bnpl suggestion should be appended together with the credit card suggestions.
-// todo(crbug.com/40916587): implement last four extraction from the dom.
-// todo(crbug.com/448688721): Consolidate the input parameters.
-std::vector<Suggestion> GenerateCreditCardOrCvcFieldSuggestionsSync(
-    const AutofillClient& client,
-    const FormFieldData& trigger_field,
-    FieldType trigger_field_type,
-    bool should_show_scan_credit_card,
-    CreditCardSuggestionSummary& summary,
-    bool is_card_number_field_empty,
-    const base::flat_map<SuggestionGenerator::SuggestionDataSource,
-                         std::vector<SuggestionGenerator::SuggestionData>>&
-        suggestion_data,
-    const payments::AmountExtractionStatus& amount_extraction_status);
-
-// Fetches SuggestionData, used for standalone CVC fields suggestion generation.
-// Fetched data wil be used in
-// GenerateVirtualCardStandaloneCvcFieldSuggestionsSync.
-std::pair<SuggestionGenerator::SuggestionDataSource,
-          std::vector<SuggestionGenerator::SuggestionData>>
-FetchVirtualCardStandaloneCvcFieldSuggestionDataSync(
-    const AutofillClient& client,
-    const FormFieldData& trigger_field,
-    autofill_metrics::CardMetadataLoggingContext& metadata_logging_context);
-
-// Generates suggestions for standalone CVC fields. These only apply to
-// virtual cards that are saved on file to a merchant. In these cases,
-// we only display the virtual card option and do not show FPAN option.
-std::vector<Suggestion> GenerateVirtualCardStandaloneCvcFieldSuggestionsSync(
-    const AutofillClient& client,
-    const FormFieldData& trigger_field,
-    const base::flat_map<std::string,
-                         VirtualCardUsageData::VirtualCardLastFour>&
-        virtual_card_guid_to_last_four_map,
-    const base::flat_map<SuggestionGenerator::SuggestionDataSource,
-                         std::vector<SuggestionGenerator::SuggestionData>>&
-        suggestion_data,
-    const payments::AmountExtractionStatus& amount_extraction_status);
+namespace payments {
+class AmountExtractionManager;
+class BnplManager;
+}  // namespace payments
 
 // Generates suggestions for all available credit cards based on the
 // `trigger_field_type`, `trigger_field` and `four_digit_combinations_in_dom`.
 // `summary` contains metadata about the returned suggestions.
+// This function is a thin wrapper calling both FetchSuggestionData() and
+// GenerateSuggestions() from the same instance of type
+// CreditCardSuggestionGenerator. Additional logic should not be added
+// to this function but to either of the other two.
 // TODO(crbug.com/448688721): Consolidate the input parameters.
 std::vector<Suggestion> GetSuggestionsForCreditCards(
     const FormData& form,
@@ -99,10 +48,19 @@ std::vector<Suggestion> GetSuggestionsForCreditCards(
     const AutofillField& autofill_trigger_field,
     AutofillClient& client,
     const std::vector<std::string>& four_digit_combinations_in_dom,
-    const payments::AmountExtractionStatus& amount_extraction_status,
+    payments::AmountExtractionManager* amount_extraction_manager,
+    payments::BnplManager* bnpl_manager,
     autofill_metrics::CreditCardFormEventLogger& credit_card_form_event_logger,
     const AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
     bool exclude_virtual_cards);
+
+std::vector<Suggestion> GetSuggestionsForBnpl(
+    std::vector<payments::BnplIssuerContext> issuer_contexts,
+    const std::string& app_locale,
+    const bool is_card_number_field_empty);
+
+Suggestion GetLoadingSuggestionForPayLaterTab(
+    int expected_number_of_suggestions);
 
 // A `SuggestionGenerator` for `FillingProduct::kCreditCard`.
 //
@@ -113,7 +71,8 @@ class CreditCardSuggestionGenerator : public SuggestionGenerator {
  public:
   explicit CreditCardSuggestionGenerator(
       const std::vector<std::string>& four_digit_combinations_in_dom,
-      const payments::AmountExtractionStatus& amount_extraction_status,
+      payments::AmountExtractionManager* amount_extraction_manager,
+      payments::BnplManager* bnpl_manager,
       autofill_metrics::CreditCardFormEventLogger*
           credit_card_form_event_logger,
       const AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
@@ -169,7 +128,8 @@ class CreditCardSuggestionGenerator : public SuggestionGenerator {
  private:
   raw_ref<const std::vector<std::string>> four_digit_combinations_in_dom_;
   CreditCardSuggestionSummary summary_;
-  raw_ref<const payments::AmountExtractionStatus> amount_extraction_status_;
+  raw_ptr<payments::AmountExtractionManager> amount_extraction_manager_;
+  raw_ptr<payments::BnplManager> bnpl_manager_;
   raw_ptr<autofill_metrics::CreditCardFormEventLogger>
       credit_card_form_event_logger_;
   AutofillMetrics::PaymentsSigninState signin_state_for_metrics_;

@@ -60,10 +60,6 @@ std::optional<Promo> PromoForName(std::string_view promo) {
     return promos_manager::Promo::DockingPromo;
   }
 
-  if (promo == "promos_manager::Promo::DockingPromoRemindMeLater") {
-    return promos_manager::Promo::DockingPromoRemindMeLater;
-  }
-
   if (promo == "promos_manager::Promo::AllTabsDefaultBrowser") {
     return promos_manager::Promo::AllTabsDefaultBrowser;
   }
@@ -88,9 +84,6 @@ std::optional<Promo> PromoForName(std::string_view promo) {
     return promos_manager::Promo::WelcomeBack;
   }
 
-  if (promo == "promos_manager::Promo::BWGPromo") {
-    return promos_manager::Promo::BWGPromo;
-  }
 
   if (promo == "promos_manager::Promo::SafariImportRemindMeLater") {
     return promos_manager::Promo::SafariImportRemindMeLater;
@@ -133,8 +126,6 @@ std::string_view ShortNameForPromo(Promo promo) {
       return "DefaultBrowserRemindMeLater";
     case promos_manager::Promo::DockingPromo:
       return "DockingPromo";
-    case promos_manager::Promo::DockingPromoRemindMeLater:
-      return "DockingPromoRemindMeLater";
     case promos_manager::Promo::AllTabsDefaultBrowser:
       return "AllTabsDefaultBrowser";
     case promos_manager::Promo::MadeForIOSDefaultBrowser:
@@ -147,8 +138,6 @@ std::string_view ShortNameForPromo(Promo promo) {
       return "FullscreenSignin";
     case promos_manager::Promo::WelcomeBack:
       return "WelcomeBack";
-    case promos_manager::Promo::BWGPromo:
-      return "BWGPromo";
     case promos_manager::Promo::SafariImportRemindMeLater:
       return "SafariImportRemindMeLater";
     case promos_manager::Promo::DefaultBrowserOffCycle:

@@ -220,12 +220,6 @@ class TabFeatures {
       std::unique_ptr<customize_chrome::SidePanelController>
           customize_chrome_side_panel_controller);
 
-  // This side-panel registry is tab-scoped. It is different from the browser
-  // window scoped SidePanelRegistry.
-  SidePanelRegistry* side_panel_registry() {
-    return side_panel_registry_.get();
-  }
-
   // TODO(crbug.com/447418049): This will be removed in the future when
   // ownership of this controller is migrated to ReadAnythingController.
   ReadAnythingSidePanelController* read_anything_side_panel_controller() {
@@ -279,11 +273,6 @@ class TabFeatures {
   ManagePasswordsPageActionController*
   manage_passwords_page_action_controller() {
     return manage_passwords_page_action_controller_.get();
-  }
-
-  tab_groups::CollaborationMessagingTabData*
-  collaboration_messaging_tab_data() {
-    return collaboration_messaging_tab_data_.get();
   }
 
   zoom::ZoomViewController* zoom_view_controller() {

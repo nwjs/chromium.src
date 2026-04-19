@@ -292,37 +292,6 @@ void SavedTabGroupBar::UpdateResumptionRailIPHDismissedState() {
 
   resumption_iph_dismissed_ = interface->HasFeaturePromoBeenDismissed(
       feature_engagement::kIPHResumptionRailFeature);
-
-  if (resumption_iph_dismissed_) {
-    return;
-  }
-
-  // New profiles within their grace period should be treated as having
-  // the IPH dismissed so that the Everything button remains hidden. We
-  // silently save the dismissed state in storage to satisfy UserEducation
-  // visibility checks without triggering a visual promo.
-  auto* const service =
-      UserEducationServiceFactory::GetForBrowserContext(browser_->GetProfile());
-  if (!service) {
-    return;
-  }
-
-  auto& storage = service->user_education_storage_service();
-  const base::Time creation_time = storage.profile_creation_time();
-  const base::TimeDelta grace_period =
-      user_education::features::GetNewProfileGracePeriod();
-
-  if (!creation_time.is_null() &&
-      base::Time::Now() < creation_time + grace_period) {
-    user_education::FeaturePromoData data;
-    if (const auto existing = storage.ReadPromoData(
-            feature_engagement::kIPHResumptionRailFeature)) {
-      data = *existing;
-    }
-    data.is_dismissed = true;
-    storage.SavePromoData(feature_engagement::kIPHResumptionRailFeature, data);
-    resumption_iph_dismissed_ = true;
-  }
 }
 
 void SavedTabGroupBar::OnInitialized() {
@@ -502,13 +471,13 @@ void SavedTabGroupBar::ShowEverythingMenu() {
       params.close_callback =
           base::BindOnce(&SavedTabGroupBar::OnResumptionRailPromoClosed,
                          weak_ptr_factory_.GetWeakPtr());
-      interface->MaybeShowFeaturePromo(std::move(params));
+      // If the IPH isn't able to be shown (e.g., because the profile creation
+      // time is within the new user grace period), the button should fallback
+      // to showing the everything menu.
+      if (interface->MaybeShowFeaturePromo(std::move(params))) {
+        return;
+      }
     }
-  }
-
-  // if other feature overrides the everything menu do nothing.
-  if (tab_groups::IsProjectsPanelFeatureEnabled()) {
-    return;
   }
 
   ShowEverythingMenuInternal();
@@ -657,44 +626,21 @@ void SavedTabGroupBar::OnTabGroupButtonPressed(const base::Uuid& id,
   bool left_mouse_button_pressed = event.flags() & ui::EF_LEFT_MOUSE_BUTTON;
 
   if (left_mouse_button_pressed || space_pressed) {
-    if (base::FeatureList::IsEnabled(features::kTabGroupMenuImprovements)) {
-      // Open the context menu.
-      SavedTabGroupButton* saved_tab_group_button =
-          views::AsViewClass<SavedTabGroupButton>(
-              GetButton(group->saved_guid()));
-      CHECK(saved_tab_group_button);
+    // Open the tab group on click or space.
 
-      gfx::Point coordinates;
-      ui::mojom::MenuSourceType source_type;
-      if (left_mouse_button_pressed) {
-        coordinates = ConvertPointToScreen(saved_tab_group_button,
-                                           event.AsLocatedEvent()->location());
-        source_type = ui::mojom::MenuSourceType::kMouse;
-      } else {
-        coordinates = saved_tab_group_button->GetKeyboardContextMenuLocation();
-        source_type = ui::mojom::MenuSourceType::kKeyboard;
-      }
+    const bool will_open_shared_group =
+        group->is_shared_tab_group() && !group->local_group_id().has_value();
 
-      saved_tab_group_button->ShowContextMenuForView(saved_tab_group_button,
-                                                     coordinates, source_type);
+    base::RecordAction(
+        base::UserMetricsAction("TabGroups_SavedTabGroups_Opened"));
+    tab_groups::SavedTabGroupUtils::OpenSavedTabGroup(
+        browser_->GetBrowserForMigrationOnly(), group->saved_guid(),
+        OpeningSource::kOpenedFromRevisitUi);
 
-    } else {
-      // Open the tab group on click or space.
-
-      const bool will_open_shared_group =
-          group->is_shared_tab_group() && !group->local_group_id().has_value();
-
-      base::RecordAction(
-          base::UserMetricsAction("TabGroups_SavedTabGroups_Opened"));
-      tab_groups::SavedTabGroupUtils::OpenSavedTabGroup(
-          browser_->GetBrowserForMigrationOnly(), group->saved_guid(),
-          OpeningSource::kOpenedFromRevisitUi);
-
-      if (will_open_shared_group) {
-        saved_tab_groups::metrics::RecordSharedTabGroupRecallType(
-            saved_tab_groups::metrics::SharedTabGroupRecallTypeDesktop::
-                kOpenedFromBookmarksBar);
-      }
+    if (will_open_shared_group) {
+      saved_tab_groups::metrics::RecordSharedTabGroupRecallType(
+          saved_tab_groups::metrics::SharedTabGroupRecallTypeDesktop::
+              kOpenedFromBookmarksBar);
     }
   }
 }

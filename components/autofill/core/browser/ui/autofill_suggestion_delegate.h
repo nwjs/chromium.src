@@ -11,7 +11,9 @@
 #include "base/functional/callback_forward.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/suggestion_button_action.h"
+#include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/aliases.h"
 
 namespace password_manager {
@@ -51,7 +53,7 @@ class AutofillSuggestionDelegate {
   // Called when Autofill suggestions are hidden. This may also get called if
   // the suggestions were never shown at all, e.g. because of insufficient
   // space. On Desktop, only the root popup triggers this call.
-  virtual void OnSuggestionsHidden() = 0;
+  virtual void OnSuggestionsHidden(SuggestionHidingReason reason) = 0;
 
   // Called when the autofill `suggestion` has been temporarily selected (e.g.,
   // hovered).
@@ -78,6 +80,10 @@ class AutofillSuggestionDelegate {
   // Returns the main filling product the popup being shown, which is a function
   // of the list of suggestions being shown.
   virtual FillingProduct GetMainFillingProduct() const = 0;
+
+  // Called when `tab_type` is opened in the tabbed pane config of the autofill
+  // dropdown.
+  virtual void OnTabSelected(TabbedPaneTabType tab_type) = 0;
 };
 
 }  // namespace autofill

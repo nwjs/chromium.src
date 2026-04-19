@@ -31,6 +31,7 @@ import org.chromium.support_lib_boundary.ProfileBoundaryInterface;
 import org.chromium.support_lib_boundary.SpeculativeLoadingConfigBoundaryInterface;
 import org.chromium.support_lib_boundary.SpeculativeLoadingParametersBoundaryInterface;
 import org.chromium.support_lib_boundary.util.BoundaryInterfaceReflectionUtil;
+import org.chromium.support_lib_boundary.util.Features;
 import org.chromium.support_lib_glue.SupportLibWebViewChromiumFactory.ApiCall;
 
 import java.lang.reflect.InvocationHandler;
@@ -180,13 +181,55 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
     @Override
     public void setMaxPrefetches(@Nullable Integer maxPrefetches) {
         recordApiCall(ApiCall.SET_MAX_PREFETCHES);
-        mProfileImpl.setMaxPrerenders(maxPrefetches);
+        mProfileImpl.setMaxPrefetches(maxPrefetches);
     }
 
     @Override
     public void setPrefetchTtlSeconds(@Nullable Integer prefetchTtlSeconds) {
         recordApiCall(ApiCall.SET_PREFETCH_TTL_SECONDS);
-        mProfileImpl.setMaxPrerenders(prefetchTtlSeconds);
+        mProfileImpl.setPrefetchTtlSeconds(prefetchTtlSeconds);
+    }
+
+    @Override
+    public void setMaxPrefetches(int maxPrefetches) {
+        recordApiCall(ApiCall.SET_MAX_PREFETCHES);
+        mProfileImpl.setMaxPrefetches(maxPrefetches);
+    }
+
+    @Override
+    public void setPrefetchTtlSeconds(int prefetchTtlSeconds) {
+        recordApiCall(ApiCall.SET_PREFETCH_TTL_SECONDS);
+        mProfileImpl.setPrefetchTtlSeconds(prefetchTtlSeconds);
+    }
+
+    @Override
+    public void clearMaxPrefetches() {
+        recordApiCall(ApiCall.CLEAR_MAX_PREFETCHES);
+        mProfileImpl.clearMaxPrefetches();
+    }
+
+    @Override
+    public void clearPrefetchTtl() {
+        recordApiCall(ApiCall.CLEAR_PREFETCH_TTL);
+        mProfileImpl.clearPrefetchTtl();
+    }
+
+    @Override
+    public int getMaxPrerenders() {
+        recordApiCall(ApiCall.GET_MAX_PRERENDERS);
+        return mProfileImpl.getMaxPrerenders();
+    }
+
+    @Override
+    public int getMaxPrefetches() {
+        recordApiCall(ApiCall.GET_MAX_PREFETCHES);
+        return mProfileImpl.getMaxPrefetches();
+    }
+
+    @Override
+    public int getPrefetchTtlSeconds() {
+        recordApiCall(ApiCall.GET_PREFETCH_TTL_SECONDS);
+        return mProfileImpl.getPrefetchTtlSeconds();
     }
 
     /**
@@ -213,10 +256,29 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
         PrefetchOperationCallbackBoundaryInterface operationCallback =
                 BoundaryInterfaceReflectionUtil.castToSuppLibClass(
                         PrefetchOperationCallbackBoundaryInterface.class, callback);
+        // Ensure WebMessageCallbackCompat.onMessage() is supported by the support library before
+        // calling it.
         return new PrefetchOperationCallback() {
             @Override
-            public void onSuccess() {
-                operationCallback.onSuccess();
+            public void onResult(@PrefetchOperationStatusCode int resultCode) {
+                String[] supportedFeatures;
+                try {
+                    supportedFeatures = operationCallback.getSupportedFeatures();
+                } catch (IllegalArgumentException e) {
+                    // PrefetchOperationCallbackBoundaryInterface did not originally implement
+                    // FeatureFlagHolderBoundaryInterface, so it is possible that the call to
+                    // `getSupportedFeatures` will fail with IllegalArgumentException in
+                    // Method#invoke.
+                    // This means that we should call the old `onSuccess` method instead.
+                    operationCallback.onSuccess();
+                    return;
+                }
+                if (BoundaryInterfaceReflectionUtil.containsFeature(
+                        supportedFeatures, Features.PREFETCH_WITH_CALLBACK_RESULT_V1)) {
+                    mapResult(operationCallback, resultCode);
+                } else {
+                    operationCallback.onSuccess();
+                }
             }
 
             @Override
@@ -229,6 +291,21 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
         };
     }
 
+    private void mapResult(
+            PrefetchOperationCallbackBoundaryInterface callback,
+            @PrefetchOperationStatusCode int resultCode) {
+        int type =
+                switch (resultCode) {
+                    case PrefetchOperationStatusCode.DUPLICATE_REQUEST ->
+                            PrefetchOperationCallbackBoundaryInterface
+                                    .PrefetchResultTypeBoundaryInterface.DUPLICATE;
+                    default ->
+                            PrefetchOperationCallbackBoundaryInterface
+                                    .PrefetchResultTypeBoundaryInterface.SUCCESS;
+                };
+        callback.onResult(type);
+    }
+
     private void mapFailure(
             PrefetchOperationCallbackBoundaryInterface callback,
             @PrefetchOperationStatusCode int errorCode,
@@ -236,14 +313,12 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
             int networkErrorCode) {
         int type =
                 switch (errorCode) {
-                    case PrefetchOperationStatusCode
-                            .SERVER_FAILURE -> PrefetchOperationCallbackBoundaryInterface
-                            .PrefetchExceptionTypeBoundaryInterface.NETWORK;
-                    case PrefetchOperationStatusCode
-                            .DUPLICATE_REQUEST -> PrefetchOperationCallbackBoundaryInterface
-                            .PrefetchExceptionTypeBoundaryInterface.DUPLICATE;
-                    default -> PrefetchOperationCallbackBoundaryInterface
-                            .PrefetchExceptionTypeBoundaryInterface.GENERIC;
+                    case PrefetchOperationStatusCode.SERVER_FAILURE ->
+                            PrefetchOperationCallbackBoundaryInterface
+                                    .PrefetchExceptionTypeBoundaryInterface.NETWORK;
+                    default ->
+                            PrefetchOperationCallbackBoundaryInterface
+                                    .PrefetchExceptionTypeBoundaryInterface.GENERIC;
                 };
         callback.onFailure(type, message, networkErrorCode);
     }

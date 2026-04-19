@@ -8,7 +8,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,7 +105,7 @@ public class SiteSearchDialogCoordinatorUnitTest {
     public void testShowEditDialog_NormalUrl() {
         when(mTemplateUrl.getKeyword()).thenReturn("keyword");
         when(mTemplateUrl.getShortName()).thenReturn("name");
-        when(mTemplateUrl.getURL()).thenReturn("https://test.com");
+        when(mTemplateUrlService.getDisplayUrl(mTemplateUrl)).thenReturn("https://test.com");
         when(mTemplateUrl.getPrepopulatedId()).thenReturn(0);
 
         mCoordinator.showEditDialog(mTemplateUrl);
@@ -166,6 +168,69 @@ public class SiteSearchDialogCoordinatorUnitTest {
         EditText urlInput =
                 dialogModel.get(ModalDialogProperties.CUSTOM_VIEW).findViewById(R.id.url_input);
         assertFalse(urlInput.isEnabled());
+    }
+
+    @Test
+    public void testRemoveTemplateUrl_DialogNotNeeded() {
+        when(mTemplateUrl.requiresRemovalConfirmation()).thenReturn(false);
+
+        mCoordinator.removeTemplateUrl(mTemplateUrl);
+
+        verify(mModalDialogManager, never())
+                .showDialog(
+                        mDialogModelCaptor.capture(), eq(ModalDialogManager.ModalDialogType.APP));
+    }
+
+    @Test
+    public void testRemoveTemplateUrl_DialogShowAndConfirm() {
+        when(mTemplateUrl.requiresRemovalConfirmation()).thenReturn(true);
+
+        mCoordinator.removeTemplateUrl(mTemplateUrl);
+
+        verify(mModalDialogManager)
+                .showDialog(
+                        mDialogModelCaptor.capture(), eq(ModalDialogManager.ModalDialogType.APP));
+        PropertyModel dialogModel = mDialogModelCaptor.getValue();
+
+        assertEquals(
+                mContext.getString(R.string.delete_search_engine_dialog_title),
+                dialogModel.get(ModalDialogProperties.TITLE));
+        assertEquals(
+                mContext.getString(R.string.delete_search_engine_dialog_message),
+                dialogModel.get(ModalDialogProperties.MESSAGE_PARAGRAPH_1));
+        assertEquals(
+                mContext.getString(R.string.delete_search_engine_dialog_delete),
+                dialogModel.get(ModalDialogProperties.POSITIVE_BUTTON_TEXT));
+        assertEquals(
+                mContext.getString(R.string.delete_search_engine_dialog_cancel),
+                dialogModel.get(ModalDialogProperties.NEGATIVE_BUTTON_TEXT));
+        assertEquals(
+                ModalDialogProperties.ButtonStyles.PRIMARY_OUTLINE_NEGATIVE_OUTLINE,
+                dialogModel.get(ModalDialogProperties.BUTTON_STYLES));
+
+        // Click positive button
+        ModalDialogProperties.Controller controller =
+                dialogModel.get(ModalDialogProperties.CONTROLLER);
+        controller.onClick(dialogModel, ModalDialogProperties.ButtonType.POSITIVE);
+        verify(mTemplateUrlService).removeSearchEngine(any());
+    }
+
+    @Test
+    public void testRemoveTemplateUrl_DialogCancel() {
+        when(mTemplateUrl.requiresRemovalConfirmation()).thenReturn(true);
+
+        mCoordinator.removeTemplateUrl(mTemplateUrl);
+
+        verify(mModalDialogManager)
+                .showDialog(
+                        mDialogModelCaptor.capture(), eq(ModalDialogManager.ModalDialogType.APP));
+        PropertyModel dialogModel = mDialogModelCaptor.getValue();
+
+        // Click negative button
+        ModalDialogProperties.Controller controller =
+                dialogModel.get(ModalDialogProperties.CONTROLLER);
+        controller.onClick(dialogModel, ModalDialogProperties.ButtonType.NEGATIVE);
+        verify(mTemplateUrlService, never()).removeSearchEngine(any());
     }
 
     @Test

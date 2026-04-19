@@ -60,19 +60,10 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
     : public WebContentsAccessibility,
       public ui::AXNodeIdDelegate {
  public:
+  explicit WebContentsAccessibilityAndroid(WebContents* web_contents);
+  explicit WebContentsAccessibilityAndroid(int64_t ax_tree_update_ptr);
   WebContentsAccessibilityAndroid(
       JNIEnv* env,
-      const base::android::JavaRef<jobject>& obj,
-      WebContents* web_contents,
-      const base::android::JavaRef<jobject>& jaccessibility_node_info_builder);
-  WebContentsAccessibilityAndroid(
-      JNIEnv* env,
-      const base::android::JavaRef<jobject>& obj,
-      int64_t ax_tree_update_ptr,
-      const base::android::JavaRef<jobject>& jaccessibility_node_info_builder);
-  WebContentsAccessibilityAndroid(
-      JNIEnv* env,
-      const base::android::JavaRef<jobject>& obj,
       const base::android::JavaRef<jobject>& jassist_data_builder,
       WebContents* web_contents);
 
@@ -161,7 +152,9 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Methods to get information about a specific node.
   bool IsEditableText(JNIEnv* env, int32_t id);
   bool IsFocused(JNIEnv* env, int32_t id);
+  // Returns ui::kAXAndroidUndefinedSelectionIndex if no selection.
   int32_t GetEditableTextSelectionStart(JNIEnv* env, int32_t id);
+  // Returns ui::kAXAndroidUndefinedSelectionIndex if no selection.
   int32_t GetEditableTextSelectionEnd(JNIEnv* env, int32_t id);
   base::android::ScopedJavaLocalRef<jintArray> GetAbsolutePositionForNode(
       JNIEnv* env,
@@ -185,6 +178,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void Click(JNIEnv* env, int32_t id);
   void Focus(JNIEnv* env, int32_t id);
   void Blur(JNIEnv* env);
+  void Expand(JNIEnv* env, int32_t id);
+  void Collapse(JNIEnv* env, int32_t id);
   void ScrollToMakeNodeVisible(JNIEnv* env, int32_t id);
   void SetTextFieldValue(JNIEnv* env,
                          int32_t id,
@@ -223,18 +218,13 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // of our own selection in BrowserAccessibilityManager.java for static
   // text, but if this is an editable text node, updates the selected text
   // in Blink, too, and either way calls
-  // Java_BrowserAccessibilityManager_finishGranularityMove[NEXT/PREVIOUS]
-  // with the result.
-  bool NextAtGranularity(JNIEnv* env,
+  // Java_BrowserAccessibilityManager_finishGranularityMove with the result.
+  bool MoveAtGranularity(JNIEnv* env,
                          int32_t granularity,
                          bool extend_selection,
                          int32_t id,
-                         int32_t cursor_index);
-  bool PreviousAtGranularity(JNIEnv* env,
-                             int32_t granularity,
-                             bool extend_selection,
-                             int32_t id,
-                             int32_t cursor_index);
+                         int32_t cursor_index,
+                         bool forwards);
 
   // Move accessibility focus. This sends a message to the renderer to
   // clear accessibility focus on the previous node and set accessibility
@@ -318,6 +308,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
 
   void UpdateFrameInfo(float page_scale);
 
+  bool IsNodeLikelyKnownByAndroidFrameworkForExperiment(int32_t unique_id);
+
   // Set a new max for TYPE_WINDOW_CONTENT_CHANGED events to fire.
   void SetMaxContentChangedEventsToFireForTesting(JNIEnv* env,
                                                   int32_t maxEvents) {
@@ -344,6 +336,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Note: This cache is only meant for common strings that might be shared
   //       across many nodes (e.g. role or role description), which have a
   //       finite number of possibilities. Do not use it for page content.
+  base::android::ScopedJavaLocalRef<jobject> GetJavaObject(JNIEnv* env) const;
+
   const base::android::ScopedJavaGlobalRef<jstring>& GetCanonicalJNIString(
       JNIEnv* env,
       std::string_view str) {
@@ -424,6 +418,9 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void AnnounceLiveRegionText(const std::u16string& text);
   void HandleActiveDescendantChanged(int32_t unique_id);
   void HandleTextSelectionChanged(int32_t unique_id);
+  void HandleExtendedSelectionChanged(int32_t unique_id,
+                                      int32_t focus_unique_id,
+                                      int32_t focus_offset);
   void HandleEditableTextChanged(int32_t unique_id, int32_t subType);
   void HandleSliderChanged(int32_t unique_id);
   void SendDelayedWindowContentChangedEvent();
@@ -450,6 +447,10 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   jint GetParentIdForTesting(JNIEnv* env, int32_t unique_id);
 
   base::android::ScopedJavaLocalRef<jintArray> GetLabeledByNodeIdsForTesting(
+      JNIEnv* env,
+      int32_t unique_id);
+
+  base::android::ScopedJavaLocalRef<jintArray> GetExtendedSelection(
       JNIEnv* env,
       int32_t unique_id);
 
@@ -556,10 +557,6 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
       const std::optional<
           absl::flat_hash_map<std::string, AXStyleData::RangePairs>>& attrs,
       int* ranges_count);
-
-  // A weak reference to the Java WebContentsAccessibilityAndroid object.
-  JavaObjectWeakGlobalRef java_ref_;
-  JavaObjectWeakGlobalRef java_anib_ref_;
 
   // A weak reference to the AssistData tree builder which will only be
   // instantiated after a request from the Android framework.

@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
+#include "chrome/browser/ui/tabs/tab_close_types_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -31,7 +32,7 @@
 namespace chrome {
 
 content::WebContents* AddAndReturnTabAt(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const GURL& url,
     int idx,
     bool foreground,
@@ -41,8 +42,10 @@ content::WebContents* AddAndReturnTabAt(
   // WebContents, but we want to include the time it takes to create the
   // WebContents object too.
   base::TimeTicks new_tab_start_time = base::TimeTicks::Now();
-  NavigateParams params(browser, url.is_empty() ? browser->GetNewTabURL() : url,
-                        ui::PAGE_TRANSITION_TYPED);
+  const GURL resolved_url =
+      url.is_empty() ? browser->GetBrowserForMigrationOnly()->GetNewTabURL()
+                     : url;
+  NavigateParams params(browser, resolved_url, ui::PAGE_TRANSITION_TYPED);
   params.disposition = foreground ? WindowOpenDisposition::NEW_FOREGROUND_TAB
                                   : WindowOpenDisposition::NEW_BACKGROUND_TAB;
   params.tabstrip_index = idx;
@@ -64,7 +67,7 @@ content::WebContents* AddAndReturnTabAt(
   return params.navigated_or_inserted_contents;
 }
 
-void AddTabAt(Browser* browser,
+void AddTabAt(BrowserWindowInterface* browser,
               const GURL& url,
               int idx,
               bool foreground,
@@ -85,7 +88,7 @@ content::WebContents* AddSelectedTabWithURL(Browser* browser,
 }
 
 content::WebContents* AddWebContents(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     content::WebContents* source_contents,
     std::unique_ptr<content::WebContents> new_contents,
     const GURL& target_url,
@@ -162,9 +165,17 @@ void CloseWebContents(Browser* browser,
     return;
   }
 
-  browser->tab_strip_model()->CloseWebContentsAt(
-      index, add_to_history ? TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB
-                            : TabCloseTypes::CLOSE_NONE);
+  uint32_t close_types = TabCloseTypes::CLOSE_NONE;
+  if (auto* data = TabCloseTypesData::FromWebContents(contents)) {
+    close_types = data->close_types();
+    contents->RemoveUserData(TabCloseTypesData::UserDataKey());
+  }
+
+  if (add_to_history) {
+    close_types |= TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB;
+  }
+
+  browser->tab_strip_model()->CloseWebContentsAt(index, close_types);
 }
 
 void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {

@@ -573,8 +573,8 @@
   E(kActionSidePanelShowSearchCompanion, IDC_SHOW_SEARCH_COMPANION) \
   E(kActionSidePanelShowShoppingInsights) \
   E(kActionSidePanelShowSideSearch) \
-  E(kActionSidePanelShowUserNote) \
-  E(kActionSidePanelShowMerchantTrust)
+  E(kActionSidePanelShowMerchantTrust) \
+  E(kActionSidePanelShowTabsFromOtherDevices)
 
 #define TOOLBAR_PINNABLE_ACTION_IDS \
   E(kActionHome, IDC_HOME) \
@@ -604,6 +604,9 @@
   E(kActionTabGroupsMenu, IDC_SAVED_TAB_GROUPS_MENU) \
   E(kActionTabSearch, IDC_TAB_SEARCH) \
   E(kActionSplitTab, IDC_SPLIT_TAB) \
+  E(kActionFederation) \
+  E(kActionGlicContextualCueing) \
+  E(kActionShowAiOverlayDialog) \
 
 #define CHROME_ACTION_IDS \
     CHROME_COMMON_ACTION_IDS \

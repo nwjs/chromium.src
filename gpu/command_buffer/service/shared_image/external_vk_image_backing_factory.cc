@@ -4,7 +4,10 @@
 
 #include "gpu/command_buffer/service/shared_image/external_vk_image_backing_factory.h"
 
+#include "base/check.h"
 #include "base/feature_list.h"
+#include "base/logging.h"
+#include "base/notreached.h"
 #include "build/build_config.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "components/viz/common/resources/shared_image_format.h"
@@ -321,6 +324,18 @@ bool ExternalVkImageBackingFactory::IsSupported(
   }
 #endif
   return true;
+}
+
+bool ExternalVkImageBackingFactory::IsSupportedForAccessStream(
+    SharedImageAccessStream stream,
+    viz::SharedImageFormat format,
+    const AccessParams* params) const {
+  AccessParams access_params = params ? *params : AccessParams();
+  if (!access_params.context_state) {
+    access_params.context_state = context_state_;
+  }
+  return ExternalVkImageBacking::CheckSupportForAccessStream(stream, format,
+                                                             access_params);
 }
 
 SharedImageBackingType ExternalVkImageBackingFactory::GetBackingType() {

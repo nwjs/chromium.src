@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -26,12 +27,17 @@
 namespace media {
 
 class CatapApi;
+class CatapIoProcProxy;
+
 class PropertyListenerHelper;
 
 // Captures audio loopback using the CoreAudio API for macOS 14.2
 // and later. Used in a `CatapAudioInputStream` to provide the audio stream.
 // The current implementation supports mono and stereo capture.
 class MEDIA_EXPORT API_AVAILABLE(macos(14.2)) CatapAudioInputStreamSource {
+  // TODO(b/495779613): Remove once the underlying UaF issue is fixed.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   // Interface for listening to audio property changes. It's safe to call delete
   // on the `CatapAudioInputStreamSource` in the callbacks.
@@ -234,6 +240,13 @@ class MEDIA_EXPORT API_AVAILABLE(macos(14.2)) CatapAudioInputStreamSource {
       kAudioObjectUnknown;
   CATapDescription* __strong tap_description_
       GUARDED_BY_CONTEXT(sequence_checker_) = nil;
+  // Tracks if the synchronous fences failed during teardown.
+  bool stop_failed_ = false;
+
+  // The proxy passed to CoreAudio.
+  std::unique_ptr<CatapIoProcProxy> io_proc_proxy_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
   bool is_device_open_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
 
   SEQUENCE_CHECKER(sequence_checker_);

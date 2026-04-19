@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/to_vector.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -25,22 +26,29 @@
 
 namespace update_client {
 
-class UnpackerTest : public testing::Test {
+class UnpackerTest : public ::testing::TestWithParam<bool> {
+ public:
+  bool IsForeground() const { return GetParam(); }
+
  private:
   base::test::TaskEnvironment env_;
 };
 
-TEST_F(UnpackerTest, UnpackFullCrx) {
+INSTANTIATE_TEST_SUITE_P(ForegroundAndBackground,
+                         UnpackerTest,
+                         ::testing::Bool());
+
+TEST_P(UnpackerTest, UnpackFullCrx) {
   SEQUENCE_CHECKER(sequence_checker);
   base::RunLoop loop;
   Unpacker::Unpack(
       "jebgalgnebhfojomionfpkfelancnnkf", "UnpackerTest",
-      std::vector<uint8_t>(std::begin(jebg_hash), std::end(jebg_hash)),
+      base::ToVector(jebg_hash),
       GetTestFilePath("jebgalgnebhfojomionfpkfelancnnkf.crx"),
       base::MakeRefCounted<update_client::UnzipChromiumFactory>(
           base::BindRepeating(&unzip::LaunchInProcessUnzipper))
           ->Create(),
-      crx_file::VerifierFormat::CRX3,
+      crx_file::VerifierFormat::CRX3, IsForeground(),
       base::BindLambdaForTesting([&](const Unpacker::Result& result) {
         DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker);
         EXPECT_EQ(result.error, UnpackerError::kNone);
@@ -65,14 +73,13 @@ TEST_F(UnpackerTest, UnpackFullCrx) {
   loop.Run();
 }
 
-TEST_F(UnpackerTest, UnpackFileNotFound) {
+TEST_P(UnpackerTest, UnpackFileNotFound) {
   SEQUENCE_CHECKER(sequence_checker);
   base::RunLoop loop;
   Unpacker::Unpack(
       "jebgalgnebhfojomionfpkfelancnnkf", "UnpackerTest",
-      std::vector<uint8_t>(std::begin(jebg_hash), std::end(jebg_hash)),
-      GetTestFilePath("file_not_found.crx"), nullptr,
-      crx_file::VerifierFormat::CRX3,
+      base::ToVector(jebg_hash), GetTestFilePath("file_not_found.crx"), nullptr,
+      crx_file::VerifierFormat::CRX3, IsForeground(),
       base::BindLambdaForTesting([&](const Unpacker::Result& result) {
         DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker);
         EXPECT_EQ(result.error, UnpackerError::kInvalidFile);
@@ -87,14 +94,14 @@ TEST_F(UnpackerTest, UnpackFileNotFound) {
 }
 
 // Tests a mismatch between the public key hash and the id of the component.
-TEST_F(UnpackerTest, UnpackFileHashMismatch) {
+TEST_P(UnpackerTest, UnpackFileHashMismatch) {
   SEQUENCE_CHECKER(sequence_checker);
   base::RunLoop loop;
   Unpacker::Unpack(
       "jebgalgnebhfojomionfpkfelancnnkf", "UnpackerTest",
-      std::vector<uint8_t>(std::begin(abag_hash), std::end(abag_hash)),
+      base::ToVector(abag_hash),
       GetTestFilePath("jebgalgnebhfojomionfpkfelancnnkf.crx"), nullptr,
-      crx_file::VerifierFormat::CRX3,
+      crx_file::VerifierFormat::CRX3, IsForeground(),
       base::BindLambdaForTesting([&](const Unpacker::Result& result) {
         DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker);
         EXPECT_EQ(result.error, UnpackerError::kInvalidFile);
@@ -108,7 +115,7 @@ TEST_F(UnpackerTest, UnpackFileHashMismatch) {
   loop.Run();
 }
 
-TEST_F(UnpackerTest, UnpackWithVerifiedContents) {
+TEST_P(UnpackerTest, UnpackWithVerifiedContents) {
   SEQUENCE_CHECKER(sequence_checker);
   base::RunLoop loop;
   Unpacker::Unpack(
@@ -118,7 +125,7 @@ TEST_F(UnpackerTest, UnpackWithVerifiedContents) {
       base::MakeRefCounted<update_client::UnzipChromiumFactory>(
           base::BindRepeating(&unzip::LaunchInProcessUnzipper))
           ->Create(),
-      crx_file::VerifierFormat::CRX3,
+      crx_file::VerifierFormat::CRX3, IsForeground(),
       base::BindLambdaForTesting([&](const Unpacker::Result& result) {
         DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker);
         EXPECT_EQ(result.error, UnpackerError::kNone);

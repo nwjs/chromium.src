@@ -8,6 +8,7 @@
 <translation id="1017556409696559990">Minimizēt augšējo logu, ja pārlūkprogrammā Chrome nav izmaiņu vēstures</translation>
 <translation id="101823271612280837">Ierakstīšana ir apturēta. Spēļu informācijas paneli nevar izmantot planšetdatora režīmā.</translation>
 <translation id="1024364763893396229">Ierīces (<ph name="NAME" />) saglabāšana</translation>
+<translation id="103279545524624934">Atbrīvojiet vietu diskā, lai varētu palaist Android lietotnes.</translation>
 <translation id="1032891413405719768">Skārienekrāna pildspalvas akumulatora līmenis ir zems</translation>
 <translation id="1036348656032585052">Izslēgt</translation>
 <translation id="1037492556044956303">Ierīce <ph name="DEVICE_NAME" /> ir pievienota</translation>
@@ -20,6 +21,11 @@
 <translation id="1059120031266247284">Ar jums kopīgots fails</translation>
 <translation id="1060847216467038176"><ph name="ITEM_LABEL" /> ar noņemšanas pogu</translation>
 <translation id="1062407476771304334">Aizstāt</translation>
+<translation id="1065931689816135472"><ph name="BEGIN_PARAGRAPH1" />Dublējiet datus Google diskā. Varēsiet jebkurā laikā ērti atjaunot datus vai mainīt ierīci. Dublējumā ir ietverti arī lietotņu dati.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Jūsu dublējumi tiek augšupielādēti Google serveros un šifrēti, izmantojot Google konta paroli.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Lietotņu dati var būt jebkādi lietotņu saglabātie dati (atkarībā no izstrādātāja iestatījumiem), tostarp kontaktpersonas, ziņojumi un fotoattēli.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Dublētie dati netiks ieskaitīti jūsu Diska krātuves kvotā.<ph name="END_PARAGRAPH4" />
+        <ph name="BEGIN_PARAGRAPH5" />Šo pakalpojumu varat izslēgt sadaļā Iestatījumi.<ph name="END_PARAGRAPH5" /></translation>
 <translation id="1073899992769346247">Nomainiet vai atkārtoti uzlādējiet akumulatoru.</translation>
 <translation id="1081015718268701546">Linux lietotnes pašlaik netiek atbalstītas. Citas lietotnes tiks saglabātas.</translation>
 <translation id="108486256082349153">Mobilais tālrunis: <ph name="ADDRESS" /></translation>
@@ -35,6 +41,7 @@
 <translation id="1129383337808748948">Atsvaidziniet saturu: <ph name="CONTENT_TITLE" /></translation>
 <translation id="1142002900084379065">Jaunākie fotoattēli</translation>
 <translation id="114221662579355151">Atļauj piekļuvi kamerai lietotnei <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> un visām lietotnēm un vietnēm, kurām ir kameras atļauja. Iespējams, jums būs jāatsvaidzina tīmekļa lapa vai jārestartē lietotne.</translation>
+<translation id="1147991416141538220">Lai pieprasītu piekļuvi, sazinieties ar šīs ierīces administratoru.</translation>
 <translation id="1148499908455722006">Atvērt lietotāja <ph name="USER_NAME" /> informācijas dialoglodziņu</translation>
 <translation id="1150989369772528668">Kalendārs</translation>
 <translation id="1153356358378277386">Pārī savienotās ierīces</translation>
@@ -50,9 +57,10 @@
 <translation id="1175944128323889279">Pašreizējais akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" />%, atlikušais laiks: <ph name="TIME" /></translation>
 <translation id="1178581264944972037">Pauzēt</translation>
 <translation id="1179776263021875437">Pārtraukt fokusa režīma lietošanu uzdevumam</translation>
+<translation id="1180117276105724040">Notiek logu atjaunošana no iepriekšējās sesijas…</translation>
 <translation id="1181037720776840403">Noņemt</translation>
 <translation id="1182225749592316782">Tādējādi piekļuve tiek atļauta visām lietotnēm un vietnēm, kurām ir kameras un mikrofona atļauja.</translation>
-<translation id="1182876754474670069">sākumlapa</translation>
+<translation id="1183237619868651138">Failu “<ph name="EXTERNAL_CRX_FILE" />” nevar instalēt lokālajā kešatmiņā.</translation>
 <translation id="1183863904939664422">Neinteresē šis ieteikums</translation>
 <translation id="1184126796192815024">Šajā tīklā netiek atbalstīta lietotņu straumēšana no jūsu tālruņa. Mēģiniet izmantot tālruņa tīklāju. <ph name="LEARN_MORE" /></translation>
 <translation id="118437560755358292">Papildu drošībai ievadiet paroli vai PIN</translation>
@@ -63,6 +71,7 @@
 <translation id="119944043368869598">Notīrīt visu</translation>
 <translation id="1199716647557067911">Vai tiešām vēlaties izslēgt slēdžu piekļuvi?</translation>
 <translation id="1201402288615127009">Tālāk</translation>
+<translation id="1202596434010270079">Kioska lietotne ir atjaunināta. Lūdzu, izņemiet USB atmiņas karti.</translation>
 <translation id="1210557957257435379">ekrāna ierakstīšana</translation>
 <translation id="121097972571826261">Pāriet uz priekšu pa vārdam</translation>
 <translation id="1218444235442067213"><ph name="APP_NAME" />, lietotne Play veikals</translation>
@@ -112,6 +121,7 @@
 <translation id="1340378040547539434">Tālināt saturu lapā</translation>
 <translation id="1341651618736211726">Pārpilde</translation>
 <translation id="1341926407152459446">Varat izmantot ierīci <ph name="DEVICE_NAME" /> audio ieejai un izvadei.</translation>
+<translation id="1346403631707626730">Lietojuma un diagnostikas datu sūtīšana. Palīdziet uzlabot bērna Android lietošanas pieredzi, automātiski nosūtot diagnostikas, ierīces un lietotņu lietojuma datus uzņēmumam Google. Šī informācija netiks izmantota jūsu bērna identificēšanai, un tā palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Ja jūsu bērnam ir ieslēgts papildu iestatījums “Darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. <ph name="BEGIN_LINK1" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="1346748346194534595">Pa labi</translation>
 <translation id="1350494136075914725">Pašlaik notiek · Pārslēgties uz cilni</translation>
 <translation id="1351937230027495976">Sakļaut izvēlni</translation>
@@ -132,6 +142,7 @@
 <translation id="1414271762428216854"><ph name="APP_NAME" />, instalēta lietotne</translation>
 <translation id="1414919006379339073">Aizvērt pašreizējo logu</translation>
 <translation id="1415846719612499304">Rādīt tīklu sarakstu. <ph name="STATE_TEXT" />.</translation>
+<translation id="1418559532423038045">Virtuālā mašīna <ph name="VM_NAME" /> tiks noņemta no šīs ierīces: <ph name="DEVICE_TYPE" />. Tādējādi tiks dzēstas visas lietotnes un dati virtuālajā mašīnā.</translation>
 <translation id="1419738280318246476">Atbloķējiet ierīci, lai veiktu paziņojuma darbību</translation>
 <translation id="1420408895951708260">Pārslēgt nakts režīmu. <ph name="STATE_TEXT" /></translation>
 <translation id="1421166164855200062">Ieteiktā grupa</translation>
@@ -160,6 +171,7 @@
 <translation id="1501946871587957338">Vai mainīt audio avotu?</translation>
 <translation id="1505542291183484463">Loga izmēra mainīšana mozaīkas skatā — uz leju</translation>
 <translation id="1510238584712386396">Lietojumprogrammu palaidējs</translation>
+<translation id="1519090060276706457">Logu atjaunošana aizņem ilgāku laiku, nekā paredzēts</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Rādīt paziņojumu iestatījumus. Paziņojumi lietotnei ir izslēgti}zero{Rādīt paziņojumu iestatījumus. Paziņojumi ir izslēgti # lietotnēm}one{Rādīt paziņojumu iestatījumus. Paziņojumi ir izslēgti # lietotnei}other{Rādīt paziņojumu iestatījumus. Paziņojumi ir izslēgti # lietotnēm}}</translation>
 <translation id="1521655867290435174">Google izklājlapas</translation>
 <translation id="1523032696246003">Akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" />% | <ph name="TIME" /> līdz pilnai uzlādei</translation>
@@ -178,6 +190,7 @@
 <translation id="1555130319947370107">Zila</translation>
 <translation id="1557622599341396706">Rādīt darbvietas nosaukumu</translation>
 <translation id="1569384531973824928">Tādējādi piekļuve tiek atļauta visām lietotnēm un vietnēm, kurām ir kameras un mikrofona atļauja. Iespējams, jums būs jāatsvaidzina tīmekļa lapa vai jārestartē lietotne.</translation>
+<translation id="1570235441606255261">Steam instalēšanas programma</translation>
 <translation id="1571697193564730395">Pārslēgt režīmu “Netraucēt”. <ph name="STATE_TEXT" /></translation>
 <translation id="1574691582236909946">Atlasīts turis kreisajā malā; izmantojiet bulttaustiņus, lai pārvietotu</translation>
 <translation id="1576623706766186887">Tālināt, kad ieslēgta lupa</translation>
@@ -192,12 +205,14 @@
 <translation id="1610778689852195798">“Undo” (Atsaukt)</translation>
 <translation id="1611993646327628135">Ieslēgts</translation>
 <translation id="1612679292338846734">Kad ieslēdzat šīs funkcijas, ievadītais teksts, dokumenta saturs un tīmekļa lapas URL var tikt nosūtīts uz Google MI serveriem. Šī informācija tiek izmantota, lai ģenerētu rakstīšanas ieteikumus, ģenerētu apkopojumus, atbildētu uz jautājumiem un uzlabotu produktu, ievērojot <ph name="LINK_TO_SERVICE_TERMS" />. Neiekļaujiet nekādu personas, sensitīvu vai konfidenciālu informāciju.</translation>
+<translation id="1619879934359211038">Nevar izveidot savienojumu ar Google Play. Pārbaudiet tīkla savienojumu un mēģiniet vēlreiz. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="1623768535032616219">Sakļaut pakalpojumu Google Classroom</translation>
 <translation id="163032029566320584">Funkcija <ph name="UNAVAILABLE_DLC" /> nav pieejama.</translation>
 <translation id="1632985212731562677">Slēdžu piekļuvi var atspējot sadaļā Iestatījumi &gt; Pieejamība.</translation>
 <translation id="1637505162081889933"><ph name="NUM_DEVICES" /> ierīces</translation>
 <translation id="1639239467298939599">Notiek ielāde</translation>
+<translation id="1642895994345928121">Ierīces krātuvē nepietiek vietas, lai atvērtu šo lietotni. Atbrīvojiet vietu un mēģiniet vēlreiz.</translation>
 <translation id="1647986356840967552">Iepriekšējā lapa</translation>
 <translation id="1651914502370159744">Atvērt lapu Vēsture</translation>
 <translation id="1668469839109562275">Iebūvēts VPN</translation>
@@ -219,8 +234,10 @@
 <translation id="1719094688023114093">Subtitri reāllaikā ir ieslēgti.</translation>
 <translation id="1720011244392820496">Wi-Fi sinhronizācijas ieslēgšana</translation>
 <translation id="1720230731642245863">Tīklājs ir izslēgts</translation>
+<translation id="1730917990259790240"><ph name="BEGIN_PARAGRAPH1" />Lai noņemtu lietotnes, pārejiet uz sadaļu Iestatījumi &gt; Google Play veikals &gt; Pārvaldīt Android preferences &gt; Lietotnes vai Lietojumprogrammu pārvaldnieks. Pēc tam pieskarieties lietotnei, kuru vēlaties atinstalēt (iespējams, būs jāvelk pa labi vai pa kreisi, lai atrastu lietotni). Pēc tam pieskarieties vienumam Atinstalēt vai Atspējot.<ph name="END_PARAGRAPH1" /></translation>
 <translation id="1731815243805539470">Pāriet uz iepriekšējo lietotāju</translation>
 <translation id="1733996486177697563">Pārslēdzieties starp tumšo un gaišo motīvu. Pieskarieties un turiet darbvirsmā, pēc tam atlasiet “Fona tapete un stils”.</translation>
+<translation id="1734230530703461088">Neizdevās ielādēt paplašinājumus noteiktajā laika ierobežojumā. Lūdzu, sazinieties ar administratoru.</translation>
 <translation id="1735992454301033090">Atlasīts apgabals; izmantojiet bulttaustiņus, lai pārvietotu</translation>
 <translation id="1736898441010944794">Bluetooth ierīces var uztvert šo ierīci: <ph name="NAME" />.</translation>
 <translation id="1737078180382804488">Nerādīt iespēju iestatīt tālruņa paziņojumu skatīšanu</translation>
@@ -249,6 +266,7 @@
 <translation id="1786487376942610288">Pārslēgt funkcijas “Attēls attēlā” loga izmēru starp maksimālo un pašreizējo</translation>
 <translation id="1787955149152357925">Izslēgts</translation>
 <translation id="1796561540704213354">Tīmekļa vietnes, tostarp iepriekš apmeklētās un pašlaik atvērtās lapas</translation>
+<translation id="1799852120691957794">Nevar atjaunot logus no iepriekšējās sesijas</translation>
 <translation id="1805407494113167797">Nevarēja atskaņot funkcijas Fokuss skaņas.</translation>
 <translation id="181103072419391116">Signāla stiprums: <ph name="SIGNAL_STRENGTH" />, pārvalda jūsu administrators</translation>
 <translation id="1815039896005206046">Noklikšķinot uz ikonas “Nepatīk”, varat norādīt, ka jums nepatīk šī ieteiktā grupa.</translation>
@@ -271,6 +289,7 @@
 <translation id="1882814835921407042">Nav mobilā tīkla</translation>
 <translation id="1882897271359938046">Spoguļo šeit: <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Atbloķēšana ar pirksta nospiedumu</translation>
+<translation id="1891362123137972260">Diskā gandrīz nav vietas. Lūdzu, atbrīvojiet vietu diskā.</translation>
 <translation id="1894024878080591367">Varat to iestatīt spēlēšanai ar tastatūru</translation>
 <translation id="1896383923047738322">Tastatūras pielāgošana</translation>
 <translation id="1904997243703671177">Izslēdzot Bluetooth, no jūsu ierīces (<ph name="DEVICE_TYPE" />) tiks atvienotas vairākas ārējās ierīces (<ph name="DEVICE_COUNT" />), tostarp:</translation>
@@ -303,11 +322,13 @@
 <translation id="1996162290124031907">Pāriet uz nākamo cilni</translation>
 <translation id="1998100899771863792">Pašreizējā darbvieta</translation>
 <translation id="2001444736072756133">Meklējiet <ph name="CATEGORY" />, failus, lietotnes un citu saturu.</translation>
+<translation id="2011174342667534258">SDK versija:</translation>
 <translation id="2017998995161831444">Atvērt sadaļu “Palīdzība” lietotnē Izpēte</translation>
 <translation id="2021864487439853900">Noklikšķiniet, lai atbloķētu</translation>
 <translation id="2034971124472263449">Tik un tā saglabāt</translation>
 <translation id="2041220428661959602">Akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Īsinājumtaustiņi “<ph name="SIX_PACK_KEY_NAME" />” pašlaik ir izslēgti.</translation>
+<translation id="2048653237708779538">Darbība nav pieejama</translation>
 <translation id="2049240716062114887">Darbvietas nosaukums tika mainīts uz “<ph name="DESK_NAME" />”.</translation>
 <translation id="2064048859448024834">Kameras priekšskatījums tiek rādīts</translation>
 <translation id="2065098273523946419">Saite “Uzzināt vairāk”. Aktivizējot novirza uz pārlūku.</translation>
@@ -317,11 +338,13 @@
 <translation id="2079545284768500474">Atsaukt</translation>
 <translation id="2086334242442703436">Atvērt emocijzīmju atlasītāju</translation>
 <translation id="2088116547584365419">spēles</translation>
+<translation id="2089550919269323883">Virtuālās mašīnas <ph name="VM_NAME" /> instalēšana tika bloķēta saskaņā ar uzņēmuma politiku. Lai saņemtu atbalstu, lūdzu, sazinieties ar sistēmas administratoru. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="2093792000875799555">Jaunumi saistībā ar Steam Chromebook datoriem</translation>
 <translation id="209965399369889474">Nav savienojuma ar tīklu</translation>
 <translation id="2107581415810719320">Cita poga <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Jūsu USB-C vads neatbalsta Thunderbolt. Ierīces veiktspēja var būt ierobežota.</translation>
 <translation id="2108303511227308752">Šie īsinājumtaustiņi ir mainījušies: Alt + atkāpšanās taustiņš. Lai izmantotu dzēšanas taustiņu, nospiediet šos taustiņus: <ph name="LAUNCHER_KEY_NAME" /> + atkāpšanās taustiņš.</translation>
+<translation id="2114145607116268663">Nevar instalēt. Nepieciešama atkārtota palaišana. Lūdzu, restartējiet datoru un mēģiniet vēlreiz. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="2115680839221566783">Akumulatora uzlādes līmenis ir <ph name="PERCENTAGE" />%. Uzlāde ir apturēta.</translation>
 <translation id="2126242104232412123">Jauna darbvieta</translation>
 <translation id="2132302418721800944">Ierakstīt visu ekrānu</translation>
@@ -347,7 +370,9 @@
 <translation id="2224075387478458881">Ja ekrānā ir redzams aizsargāts saturs, ekrāna ierakstīšana ir liegta.</translation>
 <translation id="2227179592712503583">Noņemt ieteikumu</translation>
 <translation id="2248634276911611268">Atvērt saiti jaunā cilnē un pāriet uz jauno cilni</translation>
+<translation id="2251809247798634662">Jauns inkognito režīma logs</translation>
 <translation id="2253808149208613283">Instalējiet lietotni, lai pielāgotu šo ierīci.</translation>
+<translation id="225614027745146050">Laipni lūdzam!</translation>
 <translation id="225680501294068881">Notiek ierīču meklēšana...</translation>
 <translation id="2257486738914982088">Lejupielādējot failu “<ph name="FILENAME" />”, radās kļūda.</translation>
 <translation id="2258734398699965611">Ieteiktie faili</translation>
@@ -368,17 +393,21 @@
 <translation id="2305738328104302723">Google uzdevumu saraksts: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="2315005022200073389"><ph name="HOLDING_SPACE_TITLE" />: nesen izveidoti ekrānuzņēmumi, lejupielādes un piespraustie faili</translation>
 <translation id="2318576281648121272">Šodien, <ph name="TODAY_DATE" /></translation>
+<translation id="2318817390901984578">Lai izmantotu Android lietotnes, uzlādējiet un atjauniniet savu ierīci (<ph name="DEVICE_TYPE" />).</translation>
 <translation id="2322065293366551060"><ph name="CATEGORY" />, meklēšanas rezultātu kategorija</translation>
 <translation id="2322173485024759474">Pāriet atpakaļ pa burtam</translation>
 <translation id="2326112202058075478">Rādīt citas emocijzīmes</translation>
 <translation id="2335091074961603075">Jūsu Chromebook datorā vai Bluetooth ierīcē tiek izmantota vecāka Bluetooth versija. Labākai audio kvalitātei izmantojiet iekšējo mikrofonu.</translation>
 <translation id="2339073806695260576">Pieskarieties skārienekrāna pildspalvas pogai plauktā, lai veiktu piezīmes, uzņemtu ekrānuzņēmumus, izmantotu lāzera rādītāju vai lupu.</translation>
 <translation id="2341729377289034582">Bloķēts vertikāli</translation>
+<translation id="2344032937402519675">Nevarēja izveidot savienojumu ar serveri. Pārbaudiet tīkla savienojumu un mēģiniet vēlreiz. Ja problēma nav novērsta, restartējiet Chromebook datoru.</translation>
 <translation id="2345226652884463045">Vienlaikus nospiediet taustiņu Enter vai meklēšanas taustiņu un atstarpes taustiņu, lai atlasītu rediģējamo tekstu.</translation>
 <translation id="2349785431103945039">Tīklāja informācijas rādīšana. Lai izmantotu tīklāju, izveidojiet savienojumu ar mobilo tīklu.</translation>
+<translation id="2350182423316644347">Notiek lietojumprogrammas inicializēšana...</translation>
 <translation id="2350794187831162545">Runa (šādā valodā: <ph name="LANGUAGE" />) tiek apstrādāta lokāli un darbojas bezsaistē. Varat mainīt savu diktēšanas valodu sadaļā Iestatījumi &gt; Pieejamība.</translation>
 <translation id="2352467521400612932">Skārienekrāna pildspalvas iestatījumi</translation>
 <translation id="2354174487190027830">Notiek <ph name="NAME" /> aktivizēšana.</translation>
+<translation id="2355314311311231464">Nodrošināšana neizdevās, jo nevarēja izgūt jūsu konta datus. Lūdzu, mēģiniet vēlreiz. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="2359808026110333948">Turpināt</translation>
 <translation id="2360398059912971776">akumulators</translation>
 <translation id="2361210043495191221">Pārslēgt Wi-Fi savienojumu. <ph name="STATE" />.</translation>
@@ -392,6 +421,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2383521554963939360">Lietotņu un ciļņu grupas</translation>
 <translation id="2386292613071805067">Atlasīt visu saturu lapā</translation>
 <translation id="2389423187722941333">Pārslēgt Gemini</translation>
+<translation id="2391805183137601570">Atvērt lietotni Steam</translation>
 <translation id="2392659840443812875">Nav pieejams neviens tīklājs. Jūsu ierīcei ir jāatrodas tuvumā, un tajā ir jābūt ieslēgtam Bluetooth savienojumam.</translation>
 <translation id="2397416548179033562">Rādīt Chrome izvēlni</translation>
 <translation id="240006516586367791">Multivides vadīklas</translation>
@@ -400,6 +430,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="240545663114741956">Lai izrakstītos, divreiz nospiediet īsinājumtaustiņu <ph name="ACCELERATOR" />.</translation>
 <translation id="2405664212338326887">Nav savienojuma</translation>
 <translation id="2406710117564540804">Ieslēgt/izslēgt režīmu “Netraucēt”</translation>
+<translation id="240789602312469910">Lietojuma un diagnostikas datu sūtīšana. Palīdziet uzlabot bērna Android lietošanas pieredzi, automātiski nosūtot diagnostikas, ierīces un lietotņu lietojuma datus uzņēmumam Google. Šī informācija netiks izmantota jūsu bērna identificēšanai, un tā palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Šo <ph name="BEGIN_LINK1" />iestatījumu<ph name="END_LINK1" /> ir noteicis īpašnieks. Īpašnieks var izvēlēties nosūtīt šīs ierīces diagnostikas un lietojuma datus Google serveriem. Ja jūsu bērnam ir ieslēgts papildu iestatījums “Darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="2408955596600435184">Ievadiet PIN kodu</translation>
 <translation id="2412593942846481727">Ir pieejams atjauninājums</translation>
 <translation id="2416438829169535743">Vai iziet no skata?</translation>
@@ -413,12 +444,14 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="243878895369688216">Atvērts vakar</translation>
 <translation id="2440978926514840421">Tika ierakstīts GIF attēls</translation>
 <translation id="2441427462554639370">Ierakstīšana tika pārtraukta, jo krātuvē ir ļoti maz brīvas vietas.</translation>
+<translation id="2447587550790814052">Tagad varat izmantot Steam for Chromebook (Beta)</translation>
 <translation id="2449089818483227734">Zems akumulatora uzlādes līmenis</translation>
 <translation id="2450205753526923158">Ekrānuzņēmumu režīms</translation>
 <translation id="2453860139492968684">Pabeigt</translation>
 <translation id="2455994958736234930">Adreses joslā ievadīt elementus www. un .com un atvērt vietni</translation>
 <translation id="2456008742792828469">Kalendārs, <ph name="CURRENT_MONTH_YEAR" /></translation>
 <translation id="246052086404491029">Lejupizpētīt</translation>
+<translation id="2462332841984057083">Lietotne Steam jau tiek iestatīta. Uzgaidiet, līdz iestatīšana ir pabeigta.</translation>
 <translation id="2465145153332031561">Akumulatora stāvoklis: <ph name="BATTERY_HEALTH_PERCENTAGE" />%, ciklu skaits: <ph name="CYCLE_COUNT" /></translation>
 <translation id="2473177541599297363">Apstipriniet izšķirtspēju</translation>
 <translation id="2475783092753560388">Ievietot rezultātu <ph name="SEARCH_RESULT_TEXT" /></translation>
@@ -430,6 +463,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2486214324139475545">Darbvietas <ph name="DESK_NAME" /> priekšskatījums. Aktīva darbvieta.</translation>
 <translation id="2486405091093637109">Displeja “<ph name="DISPLAY_NAME" />” izšķirtspēja tika mainīta uz <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Ja neapstiprināsiet, iestatījumi tiks atjaunoti pēc šāda laika: <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Pievienoties</translation>
+<translation id="2494555621641843783">Nevar instalēt lietotni Steam</translation>
 <translation id="2496180316473517155">Pārlūkošanas vēsture</translation>
 <translation id="2499445554382787206">Darbvietas profila izvēlne. <ph name="DESK_NAME" /></translation>
 <translation id="2501920221385095727">Taustiņu ķēde</translation>
@@ -449,6 +483,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2531025035050312891">lēna ierīces darbība</translation>
 <translation id="2531107890083353124">Velkot cilni, nospiediet <ph name="KEY_ONE" /></translation>
 <translation id="2532199152994248594">Velciet vai nospiediet atstarpes taustiņu, lai atlasītu attēla uzņemšanas apgabalu</translation>
+<translation id="2540651571961486573">Radās kļūda. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="2545334090614121435">Vai mēģināt izmantot taustiņu Home? Izmantojiet</translation>
 <translation id="254900897760075745">Kopēt atlasīto saturu starpliktuvē</translation>
 <translation id="2549711466868162843">Apgaismojuma uzlabošana</translation>
@@ -463,6 +498,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2596078834055697711">Uzņemt loga ekrānuzņēmumu</translation>
 <translation id="2598725286293895280">Neatbalstītas lietotnes darbvietā</translation>
 <translation id="2607678425161541573">Nepieciešama pierakstīšanās tiešsaistē</translation>
+<translation id="2611702650078660078">Radās kļūda</translation>
 <translation id="2612072250312279703">darbību uzraugs</translation>
 <translation id="261210853165551493">Kopēt arī formatējumu</translation>
 <translation id="2612614436418177118">Lietotņu režģī pārvietot lietotnes ikonu</translation>
@@ -482,6 +518,7 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2658778018866295321">Noklikšķiniet un velciet</translation>
 <translation id="2665788051462227163">Šajā ierīcē nav lietotņu <ph name="UNAVAILABLE_APPS_ONE" /> un <ph name="UNAVAILABLE_APPS_TWO" />.</translation>
 <translation id="2670350619068134931">Mazāk animāciju</translation>
+<translation id="2672142220933875349">.crx fails ir bojāts. Neizdevās atvērt pakotni.</translation>
 <translation id="2673968385134502798">Spēles</translation>
 <translation id="2678852583403169292">Funkcijas “Atlasīt, lai izrunātu” izvēlne</translation>
 <translation id="2683887737780133806"><ph name="DAY_OF_WEEK" /> iepriekšējā nedēļā</translation>
@@ -495,12 +532,17 @@ Pievienoto ierīču skaits: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2701576323154693023">Tīklājs ir ieslēgts (Wi-Fi savienojums ir izslēgts)</translation>
 <translation id="2704781753052663061">Pievienoties citiem Wi-Fi tīkliem</translation>
 <translation id="2705001408393684014">Pārslēgt mikrofonu. <ph name="STATE_TEXT" /></translation>
+<translation id="2706304388244371417">Datu dublēšana Google diskā. Varēsiet jebkurā laikā ērti atjaunot datus vai mainīt ierīci. Dublējumā ir ietverti arī lietotņu dati. Dublējumi tiek augšupielādēti Google serveros un tiek šifrēti, izmantojot jūsu bērna Google konta paroli. <ph name="BEGIN_LINK1" />Uzzināt vairāk par dublēšanu<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="2706462751667573066">Augšup</translation>
+<translation id="2710101514844343743">Lietojuma un diagnostikas dati</translation>
 <translation id="2710984741481549981">Bloķēt logus</translation>
+<translation id="2714393097308983682">Google Play veikals</translation>
 <translation id="2718395828230677721">Nakts režīms</translation>
 <translation id="2726420622004325180">Jūsu tālrunī ir jābūt aktivizētiem mobilajiem datiem, lai iespējotu tīklāju.</translation>
 <translation id="2727175239389218057">Atbildēt</translation>
+<translation id="2727744317940422214">Diemžēl radās problēma. Lūdzu, iesniedziet atsauksmi, aprakstā norādot atsauci #bruschetta. Kļūdas kods ir <ph name="ERROR" />. Tīrīšana neizdevās. Iespējams, jums tas būs jādara manuāli.</translation>
 <translation id="2727977024730340865">Pievienots lādētājs ar mazu strāvas padevi. Akumulatora uzlāde var nebūt uzticama.</translation>
+<translation id="2737538893171115082">Jūsu administrators ir bloķējis lietotni Steam for Chromebook (Beta). Administratoram ir jāieslēdz šīs politikas:</translation>
 <translation id="2743301740238894839">Sākt</translation>
 <translation id="2743387203779672305">Kopēt starpliktuvē</translation>
 <translation id="2749082172777216925"><ph name="APP_NAME_INFO" />, <ph name="PRICE" /></translation>
@@ -523,6 +565,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="2802938996245446490"><ph name="BUTTON_LABEL" /> (atlasīta)</translation>
 <translation id="2804617685448902294"><ph name="TITLE" /> — <ph name="BODY" /></translation>
 <translation id="2805756323405976993">Lietotnes</translation>
+<translation id="2805760958323556153">Politikas ExtensionInstallForcelist vērtība ir nederīga. Lūdzu, sazinieties ar administratoru.</translation>
 <translation id="2814448776515246190">Daļēja ekrāna uzņemšana</translation>
 <translation id="2815594810045873507">Izmēģiniet jaudīgāku vai oriģinālo lādētāju.</translation>
 <translation id="2819276065543622893">Jūs tagad tiksiet izrakstīts.</translation>
@@ -530,6 +573,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="2825619548187458965">Plaukts</translation>
 <translation id="2831035692318564937">Ieslēgts līdz saullēktam</translation>
 <translation id="2834813915651407382">Nesen atvērts</translation>
+<translation id="2838379631617906747">Notiek instalēšana</translation>
 <translation id="2838589015763961627">Lai mainītu lielumu, izejiet no pilnekrāna režīma.</translation>
 <translation id="2840766858109427815">Pāriet uz nākamo lapu</translation>
 <translation id="2841907151129139818">Ieslēgts planšetdatora režīms</translation>
@@ -539,6 +583,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="2848120746144143659">Lai uzņemtu visa ekrāna ekrānuzņēmumu, nospiediet taustiņu Enter</translation>
 <translation id="2849936225196189499">Kritisks</translation>
 <translation id="2850207700020959936">Lietotnes var piekļūt kamerai.</translation>
+<translation id="2852045827873867442">Ir nepieciešams interneta savienojums.</translation>
 <translation id="2860184359326882502">Precīzākā atbilstība</translation>
 <translation id="2865888419503095837">Tīkla informācija</translation>
 <translation id="2869095047958348710">Pagājusī <ph name="DAY_OF_WEEK" /></translation>
@@ -551,8 +596,11 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="2883271196820422439">Atsākt peles taustiņu darbību</translation>
 <translation id="2885950158625301909">Uzzināt vairāk</translation>
 <translation id="2891209721153296020">“Noņemt atlasi”</translation>
+<translation id="2893701697603065178">Pārvaldīta izstrādes vide</translation>
 <translation id="2894949423239620203">Vads var ietekmēt veiktspēju</translation>
 <translation id="2902312830803030883">Citas darbības</translation>
+<translation id="2909506265808101667">Nevarēja izveidot savienojumu ar Google pakalpojumiem. Pārbaudiet tīkla savienojumu un mēģiniet vēlreiz. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
+<translation id="2910718431259223434">Radās kļūda. Lūdzu, mēģiniet vēlreiz vai sazinieties ar ierīces īpašnieku vai administratoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="2914580577416829331">Ekrānuzņēmumi</translation>
 <translation id="2924416280450782352">Nevar parādīt vienumus. Mēģiniet atkārtoti atvērt šo paneli.</translation>
 <translation id="292506373491190801">No pašlaik notiekošā pasākuma</translation>
@@ -575,6 +623,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="2970920913501714344">Instalēt lietotnes, paplašinājumus un motīvus</translation>
 <translation id="2977598380246111477">Nākamais cipars</translation>
 <translation id="2980700224869191055">Emocijzīme <ph name="EMOTICON_NAME" /></translation>
+<translation id="2981033191524548279">Diemžēl radās problēma. Lūdzu, iesniedziet atsauksmi, aprakstā norādot atsauci #bruschetta. Kļūdas kods ir <ph name="ERROR" />. Iespējams, problēmu var novērst, veicot atkārtotu palaišanu un mēģinot vēlreiz.</translation>
 <translation id="2985148236010982088">Skatīt visas lietotnes</translation>
 <translation id="2992272421330787632">Paslēpt visus multivides ieteikumus</translation>
 <translation id="2992327365391326550">Ierīces mikrofona poga ir izslēgta</translation>
@@ -592,6 +641,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3033912566804961911">Apvienot ar darbvietu <ph name="DESK_NAME" /></translation>
 <translation id="3039939407102840004">Skārienekrāna pildspalvas akumulatora uzlādes līmenis: <ph name="PERCENTAGE" /> procenti.</translation>
 <translation id="304097922505898963">Atvērt lietotni Galvenās saīsnes</translation>
+<translation id="3040982432432547149">Palīdziet mums uzlabot lietotni Steam Chromebook datoriem</translation>
 <translation id="304417730895741346">Jūsu piespraustās un atvērtās lietotnes ir pieejamas plauktā. Lai piespraustu kādu lietotni plauktam, noklikšķiniet ar peles labo pogu uz attiecīgās lietotnes vai pieskarieties skārienpaliktnim ar diviem pirkstiem.</translation>
 <translation id="3045670165536837541">Atlasīts turis augšējā labajā stūrī; izmantojiet bulttaustiņus, lai pārvietotu</translation>
 <translation id="3047761520276763270">Mēģiniet teikt:</translation>
@@ -603,12 +653,16 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Izvērst izvēlni</translation>
 <translation id="3087734570205094154">Apakšā</translation>
+<translation id="3088128611727407543">Notiek lietotnes profila sagatavošana...</translation>
 <translation id="3090214513075567547">Atvērt kontekstizvēlni</translation>
+<translation id="3090819949319990166">Ārējo .crx failu nevar kopēt uz failu <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090989381251959936">Pārslēgt funkciju <ph name="FEATURE_NAME" />. <ph name="STATE_TEXT" /></translation>
 <translation id="3093423061078042895">Nav iesniegti līdz izpildes datumam</translation>
 <translation id="3095995014811312755">versija</translation>
 <translation id="309749186376891736">Kursora pārvietošana</translation>
+<translation id="3100071818310370858">Atrašanās vietas datu izmantošana. Ļauj lietotnēm un pakalpojumiem ar atrašanās vietas atļauju izmantot ierīces atrašanās vietas datus. Google periodiski var vākt atrašanās vietas datus un izmantot šos datus anonīmā veidā, lai uzlabotu atrašanās vietas precizitāti un ar atrašanās vietu saistītus pakalpojumus. <ph name="BEGIN_LINK1" />Uzzināt vairāk par atrašanās vietu<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="3100274880412651815">Aizvērt uzņemšanas režīmu</translation>
+<translation id="3104948640446684649">Lietojuma un diagnostikas datu sūtīšana. Pašlaik dati par šo ierīci un ierīces diagnostikas un lietotņu lietojuma dati tiek automātiski sūtīti uzņēmumam Google. Šī informācija palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Ja ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti jūsu Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="3105917916468784889">Uzņemt ekrānuzņēmumu</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3107155169630537783">Sveiciena paziņojums ir <ph name="STATE" /></translation>
@@ -639,6 +693,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3181441307743005334">Restartēšana var ilgt kādu brīdi</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Savienots ar ierīci}zero{Savienots ar # ierīcēm}one{Savienots ar # ierīci}other{Savienots ar # ierīcēm}}</translation>
 <translation id="3203405173652969239">Iespējota slēdžu piekļuve</translation>
+<translation id="3204648577100496185">Ar šo lietotni saistītie dati var tikt noņemti no šīs ierīces</translation>
 <translation id="3206735939915734551">Ieslēgt vai izslēgt burtslēgu</translation>
 <translation id="3207953481422525583">Lietotāja iestatījumi</translation>
 <translation id="3208321278970793882">Lietotne</translation>
@@ -659,6 +714,8 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3269597722229482060">Noklikšķināt ar peles labo pogu</translation>
 <translation id="3271554781793662131">Meklēt, lai ievietotu</translation>
 <translation id="3274634049061007184">Skatīt tālruņa lietotnes</translation>
+<translation id="3279230909244266691">Šis process var ilgt dažas minūtes. Notiek virtuālās mašīnas startēšana.</translation>
+<translation id="3285465040399788513">Ierīces krātuvē nepietiek vietas, lai pabeigtu iestatīšanu. Atbrīvojiet vietu un mēģiniet vēlreiz.</translation>
 <translation id="3289364673986435196">Barošanas izvēlne</translation>
 <translation id="3289544412142055976">Linux lietotnes pašlaik netiek atbalstītas.</translation>
 <translation id="3289674678944039601">Notiek uzlāde, izmantojot adapteri</translation>
@@ -669,6 +726,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3306386552969601301">Šīs ierīces (<ph name="DEVICE_NAME" />) tīklājam ir pievienotas vairākas ierīces (<ph name="DEVICECOUNT" />).</translation>
 <translation id="3307642347673023554">Ieslēgts klēpjdatora režīms</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> joprojām varēs pierakstīties vēlāk.</translation>
+<translation id="3313950410573257029">Pārbaudīt savienojumu</translation>
 <translation id="3321628682574733415">Nepareizs vecāku kods</translation>
 <translation id="332827762492701193">Paziņojumi ir paslēpti.</translation>
 <translation id="3333674550998107387">Izvērst paziņojumu <ph name="NOTIFICATION_TITLE" /></translation>
@@ -684,6 +742,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3368922792935385530">pievienots</translation>
 <translation id="3369111525500416043">Drīz</translation>
 <translation id="3371140690572404006">USB-C ierīce (pieslēgvieta labajā pusē priekšā)</translation>
+<translation id="3373196968211632036">Lietotne Steam for Chromebook (Beta) nav pieejama bērnu Google kontiem.</translation>
 <translation id="3375634426936648815">Izveidots savienojums</translation>
 <translation id="3386978599540877378">pilnekrāna režīma lupa</translation>
 <translation id="3387527074123400161">Chromium OS</translation>
@@ -709,6 +768,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3444385531800624797">Notiek rezultātu ielāde…</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" /> min</translation>
 <translation id="3445925074670675829">USB-C ierīce</translation>
+<translation id="3449393517661170867">Jauns logs ar cilnēm</translation>
 <translation id="3454555520521576458">Var mainīt lielumu</translation>
 <translation id="3455468639467374593">Veidne, <ph name="TEMPLATE_NAME" /></translation>
 <translation id="3456931972722214204">Šīs ierīces (<ph name="DEVICE_NAME" />) tīklājam ir pievienota viena ierīce.</translation>
@@ -718,8 +778,13 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3470502288861289375">Notiek kopēšana...</translation>
 <translation id="347117769229524881"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> un pēc tam <ph name="KEY_TWO" /> vai <ph name="KEY_THREE" /></translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
+<translation id="3484174798079475132"><ph name="BEGIN_PARAGRAPH1" />Kad iestatījums “Atrašanās vietas precizitāte” ir ieslēgts, informācija par bezvadu signāliem (piemēram, Wi-Fi piekļuves punkti un mobilā tīkla torņi, kā arī ierīces sensoru dati, tostarp no akselerometra un žiroskopa) tiek izmantota, lai noteiktu precīzāku ierīces atrašanās vietu. Noteiktā atrašanās vieta savukārt tiek izmantota Android lietotnēs un pakalpojumos, lai nodrošinātu funkcijas, kuru pamatā ir atrašanās vieta. Šim nolūkam Google periodiski vāc informāciju par ierīces sensoriem un bezvadu signāliem jūsu tuvumā, lai kolektīvajos pakalpojumos nodrošinātu bezvadu signālu atrašanās vietu informāciju.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Neidentificējot jūs, Google izmanto šo informāciju, lai uzlabotu atrašanās vietas precizitāti un pakalpojumus pēc atrašanās vietas, kā arī kopumā uzlabotu, nodrošinātu un uzturētu Google pakalpojumus. Mēs apstrādājam šo informāciju, pamatojoties uz Google un trešo pušu likumīgajām interesēm sniegt lietotāju vajadzībām atbilstošu pakalpojumus.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Jūs jebkurā brīdī varat izslēgt iestatījumu “Atrašanās vietas precizitāte” savas ierīces atrašanās vietas iestatījumos sadaļā Iestatījumi &gt; Konfidencialitāte un drošība &gt; Konfidencialitātes vadīklas &gt; Piekļuve atrašanās vietai &gt; Atrašanās vietas papildu iestatījumi. Ja iestatījums “Atrašanās vietas precizitāte” ir izslēgts, netiek vākti nekādi atrašanās vietas precizitātes dati. Android lietotnēs un pakalpojumos jūsu ierīces atrašanās vietas noteikšanai tiek izmantota tikai IP adrese (ja tā ir pieejama). Tas var ietekmēt Android lietotņu un pakalpojumu, piemēram, Google Maps, pieejamību un atrašanās vietu precizitāti.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" /><ph name="LINK_BEGIN" />Uzzināt vairāk par atrašanās vietas precizitāti<ph name="LINK_END" /><ph name="END_PARAGRAPH4" /></translation>
 <translation id="3485319357743610354"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, signāla stiprums: <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="348799646910989694">Plaukts tiek automātiski paslēpts</translation>
+<translation id="3496797737329654668">Sāksim spēlēt!</translation>
 <translation id="3505066820268455558">Notiek akumulatora uzlāde</translation>
 <translation id="3509391053705095206">Nevar atrast jūsu tālruni. Tālrunī ir jābūt ieslēgtam Bluetooth savienojumam.</translation>
 <translation id="3510164367642747937">Izcelt peles kursoru</translation>
@@ -742,6 +807,8 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3554928024630051016">Lai pievienotu citas USB ierīces, noņemiet kādu no esošajām un pievienojiet jaunu.</translation>
 <translation id="3558768885091059911">Vai ieslēgt piekļuvi kamerai un mikrofonam?</translation>
 <translation id="3560174576767922131">Ierakstīt videoklipu</translation>
+<translation id="3563432852173030730">Kioska lietojumprogrammu nevarēja lejupielādēt.</translation>
+<translation id="3563558822383875692">Notiek DLC konfigurēšana…</translation>
 <translation id="3563775809269155755">Iespējot tīklāju</translation>
 <translation id="3566240529365775567">Tikko atvērts</translation>
 <translation id="3571734092741541777">Iestatīt</translation>
@@ -766,6 +833,7 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3615926715408477684">Iespējojot mobilos datus, tiks iespējots Bluetooth</translation>
 <translation id="3616113530831147358">Audio</translation>
 <translation id="3616883743181209306">Izvēlne pārvietota uz ekrāna augšējo labo malu.</translation>
+<translation id="3618286417582819036">Diemžēl radās kļūda</translation>
 <translation id="3619536907358025872">Ekrānuzņēmumu izveides iestatījumi</translation>
 <translation id="3621202678540785336">Ievade</translation>
 <translation id="3621712662352432595">Audio iestatījumi</translation>
@@ -778,7 +846,9 @@ Pretējā gadījumā iebūvētais skārienpaliktnis tiks atkārtoti iespējots, 
 <translation id="3633851487917460983">Atvērt starpliktuvi</translation>
 <translation id="363473492175527493">Uzdevums, kam iestatīt fokusa režīmu: <ph name="TASK_NAME" />. Lai rediģētu uzdevumu, nospiediet taustiņu Enter.</translation>
 <translation id="3638400994746983214">Pārslēgt konfidencialitātes ekrānu. <ph name="STATE_TEXT" />.</translation>
+<translation id="3641070112313110357">Lietotne Steam Chromebook datoriem (beta versija) ir jāatjaunina. Restartējiet Chromebook datoru un mēģiniet vēlreiz.</translation>
 <translation id="3649256019230929621">Minimizēt logu</translation>
+<translation id="3650952250015018111">Atļaujiet lietotnei “<ph name="APP_NAME" />” piekļūt šādai ierīcei:</translation>
 <translation id="3653999174677652346"><ph name="EVENT_POSITION" />
         <ph name="EVENT_SUMMARY" />,
         <ph name="START_TIME" /> līdz
@@ -801,11 +871,13 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="3702809606464356667">Tiek rādīti pašreizējās darbvietas logi. Nospiediet augšupvērsto bultiņu, lai tiktu rādīti visu darbvietu logi.</translation>
 <translation id="3705722231355495246">-</translation>
 <translation id="3706423975342040244">Izklaide</translation>
+<translation id="370665806235115550">Notiek ielāde...</translation>
 <translation id="3707093869106077605">Funkcijas <ph name="UNAVAILABLE_DLC_ONE" /> un <ph name="UNAVAILABLE_DLC_TWO" /> nav pieejamas.</translation>
 <translation id="3708186454126126312">Ierīces, ar kurām iepriekš tika izveidots savienojums</translation>
 <translation id="3712143870407382523">Izvēlieties logu šai pusei.</translation>
 <translation id="371370241367527062">Priekšējais mikrofons</translation>
 <translation id="3713734891607377840">Kad gatavs, atvērt</translation>
+<translation id="3716065403310915079"><ph name="VM_NAME" /> instalēšanas programma</translation>
 <translation id="3726171378575546917">Šajā ierīcē nav lietotņu <ph name="UNAVAILABLE_APPS_ONE" />, <ph name="UNAVAILABLE_APPS_TWO" /> un vēl <ph name="UNAVAILABLE_APPS_COUNT" /> lietotnes(-ņu).</translation>
 <translation id="3727231512028252576">Nevarēja ielādēt vienumus. Mēģiniet vēlreiz, kad būsiet tiešsaistē.</translation>
 <translation id="3735740477244556633">Kārtot pēc</translation>
@@ -814,6 +886,9 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="3742055079367172538">Ekrānuzņēmums ir uzņemts</translation>
 <translation id="3743775386021959186">Fokusa režīms ir ieslēgts, atlikušais laiks: <ph name="REMAINING_TIME" /></translation>
 <translation id="3750403286520637847">Paslēpt laikapstākļu ieteikumu</translation>
+<translation id="3755239467337474637"><ph name="BEGIN_PARAGRAPH1" />Lietotņu dati var būt jebkādi lietotņu saglabātie dati (atkarībā no izstrādātāja iestatījumiem), tostarp kontaktpersonas, ziņojumi un fotoattēli.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Dublētie dati netiks ieskaitīti jūsu bērna Diska krātuves kvotā.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Šo pakalpojumu varat izslēgt sadaļā Iestatījumi.<ph name="END_PARAGRAPH3" /></translation>
 <translation id="3756485814916578707">Notiek ekrāna apraide</translation>
 <translation id="3765841382945324995">Īsinājumtaustiņi “<ph name="SIX_PACK_KEY_NAME" />” turpmāk būs <ph name="NEW_SHORTCUT" />, nevis <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="3765841986579723851">Rediģēts šodien</translation>
@@ -822,19 +897,24 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="3779139509281456663">Tiek veidots savienojums ar ierīci <ph name="NAME" /></translation>
 <translation id="3781910048497807059">Izcelt iepriekšējo rūti</translation>
 <translation id="3783640748446814672">alt</translation>
+<translation id="3783889407390048282">Atbrīvojiet vietu, lai nezaudētu piekļuvi Android.</translation>
 <translation id="3784455785234192852">Bloķēt</translation>
+<translation id="3788301286821743879">Diemžēl kioska lietojumprogrammu nevarēja palaist.</translation>
+<translation id="3789841737615482174">Instalēt</translation>
 <translation id="3796215473395753611">Alt + augšupvērstā bultiņa</translation>
 <translation id="3798670284305777884">Skaļrunis (iebūvētais)</translation>
 <translation id="3799080171973636491">Jūs nospiedāt pilnekrāna lupas īsinājumtaustiņu. Vai vēlaties to ieslēgt?</translation>
 <translation id="3804737937830804242">Sakļaut kameru</translation>
 <translation id="3808558065322073119">{NUM_RESULTS,plural, =1{Viena emocijzīme. Nav citu rezultātu.}zero{# emocijzīmes. Nav citu rezultātu.}one{Emocijzīmju skaits: #. Nav citu rezultātu.}other{Emocijzīmju skaits: #. Nav citu rezultātu.}}</translation>
 <translation id="3822403841174077928">Nevarēja nokopēt formatējumu.</translation>
+<translation id="3824621460022590830">Ierīces reģistrācijas marķieris nav derīgs. Lūdzu, sazinieties ar ierīces īpašnieku vai administratoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="3824784079442479685">Atļauj piekļuvi kamerai lietotnei <ph name="APP_NAME" /> un visām lietotnēm un vietnēm, kurām ir kameras atļauja. Iespējams, jums būs jāatsvaidzina tīmekļa lapa vai jārestartē lietotne.</translation>
 <translation id="3826099427150913765">Izmantot paroli</translation>
 <translation id="383058930331066723">Ir ieslēgts akumulatora enerģijas taupīšanas režīms</translation>
 <translation id="3831226344927851293">Iziet no mācību skata</translation>
 <translation id="383629559565718788">Rādīt tastatūras iestatījumus</translation>
 <translation id="384082539148746321">Vai dzēst veidni?</translation>
+<translation id="3841282988425489367">Nevar iestatīt Steam for Chromebook (Beta)</translation>
 <translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /> un pēc tam <ph name="KEY_ONE" />, <ph name="KEY_TWO" />, <ph name="KEY_THREE" /> vai <ph name="KEY_FOUR" /></translation>
 <translation id="3846575436967432996">Tīkla informācija nav pieejama.</translation>
 <translation id="3848526302597027234">Piekļūt tālāk minētajām atļaujām.</translation>
@@ -852,7 +932,9 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="3898464793473355515">Pagriezt ekrānu par 90 grādiem pulksteņrādītāja kustības virzienā</translation>
 <translation id="3900355044994618856">Atlikušais laiks līdz jūsu sesijas beigām: <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Notiek savienojuma izveide ar <ph name="NAME" /></translation>
+<translation id="3904326018476041253">Atrašanās vietu pakalpojumi</translation>
 <translation id="3904768293285573640">Loga izmēra mainīšana mozaīkas skatā — pa kreisi</translation>
+<translation id="3923221004758245114">Vai noņemt virtuālo mašīnu <ph name="VM_NAME" /> no ierīces <ph name="DEVICE_TYPE" />? Tādējādi tiks dzēstas visas lietotnes un dati virtuālajā mašīnā.</translation>
 <translation id="3923494859158167397">Nav iestatīts neviens mobilais tīkls</translation>
 <translation id="3925540965556789199"><ph name="DATE" />: notiek pasākumu ielāde.</translation>
 <translation id="3927049937406914450">Laikapstākļu informācija nav pieejama, jo ir izslēgta piekļuve atrašanās vietai. Varat to mainīt iestatījumos.</translation>
@@ -865,6 +947,7 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="3950272133184491871">Vai izrakstīties tagad?</translation>
 <translation id="3950820424414687140">Pierakstīties</translation>
 <translation id="3953130726459169782">Vēl nav pabeigts neviens uzdevums</translation>
+<translation id="3957844511978444971">Lai apstiprinātu šo Google pakalpojumu iestatījumu atlasi, pieskarieties vienumam “Piekrist”.</translation>
 <translation id="3958714870339660776">Visu dienu</translation>
 <translation id="3962859241508114581">Iepriekšējais ieraksts</translation>
 <translation id="3963124517343721543">Ērti turpiniet darbu no vietas, kur to pārtraucāt, atverot iepriekšējos logus un cilnes. Būs redzami arī personalizēti ieteikumi par nākamajām darbībām.</translation>
@@ -905,6 +988,7 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="4069532248403319695">Atvērt lapu Lejupielādes</translation>
 <translation id="4072264167173457037">Vidēji spēcīgs signāls</translation>
 <translation id="4072805772816336153">Vēlāk mēģiniet vēlreiz.</translation>
+<translation id="4077623680826964850">Palaižot virtuālo mašīnu vai veidojot ar to atkārtotu savienojumu, rodas noildze.</translation>
 <translation id="4086921558679520050">Ieslēdziet ierīces mikrofona fizisko slēdzi</translation>
 <translation id="4101772068965291327">Atvērt sākumlapu</translation>
 <translation id="4112140312785995938">Pārtīt atpakaļ</translation>
@@ -917,12 +1001,14 @@ Pievienojiet ierīci barošanas avotam.</translation>
 <translation id="4123259114412175274">Lai atbloķētu Chromebook datoru, pārliecinieties, ka tālrunī ir ieslēgts Bluetooth savienojums.</translation>
 <translation id="4123868835475902435">Tā bija pamatinformācija. Turpiniet darbu mūsu iebūvētajā lietotnē Izpēte, lai saņemtu padomus un palīdzību. Jūs atradīsiet padomus par darba sākšanu, īpašos piedāvājumus un jaunākās funkcijas, ko nodrošina <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4125970834901680537">Lietotņu saturu nevar straumēt planšetdatora režīmā. Mēģiniet vēlreiz klēpjdatora režīmā.</translation>
+<translation id="4126375522951286587">Izslēgt virtuālo mašīnu <ph name="VM_NAME" /></translation>
 <translation id="4131973331381812765">Temperatūra: <ph name="TEMPERATURE" /> °C; pašreizējais ātrums: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="4136724716305260864">Ieslēgts līdz saullēktam</translation>
 <translation id="4141710407113804517"><ph name="LAUNCHER_KEY_NAME" /> + labā bultiņa</translation>
 <translation id="4146671046252289537">Pārvietot uz nākamā vārda beigām</translation>
 <translation id="4150201353443180367">Displejs</translation>
 <translation id="4151054805501931758">Portreta retušēšana</translation>
+<translation id="4151449637210235443">Pastāstiet mums, kā veicās pēdējā spēles izspēlē</translation>
 <translation id="4156293514828496577">Atlikušais akumulatora uzlādes līmenis ir <ph name="PERCENTAGE" />% (aptuveni <ph name="TIME_LEFT" />).
 Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.</translation>
 <translation id="4158003972857765638">Sakārtot jaunā darbvietā</translation>
@@ -933,12 +1019,14 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="4177913004758410636">{0,plural, =1{Ierīce jāatjaunina dienas laikā}zero{Ierīce jāatjaunina # dienu laikā}one{Ierīce jāatjaunina # dienas laikā}other{Ierīce jāatjaunina # dienu laikā}}</translation>
 <translation id="4181841719683918333">Valodas</translation>
 <translation id="4185671786623711291">Pārvietot aktīvo logu uz darbvietu labajā pusē</translation>
+<translation id="4186749321808907788"><ph name="QUERY_NAME" /> — <ph name="DEFAULT_SEARCH_ENGINE_NAME" /> meklēšana</translation>
 <translation id="4189826113259617332">Saglabāt visas atvērtās lapas pašreizējā logā kā grāmatzīmes jaunā mapē</translation>
 <translation id="4190143678693626113">Varat ietaupīt laiku, Chromebook datorā ātri atbildot uz tālrunī saņemtajām īsziņām.</translation>
 <translation id="4190780880566297084">Nerādīt iespēju iestatīt tālruņa jaunāko fotoattēlu, multivides satura un lietotņu skatīšanu</translation>
 <translation id="4192112279662688596">vai</translation>
 <translation id="4193857202545160520">Rādīt klikšķus un taustiņus</translation>
 <translation id="4193969623755915875">Lai lietotnē Izpēte atvērtu sadaļu Palīdzība, izmantojiet šādus īsinājumtaustiņus: <ph name="NEW_SHORTCUT" />.</translation>
+<translation id="4195001808989442226">Nevar atvērt Chromebook datoriem paredzēto lietotni Steam (beta versija)</translation>
 <translation id="4195579532193195633">Pašreizējā versija: <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />), <ph name="CHANNEL_NAME" />, <ph name="PROCESSOR_VARIATION" /></translation>
 <translation id="4195814663415092787">Atsākt darbu no vietas, kur to beidzu</translation>
 <translation id="4195877955194704651">Poga Automātiskie klikšķi</translation>
@@ -954,11 +1042,13 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="4221957499226645091"><ph name="APP_NAME" />, instalēta lietotne, darbība apturēta</translation>
 <translation id="4228078597006700451">Vadīklas nav iestatītas.</translation>
 <translation id="4230560241506423345">Jaunums</translation>
+<translation id="4231231258999726714">Steam for Chromebook iestatīšana</translation>
 <translation id="4236726631849783264">Atgādinājums par ierosinātajām darbībām</translation>
 <translation id="4239069858505860023">GPRS</translation>
 <translation id="4240486403425279990">Pārskata režīms</translation>
 <translation id="4242533952199664413">Atvērt iestatījumus</translation>
 <translation id="4247123849143712100">Atjaunināt un izslēgt</translation>
+<translation id="4249248555939881673">Tiek gaidīta savienojuma izveide ar tīklu...</translation>
 <translation id="4250229828105606438">Ekrānuzņēmums</translation>
 <translation id="425364040945105958">Nav SIM kartes</translation>
 <translation id="4261870227682513959">Rādīt paziņojumu iestatījumus. Paziņojumi ir izslēgti</translation>
@@ -969,8 +1059,11 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="4274537685965975248">Šie īsinājumtaustiņi ir mainījušies: Ctrl + Alt + lejupvērstais bulttaustiņš. Lai izmantotu beigvietas taustiņu, nospiediet šos taustiņus: <ph name="LAUNCHER_KEY_NAME" /> + labā bultiņa.</translation>
 <translation id="4275283744500212192">Atvērt logu izkārtojuma opcijas</translation>
 <translation id="4275663329226226506">Multivide</translation>
+<translation id="4276856098224910511">Nevar instalēt, jo tiek gaidīts OS atjauninājums. Lūdzu, lietojiet visus neapstiprinātos OS atjauninājumus, restartējiet ierīci un mēģiniet vēlreiz. Kļūdas kods ir <ph name="ERROR" />.</translation>
+<translation id="4278779213160967034">Šis process var ilgt dažas minūtes. Notiek failu lejupielāde…</translation>
 <translation id="4279490309300973883">Spoguļošana</translation>
 <translation id="4280601795273309128">Drošības atjauninājumi ir pabeigti. Jauniniet savu ierīci.</translation>
+<translation id="4281844954008187215">Google pakalpojumu noteikumi</translation>
 <translation id="4283888303416325161">Papildu drošībai ievadiet paroli</translation>
 <translation id="4285498937028063278">Atspraust</translation>
 <translation id="428715201724021596">Notiek savienojuma izveide ar profilu. Tas var ilgt dažas minūtes.</translation>
@@ -1015,11 +1108,15 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="4406883609789734330">Subtitri reāllaikā</translation>
 <translation id="4412698727486357573">Palīdzības centrs</translation>
 <translation id="4412944820643904175">Funkcija <ph name="FEATURE_NAME" /> ir izslēgta.</translation>
+<translation id="44141919652824029">Vai atļaut lietotnei “<ph name="APP_NAME" />” iegūt pievienoto USB ierīču sarakstu?</translation>
+<translation id="4414242853388122273">Noņemot virtuālo mašīnu <ph name="VM_NAME" />, radās kļūda. Lūdzu, mēģiniet vēlreiz</translation>
 <translation id="4417647906073317561">Fokusa režīma iestatījumi. Iestatiet taimeri, uzdevumu un mūziku, lai koncentrētos.</translation>
 <translation id="4418600384772451109">Aizvērt paneli</translation>
 <translation id="4424159417645388645">5. darbvieta</translation>
 <translation id="4426817706804363424">Vareni!</translation>
+<translation id="4426857487270413362">Nevar lejupielādēt instalēšanas programmas failus. Lūdzu, pārbaudiet interneta savienojumu un to, vai diskā ir pietiekami daudz brīvās vietas, un mēģiniet vēlreiz. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="4430019312045809116">Skaļums</translation>
+<translation id="4439157218765614426">Aizliedz politika.</translation>
 <translation id="4441283832827406317">Lietotnes ir kārtotas pēc nosaukuma</translation>
 <translation id="4445159312344259901">Pierakstieties, lai atbloķētu</translation>
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 svarīgs paziņojums}zero{# svarīgu paziņojumu}one{# svarīgs paziņojums}other{# svarīgi paziņojumi}}</translation>
@@ -1032,6 +1129,7 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="4471432286288241507">{0,plural, =0{Ierīce tūlīt jāatjaunina}=1{Ierīce jāatjaunina 1 sekundes laikā}zero{Ierīce jāatjaunina # sekunžu laikā}one{Ierīce jāatjaunina # sekundes laikā}other{Ierīce jāatjaunina # sekunžu laikā}}</translation>
 <translation id="4472575034687746823">Sākt darbu</translation>
 <translation id="4473489370276014885">Google kontaktpersonas</translation>
+<translation id="4473996011558324141">Notiek laika aprēķināšana</translation>
 <translation id="4477350412780666475">Nākamais ieraksts</translation>
 <translation id="4477751544736611934">Tādējādi var rasties izmaksas par datu lietojumu.
 Pievienota viena ierīce.</translation>
@@ -1052,15 +1150,18 @@ Pievienota viena ierīce.</translation>
 <translation id="453661520163887813">Līdz pilnai uzlādei: <ph name="TIME" /></translation>
 <translation id="4538824937723742295">Izveidot visa ekrāna uzņēmumu</translation>
 <translation id="4539127209940689201">Drukāt pašreizējo lapu</translation>
+<translation id="4541123282641193691">Nevarēja verificēt kontu. Mēģiniet vēlreiz vai restartējiet Chromebook datoru.</translation>
 <translation id="4541505619120536051">Vienmēr atvērt</translation>
 <translation id="4541706525461326392">Notiek profila noņemšana. Tas var ilgt dažas minūtes.</translation>
 <translation id="4544483149666270818">Atlasiet logu, kura saturs jāieraksta</translation>
 <translation id="4545950850562423083">Saglabāt pašreizējo lapu kā grāmatzīmi</translation>
 <translation id="4548482551627849548">Pārvietot aktīvo logu uz darbvietu kreisajā pusē</translation>
 <translation id="4552748006424994716">Lai izvairītos no atbalss, varat klausīties mikrofona skaņu tikai ar vadu austiņām.</translation>
+<translation id="4554591392113183336">Ārējā paplašinājuma versija ir tāda pati vai vecāka nekā pašreizējā paplašinājuma versija.</translation>
 <translation id="4556953949326137018">Kad izmantojat ierosinātās darbības, piemēram, “pievienot Kalendāram” vai “izveidot Google dokumentu”, saturs no atlasītā apgabala tiek nosūtīts Google serveriem, lai ierosinātu darbības, ievērojot šādus noteikumus: <ph name="LINK_TO_SERVICE_TERMS" />. Neiekļaujiet nekādu personas, sensitīvu vai konfidenciālu informāciju.</translation>
 <translation id="4560576029703263363">Ieslēgts</translation>
 <translation id="4561267230861221837">3G</translation>
+<translation id="4562091353415772246">Atjauninājumu un lietotņu instalēšana. Turpinot jūs piekrītat, ka šajā ierīcē drīkst arī automātiski lejupielādēt un instalēt atjauninājumus un lietotnes, ko nodrošina Google, jūsu mobilo sakaru operators un ierīces ražotājs. Iespējams, tiks izmantoti mobilie dati. Dažās no šīm lietotnēm var būt pieejami pirkumi lietotnēs. <ph name="BEGIN_LINK1" />Uzzināt vairāk par Play automātisku instalēšanu<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="4565377596337484307">Slēpt paroli</translation>
 <translation id="4566144812051858745">Neinteresē nekādi ieteikumi</translation>
 <translation id="4569753163207712681">Skatīt tālruņa jaunākos fotoattēlus, multivides saturu un lietotnes</translation>
@@ -1072,6 +1173,7 @@ Pievienota viena ierīce.</translation>
 <translation id="4585337515783392668">Pārtraukt apraidi nezināmā uztvērējā</translation>
 <translation id="4596144739579517758">Tumšais motīvs ir izslēgts.</translation>
 <translation id="4596442969149038771"><ph name="USER" /> kopīgoja</translation>
+<translation id="4598556348158889687">Krātuves pārvaldība</translation>
 <translation id="4610493115106525653">Labi izvades dati</translation>
 <translation id="4611292653554630842">Pieteikties</translation>
 <translation id="462160925400706389">Izveidots savienojums ar: <ph name="NAME" /></translation>
@@ -1079,8 +1181,10 @@ Pievienota viena ierīce.</translation>
 <translation id="4628757576491864469">Ierīces</translation>
 <translation id="4631891353005174729"><ph name="APP_NAME_TYPE" />, vērtējums zvaigznītēs: <ph name="RATING_SCORE" /></translation>
 <translation id="4633636853437260449">Nospiediet taustiņu kombināciju Ctrl+W, lai dzēstu</translation>
+<translation id="4633757335284074492">Datu dublēšana Google diskā. Varēsiet jebkurā laikā ērti atjaunot datus vai mainīt ierīci. Dublējumā ir ietverti arī lietotņu dati. Dublējumi tiek augšupielādēti Google serveros un tiek šifrēti, izmantojot jūsu bērna Google konta paroli.</translation>
 <translation id="4635501805800894201">{0,plural, =0{Atjaunojiet ierīcē iepriekšējo versiju tagad}=1{Atjaunojiet ierīcē iepriekšējo versiju 1 sekundes laikā}zero{Atjaunojiet ierīcē iepriekšējo versiju # sekunžu laikā}one{Atjaunojiet ierīcē iepriekšējo versiju # sekundes laikā}other{Atjaunojiet ierīcē iepriekšējo versiju # sekunžu laikā}}</translation>
 <translation id="4642092649622328492">Iegūt daļēju ekrānuzņēmumu</translation>
+<translation id="4642587497923912728">Lietotne Steam for Chromebook (Beta) ir pieejama tikai pirmajā kontā, kurā tika veikta pierakstīšanās šajā Chromebook datorā.</translation>
 <translation id="4644727592819780893">Reģions ir par mazu kamerai</translation>
 <translation id="4648249871170053485"><ph name="APP_NAME" />, lietotņu ieteikumi</translation>
 <translation id="4649019912155580914">Jūs rediģējāt</translation>
@@ -1107,6 +1211,7 @@ Pievienota viena ierīce.</translation>
 <translation id="4708185346211948049"><ph name="DAY_OF_WEEK" /> nākamajā nedēļā</translation>
 <translation id="4717575069099566988">Jūsu USB-C vads neatbalsta USB4. Ierīces veiktspēja var būt ierobežota.</translation>
 <translation id="4730374152663651037">BIEŽI IZMANTOTĀS</translation>
+<translation id="4731197594811674831">sākums</translation>
 <translation id="4731797938093519117">Vecāku piekļuve</translation>
 <translation id="4733161265940833579"><ph name="BATTERY_PERCENTAGE" />% (kreisā)</translation>
 <translation id="4734965478015604180">Horizontāli</translation>
@@ -1120,12 +1225,14 @@ Pievienota viena ierīce.</translation>
 <translation id="4759238208242260848">Lejupielādes</translation>
 <translation id="4762160261012420470"><ph name="LAUNCHER_KEY_NAME" /> + augšupvērstā bultiņa</translation>
 <translation id="4762573482154983647">Paslēpt lietotnes</translation>
+<translation id="4762718786438001384">Ierīces diskā gandrīz nav vietas</translation>
 <translation id="4763885921995354846">Atļauj piekļuvi kamerai visām lietotnēm un vietnēm, kurām ir kameras atļauja. Iespējams, jums būs jāatsvaidzina tīmekļa lapa vai jārestartē lietotne.</translation>
 <translation id="4774338217796918551">Atgriezieties plkst. <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776584068981882959">Joprojām nevarēja verificēt jūsu paroli. Mēģiniet vēlreiz.</translation>
 <translation id="4776917500594043016">Parole e-pasta adresei <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4777825441726637019">Play veikals</translation>
 <translation id="4778095205580009397">Google asistents nav pieejams demonstrācijas sesijā.</translation>
+<translation id="4781633367688946589">Turpināt jaunā sesijā</translation>
 <translation id="4785412405516449976">Tikai jūsu kontaktpersonas, kurām ir Google konts</translation>
 <translation id="4789348252524569426">Nevar instalēt runas failus. Jums ir jāatjaunina ierīce. Restartējiet ierīci un mēģiniet vēlreiz.</translation>
 <translation id="478959186716341421">Notiek apraide</translation>
@@ -1226,6 +1333,7 @@ Pievienota viena ierīce.</translation>
 <translation id="5077936103761694531">Vai apstiprināt izšķirtspēju?</translation>
 <translation id="5078796286268621944">Nepareizs PIN</translation>
 <translation id="5083035541015925118">Ctrl + Alt + augšupvērstā bultiņa</translation>
+<translation id="5084328598860513926">Nodrošināšanas plūsma traucēta. Lūdzu, mēģiniet vēlreiz vai sazinieties ar ierīces īpašnieku vai administratoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="5091636240353511739">Rādīt PIN</translation>
 <translation id="5092436659250499817">Ieslēgt/izslēgt tastatūras fona apgaismojumu</translation>
 <translation id="5094577350232361255">par</translation>
@@ -1235,6 +1343,7 @@ Pievienota viena ierīce.</translation>
 Varat arī izmantot īsinājumtaustiņus. Vispirms atzīmējiet tekstu un pēc tam nospiediet <ph name="MODIFIER" /> + s.</translation>
 <translation id="509790653408515442">Šeit būs redzamas jūsu tālruņa lietotnes, kad tās straumēsiet.</translation>
 <translation id="5098537242461068432">Darbvieta un logi atkārtoti atvērti</translation>
+<translation id="5099599035412142130">Apstipriniet savu identitāti</translation>
 <translation id="5103975065730779239">Līdz plkst. <ph name="END_TIME_EXPRESSION" /></translation>
 <translation id="5104236669533825617">Nevar izveidot ekrānierakstu</translation>
 <translation id="5107522548814527560">Tīmeklis</translation>
@@ -1243,10 +1352,15 @@ Varat arī izmantot īsinājumtaustiņus. Vispirms atzīmējiet tekstu un pēc t
 <translation id="5121628974188116412">Pāriet uz lapas beigām</translation>
 <translation id="5122517996953421795">Darbvietas <ph name="DESK_NAME" /> priekšskatījums. Neaktīva darbvieta.</translation>
 <translation id="5136175204352732067">Ir pievienota cita tastatūra</translation>
+<translation id="5139112070765735680">Meklēšana: <ph name="QUERY_NAME" />, <ph name="DEFAULT_SEARCH_ENGINE_NAME" /></translation>
 <translation id="5144005092084035179">Vai pārslēgt audio ieeju?</translation>
 <translation id="5147567197700016471">Atbloķēts</translation>
 <translation id="5150070631291639005">Konfidencialitātes iestatījumi</translation>
 <translation id="5155897006997040331">Lasīšanas ātrums</translation>
+<translation id="5161445389876829235"><ph name="BEGIN_PARAGRAPH1" />Šī ir vispārīga informācija par jūsu ierīci un tās lietojumu (piemēram, par akumulatora uzlādes līmeni, sistēmas un lietotņu izmantojumu un kļūdām). Dati tiks izmantoti, lai uzlabotu Android darbību. Noteiktu apkopotu informāciju izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji, lai uzlabotu lietotnes un produktus.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Izslēdzot šo funkciju, netiek ietekmēta ierīces spēja nosūtīt informāciju, kas nepieciešama būtiskiem pakalpojumiem, piemēram, sistēmas atjauninājumiem un drošībai.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Īpašnieks var pārvaldīt šo funkciju sadaļā Iestatījumi &gt; Papildu &gt; Automātiski sūtīt diagnostikas un lietojuma datus Google serveriem.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Ja ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti jūsu Google kontā. Lai skatītu vai dzēstu datus vai mainītu konta iestatījumus, atveriet vietni account.google.com.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="5163434717504750796">Akumulatora stāvoklis: <ph name="BATTERY_HEALTH_PERCENTAGE" />% | Ciklu skaits: <ph name="CYCLE_COUNT" /></translation>
 <translation id="5166007464919321363">Saglabāt darbvietu kā veidni</translation>
 <translation id="5168181903108465623">Pieejamas apraides ierīces</translation>
@@ -1254,6 +1368,7 @@ Varat arī izmantot īsinājumtaustiņus. Vispirms atzīmējiet tekstu un pēc t
 <translation id="5170568018924773124">Rādīt mapē</translation>
 <translation id="5176318573511391780">Ierakstīt daļu ekrāna</translation>
 <translation id="5187627942836026988">Tīklāja informācijas rādīšana. Tīklāju bloķēja jūsu administrators.</translation>
+<translation id="5188648870018555788">Atrašanās vietas datu izmantošana. Ļauj ChromeOS un Android lietotnēm, vietnēm un pakalpojumiem ar atrašanās vietas atļauju izmantot jūsu ierīces atrašanās vietas datus. Iestatījums “Atrašanās vietas precizitāte” Android lietotnēm un pakalpojumiem nodrošina precīzāku atrašanās vietu informāciju. Šim nolūkam Google periodiski apstrādā informāciju par ierīces sensoriem un no jūsu ierīces saņemtos bezvadu signālus, lai ar kolektīvo pakalpojumu palīdzību noteiktu bezvadu signālu atrašanās vietas. Neidentificējot jūs, šie dati tiek izmantoti, lai uzlabotu atrašanās vietu precizitāti un ar atrašanās vietu saistītus pakalpojumus, kā arī uzlabotu, nodrošinātu un uzturētu Google pakalpojumus saskaņā ar Google un trešo pušu likumīgām interesēm sniegt lietotāja vajadzībām atbilstošus pakalpojumus. <ph name="BEGIN_LINK1" />Uzziniet vairāk par atrašanās vietas izmantošanu.<ph name="END_LINK1" /></translation>
 <translation id="5197255632782567636">Internets</translation>
 <translation id="5198039720391525849">Piedāvātie GIF attēli</translation>
 <translation id="5198413532174090167"><ph name="DATE" />, <ph name="NUMBER" /> pasākumi</translation>
@@ -1268,17 +1383,21 @@ Varat arī izmantot īsinājumtaustiņus. Vispirms atzīmējiet tekstu un pēc t
 <translation id="5229343007215035173">Ieslēgt/izslēgt konfidencialitātes ekrānu</translation>
 <translation id="5229860525743792999">Noņemt iezīmi “<ph name="ITEM_LABEL" />” no ieteiktās grupas</translation>
 <translation id="5230516054153933099">Logs</translation>
+<translation id="5233638681132016545">Jauna cilne</translation>
 <translation id="5234764350956374838">Nerādīt</translation>
 <translation id="523505283826916779">Pieejamības iestatījumi</translation>
 <translation id="5238719049014159442">Atvērt/aizvērt palaidēju</translation>
 <translation id="5240725217819182328">Ātra piekļuve konkrētām lapām vai darbībām instalētās lietotnēs</translation>
 <translation id="5243355658487390559">Meklēt datumu</translation>
+<translation id="5243522832766285132">Lūdzu, pēc brīža mēģiniet vēlreiz.</translation>
 <translation id="5245201184978705914">Nevar ģenerēt transkripciju.</translation>
 <translation id="5251174953851719648">Atsvaidzināt saturu</translation>
 <translation id="5253783950165989294">Izveidots savienojums ar ierīci “<ph name="DEVICE_NAME" />”, akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="52550593576409946">Kioska lietojumprogrammu nevarēja palaist.</translation>
 <translation id="5256939106029293271">Mikrofona pārbaude</translation>
 <translation id="5258528442992323769">Nav saglabātu darbvietu</translation>
 <translation id="5260676007519551770">4. galds</translation>
+<translation id="5264148714798105376">Tas var ilgt aptuveni minūti.</translation>
 <translation id="5265391159779542051">Rezultāti ir ielādēti</translation>
 <translation id="5270547718570958938">Google kalendārs</translation>
 <translation id="5277869901083657836">Pārslēgt skārienekrāna pildspalvas rīkus</translation>
@@ -1311,6 +1430,7 @@ Dažas funkcijas ir ierobežotas, lai palielinātu akumulatora darbības ilgumu.
 <translation id="5352250171825660495">Tumšais motīvs ir ieslēgts.</translation>
 <translation id="5354804064646502504">Tādējādi var rasties izmaksas par datu lietojumu.
 Nav pievienota neviena ierīce.</translation>
+<translation id="5355498626146154079">Jums ir jāieslēdz karodziņš “Borealis Enabled”.</translation>
 <translation id="5356963482258194581">Pārslēdzieties starp tumšo un gaišo motīvu. Noklikšķiniet ar peles labo pogu darbvirsmā un atlasiet “Fona tapete un stils”.</translation>
 <translation id="536019650977002321">Jūsu administrators neļauj tvert audio. Lai uzzinātu vairāk, sazinieties ar administratoru.</translation>
 <translation id="5361524080961918551">Runas faili (<ph name="LANGUAGE" />) ir daļēji lejupielādēti</translation>
@@ -1321,6 +1441,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5377367976106153749">Vai ieslēgt piekļuvi kamerai?</translation>
 <translation id="5378450298115733949">Vairāk</translation>
 <translation id="5379115545237091094">Pārāk daudz mēģinājumu</translation>
+<translation id="5380526436444479273">Uzgaidiet dažas minūtes un mēģiniet vēlreiz.</translation>
 <translation id="5383434787520761436">Nav Google diska failu</translation>
 <translation id="5391307769715781764">Vai aizstāt saglabāto darbvietu?</translation>
 <translation id="5392327145184648521">Notiek akumulatora uzlādes līmeņa aprēķināšana…</translation>
@@ -1332,6 +1453,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5409208741270395213">Atzīmēt uzdevumu kā pabeigtu</translation>
 <translation id="5413656666631274079">Lapa Iestatījumi</translation>
 <translation id="5414198321558177633">Notiek profilu saraksta atsvaidzināšana. Tas var ilgt dažas minūtes.</translation>
+<translation id="5415328625985164836">Šī ir beta programma. Tagad varat izmantot Steam, lai spēlētu spēles Chromebook datorā.</translation>
 <translation id="5426063383988017631">Iestatījumu izvēlne aizvērta</translation>
 <translation id="5428899915242071344">Sākt atlasīšanu</translation>
 <translation id="5429993543155113935">Inkognito režīma logi pašlaik netiek atbalstīti.</translation>
@@ -1352,6 +1474,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5506975627792768506">Ieslēgt vai izslēgt lupu</translation>
 <translation id="5507778598655387680"><ph name="VOLUME_LEVEL" />; nospiežot taustiņu Enter, tiks izslēgta skaņa.</translation>
 <translation id="5512042095225963688">Dzēst iepriekšējo vārdu</translation>
+<translation id="5517304475148761050">Šai lietotnei ir nepieciešama piekļuve Play veikalam</translation>
 <translation id="5519005148254860683">Izvērst pakalpojumu Google uzdevumi</translation>
 <translation id="5519195206574732858">LTE</translation>
 <translation id="5520229639206813572">Jūsu administrators ir noņēmis visus eSIM profilus. Lai uzzinātu vairāk, sazinieties ar administratoru.</translation>
@@ -1379,6 +1502,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5577281275355252094">Lai varētu izmantot tālruņa centrmezglu, iespējojiet tālrunī Bluetooth savienojumu</translation>
 <translation id="5578188167649348993">atmiņa</translation>
 <translation id="5580000943347215299">Bibliotēka</translation>
+<translation id="5581972110672966454">Ierīci nevar saistīt ar domēnu. Lūdzu, mēģiniet vēlreiz vai sazinieties ar ierīces īpašnieku vai administratoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="5586388332127302891">Dokota lupa ir iespējota. Lai to atspējotu, vēlreiz nospiediet <ph name="ACCELERATOR" />.</translation>
 <translation id="5587506661873751671">Notiek lejupielāde: <ph name="DOWNLOAD_PERCENT" />%</translation>
 <translation id="558849140439112033">Velciet, lai atlasītu apgabalu, kura saturs jātver</translation>
@@ -1399,10 +1523,13 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5632485077360054581">Parādīt, kā</translation>
 <translation id="5648021990716966815">Mikrofona ligzda</translation>
 <translation id="5652575806481723716">Lietotne <ph name="FOCUSED_APP_NAME" /> aicina pievērst tai uzmanību.</translation>
+<translation id="5657667036353380798">Lai varētu izmantot ārējo paplašinājumu, jāinstalē Chrome versija <ph name="MINIMUM_CHROME_VERSION" /> vai jaunāka versija.</translation>
 <translation id="5662075790140998213">10. darbvieta</translation>
 <translation id="5662709761327382534">Ierakstīt mikrofona skaņu <ph name="CURRENT_STATE" /> Lai mikrofona ierakstīšanai ieslēgtu statusu <ph name="NEW_STATE" />, nospiediet taustiņu Enter</translation>
 <translation id="5662919923378083468"><ph name="ACTION_DESCRIPTION" />, <ph name="SHORTCUT_HINT" /></translation>
+<translation id="5667546120811588575">Notiek Google Play iestatīšana...</translation>
 <translation id="5669267381087807207">Notiek aktivizācija</translation>
+<translation id="5671658447180261823">Noņemt <ph name="SUGGESTION_NAME" /> ieteikumu</translation>
 <translation id="5672890847723042801">Utilītprogrammas</translation>
 <translation id="5673434351075758678">Pēc iestatījumu sinhronizēšanas valoda tika mainīta no “<ph name="FROM_LOCALE" />” uz “<ph name="TO_LOCALE" />”.</translation>
 <translation id="5675363643668471212">Plaukta vienums</translation>
@@ -1417,6 +1544,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5691772641933328258">Pirksta nospiedums netika atpazīts</translation>
 <translation id="5693255400847650006">Tiek izmantots mikrofons</translation>
 <translation id="5699366815052349604">Piešķirt aktīvo logu visām darbvirsmām</translation>
+<translation id="570043786759263127">Google Play lietotnes un pakalpojumi</translation>
 <translation id="570390244361237317">Visas lietotnes: pārvietojieties, nospiežot bultiņas, lai piekļūtu visām lietotnēm.</translation>
 <translation id="5705197514573687092">Rādīt fokusa režīma iestatījumus. Iestatīts taimeris: <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Jūsu ierīce atbalsta augstāku datu pārraides ātrumu nekā vads. Ierīces veiktspēja var būt ierobežota.</translation>
@@ -1425,11 +1553,13 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5712132663381964774">Izmantojiet lietotnes, lai veiktu visas nepieciešamās darbības savā ierīcē (<ph name="PRODUCT_NAME" />). Lietotnes varat atrast palaidējā.</translation>
 <translation id="571295407079589142">Mobilie dati ir izslēgti</translation>
 <translation id="5727460725221669831">Ja aizmirsāt paroli vai nesen mainījāt Google konta paroli, mēģiniet atkopt šo lietotāja profilu.</translation>
+<translation id="572914206753951782">Pārbaudiet, vai Chromebook datorā ir instalēta jaunākā versija. Pēc tam restartējiet Chromebook datoru un mēģiniet vēlreiz.</translation>
 <translation id="5733630091161562207">Sveiciena paziņojums</translation>
 <translation id="573413375004481890">Šajā ierīcē nevarēja atbalstīt visus jūsu displejus, tādējādi tika pārtraukts savienojums ar vienu no tiem.</translation>
 <translation id="574392208103952083">Vidējs</translation>
 <translation id="5744083938413354016">Vilkšana pieskaroties</translation>
 <translation id="5745612484876805746">Nakts režīms tiek automātiski ieslēgts saulrietā.</translation>
+<translation id="5749214722697335450">Lietojuma un diagnostikas datu sūtīšana. Palīdziet uzlabot Android lietošanas pieredzi, automātiski nosūtot diagnostikas, ierīces un lietotņu lietojuma datus uzņēmumam Google. Šī informācija palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Ja ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti jūsu Google kontā. <ph name="BEGIN_LINK1" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="5750765938512549687">Bluetooth ir izslēgts</translation>
 <translation id="5758114525425072423">Ieslēgt fokusa režīmu. Iestatīts taimeris: <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5759522586053040964">Klausieties, kā jūs dzird citi. Lai apturētu pārbaudi, noklikšķiniet uz pārbaudes ikonas vai aizveriet videozvana paneli.</translation>
@@ -1446,6 +1576,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5775936059231769503">Pārslēdziet tīklāju. Tīklājs ir izslēgts.</translation>
 <translation id="5777841717266010279">Vai apturēt ekrāna koplietošanu?</translation>
 <translation id="5779721926447984944">Piespraustie faili</translation>
+<translation id="5780940414249100901">Lietojuma un diagnostikas datu sūtīšana. Pašlaik dati par šo ierīci un ierīces diagnostikas un lietotņu lietojuma dati tiek automātiski sūtīti uzņēmumam Google. Šī informācija netiks izmantota jūsu bērna identificēšanai, un tā palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Šo <ph name="BEGIN_LINK1" />iestatījumu<ph name="END_LINK1" /> ir noteicis īpašnieks. Ja jūsu bērnam ir ieslēgts papildu iestatījums “Darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="5785221443435874078">Noņemt šo ieteikumu</translation>
 <translation id="5787431783058088906">Saņemt privilēģiju</translation>
 <translation id="5788127256798019331">Play faili</translation>
@@ -1461,6 +1592,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5823239091726045201">Google uzdevumi tīmeklī</translation>
 <translation id="5825969630400862129">Saistīto ierīču iestatījumi</translation>
 <translation id="5830180081891717894">Vēl <ph name="WINDOWS" /></translation>
+<translation id="583281660410589416">Nezināms</translation>
 <translation id="5837036133683224804">Pārtraukt “<ph name="ROUTE_TITLE" />” apraidi ierīcē “<ph name="RECEIVER_NAME" />”</translation>
 <translation id="5840658767386246331">Meklēt, izmantojot Google</translation>
 <translation id="5841296711770970362">Pāriet uz nākamo ierakstu</translation>
@@ -1487,6 +1619,10 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5916646100036936191">Jauns paziņojums, kopā <ph name="NOTIFICATION_COUNT" /></translation>
 <translation id="5916664084637901428">Iesl.</translation>
 <translation id="5920710855273935292">Mikrofons ir izslēgts.</translation>
+<translation id="5923808736819114609"><ph name="BEGIN_PARAGRAPH1" />Kad iestatījums “Atrašanās vietas precizitāte” ir ieslēgts, informācija par bezvadu signāliem (piemēram, Wi-Fi piekļuves punkti un mobilā tīkla torņi, kā arī ierīces sensoru dati, tostarp no akselerometra un žiroskopa) tiek izmantota, lai noteiktu precīzāku ierīces atrašanās vietu. Noteiktā atrašanās vieta savukārt tiek izmantota Android lietotnēs un pakalpojumos, lai nodrošinātu funkcijas, kuru pamatā ir atrašanās vieta. Šim nolūkam Google periodiski vāc informāciju par ierīces sensoriem un bezvadu signāliem šīs ierīces tuvumā, lai kolektīvajos pakalpojumos nodrošinātu bezvadu signālu atrašanās vietu informāciju.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Google izmanto šo no šīs ierīces ievākto informāciju, lai uzlabotu atrašanās vietas precizitāti un pakalpojumus pēc atrašanās vietas, kā arī kopumā uzlabotu, nodrošinātu un uzturētu Google pakalpojumus. Mēs apstrādājam šo informāciju, pamatojoties uz Google un trešo pušu likumīgajām interesēm sniegt lietotāju vajadzībām atbilstošu pakalpojumus. Šī informācija netiek izmantota, lai identificētu atsevišķas personas.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Jūs jebkurā brīdī varat izslēgt iestatījumu “Atrašanās vietas precizitāte” šīs ierīces atrašanās vietas iestatījumos sadaļā Iestatījumi &gt; Konfidencialitāte un drošība &gt; Konfidencialitātes vadīklas &gt; Piekļuve atrašanās vietai &gt; Atrašanās vietas papildu iestatījumi. Ja iestatījums “Atrašanās vietas precizitāte” ir izslēgts, netiek vākti nekādi atrašanās vietas precizitātes dati. Android lietotnēs un pakalpojumos ierīces atrašanās vietas noteikšanai tiek izmantota tikai IP adrese (ja tā ir pieejama). Tas var ietekmēt Android lietotņu un pakalpojumu, piemēram, Google Maps, pieejamību un atrašanās vietu precizitāti.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" /><ph name="LINK_BEGIN" />Uzzināt vairāk par atrašanās vietas precizitāti<ph name="LINK_END" /><ph name="END_PARAGRAPH4" /></translation>
 <translation id="5928083197428724029">Atjaunināšanu pieprasa <ph name="MANAGER" /></translation>
 <translation id="5939518447894949180">Atiestatīt</translation>
 <translation id="5946788582095584774">Funkcija <ph name="FEATURE_NAME" /> ir ieslēgta.</translation>
@@ -1494,6 +1630,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="595202126637698455">Veiktspējas izsekošana ir iespējota</translation>
 <translation id="5955304353782037793">lietojumprogramma</translation>
 <translation id="5958529069007801266">Uzraudzīts lietotājs</translation>
+<translation id="5959471481388474538">Tīkls nav pieejams.</translation>
 <translation id="596035801491797438">Izslēgt sejas kontroli</translation>
 <translation id="5960410286721553511">Skatiet tālruņa jaunākos fotoattēlus un multivides saturu.</translation>
 <translation id="5965524703725988602">Pārslēgt tumšo motīvu. <ph name="STATE_TEXT" />.</translation>
@@ -1502,6 +1639,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="5980301590375426705">Aizvērt viesa sesiju</translation>
 <translation id="5983567367406220847">Tīklājs tika izslēgts neaktivitātes dēļ.</translation>
 <translation id="598407983968395253">Izmantot veidni</translation>
+<translation id="5984334442529819751">Instalējot DLC, radās kļūda (bieži vien ir nepieciešama atkārtota palaišana; plašāku informāciju skatiet sadaļā Iestatījumi\&gt;\&gt;Par Chrome OS).</translation>
 <translation id="5986723678596105470">Pievienoties, izmantojot Google Meet</translation>
 <translation id="598882571027504733">Lai iegūtu atjauninājumu, restartējiet savu Chromebook datoru ar pievienoto tastatūru.</translation>
 <translation id="5990992855591814753">Sekojiet savam mērķim ar personalizētiem atskaņošanas sarakstiem uzmanības koncentrēšanai. Iegūstiet YouTube Music un YouTube bez reklāmām, izmantojot YouTube Premium trīs mēnešus bez maksas. Ir spēkā noteikumi.</translation>
@@ -1525,11 +1663,16 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="6032620807120418574">Noklikšķiniet jebkurā vietā, lai ierakstītu visu ekrānu</translation>
 <translation id="6040071906258664830">Ierakstīt mikrofona skaņu <ph name="STATE" /></translation>
 <translation id="6040143037577758943">Aizvērt</translation>
+<translation id="6042308850641462728">Vairāk</translation>
 <translation id="6043212731627905357">Šis monitors nav saderīgs ar jūsu ierīci <ph name="DEVICE_TYPE" /> (monitors netiek atbalstīts).</translation>
 <translation id="6043994281159824495">Izrakstīties tagad</translation>
 <translation id="6045629311476491587">Izmanto <ph name="APP_COUNT" /> lietotnes</translation>
 <translation id="6045998054441862242">Ieslēgt augsta kontrasta režīmu</translation>
 <translation id="6047696787498798094">Pārslēdzoties uz citu lietotāju, ekrāna koplietošana tiks apturēta. Vai vēlaties turpināt?</translation>
+<translation id="6051212890006277572"><ph name="BEGIN_PARAGRAPH1" />Šī ir vispārīga informācija par šo ierīci un tās lietojumu (piemēram, par akumulatora uzlādes līmeni, sistēmas darbībām, lietotņu izmantojumu un kļūdām). Dati tiks izmantoti, lai uzlabotu Android darbību. Noteiktu apkopotu informāciju izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji, lai uzlabotu lietotnes un produktus.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Izslēdzot šo funkciju, netiek ietekmēta ierīces spēja nosūtīt informāciju, kas nepieciešama būtiskiem pakalpojumiem, piemēram, sistēmas atjauninājumiem un drošībai.<ph name="END_PARAGRAPH2" />
+        <ph name="BEGIN_PARAGRAPH3" />Īpašnieks var pārvaldīt šo funkciju sadaļā Iestatījumi &gt; Papildu &gt; Automātiski sūtīt diagnostikas un lietojuma datus Google serveriem.<ph name="END_PARAGRAPH3" />
+        <ph name="BEGIN_PARAGRAPH4" />Ja jūsu bērnam ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. Plašāku informāciju par šiem iestatījumiem un to pielāgošanu skatiet vietnē families.google.com.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="6052614013050385269">Ar peles labo pogu noklikšķināt uz saites</translation>
 <translation id="6054305421211936131">Pierakstīties ar viedkarti</translation>
 <translation id="6059276912018042191">Nesen atvērtās Chrome cilnes</translation>
@@ -1570,6 +1713,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="6166852626429024716">Varat meklēt ierīcē, lietotnēs, iestatījumos, tīmeklī…</translation>
 <translation id="6168318496333165060">Atvērt lietotni Diagnostics</translation>
 <translation id="6168622430237609329">Instalētās lietotnes</translation>
+<translation id="6177412385419165772">Notiek noņemšana…</translation>
 <translation id="6180193585172850042">Poga Atpakaļ</translation>
 <translation id="6180651297859206670">Poga Tālāk</translation>
 <translation id="6182592640011875895">Atvērt darbvietu</translation>
@@ -1603,14 +1747,19 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="6274422179279280249">Ievietojiet saites, emocijzīmes un citu saturu. Varat arī saņemt palīdzību rakstīšanā, izmantojot Google MI. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Skatīt lapas avotu</translation>
 <translation id="6285871695023807425">Pievienot Kalendāram</translation>
+<translation id="628699625505156622">Atrašanās vietas datu izmantošana. Ļauj ChromeOS un Android lietotnēm, vietnēm un pakalpojumiem ar atrašanās vietas atļauju izmantot šīs ierīces atrašanās vietas datus. Iestatījums “Atrašanās vietas precizitāte” Android lietotnēm un pakalpojumiem nodrošina precīzāku atrašanās vietu informāciju. Šim nolūkam Google periodiski apstrādā informāciju par ierīces sensoriem un no šīs ierīces saņemtos bezvadu signālus, lai ar kolektīvo pakalpojumu palīdzību noteiktu bezvadu signālu atrašanās vietas. Neidentificējot nevienu personu, šie dati tiek izmantoti, lai uzlabotu atrašanās vietu precizitāti un ar atrašanās vietu saistītus pakalpojumus, kā arī uzlabotu, nodrošinātu un uzturētu Google pakalpojumus saskaņā ar Google un trešo pušu likumīgām interesēm sniegt lietotāja vajadzībām atbilstošus pakalpojumus. <ph name="BEGIN_LINK1" />Uzziniet vairāk par atrašanās vietas izmantošanu.<ph name="END_LINK1" /></translation>
 <translation id="6288235558961782912">Kontu <ph name="USER_EMAIL_ADDRESS" /> var vēlāk atkārtoti pievienot ar vecāku atļauju.</translation>
 <translation id="6291221004442998378">Nenotiek uzlāde</translation>
+<translation id="6297986260307280218">Lietojuma un diagnostikas datu sūtīšana. Palīdziet uzlabot Android lietošanas pieredzi, automātiski nosūtot diagnostikas, ierīces un lietotņu lietojuma datus uzņēmumam Google. Šī informācija palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Šo <ph name="BEGIN_LINK1" />iestatījumu<ph name="END_LINK1" /> ir noteicis īpašnieks. Īpašnieks var izvēlēties nosūtīt šīs ierīces diagnostikas un lietojuma datus Google serveriem. Ja ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti jūsu Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="6298183524022479114">Pielāgojiet šo ierīci lietotnē</translation>
+<translation id="6298962879096096191">Izmantojiet Google Play, lai instalētu Android lietotnes</translation>
 <translation id="6304076460080088478">Aizveriet vai minimizējiet inkognito režīma logus, lai meklētu ekrānā, izmantojot Google Lens</translation>
 <translation id="6309219492973062892">Noklikšķināt uz 1.–8. plaukta ikonas vai pieskarties tai</translation>
 <translation id="6315170314923504164">Balss</translation>
+<translation id="6317369057005134371">Notiek lietojumprogrammas loga gaidīšana...</translation>
 <translation id="6319058840130157106">Pārvietoties atpakaļ starp apakšējo labo stūri, palaidēju, adreses joslu, grāmatzīmju joslu, atvērto tīmekļa vietni un lejupielādēm</translation>
 <translation id="6319503618073410818">Skatīt informāciju pārlūkā</translation>
+<translation id="6324334979701518365">Nevar palaist neatbalstītu Chrome lietotni. Paziņojiet par šo problēmu administratoram.</translation>
 <translation id="6324916366299863871">Saīsnes rediģēšana</translation>
 <translation id="6325525973963619867">Neizdevās</translation>
 <translation id="6330012934079202188">Tiek rādīti visu darbvietu logi. Nospiediet augšupvērsto bultiņu, lai tiktu rādīti pašreizējās darbvietas logi.</translation>
@@ -1632,8 +1781,13 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="639644700271529076">Funkcija CAPS LOCK ir izslēgta.</translation>
 <translation id="6406458002328242616">Rediģējiet taimeri. <ph name="FOCUS_DURATION" />.</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="6407887725738521027"><ph name="BEGIN_PARAGRAPH1" />Google atrašanās vietu pakalpojumos tiek izmantoti tādi avoti kā Wi-Fi, mobilais tīkls un sensori, lai palīdzētu noteikt jūsu ierīces atrašanās vietu.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Varat izslēgt atrašanās vietas noteikšanu, savā ierīcē izslēdzot galveno atrašanās vietas noteikšanas iestatījumu. Atrašanās vietas iestatījumos varat arī izslēgt Wi‑Fi, mobilo tīklu un sensoru izmantošanu atrašanās vietas noteikšanai.<ph name="END_PARAGRAPH2" /></translation>
+<translation id="6414618057231176439">Atlasiet instalējamo <ph name="VM_NAME" /> versiju.</translation>
+<translation id="641469293210305670">Atjauninājumu un lietotņu saglabāšana</translation>
 <translation id="6417265370957905582">Google asistents</translation>
 <translation id="641817663353603351">augšupšķiršanas taustiņš</translation>
+<translation id="6418511932144861495">Kritiska atjauninājuma instalēšana</translation>
 <translation id="6424520630891723617"><ph name="SECURITY_STATUS" />, signāla stiprums: <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="642644398083277086">Visu paziņojumu notīrīšana</translation>
 <translation id="6426905245930183644">Notiek izveide…</translation>
@@ -1659,6 +1813,7 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="6482559668224714696">Pilnekrāna lupa</translation>
 <translation id="6485086611007560630">Laikapstākļi (informācija nav pieejama)</translation>
 <translation id="6490471652906364588">USB-C ierīce (pieslēgvieta pa labi)</translation>
+<translation id="6491376743066338510">Autorizācija neizdevās</translation>
 <translation id="649452524636452238">Viedkartes PIN</translation>
 <translation id="6495322433318104734">Tiek attēlots ekrānsaudzētājs. Lai izietu, nospiediet jebkuru taustiņu.</translation>
 <translation id="6495400115277918834">Palaists režīms “attēls attēlā”; nospiediet taustiņu kombināciju Alt+Shift+V, lai fokusētu</translation>
@@ -1667,7 +1822,9 @@ Nav pievienota neviena ierīce.</translation>
 <translation id="6507042703812908515">Atveriet lietotni Galvenie īsinājumtaustiņi, izmantojot īsinājumtaustiņus <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="6507618042428827377">Pārslēgties uz nākamo pieejamo ievades metodi</translation>
 <translation id="6508923215158854599">Gādājiet, lai Chromebook datorā un Chromecast ierīcē būtu izveidots savienojums ar vienu un to pašu Wi-Fi tīklu.</translation>
+<translation id="6511607461419653612">Restartējiet Chromebook datoru un mēģiniet vēlreiz.</translation>
 <translation id="6515727200518652613">Zudis savienojums ar kameru, tiek mēģināts atjaunot savienojumu.</translation>
+<translation id="651753338596587143">Diemžēl radās problēma, instalējot DLC atkarības. Veiciet atkārtotu palaišanu. Ja problēmu neizdodas novērst, iesniedziet atsauksmi, aprakstā norādot atsauci #bruschetta. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="6520517963145875092">Atlasiet logu, kura saturs jātver</translation>
 <translation id="652139407789908527">Šīs atjaunināšanas laikā ekrāns būs tukšs ilgāk nekā parasti (līdz minūtei). Kamēr notiek atjaunināšana, lūdzu, nespiediet barošanas pogu.</translation>
 <translation id="6528179044667508675">Netraucēt</translation>
@@ -1691,6 +1848,7 @@ Jauna instalācija</translation>
 <translation id="6574587113394758819">Lietotnes <ph name="APP_TITLE" /> paziņojums ir paslēpts, jo ir ieslēgta skatīšanas aizsardzība.</translation>
 <translation id="6574622320167699133">Atbloķēšanai tika izmantots jūsu tālrunis. Pieskarieties vai noklikšķiniet, lai palaistu.</translation>
 <translation id="6578407462441924264">Bez nosaukuma</translation>
+<translation id="6580060371127789208">Pabeigta: <ph name="PERCENTAGE_COMPLETE" />%</translation>
 <translation id="6582012689384648647">Lai iegūtu personalizētus atskaņošanas sarakstus uzmanības koncentrēšanai, atļaujiet piekļuvi pakalpojumam YouTube Music.</translation>
 <translation id="6582034443359256692">Notiek akumulatora uzlādes līmeņa aprēķināšana.</translation>
 <translation id="6585808820553845416">Atlikušais laiks līdz šīs sesijas beigām: <ph name="SESSION_TIME_REMAINING" />.</translation>
@@ -1709,10 +1867,12 @@ Jauna instalācija</translation>
 <translation id="6625718907317144388">Lietotņu <ph name="APP_1_TITLE" />, <ph name="APP_2_TITLE" /> un citu lietotņu paziņojumi ir paslēpti, jo ir ieslēgta skatīšanas aizsardzība.</translation>
 <translation id="6627638273713273709">Meklēšana+Shift+K</translation>
 <translation id="662830937908749204">Izcelt nākamo rūti</translation>
+<translation id="6635674640674343739">Nevar izveidot tīkla savienojumu. Pārbaudiet tīkla savienojumu un mēģiniet vēlreiz.</translation>
 <translation id="6637729079642709226">Laika maiņa</translation>
 <translation id="6641720045729354415">Pārslēgt funkciju Subtitri reāllaikā. <ph name="STATE_TEXT" /></translation>
 <translation id="6643169293433369663">Atsaukt kārtošanu pēc nosaukuma</translation>
 <translation id="664793810957802384">Vienumi ieteiktajā grupā</translation>
+<translation id="6649018507441623493">Uzgaidiet…</translation>
 <translation id="6649641931981131786">Pielāgot kameru, lai jūsu seja būtu ekrāna centrā.</translation>
 <translation id="6650072551060208490"><ph name="ORIGIN_NAME" /> vēlas apstiprināt jūsu identitāti</translation>
 <translation id="6650742588569439432">Nevarēja ielādēt vienumus.</translation>
@@ -1737,9 +1897,11 @@ Jauna instalācija</translation>
 <translation id="6706742084323792866">Piespraust tastatūru</translation>
 <translation id="6709719156428404245">Velciet vai nospiediet atstarpes taustiņu, lai atlasītu ierakstāmo apgabalu</translation>
 <translation id="6710213216561001401">Iepriekšējais</translation>
+<translation id="6716798148881908873">Tīkla savienojums tika zaudēts. Pārbaudiet tīkla savienojumu vai mēģiniet izveidot savienojumu ar citu Wi-Fi tīklu.</translation>
 <translation id="6723839937902243910">Strāvas padeve</translation>
 <translation id="672609503628871915">Uzzināt jaunumus</translation>
 <translation id="6727969043791803658">Savienojums izveidots, akumulatora uzlādes līmenis: <ph name="BATTERY_PERCENTAGE" /></translation>
+<translation id="6731320427842222405">Var paiet dažas minūtes.</translation>
 <translation id="6732087373923685049">kamera</translation>
 <translation id="6732800389263199929">+<ph name="COUNT" /></translation>
 <translation id="6737983188036277605">Tiek izmantota kamera un mikrofons</translation>
@@ -1762,6 +1924,7 @@ Jauna instalācija</translation>
 <translation id="6786750046913594791">Aizvērt mapi</translation>
 <translation id="6790428901817661496">Atskaņot</translation>
 <translation id="6792262051831399889">Nav pieejama</translation>
+<translation id="6792351896138862473">Nevar palaist neatbalstītu kioska lietotni. Paziņojiet par šo problēmu administratoram.</translation>
 <translation id="679368458793552943">Tuvināt, kad ieslēgta lupa</translation>
 <translation id="6794287755901682422">Šim vienumam ir šādi metadati: <ph name="GLANCEABLES_TASK_ITEM_METADATA" />.</translation>
 <translation id="6797745268063125932">Atstāt ieslēgtu</translation>
@@ -1774,6 +1937,7 @@ Jauna instalācija</translation>
 <translation id="6819327813400217281">Kamera pārnesta uz kreiso apakšējo stūri</translation>
 <translation id="6820676911989879663">Laiks pārtraukumam</translation>
 <translation id="6827049576281411231">Aizvērt pasākumu paneli</translation>
+<translation id="682971198310367122">Google konfidencialitātes politika</translation>
 <translation id="6836499262298959512">Bīstams fails</translation>
 <translation id="6837621009301897464">Lai izveidotu ekrānuzņēmumu, nospiediet</translation>
 <translation id="6852052252232534364">Noklikšķiniet</translation>
@@ -1805,11 +1969,13 @@ Jauna instalācija</translation>
 <translation id="6942518653766415536">Ierakstīšanas formāta izvēlne</translation>
 <translation id="6945221475159498467">Atlasīt</translation>
 <translation id="6945922087561257829">Jūsu tālrunī tiek izmantots mobilais tīkls. Gādājiet, lai tālrunis un Chromebook dators būtu pievienoti vienam Wi-Fi tīklam, un pēc tam mēģiniet vēlreiz. <ph name="LEARN_MORE" /></translation>
+<translation id="6950627417367801484">Atjaunot lietotnes</translation>
 <translation id="6960565108681981554">Nav aktivizēts. Sazinieties ar mobilo sakaru operatoru.</translation>
 <translation id="6961121602502368900">Darba profilā tālruņa skaņu nevar izslēgt.</translation>
 <translation id="6961840794482373852">Šie īsinājumtaustiņi ir mainījušies: Alt + augšupvērstais bulttaustiņš. Lai izmantotu augšupšķiršanas taustiņu, nospiediet šos taustiņus: <ph name="LAUNCHER_KEY_NAME" /> + augšupvērstais bulttaustiņš.</translation>
 <translation id="696267987219125751">Kameras kadrēšana ir izslēgta.</translation>
 <translation id="6965382102122355670">Labi</translation>
+<translation id="6967112302799758487">Visas lietotnes un spēles, kas instalētas, izmantojot Steam for Chromebook (Beta), tiks noņemtas no šīs ierīces. Tiks noņemti arī ar šīm lietotnēm un spēlēm saistītie dati. Pirms atinstalēšanas dublējiet saglabātās lietotnes un spēles.</translation>
 <translation id="6972629891077993081">HID ierīces</translation>
 <translation id="6979158407327259162">Google disks</translation>
 <translation id="6980402667292348590">ievietošanas taustiņš</translation>
@@ -1841,6 +2007,7 @@ Jauna instalācija</translation>
 <translation id="7067196344162293536">Pagriezt automātiski</translation>
 <translation id="7076293881109082629">Pierakstīšanās</translation>
 <translation id="7076878155205969899">Izslēgt skaņu</translation>
+<translation id="7083774521940805477">Lietotne Steam for Chromebook (Beta) vēl nav pieejama jūsu Chromebook datorā.</translation>
 <translation id="7083848064787091821">Fokusa režīms</translation>
 <translation id="7084678090004350185">Pārslēdziet tīklāju. Tīklājs ir ieslēgts; savienojums ir izveidots ar <ph name="DEVICECOUNT" /> ierīcēm.</translation>
 <translation id="7086931198345821656">Šī atjauninājuma lietošanai ierīcē <ph name="DEVICE_TYPE" /> ir jāizmanto funkcija Powerwash. Visi dati tiks izdzēsti. Uzziniet vairāk par pēdējo <ph name="SYSTEM_APP_NAME" /> atjauninājumu.</translation>
@@ -1858,11 +2025,14 @@ Jauna instalācija</translation>
 <translation id="7130207228079676353">VISTICAMĀK</translation>
 <translation id="7131634465328662194">Jūs tiksiet automātiski izrakstīts.</translation>
 <translation id="7143207342074048698">Notiek savienojuma izveide</translation>
+<translation id="7143409552554575716">ChromeOS karodziņi</translation>
+<translation id="7144878232160441200">Mēģināt vēlreiz</translation>
 <translation id="7144942256906679589">Akumulatora statuss</translation>
 <translation id="7145639536026937076">Akumulatora uzlādes līmenis ir <ph name="PERCENTAGE" />%, un notiek uzlāde. Akumulatora enerģijas taupīšanas režīms ir ieslēgts.</translation>
 <translation id="7147587499155271409">Nav pārlūkošanas vēstures</translation>
 <translation id="7147657298465433425">Lai piekļūtu funkciju taustiņiem, nospiediet taustiņu fn un augšējās rindas taustiņus.</translation>
 <translation id="7149149900052329230">Pārvaldiet savus lokālos failus un Google diska failus lietotnē Faili.</translation>
+<translation id="7154020516215182599">Sniedziet atsauksmes vai aprakstiet problēmu. Ja iespējams, norādiet darbības, ko veicāt, kad radās problēma.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7167913274352523149"><ph name="HOTSPOT" />.
         <ph name="NETWORK" />.</translation>
@@ -1899,6 +2069,7 @@ Jauna instalācija</translation>
 <translation id="7331646370422660166">Alt + lejupvērstā bultiņa</translation>
 <translation id="7336943714413713812">Meklēt pārlūkošanas vēsturē</translation>
 <translation id="7337660433630200387">+10 min</translation>
+<translation id="7339898014177206373">Jauns logs</translation>
 <translation id="7340731148882810149">Automātisko klikšķu izvēlne</translation>
 <translation id="7346909386216857016">Labi, sapratu</translation>
 <translation id="7348093485538360975">Ekrāntastatūra</translation>
@@ -1933,11 +2104,13 @@ Jauna instalācija</translation>
 <translation id="7440404390546433462">Google meklēšana</translation>
 <translation id="7441711280402516925">Notiek atskaņošana · Pārslēgties uz cilni</translation>
 <translation id="7453330308669753048">Meklēšanas vēstures rezultāts ir noņemts</translation>
+<translation id="7457027286267861992">Diskā nepietiek vietas. Lūdzu, atbrīvojiet vietu diskā un mēģiniet vēlreiz. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="7459485586006128091">Tīklājs tika izslēgts iekšējas kļūdas dēļ. Pēc dažām minūtēm mēģiniet atkārtoti izveidot savienojumu.</translation>
 <translation id="7461924472993315131">Piespraust</translation>
 <translation id="746232733191930409">Ekrāna ierakstīšanas režīms</translation>
 <translation id="7466449121337984263">Lūdzu, pieskarieties sensoram.</translation>
 <translation id="7477793887173910789">Pārvaldiet savu mūziku, videoklipus un citu saturu</translation>
+<translation id="7478485216301680444">Kioska lietojumprogrammu nevarēja instalēt.</translation>
 <translation id="7488762544858401571">Rediģēts</translation>
 <translation id="7489261257412536105">Atvērt pilnekrāna režīmu vai iziet no tā</translation>
 <translation id="7490157877815329797">Lai klausītos mūziku bez reklāmām un iegūtu personalizētu mūziku uzmanības koncentrēšanai, izmēģiniet YouTube Music Premium.</translation>
@@ -1965,11 +2138,14 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7534543072325030705">Nospiežot pogu “Patīk”, varat norādīt, ka jums patīk šī ieteiktā grupa.</translation>
 <translation id="7536035074519304529">IP adrese: <ph name="ADDRESS" /></translation>
 <translation id="7536832381700852123">Atjaunināt logu kreisajā pusē</translation>
+<translation id="7541773865713908457"><ph name="ACTION_NAME" />, izmantojot lietotni <ph name="APP_NAME" /></translation>
 <translation id="7543399541175347147">Linux lietotnes un inkognito režīma logi pašlaik netiek atbalstīti. Citas lietotnes tiks saglabātas.</translation>
 <translation id="7544300628205093162">Tastatūras fona apgaismojums ir ieslēgts.</translation>
+<translation id="7545466883021407599">Nevarēja izveidot savienojumu ar serveri. Pārbaudiet tīkla savienojumu un mēģiniet vēlreiz. Ja problēma nav novērsta, restartējiet Chromebook datoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="7548434653388805669">Laiks naktsmieram</translation>
 <translation id="7551643184018910560">Piespraust plauktam</translation>
 <translation id="7557816257942363084"><ph name="APP_NAME" /> pašlaik izmanto jūsu mikrofonu.</translation>
+<translation id="7559719679815339381">Lūdzu, uzgaidiet... Kioska lietotne tiek atjaunināta. Neizņemiet USB atmiņas karti.</translation>
 <translation id="7561982940498449837">Aizvērt izvēlni</translation>
 <translation id="7564874036684306347">Logu pārvietošana uz citu darbvirsmu var izraisīt neparedzētu darbību. Turpmākie paziņojumi, logi un dialoglodziņi var tikt sadalīti pa darbvirsmām.</translation>
 <translation id="7568154670718626683">Vai mēģināt dzēst? Izmantojiet</translation>
@@ -1981,6 +2157,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7579778809502851308">Veidot ekrānuzņēmumu</translation>
 <translation id="7588317312481506627">Kopēts starpliktuvē.</translation>
 <translation id="7593891976182323525">Meklēt vai Shift</translation>
+<translation id="7595453277607160340">Lai izmantotu Android lietotnes un nodrošinātu pienācīgu ierīces <ph name="DEVICE_TYPE" /> darbību, pierakstieties atkārtoti un veiciet atjaunināšanu.</translation>
 <translation id="7598054670902114203">Centrālā procesora lietojuma apkopojums, <ph name="CPU_USEAGE" />%. Temperatūra: <ph name="TEMPERATURE" /> grādi pēc Celsija skalas, pašreizējais ātrums: <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" /> GHz</translation>
 <translation id="7599378375976398913">Notiek atlasītā rezultāta ievietošana</translation>
 <translation id="7600875258240007829">Skatīt visus paziņojumus</translation>
@@ -1990,10 +2167,13 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7609951632080598826">Kalendāra skats, <ph name="DATE" />, <ph name="TIME" /></translation>
 <translation id="7611213136657090146">Kamera atkal pievienota.</translation>
 <translation id="7613620083300976559">Ieslēgt spēļu vadīklas</translation>
+<translation id="761530003705945209">Datu dublēšana Google diskā. Varēsiet jebkurā laikā ērti atjaunot savus datus vai mainīt ierīci. Dublējumā ir ietverti arī lietotņu dati. Jūsu dublējumi tiek augšupielādēti Google serveros un šifrēti, izmantojot jūsu Google konta paroli.</translation>
 <translation id="761736749114493194">Pārslēgt kameras kadrēšanu. <ph name="STATE_TEXT" /></translation>
 <translation id="7621008024906456933">Funkcijas “Ātrā kopīgošana” iestatījumi</translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" />° F</translation>
 <translation id="7627303771480696593">Uzdodiet jautājumu</translation>
+<translation id="7629858978065675960">Nezināms rezultāts.</translation>
+<translation id="7632948528260659758">Neizdevās atjaunināt šādas kioska lietotnes:</translation>
 <translation id="7634648064048557203">Kamera pārnesta uz labo apakšējo stūri</translation>
 <translation id="7638572816805275740">Izveidot loga ekrānuzņēmumu vai ekrāna ierakstu</translation>
 <translation id="7642106959537987271">krāsu inversijas režīms</translation>
@@ -2015,6 +2195,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7684531502177797067">Kameras ievadei iestatīta kamera <ph name="CAMERA_NAME" />.</translation>
 <translation id="7687172143976244806">Jūs atvērāt</translation>
 <translation id="7689817529363080918">Atļauj piekļuvi mikrofonam lietotnei <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> un visām lietotnēm un vietnēm, kurām ir mikrofona atļauja.</translation>
+<translation id="7691073721729883399">Nevarēja iekļaut kioska lietojumprogrammai paredzēto komponentu cryptohome.</translation>
 <translation id="7704000866383261579">Atcelt pēdējās darbības atsaukšanu</translation>
 <translation id="7705524343798198388">VPN</translation>
 <translation id="770741401784017797">Notiek GIF izveide</translation>
@@ -2030,10 +2211,12 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7726391492136714301">Skatiet tālruņa paziņojumus un lietotnes.</translation>
 <translation id="7727952505535211425">Atvērt adreses joslā norādīto vietni jaunā cilnē</translation>
 <translation id="7728657226117099693">Izslēgt burtslēgu</translation>
+<translation id="7732702411411810416">Pārliecinieties, vai ir izveidots savienojums ar internetu, un mēģiniet vēlreiz.</translation>
 <translation id="7742327441377685481">Paziņojumu nav</translation>
 <translation id="7748275671948949022">Plauktā izcelt palaidēja pogu</translation>
 <translation id="7749443890790263709">Sasniegts maksimālais darbvietu skaits.</translation>
 <translation id="7749958366403230681">ExpressKey 4</translation>
+<translation id="7750228210027921155">Attēls attēlā</translation>
 <translation id="7751260505918304024">Rādīt visu</translation>
 <translation id="7762664108390426952">Google pakalpojumu sniegšanas noteikumus un konfidencialitātes politiku</translation>
 <translation id="7768784765476638775">Atlasīt, lai izrunātu</translation>
@@ -2055,13 +2238,16 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7830453190047749513">Varat personalizēt pogu darbības, kursora ātrumu un citas iespējas savai ierīcei (<ph name="PERIPHERAL_NAME" />).</translation>
 <translation id="7842569679327885685">Brīdinājums: šī ir eksperimentāla funkcija!</translation>
 <translation id="7846634333498149051">Tastatūra</translation>
+<translation id="7847212883280406910">Nospiediet Ctrl+Alt+S, lai pārslēgtos uz <ph name="IDS_SHORT_PRODUCT_OS_NAME" />.</translation>
 <translation id="7848989271541991537">Pārvietota uz <ph name="PAGE_NUMBER" />. lapu, <ph name="ROW_NUMBER" />. rindu, <ph name="COLUMN_NUMBER" />. sleju.</translation>
 <translation id="7850320739366109486">Netraucēt</translation>
 <translation id="7851039877802112575">Izcelt uznirstošos logus un dialoglodziņus</translation>
 <translation id="7851768487828137624">Canary</translation>
 <translation id="7862292329216937261">Lai izmantotu ierīci viesa režīmā, izrakstieties un pēc tam ekrāna apakšdaļā atlasiet Pārlūkot kā viesim.</translation>
 <translation id="7866482334467279021">ieslēgts</translation>
+<translation id="7870790288828963061">Netika atrasta neviena Kioska lietotne ar jaunāku versiju. Nav jāatjaunina neviena lietotne. Lūdzu, izņemiet USB atmiņas karti.</translation>
 <translation id="7872786842639831132">Izslēgts</translation>
+<translation id="7873386145597434863">Steam Chromebook datoriem</translation>
 <translation id="7875575368831396199">Šķiet, jūsu ierīcē (<ph name="DEVICE_TYPE" />) ir izslēgts Bluetooth savienojums. Lai izmantotu funkciju Tālruņa centrmezgls, ieslēdziet Bluetooth savienojumu.</translation>
 <translation id="7884446017008693258">Tīklāja iestatījumi</translation>
 <translation id="7884902759927478774">Atcelt ciļņu vilkšanu</translation>
@@ -2100,6 +2286,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="7945357288295809525">Rādīt pieejamības iestatījumus; iespējotas šādas funkcijas: <ph name="ENABLED_FEATURES" />.</translation>
 <translation id="7946681191253332687">Pieejami paplašinātie drošības atjauninājumi</translation>
 <translation id="7947798320695032612">Lietotne <ph name="APP_NAME" /> pieprasa atļauju izmantot šo ierīci: <ph name="DEVICE_NAME" />.</translation>
+<translation id="7948239795436419268">Neatjaunot logus</translation>
 <translation id="7951630946012935453">Aptumšot tastatūru</translation>
 <translation id="7953176344218790168">LIELIE BURTI</translation>
 <translation id="7953994493035617347">Vai apstiprināt jauno izšķirtspēju?</translation>
@@ -2119,11 +2306,13 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="799296642788192631">Varat piespraust svarīgus failus. Lai piespraustu failu, virziet kursoru virs tā vai atveriet lietotni Faili un noklikšķiniet uz vienuma ar labo pogu.</translation>
 <translation id="7994370417837006925">Vairākkārtēja pierakstīšanās</translation>
 <translation id="7995804128062002838">Neizdevās izveidot ekrānuzņēmumu.</translation>
+<translation id="7997828719430450286">Gatavs.</translation>
 <translation id="8000020256436988724">Rīkjosla</translation>
 <translation id="8000066093800657092">Nav tīkla</translation>
 <translation id="8001755249288974029">Atlasīt tekstu no kursora līdz rindas sākumam</translation>
 <translation id="8004512796067398576">Palielināt</translation>
 <translation id="8005527720597583355">Sākt fokusa režīma sesiju</translation>
+<translation id="8008356846765065031">Internets atvienots. Pārbaudiet interneta savienojumu.</translation>
 <translation id="8015361438441228492">Nevarēja rediģēt uzdevumu.</translation>
 <translation id="8027187124910699148">Atsākt izmantot ieteikto grupu</translation>
 <translation id="802782383769312836">Iepriekšējā darbvieta: <ph name="DESK_NAME" />. <ph name="DESK_INDEX" />. darbvieta no <ph name="DESK_COUNT" />.</translation>
@@ -2147,6 +2336,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8092380135549145188">Ritināšanas vadīklas</translation>
 <translation id="8098591350844501178">Apturēt ekrāna apraidi uztvērējā “<ph name="RECEIVER_NAME" />”</translation>
 <translation id="810637681351706236">Atspraust lietotni no plaukta</translation>
+<translation id="8107015733319732394">Notiek Google Play veikala instalēšana jūsu ierīcē (<ph name="DEVICE_TYPE" />). Tas var ilgt dažas minūtes.</translation>
 <translation id="8113423164597455979">Iesl. v. lietotnēs</translation>
 <translation id="8113515504791187892">Poga “Atlasīt, lai izrunātu”</translation>
 <translation id="8120151603115102514">Jūsu tālrunim nav iespējots bloķēšanas ekrāns. Lai atbloķētu Chromebook datoru, ievadiet paroli.</translation>
@@ -2171,6 +2361,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8155628902202578800">Atvērt lietotāja <ph name="USER_EMAIL_ADDRESS" /> informācijas dialoglodziņu</translation>
 <translation id="8167567890448493835">Izmantotā valoda: <ph name="LOCALE_NAME" /></translation>
 <translation id="8168435359814927499">Saturs</translation>
+<translation id="8169177848833352618">Diemžēl šis dators neatbilst prasībām, kas jāizpilda, lai varētu instalēt Bruschetta. Kļūdas kods ir <ph name="ERROR" />.</translation>
 <translation id="8172370561760918656">Atlasīts turis augšējā kreisajā stūrī; izmantojiet bulttaustiņus, lai pārvietotu</translation>
 <translation id="81817143961839203">Neizdevās ievietot attēlu</translation>
 <translation id="8185090165691050712">Ieslēgt/izslēgt bloķēšanas režīma lieluma maiņas izvēlni</translation>
@@ -2193,6 +2384,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8239034820133090126">Aktivizēt darbvietu labajā pusē</translation>
 <translation id="8241650983304689286">Pievienot cilni jaunam dalītajam skatam</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, signāla stiprums: <ph name="SIGNAL_STRENGTH" />, tālruņa akumulatora statuss: <ph name="BATTERY_STATUS" /></translation>
+<translation id="8249048954461686687">OAR mape</translation>
 <translation id="825129991941217170">Rādīt visu Google diska saturu</translation>
 <translation id="8261506727792406068">Dzēst</translation>
 <translation id="8262312463845990408">Pārslēgt atskaņošanu</translation>
@@ -2208,6 +2400,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8314772463905284467">Funkcija Caps Lock ir ieslēgta</translation>
 <translation id="8315514906653279104">Notiek ieslēgšana…</translation>
 <translation id="8331351032546853669">Tiek gaidīta lejupielāde</translation>
+<translation id="8335587457941836791">Atspraust no plaukta</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="834414266279889566">Slikti izvades dati</translation>
 <translation id="8345019317483336363">Atlasīts logs “<ph name="WINDOW_TITLE" />”</translation>
@@ -2226,6 +2419,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8388750414311082622">Pēdējo darbvietu nevar noņemt.</translation>
 <translation id="8394567579869570560">Jūsu vecāki bloķēja šo ierīci</translation>
 <translation id="8401850874595457088">Atvērt valodu izvēlni</translation>
+<translation id="8410775397654368139">Google Play</translation>
 <translation id="8412677897383510995">Rādīt displeja iestatījumus</translation>
 <translation id="8413272770729657668">Ierakstīšana tiks sākta pēc atskaites: 3, 2, 1</translation>
 <translation id="8416730306157376817"><ph name="BATTERY_PERCENTAGE" />% (futrālis)</translation>
@@ -2237,10 +2431,13 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8433186206711564395">Tīkla iestatījumi</translation>
 <translation id="8433977262951327081">Tika mainīti īsinājumtaustiņi, ar kuriem plauktā var parādīt ievades opciju izvēlnes burbuli. Lūdzu, turpmāk izmantojiet <ph name="NEW_SHORTCUT" />, nevis <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8437311513256731931">Atvērt atsauksmju rīku</translation>
+<translation id="8440630305826533614">Linux lietotnes</translation>
 <translation id="8443879455002739353">“Kopēt”</translation>
 <translation id="8444246603146515890">Darbvirsma <ph name="DESK_TITILE" /> ir aktivizēta</translation>
 <translation id="8446884382197647889">Uzziniet vairāk</translation>
 <translation id="8456543082656546101"><ph name="SHORTCUT_KEY_NAME" /> + V</translation>
+<translation id="8458259704995116343">Neizdevās palaist virtuālo mašīnu.</translation>
+<translation id="84613761564611563">Tika pieprasīta tīkla konfigurēšanas lietotāja saskarne. Lūdzu, uzgaidiet...</translation>
 <translation id="8462305545768648477">Aizvērt funkciju “Atlasīt, lai izrunātu”</translation>
 <translation id="8466665972451889002">Rādīt vienumus grupā <ph name="GROUP_NAME" /></translation>
 <translation id="8468806060683421065">nodošanas termiņš: <ph name="DUE_DATE_AND_TIME" /></translation>
@@ -2248,10 +2445,15 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" /> ir <ph name="FEATURE_STATE" /> <ph name="FEATURE_NAME" />.</translation>
 <translation id="8477270416194247200">Lai atceltu, nospiediet alternēšanas taustiņu + meklēšanas vai pārslēgšanas taustiņu.</translation>
 <translation id="8480418399907765580">Rādīt rīkjoslu</translation>
+<translation id="8481187309597259238">USB ierīces atļaujas apstiprināšana</translation>
 <translation id="8487660088084188539">Kad ieslēdzat šīs funkcijas, ievadītais teksts, dokumenta saturs un tīmekļa lapas URL var tikt nosūtīts uz Google serveriem. Šī informācija tiek izmantota, lai ģenerētu rakstīšanas ieteikumus, ģenerētu apkopojumus, atbildētu uz jautājumiem un uzlabotu produktu, ievērojot <ph name="LINK_TO_SERVICE_TERMS" />. Neiekļaujiet nekādu personas, sensitīvu vai konfidenciālu informāciju.</translation>
 <translation id="8487699605742506766">Tīklājs</translation>
+<translation id="8488561391784577756"><ph name="BEGIN_PARAGRAPH1" />Google atrašanās vietu pakalpojumos tiek izmantoti tādi avoti kā Wi-Fi, mobilais tīkls un sensori, lai palīdzētu noteikt šīs ierīces atrašanās vietu.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />Varat izslēgt atrašanās vietas noteikšanu, šajā ierīcē izslēdzot galveno atrašanās vietas noteikšanas iestatījumu. Atrašanās vietas iestatījumos varat arī izslēgt Wi‑Fi, mobilo tīklu un sensoru izmantošanu atrašanās vietas noteikšanai.<ph name="END_PARAGRAPH2" /></translation>
+<translation id="8490896350101740396">Tika atjauninātas šādas Kioska lietotnes: “<ph name="UPDATED_APPS" />”. Lūdzu, atkārtoti palaidiet ierīci, lai pabeigtu atjaunināšanas procesu.</translation>
 <translation id="8491237443345908933">Atvērt saiti jaunā cilnē</translation>
 <translation id="8492573885090281069">Displejā <ph name="DISPLAY_NAME" /> netiek atbalstīta izšķirtspēja <ph name="SPECIFIED_RESOLUTION" />. Izšķirtspēja tika nomainīta uz: <ph name="FALLBACK_RESOLUTION" />. Lai saglabātu izmaiņas, noklikšķiniet uz Apstiprināt. Iepriekšējie iestatījumi tiks atjaunoti pēc: <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="8502536196501630039">Lai varētu izmantot pakalpojumā Google Play pieejamās lietotnes, vispirms jums ir jāatjauno savas lietotnes. Daļa datu var tikt zaudēta.</translation>
 <translation id="8507563469658346379">Visiem, <ph name="REMAINING_TIME" /></translation>
 <translation id="8511123073331775246">Izveidot jaunu darbvietu</translation>
 <translation id="85123341071060231">Jūsu Chromebook datorā ir izslēgts Bluetooth savienojums. Lai atbloķētu Chromebook datoru, ievadiet paroli.</translation>
@@ -2260,6 +2462,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="851660987304951246">Izmantojiet funkciju “Palīdzība lasīšanā”, lai ātri iegūtu satura apkopojumu vai uzdotu jautājumus</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> ierīce, iespējams, netiks uzlādēta, kamēr tā būs ieslēgta.</translation>
 <translation id="8519329096920173967">Meklēt ekrānā redzamo saturu, izmantojot Google Lens</translation>
+<translation id="8527869672961320915">Lietotņu skaits: <ph name="VM_NAME" /></translation>
 <translation id="8535393432370007982">Atsaukt kārtošanu pēc krāsas</translation>
 <translation id="8536886494750559755">Rādīt ātrās kopīgošanas iestatījumus. Redzama visiem šādu laika periodu: <ph name="TIME_REMAINING" />.</translation>
 <translation id="8539803091108018926">Teksts ir nokopēts starpliktuvē.</translation>
@@ -2287,6 +2490,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8627191004499078455">Izveidots savienojums ar ierīci (<ph name="DEVICE_NAME" />)</translation>
 <translation id="8631727435199967028">Pieejamības iestatījumi</translation>
 <translation id="8634326941504371857">Jūsu faili šajā ierīcē un Google diskā</translation>
+<translation id="8636284842992792762">Notiek paplašinājumu inicializēšana...</translation>
 <translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />, signāla stiprums: <ph name="SIGNAL_STRENGTH" />, pārvalda jūsu administrators</translation>
 <translation id="8638637208069328956">Ieslēgt/izslēgt mikrofonu</translation>
 <translation id="8639760480004882931">Atlicis: <ph name="PERCENTAGE" />%</translation>
@@ -2303,6 +2507,8 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8676770494376880701">Pievienots lādētājs ar mazu strāvas padevi</translation>
 <translation id="8679158879996532670">Rādīt fokusa režīma iestatījumus. Fokusa režīms ir ieslēgts, atlikušais laiks: <ph name="REMAINING_TIME" />.</translation>
 <translation id="8683506306463609433">Veiktspējas izsekošana ir aktīva</translation>
+<translation id="8698432579173128320">Datu dublēšana Google diskā. Varēsiet jebkurā laikā ērti atjaunot savus datus vai mainīt ierīci. Dublējumā ir ietverti arī lietotņu dati. Jūsu dublējumi tiek augšupielādēti Google serveros un šifrēti, izmantojot Google konta paroli. <ph name="BEGIN_LINK1" />Uzzināt vairāk par dublēšanu<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
+<translation id="8700087567921985940">Atrašanās vietas datu izmantošana. Ļauj lietotnēm un pakalpojumiem ar atrašanās vietas atļauju izmantot jūsu ierīces atrašanās vietas datus. Google periodiski var vākt atrašanās vietas datus un izmantot šos datus anonīmā veidā, lai uzlabotu atrašanās vietas precizitāti un ar atrašanās vietu saistītus pakalpojumus. <ph name="BEGIN_LINK1" />Uzzināt vairāk par atrašanās vietu<ph name="BEGIN_LINK1_END" />Uzzināt vairāk<ph name="END_LINK1" /></translation>
 <translation id="8703634754197148428">Sākt ierakstīšanu. Kad ierakstīšana ir sākta, izmantojiet taustiņu kombināciju Alt+Shift+L, lai pārietu uz plauktu un atrastu pogu Apturēt ierakstīšanu.</translation>
 <translation id="8704155109538237473">Izcelt logu “Attēls attēlā”</translation>
 <translation id="870917907284186124">Ieslēgt/izslēgt diktēšanu (rakstīšanu ar balsi)</translation>
@@ -2320,6 +2526,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8734991477317290293">Tā, iespējams, mēģina piesavināties jūsu taustiņsitienus</translation>
 <translation id="8735678380411481005">Taustiņu izgaismojuma krāsa</translation>
 <translation id="8742057891287715849"><ph name="NAME" /> · <ph name="SERVICE_PROVIDER" />: notiek aktivizācija…</translation>
+<translation id="8742395827132970586">Instalēšana neizdevās. Notiek tīrīšana…</translation>
 <translation id="8747464587821437069"><ph name="CAMERA_AND_MICROPHONE_ACCESS_STATUS" />.
         <ph name="SCREEN_SHARE_STATUS" />.</translation>
 <translation id="8751299148074971734">Tā turpiniet!</translation>
@@ -2330,6 +2537,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8759408218731716181">Nevar iestatīt vairākkārtēju pierakstīšanos.</translation>
 <translation id="8763883995157866248">Ierīcē aktivizēt miega režīmu</translation>
 <translation id="878215960996152260"><ph name="APP_NAME" />, instalēta lietotne, bloķēta</translation>
+<translation id="8782565991310229362">Kioska lietojumprogrammas palaišana tika atcelta.</translation>
 <translation id="8785070478575117577">Savienošana ar ierīci <ph name="NETWORK_NAME" /></translation>
 <translation id="8788027118671217603"><ph name="STATE_TEXT" />. <ph name="ENTERPRISE_TEXT" /></translation>
 <translation id="8790632710469941716">Pārvietoties uz priekšu starp apakšējo labo stūri, palaidēju, adreses joslu, grāmatzīmju joslu, atvērto tīmekļa vietni un lejupielādēm</translation>
@@ -2357,11 +2565,14 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8860366331836346216">Pievienot eSIM</translation>
 <translation id="8869149849311827122">Vai tiešām vēlaties izslēgt kursora vadību ar peli?</translation>
 <translation id="8870509716567206129">Lietotnē netiek atbalstīta ekrāna sadalīšana.</translation>
+<translation id="8871551568777368300">Piesprauda administrators</translation>
+<translation id="8872155268274985541">Atrasts nederīgs Kioska lietotnes ārējais atjaunināšanas manifesta fails. Neizdevās atjaunināt Kioska lietotni. Lūdzu, izņemiet USB atmiņas karti.</translation>
 <translation id="8873203135446552888">Apstipriniet, ka vēlaties atspējot iebūvēto skārienpaliktni</translation>
 <translation id="8874184842967597500">Savienojums nav izveidots</translation>
 <translation id="8875021410787719674">Pārvietoties starp apakšējo labo stūri, palaidēju, adreses joslu, grāmatzīmju joslu, atvērto tīmekļa vietni un lejupielādēm</translation>
 <translation id="8876148469852588625">Notikums numur <ph name="EVENT_POSITION" />, kopā ir <ph name="EVENT_TOTAL_COUNT" /></translation>
 <translation id="8876661425082386199">Savienojuma pārbaude</translation>
+<translation id="8883478023074930307">Lietojuma un diagnostikas datu sūtīšana. Pašlaik dati par šo ierīci un ierīces diagnostikas un lietotņu lietojuma dati tiek automātiski sūtīti uzņēmumam Google. Šī informācija palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Šo <ph name="BEGIN_LINK1" />iestatījumu<ph name="END_LINK1" /> ir noteicis īpašnieks. Ja ir ieslēgts iestatījums “Papildu darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti jūsu Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="8885424115080869847">Nevarēja izveidot savienojumu ar pakalpojumu YouTube Music.</translation>
 <translation id="888982883502837004">Jūsu ierīcei ir pieejami aparātprogrammatūras atjauninājumi. Noklikšķiniet, lai tos izskatītu un veiktu atjaunināšanu.</translation>
 <translation id="8896630965521842259">Veidne “<ph name="DESK_TEMPLATE_NAME" />” tiks neatgriezeniski dzēsta.</translation>
@@ -2371,6 +2582,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="890616557918890486">Mainīt avotu</translation>
 <translation id="8909138438987180327">Akumulatora uzlādes līmenis:<ph name="PERCENTAGE" />.</translation>
 <translation id="8916866375277139011">Paslēpt vienumus grupā <ph name="GROUP_NAME" /></translation>
+<translation id="8921369299636221117">Palīga pakalpojums nav pieejams.</translation>
 <translation id="8921554779039049422">H+</translation>
 <translation id="8921624153894383499">Google asistents nav pieejams šajā valodā.</translation>
 <translation id="8926951137623668982">Plaukts vienmēr tiek paslēpts</translation>
@@ -2389,11 +2601,13 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="8956420987536947088">Atveriet iepriekšējos logus un lietotnes.</translation>
 <translation id="8959380109429710384">Jūs nospiedāt pilnekrāna lupas īsinājumtaustiņu. Lai pārvietotos tuvinātajā skatā, izmantojiet taustiņu kombināciju Ctrl + Alt un bulttaustiņus.</translation>
 <translation id="8964525410783593407">1 h</translation>
+<translation id="8967548289042494261">Virtuālās mašīnas <ph name="VM_NAME" /> noņemšana</translation>
 <translation id="8970887620466824814">Radās kļūda.</translation>
 <translation id="8973885907461690937">Novietot fokusu uz izvēlnes ikonas</translation>
 <translation id="8980862970816311842">Lietotņu režģī pārvietot lietotnes ikonu uz mapi vai no tās</translation>
 <translation id="8982906748181120328">Tuvumā: redzamība</translation>
 <translation id="8983038754672563810">HSPA</translation>
+<translation id="8985191021574400965">Laipni lūdzam lietotnē Steam, kas paredzēta Chromebook datoriem</translation>
 <translation id="8990809378771970590">Izmantojot <ph name="IME_NAME" /></translation>
 <translation id="8991648557324317894">Lai atceltu, nospiediet fn + ātrās ievietošanas taustiņu vai pārslēgšanas (Shift) taustiņu.</translation>
 <translation id="899350903320462459">Atbloķēt ierīci kā <ph name="LOGIN_ID" />, lai veiktu paziņojuma darbību</translation>
@@ -2401,15 +2615,18 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="9000771174482730261">PĀRVALDĪT KRĀTUVI</translation>
 <translation id="9003374957546315126">Emocijzīmes u. c.</translation>
 <translation id="9005984960510803406">Atvērt Crosh logu</translation>
+<translation id="901668144954885282">Dublēšana Google diskā</translation>
 <translation id="9017320285115481645">Ievadiet Family Link vecāku piekļuves kodu.</translation>
 <translation id="9024331582947483881">pilnekrāna režīms</translation>
 <translation id="9029736946581028033">Ierīce drīz tiks izslēgta</translation>
 <translation id="9030319654231318877">Izslēgts līdz saulrietam</translation>
+<translation id="9030515284705930323">Jūsu organizācija nav iespējojusi Google Play veikalu jūsu kontam. Sazinieties ar administratoru, lai saņemtu plašāku informāciju.</translation>
 <translation id="9030665205623277906">Centrālā procesora lietojums: <ph name="CPU_USEAGE" />%</translation>
 <translation id="9034924485347205037">Linux faili</translation>
 <translation id="9047624247355796468">Atvērt tīkla <ph name="NETWORK_NAME" /> iestatījumus</translation>
 <translation id="9050012935252397793">Tehnoloģija Bluetooth nav pieejama</translation>
 <translation id="9050999376345823055">Lai atbrīvotu, nospiediet taustiņu “.”</translation>
+<translation id="9061694916020926968">Lai izmantotu Steam for Chromebook (Beta), jums ir jāpierakstās Google kontā. Pierakstieties un mēģiniet vēlreiz.</translation>
 <translation id="906458777597946297">Maksimizēt logu</translation>
 <translation id="9065203028668620118">Labot</translation>
 <translation id="9068849894565669697">Krāsas izvēle</translation>
@@ -2453,8 +2670,10 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="9195857219954068558">Chromebook dators ir atjaunināts. Atveriet iepriekšējos logus un lietotnes.</translation>
 <translation id="9195990613383871904">Rīt</translation>
 <translation id="9198992156681343238">Displeja <ph name="DISPLAY_NAME" /> izšķirtspēja ir nomainīta uz: <ph name="RESOLUTION" />. Lai saglabātu izmaiņas, noklikšķiniet uz Apstiprināt. Iepriekšējie iestatījumi tiks atjaunoti pēc: <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="9199853905755292769">Lietojuma un diagnostikas datu sūtīšana. Pašlaik dati par šo ierīci un ierīces diagnostikas un lietotņu lietojuma dati tiek automātiski sūtīti uzņēmumam Google. Šī informācija netiks izmantota jūsu bērna identificēšanai, un tā palīdzēs uzlabot sistēmas un lietotņu stabilitāti un daudz ko citu. Noteiktus apkopotos datus izmantos arī Google lietotņu izstrādātāji un partneri, piemēram, Android izstrādātāji. Ja jūsu bērnam ir ieslēgts papildu iestatījums “Darbības tīmeklī un lietotnēs”, šie dati var tikt saglabāti bērna Google kontā. <ph name="BEGIN_LINK2" />Uzzināt vairāk par rādītājiem<ph name="BEGIN_LINK2_END" />Uzzināt vairāk<ph name="END_LINK2" /></translation>
 <translation id="9201044636667689546">Izveidojiet savienojumu starp ierīci <ph name="NAME" /> un šo Chromebook datoru</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, pārvalda jūsu administrators</translation>
+<translation id="9201842707396338580">Radās kļūda. Lūdzu, sazinieties ar ierīces īpašnieku vai administratoru. Kļūdas kods: <ph name="ERROR_CODE" />.</translation>
 <translation id="9207682216934703221">Tādējādi lietotnes <ph name="APP_NAME" /> un <ph name="APP2_NAME" />, kā arī visas lietotnes un vietnes ar atrašanās vietas atļauju un operētājsistēmu ChromeOS varēs izmantot Wi-Fi un mobilo tīklu atrašanās vietu.</translation>
 <translation id="9210037371811586452">Notiek iziešana no vienotās darbvirsmas režīma</translation>
 <translation id="9211490828691860325">Visas darbvietas</translation>
@@ -2467,6 +2686,7 @@ Lai izslēgtu ierīci, vēlreiz nospiediet un turiet ierīces barošanas pogu.</
 <translation id="923686485342484400">Lai izrakstītos, divas reizes nospiediet taustiņu kombināciju Ctrl+Shift+Q.</translation>
 <translation id="92580429198593979">Jūs nospiedāt krāsu inversijas īsinājumtaustiņu. Vai vēlaties to ieslēgt?</translation>
 <translation id="925832987464884575">Paslēpt priekšskatījumus</translation>
+<translation id="93140074055951850">Android lietotņu darbība tika pārtraukta</translation>
 <translation id="938407504481277932">Pašreizējā darbvieta: <ph name="DESK_NAME" />. <ph name="PROFILE_NAME" /> (<ph name="EMAIL" />). <ph name="DESK_INDEX" />. darbvieta no <ph name="DESK_COUNT" />.</translation>
 <translation id="94468042118567862">Ierīce nav atjaunināta</translation>
 <translation id="945383118875625837">Vilkt saiti uz grāmatzīmju joslu</translation>

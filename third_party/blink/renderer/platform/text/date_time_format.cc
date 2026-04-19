@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/platform/text/date_time_format.h"
 
+#include "base/compiler_specific.h"
 #include "base/notreached.h"
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
@@ -92,11 +93,13 @@ static const std::array<DateTimeFormat::FieldType, 26>
 };
 
 static DateTimeFormat::FieldType MapCharacterToFieldType(const UChar ch) {
-  if (IsASCIIUpper(ch))
+  if (IsAsciiUpper(ch)) {
     return kUpperCaseToFieldTypeMap[ch - 'A'];
+  }
 
-  if (IsASCIILower(ch))
+  if (IsAsciiLower(ch)) {
     return kLowerCaseToFieldTypeMap[ch - 'a'];
+  }
 
   return DateTimeFormat::kFieldTypeLiteral;
 }
@@ -240,10 +243,10 @@ bool DateTimeFormat::Parse(const String& source, TokenHandler& token_handler) {
 }
 
 static bool IsASCIIAlphabetOrQuote(UChar ch) {
-  return IsASCIIAlpha(ch) || ch == '\'';
+  return IsAsciiAlpha(ch) || ch == '\'';
 }
 
-void DateTimeFormat::QuoteAndappend(const String& literal,
+void DateTimeFormat::QuoteAndAppend(const StringView& literal,
                                     StringBuilder& buffer) {
   if (literal.length() <= 0)
     return;
@@ -261,11 +264,11 @@ void DateTimeFormat::QuoteAndappend(const String& literal,
   }
 
   for (unsigned i = 0; i < literal.length(); ++i) {
-    if (literal[i] == '\'') {
+    // SAFETY: index `i` checked against length above.
+    if (UNSAFE_BUFFERS(literal[i]) == '\'') {
       buffer.Append("''");
     } else {
-      String escaped = literal.Substring(i);
-      escaped.Replace("'", "''");
+      String escaped = literal.substr(i).ToString().Replace("'", "''");
       buffer.Append('\'');
       buffer.Append(escaped);
       buffer.Append('\'');

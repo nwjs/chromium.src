@@ -308,6 +308,26 @@ IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTest, CommitLocalDevice) {
                   .Wait());
 }
 
+// ChromeOS doesn't support sign-out.
+#if !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTest,
+                       ShouldDeleteDeviceInfoOnServerWhenSignedOut) {
+  ASSERT_TRUE(SetupSync());
+
+  // The local device should eventually be committed to the server.
+  ASSERT_TRUE(ServerDeviceInfoMatchChecker(
+                  ElementsAre(HasCacheGuid(GetLocalCacheGuid())))
+                  .Wait());
+
+  // Sign out. This should trigger a SyncDisabledEvent to the server.
+  GetClient(0)->SignOutPrimaryAccount();
+
+  // The FakeServer should receive a SyncDisabledEvent and generate a tombstone,
+  // leaving 0 normal DeviceInfo entities. Wait for it.
+  EXPECT_TRUE(ServerDeviceInfoMatchChecker(IsEmpty()).Wait());
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
 IN_PROC_BROWSER_TEST_P(SingleClientDeviceInfoSyncTest, DownloadRemoteDevices) {
   InjectDeviceInfoEntityToServer(/*suffix=*/1);
   InjectDeviceInfoEntityToServer(/*suffix=*/2);
@@ -813,7 +833,7 @@ IN_PROC_BROWSER_TEST_P(
 
   histograms_.ExpectTotalCount("Sync.DeviceStatistics.RequestsStartedCount", 0,
                                FROM_HERE);
-  histograms_.ExpectTotalCount("Sync.DeviceStatistics.Outcome.Overall", 0,
+  histograms_.ExpectTotalCount("Sync.DeviceStatistics.Outcome.Overall2", 0,
                                FROM_HERE);
 }
 
@@ -865,7 +885,7 @@ IN_PROC_BROWSER_TEST_P(
 #else   // BUILDFLAG(IS_ANDROID)
     constexpr size_t kExpectedCount = 2;
 #endif  // BUILDFLAG(IS_ANDROID)
-    return histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall")
+    return histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall2")
                .size() == kExpectedCount;
   }));
 
@@ -887,7 +907,7 @@ IN_PROC_BROWSER_TEST_P(
 
 #if BUILDFLAG(IS_ANDROID)
   histograms_.ExpectUniqueSample(
-      "Sync.DeviceStatistics.Outcome.Overall",
+      "Sync.DeviceStatistics.Outcome.Overall2",
       syncer::DeviceStatisticsTracker::AccountsHaveOtherDevicesSummary::
           kPrimaryYesNonPrimaryNA,
       /*expected_bucket_count=*/1, FROM_HERE);
@@ -896,7 +916,7 @@ IN_PROC_BROWSER_TEST_P(
   // here, but since this histogram also gets recorded in the (unused) default
   // profile, there is an additional `kNoAccounts` sample.
   EXPECT_THAT(
-      histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall"),
+      histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall2"),
       ElementsAre(
           base::Bucket(
               syncer::DeviceStatisticsTracker::AccountsHaveOtherDevicesSummary::
@@ -908,7 +928,7 @@ IN_PROC_BROWSER_TEST_P(
 #endif
 
   histograms_.ExpectUniqueSample(
-      "Sync.DeviceStatistics.Outcome.PrimaryAccount.NumberOfAdditionalClients",
+      "Sync.DeviceStatistics.Outcome.PrimaryAccount.NumberOfAdditionalClients2",
       /*sample=*/2,
       /*expected_bucket_count=*/1, FROM_HERE);
 }
@@ -976,7 +996,7 @@ IN_PROC_BROWSER_TEST_P(
 #else   // BUILDFLAG(IS_ANDROID)
     constexpr size_t kExpectedCount = 2;
 #endif  // BUILDFLAG(IS_ANDROID)
-    return histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall")
+    return histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall2")
                .size() == kExpectedCount;
   }));
 
@@ -998,7 +1018,7 @@ IN_PROC_BROWSER_TEST_P(
 
 #if BUILDFLAG(IS_ANDROID)
   histograms_.ExpectUniqueSample(
-      "Sync.DeviceStatistics.Outcome.Overall",
+      "Sync.DeviceStatistics.Outcome.Overall2",
       syncer::DeviceStatisticsTracker::AccountsHaveOtherDevicesSummary::
           kPrimaryNANonPrimaryYes,
       /*expected_bucket_count=*/1, FROM_HERE);
@@ -1007,7 +1027,7 @@ IN_PROC_BROWSER_TEST_P(
   // here, but since this histogram also gets recorded in the (unused) default
   // profile, there is an additional `kNoAccounts` sample.
   EXPECT_THAT(
-      histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall"),
+      histograms_.GetAllSamples("Sync.DeviceStatistics.Outcome.Overall2"),
       ElementsAre(
           base::Bucket(
               syncer::DeviceStatisticsTracker::AccountsHaveOtherDevicesSummary::
@@ -1020,7 +1040,7 @@ IN_PROC_BROWSER_TEST_P(
 
   histograms_.ExpectUniqueSample(
       "Sync.DeviceStatistics.Outcome.NonPrimaryAccount."
-      "NumberOfAdditionalClients",
+      "NumberOfAdditionalClients2",
       /*sample=*/2,
       /*expected_bucket_count=*/1, FROM_HERE);
 }

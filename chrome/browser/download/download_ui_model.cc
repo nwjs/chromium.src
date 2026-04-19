@@ -13,7 +13,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_commands.h"
 #include "chrome/browser/download/download_item_warning_data.h"
@@ -36,7 +35,6 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/vector_icons/vector_icons.h"
 #include "net/base/mime_util.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -1084,6 +1082,14 @@ DownloadUIModel::BubbleStatusTextBuilder::GetInProgressStatusText() const {
     return get_size_ratio_string(
         l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_STATUS_RESUMING));
   } else {
+    if (model_->GetDangerType() ==
+        download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT) {
+      return StatusTextBuilderUtils::GetBubbleStatusMessageWithBytes(
+          ui::FormatBytes(
+              base::ByteSize(base::checked_cast<uint64_t>(total_bytes))),
+          l10n_util::GetStringUTF16(
+              IDS_DOWNLOAD_BUBBLE_STATUS_ASYNC_CHECKING_SAFETY));
+    }
     // "120 MB • Done"
     return StatusTextBuilderUtils::GetCompletedTotalSizeString(total_bytes);
   }

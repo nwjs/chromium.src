@@ -172,7 +172,7 @@ void ProfileOAuth2TokenService::StartRequestForMultilogin(
   }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  bool is_bound = delegate_->IsRefreshTokenBound(request.account_id());
+  bool is_bound = delegate_->IsRefreshTokenBoundToKey(request.account_id());
 
   // Sign `token_binding_challenge` asynchronously if it's required.
   if (is_bound && !token_binding_challenge.empty()) {
@@ -278,9 +278,9 @@ void ProfileOAuth2TokenService::UpdateCredentials(
     const CoreAccountId& account_id,
     const std::string& refresh_token,
     signin_metrics::SourceForRefreshTokenOperation source,
-    const std::vector<uint8_t>& wrapped_binding_key) {
+    const signin::TokenBindingInfo& token_binding_info) {
   GetDelegate()->UpdateCredentials(account_id, refresh_token, source,
-                                   wrapped_binding_key);
+                                   token_binding_info);
 }
 
 void ProfileOAuth2TokenService::RevokeCredentials(

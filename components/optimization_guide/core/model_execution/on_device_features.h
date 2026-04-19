@@ -20,9 +20,18 @@ using OnDeviceFeatureSet = base::EnumSet<mojom::OnDeviceFeature,
                                          mojom::OnDeviceFeature::kMinValue,
                                          mojom::OnDeviceFeature::kMaxValue>;
 
+enum class OnDeviceModelType {
+  kBaseModel,
+  kClassifierModel,
+};
+
 // Return the name to use in histogram variants for this feature key.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 std::string_view GetVariantName(mojom::OnDeviceFeature feature);
+
+// Returns the model type required for the feature.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+OnDeviceModelType GetOnDeviceModelType(mojom::OnDeviceFeature feature);
 
 // Returns which ModelExecutionFeature is used for this feature key.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
@@ -39,6 +48,16 @@ proto::OptimizationTarget GetOptimizationTargetForFeature(
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 std::optional<mojom::OnDeviceFeature> ToOnDeviceFeature(
     proto::ModelExecutionFeature feature);
+
+// Maps a feature to its corresponding use case name.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::string ToUseCaseName(mojom::OnDeviceFeature feature);
+
+// Returns the feature that maps to the given use case name.
+// Returns std::nullopt if no feature maps to the use case.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::optional<mojom::OnDeviceFeature> GetFeatureForUseCase(
+    const std::string& use_case_name);
 
 }  // namespace optimization_guide
 

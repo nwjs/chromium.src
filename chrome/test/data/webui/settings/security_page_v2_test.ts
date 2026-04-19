@@ -8,13 +8,15 @@ import type {CrExpandButtonElement, SettingsSecureDnsV2Element, SettingsSecurity
 import {HttpsFirstModeSetting, JavascriptOptimizerSetting, SafeBrowsingSetting, SecuritySettingsBundleSetting} from 'chrome://settings/lazy_load.js';
 import type {SettingsPrefsElement} from 'chrome://settings/settings.js';
 import type {ControlledRadioButtonElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, HatsBrowserProxyImpl, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, Router, routes, resetRouterForTesting, SecureDnsMode, SecurityPageV2Interaction} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, HatsBrowserProxyImpl, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions, SecurityPageBrowserProxyImpl, Router, routes, resetRouterForTesting, SecureDnsMode, SecureDnsUiManagementMode, SecurityPageV2Interaction} from 'chrome://settings/settings.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
+import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {eventToPromise, isChildVisible, isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 import {TestHatsBrowserProxy} from './test_hats_browser_proxy.js';
+import {TestSecurityPageBrowserProxy} from './test_security_page_browser_proxy.js';
 
 import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
 
@@ -46,6 +48,8 @@ suite('Main', function() {
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
+    const browserProxy = new TestSecurityPageBrowserProxy();
+    SecurityPageBrowserProxyImpl.setInstance(browserProxy);
 
     page = document.createElement('settings-security-page-v2');
     page.prefs = settingsPrefs.prefs;
@@ -572,6 +576,9 @@ suite('SecurityKeysSubpageDisabled', function() {
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
+    SecurityPageBrowserProxyImpl.setInstance(
+        new TestSecurityPageBrowserProxy());
+
     page = document.createElement('settings-security-page-v2');
     page.prefs = settingsPrefs.prefs;
     document.body.appendChild(page);
@@ -598,6 +605,8 @@ suite('SecurityPageV2HappinessTrackingSurveys', function() {
   setup(async function() {
     testHatsBrowserProxy = new TestHatsBrowserProxy();
     HatsBrowserProxyImpl.setInstance(testHatsBrowserProxy);
+    SecurityPageBrowserProxyImpl.setInstance(
+        new TestSecurityPageBrowserProxy());
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     settingsPrefs = document.createElement('settings-prefs');
     document.body.appendChild(settingsPrefs);
@@ -948,8 +957,12 @@ suite('SecurityPageV2HappinessTrackingSurveys_SecureDnsLegacy', function() {
 suite('ManagedEnvironment', function() {
   let settingsPrefs: SettingsPrefsElement;
   let page: SettingsSecurityPageV2Element;
+  let browserProxy: TestSecurityPageBrowserProxy;
 
   setup(async function() {
+    browserProxy = new TestSecurityPageBrowserProxy();
+    SecurityPageBrowserProxyImpl.setInstance(browserProxy);
+
     loadTimeData.overrideValues({
       enableBundledSecuritySettingsSecureDnsV2: true,
     });
@@ -1025,6 +1038,35 @@ suite('ManagedEnvironment', function() {
     await flushTasks();
 
     assertFalse(isVisible(page.$.bundlesRadioGroup));
+  });
+
+  test('BundlesAreHiddenWhenSecureDnsManagedByEnvironment', async function() {
+    browserProxy.secureDnsSetting = {
+      mode: SecureDnsMode.AUTOMATIC,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.DISABLED_MANAGED,
+      // <if expr="is_chromeos">
+      osMode: SecureDnsMode.AUTOMATIC,
+      osConfig: '',
+      dohWithIdentifiersActive: false,
+      configForDisplay: '',
+      dohDomainConfigSet: false,
+      // </if>
+    };
+    webUIListenerCallback(
+        'secure-dns-setting-changed', browserProxy.secureDnsSetting);
+    await flushTasks();
+
+    assertFalse(isVisible(page.$.bundlesRadioGroup));
+
+    // Reset management mode.
+    browserProxy.secureDnsSetting.managementMode =
+        SecureDnsUiManagementMode.NO_OVERRIDE;
+    webUIListenerCallback(
+        'secure-dns-setting-changed', browserProxy.secureDnsSetting);
+    await flushTasks();
+
+    assertTrue(isVisible(page.$.bundlesRadioGroup));
   });
 
   test('BundlesAreVisibleWhenSecureDnsEnforcedButNotBundled', async function() {

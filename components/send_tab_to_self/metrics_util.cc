@@ -4,6 +4,8 @@
 
 #include "components/send_tab_to_self/metrics_util.h"
 
+#include <cmath>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 
@@ -82,6 +84,25 @@ void RecordHasScrollPositionOnOpened(bool has_scroll_position) {
 
 void RecordPageContextSize(size_t size) {
   base::UmaHistogramCounts10000("Sharing.SendTabToSelf.PageContextSize", size);
+}
+
+void RecordScrollVolume(float volume, bool with_restoration) {
+  const std::string_view name =
+      with_restoration
+          ? "Sharing.SendTabToSelf.Scroll.Volume.WithRestoration"
+          : "Sharing.SendTabToSelf.Scroll.Volume.WithoutRestoration";
+  base::UmaHistogramCounts10000(name, static_cast<int>(std::round(volume)));
+}
+
+void RecordTimeSentToReceived(base::TimeDelta delay) {
+  base::UmaHistogramCustomTimes("Sharing.SendTabToSelf.TimeSentToReceived",
+                                delay, base::Milliseconds(100), base::Days(10),
+                                100);
+}
+
+void RecordTimeSentToOpened(base::TimeDelta delay) {
+  base::UmaHistogramCustomTimes("Sharing.SendTabToSelf.TimeSentToOpened", delay,
+                                base::Milliseconds(100), base::Days(10), 100);
 }
 
 }  // namespace send_tab_to_self

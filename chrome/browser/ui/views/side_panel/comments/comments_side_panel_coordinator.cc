@@ -17,8 +17,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
-#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/webui/side_panel/comments/comments_side_panel_ui.h"
 #include "chrome/common/webui_url_constants.h"
@@ -31,6 +31,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 
+DEFINE_USER_DATA(CommentsSidePanelCoordinator);
+
 using SidePanelWebUIViewT_CommentsSidePanelUI =
     SidePanelWebUIViewT<CommentsSidePanelUI>;
 BEGIN_TEMPLATE_METADATA(SidePanelWebUIViewT_CommentsSidePanelUI,
@@ -42,7 +44,8 @@ CommentsSidePanelCoordinator::CommentsSidePanelCoordinator(
     : browser_(browser),
       tab_group_sync_service_(
           tab_groups::TabGroupSyncServiceFactory::GetForProfile(
-              browser_->GetProfile())) {
+              browser_->GetProfile())),
+      scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this) {
   browser_->GetTabStripModel()->AddObserver(this);
   tab_groups::TabGroupSyncServiceFactory::GetForProfile(browser_->GetProfile())
       ->AddObserver(this);
@@ -126,8 +129,8 @@ bool CommentsSidePanelCoordinator::ShouldShowCommentsAction(
 
 void CommentsSidePanelCoordinator::UpdateCommentsActionVisibility(
     bool should_show_comments_action) {
-  PinnedToolbarActionsController* controller =
-      browser_->GetFeatures().pinned_toolbar_actions_controller();
+  PinnedToolbarActions* controller =
+      browser_->GetFeatures().pinned_toolbar_actions();
   if (!controller) {
     return;
   }
@@ -142,12 +145,8 @@ void CommentsSidePanelCoordinator::UpdateCommentsActionVisibility(
                                              should_show_comments_action);
 
   if (should_show_comments_action) {
-    PinnedActionToolbarButton* button =
-        controller->GetButtonFor(kActionSidePanelShowComments);
-    CHECK(button);
-
-    button->SetProperty(views::kElementIdentifierKey,
-                        kSharedTabGroupCommentsActionElementId);
+    controller->SetActionElementIdentifier(
+        kActionSidePanelShowComments, kSharedTabGroupCommentsActionElementId);
   }
 }
 
@@ -226,6 +225,11 @@ void CommentsSidePanelCoordinator::UpdateSidePanelTitle(
 bool CommentsSidePanelCoordinator::IsSupported() {
   return base::FeatureList::IsEnabled(
       collaboration::features::kCollaborationComments);
+}
+
+CommentsSidePanelCoordinator* CommentsSidePanelCoordinator::From(
+    BrowserWindowInterface* interface) {
+  return Get(interface->GetUnownedUserDataHost());
 }
 
 void CommentsSidePanelCoordinator::CreateAndRegisterEntry(

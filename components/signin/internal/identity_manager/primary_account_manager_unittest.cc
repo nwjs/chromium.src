@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/image_fetcher/core/fake_image_decoder.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/prefs/testing_pref_service.h"
@@ -77,10 +78,12 @@ class PrimaryAccountManagerTest : public testing::Test,
         &user_prefs_,
         std::make_unique<FakeProfileOAuth2TokenServiceDelegate>());
     account_fetcher_ = std::make_unique<AccountFetcherService>();
+    auto account_fetcher_factory = std::make_unique<FakeAccountFetcherFactory>(
+        *token_service_.get(), *signin_client());
     account_fetcher_->Initialize(
         &test_signin_client_, token_service_.get(), account_tracker_.get(),
         std::make_unique<image_fetcher::FakeImageDecoder>(),
-        std::make_unique<FakeAccountFetcherFactory>());
+        std::move(account_fetcher_factory));
   }
 
   ~PrimaryAccountManagerTest() override {
@@ -143,18 +146,25 @@ class PrimaryAccountManagerTest : public testing::Test,
         /*sample=*/expected_sample, /*expected_bucket_count=*/1);
   }
 
-  void CreatePrimaryAccountManager() {
-    DCHECK(!manager_);
+  void CreatePrimaryAccountManager(metrics::ProfileMetricsContext context =
+                                       metrics::ProfileMetricsContext()) {
+    CHECK(!manager_);
+    CHECK(!profile_metrics_service_);
+    profile_metrics_service_ =
+        std::make_unique<metrics::ProfileMetricsService>(context);
     manager_ = std::make_unique<PrimaryAccountManager>(
-        &test_signin_client_, token_service_.get(), account_tracker_.get());
+        &test_signin_client_, token_service_.get(), account_tracker_.get(),
+        profile_metrics_service_.get());
     manager_->AddObserver(this);
   }
 
   // Shuts down |manager_|.
   void ShutDownManager() {
-    DCHECK(manager_);
+    CHECK(manager_);
+    CHECK(profile_metrics_service_);
     manager_->RemoveObserver(this);
     manager_.reset();
+    profile_metrics_service_.reset();
   }
 
   void OnPrimaryAccountChanged(
@@ -188,6 +198,7 @@ class PrimaryAccountManagerTest : public testing::Test,
   base::test::TaskEnvironment task_environment_;
   sync_preferences::TestingPrefServiceSyncable user_prefs_;
   TestSigninClient test_signin_client_;
+  std::unique_ptr<metrics::ProfileMetricsService> profile_metrics_service_;
   std::unique_ptr<AccountTrackerService> account_tracker_;
   std::unique_ptr<ProfileOAuth2TokenService> token_service_;
   std::unique_ptr<AccountFetcherService> account_fetcher_;
@@ -975,29 +986,6 @@ TEST_F(PrimaryAccountManagerTest, AccountStoragePrefNewUser) {
 // Explicit sign-in prefs for bookmarks and extensions are only used on Dice
 // platforms.
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// Test that the user cannot perform an explicit signin for bookmarks if the
-// feature flag is disabled.
-TEST_F(PrimaryAccountManagerTest, ExplicitSigninBookmarksPref_FlagNotEnabled) {
-  base::test::ScopedFeatureList feature;
-  feature.InitAndDisableFeature(switches::kSyncEnableBookmarksInTransportMode);
-
-  CreatePrimaryAccountManager();
-  GaiaId gaia_id("account_id");
-  CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
-
-  ASSERT_FALSE(
-      SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
-
-  // Sign in through the bookmark bubble, but this won't be an explicit signin
-  // since the feature flag is disabled.
-  manager_->SetPrimaryAccountInfo(account_tracker()->GetAccountInfo(account_id),
-                                  signin::ConsentLevel::kSignin,
-                                  signin_metrics::AccessPoint::kBookmarkBubble);
-
-  EXPECT_FALSE(
-      SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
-}
-
 // Test that the bookmarks explicit signin pref is preserved across restarts if
 // the feature flag is still enabled, but is reset to its default value (false)
 // if rhe feature flag is disabled.
@@ -1007,12 +995,8 @@ TEST_F(PrimaryAccountManagerTest,
   ASSERT_FALSE(
       SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
 
-  // Explicit sign in with `switches::kSyncEnableBookmarksInTransportMode`
-  // on.
+  // Explicit sign in through `signin_metrics::AccessPoint::kBookmarkBubble`.
   {
-    base::test::ScopedFeatureList feature{
-        switches::kSyncEnableBookmarksInTransportMode};
-
     CreatePrimaryAccountManager();
     CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
 
@@ -1027,15 +1011,11 @@ TEST_F(PrimaryAccountManagerTest,
         SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
   }
 
-  // Simulate a restart by shutting down the manager and creating a new one with
-  // `switches::kSyncEnableBookmarksInTransportMode` on.
+  // Simulate a restart by shutting down the manager.
   ShutDownManager();
   {
     ASSERT_TRUE(
         SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
-
-    base::test::ScopedFeatureList feature{
-        switches::kSyncEnableBookmarksInTransportMode};
 
     CreatePrimaryAccountManager();
 
@@ -1043,38 +1023,13 @@ TEST_F(PrimaryAccountManagerTest,
     EXPECT_TRUE(
         SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
   }
-
-  // Simulate a restart by shutting down the manager and creating a new one with
-  // `switches::kSyncEnableBookmarksInTransportMode` off.
-  ShutDownManager();
-  {
-    ASSERT_TRUE(
-        SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
-
-    base::test::ScopedFeatureList feature;
-    feature.InitAndDisableFeature(
-        switches::kSyncEnableBookmarksInTransportMode);
-
-    CreatePrimaryAccountManager();
-
-    // The explicit signin pref should now be reset to its default value, which
-    // is false.
-    EXPECT_FALSE(
-        SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
-  }
 }
 
 // TODO(crbug.com/475822503): Delete this test once Dice migration is complete.
 TEST_F(PrimaryAccountManagerTest,
        ExplicitSigninPrefsClearedWhenImplicitlySigningIn) {
-  base::test::ScopedFeatureList feature;
-  feature.InitWithFeatures(
-      /*enabled_features=*/
-      {
-          switches::kEnablePreferencesAccountStorage,
-          switches::kSyncEnableBookmarksInTransportMode,
-      },
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList feature{
+      switches::kEnablePreferencesAccountStorage};
   GaiaId gaia_id("account_id");
   // Set prefs set during an explicit signin.
   prefs()->SetBoolean(prefs::kExplicitBrowserSignin, true);
@@ -1104,22 +1059,137 @@ TEST_F(PrimaryAccountManagerTest,
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
+#if !BUILDFLAG(IS_CHROMEOS)
+TEST_F(PrimaryAccountManagerTest, PerProfileMetrics) {
+  // First PrimaryAccountManager with `context1`, records metric for both
+  // `Profile1` and non-profile specific.
+  metrics::ProfileMetricsContext context1(1);
+  CreatePrimaryAccountManager(context1);
+
+  CoreAccountInfo account_info = account_tracker()->GetAccountInfo(
+      AddToAccountTracker(GaiaId("gaia_id"), "user@gmail.com"));
+  manager_->SetPrimaryAccountInfo(account_info, ConsentLevel::kSignin,
+                                  AccessPoint::kStartPage);
+
+  histogram_tester_.ExpectUniqueSample("Signin.SignIn.Completed",
+                                       AccessPoint::kStartPage, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SignIn.Completed.Profile1",
+                                       AccessPoint::kStartPage, 1);
+
+  manager_->ClearPrimaryAccount(ProfileSignout::kTest);
+
+  histogram_tester_.ExpectUniqueSample("Signin.SignOut.Completed",
+                                       ProfileSignout::kTest, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SignOut.Completed.Profile1",
+                                       ProfileSignout::kTest, 1);
+
+  ShutDownManager();
+
+  // Second PrimaryAccountManager with `context2`, records metric for both
+  // `Profile2` and non-profile specific.
+  metrics::ProfileMetricsContext context2(2);
+  CreatePrimaryAccountManager(context2);
+
+  CoreAccountInfo account_info2 = account_tracker()->GetAccountInfo(
+      AddToAccountTracker(GaiaId("gaia_id2"), "user2@gmail.com"));
+  manager_->SetPrimaryAccountInfo(account_info2, ConsentLevel::kSignin,
+                                  AccessPoint::kStartPage);
+
+  // Does not impact already recorded `Profie1` metric. Non profile specific
+  // metric accumulates.
+  histogram_tester_.ExpectUniqueSample("Signin.SignIn.Completed",
+                                       AccessPoint::kStartPage, 2);
+  histogram_tester_.ExpectUniqueSample("Signin.SignIn.Completed.Profile1",
+                                       AccessPoint::kStartPage, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SignIn.Completed.Profile2",
+                                       AccessPoint::kStartPage, 1);
+
+  manager_->ClearPrimaryAccount(ProfileSignout::kTest);
+
+  // Does not impact already recorded `Profie1` metric. Non profile specific
+  // metric accumulates.
+  histogram_tester_.ExpectUniqueSample("Signin.SignOut.Completed",
+                                       ProfileSignout::kTest, 2);
+  histogram_tester_.ExpectUniqueSample("Signin.SignOut.Completed.Profile1",
+                                       ProfileSignout::kTest, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SignOut.Completed.Profile2",
+                                       ProfileSignout::kTest, 1);
+}
+
+TEST_F(PrimaryAccountManagerTest, PerProfileMetricsSync) {
+  // First PrimaryAccountManager with `context1`, records metric for both
+  // `Profile1` and non-profile specific.
+  metrics::ProfileMetricsContext context1(1);
+  CreatePrimaryAccountManager(context1);
+
+  CoreAccountInfo account_info = account_tracker()->GetAccountInfo(
+      AddToAccountTracker(GaiaId("gaia_id"), "user@gmail.com"));
+  manager_->SetPrimaryAccountInfo(account_info, ConsentLevel::kSync,
+                                  AccessPoint::kStartPage);
+
+  histogram_tester_.ExpectUniqueSample("Signin.SyncOptIn.Completed",
+                                       AccessPoint::kStartPage, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncOptIn.Completed.Profile1",
+                                       AccessPoint::kStartPage, 1);
+
+  manager_->ClearPrimaryAccount(ProfileSignout::kTest);
+
+  histogram_tester_.ExpectUniqueSample("Signin.SyncTurnOff.Completed",
+                                       ProfileSignout::kTest, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncTurnOff.Completed.Profile1",
+                                       ProfileSignout::kTest, 1);
+
+  ShutDownManager();
+
+  // Second PrimaryAccountManager with `context2`, records metric for both
+  // `Profile2` and non-profile specific.
+  metrics::ProfileMetricsContext context2(2);
+  CreatePrimaryAccountManager(context2);
+
+  CoreAccountInfo account_info2 = account_tracker()->GetAccountInfo(
+      AddToAccountTracker(GaiaId("gaia_id2"), "user2@gmail.com"));
+  manager_->SetPrimaryAccountInfo(account_info2, ConsentLevel::kSync,
+                                  AccessPoint::kStartPage);
+
+  // Does not impact already recorded `Profie1` metric. Non profile specific
+  // metric accumulates.
+  histogram_tester_.ExpectUniqueSample("Signin.SyncOptIn.Completed",
+                                       AccessPoint::kStartPage, 2);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncOptIn.Completed.Profile1",
+                                       AccessPoint::kStartPage, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncOptIn.Completed.Profile2",
+                                       AccessPoint::kStartPage, 1);
+
+  manager_->ClearPrimaryAccount(ProfileSignout::kTest);
+
+  // Does not impact already recorded `Profie1` metric. Non profile specific
+  // metric accumulates.
+  histogram_tester_.ExpectUniqueSample("Signin.SyncTurnOff.Completed",
+                                       ProfileSignout::kTest, 2);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncTurnOff.Completed.Profile1",
+                                       ProfileSignout::kTest, 1);
+  histogram_tester_.ExpectUniqueSample("Signin.SyncTurnOff.Completed.Profile2",
+                                       ProfileSignout::kTest, 1);
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-class PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest
+class PrimaryAccountManagerExplicitSigninNewFeatureTest
     : public PrimaryAccountManagerTest,
       public testing::WithParamInterface<bool> {
  public:
-  PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest() {
-    const std::string param_state = GetParam() ? "true" : "false";
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{switches::kSyncEnableBookmarksInTransportMode,
-                               {}},
-                              {syncer::kReplaceSyncPromosWithSignInPromos,
-                               {{syncer::kExplicitSigninForExtensions.name,
-                                 param_state},
-                                {syncer::kExplicitSigninForBookmarks.name,
-                                 param_state}}}},
-        /*disabled_features=*/{});
+  PrimaryAccountManagerExplicitSigninNewFeatureTest() {
+    if (GetParam()) {
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/
+          {syncer::kReplaceSyncPromosWithSigninPromosNewSignin},
+          /*disabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos});
+    } else {
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos},
+          /*disabled_features=*/{
+              syncer::kReplaceSyncPromosWithSigninPromosNewSignin});
+    }
   }
 
  private:
@@ -1129,7 +1199,7 @@ class PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest
 // Test that the extensions explicit signin pref is set if
 // `switches::IsExtensionsExplicitBrowserSigninEnabled()` is enabled and the
 // user signs in through the extension install bubble.
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninExtensionPref) {
   CreatePrimaryAccountManager();
   GaiaId gaia_id("account_id");
@@ -1205,7 +1275,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
 }
 
 // Test that the bookmarks explicit signin pref is set for all new sign-ins.
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninBookmarksPref) {
   CreatePrimaryAccountManager();
   GaiaId gaia_id("account_id");
@@ -1241,7 +1311,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
   EXPECT_TRUE(SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
 }
 
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninBookmarksPref_ResetWhenSyncTurnedOn) {
   CreatePrimaryAccountManager();
   GaiaId gaia_id("account_id");
@@ -1274,8 +1344,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
 // Tests for users already signed `ExplicitSigninExtensionsPref` is only set to
 // true if the user belongs to the group with
 // `kReplaceSyncPromosWithSignInPromos` enabled but
-// `kExplicitSigninForExtensions` disabled.
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+// `kReplaceSyncPromosWithSigninPromosNewSignin` disabled.
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninExtensionsPref_AlreadySignedIn) {
   GaiaId gaia_id("gaia_id");
   CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
@@ -1294,8 +1364,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
 // Tests for users already signed `ExplicitSigninBookmarksPref` is only set to
 // true if the user belongs to the group with
 // `kReplaceSyncPromosWithSignInPromos` enabled but
-// `kExplicitSigninForBookmarks` disabled.
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+// `kReplaceSyncPromosWithSigninPromosNewSignin` disabled.
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninBookmarksPref_AlreadySignedIn) {
   GaiaId gaia_id("gaia_id");
   CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
@@ -1311,7 +1381,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
             SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
 }
 
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninExtensionsPref_AlreadySyncing) {
   GaiaId gaia_id("gaia_id");
   CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
@@ -1327,7 +1397,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
       SigninPrefs(*prefs()).GetExtensionsExplicitBrowserSignin(gaia_id));
 }
 
-TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
+TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninBookmarksPref_AlreadySyncing) {
   GaiaId gaia_id("gaia_id");
   CoreAccountId account_id = AddToAccountTracker(gaia_id, "user@gmail.com");
@@ -1343,11 +1413,10 @@ TEST_P(PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
       SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    PrimaryAccountManagerExplicitSigninForExtensionsAndBookmarksTest,
-    testing::Bool(),
-    [](const testing::TestParamInfo<bool>& info) {
-      return info.param ? "ExplicitSigninTrue" : "ExplicitSigninFalse";
-    });
+INSTANTIATE_TEST_SUITE_P(All,
+                         PrimaryAccountManagerExplicitSigninNewFeatureTest,
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "NewSignins" : "ExistingUsers";
+                         });
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)

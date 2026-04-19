@@ -115,11 +115,11 @@ void ReadChromeValuablesMetadata(
        metadata.metadata_entries()) {
     std::optional<AttributeType> attribute_type =
         StringToAttributeType(entity_type, entry.attribute_type());
-    FieldType field_type = ToSafeFieldType(entry.field_type(), UNKNOWN_TYPE);
+    std::optional<FieldType> field_type = ToSafeFieldType(entry.field_type());
     std::u16string value = base::UTF8ToUTF16(entry.value());
     std::optional<VerificationStatus> status =
         ToSafeVerificationStatus(entry.verification_status());
-    if (!attribute_type || field_type == UNKNOWN_TYPE || !status) {
+    if (!attribute_type || !field_type || !status) {
       continue;
     }
     auto it = parsed_metadata_attributes.find(*attribute_type);
@@ -634,9 +634,14 @@ sync_pb::AutofillValuableSpecifics CreateSpecificsFromEntityInstance(
       return GetNationalIdCardSpecifics(entity, base_specifics);
     case EntityTypeName::kRedressNumber:
       return GetRedressNumberSpecifics(entity, base_specifics);
-    case EntityTypeName::kOrder:
     case EntityTypeName::kKnownTravelerNumber:
       return GetKnownTravelerNumberSpecifics(entity, base_specifics);
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      // Order and Shipment entities are not saved on the sync server
+      // (only on kAccessibilityAnnotator) and therefore this method should not
+      // be called for them.
+      NOTREACHED();
   }
   NOTREACHED();
 }
@@ -743,9 +748,10 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
           /*frecency_override=*/"");
     }
     case sync_pb::AutofillValuableSpecifics::kLoyaltyCard:
+    case sync_pb::AutofillValuableSpecifics::kEventTicket:
+    case sync_pb::AutofillValuableSpecifics::kTransitPass:
     case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
-      // Such specifics shouldn't reach this function as they aren't supported
-      // by AutofillAi.
+      // These entity types aren't supported by AutofillAi.
       return std::nullopt;
   }
   return std::nullopt;
@@ -809,6 +815,7 @@ EntityTypeToPassType(EntityType entity_type) {
     case EntityTypeName::kRedressNumber:
       return sync_pb::AutofillValuableMetadataSpecifics::REDRESS_NUMBER;
     case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
       // Those entity types are not synced.
       return std::nullopt;
   }

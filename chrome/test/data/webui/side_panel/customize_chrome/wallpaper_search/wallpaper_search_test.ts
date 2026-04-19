@@ -863,13 +863,13 @@ suite('WallpaperSearchTest', () => {
       wallpaperSearchCallbackRouterRemote.setHistory([]);
       await wallpaperSearchCallbackRouterRemote.$.flushForTesting();
 
-      assertTrue(!!wallpaperSearchElement.$.historyCard.hidden);
+      assertTrue(wallpaperSearchElement.$.historyCard.hidden);
     });
 
     test('show history in history card', async () => {
       createWallpaperSearchElement();
 
-      assertTrue(!!wallpaperSearchElement.$.historyCard.hidden);
+      assertTrue(wallpaperSearchElement.$.historyCard.hidden);
 
       wallpaperSearchCallbackRouterRemote.setHistory([
         {
@@ -887,7 +887,7 @@ suite('WallpaperSearchTest', () => {
 
       const historyTiles =
           wallpaperSearchElement.$.historyCard.querySelectorAll('.tile');
-      assertFalse(!!wallpaperSearchElement.$.historyCard.hidden);
+      assertFalse(wallpaperSearchElement.$.historyCard.hidden);
       assertEquals(historyTiles.length, 2);
       assertEquals(
           (historyTiles[0]! as HTMLElement).getAttribute('aria-label'),
@@ -2154,7 +2154,8 @@ suite('WallpaperSearchTest', () => {
 
       assertEquals(
           'key bar', wallpaperSearchElement.$.descriptorComboboxA.value);
-      assertEquals(null, wallpaperSearchElement.$.descriptorComboboxB.value);
+      assertEquals(
+          undefined, wallpaperSearchElement.$.descriptorComboboxB.value);
       assertEquals(
           'key baz', wallpaperSearchElement.$.descriptorComboboxC.value);
       assertFalse(
@@ -2262,8 +2263,10 @@ suite('WallpaperSearchTest', () => {
 
       assertEquals(
           'key bar', wallpaperSearchElement.$.descriptorComboboxA.value);
-      assertEquals(null, wallpaperSearchElement.$.descriptorComboboxB.value);
-      assertEquals(null, wallpaperSearchElement.$.descriptorComboboxC.value);
+      assertEquals(
+          undefined, wallpaperSearchElement.$.descriptorComboboxB.value);
+      assertEquals(
+          undefined, wallpaperSearchElement.$.descriptorComboboxC.value);
       assertFalse(
           !!$$(wallpaperSearchElement, '#descriptorMenuD button [checked]'));
       loadingEvent = await loadingEventPromise;

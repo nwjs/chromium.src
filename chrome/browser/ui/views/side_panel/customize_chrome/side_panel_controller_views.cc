@@ -6,7 +6,6 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/extensions/settings_api_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
@@ -28,7 +27,6 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/search/ntp_features.h"
-#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -68,7 +66,7 @@ bool SidePanelControllerViews::IsCustomizeChromeEntryShowing() const {
 }
 
 bool SidePanelControllerViews::IsCustomizeChromeEntryAvailable() const {
-  auto* registry = tab_->GetTabFeatures()->side_panel_registry();
+  auto* registry = SidePanelRegistry::From(&tab_.get());
   return registry ? (registry->GetEntryForKey(
                          SidePanelEntry::Key(kSidePanelEntryId)) != nullptr)
                   : false;
@@ -149,7 +147,7 @@ void SidePanelControllerViews::DidFinishNavigation(
 }
 
 void SidePanelControllerViews::CreateAndRegisterEntry() {
-  auto* registry = tab_->GetTabFeatures()->side_panel_registry();
+  auto* registry = SidePanelRegistry::From(&tab_.get());
 
   if (!registry) {
     return;
@@ -171,7 +169,7 @@ void SidePanelControllerViews::CreateAndRegisterEntry() {
 }
 
 void SidePanelControllerViews::DeregisterEntry() {
-  auto* registry = tab_->GetTabFeatures()->side_panel_registry();
+  auto* registry = SidePanelRegistry::From(&tab_.get());
 
   if (!registry) {
     return;
@@ -214,7 +212,7 @@ void SidePanelControllerViews::CloseSidePanel() {
     return;
   }
 
-  auto* const registry = tab_->GetTabFeatures()->side_panel_registry();
+  auto* const registry = SidePanelRegistry::From(&tab_.get());
   auto* const current_entry =
       registry->GetEntryForKey(SidePanelEntry::Key(kSidePanelEntryId));
   if (!current_entry) {

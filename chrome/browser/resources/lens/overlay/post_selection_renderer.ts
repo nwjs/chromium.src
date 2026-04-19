@@ -9,7 +9,7 @@ import {assert, assertInstanceof, assertNotReached} from '//resources/js/assert.
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {RectF} from '//resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
-import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {flush, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {GLIF_HEX_COLORS} from './color_utils.js';
 import {CenterRotatedBox_CoordinateType} from './geometry.mojom-webui.js';
@@ -359,12 +359,9 @@ export class PostSelectionRendererElement extends
             .map(r => this.selectedRegionToStaticRegion(r));
 
     this.updateCornerDimensions();
-    // Ensure canvases are rendered for the new regions. We use
-    // requestAnimationFrame to allow the dom-repeat to stamp the new canvases
-    // before we try to draw to them.
-    requestAnimationFrame(() => {
-      this.renderStaticRegionCanvases();
-    });
+    // Draw canvases immediately to prevent flicker on static regions.
+    flush();
+    this.renderStaticRegionCanvases();
   }
 
   private selectedRegionToStaticRegion(region: SelectedRegion): StaticRegion {
@@ -376,15 +373,14 @@ export class PostSelectionRendererElement extends
     const rightOffset = 100 - (leftPercent + widthPercent);
     const bottomOffset = 100 - (topPercent + heightPercent);
 
-    const cornerWidth = 'var(--post-selection-corner-width)';
     const cornerRadius = 'var(--post-selection-cutout-corner-radius, 8px)';
 
     return {
       id: region.id,
-      left: `calc(${leftPercent}% - ${cornerWidth})`,
-      top: `calc(${topPercent}% - ${cornerWidth})`,
-      width: `calc(${widthPercent}% + (2 * ${cornerWidth}))`,
-      height: `calc(${heightPercent}% + (2 * ${cornerWidth}))`,
+      left: `${leftPercent}%`,
+      top: `${topPercent}%`,
+      width: `${widthPercent}%`,
+      height: `${heightPercent}%`,
       clipPath: `inset(${topPercent}% ${rightOffset}% ${bottomOffset}% ${
           leftPercent}% round ${cornerRadius})`,
     };

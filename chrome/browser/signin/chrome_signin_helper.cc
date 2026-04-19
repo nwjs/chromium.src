@@ -26,6 +26,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/signin/core/browser/account_reconcilor.h"
+#include "components/signin/core/browser/dice_header_helper.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
@@ -33,6 +34,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_cookie_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/signin/public/identity_manager/tribool.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -49,6 +51,7 @@
 #else
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -198,9 +201,9 @@ bool IsWebContentsForemost(Profile* profile,
                            content::WebContents* web_contents,
                            GAIAServiceType service_type) {
 #if BUILDFLAG(IS_CHROMEOS)
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   // Do not do anything if the navigation happened in the "background".
-  if (!browser || !browser->window()->IsActive()) {
+  if (!browser || !browser->GetWindow()->IsActive()) {
     return false;
   }
 
@@ -380,13 +383,29 @@ void ProcessMirrorHeader(
     return;
   }
 
-  if (target_account_info &&
-      identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-          target_account_info->account_id) &&
+  if (service_type == signin::GAIA_SERVICE_TYPE_ADDSESSION &&
       base::FeatureList::IsEnabled(switches::kSupportWebSigninAddSession)) {
-    // The target account was found on the device, but it has a persistent auth
-    // error, trigger a reauth flow to resolve it
-    SigninBridgeFactory::GetForProfile(profile)->StartUpdateCredentialsFlow(
+    if (!target_account_info.has_value()) {
+      // Target account is not on the device.
+      SigninBridgeFactory::GetForProfile(profile)->StartAddAccountFlow(
+          TabAndroid::FromWebContents(web_contents),
+          manage_accounts_params.email, continue_url);
+      return;
+    }
+
+    // The target account was found on the device, check for a persistent auth
+    // error.
+    if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+            target_account_info->account_id)) {
+      SigninBridgeFactory::GetForProfile(profile)->StartUpdateCredentialsFlow(
+          TabAndroid::FromWebContents(web_contents), continue_url,
+          target_account_info->account_id);
+      return;
+    }
+
+    // If the account is available on the device but is not in error state
+    // then we wait for cookies.
+    SigninBridgeFactory::GetForProfile(profile)->WaitForCookiesAndRedirect(
         TabAndroid::FromWebContents(web_contents), continue_url,
         target_account_info->account_id);
     return;
@@ -396,21 +415,6 @@ void ProcessMirrorHeader(
   if (!window) {
     return;
   }
-
-  if (service_type == signin::GAIA_SERVICE_TYPE_ADDSESSION &&
-      base::FeatureList::IsEnabled(switches::kSupportWebSigninAddSession)) {
-    if (target_account_info) {
-      // If account is already on device don't start the add account flow.
-      // TODO(crbug.com/456445865): Consider adding a reauth flow or a wait
-      // for cookies in this scenario.
-      return;
-    }
-    SigninBridgeFactory::GetForProfile(profile)->StartAddAccountFlow(
-        TabAndroid::FromWebContents(web_contents), manage_accounts_params.email,
-        continue_url);
-    return;
-  }
-
   signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
       account_reconcilor->GetState());
   SigninBridgeFactory::GetForProfile(profile)->OpenAccountManagementScreen(
@@ -514,14 +518,38 @@ void ProcessDiceResponseHeaderIfExists(ResponseAdapter* response,
   std::optional<std::string> header_value;
   if (header_value = response_headers->GetNormalizedHeader(kDiceResponseHeader);
       header_value) {
-    params = BuildDiceSigninResponseParams(*header_value);
+    params = DiceHeaderHelper::BuildDiceSigninResponseParams(*header_value);
     // The header must be removed for privacy reasons, so that renderers never
     // have access to the authorization code.
     response->RemoveHeader(kDiceResponseHeader);
   } else if (header_value = response_headers->GetNormalizedHeader(
                  kGoogleSignoutResponseHeader);
              header_value) {
-    params = BuildDiceSignoutResponseParams(*header_value);
+    params = DiceHeaderHelper::BuildDiceSignoutResponseParams(*header_value);
+  }
+
+  if (std::optional<std::string> meta_header_value =
+          response_headers->GetNormalizedHeader(kDiceLinkedAccountsMetaHeader);
+      meta_header_value) {
+    DiceResponseParams::SigninInfo::LinkedAccountsMetadata meta_header =
+        DiceHeaderHelper::ParseLinkedAccountsMetadata(*meta_header_value);
+    if (!meta_header.IsValid()) {
+      // TODO(crbug.com/475435113):
+      // - Revisit handling gracefully malformed meta header. The code as it is
+      // as of now, sign-in will fail completely if `initiator_id is empty`.
+      // - Add histogram
+      DLOG(WARNING)
+          << "Malformed X-Chrome-ID-Consistency-LinkedAccounts-Meta header: "
+          << *meta_header_value;
+    }
+
+    if (DiceResponseParams::SigninInfo* signin_info = params.signin_info();
+        signin_info) {
+      signin_info->set_linked_accounts_metadata(std::move(meta_header));
+    } else {
+      DLOG(WARNING) << "X-Chrome-ID-Consistency-LinkedAccounts-Meta is only "
+                       "supported for Sign-in Dice action";
+    }
   }
 
   if (!params.IsValid()) {
@@ -664,9 +692,9 @@ void FixAccountConsistencyRequestHeader(
 
 // Dice header:
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  bool dice_header_added = AppendOrRemoveDiceRequestHeader(
+  bool dice_header_added = DiceHeaderHelper::AppendOrRemoveDiceRequestHeader(
       request, redirect_url, gaia_id, is_sync_enabled, account_consistency,
-      cookie_settings, signin_scoped_device_id);
+      signin_scoped_device_id);
 
   // Block the AccountReconcilor while the Dice requests are in flight. This
   // allows the DiceReponseHandler to process the response before the reconcilor

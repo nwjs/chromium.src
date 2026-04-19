@@ -143,6 +143,10 @@ scoped_refptr<DecoderBuffer> DecoderBuffer::FromExternalMemory(
 // static
 scoped_refptr<DecoderBuffer> DecoderBuffer::CreateEOSBuffer(
     std::optional<ConfigVariant> next_config) {
+  if (next_config) {
+    std::visit([](auto&& config_type) { CHECK(config_type.IsValidConfig()); },
+               *next_config);
+  }
   return base::MakeRefCounted<DecoderBuffer>(base::PassKey<DecoderBuffer>(),
                                              DecoderBufferType::kEndOfStream,
                                              std::move(next_config));
@@ -299,6 +303,15 @@ size_t DecoderBuffer::GetMemoryUsage() const {
   }
 
   return memory_usage;
+}
+
+DecoderBuffer::UnownedExternalMemory::UnownedExternalMemory(
+    base::span<const uint8_t> span)
+    : span_(span) {}
+
+const base::span<const uint8_t> DecoderBuffer::UnownedExternalMemory::Span()
+    const {
+  return span_;
 }
 
 }  // namespace media

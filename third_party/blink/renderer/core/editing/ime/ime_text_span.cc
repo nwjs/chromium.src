@@ -68,7 +68,7 @@ Vector<String> ConvertStdVectorOfStdStringsToVectorOfStrings(
   Vector<String> output;
   output.ReserveInitialCapacity(base::checked_cast<wtf_size_t>(input.size()));
   for (const std::string& val : input) {
-    output.UncheckedAppend(String::FromUTF8(val));
+    output.UncheckedAppend(String::FromUtf8(val));
   }
   return output;
 }
@@ -127,6 +127,8 @@ ui::ImeTextSpan::Type ConvertImeTextSpanTypeToUiType(ImeTextSpan::Type type) {
       return ui::ImeTextSpan::Type::kMisspellingSuggestion;
     case ImeTextSpan::Type::kSuggestion:
       return ui::ImeTextSpan::Type::kSuggestion;
+    case ImeTextSpan::Type::kPreviewStylusGesture:
+      NOTREACHED();  // This should never be used outside of blink.
   }
 }
 

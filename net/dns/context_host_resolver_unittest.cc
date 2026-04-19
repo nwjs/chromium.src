@@ -148,11 +148,11 @@ TEST_F(ContextHostResolverTest, CreateCanaryDomainService) {
       {{features::kSecureDnsCanaryDomainHost.name, "example.com"}});
 
   auto context = CreateTestURLRequestContextBuilder()->Build();
-  auto resolve_context_ptr =
+  auto resolve_context =
       std::make_unique<ResolveContext>(context.get(), /*enable_caching=*/false);
-  ResolveContext* resolve_context = resolve_context_ptr.get();
+  ResolveContext* resolve_context_ptr = resolve_context.get();
   auto resolver = std::make_unique<ContextHostResolver>(
-      manager_.get(), std::move(resolve_context_ptr));
+      manager_.get(), std::move(resolve_context));
 
   // Initially, no session. CreateCanaryDomainService should still return a
   // service.
@@ -160,10 +160,10 @@ TEST_F(ContextHostResolverTest, CreateCanaryDomainService) {
       resolver->CreateCanaryDomainService();
   EXPECT_TRUE(service);
 
-  // But starting it should not trigger a probe if disabled.
+  // But starting it should not trigger a probe if no session.
   service->Start();
   EXPECT_EQ(CanaryDomainCheckStatus::kNotStarted,
-            resolve_context->doh_fallback_canary_domain_check_status());
+            resolve_context_ptr->doh_fallback_canary_domain_check_status());
 
   // Set up a session with AUTOMATIC mode and fallback upgrade enabled.
   DnsConfig config;
@@ -172,7 +172,7 @@ TEST_F(ContextHostResolverTest, CreateCanaryDomainService) {
   auto session = base::MakeRefCounted<DnsSession>(
       config, base::BindRepeating([](int, int) -> int { return 0; }),
       /*net_log=*/nullptr);
-  resolve_context->InvalidateCachesAndPerSessionData(session.get(), false);
+  resolve_context_ptr->InvalidateCachesAndPerSessionData(session.get(), false);
 
   service = resolver->CreateCanaryDomainService();
   EXPECT_TRUE(service);
@@ -182,27 +182,45 @@ TEST_F(ContextHostResolverTest, CreateCanaryDomainService) {
   session = base::MakeRefCounted<DnsSession>(
       config, base::BindRepeating([](int, int) -> int { return 0; }),
       /*net_log=*/nullptr);
-  resolve_context->InvalidateCachesAndPerSessionData(session.get(), false);
+  resolve_context_ptr->InvalidateCachesAndPerSessionData(session.get(), false);
 
   service = resolver->CreateCanaryDomainService();
   EXPECT_TRUE(service);
   service->Start();
   EXPECT_EQ(CanaryDomainCheckStatus::kNotStarted,
-            resolve_context->doh_fallback_canary_domain_check_status());
+            resolve_context_ptr->doh_fallback_canary_domain_check_status());
 
   // Change mode to SECURE.
   config.secure_dns_mode = SecureDnsMode::kSecure;
-  config.should_perform_doh_fallback_upgrade = true;
+  config.should_perform_doh_fallback_upgrade = false;
   session = base::MakeRefCounted<DnsSession>(
       config, base::BindRepeating([](int, int) -> int { return 0; }),
       /*net_log=*/nullptr);
-  resolve_context->InvalidateCachesAndPerSessionData(session.get(), false);
+  resolve_context_ptr->InvalidateCachesAndPerSessionData(session.get(), false);
 
   service = resolver->CreateCanaryDomainService();
   EXPECT_TRUE(service);
   service->Start();
   EXPECT_EQ(CanaryDomainCheckStatus::kNotStarted,
-            resolve_context->doh_fallback_canary_domain_check_status());
+            resolve_context_ptr->doh_fallback_canary_domain_check_status());
+}
+
+TEST_F(ContextHostResolverTest, CreateCanaryDomainService_Disabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kProbeSecureDnsCanaryDomain);
+
+  auto context = CreateTestURLRequestContextBuilder()->Build();
+  auto resolve_context =
+      std::make_unique<ResolveContext>(context.get(), /*enable_caching=*/false);
+  ResolveContext* resolve_context_ptr = resolve_context.get();
+  auto resolver = std::make_unique<ContextHostResolver>(
+      manager_.get(), std::move(resolve_context));
+
+  std::unique_ptr<CanaryDomainService> service =
+      resolver->CreateCanaryDomainService();
+  EXPECT_TRUE(service);
+  EXPECT_EQ(CanaryDomainCheckStatus::kInactive,
+            resolve_context_ptr->doh_fallback_canary_domain_check_status());
 }
 
 TEST_F(ContextHostResolverTest, ResolveWithScheme) {
@@ -763,10 +781,10 @@ TEST_F(ContextHostResolverTest, ResultsAddedToCache) {
 // Do a lookup with a NetworkIsolationKey, and then make sure the entry added to
 // the cache is in fact using that NetworkIsolationKey.
 TEST_F(ContextHostResolverTest, ResultsAddedToCacheWithNetworkIsolationKey) {
-  const SchemefulSite kSite(GURL("https://origin.test/"));
-  const NetworkIsolationKey kNetworkIsolationKey(kSite, kSite);
-  auto kNetworkAnonymizationKey =
-      net::NetworkAnonymizationKey::CreateSameSite(kSite);
+  SchemefulSite site(GURL("https://origin.test/"));
+  const NetworkIsolationKey kNetworkIsolationKey(site, site);
+  const auto kNetworkAnonymizationKey =
+      net::NetworkAnonymizationKey::CreateSameSite(std::move(site));
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(

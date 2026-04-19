@@ -56,7 +56,6 @@ import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
-import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteUtils;
@@ -1223,6 +1222,11 @@ class TabImpl implements Tab {
 
     @Override
     public void destroy() {
+        destroyInternal(/* deleteNativeWebContents= */ true);
+    }
+
+    @CalledByNative
+    private void destroyInternal(boolean deleteNativeWebContents) {
         ThreadUtils.assertOnUiThread();
         // Set at the start since destroying the WebContents can lead to calling back into
         // this class.
@@ -1244,14 +1248,14 @@ class TabImpl implements Tab {
                 ChromeFeatureList.isEnabled(ChromeFeatureList.ABORT_NAVIGATIONS_FROM_TAB_CLOSURES);
         if (abortNavigationsFromTabClosures) {
             mUserDataHost.destroy();
-            destroyWebContents(true);
+            destroyWebContents(deleteNativeWebContents);
         }
 
         mObservers.clear();
         if (!abortNavigationsFromTabClosures) mUserDataHost.destroy();
         mTabViewManager.destroy();
         hideNativePage(false, null);
-        if (!abortNavigationsFromTabClosures) destroyWebContents(true);
+        if (!abortNavigationsFromTabClosures) destroyWebContents(deleteNativeWebContents);
         if (mWebContentsState != null) {
             mWebContentsState.destroy();
             mWebContentsState = null;
@@ -2850,13 +2854,6 @@ class TabImpl implements Tab {
     @Override
     @CalledByNative
     public void setIsPinned(boolean isPinned) {
-        boolean isPinnedTabFeatureEnabled =
-                StripLayoutUtils.isTabPinningFromStripEnabled()
-                        || ChromeFeatureList.sAndroidPinnedTabs.isEnabled();
-
-        // Remove the tab pinned state if the feature is disabled.
-        isPinned = isPinnedTabFeatureEnabled && isPinned;
-
         if (mIsPinned == isPinned || isDestroyed()) return;
         mIsPinned = isPinned;
         for (TabObserver observer : mObservers) {
@@ -2936,6 +2933,13 @@ class TabImpl implements Tab {
     private NonNullObservableSupplier<Boolean> getIsDraggingSupplier() {
         TabDragStateData data = TabDragStateData.getOrCreateForTab(this);
         return data.getIsDraggingSupplier();
+    }
+
+    @Override
+    public boolean hasTabInterfaceAndroid() {
+        if (mNativeTabAndroid == 0) return false;
+
+        return TabImplJni.get().hasTabInterfaceAndroid(mNativeTabAndroid);
     }
 
     @Override
@@ -3031,6 +3035,8 @@ class TabImpl implements Tab {
                 @JniType("std::optional<base::Token>") @Nullable Token tabGroupId);
 
         void onDraggingStateChanged(long nativeTabAndroid, boolean isDragging);
+
+        boolean hasTabInterfaceAndroid(long nativeTabAndroid);
 
         void sendDidActivateUpdate(long nativeTabAndroid);
 

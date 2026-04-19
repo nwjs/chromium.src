@@ -13,6 +13,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_metrics_provider.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/global_features.h"
@@ -401,156 +402,43 @@ IN_PROC_BROWSER_TEST_F(GlicEnablingSimultaneousRolloutTest,
   }
 }
 
-// Test fixtures for testing-related flags for multi-instance enablement by
-// tier.
-class GlicMultiInstanceEnablingTestingFlagsBrowserTest
-    : public GlicEnablingTest {
+class GlicEnablingTieredRolloutV2Test : public GlicEnablingTest {
  public:
   void InitializeFeatureList() override {
-    scoped_feature_list_.InitWithFeatures(
+    scoped_feature_list_.InitWithFeaturesAndParameters(
         {
-            features::kGlic,
-            features::kGlicEnableMultiInstanceBasedOnTier,
+            {features::kGlic, {}},
+            {features::kGlicTieredRolloutV2,
+             {{"glic-tiered-rollout-v2-eligible-tiers", "1,2"}}},
 #if BUILDFLAG(IS_CHROMEOS)
-            chromeos::features::kFeatureManagementGlic,
+            {chromeos::features::kFeatureManagementGlic, {}},
 #endif  // BUILDFLAG(IS_CHROMEOS)
         },
-        {features::kGlicMultiInstance});
+        {features::kGlicRollout});
   }
-  ~GlicMultiInstanceEnablingTestingFlagsBrowserTest() override = default;
+  ~GlicEnablingTieredRolloutV2Test() override = default;
 
- protected:
-  // Helper to set the AI subscription tier for the profile.
-  void SetAiSubscriptionTier(int tier) {
-    profile()->GetPrefs()->SetInteger(
+  void SetUserTier(int32_t tier) {
+    browser()->profile()->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, tier);
   }
 
-  // Helper to set the kGlicMultiInstanceEnabledBySubscriptionTier pref.
-  void SetGlicMultiInstanceEnabledBySubscriptionTierPref(bool value) {
-    g_browser_process->local_state()->SetBoolean(
-        glic::prefs::kGlicMultiInstanceEnabledBySubscriptionTier, value);
-  }
-
-  // Helper to get the kGlicMultiInstanceEnabledBySubscriptionTier pref.
-  bool GetGlicMultiInstanceEnabledBySubscriptionTierPref() {
-    return g_browser_process->local_state()->GetBoolean(
-        glic::prefs::kGlicMultiInstanceEnabledBySubscriptionTier);
-  }
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class GlicMultiInstanceEnablingNoFlagsBrowserTest
-    : public GlicMultiInstanceEnablingTestingFlagsBrowserTest,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
- public:
-  bool IsG1() const { return std::get<0>(GetParam()); }
-  bool WasPreviouslyEligible() const { return std::get<1>(GetParam()); }
-};
+IN_PROC_BROWSER_TEST_F(GlicEnablingTieredRolloutV2Test, EnabledForProfileTest) {
+  // Should not be enabled as profile not eligible for tiered rollout.
+  EXPECT_FALSE(GlicEnabling::IsEnabledForProfile(profile()));
 
-IN_PROC_BROWSER_TEST_P(GlicMultiInstanceEnablingNoFlagsBrowserTest,
-                       NoFlagsTest) {
-  SetAiSubscriptionTier(IsG1() ? 1 : 0);
-  SetGlicMultiInstanceEnabledBySubscriptionTierPref(WasPreviouslyEligible());
+  // Should be enabled as now eligible for tiered rollout.
+  SetUserTier(1);
+  EXPECT_TRUE(GlicEnabling::IsEnabledForProfile(profile()));
 
-  bool expected_eligibility = IsG1() || WasPreviouslyEligible();
-  EXPECT_EQ(
-      GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
-          profile()),
-      expected_eligibility);
+  // Simulate user no longer eligible.
+  SetUserTier(0);
+  EXPECT_FALSE(GlicEnabling::IsEnabledForProfile(profile()));
 }
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         GlicMultiInstanceEnablingNoFlagsBrowserTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
-
-class GlicMultiInstanceEnablingForceG1ForMiBrowserTest
-    : public GlicMultiInstanceEnablingTestingFlagsBrowserTest,
-      public testing::WithParamInterface<bool> {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    GlicMultiInstanceEnablingTestingFlagsBrowserTest::SetUpCommandLine(
-        command_line);
-    command_line->AppendSwitchASCII(
-        switches::kGlicForceG1StatusForMultiInstance,
-        GetParam() ? "true" : "false");
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(GlicMultiInstanceEnablingForceG1ForMiBrowserTest,
-                       ForceG1ForMi) {
-  bool force_g1_for_mi = GetParam();
-  // Set the actual subscription tier to the opposite status of the test param,
-  // to ensure that it is overridden by the command line switch in effect.
-  SetAiSubscriptionTier(force_g1_for_mi ? 0 : 1);
-  EXPECT_EQ(
-      GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
-          profile()),
-      force_g1_for_mi);
-}
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         GlicMultiInstanceEnablingForceG1ForMiBrowserTest,
-                         testing::Bool());
-
-class GlicMultiInstanceEnablingResetPrefBrowserTest
-    : public GlicMultiInstanceEnablingTestingFlagsBrowserTest,
-      public testing::WithParamInterface<bool> {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    GlicMultiInstanceEnablingTestingFlagsBrowserTest::SetUpCommandLine(
-        command_line);
-    command_line->AppendSwitch(switches::kGlicResetMultiInstanceEnabledByTier);
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(GlicMultiInstanceEnablingResetPrefBrowserTest,
-                       ResetMiEnabledByTierPref) {
-  bool is_eligible_by_tier = GetParam();
-  SetAiSubscriptionTier(is_eligible_by_tier ? 1 : 0);
-  SetGlicMultiInstanceEnabledBySubscriptionTierPref(/*value=*/true);
-
-  EXPECT_EQ(
-      GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
-          profile()),
-      is_eligible_by_tier);
-  // The pref should be reset to false if the user is not eligible by tier.
-  EXPECT_EQ(GetGlicMultiInstanceEnabledBySubscriptionTierPref(),
-            is_eligible_by_tier);
-}
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         GlicMultiInstanceEnablingResetPrefBrowserTest,
-                         testing::Bool());
-
-class GlicEnablingMultiInstanceFlagPrecedenceBrowserTest
-    : public GlicMultiInstanceEnablingTestingFlagsBrowserTest,
-      public testing::WithParamInterface<bool> {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    GlicMultiInstanceEnablingTestingFlagsBrowserTest::SetUpCommandLine(
-        command_line);
-    command_line->AppendSwitch(switches::kGlicResetMultiInstanceEnabledByTier);
-    command_line->AppendSwitchASCII(
-        switches::kGlicForceG1StatusForMultiInstance,
-        GetParam() ? "true" : "false");
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(GlicEnablingMultiInstanceFlagPrecedenceBrowserTest,
-                       FlagPrecedence) {
-  bool force_g1_for_mi = GetParam();
-  SetAiSubscriptionTier(force_g1_for_mi ? 0 : 1);
-  SetGlicMultiInstanceEnabledBySubscriptionTierPref(/*value=*/true);
-
-  EXPECT_EQ(
-      GlicEnabling::GetAndUpdateEligibilityForGlicMultiInstanceTieredRollout(
-          profile()),
-      force_g1_for_mi);
-}
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         GlicEnablingMultiInstanceFlagPrecedenceBrowserTest,
-                         testing::Bool());
 
 }  // namespace
 }  // namespace glic

@@ -34,7 +34,6 @@ import {EntityDataManagerProxyImpl} from './entity_data_manager_proxy.js';
 
 type AttributeInstance = chrome.autofillPrivate.AttributeInstance;
 type AttributeType = chrome.autofillPrivate.AttributeType;
-const AttributeTypeDataType = chrome.autofillPrivate.AttributeTypeDataType;
 type AttributeTypeDataType = chrome.autofillPrivate.AttributeTypeDataType;
 type CountryEntry = chrome.autofillPrivate.CountryEntry;
 type DateValue = chrome.autofillPrivate.DateValue;
@@ -76,7 +75,7 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
 
       attributeTypeDataTypeEnum_: {
         type: Object,
-        value: AttributeTypeDataType,
+        value: () => chrome.autofillPrivate.AttributeTypeDataType,
       },
 
       /**
@@ -299,12 +298,14 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
       return {
         type: attributeType,
         value: existingAttributeInstance?.value ||
-            (attributeType.dataType === AttributeTypeDataType.DATE ? {
-                 month: '',
-                 day: '',
-                 year: '',
-               } :
-                                                                     ''),
+            (attributeType.dataType ===
+                     chrome.autofillPrivate.AttributeTypeDataType.DATE ?
+                 {
+                   month: '',
+                   day: '',
+                   year: '',
+                 } :
+                 ''),
       };
     });
   }
@@ -322,7 +323,8 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
     // This logic exists because of a trade-off in the C++ autofill private API,
     // that has to call `EntityInstance::GetCompleteInfo()`, instead of
     // `EntityInstance::GetRawInfo()`.
-    if (attributeInstance.type.dataType === AttributeTypeDataType.COUNTRY) {
+    if (attributeInstance.type.dataType ===
+        chrome.autofillPrivate.AttributeTypeDataType.COUNTRY) {
       // TODO(crbug.com/403312087): Remove comment and exclamation marks once
       // the <hr> TODO below is solved.
       // The find operation will always find a match. Currently, the only entry
@@ -450,6 +452,10 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
         this.getRequiredIndicator_(attributeInstance);
   }
 
+  // When saving a Wallet private pass a consent is recorded that includes the
+  // notice string. Ensure that the correct string ID is referenced in the
+  // backend code.
+  // LINT.IfChange
   private computeFooterText_(): string {
     if (!this.entityInstance || this.entityInstance.guid || !this.userEmail_ ||
         !this.entityInstance?.type.supportsWalletStorage) {
@@ -472,6 +478,7 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
         'saveInfoToWalletAccountNotice', this.i18n('googleWalletTitle'),
         this.userEmail_);
   }
+  // LINT.ThenChange(//chrome/browser/extensions/api/autofill_private/autofill_private_api.cc)
 
   private isExistingYearOutOfBounds_(
       attributeInstance: AttributeInstance, years: string[]): boolean {
@@ -494,7 +501,8 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
    * first time. Subsequent validations occur any time a field is changed.
    */
   private isDateInvalid_(attributeInstance: AttributeInstance): boolean {
-    if (attributeInstance.type.dataType !== AttributeTypeDataType.DATE ||
+    if (attributeInstance.type.dataType !==
+            chrome.autofillPrivate.AttributeTypeDataType.DATE ||
         !this.userClickedSaveButton_) {
       return false;
     }
@@ -571,7 +579,8 @@ export class SettingsAutofillAiAddOrEditDialogElement extends
    */
   private isAttributeInstanceNotEmpty(attributeInstance: AttributeInstance):
       boolean {
-    if (attributeInstance.type.dataType === AttributeTypeDataType.DATE) {
+    if (attributeInstance.type.dataType ===
+        chrome.autofillPrivate.AttributeTypeDataType.DATE) {
       const value: DateValue = attributeInstance.value as DateValue;
       return value.month.trim().length > 0 || value.day.trim().length > 0 ||
           value.year.trim().length > 0;

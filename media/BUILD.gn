@@ -373,6 +373,7 @@ if (proprietary_codecs) {
     deps = [
       ":media",
       "//base",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
   }
 
@@ -381,6 +382,7 @@ if (proprietary_codecs) {
     deps = [
       ":media",
       "//base",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
     libfuzzer_options = [ "max_len=500" ]
     dict = "test/mp4.dict"
@@ -393,6 +395,7 @@ if (enable_mse_mpeg2ts_stream_parser) {
     deps = [
       ":media",
       "//base",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
   }
 
@@ -401,6 +404,7 @@ if (enable_mse_mpeg2ts_stream_parser) {
     deps = [
       ":media",
       "//base",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
   }
 
@@ -409,6 +413,7 @@ if (enable_mse_mpeg2ts_stream_parser) {
     deps = [
       ":media",
       "//base",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
   }
 }

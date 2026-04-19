@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <optional>
 
-#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/in_session_auth_dialog_controller.h"
 #include "base/functional/bind.h"
@@ -57,7 +56,26 @@ AuthenticatorChromeOS::~AuthenticatorChromeOS() = default;
 
 void AuthenticatorChromeOS::AuthenticateUser(
     const std::u16string& message,
+    device_reauth::DeviceAuthSource source,
     base::OnceCallback<void(bool)> result_callback) {
+  ash::InSessionAuthDialogController::Reason reason;
+  switch (source) {
+    case device_reauth::DeviceAuthSource::kAutofill:
+      // TODO(b/493658798): Create a kPaymentsAutofill auth source and make sure
+      // that's set.
+      reason =
+          ash::InSessionAuthDialogController::Reason::kAccessAutofillPayments;
+      break;
+    case device_reauth::DeviceAuthSource::kPasswordManager:
+    case device_reauth::DeviceAuthSource::kIncognito:
+    case device_reauth::DeviceAuthSource::kDeviceLockPage:
+    case device_reauth::DeviceAuthSource::kSettingsBatchUpload:
+    case device_reauth::DeviceAuthSource::kBookmarkBatchUpload:
+    case device_reauth::DeviceAuthSource::kPasswordsCsvDownload:
+      reason =
+          ash::InSessionAuthDialogController::Reason::kAccessPasswordManager;
+      break;
+  }
   // Calls `InSessionAuthDialogController::ShowAuthDialog` to authenticate the
   // currently active user using configured auth factors.
   // On Lacros, makes a crosapi call to the
@@ -65,8 +83,7 @@ void AuthenticatorChromeOS::AuthenticateUser(
   // in turn calls `InSessionAuthDialogController::ShowAuthDialog` to
   // authenticate the currently active user using configured auth factors.
   ash::InSessionAuthDialogController::Get()->ShowAuthDialog(
-      ash::InSessionAuthDialogController::Reason::kAccessPasswordManager,
-      base::UTF16ToUTF8(message),
+      reason, base::UTF16ToUTF8(message),
       base::BindOnce(&OnAuthComplete, std::move(result_callback)));
 }
 

@@ -34,6 +34,7 @@
 #include "net/base/net_export.h"
 #include "net/base/network_change_notifier.h"
 #include "net/base/request_priority.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/log/net_log_source.h"
 #include "net/socket/client_socket_pool.h"
 #include "net/socket/next_proto.h"
@@ -216,6 +217,11 @@ class NET_EXPORT_PRIVATE SpdyStreamRequest {
     return confirm_handshake_end_;
   }
 
+  // Returns the time spent waiting in the SpdySession's pending queue.
+  base::TimeDelta max_stream_limit_pending_delay() const {
+    return max_stream_limit_pending_delay_;
+  }
+
   // Starts the request to create a stream. If OK is returned, then
   // ReleaseStream() may be called. If ERR_IO_PENDING is returned,
   // then when the stream is created, |callback| will be called, at
@@ -293,6 +299,7 @@ class NET_EXPORT_PRIVATE SpdyStreamRequest {
   CompletionOnceCallback callback_;
   MutableNetworkTrafficAnnotationTag traffic_annotation_;
   base::TimeTicks confirm_handshake_end_;
+  base::TimeDelta max_stream_limit_pending_delay_;
   bool detect_broken_connection_;
   base::TimeDelta heartbeat_interval_;
 
@@ -568,6 +575,9 @@ class NET_EXPORT SpdySession
   bool GetLoadTimingInfo(spdy::SpdyStreamId stream_id,
                          LoadTimingInfo* load_timing_info) const;
 
+  // Returns the details of the host resolution if available.
+  std::optional<ResolutionDetails> GetResolutionDetails() const;
+
   // Returns true if session is currently active.
   bool is_active() const {
     return !active_streams_.empty() || !created_streams_.empty();
@@ -628,8 +638,21 @@ class NET_EXPORT SpdySession
   friend class SpdySessionTest;
   friend class SpdyStreamRequest;
 
-  using PendingStreamRequestQueue =
-      base::circular_deque<base::WeakPtr<SpdyStreamRequest>>;
+  // Represents a pending stream request.
+  struct PendingStreamRequest {
+    PendingStreamRequest(base::WeakPtr<SpdyStreamRequest> request,
+                         base::TimeTicks queue_first_enqueued_time);
+    ~PendingStreamRequest();
+    PendingStreamRequest(const PendingStreamRequest& other);
+    PendingStreamRequest(PendingStreamRequest&& other);
+    PendingStreamRequest& operator=(const PendingStreamRequest& other);
+    PendingStreamRequest& operator=(PendingStreamRequest&& other);
+
+    base::WeakPtr<SpdyStreamRequest> request;
+    base::TimeTicks queue_first_enqueued_time;
+  };
+
+  using PendingStreamRequestQueue = base::circular_deque<PendingStreamRequest>;
   using ActiveStreamMap = std::map<spdy::SpdyStreamId, SpdyStream*>;
   using CreatedStreamSet = std::set<raw_ptr<SpdyStream>>;
 
@@ -856,6 +879,15 @@ class NET_EXPORT SpdySession
   void DoDrainSession(Error err,
                       const std::string& description,
                       bool force_send_go_away = false);
+
+  // Immediately marks a session as unavailable, to prevent reuse, and posts a
+  // task to call DoDrainSession (if the session is drained for some other
+  // reason in the meantime, that is fine). This should be used instead of
+  // DoDrainSession when there may be a consumer of the SpdySession on the
+  // stack, so as to avoid reentrancy.
+  void DoDrainSessionAsync(Error err,
+                           std::string description,
+                           bool force_send_go_away = false);
 
   // Called right before closing a (possibly-inactive) stream for a
   // reason other than being requested to by the stream.

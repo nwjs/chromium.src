@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -18,6 +19,7 @@
 #include "base/test/gmock_move_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autofill/mock_autofill_agent.h"
 #include "chrome/browser/password_manager/actor_login/internal/actor_login_metrics_helper.h"
 #include "chrome/common/actor.mojom.h"
@@ -30,6 +32,8 @@
 #include "components/autofill/content/common/mojom/autofill_agent.mojom.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/password_manager/core/browser/actor_login/test/mock_actor_login_permission_service.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/identity_credential_source.h"
@@ -48,6 +52,22 @@ using ::testing::_;
 using ::testing::Invoke;
 using ::testing::StrictMock;
 using ::testing::WithArg;
+
+class MockActionSequenceDelegate : public ActionSequenceDelegate {
+ public:
+  MOCK_METHOD(base::CallbackListSubscription,
+              RegisterActionSequenceEnded,
+              (base::OnceCallback<void(bool)>),
+              (override));
+  MOCK_METHOD(void, OnFederatedLoginOutcome, (LoginStatusResult), (override));
+
+  base::WeakPtr<ActionSequenceDelegate> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<MockActionSequenceDelegate> weak_ptr_factory_{this};
+};
 
 class MockChromeRenderFrame : public chrome::mojom::ChromeRenderFrame {
  public:
@@ -127,6 +147,10 @@ class ActorLoginSiwgControllerTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
+
+    feature_list_.InitAndDisableFeature(
+        password_manager::features::kActorLoginFederatedClickFromActor);
+
     // Navigate to a URL so we have a valid last committed URL.
     NavigateAndCommit(GURL("https://example.com/login"));
 
@@ -143,6 +167,7 @@ class ActorLoginSiwgControllerTest : public ChromeRenderViewHostTestHarness {
   void TearDown() override { ChromeRenderViewHostTestHarness::TearDown(); }
 
  protected:
+  base::test::ScopedFeatureList feature_list_;
   base::HistogramTester histogram_tester_;
   autofill::TestAutofillClientInjector<autofill::TestContentAutofillClient>
       autofill_client_injector_;
@@ -150,6 +175,7 @@ class ActorLoginSiwgControllerTest : public ChromeRenderViewHostTestHarness {
       autofill_driver_injector_;
   StrictMock<autofill::MockAutofillAgent> mock_autofill_agent_;
   StrictMock<MockChromeRenderFrame> mock_chrome_render_frame_;
+  StrictMock<MockActorLoginPermissionService> mock_permission_service_;
 
   static void SaveCallback(
       optimization_guide::OnAIPageContentDone* last_callback,
@@ -161,6 +187,7 @@ class ActorLoginSiwgControllerTest : public ChromeRenderViewHostTestHarness {
 };
 
 TEST_F(ActorLoginSiwgControllerTest, ButtonFound_ClickSucceeded) {
+  base::HistogramTester histogram_tester;
   base::RunLoop run_loop;
   base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
   optimization_guide::OnAIPageContentDone page_content_callback;
@@ -168,17 +195,17 @@ TEST_F(ActorLoginSiwgControllerTest, ButtonFound_ClickSucceeded) {
   auto metrics_helper_owned =
       std::make_unique<ActorLoginMetricsHelper>(ukm::kInvalidSourceId);
 
-  ActorLoginSiwgController controller(
-      web_contents(),
-      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
-                          &page_content_callback),
-      finished_callback.Get());
-
-  controller.SetMetricsHelper(metrics_helper_owned.get());
-
   Credential credential;
   credential.federation_detail = FederationDetail();
-  controller.StartFederatedLogin(credential);
+
+  ActorLoginSiwgController controller(
+      web_contents(), credential,
+      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
+                          &page_content_callback),
+      /*should_store_permission=*/false, mock_permission_service_,
+      finished_callback.Get(), /*action_sequence_delegate=*/nullptr);
+
+  controller.StartFederatedLogin(std::move(metrics_helper_owned));
 
   // 1. Simulate Page Content Received with a SiwG button.
   optimization_guide::proto::AnnotatedPageContent page_content;
@@ -232,21 +259,27 @@ TEST_F(ActorLoginSiwgControllerTest, ButtonFound_ClickSucceeded) {
   std::move(page_content_callback).Run(std::move(result));
 
   run_loop.Run();
+
+  histogram_tester.ExpectUniqueSample("Actor.Login.Federated.LoginResult",
+                                      ActorLoginFederatedLoginResult::kSuccess,
+                                      1);
 }
 
 TEST_F(ActorLoginSiwgControllerTest, ButtonFound_ClickFailed) {
   base::RunLoop run_loop;
   base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
   optimization_guide::OnAIPageContentDone page_content_callback;
-  ActorLoginSiwgController controller(
-      web_contents(),
-      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
-                          &page_content_callback),
-      finished_callback.Get());
-
   Credential credential;
   credential.federation_detail = FederationDetail();
-  controller.StartFederatedLogin(credential);
+
+  ActorLoginSiwgController controller(
+      web_contents(), credential,
+      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
+                          &page_content_callback),
+      /*should_store_permission=*/false, mock_permission_service_,
+      finished_callback.Get(), /*action_sequence_delegate=*/nullptr);
+
+  controller.StartFederatedLogin(/*metrics_helper=*/nullptr);
 
   // 1. Simulate Page Content Received with a SiwG button.
   optimization_guide::proto::AnnotatedPageContent page_content;
@@ -297,15 +330,17 @@ TEST_F(ActorLoginSiwgControllerTest, NoButtonsFound) {
   base::RunLoop run_loop;
   base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
   optimization_guide::OnAIPageContentDone page_content_callback;
-  ActorLoginSiwgController controller(
-      web_contents(),
-      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
-                          &page_content_callback),
-      finished_callback.Get());
-
   Credential credential;
   credential.federation_detail = FederationDetail();
-  controller.StartFederatedLogin(credential);
+
+  ActorLoginSiwgController controller(
+      web_contents(), credential,
+      base::BindRepeating(&ActorLoginSiwgControllerTest::SaveCallback,
+                          &page_content_callback),
+      /*should_store_permission=*/false, mock_permission_service_,
+      finished_callback.Get(), /*action_sequence_delegate=*/nullptr);
+
+  controller.StartFederatedLogin(/*metrics_helper=*/nullptr);
 
   // No buttons in the page content.
   optimization_guide::proto::AnnotatedPageContent page_content;
@@ -331,6 +366,170 @@ TEST_F(ActorLoginSiwgControllerTest, NoButtonsFound) {
   std::move(page_content_callback).Run(std::move(result));
 
   run_loop.Run();
+}
+
+class ActorLoginSiwgControllerDelegateClickTest
+    : public ChromeRenderViewHostTestHarness {
+ public:
+  void SetUp() override {
+    ChromeRenderViewHostTestHarness::SetUp();
+
+    feature_list_.InitAndEnableFeature(
+        password_manager::features::kActorLoginFederatedClickFromActor);
+
+    // Navigate to a URL so we have a valid last committed URL.
+    NavigateAndCommit(GURL("https://example.com/login"));
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+  StrictMock<MockActorLoginPermissionService> mock_permission_service_;
+};
+
+TEST_F(ActorLoginSiwgControllerDelegateClickTest, DelegatesClick) {
+  base::HistogramTester histogram_tester;
+  base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
+  StrictMock<MockActionSequenceDelegate> action_sequence_delegate;
+
+  auto metrics_helper_owned =
+      std::make_unique<ActorLoginMetricsHelper>(ukm::kInvalidSourceId);
+
+  Credential credential;
+  credential.federation_detail = FederationDetail();
+
+  auto controller = std::make_unique<ActorLoginSiwgController>(
+      web_contents(), credential, false, mock_permission_service_,
+      finished_callback.Get(), action_sequence_delegate.GetWeakPtr());
+  base::RunLoop start_run_loop;
+  EXPECT_CALL(finished_callback,
+              Run(base::test::ValueIs(LoginStatusResult::kRequiresButtonClick)))
+      .WillOnce(base::test::RunClosure(start_run_loop.QuitClosure()));
+
+  controller->StartFederatedLogin(std::move(metrics_helper_owned));
+
+  start_run_loop.Run();
+
+  // The attempt by the controller is complete, but it is not destroyed until
+  // the action sequence is complete.
+
+  // The result still needs to be reported.
+  base::RunLoop outcome_run_loop;
+  EXPECT_CALL(action_sequence_delegate,
+              OnFederatedLoginOutcome(LoginStatusResult::kSuccessFederated))
+      .WillOnce(base::test::RunClosure(outcome_run_loop.QuitClosure()));
+
+  // Manually trigger the federated login completion callback.
+  auto* request =
+      content::webid::FederatedEmbedderLoginRequest::Get(web_contents());
+  ASSERT_TRUE(request);
+  request->OnFederatedResultReceived(
+      content::webid::FederatedLoginResult::kSuccess);
+
+  outcome_run_loop.Run();
+
+  // Simulate the action sequence ending, at which point the delegate would
+  // destroy its SIWG controller.
+  controller.reset();
+
+  histogram_tester.ExpectUniqueSample("Actor.Login.Federated.LoginResult",
+                                      ActorLoginFederatedLoginResult::kSuccess,
+                                      1);
+}
+
+TEST_F(ActorLoginSiwgControllerDelegateClickTest, StoresPermissionOnSuccess) {
+  base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
+  StrictMock<MockActionSequenceDelegate> action_sequence_delegate;
+  auto metrics_helper_owned =
+      std::make_unique<ActorLoginMetricsHelper>(ukm::kInvalidSourceId);
+
+  Credential credential;
+  credential.username = u"test@gmail.com";
+  credential.request_origin = url::Origin::Create(GURL("https://example.com"));
+  FederationDetail fed_detail;
+  fed_detail.idp_origin =
+      url::Origin::Create(GURL("https://accounts.google.com"));
+  fed_detail.account_id = "12345";
+  credential.federation_detail = fed_detail;
+
+  ActorLoginSiwgController controller(
+      web_contents(), credential,
+      /*should_store_permission=*/true, mock_permission_service_,
+      finished_callback.Get(), action_sequence_delegate.GetWeakPtr());
+
+  base::RunLoop login_run_loop;
+  EXPECT_CALL(finished_callback,
+              Run(base::test::ValueIs(LoginStatusResult::kRequiresButtonClick)))
+      .WillOnce(base::test::RunClosure(login_run_loop.QuitClosure()));
+
+  controller.StartFederatedLogin(std::move(metrics_helper_owned));
+
+  login_run_loop.Run();
+
+  FederatedPermission expected_permission;
+  expected_permission.idp_origin = fed_detail.idp_origin;
+  expected_permission.rp_embedder_origin =
+      url::Origin::Create(GURL("https://example.com"));
+  expected_permission.rp_requester_origin =
+      url::Origin::Create(GURL("https://example.com"));
+  expected_permission.chosen_account_id = "12345";
+  expected_permission.chosen_account_email = "test@gmail.com";
+  EXPECT_CALL(mock_permission_service_,
+              GrantPermission(testing::Eq(expected_permission), _));
+
+  base::RunLoop outcome_run_loop;
+  EXPECT_CALL(action_sequence_delegate,
+              OnFederatedLoginOutcome(LoginStatusResult::kSuccessFederated))
+      .WillOnce(base::test::RunClosure(outcome_run_loop.QuitClosure()));
+
+  // Manually trigger the federated login completion callback.
+  auto* request =
+      content::webid::FederatedEmbedderLoginRequest::Get(web_contents());
+  ASSERT_TRUE(request);
+  request->OnFederatedResultReceived(
+      content::webid::FederatedLoginResult::kSuccess);
+
+  outcome_run_loop.Run();
+}
+
+TEST_F(ActorLoginSiwgControllerDelegateClickTest,
+       DoesNotStorePermissionOnFailure) {
+  base::MockCallback<LoginStatusResultOrErrorReply> finished_callback;
+  StrictMock<MockActionSequenceDelegate> action_sequence_delegate;
+  auto metrics_helper_owned =
+      std::make_unique<ActorLoginMetricsHelper>(ukm::kInvalidSourceId);
+
+  Credential credential;
+  credential.federation_detail = FederationDetail();
+
+  ActorLoginSiwgController controller(
+      web_contents(), credential,
+      /*should_store_permission=*/true, mock_permission_service_,
+      finished_callback.Get(), action_sequence_delegate.GetWeakPtr());
+
+  base::RunLoop start_run_loop;
+  EXPECT_CALL(finished_callback,
+              Run(base::test::ValueIs(LoginStatusResult::kRequiresButtonClick)))
+      .WillOnce(base::test::RunClosure(start_run_loop.QuitClosure()));
+
+  controller.StartFederatedLogin(std::move(metrics_helper_owned));
+
+  start_run_loop.Run();
+
+  base::RunLoop outcome_run_loop;
+  EXPECT_CALL(action_sequence_delegate,
+              OnFederatedLoginOutcome(
+                  LoginStatusResult::kErrorFederatedIdpReturnedError))
+      .WillOnce(base::test::RunClosure(outcome_run_loop.QuitClosure()));
+  EXPECT_CALL(mock_permission_service_, GrantPermission).Times(0);
+
+  // Manually trigger the federated login completion callback with FAILURE.
+  auto* request =
+      content::webid::FederatedEmbedderLoginRequest::Get(web_contents());
+  ASSERT_TRUE(request);
+  request->OnFederatedResultReceived(
+      content::webid::FederatedLoginResult::kIdpReturnedError);
+
+  outcome_run_loop.Run();
 }
 
 }  // namespace actor_login

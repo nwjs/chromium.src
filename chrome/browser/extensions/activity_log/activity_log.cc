@@ -31,6 +31,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/extensions/activity_log_policy_util.h"
 #include "chrome/common/pref_names.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/sync_preferences/pref_service_syncable.h"
@@ -46,6 +47,7 @@
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/hashed_extension_id.h"
@@ -74,6 +76,7 @@ enum class Transformation {
   kNone,
   kDictLookup,
   kLookupTabId,
+  kDictLookupTabId,
 };
 
 // Information about specific Chrome and DOM APIs, such as which contain
@@ -101,6 +104,10 @@ struct ApiInfo {
   // If Transformation::kDictLookup, the data is expected to be a dictionary,
   // and arg_url_dict_path is a path (list of keys delimited by ".") where a URL
   // string is to be found.
+  //
+  // If Transformation::kDictLookupTabId, the data is expected to be a
+  // dictionary, and arg_url_dict_path is a path where a tab ID is to be found
+  // and translated.
   Transformation arg_url_transform;
   const char* arg_url_dict_path;
 };
@@ -141,6 +148,10 @@ static const ApiInfo kApiInfoTable[] = {
      Transformation::kLookupTabId, nullptr},
     {Action::ACTION_API_EVENT, "tabs.onReplaced", 0,
      Transformation::kLookupTabId, nullptr},
+
+    // Scripting APIs that require tab ID translation
+    {Action::ACTION_API_CALL, "scripting.executeScript", 0,
+     Transformation::kDictLookupTabId, "target.tabId"},
 
     // Other APIs that accept URLs as strings
     {Action::ACTION_API_CALL, "bookmarks.create", 0,
@@ -393,6 +404,22 @@ void ExtractUrls(scoped_refptr<Action> action, Profile* profile) {
       break;
     }
 
+    case Transformation::kDictLookupTabId: {
+      CHECK(api_info->arg_url_dict_path);
+      // Look up a tab ID from a dictionary at the specified location.
+      if (args_list[url_index].is_dict()) {
+        std::optional<int> tab_id =
+            args_list[url_index].GetDict().FindIntByDottedPath(
+                api_info->arg_url_dict_path);
+        if (tab_id &&
+            GetUrlForTabId(*tab_id, profile, &arg_url, &arg_incognito)) {
+          args_list[url_index].GetDict().SetByDottedPath(
+              api_info->arg_url_dict_path, kArgUrlPlaceholder);
+        }
+      }
+      break;
+    }
+
     default:
       NOTREACHED();
   }
@@ -435,8 +462,10 @@ void LogApiActivity(content::BrowserContext* browser_context,
     return;
 
   ActivityLog* activity_log = SafeGetActivityLog(browser_context);
-  if (!activity_log || !activity_log->ShouldLog(extension_id))
+  if (!activity_log ||
+      !activity_log->ShouldLog(extension_id, type, activity_name)) {
     return;
+  }
 
   auto action = base::MakeRefCounted<Action>(extension_id, base::Time::Now(),
                                              type, activity_name);
@@ -474,8 +503,11 @@ void LogWebRequestActivity(content::BrowserContext* browser_context,
     return;
 
   ActivityLog* activity_log = SafeGetActivityLog(browser_context);
-  if (!activity_log || !activity_log->ShouldLog(extension_id))
+  if (!activity_log ||
+      !activity_log->ShouldLog(extension_id, Action::ACTION_WEB_REQUEST,
+                               api_call)) {
     return;
+  }
 
   auto action = base::MakeRefCounted<Action>(
       extension_id, base::Time::Now(), Action::ACTION_WEB_REQUEST, api_call);
@@ -682,6 +714,31 @@ void ActivityLog::RemoveObserver(ActivityLog::Observer* observer) {
   observers_->RemoveObserver(observer);
 }
 
+void ActivityLog::SetTelemetryLoggingEnabled(bool enabled,
+                                             TelemetryCallback callback) {
+  if (enabled) {
+    CHECK(!callback.is_null());
+  }
+
+  bool was_active = IsTelemetryLoggingActive();
+
+  if (enabled &&
+      base::FeatureList::IsEnabled(
+          extensions_features::kEnterpriseExtensionDOMActivityTelemetry)) {
+    telemetry_callback_ = std::move(callback);
+  } else {
+    telemetry_callback_.Reset();
+  }
+
+  if (was_active != IsTelemetryLoggingActive()) {
+    NotifyRenderersOfTelemetryLogging();
+  }
+}
+
+bool ActivityLog::IsTelemetryLoggingActive() const {
+  return !telemetry_callback_.is_null();
+}
+
 // static
 void ActivityLog::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
@@ -691,7 +748,8 @@ void ActivityLog::RegisterProfilePrefs(
 // LOG ACTIONS. ----------------------------------------------------------------
 
 void ActivityLog::LogAction(scoped_refptr<Action> action) {
-  DCHECK(ShouldLog(action->extension_id()));
+  DCHECK(ShouldLog(action->extension_id(), action->action_type(),
+                   action->api_name()));
 
   // Perform some preprocessing of the Action data: convert tab IDs to URLs and
   // mask out incognito URLs if appropriate.
@@ -711,28 +769,73 @@ void ActivityLog::LogAction(scoped_refptr<Action> action) {
     database_policy_->ProcessAction(action);
   if (has_listeners_)
     observers_->Notify(FROM_HERE, &Observer::OnExtensionActivity, action);
+  if (!telemetry_callback_.is_null()) {
+    telemetry_callback_.Run(action);
+  }
   if (testing_mode_)
     VLOG(1) << action->PrintForDebug();
 }
 
-bool ActivityLog::ShouldLog(const std::string& extension_id) const {
-  // Do not log for activities from the browser/WebUI, which is indicated by an
-  // empty extension ID.
-  return is_active_ && !extension_id.empty() &&
-         !IsExtensionAllowlisted(extension_id);
+bool ActivityLog::ShouldLog(const std::string& extension_id,
+                            Action::ActionType type,
+                            const std::string& api_name) const {
+  // 1. Early exit if NO logging is active at all.
+  // This avoids expensive allowlist lookups for most users.
+  if (!is_active_ && !IsTelemetryLoggingActive()) {
+    return false;
+  }
+
+  // 2. Do not log for activities from the browser/WebUI or allowlisted
+  // extensions.
+  if (extension_id.empty() || IsExtensionAllowlisted(extension_id)) {
+    return false;
+  }
+
+  // 3. If standard Activity Log is active, log everything.
+  if (is_active_) {
+    return true;
+  }
+
+  // 4. Telemetry-specific filtering.
+  // Map browser-side ActionType to common ActivityType.
+  activity_log_policy_util::ActivityType activity_type;
+  switch (type) {
+    case Action::ACTION_DOM_ACCESS:
+      activity_type = activity_log_policy_util::ActivityType::kDomAccess;
+      break;
+    case Action::ACTION_API_CALL:
+      activity_type = activity_log_policy_util::ActivityType::kApiCall;
+      break;
+    case Action::ACTION_API_EVENT:
+      activity_type = activity_log_policy_util::ActivityType::kApiEvent;
+      break;
+    case Action::ACTION_WEB_REQUEST:
+      activity_type = activity_log_policy_util::ActivityType::kWebRequest;
+      break;
+    case Action::ACTION_CONTENT_SCRIPT:
+      activity_type = activity_log_policy_util::ActivityType::kContentScript;
+      break;
+    default:
+      return false;
+  }
+  return activity_log_policy_util::IsActivityIncludedInTelemetry(api_name,
+                                                                 activity_type);
 }
 
 void ActivityLog::OnScriptsExecuted(content::WebContents* web_contents,
                                     const ExecutingScriptsMap& extension_ids,
                                     const GURL& on_url) {
-  if (!is_active_)
+  if (!is_active_ && !IsTelemetryLoggingActive()) {
     return;
+  }
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile_);
   for (const auto& extension_id : extension_ids) {
     const Extension* extension =
         registry->enabled_extensions().GetByID(extension_id.first);
-    if (!extension || IsExtensionAllowlisted(extension->id()))
+    if (!extension || !ShouldLog(extension->id(), Action::ACTION_CONTENT_SCRIPT,
+                                 std::string())) {
       continue;
+    }
 
     // If OnScriptsExecuted is fired because of tabs.executeScript, the list
     // of content scripts will be empty.  We don't want to log it because
@@ -870,6 +973,29 @@ void ActivityLog::OnExtensionSystemReady() {
   if (active_consumers_ != cached_consumer_count_) {
     CheckActive(false);
     UpdateCachedConsumerCount();
+  }
+}
+
+void ActivityLog::NotifyRenderersOfTelemetryLogging() {
+  for (content::RenderProcessHost::iterator iter(
+           content::RenderProcessHost::AllHostsIterator());
+       !iter.IsAtEnd(); iter.Advance()) {
+    content::RenderProcessHost* host = iter.GetCurrentValue();
+    if (host->IsInitializedAndNotDead()) {
+      Profile* host_profile =
+          Profile::FromBrowserContext(host->GetBrowserContext());
+      // Don't gather telemetry from incognito profiles.
+      if (!host_profile->IsOffTheRecord() &&
+          profile_->IsSameOrParent(host_profile)) {
+        mojom::Renderer* renderer =
+            RendererStartupHelperFactory::GetForBrowserContext(
+                host->GetBrowserContext())
+                ->GetRenderer(host);
+        if (renderer) {
+          renderer->SetPolicyActivityLoggingEnabled(IsTelemetryLoggingActive());
+        }
+      }
+    }
   }
 }
 

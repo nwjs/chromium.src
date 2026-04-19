@@ -15,7 +15,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/state_transitions.h"
 #include "base/strings/string_util.h"
@@ -24,7 +24,6 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/back_forward_cache/back_forward_cache_disable.h"
-#include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/webapps/browser/banners/app_banner_metrics.h"
 #include "components/webapps/browser/banners/app_banner_settings_helper.h"
 #include "components/webapps/browser/banners/install_banner_config.h"
@@ -35,12 +34,12 @@
 #include "components/webapps/browser/installable/installable_logging.h"
 #include "components/webapps/browser/installable/installable_manager.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/browser/webapps_client.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/url_utils.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/net_errors.h"
@@ -312,14 +311,7 @@ AppBannerManager::UrlType AppBannerManager::GetUrlType(
   if (render_frame_host && !render_frame_host->IsInPrimaryMainFrame())
     return UrlType::kNotPrimaryFrame;
 
-  if (url.IsAboutBlank()) {
-    return UrlType::kInvalidPrimaryFrameUrl;
-  }
-
-  // There is never a need to trigger a banner for a WebUI page, except
-  // for PasswordManager WebUI.
-  if (content::HasWebUIScheme(url) &&
-      (url.GetHost() != password_manager::kChromeUIPasswordManagerHost)) {
+  if (!IsUrlEligibleForWebApp(url)) {
     return UrlType::kInvalidPrimaryFrameUrl;
   }
 
@@ -371,7 +363,7 @@ void AppBannerManager::OnDidGetManifest(const InstallableData& data) {
   if (IsManifestUrlChange(data)) {
     return;
   }
-  if (state() != State::FETCHING_MANIFEST) {
+  if (state_ != State::FETCHING_MANIFEST) {
     return;
   }
 
@@ -439,8 +431,11 @@ void AppBannerManager::PerformInstallableWebAppCheck() {
 
   // Fetch and verify the other required information.
   UpdateState(State::PENDING_INSTALLABLE_CHECK);
+
+  InstallableParams params = installable_params_for_testing_.value_or(
+      delegate_->ParamsToPerformInstallableWebAppCheck());
   manager_->GetData(
-      delegate_->ParamsToPerformInstallableWebAppCheck(),
+      params,
       base::BindOnce(&AppBannerManager::OnDidPerformInstallableWebAppCheck,
                      weak_factory_for_this_navigation_.GetWeakPtr()));
 }
@@ -542,6 +537,16 @@ void AppBannerManager::ResetCurrentPageData() {
   UpdateState(State::INACTIVE);
   SetInstallableWebAppCheckResult(InstallableWebAppCheckResult::kUnknown);
   delegate_->ResetCurrentPageData();
+}
+
+void AppBannerManager::ResetCurrentPageDataForTesting() {
+  Stop(InstallableStatusCode::PIPELINE_RESTARTED);
+  ResetCurrentPageData();
+}
+
+void AppBannerManager::OverrideInstallableParamsForTesting(
+    const InstallableParams& params) {
+  installable_params_for_testing_ = params;
 }
 
 void AppBannerManager::Terminate(InstallableStatusCode code) {
@@ -996,12 +1001,26 @@ void AppBannerManager::ShowBannerForCurrentPageState() {
   std::optional<InstallBannerConfig> config = GetCurrentBannerConfig();
   CHECK(config);
   TrackBeforeInstallEvent(BEFORE_INSTALL_EVENT_COMPLETE);
-  delegate_->ShowBannerUi(install_source, config.value());
-  ReportStatus(InstallableStatusCode::SHOWING_APP_INSTALLATION_DIALOG);
+  ShowBannerUiResult result =
+      delegate_->ShowBannerUi(install_source, config.value());
+  switch (result) {
+    case ShowBannerUiResult::kShownAppInstallationDialog:
+      ReportStatus(InstallableStatusCode::SHOWING_APP_INSTALLATION_DIALOG);
+      break;
+    case ShowBannerUiResult::kShownWebApp:
+      ReportStatus(InstallableStatusCode::SHOWING_WEB_APP_BANNER);
+      break;
+    case ShowBannerUiResult::kShownNativeApp:
+      ReportStatus(InstallableStatusCode::SHOWING_NATIVE_APP_BANNER);
+      break;
+    case ShowBannerUiResult::kFailed:
+      ReportStatus(InstallableStatusCode::FAILED_TO_CREATE_BANNER);
+      break;
+  }
   UpdateState(State::COMPLETE);
 
   for (Observer& observer : observer_list_) {
-    observer.OnComplete();
+    observer.OnBannerShown();
   }
 }
 

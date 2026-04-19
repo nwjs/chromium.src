@@ -15,7 +15,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/angle_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -1215,7 +1214,8 @@ void ArCoreGl::SubmitFrameDrawnIntoTexture(
   DVLOG(2) << __func__ << ": frame=" << frame_index;
   DCHECK(ar_compositor_);
 
-  if (!layer_ids.empty()) {
+  // |layer_ids| is expected to contain only the base layer.
+  if (layer_ids.size() != 1) {
     presentation_receiver_.ReportBadMessage(
         "Layers feature not enabled for this session");
     return;

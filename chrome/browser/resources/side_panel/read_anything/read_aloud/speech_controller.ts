@@ -26,6 +26,17 @@ import {WordBoundaries} from './word_boundaries.js';
 // due to a TTS engine bug with voices timing out on too-long text.
 export const MAX_SPEECH_LENGTH: number = 175;
 
+// The timeout threshold is 10 seconds. If no speech has occurred approximately
+// 10 seconds after pressing play, there's likely an engine error.
+// After 10 seconds, an engine stall is logged. After 15 seconds, a recovery
+// failure and attempt to reload the extension failure is logged. Reading mode
+// doesn't reload at 10 seconds to avoid race conditions with recovery attempts
+// inside the extension.
+// <if expr="not is_chromeos">
+const ENGINE_TIMEOUT_THRESHOLD_MS: number = 10 * 1000;
+const ENGINE_RECOVERY_TIMEOUT_THRESHOLD_MS: number = 15 * 1000;
+// </if>
+
 export interface SpeechListener {
   onIsSpeechActiveChange(): void;
   onIsAudioCurrentlyPlayingChange(): void;
@@ -49,6 +60,8 @@ export class SpeechController {
       SelectionController.getInstance();
   private listeners_: SpeechListener[] = [];
   private readAloudModel_: ReadAloudModelBrowserProxy = getReadAloudModel();
+  private engineTimeoutId_: number|null = null;
+  private engineRecoveryTimeoutId_: number|null = null;
 
   constructor() {
     // Send over the initial state.
@@ -565,6 +578,11 @@ export class SpeechController {
 
   private handleSpeechSynthesisError_(
       error: SpeechSynthesisErrorEvent, utteranceText: string) {
+    // Clear the engine timeout timer if a valid speech synthesis error has been received.
+    // This allows engine stall timeouts to only be logged in situations where there's no
+    // clear reason for a timeout. If playback has been halted for some other reason, that
+    // will be tracked with separate logs.
+    this.clearEngineTimeout_();
     // We can't be sure that the engine has loaded at this point, but
     // if there's an error, we want to ensure we keep the play buttons
     // to prevent trapping users in a state where they can no longer play
@@ -621,6 +639,7 @@ export class SpeechController {
   }
 
   private stopSpeech_(pauseSource: PauseActionSource) {
+    this.clearEngineTimeout_();
     // Pause source needs to be set before updating isSpeechActive so that
     // listeners get the correct source when listening for isSpeechActive
     // changes. Only update the pause source to the one that actually stopped
@@ -655,6 +674,7 @@ export class SpeechController {
   private setOnSpeechSynthesisUtteranceStart_(
       message: SpeechSynthesisUtterance) {
     message.onstart = () => {
+      this.clearEngineTimeout_();
       // We've gotten the signal that the speech engine has started, therefore
       // we can enable the Read Aloud buttons.
       this.setEngineState_(SpeechEngineState.LOADED);
@@ -727,10 +747,6 @@ export class SpeechController {
       message.voice = voice;
     }
 
-    if (this.model_.getEngineState() === SpeechEngineState.NONE) {
-      this.setEngineState_(SpeechEngineState.LOADING);
-    }
-
     this.speakWithDefaults_(message);
   }
 
@@ -753,6 +769,7 @@ export class SpeechController {
     }
 
     utterance.onstart = () => {
+      this.clearEngineTimeout_();
       this.setPreviewVoicePlaying_(previewVoice);
     };
 
@@ -825,6 +842,7 @@ export class SpeechController {
   }
 
   clearReadAloudState() {
+    this.clearEngineTimeout_();
     this.speech_.cancel();
     this.highlighter_.reset();
     this.wordBoundaries_.resetToDefaultState();
@@ -994,12 +1012,54 @@ export class SpeechController {
   }
 
   private speakWithDefaults_(message: SpeechSynthesisUtterance) {
+    if (this.model_.getEngineState() === SpeechEngineState.NONE) {
+      this.setEngineState_(SpeechEngineState.LOADING);
+    }
+
     message.volume = this.model_.getVolume();
     message.lang = chrome.readingMode.baseLanguageForSpeech;
     message.rate = getCurrentSpeechRate();
     // Cancel any pending utterances that may be happening in other tabs.
     this.speech_.cancel();
+
+    this.clearEngineTimeout_();
+    // If it has been more than 10 seconds between attempting to speak a message
+    // and onStart being received, it is likely that the TTS engine extension
+    // has stalled. This metric should not be logged on ChromeOS because
+    // voices ChromeOS are not downloaded via the TTS extension.
+    // <if expr="not is_chromeos">
+    this.engineTimeoutId_ = setTimeout(() => {
+      if (this.model_.getEngineState() === SpeechEngineState.LOADING) {
+        this.logger_.logSpeechError('timeout-engine-stalled');
+      }
+    }, ENGINE_TIMEOUT_THRESHOLD_MS);
+
+    // After 10 seconds, the TTS engine attempts recovery. If speech_controller
+    // has received no error or speech playback after 5 more seconds (for 15
+    // seconds of a stalled engine total), it is likely that the recovery from
+    // within the engine was unsuccessful. Log this and attempt to reload
+    // the extension.
+    this.engineRecoveryTimeoutId_ = setTimeout(() => {
+      if (this.model_.getEngineState() === SpeechEngineState.LOADING) {
+        this.logger_.logSpeechError('timeout-stalled-after-recovery');
+        chrome.readingMode.onSpeechEngineStalled();
+        this.voiceLanguageController_.onVoicesChanged();
+      }
+    }, ENGINE_RECOVERY_TIMEOUT_THRESHOLD_MS);
+    // </if>
+
     this.speech_.speak(message);
+  }
+
+  private clearEngineTimeout_() {
+    if (this.engineTimeoutId_ !== null) {
+      clearTimeout(this.engineTimeoutId_);
+      this.engineTimeoutId_ = null;
+    }
+    if (this.engineRecoveryTimeoutId_ !== null) {
+      clearTimeout(this.engineRecoveryTimeoutId_);
+      this.engineRecoveryTimeoutId_ = null;
+    }
   }
 
   private logSpeechPlaySession_() {

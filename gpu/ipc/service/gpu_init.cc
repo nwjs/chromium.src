@@ -44,6 +44,7 @@
 #include "ui/gfx/switches.h"
 #include "ui/gl/buildflags.h"
 #include "ui/gl/gl_display.h"
+#include "ui/gl/gl_features.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
 #include "ui/gl/gl_switches.h"
@@ -405,6 +406,8 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #endif  // IS_WIN || IS_MAC
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CASTOS)
 
+  GpuDriverBugWorkarounds workarounds(
+      gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
   gpu_info_.in_process_gpu = false;
 
   DCHECK_EQ(gl::GetGLImplementation(), gl::kGLImplementationNone);
@@ -441,7 +444,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   if (gpu_sandbox_start_early) {
     // The sandbox will be started earlier than usual (i.e. before GL) so
     // execute the pre-sandbox steps now.
-    sandbox_helper_->PreSandboxStartup(gpu_preferences);
+    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds);
   }
 
   // watchdog_init will call watchdog OnInitComplete() at the end of this
@@ -566,7 +569,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   // restarting the GPU process will not help.
   if (!attempted_startsandbox) {
     // The sandbox is not started yet.
-    sandbox_helper_->PreSandboxStartup(gpu_preferences);
+    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds);
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
@@ -683,7 +686,17 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 
     base::FilePath module_path;
     if (base::PathService::Get(base::DIR_MODULE, &module_path)) {
-      {
+      // Preload vk_swiftshader.dll when SwiftShader may be needed:
+      // - IsSwiftShaderAllowed() covers ANGLE/GL flags like
+      //   --enable-unsafe-swiftshader and --use-angle=swiftshader.
+      // - use_webgpu_adapter covers --use-webgpu-adapter=swiftshader for
+      //   WebGPU fallback adapter selection.
+      // - DefaultForceFallbackAdapter() covers Graphite/Dawn using
+      //   SwiftShader via --skia-graphite-dawn-backend=swiftshader.
+      if (features::IsSwiftShaderAllowed(command_line) ||
+          gpu_preferences_.use_webgpu_adapter ==
+              WebGPUAdapterName::kSwiftShader ||
+          DawnContextProvider::DefaultForceFallbackAdapter()) {
         TRACE_EVENT("gpu,startup", "Load vk_swiftshader.dll");
         base::LoadNativeLibrary(module_path.Append(L"vk_swiftshader.dll"),
                                 nullptr);

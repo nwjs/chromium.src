@@ -178,7 +178,6 @@ source_set("headers") {
     "input/web_input_event.h",
     "input/web_input_event_attribution.h",
     "input/web_keyboard_event.h",
-    "input/web_menu_source_type.h",
     "input/web_mouse_event.h",
     "input/web_mouse_wheel_event.h",
     "input/web_pointer_event.h",
@@ -260,10 +259,12 @@ source_set("headers") {
     "page/color_provider_color_maps.h",
     "page/color_provider_color_maps_mojom_traits.h",
     "page/content_to_visible_time_reporter.h",
+    "page/content_to_visible_time_request.h",
     "page/drag_mojom_traits.h",
     "page/drag_operation.h",
     "page/launching_process_state.h",
     "page/page_zoom.h",
+    "page/source_effect_allowed_mojom_util.h",
     "page/v8_compile_hints_histograms.h",
     "page_state/page_state.h",
     "page_state/page_state_serialization.h",
@@ -387,10 +388,6 @@ source_set("headers") {
   if (is_mac) {
     sources += [ "sandbox_support/sandbox_support_mac.h" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (is_android || is_win) {

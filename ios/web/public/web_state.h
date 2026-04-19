@@ -142,6 +142,17 @@ class WebState : public base::SupportsUserData {
 
     // Whether this navigation is initiated by the renderer process.
     bool is_renderer_initiated;
+
+    // A text fragment selector (that uses the syntax defined in
+    // https://wicg.github.io/scroll-to-text-fragment/#syntax) to scroll the
+    // matched text into the viewport without applying the standard highlight
+    // styling. This is used for cross-device scroll restoration.
+    // This is named "internal" to match
+    // content::NavigationController::LoadURLParams, as it is passed through the
+    // navigation stack rather than being extracted from the URL's hash
+    // fragment. The string should contain only the selector value (the part
+    // after "text=" in a URL directive), not the "text=" prefix itself.
+    std::optional<std::string> internal_scroll_to_text_fragment;
   };
 
   // InterfaceBinder can be instantiated by subclasses of WebState and returned
@@ -331,6 +342,17 @@ class WebState : public base::SupportsUserData {
 
   // Stops any pending navigation.
   virtual void Stop() = 0;
+
+  // Returns the user agent override, or std::nullopt if none is set.
+  // If set, this value takes precedence over the UserAgentType returned by
+  // the NavigationManager.
+  virtual std::optional<std::string> GetUserAgentOverride() const = 0;
+  // Sets the user agent override. If `ua_override` is `std::nullopt` or empty,
+  // the default user agent (as determined by UserAgentType) is used.
+  // `ua_override` must be a valid HTTP header value (e.g. it cannot contain
+  // control characters like newlines). If it is not valid, the call is ignored
+  // and the previous value is maintained.
+  virtual void SetUserAgentOverride(std::optional<std::string> ua_override) = 0;
 
   // Gets the NavigationManager associated with this WebState. Will return null
   // iff the WebState is unrealized. It doesn't force the realization.
@@ -540,8 +562,11 @@ class WebState : public base::SupportsUserData {
  protected:
   friend class WebStatePolicyDecider;
 
-  // A list of WebStateObservers.
-  using WebStateObserverList = base::ObserverList<WebStateObserver, true>;
+  // A list of WebStateObservers, explicitly marked as re-entrant due to how
+  // it is used by client (which requests state change during notifications,
+  // changes that can require notifying observers again).
+  using WebStateObserverList =
+      base::ReentrantObserverList<WebStateObserver, true>;
 
   // Helper function that call WebStateRealized(this) for pre-registered
   // observers but not for any observers that are added while iterating.

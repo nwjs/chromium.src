@@ -536,6 +536,7 @@ void ReadAnythingAppController::OnStringAttributeChanged(
     const std::string& new_value) {
   // Return early when the images flag is disabled to avoid potential crashes.
   if (!features::IsReadAnythingImagesViaAlgorithmEnabled() ||
+      features::IsReadAnythingWithReadabilityEnabled() ||
       attr != ax::mojom::StringAttribute::kUrl) {
     return;
   }
@@ -596,17 +597,8 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
   model_.PrepareForAXTreeUpdates(tree_id);
-  if (IsReadabilityEnabled() && IsReadabilityWithLinksEnabled() &&
-      model_.should_extract_anchors_from_tree_for_readability()) {
-    model_.ApplyAccessibilityUpdates(
-        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
-        const_cast<std::vector<ui::AXEvent>&>(events));
-    // If the tree is not ready, ProcessAXTreeAnchors will do an early return
-    // and wait for the next update until it is able to process the tree.
-    bool didProcessAnchors = model_.ProcessAXTreeAnchors();
-    if (didProcessAnchors) {
-      ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
-    }
+  if (model_.should_apply_accessibility_updates_for_readability_links()) {
+    ApplyAccessibilityUpdatesForReadabilityLinks(tree_id, updates, events);
     return;
   }
 
@@ -789,9 +781,12 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
 
 ReadAnythingAppModel::DistillationMethod
 ReadAnythingAppController::GetInitialDistillationMethod(bool is_pdf) const {
-  // If |is_pdf| = true, override IsReadAnythingWithReadabilityEnabled flag and
-  // return kScreen2x.
-  return is_pdf || !features::IsReadAnythingWithReadabilityEnabled()
+  // If |is_pdf| = true, or if phrase highlighting is enabled, override
+  // IsReadAnythingWithReadabilityEnabled flag and return kScreen2x.
+  // TODO: crbug.com/444029483- Update the phrase highlighting implementation
+  // so that it works with Readability.
+  return is_pdf || !features::IsReadAnythingWithReadabilityEnabled() ||
+                 features::IsReadAnythingReadAloudPhraseHighlightingEnabled()
              ? ReadAnythingAppModel::DistillationMethod::kScreen2x
              : ReadAnythingAppModel::DistillationMethod::kReadability;
 }
@@ -1459,7 +1454,9 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("close", &ReadAnythingAppController::CloseUI)
       .SetMethod("togglePinState", &ReadAnythingAppController::TogglePinState)
       .SetMethod("sendPinStateRequest",
-                 &ReadAnythingAppController::SendPinStateRequest);
+                 &ReadAnythingAppController::SendPinStateRequest)
+      .SetMethod("onSpeechEngineStalled",
+                 &ReadAnythingAppController::OnSpeechEngineStalled);
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
@@ -1942,7 +1939,8 @@ bool ReadAnythingAppController::IsTsTextSegmentationEnabled() const {
 // Returns true if the experimental flag allowing testing with alternative
 // distillation methods such as Readability.js is enabled.
 bool ReadAnythingAppController::IsReadabilityEnabled() const {
-  return features::IsReadAnythingWithReadabilityEnabled();
+  return features::IsReadAnythingWithReadabilityEnabled() &&
+         !features::IsReadAnythingReadAloudPhraseHighlightingEnabled();
 }
 
 bool ReadAnythingAppController::IsLineFocusEnabled() const {
@@ -2482,6 +2480,10 @@ void ReadAnythingAppController::OnReadingModeHidden(bool tab_active) {
   RecordEstimatedWordsHeard();
 }
 
+void ReadAnythingAppController::OnSpeechEngineStalled() {
+  page_handler_->OnSpeechEngineStalled();
+}
+
 void ReadAnythingAppController::OnTabWillDetach() {
   model_.set_will_hide(true);
   if (read_aloud_model_.speech_playing()) {
@@ -2873,7 +2875,6 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
   // If readability distillation returns empty content, consider distillation as
   // failure and default to Screen2X distillation.
   if (dom_distiller_content_html_.empty()) {
-    // TODO(crbug.com/477090618): Record Readability failure metric.
     model_.set_next_distillation_method(
         ReadAnythingAppModel::DistillationMethod::kScreen2x);
 
@@ -2911,4 +2912,19 @@ void ReadAnythingAppController::OnReadabilityDistillationStateChanged(
   // model, which then circles back to the ReadAnythingUntrustedPageHandler to
   // update the distillation state in the ReadAnythingController.
   SetDistillationState(new_state);
+}
+
+void ReadAnythingAppController::ApplyAccessibilityUpdatesForReadabilityLinks(
+    const ui::AXTreeID& tree_id,
+    const std::vector<ui::AXTreeUpdate>& updates,
+    const std::vector<ui::AXEvent>& events) {
+  model_.ApplyAccessibilityUpdates(
+      tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
+      const_cast<std::vector<ui::AXEvent>&>(events));
+  // If the tree is not ready, ProcessAXTreeAnchors will do an early return
+  // and wait for the next update until it is able to process the tree.
+  bool didProcessAnchors = model_.ProcessAXTreeAnchors();
+  if (didProcessAnchors) {
+    ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
+  }
 }

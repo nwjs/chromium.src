@@ -498,7 +498,7 @@ void FillNavigationParamsRequest(
   navigation_params->url = !commit_params.original_url.is_empty()
                                ? commit_params.original_url
                                : common_params.url;
-  navigation_params->http_method = WebString::FromASCII(
+  navigation_params->http_method = WebString::FromAscii(
       !commit_params.original_method.empty() ? commit_params.original_method
                                              : common_params.method);
 
@@ -519,7 +519,7 @@ void FillNavigationParamsRequest(
         blink::GetWebHTTPBodyForRequestBody(*common_params.post_data);
     if (!commit_params.post_content_type.empty()) {
       navigation_params->http_content_type =
-          WebString::FromASCII(commit_params.post_content_type);
+          WebString::FromAscii(commit_params.post_content_type);
     }
   }
 
@@ -560,7 +560,7 @@ void FillNavigationParamsRequest(
       common_params.has_possibly_filtered_user_gesture;
 
   navigation_params->force_enabled_origin_trials = base::ToVector(
-      commit_params.force_enabled_origin_trials, &WebString::FromASCII);
+      commit_params.force_enabled_origin_trials, &WebString::FromAscii);
 
   navigation_params->early_hints_preloaded_resources = base::ToVector(
       commit_params.early_hints_preloaded_resources, blink::ToWebURL);
@@ -944,9 +944,9 @@ blink::WebNavigationTimings BuildNavigationTimings(
 WebHistoryItem NavigationApiHistoryEntryPtrToWebHistoryItem(
     const blink::mojom::NavigationApiHistoryEntry& entry) {
   return WebHistoryItem(
-      WebString::FromUTF16(entry.url), WebString::FromUTF16(entry.key),
-      WebString::FromUTF16(entry.id), entry.item_sequence_number,
-      entry.document_sequence_number, WebString::FromUTF16(entry.state));
+      WebString::FromUtf16(entry.url), WebString::FromUtf16(entry.key),
+      WebString::FromUtf16(entry.id), entry.item_sequence_number,
+      entry.document_sequence_number, WebString::FromUtf16(entry.state));
 }
 
 // Fills navigation data sent by the browser to a blink understandable
@@ -1034,7 +1034,7 @@ void FillMiscNavigationParams(
   }
 
   navigation_params->reduced_accept_language =
-      WebString::FromASCII(commit_params.reduced_accept_language);
+      WebString::FromAscii(commit_params.reduced_accept_language);
   navigation_params->enabled_client_hints.reserve(
       commit_params.enabled_client_hints.size());
   for (auto enabled_hint : commit_params.enabled_client_hints)
@@ -1222,6 +1222,8 @@ WindowOpenDisposition NavigationPolicyToDisposition(
       return WindowOpenDisposition::NEW_POPUP;
     case blink::kWebNavigationPolicyPictureInPicture:
       return WindowOpenDisposition::NEW_PICTURE_IN_PICTURE;
+    case blink::kWebNavigationPolicySplitView:
+      return WindowOpenDisposition::NEW_SPLIT_VIEW;
   }
   NOTREACHED() << "Unexpected WebNavigationPolicy";
 }
@@ -1280,9 +1282,8 @@ mojo::ScopedDataPipeConsumerHandle FillResponseForInitialWebUI(
     mojo::PendingRemote<network::mojom::URLLoaderClient> client_remote) {
   // Read the response body locally within the renderer, and make the
   // `response_body` pipe point to the result.
-  CHECK(local_resource_loader_config->sources.contains(origin));
   const blink::mojom::LocalResourceSourcePtr& source =
-      local_resource_loader_config->sources[origin];
+      local_resource_loader_config->sources.at(origin);
   const std::map<std::string, std::string> replacement_strings(
       source->replacement_strings.begin(), source->replacement_strings.end());
 
@@ -2089,20 +2090,6 @@ void RenderFrameImpl::OnAssociatedInterfaceRequest(
   }
 }
 
-void RenderFrameImpl::SetUpSharedMemoryForDroppedFrames(
-    base::ReadOnlySharedMemoryRegion dropped_frames_memory) {
-  TRACE_EVENT("navigation",
-              "RenderFrameImpl::SetUpSharedMemoryForDroppedFrames",
-              perfetto::Flow::FromPointer(this));
-  DCHECK(dropped_frames_memory.IsValid());
-  for (auto& observer : observers_) {
-    DCHECK(dropped_frames_memory.IsValid());
-    if (observer.SetUpDroppedFramesReporting(dropped_frames_memory)) {
-      break;
-    }
-  }
-}
-
 void RenderFrameImpl::BindAutoplayConfiguration(
     mojo::PendingAssociatedReceiver<blink::mojom::AutoplayConfigurationClient>
         receiver) {
@@ -2262,30 +2249,6 @@ void RenderFrameImpl::Delete(mojom::FrameDeleteIntention intent) {
   frame_->Detach();
 }
 
-void RenderFrameImpl::UndoCommitNavigation(
-    bool is_loading,
-    blink::mojom::FrameReplicationStatePtr replicated_frame_state,
-    const blink::RemoteFrameToken& proxy_frame_token,
-    blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-    blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces) {
-  // The browser process asked `this` to commit a navigation but has now decided
-  // to discard the speculative RenderFrameHostImpl instead, since the
-  // associated navigation was cancelled or replaced. However, the browser
-  // process hasn't heard the `DidCommitNavigation()` yet, so pretend that the
-  // commit never happened by immediately swapping `this` back to a proxy.
-  //
-  // This means that any state changes triggered by the already-swapped in
-  // RenderFrame will simply be ignored, but that can't be helped: the
-  // browser-side RFH will be gone before any outgoing IPCs from the renderer
-  // for this RenderFrame (which by definition, are still in-flight) will be
-  // processed by the browser process (as it has not yet seen the
-  // `DidCommitNavigation()`).
-  SwapOutAndDeleteThis(is_loading, std::move(replicated_frame_state),
-                       proxy_frame_token, std::move(remote_frame_interfaces),
-                       std::move(remote_main_frame_interfaces),
-                       /*devtools_frame_token=*/std::nullopt);
-}
-
 void RenderFrameImpl::SnapshotAccessibilityTree(
     mojom::SnapshotAccessibilityTreeParamsPtr params,
     SnapshotAccessibilityTreeCallback callback) {
@@ -2380,7 +2343,7 @@ void RenderFrameImpl::ShowVirtualKeyboard() {
 
 void RenderFrameImpl::ExecuteJavaScript(const std::u16string& javascript) {
   v8::HandleScope handle_scope(GetAgentGroupScheduler().Isolate());
-  frame_->ExecuteScript(WebScriptSource(WebString::FromUTF16(javascript)));
+  frame_->ExecuteScript(WebScriptSource(WebString::FromUtf16(javascript)));
 }
 
 void RenderFrameImpl::BindLocalInterface(
@@ -2409,7 +2372,7 @@ RenderFrameImpl::GetRemoteAssociatedInterfaces() {
 void RenderFrameImpl::SetSelectedText(const std::u16string& selection_text,
                                       size_t offset,
                                       const gfx::Range& range) {
-  GetWebFrame()->TextSelectionChanged(WebString::FromUTF16(selection_text),
+  GetWebFrame()->TextSelectionChanged(WebString::FromUtf16(selection_text),
                                       static_cast<uint32_t>(offset), range);
 }
 
@@ -3137,7 +3100,7 @@ void RenderFrameImpl::CommitFailedNavigation(
   // later replayed to update the method. However, in the case of an error page
   // load, the redirects are neither populated nor replayed. Hence |http_method|
   // needs to be manually set to the final method.
-  navigation_params->http_method = WebString::FromASCII(common_params->method);
+  navigation_params->http_method = WebString::FromAscii(common_params->method);
   navigation_params->error_code = error_code;
 
   // This is already checked in `NavigationRequest::OnRequestFailedInternal` and
@@ -3798,8 +3761,7 @@ blink::WebFrame* RenderFrameImpl::FindFrame(const blink::WebString& name) {
 
 void RenderFrameImpl::WillDetach(blink::DetachReason detach_reason) {
   if (detach_reason == blink::DetachReason::kNavigation) {
-    if (navigation_client_impl_ &&
-        ShouldQueueNavigationsWhenPendingCommitRFHExists()) {
+    if (navigation_client_impl_) {
       navigation_client_impl_->ResetWithoutCancelling();
     }
   }
@@ -4655,13 +4617,15 @@ void RenderFrameImpl::DidChangePerformanceTiming() {
 void RenderFrameImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_start,
     base::TimeTicks max_event_queued_main_thread,
+    base::TimeTicks max_event_processing_start,
     base::TimeTicks max_event_commit_finish,
     base::TimeTicks max_event_end,
     uint64_t interaction_offset) {
   for (auto& observer : observers_) {
     observer.DidObserveUserInteraction(
-        max_event_start, max_event_queued_main_thread, max_event_commit_finish,
-        max_event_end, interaction_offset);
+        max_event_start, max_event_queued_main_thread,
+        max_event_processing_start, max_event_commit_finish, max_event_end,
+        interaction_offset);
   }
 }
 
@@ -5952,7 +5916,8 @@ void RenderFrameImpl::OpenURL(std::unique_ptr<blink::WebNavigationInfo> info) {
        policy == blink::kWebNavigationPolicyNewForegroundTab ||
        policy == blink::kWebNavigationPolicyNewWindow ||
        policy == blink::kWebNavigationPolicyNewPopup ||
-       policy == blink::kWebNavigationPolicyPictureInPicture)) {
+       policy == blink::kWebNavigationPolicyPictureInPicture ||
+       policy == blink::kWebNavigationPolicySplitView)) {
     frame_->ConsumeTransientUserActivation();
   }
 
@@ -6350,7 +6315,7 @@ void RenderFrameImpl::BeginNavigationInternal(
     // close enough to the start of the previous navigation, in which case we
     // can just ignore the new navigation and keep the previous navigation.
     bool start_diff_under_threshold =
-        (nav_start_diff <= features::kDuplicateNavThreshold.Get());
+        nav_start_diff <= GetBlinkPreferences().duplicate_nav_threshold;
     base::UmaHistogramBoolean(
         "Navigation.RendererInitiated.DuplicateNavIsUnderThreshold2",
         start_diff_under_threshold);
@@ -6395,7 +6360,8 @@ void RenderFrameImpl::BeginNavigationInternal(
             input_diff);
       }
     }
-    if (start_diff_under_threshold &&
+    if (GetBlinkPreferences().ignore_duplicate_nav_enabled &&
+        start_diff_under_threshold &&
         GetContentClient()->ShouldIgnoreDuplicateNavs(
             common_params->url, /*is_renderer_initiated=*/true)) {
       if (!base::FeatureList::IsEnabled(

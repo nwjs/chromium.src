@@ -128,14 +128,14 @@ String ReplaceAllCaseInsensitive(
     if (pos == kNotFound) {
       break;
     }
-    builder.Append(source.Substring(offset, pos - offset));
-    builder.Append(transform(source.Substring(pos, from.length())));
+    builder.Append(source.subview(offset, pos - offset));
+    builder.Append(transform(source.substr(pos, from.length())));
     offset = pos + from.length();
   }
   if (builder.empty()) {
     return source;
   }
-  builder.Append(source.Substring(offset));
+  builder.Append(source.subview(offset));
   return builder.ToString();
 }
 }  // namespace internal
@@ -499,7 +499,7 @@ class SerializerMarkupAccumulator : public MarkupAccumulator {
     }
 
     // The z-index should be greater than the threshold.
-    if (box->Style()->EffectiveZIndex() < kPopupOverlayZIndexThreshold) {
+    if (box->StyleRef().EffectiveZIndex() < kPopupOverlayZIndexThreshold) {
       return false;
     }
 
@@ -666,10 +666,7 @@ class SerializerMarkupAccumulator : public MarkupAccumulator {
   }
 
   EmitElementChoice WillProcessElement(const Element& element) override {
-    if (IsA<HTMLScriptElement>(element)) {
-      return EmitElementChoice::kIgnore;
-    }
-    if (IsA<HTMLNoScriptElement>(element)) {
+    if (element.IsScriptElement() || IsA<HTMLNoScriptElement>(element)) {
       return EmitElementChoice::kIgnore;
     }
     auto* meta = DynamicTo<HTMLMetaElement>(element);
@@ -881,7 +878,7 @@ function main(metadata) {
     builder.Append("})();");
     resource_serializer_->AddToResources(SerializedResource(
         script_url, "text/javascript",
-        SharedBuffer::Create(builder.ToString().RawByteSpan())));
+        SharedBuffer::Create(StringView(builder).RawByteSpan())));
   }
 
   // Add `sheet` as a new resource and emit a <link> element to load it.
@@ -892,8 +889,7 @@ function main(metadata) {
 
     KURL pseudo_sheet_url = MakePseudoCSSUrl();
     AppendLinkElement(markup_, pseudo_sheet_url);
-    SerializeCSSStyleSheet(static_cast<CSSStyleSheet&>(sheet),
-                           pseudo_sheet_url);
+    SerializeCSSStyleSheet(To<CSSStyleSheet>(sheet), pseudo_sheet_url);
   }
 
   void AppendStylesheets(StyleSheetList& sheets, bool style_element_only) {
@@ -922,8 +918,7 @@ function main(metadata) {
         pseudo_sheet_url = iter->value;
       } else {
         pseudo_sheet_url = MakePseudoCSSUrl();
-        SerializeCSSStyleSheet(static_cast<CSSStyleSheet&>(*sheet),
-                               pseudo_sheet_url);
+        SerializeCSSStyleSheet(*sheet, pseudo_sheet_url);
         stylesheet_pseudo_urls_.insert(sheet, pseudo_sheet_url);
       }
 
@@ -944,8 +939,7 @@ function main(metadata) {
 
       KURL pseudo_sheet_url = MakePseudoCSSUrl();
       AppendLinkElement(markup_, pseudo_sheet_url);
-      SerializeCSSStyleSheet(static_cast<CSSStyleSheet&>(*sheet),
-                             pseudo_sheet_url);
+      SerializeCSSStyleSheet(To<CSSStyleSheet>(*sheet), pseudo_sheet_url);
     }
   }
 
@@ -1095,7 +1089,7 @@ function main(metadata) {
     return blink::internal::ReplaceAllCaseInsensitive(
         css_text.ToString(), "</style", [](const String& text) {
           // \3C = '<'.
-          return StrCat({"\\3C/", text.Substring(2)});
+          return StrCat({"\\3C/", text.subview(2)});
         });
   }
 
@@ -1143,7 +1137,7 @@ function main(metadata) {
       // that case.
       css_text.Append("@charset \"");
       css_text.Append(charset.IsValid()
-                          ? charset.GetName().GetString().LowerASCII()
+                          ? charset.GetName().GetString().ToAsciiLower()
                           : "utf-8");
       css_text.Append("\";\n\n");
 

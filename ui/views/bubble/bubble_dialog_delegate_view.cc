@@ -15,6 +15,7 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -1315,10 +1316,12 @@ void BubbleDialogDelegate::SetAnchoredDialogKey() {
 
 void BubbleDialogDelegate::UpdateHighlightedButton(bool highlighted) {
   Button* button = Button::AsButton(highlighted_button_tracker_.view());
-  button = button ? button : Button::AsButton(GetAnchorView());
-
   ui::TrackedElement* element = highlighted_element_tracker_.get();
-  element = element ? element : anchor_tracked_element_.get();
+  // Prioritize explicitly set highlights.
+  if (!button && !element) {
+    button = Button::AsButton(GetAnchorView());
+    element = anchor_tracked_element_.get();
+  }
 
   if (highlight_button_when_shown_) {
     if (highlighted) {

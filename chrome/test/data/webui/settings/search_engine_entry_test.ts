@@ -11,6 +11,8 @@ import type { SearchEngine, CrActionMenuElement } from 'chrome://settings/settin
 import { ExtensionControlBrowserProxyImpl, SearchEnginesBrowserProxyImpl, ChoiceMadeLocation } from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import { eventToPromise, isVisible } from 'chrome://webui-test/test_util.js';
+import {loadTimeData} from 'chrome://settings/settings.js';
+import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 
 import {TestExtensionControlBrowserProxy} from './test_extension_control_browser_proxy.js';
 import {createSampleOmniboxExtension, createSampleSearchEngine, TestSearchEnginesBrowserProxy} from './test_search_engines_browser_proxy.js';
@@ -70,9 +72,14 @@ suite('SearchEngineEntryTest', function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     browserProxy = new TestSearchEnginesBrowserProxy();
     SearchEnginesBrowserProxyImpl.setInstance(browserProxy);
+
+    loadTimeData.overrideValues({searchSettingsUpdate: false});
+
     entry = document.createElement('settings-search-engine-entry');
     entry.engine = searchEngine;
     document.body.appendChild(entry);
+
+    return flushTasks();
   });
 
   // Test that the <search-engine-entry> is populated according to its
@@ -112,43 +119,43 @@ suite('SearchEngineEntryTest', function() {
   test('Remove_Enabled', async function() {
     const menu = openActionMenu(entry);
 
-    const deleteButton = entry.$.delete;
+    const deleteButton =
+        entry.shadowRoot!.querySelector<HTMLElement>('#delete')!;
     assertTrue(isVisible(deleteButton));
     deleteButton.click();
-    const modelIndex = await browserProxy.whenCalled('removeSearchEngine');
+    const id = await browserProxy.whenCalled('removeSearchEngine');
     assertFalse(menu.open);
-    assertEquals(entry.engine.modelIndex, modelIndex);
+    assertEquals(entry.engine.id, id);
   });
 
   test('MakeDefault_Enabled', async function() {
     const menu = openActionMenu(entry);
 
-    const makeDefaultButton = entry.$.makeDefault;
+    const makeDefaultButton =
+        entry.shadowRoot!.querySelector<HTMLElement>('#makeDefault')!;
     assertTrue(!!makeDefaultButton);
     makeDefaultButton.click();
-    const [modelIndex, choiceMadeLocation] =
+    const [id, choiceMadeLocation] =
         await browserProxy.whenCalled('setDefaultSearchEngine');
     assertEquals(choiceMadeLocation, ChoiceMadeLocation.SEARCH_ENGINE_SETTINGS);
     assertFalse(menu.open);
-    assertEquals(entry.engine.modelIndex, modelIndex);
+    assertEquals(entry.engine.id, id);
   });
 
   // Test that clicking the "edit" menu item fires an edit event.
-  test('Edit_Enabled', function() {
+  test('Edit_Enabled', async function() {
     const engine = entry.engine;
     const editButton =
         entry.shadowRoot!.querySelector<HTMLButtonElement>(`#editIconButton`)!;
     assertTrue(isVisible(editButton));
 
-    const promise =
-        eventToPromise('view-or-edit-search-engine', entry).then(e => {
-          assertEquals(engine, e.detail.engine);
-          assertEquals(
-              entry.shadowRoot!.querySelector('cr-icon-button'),
-              e.detail.anchorElement);
-        });
+    const promise = eventToPromise('view-or-edit-search-engine', entry);
     editButton.click();
-    return promise;
+    const e = await promise;
+    assertEquals(engine, e.detail.engine);
+    assertEquals(
+        entry.shadowRoot!.querySelector('cr-icon-button'),
+        e.detail.anchorElement);
   });
 
   test('Remove_Hidden', function() {
@@ -158,7 +165,8 @@ suite('SearchEngineEntryTest', function() {
 
   test('Activate_Hidden', function() {
     assertButtonHidden(
-        entry, '#activate', createSampleSearchEngine({canBeActivated: false}));
+        entry, '#activateButton',
+        createSampleSearchEngine({canBeActivated: false}));
   });
 
   test('Deactivate_Hidden', function() {
@@ -199,9 +207,9 @@ suite('SearchEngineEntryTest', function() {
     activateButton.click();
 
     // Ensure that the activate event is fired.
-    const [modelIndex, isActive] =
+    const [id, isActive] =
         await browserProxy.whenCalled('setIsActiveSearchEngine');
-    assertEquals(entry.engine.modelIndex, modelIndex);
+    assertEquals(entry.engine.id, id);
     assertTrue(isActive);
   });
 
@@ -221,9 +229,9 @@ suite('SearchEngineEntryTest', function() {
     deactivateButton.click();
 
     // Ensure that the deactivate event is fired.
-    const [modelIndex, isActive] =
+    const [id, isActive] =
         await browserProxy.whenCalled('setIsActiveSearchEngine');
-    assertEquals(entry.engine.modelIndex, modelIndex);
+    assertEquals(entry.engine.id, id);
     assertFalse(isActive);
   });
 
@@ -244,7 +252,7 @@ suite('SearchEngineEntryTest', function() {
 
     // Activate button
     const activateButton =
-        entry.shadowRoot!.querySelector<HTMLElement>('#activate');
+        entry.shadowRoot!.querySelector<HTMLElement>('#activateButton');
     assertTrue(!!activateButton);
     assertEquals(
         entry.i18n(
@@ -401,7 +409,7 @@ suite('EnterpriseSiteSearchEntryTests', function() {
           canBeDeactivated: true,
           displayName: 'Recommended',
           isManaged: true,
-          shouldConfirmDeletion: true,
+          shouldConfirmRemoval: true,
         });
       };
 
@@ -409,8 +417,13 @@ suite('EnterpriseSiteSearchEntryTests', function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     browserProxy = new TestSearchEnginesBrowserProxy();
     SearchEnginesBrowserProxyImpl.setInstance(browserProxy);
+
+    loadTimeData.overrideValues({searchSettingsUpdate: false});
+
     entry = document.createElement('settings-search-engine-entry');
     document.body.appendChild(entry);
+
+    return flushTasks();
   });
 
   // Test that the <search-engine-entry> is populated according to its
@@ -452,11 +465,11 @@ suite('EnterpriseSiteSearchEntryTests', function() {
   // Verifies that the "Activate" button is hidden for all managed engines.
   test('ActivateButtonBehavior', function() {
     entry.engine = createSampleManagedSearchEngine();
-    assertButtonHidden(entry, '#activate');
+    assertButtonHidden(entry, '#activateButton');
     entry.engine = createSampleOverridableSearchEngine(/*isFeatured=*/ true);
-    assertButtonHidden(entry, '#activate');
+    assertButtonHidden(entry, '#activateButton');
     entry.engine = createSampleOverridableSearchEngine(/*isFeatured=*/ false);
-    assertButtonHidden(entry, '#activate');
+    assertButtonHidden(entry, '#activateButton');
   });
 
   // Verifies the visibility and functionality of the "edit" button for managed
@@ -535,10 +548,10 @@ suite('EnterpriseSiteSearchEntryTests', function() {
       assertTrue(isVisible(deactivateButton));
       deactivateButton.click();
 
-      const [modelIndex, isActive] =
+      const [id, isActive] =
           await browserProxy.whenCalled('setIsActiveSearchEngine');
       assertFalse(menu.open);
-      assertEquals(entry.engine.modelIndex, modelIndex);
+      assertEquals(entry.engine.id, id);
       assertFalse(isActive);
     };
 
@@ -633,5 +646,144 @@ suite('EnterpriseSiteSearchEntryTests', function() {
     assertSiteSearchPolicyIndicatorShown(entry);
     entry.engine = createSampleOverridableSearchEngine(/*isFeatured=*/ false);
     assertSiteSearchPolicyIndicatorShown(entry);
+  });
+});
+
+suite('SearchEngineEntryTest_SearchSettingsUpdate', function() {
+  let entry: SettingsSearchEngineEntryElement;
+  let browserProxy: TestSearchEnginesBrowserProxy;
+  let extensionBrowserProxy: TestExtensionControlBrowserProxy;
+
+  setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    browserProxy = new TestSearchEnginesBrowserProxy();
+    SearchEnginesBrowserProxyImpl.setInstance(browserProxy);
+    extensionBrowserProxy = new TestExtensionControlBrowserProxy();
+    ExtensionControlBrowserProxyImpl.setInstance(extensionBrowserProxy);
+
+    loadTimeData.overrideValues({searchSettingsUpdate: true});
+
+    entry = document.createElement('settings-search-engine-entry');
+    document.body.appendChild(entry);
+
+    return flushTasks();
+  });
+
+  // Test that clicking the "Turn off" button fires a deactivate event.
+  test('Deactivate', async function() {
+    entry.engine = createSampleSearchEngine({canBeDeactivated: true});
+    const menu = openActionMenu(entry);
+
+    const deactivateOption =
+        entry.shadowRoot!.querySelector<HTMLButtonElement>('#deactivateOption');
+    assertTrue(!!deactivateOption);
+    assertTrue(isVisible(deactivateOption));
+    assertEquals('Turn off', deactivateOption.textContent.trim());
+    deactivateOption.click();
+
+    const [id, isActive] =
+        await browserProxy.whenCalled('setIsActiveSearchEngine');
+    assertFalse(menu.open);
+    assertEquals(entry.engine.id, id);
+    assertFalse(isActive);
+  });
+
+  // Test that clicking the "Turn on" button fires an activate event.
+  test('Activate', async function() {
+    entry.engine = createSampleSearchEngine({canBeActivated: true});
+    const menu = openActionMenu(entry);
+
+    const activateOption =
+        entry.shadowRoot!.querySelector<HTMLButtonElement>('#activateOption');
+    assertTrue(!!activateOption);
+    assertTrue(isVisible(activateOption));
+    assertEquals('Turn on', activateOption.textContent.trim());
+    activateOption.click();
+
+    const [id, isActive] =
+        await browserProxy.whenCalled('setIsActiveSearchEngine');
+    assertFalse(menu.open);
+    assertEquals(entry.engine.id, id);
+    assertTrue(isActive);
+  });
+
+  // Test that clicking the "Edit" button fires an edit event.
+  test('Edit', async function() {
+    entry.engine = createSampleSearchEngine({
+      canBeEdited: true,
+      isManaged: false,
+      isStarterPack: false,
+      extension: undefined,
+    });
+    const menu = openActionMenu(entry);
+
+    const editButton =
+        entry.shadowRoot!.querySelector<HTMLButtonElement>('#editOption');
+    assertTrue(!!editButton);
+    assertTrue(isVisible(editButton));
+
+    const whenFired = eventToPromise('view-or-edit-search-engine', entry);
+    editButton.click();
+    const e = await whenFired;
+    assertFalse(menu.open);
+    assertEquals(entry.engine, e.detail.engine);
+    assertEquals(
+        entry.shadowRoot!.querySelector('cr-icon-button.icon-more-vert'),
+        e.detail.anchorElement);
+  });
+
+  // Tests that the "Edit" option is hidden for extensions.
+  test('Edit_HiddenForExtension', function() {
+    entry.engine = createSampleOmniboxExtension();
+    openActionMenu(entry);
+    assertButtonHidden(entry, '#editOption');
+  });
+
+  // Tests that the "Disable" option is visible and functional for extensions
+  // that can be disabled.
+  test('DisableExtension', async function() {
+    entry.engine = createSampleOmniboxExtension(/*canBeDisabled=*/ true);
+    openActionMenu(entry);
+
+    const disableButton = entry.shadowRoot!.querySelector<HTMLButtonElement>(
+        '#disableExtensionOption');
+    assertTrue(!!disableButton);
+    assertTrue(isVisible(disableButton));
+
+    disableButton.click();
+    const extensionId =
+        await extensionBrowserProxy.whenCalled('disableExtension');
+    assertEquals(entry.engine.extension!.id, extensionId);
+  });
+
+  // Tests that the "Disable" option is hidden for extensions that cannot be
+  // disabled.
+  test('DisableExtension_Hidden', function() {
+    entry.engine = createSampleOmniboxExtension();
+    openActionMenu(entry);
+    assertButtonHidden(entry, '#disableExtensionOption');
+  });
+
+  // Tests that the "Manage" option is visible and functional for extensions.
+  test('ManageExtension', async function() {
+    entry.engine = createSampleOmniboxExtension();
+    openActionMenu(entry);
+
+    const manageButton = entry.shadowRoot!.querySelector<HTMLButtonElement>(
+        '#manageExtensionOption');
+    assertTrue(!!manageButton);
+    assertTrue(isVisible(manageButton));
+
+    manageButton.click();
+    const extensionId =
+        await extensionBrowserProxy.whenCalled('manageExtension');
+    assertEquals(entry.engine.extension!.id, extensionId);
+  });
+
+  // Tests that the "Delete" option is hidden for extensions.
+  test('Delete_HiddenForExtension', function() {
+    entry.engine = createSampleOmniboxExtension();
+    openActionMenu(entry);
+    assertButtonHidden(entry, '#deleteOption');
   });
 });

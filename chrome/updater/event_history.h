@@ -6,7 +6,6 @@
 #define CHROME_UPDATER_EVENT_HISTORY_H_
 
 #include <concepts>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -14,7 +13,6 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/json/values_util.h"
-#include "base/logging.h"
 #include "base/process/process.h"
 #include "base/system/sys_info.h"
 #include "base/task/task_traits.h"
@@ -44,12 +42,11 @@
 //        .AddError({.category = 1, .code = 2, .extracode1 = 3})
 //        .Write();
 
-namespace updater {
+namespace base {
+class FilePath;
+}  // namespace base
 
-// Returns the path to the history JSONL file for an updater installation. A
-// path is returned regardless of if the file exists. This method does not
-// perform any IO; it may be called from any sequence.
-std::optional<base::FilePath> GetHistoryLogFilePath(UpdaterScope scope);
+namespace updater {
 
 // Must be called before any events are written to initialize global logging
 // state. A log file at `path` is created if one does not already exist.

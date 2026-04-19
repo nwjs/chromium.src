@@ -77,21 +77,20 @@ class WTF_EXPORT String {
   [[nodiscard]] static String Make8BitFrom16BitSource(base::span<const UChar>);
   [[nodiscard]] static String Make16BitFrom8BitSource(base::span<const LChar>);
 
-  // String::FromUTF8 will return a null string if
+  // String::FromUtf8 will return a null string if
   // the input data contains invalid UTF-8 sequences.
   // Does not strip BOMs.
-  [[nodiscard]] static String FromUTF8(base::span<const uint8_t>);
-  [[nodiscard]] static String FromUTF8(const char* s);
-  [[nodiscard]] static String FromUTF8(std::string_view s) {
-    return FromUTF8(base::as_byte_span(s));
+  [[nodiscard]] static String FromUtf8(base::span<const uint8_t>);
+  [[nodiscard]] static String FromUtf8(std::string_view s) {
+    return FromUtf8(base::as_byte_span(s));
   }
 
   // Tries to convert the passed in string to UTF-8, but will fall back to
   // Latin-1 if the string is not valid UTF-8.
-  [[nodiscard]] static String FromUTF8WithLatin1Fallback(
+  [[nodiscard]] static String FromUtf8WithLatin1Fallback(
       base::span<const uint8_t>);
-  [[nodiscard]] static String FromUTF8WithLatin1Fallback(std::string_view s) {
-    return FromUTF8WithLatin1Fallback(base::as_byte_span(s));
+  [[nodiscard]] static String FromUtf8WithLatin1Fallback(std::string_view s) {
+    return FromUtf8WithLatin1Fallback(base::as_byte_span(s));
   }
 
   template <typename CharType>
@@ -121,6 +120,9 @@ class WTF_EXPORT String {
 
   // Takes a printf format and args and prints into a String.
   // This function supports Latin-1 characters only.
+  // PRECONDITIONS: `format` must be compatible with subsequent args.
+  // Ideally, this would be UNSAFE_BUFFER_USAGE but there are too many
+  // callers at present to investigate.
   [[nodiscard]] PRINTF_FORMAT(1, 2) static String
       Format(const char* format, ...);
 
@@ -213,9 +215,17 @@ class WTF_EXPORT String {
   // Returns the Unicode code point starting at the specified offset of this
   // string. If the offset points an unpaired surrogate, this function returns
   // 0.
-  UChar32 CharacterStartingAt(size_type) const;
+  UChar32 CodePointAtOrZero(size_type) const;
 
   // [string.modifiers] ---------------------------------------------
+
+  // Removes `len` code units starting at `pos` from this string.
+  // If `pos` is greater than the string length, it crashes.
+  // If `len` exceeds the length from `pos` to the end of the string, the
+  // part from `pos` to the end is removed.
+  //
+  // This function returns a reference to `this` string.
+  String& erase(size_type pos, size_type len = npos);
 
   String& replace(size_type index,
                   size_type length_to_replace,
@@ -261,9 +271,6 @@ class WTF_EXPORT String {
     }
   }
 
-  void Truncate(size_type length);
-  void Remove(size_type start, size_type length = 1);
-
   // [string.operations] --------------------------------------------
 
   bool Is8Bit() const { return impl_->Is8Bit(); }
@@ -272,7 +279,8 @@ class WTF_EXPORT String {
   StringImpl* Impl() const { return impl_.get(); }
   scoped_refptr<StringImpl> ReleaseImpl() { return std::move(impl_); }
 
-  // Prefer Span8() and Span16() to Characters8() and Characters16().
+  // Returns an LChar span of the underlying representation of the string.
+  // This function must only be called on 8-bit strings.
   base::span<const LChar> Span8() const {
     if (!impl_)
       return {};
@@ -280,6 +288,8 @@ class WTF_EXPORT String {
     return impl_->Span8();
   }
 
+  // Returns an UChar span of the underlying representation of the string.
+  // This function must only be called on 16-bit strings.
   base::span<const UChar> Span16() const {
     if (!impl_)
       return {};
@@ -287,6 +297,8 @@ class WTF_EXPORT String {
     return impl_->Span16();
   }
 
+  // Returns a uint16_t span of the underlying representation of the string.
+  // This function must only be called on 16-bit strings.
   base::span<const uint16_t> SpanUint16() const {
     if (!impl_) {
       return {};
@@ -303,22 +315,6 @@ class WTF_EXPORT String {
       return {};
     }
     return impl_->RawByteSpan();
-  }
-
-  // Use Span8() instead.
-  UNSAFE_BUFFER_USAGE const LChar* Characters8() const {
-    if (!impl_)
-      return nullptr;
-    DCHECK(impl_->Is8Bit());
-    return impl_->Characters8();
-  }
-
-  // Use Span16() instead.
-  UNSAFE_BUFFER_USAGE const UChar* Characters16() const {
-    if (!impl_)
-      return nullptr;
-    DCHECK(!impl_->Is8Bit());
-    return impl_->Characters16();
   }
 
   [[nodiscard]] std::string Ascii() const;
@@ -423,10 +419,6 @@ class WTF_EXPORT String {
   // This method exists for historical reasons. For compatibility with
   // `std::string::substr`, consider using the `substr()` method.
   [[nodiscard]] String Substring(size_type pos, size_type len = npos) const;
-  [[nodiscard]] String Left(size_type len) const { return Substring(0, len); }
-  [[nodiscard]] String Right(size_type len) const {
-    return Substring(length() - len, len);
-  }
 
   bool starts_with(const StringView& prefix) const {
     return impl_ ? impl_->StartsWith(prefix) : prefix.empty();
@@ -497,15 +489,15 @@ class WTF_EXPORT String {
   // for U+212A is 'k'.
   // This function is rarely used to implement web platform features. See
   // crbug.com/627682.
-  // This function is deprecated. We should use LowerASCII() or CaseMap.
+  // This function is deprecated. We should use ToAsciiLower() or CaseMap.
   [[nodiscard]] String DeprecatedLower() const;
 
   // Returns a lowercase version of the string.
   // This function converts ASCII characters only.
-  [[nodiscard]] String LowerASCII() const;
+  [[nodiscard]] String ToAsciiLower() const;
   // Returns a uppercase version of the string.
   // This function converts ASCII characters only.
-  [[nodiscard]] String UpperASCII() const;
+  [[nodiscard]] String ToAsciiUpper() const;
 
   // Returns the length of the string after stripping white spaces.
   // This is equivalent (minus the allocation overhead) of doing:
@@ -630,13 +622,6 @@ WTF_EXPORT int CodeUnitCompare(const String&, const String&);
 
 inline bool CodeUnitCompareLessThan(const String& a, const String& b) {
   return CodeUnitCompare(a.Impl(), b.Impl()) < 0;
-}
-
-WTF_EXPORT int CodeUnitCompareIgnoringASCIICase(const String&, const char*);
-
-inline bool CodeUnitCompareIgnoringASCIICaseLessThan(const String& a,
-                                                     const String& b) {
-  return CodeUnitCompareIgnoringASCIICase(a.Impl(), b.Impl()) < 0;
 }
 
 template <bool isSpecialCharacter(UChar)>

@@ -232,7 +232,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
     loadTimeData.getString('historyClustersTabLabel'),
   ];
   protected accessor scrollTarget_: HTMLElement = document.body;
-  protected accessor queryStateAfterDate_: Date|null = null;
+  protected accessor queryStateAfterDate_: Date|undefined;
   private accessor hasHistoryEmbeddingsResults_: boolean = false;
   protected accessor historyEmbeddingsDisclaimerLinkClicked_: boolean = false;
   protected accessor tabContentScrollOffset_: number = 0;
@@ -273,10 +273,10 @@ export class HistoryAppElement extends HistoryAppElementBase {
         'history-identity-state-changed',
         (identityState: HistoryIdentityState) =>
             this.onIdentityStateChanged_(identityState));
-    this.addWebUiListener(
-        'foreign-sessions-changed',
-        (sessionList: ForeignSession[]) =>
-            this.setForeignSessions_(sessionList));
+    this.browserService_.foreignSessionCallbackRouter.onForeignSessionsChanged
+        .addListener(
+            (sessionList: ForeignSession[]) =>
+                this.setForeignSessions_(sessionList));
     this.shadowRoot.querySelector('history-query-manager')!.initialize();
     this.browserService_.getForeignSessions().then(
         sessionList => this.setForeignSessions_(sessionList));
@@ -350,7 +350,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
           this.queryStateAfterDate_ = afterDate;
         }
       } else {
-        this.queryStateAfterDate_ = null;
+        this.queryStateAfterDate_ = undefined;
       }
     }
   }

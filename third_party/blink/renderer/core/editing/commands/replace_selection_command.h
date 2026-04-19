@@ -55,8 +55,6 @@ class CORE_EXPORT ReplaceSelectionCommand final : public CompositeEditCommand {
                           InputEvent::InputType = InputEvent::InputType::kNone,
                           DataTransfer* = nullptr);
 
-  EphemeralRange InsertedRange() const;
-
   void Trace(Visitor*) const override;
 
   String TextDataForInputEvent() const final;
@@ -103,6 +101,7 @@ class CORE_EXPORT ReplaceSelectionCommand final : public CompositeEditCommand {
                           const Position&,
                           InsertedNodes&,
                           EditingState*);
+  EphemeralRange InsertedRange() const;
 
   void UpdateNodesInserted(Node*);
   bool ShouldRemoveEndBR(HTMLBRElement*, const VisiblePosition&);
@@ -138,6 +137,8 @@ class CORE_EXPORT ReplaceSelectionCommand final : public CompositeEditCommand {
                              EditingState*,
                              PasswordEchoBehavior);
   void SetUpStyle(const VisibleSelection&);
+  bool ShouldNormalizeNbspInInsertedContent(EditingState*) const;
+  void NormalizeNbspInInsertedContent(EditingState*);
   void InsertParagraphSeparatorIfNeeds(const VisibleSelection&,
                                        const ReplacementFragment&,
                                        EditingState*);

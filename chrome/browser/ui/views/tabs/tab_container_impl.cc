@@ -17,13 +17,13 @@
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
+#include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/shared/drop_arrow.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_highlight.h"
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
-#include "chrome/browser/ui/views/tabs/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_animation_delegate.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
@@ -41,6 +41,7 @@
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/image_view.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/mouse_watcher_view_host.h"
 #include "ui/views/rect_based_targeting_utils.h"
 #include "ui/views/view_utils.h"
@@ -518,14 +519,14 @@ std::optional<int> TabContainerImpl::GetModelIndexOfFirstNonClosingTab(
 }
 
 void TabContainerImpl::UpdateHoverCard(
-    Tab* tab,
+    HoverCardAnchorTarget* anchor_target,
     TabSlotController::HoverCardUpdateType update_type) {
   // Some operations (including e.g. starting a drag) can cause the tab focus
   // to change at the same time as the tabstrip is starting to animate; the
   // hover card should not be visible at this time.
   // See crbug.com/1220840 for an example case.
   if (controller_->IsAnimatingInTabStrip()) {
-    tab = nullptr;
+    anchor_target = nullptr;
     update_type = TabSlotController::HoverCardUpdateType::kAnimating;
   }
 
@@ -533,7 +534,7 @@ void TabContainerImpl::UpdateHoverCard(
     return;
   }
 
-  hover_card_controller_->UpdateHoverCard(tab, update_type);
+  hover_card_controller_->UpdateHoverCard(anchor_target, update_type);
 }
 
 void TabContainerImpl::HandleLongTap(ui::GestureEvent* event) {
@@ -1642,18 +1643,19 @@ gfx::Rect TabContainerImpl::GetDropBounds(
   center_x = GetMirroredXInView(center_x);
 
   // Determine the screen bounds.
-  const gfx::Size drop_arrow_size = DropArrow::GetSize();
-  gfx::Point drop_loc(center_x - drop_arrow_size.width() / 2,
-                      -drop_arrow_size.height());
+  gfx::Point drop_loc(center_x - DropArrow::kSize / 2, -DropArrow::kSize);
   ConvertPointToScreen(this, &drop_loc);
-  gfx::Rect drop_bounds(drop_loc.x(), drop_loc.y(), drop_arrow_size.width(),
-                        drop_arrow_size.height());
+  gfx::Rect drop_bounds(drop_loc.x(), drop_loc.y(), DropArrow::kSize,
+                        DropArrow::kSize);
 
   // If the rect doesn't fit on the monitor, push the arrow to the bottom.
   display::Screen* screen = display::Screen::Get();
-  display::Display display =
-      screen->GetDisplayNearestView(GetWidget()->GetNativeView());
-  const bool is_beneath = !display.bounds().Contains(drop_bounds);
+  gfx::Rect display_bounds =
+      screen->GetDisplayNearestView(GetWidget()->GetNativeView()).bounds();
+
+  DropArrow::MaybeAdjustDisplayBounds(display_bounds);
+
+  const bool is_beneath = drop_bounds.y() < display_bounds.y();
   *direction =
       is_beneath ? DropArrow::Direction::kUp : DropArrow::Direction::kDown;
   if (is_beneath) {

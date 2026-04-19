@@ -24,6 +24,7 @@
 #include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -221,11 +222,13 @@ void HatsServiceDesktop::LaunchSurvey(
     }
     return;
   }
-  LaunchSurveyForBrowser(chrome::FindLastActiveWithProfile(profile()), trigger,
-                         std::move(success_callback),
-                         std::move(failure_callback),
-                         product_specific_bits_data,
-                         product_specific_string_data, supplied_trigger_id);
+  BrowserWindowInterface* const browser =
+      chrome::FindLastActiveWithProfile(profile());
+  LaunchSurveyForBrowser(
+      browser ? browser->GetBrowserForMigrationOnly() : nullptr, trigger,
+      std::move(success_callback), std::move(failure_callback),
+      product_specific_bits_data, product_specific_string_data,
+      supplied_trigger_id);
 }
 
 void HatsServiceDesktop::LaunchSurveyForWebContents(
@@ -243,7 +246,11 @@ void HatsServiceDesktop::LaunchSurveyForWebContents(
          "desktop.";
   if (ShouldShowSurvey(trigger) && web_contents &&
       web_contents->GetVisibility() == content::Visibility::VISIBLE) {
-    LaunchSurveyForBrowser(chrome::FindBrowserWithTab(web_contents), trigger,
+    BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
+    if (!browser) {
+      return;
+    }
+    LaunchSurveyForBrowser(browser->GetBrowserForMigrationOnly(), trigger,
                            std::move(success_callback),
                            std::move(failure_callback),
                            product_specific_bits_data,

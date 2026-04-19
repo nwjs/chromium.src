@@ -6,9 +6,11 @@ import './simple_action_menu.js';
 
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {CrLitElement, type PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {DEFAULT_SETTINGS, getLineFocusValues, LineFocusMovement, LineFocusStyle, type SettingsPrefs, type ShowAtConfigPrefs, ToolbarEvent} from '../content/read_anything_types.js';
+import {DEFAULT_SETTINGS, getLineFocusValues, LineFocusMovement, LineFocusStyle, ToolbarEvent} from '../content/read_anything_types.js';
+import type {SettingsPrefs, ShowAtConfigPrefs} from '../content/read_anything_types.js';
 import {ReadAnythingSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
@@ -40,7 +42,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
       settingsPrefs: {type: Object},
       nonModal: {type: Boolean},
       lineFocusStyle: {type: Object},
-      lineFocusMovement: {type: Object},
+      lineFocusMovement: {type: Number},
     };
   }
 

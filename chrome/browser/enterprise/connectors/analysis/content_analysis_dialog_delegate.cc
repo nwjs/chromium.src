@@ -6,6 +6,10 @@
 
 #include <string>
 
+#include "base/check.h"
+#include "base/check_op.h"
+#include "base/logging.h"
+#include "base/notreached.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/enterprise/connectors/core/common.h"
@@ -19,6 +23,7 @@
 #include "ui/views/controls/textarea/textarea.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/fill_layout.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/layout/table_layout_view.h"
 
 namespace enterprise_connectors {

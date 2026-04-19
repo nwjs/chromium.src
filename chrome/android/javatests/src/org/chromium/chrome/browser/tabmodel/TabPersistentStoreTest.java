@@ -57,7 +57,6 @@ import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.init.ActivityProfileProvider;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -181,6 +180,7 @@ public class TabPersistentStoreTest {
                                                     getTabCreatorManager(),
                                                     TabWindowManagerSingleton.getInstance(),
                                                     sCipherFactory,
+                                                    /* isAuthoritative= */ true,
                                                     /* recordLegacyTabCountMetrics= */ true);
                                     tabPersistentStore.addObserver(mTabPersistentStoreObserver);
                                     return tabPersistentStore;
@@ -268,8 +268,7 @@ public class TabPersistentStoreTest {
                         ModalDialogManager modalDialogManager,
                         OneshotSupplier<ProfileProvider> profileProviderSupplier,
                         TabCreatorManager tabCreatorManager,
-                        NextTabPolicySupplier nextTabPolicySupplier,
-                        MultiInstanceManager multiInstanceManager) {
+                        NextTabPolicySupplier nextTabPolicySupplier) {
                     try {
                         return new TestTabModelSelector(
                                 context, profileProviderSupplier, tabCreatorManager);
@@ -433,6 +432,7 @@ public class TabPersistentStoreTest {
                             creatorManager,
                             TabWindowManagerSingleton.getInstance(),
                             sCipherFactory,
+                            /* isAuthoritative= */ true,
                             /* recordLegacyTabCountMetrics= */ true);
                 });
     }
@@ -1410,7 +1410,6 @@ public class TabPersistentStoreTest {
                                                     profileProvider,
                                                     tabCreatorManager,
                                                     null,
-                                                    /* multiInstanceManager= */ null,
                                                     mismatchedIndicesHandler,
                                                     windowId)
                                             .second;

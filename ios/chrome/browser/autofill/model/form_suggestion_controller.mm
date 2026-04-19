@@ -14,7 +14,6 @@
 #import "base/not_fatal_until.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
-#import "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #import "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #import "components/autofill/core/common/autofill_prefs.h"
@@ -24,11 +23,11 @@
 #import "components/autofill/ios/form_util/form_activity_params.h"
 #import "components/plus_addresses/core/common/features.h"
 #import "components/prefs/pref_service.h"
+#import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
 #import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/form_input_navigator.h"
 #import "ios/chrome/browser/autofill/model/form_input_suggestions_provider.h"
-#import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_factory.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -98,68 +97,6 @@ void RunSearchPipeline(NSArray<PipelineBlock>* blocks,
   });
 }
 
-// Returns an entity base on the guid.
-base::optional_ref<const autofill::EntityInstance> GetAutofillAiEntity(
-    const autofill::Suggestion::Payload& payload,
-    web::WebState* web_state) {
-  if (!web_state) {
-    return std::nullopt;
-  }
-
-  if (!std::holds_alternative<autofill::Suggestion::AutofillAiPayload>(
-          payload)) {
-    return std::nullopt;
-  }
-
-  const std::string guid =
-      std::get<autofill::Suggestion::AutofillAiPayload>(payload).guid.value();
-
-  if (guid.empty()) {
-    return std::nullopt;
-  }
-
-  ProfileIOS* profile =
-      ProfileIOS::FromBrowserState(web_state->GetBrowserState());
-  if (!profile) {
-    return std::nullopt;
-  }
-
-  autofill::EntityDataManager* edm =
-      IOSAutofillEntityDataManagerFactory::GetForProfile(profile);
-  if (!edm) {
-    return std::nullopt;
-  }
-
-  return edm->GetEntityInstance(autofill::EntityInstance::EntityId(
-      base::Uuid::ParseCaseInsensitive(guid)));
-}
-
-// Returns whether the suggestion requires reauth.
-BOOL RequiresReauth(FormSuggestion* suggestion, web::WebState* web_state) {
-  if (suggestion.requiresReauth ||
-      suggestion.type != autofill::SuggestionType::kFillAutofillAi) {
-    return suggestion.requiresReauth;
-  }
-
-  base::optional_ref<const autofill::EntityInstance> entity =
-      GetAutofillAiEntity(suggestion.payload, web_state);
-  if (!entity.has_value()) {
-    return NO;
-  }
-
-  ProfileIOS* profile =
-      ProfileIOS::FromBrowserState(web_state->GetBrowserState());
-  if (!autofill::prefs::IsAutofillAiReauthBeforeFillingEnabled(
-          profile->GetPrefs())) {
-    return NO;
-  }
-
-  // If any of the fields of an autofill AI suggestion has at least one
-  // obfuscated field, it requires reauth before filling the form.
-  return std::ranges::any_of(entity->type().attributes(),
-                             &autofill::AttributeType::is_obfuscated);
-}
-
 // Returns the default icon for the suggestion type.
 UIImage* DefaultIconForType(FormSuggestion* suggestion,
                             web::WebState* web_state) {
@@ -207,8 +144,14 @@ UIImage* DefaultIconForType(FormSuggestion* suggestion,
       }
     }
     case autofill::SuggestionType::kFillAutofillAi: {
+      if (!web_state) {
+        return nil;
+      }
+
       base::optional_ref<const autofill::EntityInstance> entity =
-          GetAutofillAiEntity(suggestion.payload, web_state);
+          autofill::GetEntityInstance(
+              ProfileIOS::FromBrowserState(web_state->GetBrowserState()),
+              suggestion.payload);
       if (!entity.has_value()) {
         return nil;
       }
@@ -576,28 +519,20 @@ bool IsRequestDedupingAllowed() {
     // for this suggestion.
     BOOL shouldUpdateIcon = !suggestion.icon && defaultIcon;
 
-    // Check whether the suggestion requires reauthentication.
-    BOOL requiresReauth = RequiresReauth(suggestion, _webState);
-
-    // If the suggestion did not require reauthentication and now requires
-    // reauthentication, the `requiresReauth` parameter must be updated.
-    BOOL shouldUpdateReauth = !suggestion.requiresReauth && requiresReauth;
-
-    if (shouldUpdateIcon || shouldUpdateReauth) {
+    if (shouldUpdateIcon) {
       // If we ever get suggestions with metadata here, we'll need to use a
       // different [FormSuggestion suggestionWithValue:...] to perform the copy.
       CHECK(!suggestion.metadata.is_single_username_form);
 
-      UIImage* icon = shouldUpdateIcon ? defaultIcon : suggestion.icon;
       FormSuggestion* suggestionCopy = [FormSuggestion
                   suggestionWithValue:suggestion.value
                            minorValue:suggestion.minorValue
                    displayDescription:suggestion.displayDescription
-                                 icon:icon
+                                 icon:defaultIcon
                                  type:suggestion.type
                               payload:suggestion.payload
           fieldByFieldFillingTypeUsed:suggestion.fieldByFieldFillingTypeUsed
-                       requiresReauth:requiresReauth
+                       requiresReauth:suggestion.requiresReauth
            acceptanceA11yAnnouncement:suggestion.acceptanceA11yAnnouncement];
       // TODO(crbug.com/452315148): Include `featureForIPH` in the
       // `FormSuggestion` constructor.

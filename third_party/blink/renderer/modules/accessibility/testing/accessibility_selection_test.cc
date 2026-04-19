@@ -54,7 +54,7 @@ class AXSelectionSerializer final {
       return {};
     SerializeSubtree(subtree);
     DCHECK_EQ(tree_level_, 0);
-    return builder_.ToString().Utf8();
+    return StringView(builder_).Utf8();
   }
 
  private:
@@ -73,28 +73,26 @@ class AXSelectionSerializer final {
       const int extent_offset = selection_.Focus().TextOffset();
 
       if (base_offset == extent_offset) {
-        builder_.Append(name.Left(base_offset));
+        builder_.Append(name.subview(0, base_offset));
         builder_.Append('|');
-        builder_.Append(name.Substring(base_offset));
+        builder_.Append(name.subview(base_offset));
         return;
       }
 
       if (base_offset < extent_offset) {
-        builder_.Append(name.Left(base_offset));
+        builder_.Append(name.subview(0, base_offset));
         builder_.Append('^');
-        builder_.Append(
-            name.Substring(base_offset, extent_offset - base_offset));
+        builder_.Append(name.subview(base_offset, extent_offset - base_offset));
         builder_.Append('|');
-        builder_.Append(name.Substring(extent_offset));
+        builder_.Append(name.subview(extent_offset));
         return;
       }
 
-      builder_.Append(name.Left(extent_offset));
+      builder_.Append(name.subview(0, extent_offset));
       builder_.Append('|');
-      builder_.Append(
-          name.Substring(extent_offset, base_offset - extent_offset));
+      builder_.Append(name.subview(extent_offset, base_offset - extent_offset));
       builder_.Append('^');
-      builder_.Append(name.Substring(base_offset));
+      builder_.Append(name.subview(base_offset));
       return;
     }
 
@@ -102,9 +100,9 @@ class AXSelectionSerializer final {
       DCHECK(selection_.Anchor().IsTextPosition());
       const int base_offset = selection_.Anchor().TextOffset();
 
-      builder_.Append(name.Left(base_offset));
+      builder_.Append(name.subview(0, base_offset));
       builder_.Append('^');
-      builder_.Append(name.Substring(base_offset));
+      builder_.Append(name.subview(base_offset));
       return;
     }
 
@@ -112,9 +110,9 @@ class AXSelectionSerializer final {
       DCHECK(selection_.Focus().IsTextPosition());
       const int extent_offset = selection_.Focus().TextOffset();
 
-      builder_.Append(name.Left(extent_offset));
+      builder_.Append(name.subview(0, extent_offset));
       builder_.Append('|');
-      builder_.Append(name.Substring(extent_offset));
+      builder_.Append(name.subview(extent_offset));
       return;
     }
 
@@ -166,7 +164,7 @@ class AXSelectionSerializer final {
       const auto position = AXPosition::CreatePositionBeforeObject(*child);
       HandleSelection(position);
       ++tree_level_;
-      builder_.Append(String::FromUTF8(std::string(tree_level_ * 2, '+')));
+      builder_.Append(String::FromUtf8(std::string(tree_level_ * 2, '+')));
       if (position.IsTextPosition()) {
         HandleTextObject(*child);
       } else {
@@ -213,7 +211,7 @@ class AXSelectionDeserializer final {
   // parts of the tree indicated by the selection markers in the snippet.
   const Vector<AXSelection> Deserialize(const std::string_view& html_snippet,
                                         HTMLElement& element) {
-    element.SetInnerHTMLWithoutTrustedTypes(String::FromUTF8(html_snippet));
+    element.SetInnerHTMLWithoutTrustedTypes(String::FromUtf8(html_snippet));
     element.GetDocument().View()->UpdateAllLifecyclePhasesForTest();
     AXObject* root = ax_object_cache_->Get(&element);
     if (!root || root->IsDetached())
@@ -418,11 +416,11 @@ void AccessibilitySelectionTest::RunSelectionTest(
     const std::string& test_name,
     const std::string& suffix) const {
   static const std::string separator_line = '\n' + std::string(80, '=') + '\n';
-  const String relative_path = String::FromUTF8(kSelectionTestsRelativePath) +
-                               String::FromUTF8(test_name);
+  const String relative_path = String::FromUtf8(kSelectionTestsRelativePath) +
+                               String::FromUtf8(test_name);
   const String test_path = test::AccessibilityTestDataPath(relative_path);
 
-  const String test_file = test_path + String::FromUTF8(kTestFileSuffix);
+  const String test_file = test_path + String::FromUtf8(kTestFileSuffix);
   std::optional<Vector<char>> test_file_data = test::ReadFromFile(test_file);
   ASSERT_TRUE(test_file_data)
       << "Test file cannot be empty.\n"
@@ -431,7 +429,7 @@ void AccessibilitySelectionTest::RunSelectionTest(
 
   const String ax_file =
       test_path +
-      String::FromUTF8(suffix.empty() ? kAXTestExpectationSuffix : suffix);
+      String::FromUtf8(suffix.empty() ? kAXTestExpectationSuffix : suffix);
   std::optional<Vector<char>> ax_file_data = test::ReadFromFile(ax_file);
   ASSERT_TRUE(ax_file_data)
       << "Expectations file cannot be empty.\n"

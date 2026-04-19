@@ -27,19 +27,22 @@
         </cr-button>
       </template>
     </settings-toggle-button>
-<if expr="_google_chrome">
-    <!-- On device AI settings -->
-    <template is="dom-if" if="[[showOnDeviceAiSettings_]]" restamp>
-      <div class="hr"></div>
-      <settings-toggle-button id="onDeviceAiToggle"
-          pref="{{onDeviceAiPref_}}"
-          label="$i18n{onDeviceAiEnabledLabel}"
-          sub-label-with-link="$i18n{onDeviceAiEnabledSubLabel}"
-          on-sub-label-link-clicked="onOnDeviceAiLearnMoreClicked_"
-          on-settings-boolean-control-change="onOnDeviceAiToggleChange_">
+    <!-- <if expr="is_win"> -->
+    <template is="dom-if" if="[[showProcessIsolationSetting_]]" restamp>
+      <settings-toggle-button id="isolationState"
+          pref="{{prefs.isolation_state.enabled}}"
+          label="$i18n{isolationStateLabel}"
+          sub-label="$i18n{isolationStateSubLabel}"
+          learn-more-url="$i18n{isolationStateLearnMoreUrl}">
+        <template is="dom-if" if="[[shouldShowIsolationRestart_(
+            prefs.isolation_state.enabled.value)]]">
+          <cr-button on-click="onRestartClick_" slot="more-actions">
+            $i18n{restart}
+          </cr-button>
+        </template>
       </settings-toggle-button>
     </template>
-</if>
+    <!-- </if> -->
 
     <!-- <if expr="_google_chrome and is_win"> -->
       <template is="dom-if" if="[[showFeatureNotificationsSetting_]]">
@@ -133,3 +136,21 @@
           on-close="onRelaunchDialogClose"></relaunch-confirmation-dialog>
     </template>
   </settings-section>
+
+<if expr="_google_chrome">
+  <!-- On device AI settings -->
+  <template is="dom-if" if="[[showOnDeviceAiSettings_]]" restamp>
+    <settings-section page-title="$i18n{onDeviceAiEnabledLabel}"
+        show-send-feedback-button
+        on-send-feedback="onOnDeviceAiSendFeedback_"
+        class="cr-centered-card-container">
+      <settings-toggle-button id="onDeviceAiToggle"
+          pref="{{onDeviceAiPref_}}"
+          label="$i18n{onDeviceAiEnabledLabel}"
+          sub-label-with-link="$i18n{onDeviceAiEnabledSubLabel}"
+          on-sub-label-link-clicked="onOnDeviceAiLearnMoreClicked_"
+          on-settings-boolean-control-change="onOnDeviceAiToggleChange_">
+      </settings-toggle-button>
+    </settings-section>
+  </template>
+</if>

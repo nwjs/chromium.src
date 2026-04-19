@@ -7,7 +7,9 @@
 
 #include <iosfwd>
 #include <optional>
+#include <string>
 
+#include "build/build_config.h"
 #include "components/send_tab_to_self/entry_point_display_reason.h"
 #include "components/send_tab_to_self/page_context.h"
 
@@ -19,7 +21,11 @@ namespace url {
 class Origin;
 }  // namespace url
 
+class Profile;
+
 namespace send_tab_to_self {
+
+class SendTabToSelfEntry;
 
 // `web_contents` can be null.
 std::optional<EntryPointDisplayReason> GetEntryPointDisplayReason(
@@ -28,14 +34,14 @@ std::optional<EntryPointDisplayReason> GetEntryPointDisplayReason(
 // Returns true if the entry point should be shown.
 bool ShouldDisplayEntryPoint(content::WebContents* web_contents);
 
-// Creates a PageContext for the given `web_contents` by extracting form data
-// from all frames.
-PageContext ExtractFormFieldsFromWebContents(
+// Creates a PageContext::FormFieldInfo for the given `web_contents` by
+// extracting form data from all frames.
+PageContext::FormFieldInfo ExtractFormFieldsFromWebContents(
     content::WebContents* web_contents);
 
 // Similar to ExtractFormFieldsFromWebContents, but allows injecting an ostream
 // for detailed insights of the extraction process.
-PageContext ExtractFormFieldsFromWebContentsForTesting(
+PageContext::FormFieldInfo ExtractFormFieldsFromWebContentsForTesting(
     content::WebContents* web_contents,
     std::ostream& os);
 
@@ -44,6 +50,13 @@ PageContext ExtractFormFieldsFromWebContentsForTesting(
 void FillWebContents(content::WebContents* web_contents,
                      const url::Origin& origin,
                      const PageContext& page_context);
+
+// Returns the scroll position from `entry` as a text fragment string if
+// `kSendTabToSelfPropagateScrollPosition` is enabled and `entry` has a
+// scroll position.
+// See https://wicg.github.io/scroll-to-text-fragment/
+std::optional<std::string> GetScrollPositionAsTextFragment(
+    const SendTabToSelfEntry* entry);
 
 }  // namespace send_tab_to_self
 

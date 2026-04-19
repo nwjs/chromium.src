@@ -38,7 +38,8 @@ class AttemptLoginTool : public Tool {
                    ToolDelegate& tool_delegate,
                    tabs::TabInterface& tab,
                    std::optional<PageTarget> password_button,
-                   std::optional<PageTarget> sign_in_with_google_button);
+                   std::optional<PageTarget> sign_in_with_google_button,
+                   bool requires_opening_web_contents);
   ~AttemptLoginTool() override;
 
   // actor::Tool
@@ -52,6 +53,9 @@ class AttemptLoginTool : public Tool {
   void UpdateTaskBeforeInvoke(ActorTask& task,
                               ToolCallback callback) const override;
   tabs::TabHandle GetTargetTab() const override;
+
+  static mojom::ActionResultCode LoginResultToActorResult(
+      actor_login::LoginStatusResult login_result);
 
  private:
   void OnGetCredentials(actor_login::CredentialsOrError credentials);
@@ -105,11 +109,12 @@ class AttemptLoginTool : public Tool {
 
   tabs::TabHandle tab_handle_;
 
-  // TODO(crbug.com/479504052): Make use of these fields.
   // Identifies a button to submit (or advance) a password form.
   std::optional<PageTarget> password_button_;
   // Identifies a "Sign in with Google" button.
   std::optional<PageTarget> sign_in_with_google_button_;
+
+  const bool requires_opening_web_contents_;
 
   // The time where the attempt tool is created, used to calculate the overall
   // time of the flow until filling and submission time.

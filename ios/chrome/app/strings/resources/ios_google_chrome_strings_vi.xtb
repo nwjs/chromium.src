@@ -81,9 +81,6 @@ Những yếu tố cần xem xét:
 <translation id="2703746758996815929">Để biết các mẹo hữu ích khi dùng Chrome, hãy bật thông báo trong phần cài đặt của iOS.</translation>
 <translation id="2728851697704606655">Dịch bằng Google Ống kính</translation>
 <translation id="2736805085127235148">Thông báo của Chrome hiện đang tắt trong phần cài đặt của thiết bị.</translation>
-<translation id="2754428955276778271">Một số dữ liệu Chrome của bạn chưa được lưu vào Tài khoản Google.
-
-Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xuất ngay, dữ liệu này sẽ bị xoá.</translation>
 <translation id="2767464022270041271">Bạn chưa lưu mật khẩu nào. Trình quản lý mật khẩu của Google có thể kiểm tra mật khẩu của bạn khi bạn lưu các mật khẩu đó.</translation>
 <translation id="2788811701191021538">Mở trang cài đặt phương thức thanh toán trong Chrome.</translation>
 <translation id="2876628302275096482">Tìm hiểu thêm về <ph name="BEGIN_LINK" />cách Chrome bảo mật dữ liệu của bạn<ph name="END_LINK" /></translation>
@@ -188,6 +185,7 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="5395376160638294582">Đảm bảo bạn luôn có thể sử dụng dữ liệu Chrome trong Tài khoản Google của mình</translation>
 <translation id="5404252374083197467">Bạn muốn đặt Chrome làm trình duyệt mặc định?</translation>
 <translation id="5439191312780166229">Cảnh báo cho bạn về các trang web nguy hiểm, kể cả trang web mà Google chưa từng biết, bằng cách phân tích nhiều dữ liệu trên các trang web hơn so với chế độ bảo vệ tiêu chuẩn. Bạn có thể chọn bỏ qua cảnh báo của Chrome.</translation>
+<translation id="5453077102022695084">Video toàn màn hình hướng dẫn cách đặt Chrome làm trình duyệt mặc định</translation>
 <translation id="5460571915754665838">4. Chọn Chrome</translation>
 <translation id="5492504007368565877">Trình quản lý mật khẩu của Google không thể kiểm tra mật khẩu của bạn.</translation>
 <translation id="5525095647255982834">Để gửi thẻ này tới một thiết bị khác, hãy đăng nhập vào Chrome trên thiết bị đó.</translation>
@@ -374,7 +372,6 @@ Dữ liệu của bạn đã được mã hoá bằng cụm mật khẩu vào <p
 <translation id="9176561303811134420">Quản lý phương thức thanh toán trong Chrome</translation>
 <translation id="9181628561061032322">Mở các thẻ gần đây trong Chrome.</translation>
 <translation id="924447568950697217">Đặt Chrome làm trình duyệt mặc định của bạn</translation>
-<translation id="93622496651329736">Video hướng dẫn cách đặt Chrome làm trình duyệt mặc định ở chế độ hình trong hình</translation>
 <translation id="948597495737267756">Mở trang Nhật ký duyệt web trên Chrome.</translation>
 <translation id="954347330803595209">Nhập dữ liệu để sử dụng mật khẩu, nhật ký, dấu trang và thẻ tín dụng của bạn trên Chrome</translation>
 <translation id="97300214378190234">Dùng Chrome mỗi khi bạn nhấn vào đường liên kết trong các ứng dụng khác.</translation>

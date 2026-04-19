@@ -412,6 +412,7 @@ public class AwContents implements SmartClipProvider {
     private boolean mIsViewVisible;
     private boolean mIsWindowVisible;
     private boolean mIsAttachedToWindow;
+    private boolean mIsOnReceivedIconOverriden;
     private long mPreferredFrameIntervalNanos;
 
     // Visibility state of |mWebContents|.
@@ -1885,7 +1886,7 @@ public class AwContents implements SmartClipProvider {
         // implementation, bind a tentative error message here. See also the comments in
         // `PrerenderHandleImpl::OnHostDestroyed()`.
         // TODO(crbug.com/41490450): Pass a more meaningful error message to the error callback.
-        int prerenderId =
+        long prerenderId =
                 AwContentsJni.get()
                         .startPrerendering(
                                 mNativeAwContents,
@@ -2048,11 +2049,17 @@ public class AwContents implements SmartClipProvider {
         AwContentsJni.get().setShouldDownloadFavicons();
     }
 
+    public void setOnReceivedIconOverridden(boolean isOverridden) {
+        if (isDestroyed(NO_WARN)) return;
+        mIsOnReceivedIconOverriden = isOverridden;
+        mFavicon = null;
+        AwContentsJni.get().setOnReceivedIconOverridden(mNativeAwContents, isOverridden);
+    }
+
     /**
-     * Disables contents of JS-to-Java bridge objects to be inspectable using
-     * Object.keys() method and "for .. in" loops. This is intended for applications
-     * targeting earlier Android releases where this was not possible, and we want
-     * to ensure backwards compatible behavior.
+     * Disables contents of JS-to-Java bridge objects to be inspectable using Object.keys() method
+     * and "for .. in" loops. This is intended for applications targeting earlier Android releases
+     * where this was not possible, and we want to ensure backwards compatible behavior.
      */
     public void disableJavascriptInterfacesInspection() {
         if (TRACE) Log.i(TAG, "%s disableJavascriptInterfacesInspection", this);
@@ -2138,6 +2145,10 @@ public class AwContents implements SmartClipProvider {
         return (int) Math.ceil(mContentWidthDip);
     }
 
+    public boolean getIsOnReceivedIconOverridden() {
+        return mIsOnReceivedIconOverriden;
+    }
+
     public Picture capturePicture() {
         if (TRACE) Log.i(TAG, "%s capturePicture", this);
         if (isDestroyed(WARN)) return null;
@@ -2203,6 +2214,9 @@ public class AwContents implements SmartClipProvider {
     public Bitmap getFavicon() {
         if (TRACE) Log.i(TAG, "%s getFavicon", this);
         if (isDestroyed(WARN)) return null;
+        if (!mIsOnReceivedIconOverriden) {
+            return AwContentsJni.get().getFavicon(mNativeAwContents);
+        }
         return mFavicon;
     }
 
@@ -3956,8 +3970,12 @@ public class AwContents implements SmartClipProvider {
     }
 
     @CalledByNative
-    private void onReceivedIcon(Bitmap bitmap) {
+    private void onReceivedIcon(@JniType("SkBitmap") @Nullable Bitmap bitmap) {
         mContentsClient.onReceivedIcon(bitmap);
+        int bitmapAllocatedKB = bitmap.getAllocationByteCount() / 1024;
+        // Any icon above 100MB can go into the overflow bucket.
+        RecordHistogram.recordCount100000Histogram(
+                "Android.WebView.Memory.FaviconJavaAllocatedMemory2", bitmapAllocatedKB);
         mFavicon = bitmap;
     }
 
@@ -4932,7 +4950,13 @@ public class AwContents implements SmartClipProvider {
 
         int getNativeInstanceCount();
 
+        @JniType("SkBitmap")
+        @Nullable
+        Bitmap getFavicon(long nativeAwContents);
+
         void setShouldDownloadFavicons();
+
+        void setOnReceivedIconOverridden(long nativeAwContents, boolean isOverridden);
 
         void updateDefaultLocale(String locale, String localeList);
 
@@ -5096,14 +5120,14 @@ public class AwContents implements SmartClipProvider {
 
         void flushBackForwardCache(long nativeAwContents, int reason);
 
-        int startPrerendering(
+        long startPrerendering(
                 long nativeAwContents,
                 @JniType("std::string") @NonNull String prerenderingUrl,
                 @Nullable AwPrefetchParameters prefetchParameters,
                 @JniType("base::OnceClosure") Runnable activationCallback,
                 @JniType("base::OnceClosure") Runnable errorCallback);
 
-        void cancelPrerendering(long nativeAwContents, int prerenderId);
+        void cancelPrerendering(long nativeAwContents, long prerenderId);
 
         void cancelAllPrerendering(long nativeAwContents);
     }

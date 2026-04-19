@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {HAS_BEEN_PASSWORD_SYMBOL} from '//components/autofill/ios/form_util/resources/fill_constants.js';
 import {APC_NODE_DEPTH_COST, getRemoteFrameRemoteToken, NONCE_ATTR} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/common.js';
 import {getNodeId, getOrCreateNodeId} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/dom_node_ids.js';
-import {FormControlType, PageContentAnchorRel, PageContentAnnotatedRole, PageContentAttributeType, PageContentClickabilityReason, PageContentInteractionDisabledReason, PageContentMediaType, PageContentRedactionDecision, PageContentTableRowType, PageContentTextSize} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
-import type {PageContent, PageContentAttributes, PageContentFormControlData, PageContentFormData, PageContentFrameData, PageContentFrameInteractionInfo, PageContentMediaData, PageContentNode, PageContentNodeInteractionInfo, PageContentPageInteractionInfo, PageContentScrollerInfo} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
+import {AxRole, FormControlType, PageContentAnchorRel, PageContentAnnotatedRole, PageContentAttributeType, PageContentClickabilityReason, PageContentInteractionDisabledReason, PageContentMediaType, PageContentRedactionDecision, PageContentTableRowType, PageContentTextSize} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
+import type {PageContent, PageContentAttributes, PageContentFormControlData, PageContentFormData, PageContentFrameData, PageContentFrameInteractionInfo, PageContentMediaData, PageContentNode, PageContentNodeInteractionInfo, PageContentPageInteractionInfo, PageContentScrollerInfo, PageContentTableData} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
 
 // Set of DOM Node IDs that are considered interactive (focused, selection
 // start/end). These nodes should be included in the APC tree even if they are
@@ -15,6 +16,12 @@ type InteractiveNodeIds = Set<number>;
 // Interface for elements that have a 'disabled' property.
 interface HtmlElementWithDisabled extends HTMLElement {
   disabled: boolean;
+}
+
+// An HTMLInputElement that can be tracked with a Symbol property to indicate
+// it has been a password field.
+interface PasswordTrackedElement extends HTMLInputElement {
+  [HAS_BEEN_PASSWORD_SYMBOL]?: boolean;
 }
 
 // The last known pointer position.
@@ -29,9 +36,12 @@ const TAG_EMBED = 'EMBED';
 const TAG_OBJECT = 'OBJECT';
 const TAG_DATALIST = 'DATALIST';
 const TAG_HEAD = 'HEAD';
+const TAG_CAPTION = 'CAPTION';
 
 // Media tags.
 const TAG_SVG = 'SVG';
+const TAG_DESC = 'DESC';
+const TAG_TITLE = 'TITLE';
 const TAG_CANVAS = 'CANVAS';
 const TAG_VIDEO = 'VIDEO';
 
@@ -56,6 +66,7 @@ const TAG_LI = 'LI';
 const TAG_DT = 'DT';
 const TAG_DD = 'DD';
 const TAG_FIGURE = 'FIGURE';
+const TAG_LABEL = 'LABEL';
 
 // Tags with annotated role.
 const TAG_HEADER = 'HEADER';
@@ -91,12 +102,10 @@ const TAGS_TO_REJECT = [
   TAG_OBJECT,
   TAG_DATALIST,
   TAG_HEAD,
+  TAG_CAPTION,
+  TAG_DESC,
+  TAG_TITLE,
 ];
-
-// Tags that contain valid content but are not yet extracted.
-// TODO(crbug.com/468852704): Remove tags from this list as they are
-// implemented.
-const TAGS_TO_SUPPORT_EVENTUALLY = [TAG_SVG];
 
 // Tags that should be strictly rejected if they are invisible,
 // because they are considered "leaf" nodes.
@@ -122,6 +131,19 @@ const TEXT_MASKING_CHAR_SQUARE = '\u25A0';  // ■
 
 // The constant length of the masked text.
 const MASKED_TEXT_LENGTH = 7;
+
+// Metadata schema constants.
+const SCHEMA_ORG_IDENTIFIER = 'schema.org';
+const SCHEMA_IS_ACCESSIBLE_FOR_FREE_KEY = 'isAccessibleForFree';
+const SCHEMA_PART_TYPE_KEY = '@type';
+const SCHEMA_PART_CSS_SELECTOR_KEY = 'cssSelector';
+const SCHEMA_PART_WEB_PAGE_ELEMENT_TYPE = 'WebPageElement';
+const SCHEMA_CONTEXT_KEY = '@context';
+const SCHEMA_HAS_PART_KEY = 'hasPart';
+
+// Regex used to sanitize JSON payloads before parsing.
+const TRAILING_COMMA_REGEX = /,\s*([\]}])/g;
+const NEWLINE_REGEX = /\n/g;
 
 // Form control types.
 const PASSWORD_TYPE = 'password';
@@ -178,6 +200,15 @@ const ATTR_VALUE_ROLE_OPTION = 'option';
 const ATTR_VALUE_ROLE_RADIO = 'radio';
 const ATTR_VALUE_ROLE_SWITCH = 'switch';
 const ATTR_VALUE_ROLE_TAB = 'tab';
+const ATTR_VALUE_ROLE_BANNER = 'banner';
+const ATTR_VALUE_ROLE_NAVIGATION = 'navigation';
+const ATTR_VALUE_ROLE_SEARCH = 'search';
+const ATTR_VALUE_ROLE_MAIN = 'main';
+const ATTR_VALUE_ROLE_ARTICLE = 'article';
+const ATTR_VALUE_ROLE_REGION = 'region';
+const ATTR_VALUE_ROLE_COMPLEMENTARY = 'complementary';
+const ATTR_VALUE_ROLE_CONTENT_INFO = 'contentinfo';
+const ATTR_VALUE_ROLE_NONE = 'none';
 
 // Style values.
 const ATTR_POSITION_FIXED = 'fixed';
@@ -194,6 +225,20 @@ const ATTR_MASKING_SQUARE = 'square';
 const ATTR_WHITESPACE_NORMAL = 'normal';
 const ATTR_WHITESPACE_NOWRAP = 'nowrap';
 
+// Set of AxRoles that imply interactivity.
+const INTERACTIVE_AX_ROLES = new Set([
+  AxRole.AX_ROLE_BUTTON,
+  AxRole.AX_ROLE_LINK,
+  AxRole.AX_ROLE_CHECK_BOX,
+  AxRole.AX_ROLE_MENU_ITEM,
+  AxRole.AX_ROLE_MENU_ITEM_CHECK_BOX,
+  AxRole.AX_ROLE_MENU_ITEM_RADIO,
+  AxRole.AX_ROLE_LIST_BOX_OPTION,
+  AxRole.AX_ROLE_RADIO_BUTTON,
+  AxRole.AX_ROLE_SWITCH,
+  AxRole.AX_ROLE_TAB,
+]);
+
 const BASIC_CONTENT_ATTRIBUTES: PageContentAttributes = {
   attributeType: PageContentAttributeType.UNKNOWN,
   annotatedRoles: [],
@@ -203,6 +248,8 @@ const BASIC_CONTENT_ATTRIBUTES: PageContentAttributes = {
 // Style values.
 const STYLE_VALUE_OVERFLOW_AUTO = 'auto';
 const STYLE_VALUE_OVERFLOW_SCROLL = 'scroll';
+const STYLE_VALUE_CONTENT_VISIBILITY_HIDDEN = 'hidden';
+
 
 // Type alias for accessing webkit-specific fullscreen document properties that
 // are not part of the standard Document interface.
@@ -210,6 +257,19 @@ type WebkitDocument = Document&{webkitFullscreenElement?: Element};
 
 // Math constants.
 const SECOND_TO_MS_RATIO = 1000;
+
+// ARIA Constants.
+const ARIA_LABELLEDBY = 'aria-labelledby';
+const ARIA_LABEL = 'aria-label';
+// Regex used to split aria strings.
+const SPACE_SEPARATOR = /\s+/;
+
+/**
+ * Returns true if page context IPC optimization is enabled.
+ */
+function isPageContextIPCOptimizationEnabled() {
+  return (window as any).gCrWebPlaceholderPageContextIPCOptimization ?? false;
+}
 
 /**
  * Maps a tag name to its corresponding PageContentAnnotatedRole.
@@ -243,6 +303,103 @@ function getAnnotatedRoleForTag(tagName: string): PageContentAnnotatedRole|
       return null;
   }
 }
+
+/**
+ * Maps an ARIA role attribute value to its corresponding
+ * PageContentAnnotatedRole.
+ *
+ * @param ariaRoleAttr The ARIA role attribute value to map.
+ * @return The corresponding PageContentAnnotatedRole, or undefined if no
+ *     mapping exists.
+ */
+function getAnnotatedRoleForAriaRole(ariaRoleAttr: string):
+    PageContentAnnotatedRole|undefined {
+  // Split the role string by one or more whitespace characters.
+  const roles = ariaRoleAttr.trim().split(SPACE_SEPARATOR);
+
+  // Since multiple space-separated fallback roles are allowed, return the
+  // first valid match.
+  for (const role of roles) {
+    switch (role.toLowerCase()) {
+      case ATTR_VALUE_ROLE_BANNER:
+        return PageContentAnnotatedRole.HEADER;
+      case ATTR_VALUE_ROLE_NAVIGATION:
+        return PageContentAnnotatedRole.NAV;
+      case ATTR_VALUE_ROLE_SEARCH:
+        return PageContentAnnotatedRole.SEARCH;
+      case ATTR_VALUE_ROLE_MAIN:
+        return PageContentAnnotatedRole.MAIN;
+      case ATTR_VALUE_ROLE_ARTICLE:
+        return PageContentAnnotatedRole.ARTICLE;
+      case ATTR_VALUE_ROLE_REGION:
+        return PageContentAnnotatedRole.SECTION;
+      case ATTR_VALUE_ROLE_COMPLEMENTARY:
+        return PageContentAnnotatedRole.ASIDE;
+      case ATTR_VALUE_ROLE_CONTENT_INFO:
+        return PageContentAnnotatedRole.FOOTER;
+      default:
+        continue;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Maps an ARIA role attribute value to its corresponding AxRole enum.
+ *
+ * @param roleString The raw ARIA role string to map.
+ * @return The corresponding AxRole, or AX_ROLE_UNKNOWN if no mapping exists.
+ */
+function getAXRoleForAriaRole(roleString: string): AxRole {
+  const roles = roleString.trim().split(SPACE_SEPARATOR);
+
+  for (const role of roles) {
+    switch (role.toLowerCase()) {
+      case ATTR_VALUE_ROLE_BANNER:
+        return AxRole.AX_ROLE_BANNER;
+      case ATTR_VALUE_ROLE_BUTTON:
+        return AxRole.AX_ROLE_BUTTON;
+      case ATTR_VALUE_ROLE_CHECKBOX:
+        return AxRole.AX_ROLE_CHECK_BOX;
+      case ATTR_VALUE_ROLE_LINK:
+        return AxRole.AX_ROLE_LINK;
+      case ATTR_VALUE_ROLE_MENUITEM:
+        return AxRole.AX_ROLE_MENU_ITEM;
+      case ATTR_VALUE_ROLE_MENUITEMCHECKBOX:
+        return AxRole.AX_ROLE_MENU_ITEM_CHECK_BOX;
+      case ATTR_VALUE_ROLE_MENUITEMRADIO:
+        return AxRole.AX_ROLE_MENU_ITEM_RADIO;
+      case ATTR_VALUE_ROLE_OPTION:
+        return AxRole.AX_ROLE_LIST_BOX_OPTION;
+      case ATTR_VALUE_ROLE_RADIO:
+        return AxRole.AX_ROLE_RADIO_BUTTON;
+      case ATTR_VALUE_ROLE_SWITCH:
+        return AxRole.AX_ROLE_SWITCH;
+      case ATTR_VALUE_ROLE_TAB:
+        return AxRole.AX_ROLE_TAB;
+      case ATTR_VALUE_ROLE_NAVIGATION:
+        return AxRole.AX_ROLE_NAVIGATION;
+      case ATTR_VALUE_ROLE_SEARCH:
+        return AxRole.AX_ROLE_SEARCH;
+      case ATTR_VALUE_ROLE_MAIN:
+        return AxRole.AX_ROLE_MAIN;
+      case ATTR_VALUE_ROLE_ARTICLE:
+        return AxRole.AX_ROLE_ARTICLE;
+      case ATTR_VALUE_ROLE_REGION:
+        return AxRole.AX_ROLE_REGION;
+      case ATTR_VALUE_ROLE_COMPLEMENTARY:
+        return AxRole.AX_ROLE_COMPLEMENTARY;
+      case ATTR_VALUE_ROLE_CONTENT_INFO:
+        return AxRole.AX_ROLE_CONTENT_INFO;
+      case ATTR_VALUE_ROLE_NONE:
+        return AxRole.AX_ROLE_NONE;
+      default:
+        continue;
+    }
+  }
+  return AxRole.AX_ROLE_UNKNOWN;
+}
+
 
 // Constants for text size categorization, mirroring Blink's
 // third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc.
@@ -306,7 +463,7 @@ function getTextSizeCategory(
  * @return The corresponding FormControlType.
  */
 function getFormControlType(element: HTMLElement): FormControlType|undefined {
-  const tagName = element.tagName;
+  const tagName = getStandardTagName(element);
 
   if (tagName === TAG_BUTTON) {
     const type = (element as HTMLButtonElement).type;
@@ -448,7 +605,7 @@ function isRenderedInTopLayer(element: HTMLElement): boolean {
     // Fallback: check if it's an open dialog. Note: Without `:modal` support,
     // we cannot distinguish between `dialog.show()` (normal document flow) and
     // `dialog.showModal()` (top layer). This is a best-effort approximation.
-    if (element.tagName === TAG_DIALOG &&
+    if (getStandardTagName(element) === TAG_DIALOG &&
         element.hasAttribute(ATTRIBUTE_OPEN_DIALOG)) {
       return true;
     }
@@ -488,25 +645,35 @@ function getFormData(form: HTMLFormElement): PageContentFormData {
  * @param element The element to check.
  * @param interactiveNodeIds The set of interactive node IDs.
  * @param interactionInfo The pre-calculated interaction info for the element.
+ * @param annotatedRoles The annotated roles for the element.
  * @return True if the element is a generic container, false otherwise.
  */
 function isGenericContainer(
     element: HTMLElement, interactiveNodeIds: InteractiveNodeIds,
-    interactionInfo: PageContentNodeInteractionInfo|undefined): boolean {
+    interactionInfo: PageContentNodeInteractionInfo|undefined,
+    annotatedRoles: PageContentAnnotatedRole[],
+    labelForDOMNodeID?: number): boolean {
+  // If the element is a label with a valid associated node ID, it is
+  // considered a generic container.
+  if (labelForDOMNodeID !== undefined) {
+    return true;
+  }
+
   // Check if the element is an interactive node.
   const nodeId = getNodeId(element);
+  const tagName = getStandardTagName(element);
   if (nodeId !== null && interactiveNodeIds.has(nodeId)) {
     return true;
   }
 
   // Elements with annotated roles are considered generic containers.
-  if (getAnnotatedRoleForTag(element.tagName) !== null) {
+  if (annotatedRoles.length > 0) {
     return true;
   }
 
   // A <figure> element is a semantic container for self-contained content, like
   // images or diagrams, making it a generic container.
-  if (element.tagName === TAG_FIGURE) {
+  if (tagName === TAG_FIGURE) {
     return true;
   }
 
@@ -528,14 +695,9 @@ function isGenericContainer(
     return true;
   }
 
-  // TODO(crbug.com/480945289): Add searches for Labels (when enabled).
-
   if (isRenderedInTopLayer(element)) {
     return true;
   }
-
-  // TODO(crbug.com/480945289): Add searches for InteractionInfo (when enabled),
-  // and Labels (when enabled).
 
   // Scrollable elements act as containers because they create a new
   // visual context for their content, handling overflow.
@@ -573,32 +735,66 @@ function getScrollerInfo(element: HTMLElement, style: CSSStyleDeclaration):
     return undefined;
   }
 
-  // Populate bounds.
-  // Scrolling bounds = whole content size.
-  const scrollingBounds = {
-    width: element.scrollWidth,
-    height: element.scrollHeight,
-  };
+  // TODO(crbug.com/480945289): Remove this when page context IPC optimization
+  // is enabled.
+  if (isPageContextIPCOptimizationEnabled()) {
+    // Make sure to call element.clientWidth before element.scrollWidth.
+    // This will guide the layout engine to perform the shallow layout first
+    // and then the deep layout calculation.
+    const visibleArea = {
+      x: element.scrollLeft,
+      y: element.scrollTop,
+      width: element.clientWidth,
+      height: element.clientHeight,
+      top: element.scrollTop,
+      right: element.scrollLeft + element.clientWidth,
+      bottom: element.scrollTop + element.clientHeight,
+      left: element.scrollLeft,
+    };
 
-  const visibleArea = {
-    x: element.scrollLeft,
-    y: element.scrollTop,
-    width: element.clientWidth,
-    height: element.clientHeight,
-    top: element.scrollTop,
-    right: element.scrollLeft + element.clientWidth,
-    bottom: element.scrollTop + element.clientHeight,
-    left: element.scrollLeft,
-  };
+    // Populate bounds.
+    // Scrolling bounds = whole content size.
+    const scrollingBounds = {
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+    };
 
-  return {
-    scrollingBounds,
-    visibleArea,
-    userScrollableHorizontal:
-        isScrollableX && (element.scrollWidth > element.clientWidth),
-    userScrollableVertical:
-        isScrollableY && (element.scrollHeight > element.clientHeight),
-  };
+    return {
+      scrollingBounds,
+      visibleArea,
+      userScrollableHorizontal:
+          isScrollableX && (element.scrollWidth > element.clientWidth),
+      userScrollableVertical:
+          isScrollableY && (element.scrollHeight > element.clientHeight),
+    };
+  } else {
+    // Populate bounds.
+    // Scrolling bounds = whole content size.
+    const scrollingBounds = {
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+    };
+
+    const visibleArea = {
+      x: element.scrollLeft,
+      y: element.scrollTop,
+      width: element.clientWidth,
+      height: element.clientHeight,
+      top: element.scrollTop,
+      right: element.scrollLeft + element.clientWidth,
+      bottom: element.scrollTop + element.clientHeight,
+      left: element.scrollLeft,
+    };
+
+    return {
+      scrollingBounds,
+      visibleArea,
+      userScrollableHorizontal:
+          isScrollableX && (element.scrollWidth > element.clientWidth),
+      userScrollableVertical:
+          isScrollableY && (element.scrollHeight > element.clientHeight),
+    };
+  }
 }
 
 /**
@@ -663,9 +859,9 @@ function getNodeInteractionInfo(element: HTMLElement, actionableMode: boolean):
 
   const clickabilityReasons = interactionInfo.clickabilityReasons;
 
+  const tagName = getStandardTagName(element);
   // Form Controls.
-  if ([TAG_BUTTON, TAG_INPUT, TAG_SELECT, TAG_TEXTAREA].includes(
-          element.tagName)) {
+  if ([TAG_BUTTON, TAG_INPUT, TAG_SELECT, TAG_TEXTAREA].includes(tagName)) {
     clickabilityReasons.push(PageContentClickabilityReason.CLICKABLE_CONTROL);
   }
 
@@ -695,8 +891,9 @@ function getNodeInteractionInfo(element: HTMLElement, actionableMode: boolean):
   }
 
   // Editable.
-  if (element.isContentEditable || element.tagName === TAG_TEXTAREA ||
-      (element.tagName === TAG_INPUT &&
+  if (element.isContentEditable ||
+      tagName === TAG_TEXTAREA ||
+      (tagName === TAG_INPUT &&
        ![CHECKBOX_TYPE, RADIO_TYPE, RANGE_TYPE, COLOR_TYPE, FILE_TYPE,
          IMAGE_TYPE, SUBMIT_TYPE, RESET_TYPE, BUTTON_TYPE]
             .includes((element as HTMLInputElement).type))) {
@@ -705,13 +902,11 @@ function getNodeInteractionInfo(element: HTMLElement, actionableMode: boolean):
 
   // Aria Role that imply interactivity.
   const role = element.getAttribute(ATTR_KEY_ROLE);
-  if (role === ATTR_VALUE_ROLE_BUTTON || role === ATTR_VALUE_ROLE_LINK ||
-      role === ATTR_VALUE_ROLE_CHECKBOX || role === ATTR_VALUE_ROLE_MENUITEM ||
-      role === ATTR_VALUE_ROLE_MENUITEMCHECKBOX ||
-      role === ATTR_VALUE_ROLE_MENUITEMRADIO ||
-      role === ATTR_VALUE_ROLE_OPTION || role === ATTR_VALUE_ROLE_RADIO ||
-      role === ATTR_VALUE_ROLE_SWITCH || role === ATTR_VALUE_ROLE_TAB) {
-    clickabilityReasons.push(PageContentClickabilityReason.ARIA_ROLE);
+  if (role) {
+    const axRole = getAXRoleForAriaRole(role);
+    if (INTERACTIVE_AX_ROLES.has(axRole)) {
+      clickabilityReasons.push(PageContentClickabilityReason.ARIA_ROLE);
+    }
   }
 
   // Aria Properties.
@@ -794,10 +989,11 @@ function extractMediaData(document: Document): PageContentMediaData|undefined {
     return undefined;
   }
 
+  const tagName = getStandardTagName(selectedMedia);
   let mediaDataType = PageContentMediaType.MEDIA_DATA_TYPE_UNKNOWN;
-  if (selectedMedia.tagName === TAG_VIDEO) {
+  if (tagName === TAG_VIDEO) {
     mediaDataType = PageContentMediaType.MEDIA_DATA_TYPE_VIDEO;
-  } else if (selectedMedia.tagName === TAG_AUDIO) {
+  } else if (tagName === TAG_AUDIO) {
     mediaDataType = PageContentMediaType.MEDIA_DATA_TYPE_AUDIO;
   }
 
@@ -839,21 +1035,223 @@ function extractFrameInteractionInfo(document: Document):
   return frameInteractionInfo;
 }
 
+// Context for paid content extraction.
+interface PaidContentExtractionContext {
+  /** Whether the paid content extraction is enabled. */
+  extractPaidContent: boolean;
+  /** Whether to attempt to fix malformed paid content JSON. */
+  attemptPaidContentJsonFixing: boolean;
+  /** Whether the page contains paid content. */
+  containsPaidContent: boolean;
+  /** The set of DOM nodes verified as paid content. */
+  paidNodes: Set<Node>;
+}
+
+/**
+ * Parses the `hasPart` field of a schema.org object and populates the
+ * `paidNodes` set with elements matching the `cssSelector` of `WebPageElement`s
+ * that are not accessible for free.
+ *
+ * @param document The document to query.
+ * @param hasPart The `hasPart` value from the JSON-LD object.
+ * @param paidNodes The set to populate with paid content nodes.
+ */
+function extractPaidNodesFromHasPart(
+    document: Document, hasPart: unknown, paidNodes: Set<Node>) {
+  if (!hasPart) {
+    return;
+  }
+  const hasPartsArray = Array.isArray(hasPart) ? hasPart : [hasPart];
+  for (const part of hasPartsArray) {
+    if (typeof part !== 'object' || part === null) {
+      continue;
+    }
+
+    const partRecord = part as Record<string, unknown>;
+    if (partRecord[SCHEMA_PART_TYPE_KEY] !==
+        SCHEMA_PART_WEB_PAGE_ELEMENT_TYPE) {
+      continue;
+    }
+
+    const partIsFree = partRecord[SCHEMA_IS_ACCESSIBLE_FOR_FREE_KEY];
+    // Blink's ObjectValuePresentAndFalse explicitly checks boolean false,
+    // or strings "false" and "False". We mirror that exact behavior here
+    // rather than fully normalizing to lowercase.
+    if (partIsFree !== false && partIsFree !== 'false' &&
+        partIsFree !== 'False') {
+      continue;
+    }
+
+    const selector = partRecord[SCHEMA_PART_CSS_SELECTOR_KEY];
+    if (typeof selector !== 'string') {
+      continue;
+    }
+
+    try {
+      // document.querySelectorAll throws a DOMException if the selector is
+      // invalid. We catch it to avoid crashing the extraction process.
+      const elements = document.querySelectorAll(selector);
+      for (const el of Array.from(elements)) {
+        paidNodes.add(el);
+      }
+    } catch (e) {
+      // Ignore invalid css selectors.
+    }
+  }
+}
+
+/**
+ * Helper function to parse JSON, with fallbacks for common syntax errors.
+ * Mirrors Blink's ParsePaidContentJSON logic.
+ *
+ * @param jsonString The raw JSON string.
+ * @param attemptPaidContentJsonFixing Whether to attempt fixing malformed JSON.
+ * @return The parsed JSON object or null if parsing completely fails.
+ */
+function parsePaidContentJson(
+    jsonString: string, attemptPaidContentJsonFixing: boolean): any|null {
+  try {
+    // Fast path: Try parsing the standard JSON first.
+    // This handles well-formed JSON without regex performance hits or string
+    // corruption.
+    return JSON.parse(jsonString);
+  } catch (e) {
+    // Ignore error, proceed to slow path if enabled.
+  }
+
+  if (!attemptPaidContentJsonFixing) {
+    return null;
+  }
+
+  // Slow path: Fallback for malformed JSON seen in the wild.
+  // The JSON provided by some websites has unescaped newlines or trailing
+  // commas. This regex is a best-effort recovery.
+  let sanitizedText = jsonString.replace(NEWLINE_REGEX, ' ');
+  sanitizedText = sanitizedText.replace(TRAILING_COMMA_REGEX, '$1');
+  try {
+    return JSON.parse(sanitizedText);
+  } catch (fallbackError) {
+    // Both fast path and slow path failed.
+    return null;
+  }
+}
+
+/**
+ * Checks if the document contains paid content by inspecting ld+json metadata
+ * or microdata fallbacks and builds a set of exact matched DOM nodes.
+ *
+ * @param document The document to check.
+ * @return An object containing the global boolean flag and a Set of specific
+ *         DOM nodes annotated as paid content.
+ */
+function extractContainsPaidContent(
+    document: Document, extractPaidContent: boolean,
+    attemptPaidContentJsonFixing: boolean): PaidContentExtractionContext {
+  const extractionContext: PaidContentExtractionContext = {
+    extractPaidContent,
+    attemptPaidContentJsonFixing,
+    containsPaidContent: false,
+    paidNodes: new Set<Node>(),
+  };
+
+  if (!extractPaidContent) {
+    // Return an unfilled context if paid content extraction is not enabled,
+    // meaning paid content will not be taken into account.
+    return extractionContext;
+  }
+
+  const head = document.head;
+  if (!head) {
+    return extractionContext;
+  }
+
+  const scripts = head.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of Array.from(scripts)) {
+    if (!script.textContent) {
+      continue;
+    }
+
+    const obj =
+        parsePaidContentJson(script.textContent, attemptPaidContentJsonFixing);
+
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+      // Skip any JSON value that isn't a dictionary object.
+      continue;
+    }
+
+    // Check for "schema.org" in "@context".
+    const jsonContext = obj[SCHEMA_CONTEXT_KEY];
+    if (typeof jsonContext !== 'string' ||
+        !jsonContext.includes(SCHEMA_ORG_IDENTIFIER)) {
+      continue;
+    }
+
+    // Check for isAccessibleForFree=false or "false" or "False".
+    const isAccessibleForFree = obj[SCHEMA_IS_ACCESSIBLE_FOR_FREE_KEY];
+    // Blink's ObjectValuePresentAndFalse explicitly checks boolean false,
+    // or strings "false" and "False". We mirror that exact behavior here
+    // rather than fully normalizing to lowercase.
+    if (isAccessibleForFree !== false && isAccessibleForFree !== 'false' &&
+        isAccessibleForFree !== 'False') {
+      continue;
+    }
+
+    extractionContext.containsPaidContent = true;
+
+    // Check for hasPart with cssSelector.
+    extractPaidNodesFromHasPart(
+        document, obj[SCHEMA_HAS_PART_KEY], extractionContext.paidNodes);
+
+    if (extractionContext.paidNodes.size > 0) {
+      // Nodes mapped explicitly via cssSelector, no need to fallback.
+      return extractionContext;
+    }
+
+    // We successfully parsed the JSON but found no specific CSS
+    // selectors. By Blink's rules, we exit tracking as true but
+    // fallthrough the inner loop to potentially trigger microdata
+    // fallback for node linking.
+    break;
+  }
+
+  // Fallback: If no valid cssSelector mappings were found, query the document
+  // for <meta itemprop="isAccessibleForFree" content="false"> metadata.
+  if (extractionContext.paidNodes.size === 0) {
+    const paidMetaTags = document.querySelectorAll(`meta[itemprop="${
+        SCHEMA_IS_ACCESSIBLE_FOR_FREE_KEY}"][content="false" i]`);
+    if (paidMetaTags.length > 0) {
+      extractionContext.containsPaidContent = true;
+      for (const meta of Array.from(paidMetaTags)) {
+        if (meta.parentElement) {
+          extractionContext.paidNodes.add(meta.parentElement);
+        }
+      }
+    }
+  }
+
+  return extractionContext;
+}
+
 // TODO(crbug.com/468854910): Add missing fields for PageContentFrameData:
-// HTML metaData, containsPaidContent, and popup (if possible).
+// popup (if possible).
 /**
  * Extracts data about the frame/document.
  *
  * @param document The document to extract data from.
+ * @param paidContentResult The pre-extracted paid content data.
  * @return The populated PageContentFrameData.
  */
-function extractFrameData(document: Document): PageContentFrameData {
+function extractFrameData(
+    document: Document,
+    paidContentContext: PaidContentExtractionContext): PageContentFrameData {
   const frameData: PageContentFrameData = {
     frameInteractionInfo: {},
     metaData: [],
     title: document.title || '',
     sourceUrl: document.URL,
   };
+
+  frameData.containsPaidContent = paidContentContext.containsPaidContent;
 
   frameData.frameInteractionInfo = extractFrameInteractionInfo(document);
   frameData.mediaData = extractMediaData(document);
@@ -1014,7 +1412,8 @@ function getAttributesForTextNode(domNode: Node): PageContentAttributes|null {
  */
 function getContentForIframeNode(
     iframeElement: HTMLIFrameElement, nonce: string, depth: number,
-    maxDepth: number, actionableMode: boolean): PageContentNode|null {
+    maxDepth: number, actionableMode: boolean,
+    paidContentContext: PaidContentExtractionContext): PageContentNode|null {
   const attributes: PageContentAttributes = {
     attributeType: PageContentAttributeType.IFRAME,
     annotatedRoles: [],
@@ -1036,7 +1435,8 @@ function getContentForIframeNode(
       // through iframe content.
       const pageContent = extractAnnotatedPageContent(
           contentDoc, nonce, depth + APC_NODE_DEPTH_COST, maxDepth,
-          actionableMode);
+          actionableMode, paidContentContext.extractPaidContent,
+          paidContentContext.attemptPaidContentJsonFixing);
       if (pageContent) {
         childTree = pageContent.rootNode;
         localFrameData = pageContent.frameData;
@@ -1087,6 +1487,217 @@ function getContentForIframeNode(
 }
 
 /**
+ * Populates the `label` attribute by extracting the accessible name
+ * from `aria-labelledby` or `aria-label`, following the W3C spec where
+ * `aria-labelledby` takes precedence.
+ *
+ * TODO(crbug.com/494224739): Remove the following note when desktop's
+ * implementation is updated to follow the W3C spec.
+ *
+ * Note: This differs from desktop's implementation which concatenates
+ * these two fields if both are present.
+ *
+ * @param element - The DOM element to extract labels from.
+ * @returns The resulting string or undefined if none found.
+ */
+function getAriaLabel(element: HTMLElement): string | undefined {
+  const accumulatedTexts: string[] = [];
+
+  // Process aria-labelledby.
+  const labelledBy = element.getAttribute(ARIA_LABELLEDBY)?.trim();
+  if (labelledBy) {
+    const ids = labelledBy.split(SPACE_SEPARATOR);
+    // This will only work if the labelElement and the element share the same
+    // root. It won't work if the two elements are in different shadow DOMs.
+    // This follows the web standard.
+    const rootNode = element.getRootNode() as Document | ShadowRoot;
+
+    for (const id of ids) {
+      if (!id) {
+        continue;
+      }
+
+      const labelElement = rootNode.getElementById?.(id);
+      // We use textContent instead of innerText
+      // because elements referenced by aria-labelledby may not be visible.
+      const textContent = labelElement?.textContent;
+      if (textContent && textContent.trim().length > 0) {
+        accumulatedTexts.push(textContent);
+      }
+    }
+  }
+
+  // Process aria-label if aria-labelledby is not present.
+  if (accumulatedTexts.length === 0) {
+    const ariaLabel = element.getAttribute(ARIA_LABEL);
+    if (ariaLabel && ariaLabel.trim().length > 0) {
+      accumulatedTexts.push(ariaLabel);
+    }
+  }
+
+  if (accumulatedTexts.length > 0) {
+    return accumulatedTexts.join(' ');
+  }
+  return undefined;
+}
+
+/**
+ * Checks if a code point is a security mask character (e.g. bullet, asterisk).
+ *
+ * @param codePoint The Unicode code point to check.
+ * @return True if the code point is a security mask character.
+ */
+function isSecurityMaskCharacter(codePoint: number): boolean {
+  switch (codePoint) {
+    // Standard Asterisks & Stars.
+    case 0x002A:  // '*'
+    case 0x2731:  // Heavy Asterisk (✱)
+    case 0x2732:  // Open Centre Asterisk (✲)
+    case 0x2733:  // Eight Spoked Asterisk (✳)
+    case 0xFF0A:  // Fullwidth Asterisk (＊)
+
+    // Standard Bullets & Circles.
+    case 0x2022:  // Bullet (•)
+    case 0x25CF:  // Black Circle (●)
+    case 0x25CB:  // White Circle (○)
+    case 0x25EF:  // Large Circle (◯)
+    case 0x26AB:  // Medium Black Circle (⚫)
+    case 0x2B24:  // Black Large Circle (⬤)
+    case 0x25E6:  // White Bullet (◦)
+    case 0x25C9:  // Fisheye (◉)
+
+    // Dots & Mathematical Operators.
+    case 0x00B7:  // Middle Dot (·)
+    case 0x2219:  // Bullet Operator (∙)
+    case 0x22C5:  // Dot Operator (⋅)
+    case 0x2802:  // Braille Dot-2 (⠂)
+    case 0x2812:  // Braille Dots-2-5 (⠒)
+    case 0x2836:  // Braille Dots-2-3-5-6 (⠶)
+
+    // Squares, Blocks & Diamonds.
+    case 0x25A0:  // Black Square (■)
+    case 0x25A1:  // White Square (□)
+    case 0x25AA:  // Black Small Square (▪)
+    case 0x25AB:  // White Small Square (▫)
+    case 0x25AE:  // Black Vertical Rectangle (▮)
+    case 0x2588:  // Full Block (█)
+    case 0x2589:  // Left Seven Eighths Block (▉)
+    case 0x25C6:  // Black Diamond (◆)
+    case 0x25C7:  // White Diamond (◇)
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Checks if a code point is a whitespace character (Space, Tab, LF, CR).
+ *
+ * @param codePoint The Unicode code point to check.
+ * @return True if the code point is a whitespace character.
+ */
+function isJSWhitespace(codePoint: number): boolean {
+  switch (codePoint) {
+    case 0x0020:  // Space
+    case 0x0009:  // Horizontal tab
+    case 0x000A:  // Line feed
+    case 0x000D:  // Carriage return
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Checks if the field's value looks like a custom password field masked by JS.
+ * This heuristic detects values that are mostly composed of mask characters,
+ * potentially with the last character visible (as is common on mobile).
+ *
+ * @param fieldValue The value to check.
+ * @return True if the value is likely a custom password.
+ */
+function isLikelyJSCustomPasswordField(fieldValue: string): boolean {
+  // Use a while loop to correctly iterate over Unicode code points without
+  // allocating a new array, handling surrogate pairs as single characters.
+  let i = 0;
+  let codePointCount = 0;
+  while (i < fieldValue.length) {
+    const codePoint = fieldValue.codePointAt(i)!;
+    codePointCount++;
+
+    if (isJSWhitespace(codePoint)) {
+      // Passwords generally do not contain whitespace (it doesn't mean they
+      // can't but this is a generalization to make a best guess on the
+      // purpose of the `fieldValue`).
+      return false;
+    }
+
+    const isMask = isSecurityMaskCharacter(codePoint);
+    const charLen = codePoint > 0xFFFF ? 2 : 1;
+    const isLast = (i + charLen >= fieldValue.length);
+
+    if (isMask) {
+      i += charLen;
+      continue;
+    }
+
+    // Visible characters are only allowed at the very end (to support the
+    // common mobile pattern where the last typed character is briefly visible).
+    if (!isLast) {
+      return false;
+    }
+
+    i += charLen;
+  }
+
+  // All characters look like password characters and we have at least 2.
+  return codePointCount >= 2;
+}
+
+/**
+ * Checks if the element is a custom password field (e.g. using CSS
+ * text-security or JS masking).
+ */
+function isCustomPassword(element: Element): boolean {
+  if (element.tagName === TAG_INPUT || element.tagName === TAG_TEXTAREA) {
+    const value = (element as HTMLInputElement | HTMLTextAreaElement).value;
+    if (value && isLikelyJSCustomPasswordField(value)) {
+      return true;
+    }
+  }
+
+  const windowObj = element.ownerDocument?.defaultView || window;
+  const style = windowObj.getComputedStyle(element);
+  const textSecurity = style.getPropertyValue('-webkit-text-security');
+  return !!textSecurity && textSecurity !== 'none';
+}
+
+
+
+/**
+ * Checks if the element is a password field (standard or custom).
+ *
+ * @param domNode The DOM element to process.
+ * @param tagName The tag name of the element.
+ * @return True if the element is a password field.
+ */
+function isPasswordField(domNode: HTMLElement, tagName: string): boolean {
+  if (tagName === TAG_INPUT &&
+      ((domNode as PasswordTrackedElement)[HAS_BEEN_PASSWORD_SYMBOL] ||
+       (domNode as HTMLInputElement).type === PASSWORD_TYPE)) {
+    // A plain password input.
+    return true;
+  }
+
+  if (tagName === TAG_INPUT || tagName === TAG_TEXTAREA) {
+    // Check for custom password fields (CSS or JS masked).
+    return isCustomPassword(domNode);
+  }
+  return false;
+}
+
+/**
  * Extracts form control specific content attributes from a given DOM element.
  * Handles inputs, textareas, selects, and buttons.
  *
@@ -1103,7 +1714,6 @@ function getFormControlData(
     selectOptions: [],
     isChecked: false,
     isRequired: false,
-    // TODO(crbug.com/485211722): Set redaction decision for Autofill.
     redactionDecision: PageContentRedactionDecision.NO_REDACTION_NECESSARY,
   };
 
@@ -1114,15 +1724,15 @@ function getFormControlData(
 
   const value = (domNode as HTMLInputElement).value;
   if (value !== undefined) {
-    // TODO(crbug.com/485211722): Complete implementation once redaction
-    // decision is fully available.
-    // Exclude password field value mirroring Blink's logic.
-    // For now, only extract value if type != password.
-    // TAG_TEXTAREA and TAG_SELECT do not support the 'type' attribute to
-    // designate a password field, so we consider their values safe to extract
-    // (unless they are custom passwords, which is handled separately).
-    if (tagName !== TAG_INPUT ||
-        (domNode as HTMLInputElement).type !== PASSWORD_TYPE) {
+    let needRedaction = false;
+    if (isPasswordField(domNode, tagName)) {
+      needRedaction = !!value;
+      // Exclude password field value mirroring Blink's logic.
+      formControlData.redactionDecision = needRedaction ?
+          PageContentRedactionDecision.REDACTED_HAS_BEEN_PASSWORD :
+          PageContentRedactionDecision.UNREDACTED_EMPTY_PASSWORD;
+    }
+    if (!needRedaction) {
       formControlData.fieldValue = value;
     }
   }
@@ -1183,6 +1793,25 @@ function getFormControlData(
 }
 
 /**
+ * Extracts table name from a given table DOM Node.
+ *
+ * @param domNode The table element to process.
+ * @return The populated PageContentTableData.
+ */
+function getTableNameForTableNode(domNode: HTMLElement): PageContentTableData {
+  const tableData: PageContentTableData = {};
+  const tableElement = domNode as HTMLTableElement;
+  // NOTE: Table names will appear twice in the APC tree(once as a part of a
+  // table node and once as a part of a text node). This matches Blink's
+  // behavior.
+  const tableName = tableElement.caption?.innerText?.trim();
+  if (tableName) {
+    tableData.tableName = tableName;
+  }
+  return tableData;
+}
+
+/**
  * Returns basic content for an element node that is not a generic
  * container based on its tag name.
  *
@@ -1193,14 +1822,16 @@ function getFormControlData(
  */
 function getBasicContentForNonGenericElement(
     domNode: HTMLElement, nonce: string, depth: number, maxDepth: number,
-    actionableMode: boolean): PageContentNode|null {
-  const tagName = domNode.tagName;
+    actionableMode: boolean,
+    paidContentContext: PaidContentExtractionContext): PageContentNode|null {
+  const tagName = getStandardTagName(domNode);
 
   switch (tagName) {
     // 1. Complex Elements.
     case TAG_IFRAME:
       return getContentForIframeNode(
-          domNode as HTMLIFrameElement, nonce, depth, maxDepth, actionableMode);
+          domNode as HTMLIFrameElement, nonce, depth, maxDepth, actionableMode,
+          paidContentContext);
     case TAG_IMG:
       return {
         childrenNodes: [],
@@ -1259,16 +1890,27 @@ function getBasicContentForNonGenericElement(
         },
       };
     }
+    case TAG_SVG: {
+      return {
+        childrenNodes: [],
+        contentAttributes: {
+          ...BASIC_CONTENT_ATTRIBUTES,
+          attributeType: PageContentAttributeType.SVG_ROOT,
+        },
+      };
+    }
 
     // 2. Structural & Layout Elements.
-    case TAG_TABLE:
+    case TAG_TABLE: {
       return {
         childrenNodes: [],
         contentAttributes: {
           ...BASIC_CONTENT_ATTRIBUTES,
           attributeType: PageContentAttributeType.TABLE,
+          tableData: getTableNameForTableNode(domNode),
         },
       };
+    }
     case TAG_TR: {
       let rowType = PageContentTableRowType.BODY;
       // Use closest to find the nearest table section or table ancestor.
@@ -1277,9 +1919,9 @@ function getBasicContentForNonGenericElement(
       // table boundary and don't match a section from an outer table if this
       // row is inside a nested table.
       const section = domNode.closest('thead, tfoot, table');
-      if (section && section.tagName === 'THEAD') {
+      if (section && getStandardTagName(section) === 'THEAD') {
         rowType = PageContentTableRowType.HEADER;
-      } else if (section && section.tagName === 'TFOOT') {
+      } else if (section && getStandardTagName(section) === 'TFOOT') {
         rowType = PageContentTableRowType.FOOTER;
       }
       return {
@@ -1400,28 +2042,39 @@ function getContentForElementNode(
     domNode: HTMLElement, nonce: string, depth: number, maxDepth: number,
     annotatedRoles: PageContentAnnotatedRole[],
     interactionInfo: PageContentNodeInteractionInfo|undefined,
-    actionableMode: boolean,
-    interactiveNodeIds: InteractiveNodeIds): PageContentNode|null {
+    actionableMode: boolean, interactiveNodeIds: InteractiveNodeIds,
+    paidContentContext: PaidContentExtractionContext): PageContentNode|null {
+
+  let labelForDOMNodeID: number | undefined = undefined;
+  if (actionableMode && getStandardTagName(domNode) === TAG_LABEL) {
+    labelForDOMNodeID = getAssociatedControlDOMNodeID(
+        domNode as HTMLLabelElement, interactiveNodeIds);
+  }
+
   let contentNode: PageContentNode|null = null;
 
   // 1. Try to get basic content for non-generic elements.
   contentNode = getBasicContentForNonGenericElement(
-      domNode, nonce, depth, maxDepth, actionableMode);
+      domNode, nonce, depth, maxDepth, actionableMode, paidContentContext);
 
   // 2. Fallback: Generic Container.
   if (!contentNode &&
-      isGenericContainer(domNode, interactiveNodeIds, interactionInfo)) {
+      isGenericContainer(domNode, interactiveNodeIds, interactionInfo,
+                         annotatedRoles, labelForDOMNodeID)) {
     contentNode = {
       childrenNodes: [],
       contentAttributes: {
         attributeType: PageContentAttributeType.CONTAINER,
-        annotatedRoles: [],
         isAdRelated: false,
       },
     };
   }
 
-  // TODO(crbug.com/468852704): Populate the rest of the `contentAttributes`.
+  // TODO(crbug.com/495959941): Support ARIA custom form control semantics.
+
+  // TODO(crbug.com/468852704): Populate the rest of the attributes on top of
+  // `basicAttributes`.
+
   if (contentNode) {
     if (annotatedRoles.length > 0) {
       contentNode.contentAttributes.annotatedRoles = annotatedRoles;
@@ -1429,9 +2082,57 @@ function getContentForElementNode(
     if (interactionInfo) {
       contentNode.contentAttributes.nodeInteractionInfo = interactionInfo;
     }
+
+    if (labelForDOMNodeID !== undefined) {
+      contentNode.contentAttributes.labelForDomNodeId = labelForDOMNodeID;
+    }
+
+    const ariaLabel = getAriaLabel(domNode);
+    if (ariaLabel) {
+      contentNode.contentAttributes.label = ariaLabel;
+    }
   }
 
   return contentNode;
+}
+
+/**
+ * Appends the annotated roles for the element, including tag-based roles,
+ * ARIA roles, content-visibility states, and paid content roles to
+ * the provided array.
+ *
+ * @param domNode The element to check.
+ * @param annotatedRoles The array to populate with roles.
+ * @param paidContentContext Context regarding paid content.
+ */
+function addAnnotatedRoles(
+    domNode: HTMLElement,
+    annotatedRoles: PageContentAnnotatedRole[],
+    paidContentContext: PaidContentExtractionContext): void {
+  const windowObj = domNode.ownerDocument?.defaultView;
+  if (windowObj) {
+    const style = windowObj.getComputedStyle(domNode);
+    if (style.contentVisibility === STYLE_VALUE_CONTENT_VISIBILITY_HIDDEN) {
+      annotatedRoles.push(PageContentAnnotatedRole.CONTENT_HIDDEN);
+    }
+  }
+
+  const roleFromTag = getAnnotatedRoleForTag(getStandardTagName(domNode));
+  if (roleFromTag !== null) {
+    annotatedRoles.push(roleFromTag);
+  }
+
+  const ariaRoleAttr = domNode.getAttribute(ATTR_KEY_ROLE);
+  if (ariaRoleAttr) {
+    const roleFromAria = getAnnotatedRoleForAriaRole(ariaRoleAttr);
+    if (roleFromAria !== undefined && !annotatedRoles.includes(roleFromAria)) {
+      annotatedRoles.push(roleFromAria);
+    }
+  }
+
+  if (paidContentContext.paidNodes.has(domNode)) {
+    annotatedRoles.push(PageContentAnnotatedRole.PAID_CONTENT);
+  }
 }
 
 // TODO(crbug.com/476341187): Carry status information when the max depth is
@@ -1443,9 +2144,8 @@ function getContentForElementNode(
  *
  * @param domNode The DOM node to process (Element or Text).
  * @param nonce Unique identifier for the extraction run.
- * @param depth Current recursion depth.
- * @param maxDepth Maximal depth for json objects beyond which content is
- *     truncated.
+ * @param interactiveNodeIds Specific node IDs verified as interactive.
+ * @param paidNodesSet Set of DOM nodes verified as paid content.
  * @param interactiveNodeIds A map of interactive node IDs to their
  *     interaction info.
  * @param actionableMode Whether to extract actionable interaction info.
@@ -1453,8 +2153,8 @@ function getContentForElementNode(
  */
 function maybeGenerateContentNode(
     domNode: Node, nonce: string, depth: number, maxDepth: number,
-    interactiveNodeIds: InteractiveNodeIds,
-    actionableMode: boolean): PageContentNode|null {
+    interactiveNodeIds: InteractiveNodeIds, actionableMode: boolean,
+    paidContentContext: PaidContentExtractionContext): PageContentNode|null {
   let contentAttributes: PageContentAttributes|null = null;
   if (domNode.nodeType === Node.TEXT_NODE) {
     contentAttributes = getAttributesForTextNode(domNode);
@@ -1470,18 +2170,25 @@ function maybeGenerateContentNode(
     }
   } else if (domNode.nodeType === Node.ELEMENT_NODE) {
     const element = domNode as HTMLElement;
-    const role = getAnnotatedRoleForTag(element.tagName);
-    const annotatedRoles = (role == null) ? [] : [role];
+    const annotatedRoles: PageContentAnnotatedRole[] = [];
+    addAnnotatedRoles(element, annotatedRoles, paidContentContext);
     const interactionInfo = getNodeInteractionInfo(element, actionableMode);
 
     const contentNode = getContentForElementNode(
         element, nonce, depth, maxDepth, annotatedRoles, interactionInfo,
-        actionableMode, interactiveNodeIds);
+        actionableMode, interactiveNodeIds, paidContentContext);
     if (contentNode) {
       const domNodeId = getOrCreateNodeId(domNode);
       if (domNodeId !== null) {
         contentNode.contentAttributes.domNodeId = domNodeId;
       }
+
+      if (actionableMode) {
+        const roleStr = element.getAttribute(ATTR_KEY_ROLE);
+        contentNode.contentAttributes.ariaRole =
+            roleStr ? getAXRoleForAriaRole(roleStr) : AxRole.AX_ROLE_UNKNOWN;
+      }
+
       return contentNode;
     }
   }
@@ -1495,8 +2202,8 @@ function maybeGenerateContentNode(
 function shouldAcceptNode(node: Node): number {
   if (node.nodeType === Node.ELEMENT_NODE) {
     const element = node as Element;
-    if (TAGS_TO_REJECT.includes(element.tagName) ||
-        TAGS_TO_SUPPORT_EVENTUALLY.includes(element.tagName)) {
+    const tagName = getStandardTagName(element);
+    if (TAGS_TO_REJECT.includes(tagName)) {
       return NodeFilter.FILTER_REJECT;
     }
     const windowObj = element.ownerDocument?.defaultView;
@@ -1512,7 +2219,7 @@ function shouldAcceptNode(node: Node): number {
     }
     if (style.visibility === ATTR_VISIBILITY_HIDDEN) {
       // Strictly skip invisible leaf nodes.
-      if (TAGS_TO_STRICTLY_REJECT_IF_HIDDEN.includes(element.tagName)) {
+      if (TAGS_TO_STRICTLY_REJECT_IF_HIDDEN.includes(tagName)) {
         return NodeFilter.FILTER_REJECT;
       }
       // For containers, we OPTIMISTICALLY ACCEPT (FILTER_ACCEPT).
@@ -1560,11 +2267,13 @@ interface AncestorStackItem {
  * @param maxDepth The maximum recursion depth.
  * @param ancestorStack The stack of ancestors that provides the parent node and
  *     where the new node is pushed as the next closest parent.
+ * @param interactiveNodeIds Specific node IDs verified as interactive.
+ * @param paidNodesSet Set of DOM nodes verified as paid content.
  */
 function generateAndPushContentNode(
-    node: Node, nonce: string, maxDepth: number, actionableMode: boolean,
-    ancestorStack: AncestorStackItem[],
-    interactiveNodeIds: InteractiveNodeIds) {
+    node: Node, nonce: string, maxDepth: number,
+    ancestorStack: AncestorStackItem[], interactiveNodeIds: InteractiveNodeIds,
+    actionableMode: boolean, paidContentContext: PaidContentExtractionContext) {
   const parentStackItem = ancestorStack[ancestorStack.length - 1]!;
 
   // 2. Generate Content Node. Skip nodes that are too deep while keep
@@ -1576,7 +2285,8 @@ function generateAndPushContentNode(
   }
 
   const newApcNode = maybeGenerateContentNode(
-      node, nonce, currentDepth, maxDepth, interactiveNodeIds, actionableMode);
+      node, nonce, currentDepth, maxDepth, interactiveNodeIds, actionableMode,
+      paidContentContext);
   if (!newApcNode) {
     // Ignore the node if it can't be parsed. That node cannot be a parent
     // either where another node in the ancestor stack will be picked as the
@@ -1660,6 +2370,42 @@ function getInteractiveNodeIds(document: Document): InteractiveNodeIds {
   return interactiveNodeIds;
 }
 
+/**
+ * Returns the standardized, uppercase tag name for an element.
+ *
+ * @param element The DOM element to evaluate.
+ * @return The uppercase tag name.
+ */
+function getStandardTagName(element: Element): string {
+  return element.tagName.toUpperCase();
+}
+
+/**
+ * Returns the DOM node ID of the control element associated with a
+ * given <label>.
+ * Note: The returned node ID is the ID of the node that the
+ * label is 'for', not the ID of the label element itself.
+ *
+ * @param labelElement The <label> element to inspect.
+ * @param interactiveNodeIds The set of interactive node IDs to update.
+ * @return The DOM node ID of the associated control, or undefined if
+ *         none exists.
+ */
+function getAssociatedControlDOMNodeID(
+    labelElement: HTMLLabelElement,
+    interactiveNodeIds: InteractiveNodeIds,
+): number | undefined {
+  const associatedControl = labelElement.control;
+  if (associatedControl) {
+    const controlId = getOrCreateNodeId(associatedControl);
+    if (controlId !== null) {
+      interactiveNodeIds.add(controlId);
+      return controlId;
+    }
+  }
+  return undefined;
+}
+
 // TODO(crbug.com/485796293): Wrap this in a class.
 /**
  * Extracts the annotated page content of the document starting from the body
@@ -1679,10 +2425,18 @@ function getInteractiveNodeIds(document: Document): InteractiveNodeIds {
  */
 export function extractAnnotatedPageContent(
     document: Document, nonce: string, depth: number = 0, maxDepth: number,
-    actionableMode: boolean): PageContent|null {
+    actionableMode: boolean, extractPaidContent: boolean,
+    attemptPaidContentJsonFixing: boolean): PageContent|null {
   if (depth > maxDepth) {
     return null;
   }
+
+  const documentWindow = document.defaultView;
+  if (!documentWindow) {
+    // A document without a window doesn't have any value.
+    return null;
+  }
+
 
   const root = document.body;
   if (!root) {
@@ -1694,6 +2448,10 @@ export function extractAnnotatedPageContent(
     return null;
   }
   root.setAttribute(NONCE_ATTR, nonce);
+
+  // Perform pre-walk extraction of paid content globals and specific nodes.
+  const paidContentContext = extractContainsPaidContent(
+      document, extractPaidContent, attemptPaidContentJsonFixing);
 
   const domNodeId = getOrCreateNodeId(root);
   if (domNodeId === null) {
@@ -1710,7 +2468,6 @@ export function extractAnnotatedPageContent(
     },
     childrenNodes: [],
   };
-
 
 
   // Stack to track the current ancestry chain. At this point it is known that
@@ -1774,8 +2531,8 @@ export function extractAnnotatedPageContent(
     // 2. Generate Content Node. Skip nodes that are too deep while keep
     // walking the tree since future nodes might be shallow enough.
     generateAndPushContentNode(
-        currentNode, nonce, maxDepth, actionableMode, ancestorStack,
-        interactiveNodeIds);
+        currentNode, nonce, maxDepth, ancestorStack, interactiveNodeIds,
+        actionableMode, paidContentContext);
 
     currentNode = walker.nextNode();
   }
@@ -1793,10 +2550,23 @@ export function extractAnnotatedPageContent(
 
   const pageInteractionInfo = extractPageInteractionInfo(document);
 
+  // Start the viewport at (0, 0) as it represents the entire page surface which
+  // is the root surface. This deliberately extracts the layout viewport bounds,
+  // rather than accounting for visual viewport offsets (e.g., pinch-to-zoom),
+  // to maintain parity with Blink's ConvertViewportGeometry in
+  // components/optimization_guide/content/browser/page_content_proto_provider.cc.
+  const viewportGeometry = {
+    x: 0,
+    y: 0,
+    width: documentWindow.innerWidth,
+    height: documentWindow.innerHeight,
+  };
+
   return {
-    rootNode: rootNode,
-    pageInteractionInfo: pageInteractionInfo,
-    frameData: extractFrameData(document),
+    rootNode,
+    pageInteractionInfo,
+    frameData: extractFrameData(document, paidContentContext),
+    viewportGeometry,
     visibleBoundingBoxesForPasswordRedaction: [],
   };
 }

@@ -187,7 +187,9 @@ Window::Window(WindowDelegate* delegate, client::WindowType type)
 
 Window::~Window() {
   // TODO(crbug.com/461127606): Crash on re-entrant destruction.
-  CHECK(!is_destroying_, base::NotFatalUntil::M149);
+  // TODO(crbug.com/497548912): Continue crashing on re-entrant destruction
+  // on Chrome M149 or newer.
+  CHECK(!is_destroying_);
   is_destroying_ = true;
   WindowOcclusionTracker::ScopedPause pause_occlusion_tracking;
 
@@ -1224,9 +1226,10 @@ void Window::NotifyRemovingFromRootWindow(Window* new_root) {
     UnregisterFrameSinkId();
   for (WindowObserver& observer : observers_)
     observer.OnWindowRemovingFromRootWindow(this, new_root);
-  for (Window::Windows::const_iterator it = children_.begin();
-       it != children_.end(); ++it) {
-    (*it)->NotifyRemovingFromRootWindow(new_root);
+
+  WindowTracker tracker(children_);
+  while (!tracker.windows().empty()) {
+    tracker.Pop()->NotifyRemovingFromRootWindow(new_root);
   }
 }
 
@@ -1235,9 +1238,10 @@ void Window::NotifyAddedToRootWindow() {
     RegisterFrameSinkId();
   for (WindowObserver& observer : observers_)
     observer.OnWindowAddedToRootWindow(this);
-  for (Window::Windows::const_iterator it = children_.begin();
-       it != children_.end(); ++it) {
-    (*it)->NotifyAddedToRootWindow();
+
+  WindowTracker tracker(children_);
+  while (!tracker.windows().empty()) {
+    tracker.Pop()->NotifyAddedToRootWindow();
   }
 }
 
@@ -1259,9 +1263,9 @@ void Window::NotifyWindowHierarchyChange(
 void Window::NotifyWindowHierarchyChangeDown(
     const WindowObserver::HierarchyChangeParams& params) {
   NotifyWindowHierarchyChangeAtReceiver(params);
-  for (Window::Windows::const_iterator it = children_.begin();
-       it != children_.end(); ++it) {
-    (*it)->NotifyWindowHierarchyChangeDown(params);
+  WindowTracker tracker(children_);
+  while (!tracker.windows().empty()) {
+    tracker.Pop()->NotifyWindowHierarchyChangeDown(params);
   }
 }
 
@@ -1567,14 +1571,22 @@ void Window::OnLayerBoundsChanged(const gfx::Rect& old_bounds,
     observer.OnWindowBoundsChanged(this, old_bounds, bounds_, reason);
 
   // Trigger the changed notification for each of the bounds "properties".
-  if (old_bounds.x() != bounds_.x())
-    TriggerChangedCallback(UNSAFE_TODO(&bounds_ + kBoundsX));
-  if (old_bounds.y() != bounds_.y())
-    TriggerChangedCallback(UNSAFE_TODO(&bounds_ + kBoundsY));
-  if (old_bounds.width() != bounds_.width())
-    TriggerChangedCallback(UNSAFE_TODO(&bounds_ + kBoundsWidth));
-  if (old_bounds.height() != bounds_.height())
-    TriggerChangedCallback(UNSAFE_TODO(&bounds_ + kBoundsHeight));
+  if (old_bounds.x() != bounds_.x()) {
+    TriggerChangedCallback(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kBoundsX));
+  }
+  if (old_bounds.y() != bounds_.y()) {
+    TriggerChangedCallback(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kBoundsY));
+  }
+  if (old_bounds.width() != bounds_.width()) {
+    TriggerChangedCallback(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kBoundsWidth));
+  }
+  if (old_bounds.height() != bounds_.height()) {
+    TriggerChangedCallback(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kBoundsHeight));
+  }
 }
 
 void Window::OnLayerOpacityChanged(ui::PropertyChangeReason reason) {

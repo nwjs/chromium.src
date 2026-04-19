@@ -38,6 +38,10 @@ class CORE_EXPORT HTMLButtonElement final : public HTMLFormControlElement {
  public:
   explicit HTMLButtonElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLButtonElement;
+  }
+
   void setType(const AtomicString&);
 
   const AtomicString& Value() const;
@@ -53,6 +57,7 @@ class CORE_EXPORT HTMLButtonElement final : public HTMLFormControlElement {
   HTMLSelectElement* OwnerSelect() const;
 
   bool CanBeCommandInvoker() const override;
+  bool IsValidInterestInvoker(Element& target) const override;
 
  private:
   // The type attribute of HTMLButtonElement is an enumerated attribute:

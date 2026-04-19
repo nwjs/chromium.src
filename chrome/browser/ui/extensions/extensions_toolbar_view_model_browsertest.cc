@@ -20,6 +20,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/permissions_manager.h"
+#include "extensions/browser/pref_names.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_builder.h"
 #include "net/dns/mock_host_resolver.h"
@@ -43,13 +44,15 @@ class FakeExtensionActionDelegate : public ExtensionActionDelegate {
   void UnregisterCommand() override {}
   bool IsShowingPopup() const override { return false; }
   void HidePopup() override {}
-  gfx::NativeView GetPopupNativeView() override { return gfx::NativeView(); }
+  gfx::NativeView GetPopupNativeViewForTesting() override {
+    return gfx::NativeView();
+  }
   void TriggerPopup(std::unique_ptr<extensions::ExtensionViewHost> host,
                     PopupShowAction show_action,
                     bool by_user,
                     ShowPopupCallback callback) override {}
   void ShowContextMenuAsFallback() override {}
-  bool CloseOverflowMenuIfOpen() override { return false; }
+  void CloseExtensionsMenuIfOpen() override {}
 };
 
 // The test delegate that acts as the factory for Action ViewModels.
@@ -68,7 +71,7 @@ class TestExtensionsToolbarDelegate
   }
 
   void HideActivePopup() override {}
-  bool CloseOverflowMenuIfOpen() override { return false; }
+  void CloseExtensionsMenuIfOpen() override {}
   void ToggleExtensionsMenu() override {}
   bool CanShowToolbarActionPopupForAPICall(
       const std::string& action_id) override {
@@ -99,7 +102,10 @@ class MockExtensionsToolbarObserver
               (const ToolbarActionsModel::ActionId&),
               (override));
   MOCK_METHOD(void, OnPinnedActionsChanged, (), (override));
-  MOCK_METHOD(void, OnActiveWebContentsChanged, (bool), (override));
+  MOCK_METHOD(void,
+              OnActiveWebContentsChanged,
+              (bool, content::WebContents*),
+              (override));
 };
 
 }  // namespace
@@ -311,7 +317,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
 // Tests that the observer is notified when navigation happens.
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
                        ObserverCalledOnNavigation) {
-  EXPECT_CALL(mock_observer(), OnActiveWebContentsChanged(_))
+  EXPECT_CALL(mock_observer(), OnActiveWebContentsChanged(_, _))
       .Times(testing::AtLeast(1));
 
   NavigateTo("example.com");
@@ -320,7 +326,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
 // Tests that the observer is notified when the active tab changes.
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
                        ObserverCalledOnActiveTabChanged) {
-  EXPECT_CALL(mock_observer(), OnActiveWebContentsChanged(_))
+  EXPECT_CALL(mock_observer(), OnActiveWebContentsChanged(_, _))
       .Times(testing::AtLeast(1));
 
   TabListInterface* tab_list =
@@ -398,4 +404,65 @@ IN_PROC_BROWSER_TEST_F(
       toolbar_model()->GetRequestAccessButtonParams(GetActiveWebContents());
   EXPECT_TRUE(params.extension_ids.empty());
   EXPECT_TRUE(params.tooltip_text.empty());
+}
+
+// Tests that a pinned action is draggable.
+IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
+                       IsDraggable_Basic) {
+  auto extension = AddExtension("Alpha");
+  const std::string& id = extension->id();
+
+  // By default, the extension is not pinned, so it should not be draggable.
+  EXPECT_FALSE(toolbar_model()->IsActionDraggable(id));
+
+  // Pin the extension.
+  ToolbarActionsModel::Get(profile())->SetActionVisibility(id, true);
+  EXPECT_TRUE(toolbar_model()->IsActionDraggable(id));
+
+  // Unpin the extension.
+  ToolbarActionsModel::Get(profile())->SetActionVisibility(id, false);
+  EXPECT_FALSE(toolbar_model()->IsActionDraggable(id));
+}
+
+// Tests that actions are never draggable in an Incognito window, even if
+// pinned.
+IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
+                       IsDraggable_Incognito) {
+  auto extension = AddExtension("Alpha");
+  const std::string& id = extension->id();
+
+  // Pin the extension in the main profile.
+  ToolbarActionsModel::Get(profile())->SetActionVisibility(id, true);
+  // Verify it is draggable in the regular profile.
+  EXPECT_TRUE(toolbar_model()->IsActionDraggable(id));
+
+  // Create an Incognito browser.
+  BrowserWindowInterface* incognito_window = CreateIncognitoBrowserWindow();
+
+  // Create a view model specific to the Incognito browser.
+  auto incognito_delegate =
+      std::make_unique<TestExtensionsToolbarDelegate>(incognito_window);
+  auto incognito_model = std::make_unique<ExtensionsToolbarViewModel>(
+      incognito_delegate.get(), incognito_window,
+      ToolbarActionsModel::Get(incognito_window->GetProfile()));
+
+  // Verify the extension is NOT draggable in the Incognito model.
+  EXPECT_FALSE(incognito_model->IsActionDraggable(id));
+}
+
+// Tests that force-pinned extensions (e.g. by enterprise policy) are NOT
+// draggable.
+IN_PROC_BROWSER_TEST_F(ExtensionsToolbarViewModelBrowserTest,
+                       IsDraggable_ForcePinned) {
+  auto extension = AddExtension("Alpha");
+  const std::string& id = extension->id();
+
+  // Force-pin the extension via the ExtensionManagement preference.
+  base::DictValue management;
+  management.Set(id, base::DictValue().Set("toolbar_pin", "force_pinned"));
+  profile()->GetPrefs()->SetDict(extensions::pref_names::kExtensionManagement,
+                                 std::move(management));
+
+  // Verify the action is not draggable.
+  EXPECT_FALSE(toolbar_model()->IsActionDraggable(id));
 }

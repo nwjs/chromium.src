@@ -252,7 +252,7 @@ class WebRtcAudioRendererTest : public testing::Test {
             /*policy_container=*/nullptr)) {
     MediaStreamComponentVector dummy_components;
     stream_descriptor_ = MakeGarbageCollected<MediaStreamDescriptor>(
-        String::FromUTF8("new stream"), dummy_components, dummy_components);
+        "new stream", dummy_components, dummy_components);
   }
 
   void SetupRenderer(const String& device_id) {
@@ -460,7 +460,7 @@ TEST_F(WebRtcAudioRendererTest, SwitchOutputDevice) {
       .WillOnce(SaveArg<2>(&params));
   EXPECT_CALL(*source_.get(), AudioRendererThreadStopped());
   EXPECT_CALL(*source_.get(),
-              SetOutputDeviceForAec(String::FromUTF8(kOtherOutputDeviceId)));
+              SetOutputDeviceForAec(String::FromUtf8(kOtherOutputDeviceId)));
   EXPECT_CALL(*this, MockSwitchDeviceCallback(media::OUTPUT_DEVICE_STATUS_OK));
   base::RunLoop loop;
   renderer_proxy_->SwitchOutputDevice(
@@ -556,9 +556,8 @@ class WebRtcAudioRendererTrackSourceTest : public WebRtcAudioRendererTest {
     auto audio_source = std::make_unique<MediaStreamAudioSource>(
         scheduler::GetSingleThreadTaskRunnerForTesting(), true);
     auto* source = MakeGarbageCollected<MediaStreamSource>(
-        String::FromUTF8("dummy_source_id"), MediaStreamSource::kTypeAudio,
-        String::FromUTF8("dummy_source_name"), false /* remote */,
-        std::move(audio_source));
+        "dummy_source_id", MediaStreamSource::kTypeAudio, "dummy_source_name",
+        false /* remote */, std::move(audio_source));
 
     remote_source_interface_ =
         new webrtc::RefCountedObject<MockAudioSourceInterface>();

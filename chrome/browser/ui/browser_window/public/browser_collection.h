@@ -55,11 +55,18 @@ class BrowserCollection {
   // Returns the number of BrowserWindowInterfaces belonging to this collection.
   virtual size_t GetSize() const = 0;
 
+  // Gets the last active browser for this collection.
+  BrowserWindowInterface* GetLastActiveBrowser();
+
  protected:
   BrowserCollection();
   virtual ~BrowserCollection();
 
-  base::ObserverList<BrowserCollectionObserver>& observers() {
+  base::ObserverList<
+      BrowserCollectionObserver,
+      /*check_empty=*/false,
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>&
+  observers() {
     return observers_;
   }
 
@@ -76,7 +83,12 @@ class BrowserCollection {
   friend base::ScopedObservationTraits<BrowserCollection,
                                        BrowserCollectionObserver>;
 
-  base::ObserverList<BrowserCollectionObserver> observers_;
+  // TODO(crbug.com/484371187): Investigate if reentrancy can be removed.
+  base::ObserverList<
+      BrowserCollectionObserver,
+      /*check_empty=*/false,
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>
+      observers_;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_COLLECTION_H_

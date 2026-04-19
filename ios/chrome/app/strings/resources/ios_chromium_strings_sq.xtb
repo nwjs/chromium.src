@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sq">
 <translation id="1000436330784933699">Mund ta hapësh "Lenten" këtu.</translation>
+<translation id="1005291068154454184">Video në ekran të plotë për mënyrën se si ta caktosh Chromium si parazgjedhje</translation>
 <translation id="1042296835509784301">Hap "Menaxherin e fjalëkalimeve" në Chromium.</translation>
 <translation id="1047130070405668746">Zgjidh Chromium</translation>
 <translation id="1091252999271033193">Kjo do të thotë që Chromium do kërkojë sajtin në celular çdo herë.</translation>
@@ -70,9 +71,6 @@ Faqeshënuesit e rinj nuk mund të ruhen në llogarinë tënde derisa të fshish
 <translation id="2313870531055795960">Kontrollon URL-të kundrejt një liste sajtesh të pasigurta të ruajtur në Chromium. Nëse një sajt përpiqet të vjedhë fjalëkalimin tënd ose kur shkarkon një skedar të dëmshëm, Chromium mund t'i dërgojë gjithashtu URL-të, duke përfshirë pjesë të përmbajtjes së faqes, te "Shfletimi i sigurt".</translation>
 <translation id="2314220608288760290">Chromium i hap automatikisht lidhjet e modalitetit "I fshehtë" të YouTube në modalitetin "I fshehtë".</translation>
 <translation id="231828342043114302">Për të marrë përmbajtje të personalizuara bazuar në interesat e tu, identifikohu në Chromium.</translation>
-<translation id="2326738825692478496">Disa nga të dhënat e tua të Chromium nuk janë ruajtur ende në "Llogarinë tënde të Google".
-
-Provo të presësh për disa minuta para se të dalësh nga ajo. Nëse del tani, këto të dhëna do të fshihen.</translation>
 <translation id="2334943301233020675">Çelësat e mëposhtëm të kalimit nuk u importuan te "Menaxheri i fjalëkalimeve" sepse nuk përputhen me kërkesat.</translation>
 <translation id="2337722506862731008">Ndaj Chromium</translation>
 <translation id="2340423701577464731">Shto artikullin e listës së leximit në Chromium</translation>
@@ -103,7 +101,6 @@ Provo të presësh për disa minuta para se të dalësh nga ajo. Nëse del tani,
 Për më shumë cilësime që përdorin të dhënat për të përmirësuar përvojën tënde me Chromium, shko te <ph name="BEGIN_LINK" />Shërbimet e Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Kërko me zë në Chromium.</translation>
 <translation id="2843571538056574338">Përdor Chromium për "Plotësimin automatik"</translation>
-<translation id="2899085719655668655">Udhëzimet me video me "figurë brenda figurës" se si ta caktosh Chromium si parazgjedhje</translation>
 <translation id="2918709798697875261">Organizata jote kërkon që të qëndrosh i dalë nga Chrome.</translation>
 <translation id="2942241131342758843">Përdor Chromium si parazgjedhje për të hapur lidhjet, për të kërkuar nga miniaplikacionet dhe për të plotësuar automatikisht fjalëkalimet në aplikacione të tjera</translation>
 <translation id="2977470724722393594">Chromium është i përditësuar</translation>

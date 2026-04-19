@@ -57,6 +57,7 @@ include_rules = [
   "+chrome/browser/ui/browser_navigator.h",
   "+chrome/browser/ui/browser_navigator_params.h",
   "+chrome/browser/ui/browser_window.h",
+  "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/web_applications",
   "+chrome/browser/ui/webui/ash/settings/app_management",
@@ -78,7 +79,6 @@ include_rules = [
   "+chrome/common/chrome_switches.h",
   "+chrome/common/extensions",
   "+chrome/common/pref_names.h",
-  "+chrome/grit",
   "+chrome/test/base",
 
   # Dependencies outside of //chrome:
@@ -118,6 +118,10 @@ specific_include_rules = {
   "app_list_syncable_service_unittest\\.cc": [
     "+cc/base/math_util.h",
     "+chrome/browser/ui/settings_window_manager_chromeos.h",
+  ],
+
+  "app_list_client_impl\\.cc": [
+    "+chrome/grit",
   ],
 
   "app_list_client_impl_browsertest\\.cc": [

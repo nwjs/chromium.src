@@ -4,14 +4,6 @@
 
 import("//components/signin/features.gni")
 
-source_set("identity_manager_provider") {
-  sources = [
-    "identity_manager_provider.cc",
-    "identity_manager_provider.h",
-  ]
-  deps = [ "//base" ]
-}
-
 # TODO(crbug.com/364667553): complete modularization of //c/b/signin.
 # At the moment, it's hard to complete it at once as it pulls deps, which
 # result in circular deps. Modularization of others to resolve that is
@@ -62,12 +54,14 @@ source_set("impl") {
       "//chrome/browser/feature_engagement",
       "//chrome/browser/new_tab_page/chrome_colors:generate_chrome_colors_info",
       "//chrome/browser/profiles",
+      "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/profiles:profile_util",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/search_engines",
       "//chrome/browser/themes",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/passwords",
       "//chrome/browser/ui/profiles",
@@ -99,4 +93,20 @@ source_set("signin_promo") {
     "//components/signin/public/base:signin_buildflags",
     "//url",
   ]
+}
+
+source_set("google_accounts_private_api") {
+  sources = [
+    "google_accounts_private_api_host.cc",
+    "google_accounts_private_api_host.h",
+    "google_accounts_private_api_util.cc",
+    "google_accounts_private_api_util.h",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/common:mojo_bindings",
+    "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+  ]
+  deps = [ "//google_apis" ]
 }

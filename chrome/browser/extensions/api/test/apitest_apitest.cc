@@ -18,18 +18,13 @@ namespace extensions {
 
 namespace {
 
-constexpr char kManifestStub[] =
+constexpr char kManifest[] =
     R"({
          "name": "extension",
          "version": "0.1",
-         "manifest_version": %d,
-         "background": { %s }
+         "manifest_version": 3,
+         "background": { "service_worker": "background.js" }
        })";
-
-constexpr char kPersistentBackground[] = R"("scripts": ["background.js"])";
-
-constexpr char kServiceWorkerBackground[] =
-    R"("service_worker": "background.js")";
 
 // NOTE(devlin): When running tests using the chrome.tests.runTests API, it's
 // not possible to validate the failure message of individual sub-tests using
@@ -44,57 +39,31 @@ constexpr char kExpectedFailureMessage[] = "Failed 1 of 1 tests";
 
 }  // namespace
 
-using ContextType = extensions::browser_test_util::ContextType;
-
 class TestAPITest : public ExtensionApiTest {
  protected:
-  const Extension* LoadExtensionScriptWithContext(const char* background_script,
-                                                  ContextType context_type,
-                                                  int manifest_version);
+  const Extension* LoadExtensionWithScript(const char* background_script);
 
   std::vector<TestExtensionDir> test_dirs_;
 };
 
-const Extension* TestAPITest::LoadExtensionScriptWithContext(
-    const char* background_script,
-    ContextType context_type,
-    int manifest_version = 2) {
+const Extension* TestAPITest::LoadExtensionWithScript(
+    const char* background_script) {
   TestExtensionDir test_dir;
-  const char* background_value = context_type == ContextType::kServiceWorker
-                                     ? kServiceWorkerBackground
-                                     : kPersistentBackground;
-  const std::string manifest =
-      base::StringPrintf(kManifestStub, manifest_version, background_value);
-  test_dir.WriteManifest(manifest);
+  test_dir.WriteManifest(kManifest);
   test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), background_script);
   const Extension* extension = LoadExtension(test_dir.UnpackedPath());
   test_dirs_.push_back(std::move(test_dir));
   return extension;
 }
 
-class TestAPITestWithContextType
-    : public TestAPITest,
-      public testing::WithParamInterface<ContextType> {};
-
-#if !BUILDFLAG(IS_ANDROID)
-// Android only supports service worker.
-INSTANTIATE_TEST_SUITE_P(PersistentBackground,
-                         TestAPITestWithContextType,
-                         ::testing::Values(ContextType::kPersistentBackground));
-#endif
-INSTANTIATE_TEST_SUITE_P(ServiceWorker,
-                         TestAPITestWithContextType,
-                         ::testing::Values(ContextType::kServiceWorker));
-
 // TODO(devlin): This test name should be more descriptive.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, ApiTest) {
-  ASSERT_TRUE(RunExtensionTest("apitest", {}, {.context_type = GetParam()}))
-      << message_;
+IN_PROC_BROWSER_TEST_F(TestAPITest, ApiTest) {
+  ASSERT_TRUE(RunExtensionTest("apitest")) << message_;
 }
 
 // Verifies that failing an assert in a promise will properly fail and end the
 // test.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, FailedAssertsInPromises) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, FailedAssertsInPromises) {
   ResultCatcher result_catcher;
   constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -106,14 +75,13 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, FailedAssertsInPromises) {
              p.then(() => { chrome.test.succeed(); });
            }
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
 
 // Verifies that using await and assert'ing aspects of the results succeeds.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
-                       AsyncAwaitAssertions_Succeed) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AsyncAwaitAssertions_Succeed) {
   ResultCatcher result_catcher;
   constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -125,14 +93,13 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
              chrome.test.succeed();
            }
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
 // Verifies that using await and having failed assertions properly fails the
 // test.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
-                       AsyncAwaitAssertions_Failed) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AsyncAwaitAssertions_Failed) {
   ResultCatcher result_catcher;
   constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -144,12 +111,12 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
              chrome.test.succeed();
            }
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
 
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AsyncExceptions) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AsyncExceptions) {
   ResultCatcher result_catcher;
   constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -157,14 +124,14 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AsyncExceptions) {
              throw new Error('test error');
            }
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
 
 // Exercises chrome.test.assertNe() in cases where the check should succeed
 // (that is, when the passed values are different).
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Success) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertNe_Success) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -198,7 +165,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Success) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
@@ -206,7 +173,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Success) {
 // are equal). We can only test one case at a time since otherwise we'd be
 // unable to determine which part of the test failed (since "failure" here is
 // a successful assertNe() check).
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Failure_Primitive) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertNe_Failure_Primitive) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -214,7 +181,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Failure_Primitive) {
              chrome.test.assertNe(1, 1);
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
@@ -223,7 +190,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Failure_Primitive) {
 // are equal). We can only test one case at a time since otherwise we'd be
 // unable to determine which part of the test failed (since "failure" here is
 // a successful assertNe() check).
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Failure_Object) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertNe_Failure_Object) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -231,17 +198,43 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertNe_Failure_Object) {
              chrome.test.assertNe({x: 42}, {x: 42});
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
 
+// Verifies that assertTrue fails when passed a non-boolean.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertTrue_TypeCheck) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           function assertTrueTypeCheck() {
+             chrome.test.assertTrue(1);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that assertFalse fails when passed a non-boolean.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertFalse_TypeCheck) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           function assertFalseTypeCheck() {
+             chrome.test.assertFalse(0);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
 // Exercises chrome.test.assertNe() in failure cases (i.e., the passed values
 // are equal). We can only test one case at a time since otherwise we'd be
 // unable to determine which part of the test failed (since "failure" here is
 // a successful assertNe() check).
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
-                       AssertNe_Failure_AdditionalErrorMessage) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertNe_Failure_AdditionalErrorMessage) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -249,7 +242,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
              chrome.test.assertNe(2, 2, '2 does equal 2');
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
@@ -287,9 +280,7 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, AssertPromiseRejects_Successful) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
@@ -305,9 +296,7 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, AssertPromiseRejects_WrongErrorMessage) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
@@ -324,9 +313,7 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, AssertPromiseRejects_PromiseResolved) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
@@ -343,9 +330,7 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, AssertPromiseRejects_PromiseIgnored) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_FALSE(result_catcher.GetNextResult());
   EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
 }
@@ -363,9 +348,7 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, SendMessage_WithPromise) {
            },
          ]);)";
   ExtensionTestMessageListener ping_listener("ping", ReplyBehavior::kWillReply);
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_TRUE(ping_listener.WaitUntilSatisfied());
   ping_listener.Reply("pong");
   EXPECT_TRUE(result_catcher.GetNextResult());
@@ -385,15 +368,13 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, WaitForRoundTrip_WithPromise) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kWorkerJs,
-                                             ContextType::kServiceWorker,
-                                             /*manifest_version=*/3));
+  ASSERT_TRUE(LoadExtensionWithScript(kWorkerJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
 // Exercises `chrome.test.assertEq()` in cases where the assert should succeed
 // (that is, when the passed values are the same).
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_Success) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertEq_Success) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -473,14 +454,14 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_Success) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
 // Exercises `chrome.test.assertEq()` in failure cases (i.e., the passed values
 // are not equal). Test one case at a time since "failure" means that the assert
 // worked as expected.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_Failure) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertEq_Failure) {
   struct {
     std::string title;
     std::string code;
@@ -509,13 +490,13 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_Failure) {
             },
           ]);)",
         test_case.code);
-    ASSERT_TRUE(LoadExtensionScriptWithContext(script.c_str(), GetParam()));
+    ASSERT_TRUE(LoadExtensionWithScript(script.c_str()));
     EXPECT_FALSE(result_catcher.GetNextResult());
     EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
   }
 }
 
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_UndefinedVsNull) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertEq_UndefinedVsNull) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -525,7 +506,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_UndefinedVsNull) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   // TODO(crbug.com/466303357): JS `null` and `undefined` should not be
   // considered equal. This seems to be because
   // `APISignature::ConvertArgumentsIgnoringSchema()` converts non-JSON
@@ -537,8 +518,7 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, AssertEq_UndefinedVsNull) {
 // Exercises `chrome.test.assertEq()` with complex structures, ensuring that JS
 // primitives, `NaN`, `null`, and `function`s are handled correctly within
 // nested objects and arrays.
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
-                       RecursiveCheckDeepAssertEq_Success) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, RecursiveCheckDeepAssertEq_Success) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -587,11 +567,11 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType,
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, ListenOnceWithoutPromise) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, ListenOnceWithoutPromise) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(let createdTab;
@@ -650,11 +630,11 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, ListenOnceWithoutPromise) {
              chrome.test.succeed();
            },
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
-IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, ListenOnceWithPromise) {
+IN_PROC_BROWSER_TEST_F(TestAPITest, ListenOnceWithPromise) {
   ResultCatcher result_catcher;
   static constexpr char kBackgroundJs[] =
       R"(chrome.test.runTests([
@@ -715,8 +695,146 @@ IN_PROC_BROWSER_TEST_P(TestAPITestWithContextType, ListenOnceWithPromise) {
              chrome.test.succeed();
            }
          ]);)";
-  ASSERT_TRUE(LoadExtensionScriptWithContext(kBackgroundJs, GetParam()));
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
+
+// Tests that sequential calls to runTests() properly reset internal states. To
+// verify this, we run a passing batch, a failing batch, and another passing
+// batch. If internal state (like `testsFailed`) was not reset, the final
+// passing batch would incorrectly fail.
+IN_PROC_BROWSER_TEST_F(TestAPITest, RunTestsSuccessiveAwaits) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(async function testEntryPoint() {
+           await chrome.test.runTests([
+             function test1() { chrome.test.succeed(); }
+           ]);
+
+           try {
+             await chrome.test.runTests([
+               function test2() { chrome.test.fail('intentional failure'); }
+             ]);
+           } catch (e) {
+             // Prevent the error thrown from `runTests()` `Promise` rejecting
+             // from stopping the JS thread.
+           }
+
+           await chrome.test.runTests([
+             function test3() {
+               chrome.test.succeed();
+             }
+           ]);
+         }
+         testEntryPoint();)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+
+  // Batch 1 passes.
+  EXPECT_TRUE(result_catcher.GetNextResult());
+
+  // Batch 2 fails.
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ("Failed 1 of 1 tests", result_catcher.message());
+
+  // Batch 3 passes. If internal state was not reset, batch 3 would incorrectly
+  // fail because `testsFailed` from batch 2 would still be 1.
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Note: these enums are the same, but are distinct for type safety and so they
+// self-document when used to construct test cases.
+enum class StandardizedOutcome {
+  kPass,
+  kFail,
+};
+
+enum class NonstandardizedOutcome {
+  kPass,
+  kFail,
+};
+
+// Allows testing the W3C browser.test proposal behavior
+// (github.com/w3c/webextensions/blob/main/proposals/browser_test_api.md)
+// ("standardized") vs existing "non-standardized" chrome.test API behavior.
+class TestStandardizedAPITest : public TestAPITest,
+                                public testing::WithParamInterface<bool> {
+ protected:
+  std::string SetUseStandardizedApiBehaviorForTesting(
+      bool standardized_behavior_enabled) const {
+    return base::StringPrintf(
+        "chrome.test.setUseStandardizedApiBehaviorForTesting(%s);",
+        standardized_behavior_enabled ? "true" : "false");
+  }
+};
+
+// Tests the differences between assertEq. The standardized version uses
+// Object.is() more extensively.
+IN_PROC_BROWSER_TEST_P(TestStandardizedAPITest, assertEq) {
+  bool standardized_behavior_enabled = GetParam();
+  std::string set_api_behavior =
+      SetUseStandardizedApiBehaviorForTesting(standardized_behavior_enabled);
+
+  struct {
+    std::string title;
+    std::string test_case;
+    StandardizedOutcome should_pass_standardized;
+    NonstandardizedOutcome should_pass_non_standardized;
+  } cases[] = {
+      {"Primitives", "chrome.test.assertEq(1, 1);", StandardizedOutcome::kPass,
+       NonstandardizedOutcome::kPass},
+      {"NaN", "chrome.test.assertEq(NaN, NaN);", StandardizedOutcome::kPass,
+       NonstandardizedOutcome::kPass},
+      {"0 vs -0", "chrome.test.assertNe(0, -0);", StandardizedOutcome::kPass,
+       NonstandardizedOutcome::kFail},
+      {"Arrays", "chrome.test.assertEq([1], [1]);", StandardizedOutcome::kPass,
+       NonstandardizedOutcome::kPass},
+      {"Plain Objects", "chrome.test.assertEq({a: 1}, {a: 1});",
+       StandardizedOutcome::kPass, NonstandardizedOutcome::kPass},
+      {"Primitive Wrappers",
+       "chrome.test.assertEq(new Number(1), new Number(1));",
+       StandardizedOutcome::kFail, NonstandardizedOutcome::kPass},
+      {"Functions",
+       "chrome.test.assertEq(function() { return 1; }, function() { return 1; "
+       "});",
+       StandardizedOutcome::kFail, NonstandardizedOutcome::kPass},
+      {"Dates", "chrome.test.assertEq(new Date(100), new Date(100));",
+       StandardizedOutcome::kFail, NonstandardizedOutcome::kPass},
+      {"Maps", "chrome.test.assertEq(new Map(), new Map());",
+       StandardizedOutcome::kFail, NonstandardizedOutcome::kPass},
+      {"Sets", "chrome.test.assertEq(new Set(), new Set());",
+       StandardizedOutcome::kFail, NonstandardizedOutcome::kPass},
+  };
+
+  for (const auto& c : cases) {
+    SCOPED_TRACE(base::StringPrintf("Case: %s", c.title.c_str()));
+    ResultCatcher result_catcher;
+    std::string script = base::StringPrintf(
+        R"(%s
+           chrome.test.runTests([
+             function test() {
+               %s
+               chrome.test.succeed();
+             }
+           ]);)",
+        set_api_behavior.c_str(), c.test_case.c_str());
+
+    ASSERT_TRUE(LoadExtensionWithScript(script.c_str()));
+
+    bool expected_pass =
+        standardized_behavior_enabled
+            ? c.should_pass_standardized == StandardizedOutcome::kPass
+            : c.should_pass_non_standardized == NonstandardizedOutcome::kPass;
+    if (expected_pass) {
+      EXPECT_TRUE(result_catcher.GetNextResult())
+          << "Expected pass for " << c.title;
+    } else {
+      EXPECT_FALSE(result_catcher.GetNextResult())
+          << "Expected fail for " << c.title;
+      EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All, TestStandardizedAPITest, testing::Bool());
 
 }  // namespace extensions

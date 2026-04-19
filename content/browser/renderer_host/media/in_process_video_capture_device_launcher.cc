@@ -12,7 +12,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
@@ -198,7 +197,8 @@ DesktopCaptureImplementation CreatePlatformDependentVideoCaptureDevice(
       (desktop_id.type == DesktopMediaID::TYPE_SCREEN &&
        base::FeatureList::IsEnabled(kScreenCaptureKitMacScreen))) {
     device_out = CreateScreenCaptureKitDeviceMac(
-        desktop_id, std::move(pip_screen_capture_coordinator_proxy));
+        desktop_id, /*is_native_picker=*/false,
+        std::move(pip_screen_capture_coordinator_proxy));
     if (device_out) {
       return kScreenCaptureKitDeviceMac;
     }
@@ -600,9 +600,15 @@ void InProcessVideoCaptureDeviceLauncher::OnFakeDevicesEnumerated(
     std::move(result_callback).Run(nullptr);
     return;
   }
-  auto video_capture_device =
-      fake_device_factory_->CreateDevice(devices_info.front().descriptor)
-          .ReleaseDevice();
+  media::VideoCaptureErrorOrDevice video_capture_device_or_error =
+      fake_device_factory_->CreateDevice(devices_info.front().descriptor);
+  if (!video_capture_device_or_error.ok()) {
+    LOG(ERROR) << "Failed to create fake device";
+    std::move(result_callback).Run(nullptr);
+    return;
+  }
+  std::unique_ptr<media::VideoCaptureDevice> video_capture_device =
+      video_capture_device_or_error.ReleaseDevice();
   video_capture_device->AllocateAndStart(params, std::move(device_client));
   std::move(result_callback).Run(std::move(video_capture_device));
 }

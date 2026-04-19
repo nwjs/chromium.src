@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_close_types_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
@@ -292,6 +293,7 @@ class MockTabStripModelObserver : public TabStripModelObserver {
         for (const auto& contents : change.GetRemove()->contents) {
           switch (contents.remove_reason) {
             case TabRemovedReason::kDeleted:
+            case TabRemovedReason::kDeletedAndExpandSidePanel:
             case TabRemovedReason::kInsertedIntoSidePanel:
               PushCloseState(contents.contents, contents.index);
               break;
@@ -2291,6 +2293,49 @@ TEST_P(TabStripModelTest, DetachingFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
+TEST_P(TabStripModelTest, TabGroupsFocusingAutoClose) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      features::kTabGroupsFocusing,
+      {{"tab_groups_focusing_auto_close", "true"}});
+
+  PrepareTabs(tabstrip(), 5);
+  tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({1, 2});
+  ASSERT_EQ(5, tabstrip()->count());
+  ASSERT_TRUE(tabstrip()->group_model()->ContainsTabGroup(group_id));
+
+  tabstrip()->SetFocusedGroup(group_id);
+  ASSERT_EQ(group_id, tabstrip()->GetFocusedGroup());
+
+  // Unfocusing should close the group.
+  tabstrip()->SetFocusedGroup(std::nullopt);
+  EXPECT_EQ(std::nullopt, tabstrip()->GetFocusedGroup());
+  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id));
+  EXPECT_EQ(3, tabstrip()->count());
+}
+
+TEST_P(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      features::kTabGroupsFocusing,
+      {{"tab_groups_focusing_auto_close", "true"}});
+
+  PrepareTabs(tabstrip(), 5);
+  tab_groups::TabGroupId group_id1 = tabstrip()->AddToNewGroup({1});
+  tab_groups::TabGroupId group_id2 = tabstrip()->AddToNewGroup({3});
+  ASSERT_EQ(5, tabstrip()->count());
+
+  tabstrip()->SetFocusedGroup(group_id1);
+  ASSERT_EQ(group_id1, tabstrip()->GetFocusedGroup());
+
+  // Switching focus to G2 should close G1.
+  tabstrip()->SetFocusedGroup(group_id2);
+  EXPECT_EQ(group_id2, tabstrip()->GetFocusedGroup());
+  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id1));
+  EXPECT_TRUE(tabstrip()->group_model()->ContainsTabGroup(group_id2));
+  EXPECT_EQ(4, tabstrip()->count());
+}
+
 TEST_P(TabStripModelTest, SplitTabPinning) {
   for (bool split_is_selected : {true, false}) {
     for (bool use_left_tab : {true, false}) {
@@ -3732,6 +3777,23 @@ TEST_P(TabStripModelTest, FastShutdown) {
     tabstrip.CloseAllTabs();
     EXPECT_TRUE(tabstrip.empty());
   }
+}
+
+// Tests that close_types are preserved when unload listeners are triggered.
+TEST_P(TabStripModelTest, CloseTypesPreservedAfterUnload) {
+  UnloadListenerTabStripModelDelegate delegate;
+  TabStripModel tabstrip(&delegate, profile());
+
+  std::unique_ptr<WebContents> contents = CreateWebContents();
+  tabstrip.AppendWebContents(std::move(contents), true);
+
+  auto close_types = TabCloseTypes::CLOSE_EXPAND_SIDE_PANEL;
+  delegate.set_run_unload_listener(true);
+  tabstrip.CloseWebContentsAt(0, TabCloseTypes::CLOSE_EXPAND_SIDE_PANEL);
+  EXPECT_EQ(1, tabstrip.count());
+  WebContents* raw_contents = tabstrip.GetWebContentsAt(0);
+  EXPECT_EQ(close_types,
+            TabCloseTypesData::FromWebContents(raw_contents)->close_types());
 }
 
 // Tests various permutations of pinning tabs.
@@ -6718,6 +6780,28 @@ TEST_P(TabStripModelTest,
   tabstrip()->AddSelectionFromAnchorTo(0);
   ExpectSelectionIsExactly(tabstrip(), {0, 1, 2, 3, 4});
   EXPECT_EQ(tabstrip()->active_index(), 0);
+}
+
+TEST_P(TabStripModelTest, AddSelectionFromModel_SplitActiveTab) {
+  // Create four tabs with a split containing tabs 2 and 3.
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
+  tabstrip()->ActivateTabAt(3);
+  tabstrip()->AddToNewSplit({2}, split_tabs::SplitTabVisualData(),
+                            split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  EXPECT_EQ("0 1 2s 3s", GetTabStripStateString(tabstrip()));
+
+  // Set selection from model for the split active tab.
+  tabs::TabStripModelSelectionState selection_state(tabstrip());
+  selection_state.SetActiveTab(tabstrip()->GetActiveTab());
+  selection_state.SetAnchorTab(tabstrip()->GetActiveTab());
+  tabstrip()->SetSelectionFromModel(std::move(selection_state));
+
+  // Validate if all the tabs in the split are selected and the
+  // active tab remains unchanged.
+  ExpectSelectionIsExactly(tabstrip(), {2, 3});
+  EXPECT_EQ(tabstrip()->active_index(), 3);
 }
 
 TEST_P(TabStripModelTest, AddSelectionFromAnchorTo_SplitTab) {

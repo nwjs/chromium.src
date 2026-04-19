@@ -73,9 +73,9 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
-#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
-#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"   // nogncheck
+#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"  // nogncheck
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"         // nogncheck
 #include "chrome/common/extensions/api/side_panel.h"
 #endif
 
@@ -659,8 +659,8 @@ void ExtensionContextMenuModel::MenuClosed(ui::SimpleMenuModel* menu) {
 #if !BUILDFLAG(IS_ANDROID)
     if (source_ == ContextMenuSource::kMenuItem &&
         was_side_panel_action_taken) {
-      ExtensionsContainer::From(*browser_)->CloseOverflowMenuIfOpen();
-      // WARNING: The overflow menu was the parent for this menu, so it's
+      ExtensionsContainer::From(*browser_)->CloseExtensionsMenuIfOpen();
+      // WARNING: The extensions menu was the parent for this menu, so it's
       // possible `this` is now deleted.
     }
 #endif

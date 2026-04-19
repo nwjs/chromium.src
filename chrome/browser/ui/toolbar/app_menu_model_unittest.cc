@@ -33,7 +33,6 @@
 #include "chrome/browser/ui/safety_hub/password_status_check_service_factory.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_test_util.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
-#include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
@@ -317,20 +316,6 @@ TEST_F(AppMenuModelTest, CustomizeChromeLogMetrics) {
   model.Init();
   model.ExecuteCommand(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL, 0);
   EXPECT_EQ(1, model.log_metrics_count_);
-}
-
-TEST_F(AppMenuModelTest, OrganizeTabsItem) {
-  feature_list_.Reset();
-  feature_list_.InitWithFeatures(
-      {features::kTabOrganization, features::kTabOrganizationAppMenuItem}, {});
-
-  TabOrganizationUtils::GetInstance()->SetIgnoreOptGuideForTesting(true);
-  AppMenuModel model(this, browser());
-  model.Init();
-  ToolsMenuModel toolModel(&model, browser());
-  size_t organize_tabs_index =
-      toolModel.GetIndexOfCommandId(IDC_ORGANIZE_TABS).value();
-  EXPECT_TRUE(toolModel.IsEnabledAt(organize_tabs_index));
 }
 
 TEST_F(AppMenuModelTest, GlicItem) {
@@ -812,6 +797,15 @@ TEST_F(AppMenuModelTest, DisableSettingsItem) {
 
 class TestAppMenuModelSafetyHubTest : public AppMenuModelTest {
  public:
+  TestAppMenuModelSafetyHubTest() {
+    // Disruptive notification revocation disables the notification review
+    // module.
+    // TODO(https://crbug.com/496616827): Clean up this test when removing the
+    // notification review module logic.
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kSafetyHubDisruptiveNotificationRevocation);
+  }
+
   void SetUp() override {
     AppMenuModelTest::SetUp();
     password_store_ = CreateAndUseTestPasswordStore(profile());
@@ -826,6 +820,9 @@ class TestAppMenuModelSafetyHubTest : public AppMenuModelTest {
 
  protected:
   scoped_refptr<password_manager::TestPasswordStore> password_store_;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(TestAppMenuModelSafetyHubTest, SafetyHubMenuNotification) {

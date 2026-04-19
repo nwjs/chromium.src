@@ -165,43 +165,28 @@ TEST_F(TranslationMetricsTest, RecordLanguageTranslatorApiCallForLanguagePair) {
   }
 }
 
-TEST_F(TranslationMetricsTest, RecordTranslationCharacterCount) {
+TEST_F(TranslationMetricsTest, RecordTranslatorApiTranslationLength) {
   base::HistogramTester histogram_tester;
-  RecordTranslationCharacterCount("en", "es", 100);
+  RecordTranslatorApiTranslationLength("en", "es", 100);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.CharacterCount", 100, 1);
+      "Translate.TranslatorApi.TranslationLength", 100, 1);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.SourceLanguage.en.CharacterCount", 100, 1);
+      "Translate.TranslatorApi.SourceLanguage.en.TranslationLength", 100, 1);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.TargetLanguage.es.CharacterCount", 100, 1);
+      "Translate.TranslatorApi.TargetLanguage.es.TranslationLength", 100, 1);
 }
 
-TEST_F(TranslationMetricsTest, RecordTranslatorApiLanguageSupportTrue) {
+TEST_F(TranslationMetricsTest, RecordOnDeviceTranslationLength) {
   base::HistogramTester histogram_tester;
-  RecordOnDeviceTranslationSupportedSourceLanguage("CreateTranslator", true);
-  RecordOnDeviceTranslationSupportedTargetLanguage("CreateTranslator", true);
+  RecordOnDeviceTranslationLength("en", "es", 100);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.CreateTranslator."
-      "IsSourceLanguageSupported",
-      1, 1);
+      "Translate.OnDeviceTranslation.TranslationLength", 100, 1);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.CreateTranslator."
-      "IsTargetLanguageSupported",
-      1, 1);
-}
-
-TEST_F(TranslationMetricsTest, RecordTranslatorApiLanguageSupportFalse) {
-  base::HistogramTester histogram_tester;
-  RecordOnDeviceTranslationSupportedSourceLanguage("CreateTranslator", false);
-  RecordOnDeviceTranslationSupportedTargetLanguage("CreateTranslator", false);
+      "Translate.OnDeviceTranslation.SourceLanguage.en.TranslationLength", 100,
+      1);
   histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.CreateTranslator."
-      "IsSourceLanguageSupported",
-      0, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Translate.OnDeviceTranslation.CreateTranslator."
-      "IsTargetLanguageSupported",
-      0, 1);
+      "Translate.OnDeviceTranslation.TargetLanguage.es.TranslationLength", 100,
+      1);
 }
 
 }  // namespace

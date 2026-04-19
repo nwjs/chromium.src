@@ -14,12 +14,12 @@ import org.jni_zero.NativeMethods;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchBarControl;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchCalloutControl;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchImageControl;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanel;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPromoControl;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.RelatedSearchesControl;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.ContextualSearchBarControl;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.ContextualSearchCalloutControl;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.ContextualSearchImageControl;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.ContextualSearchPanel;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.ContextualSearchPromoControl;
+import org.chromium.chrome.browser.compositor.overlay_panel.contextualsearch.RelatedSearchesControl;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneOverlayLayer;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -186,8 +186,9 @@ public class ContextualSearchSceneLayer extends SceneOverlayLayer {
                         progressBarColor,
                         searchPromoViewId,
                         mDpToPx,
-                        panel.getFullscreenWidth() * mDpToPx,
+                        panel.getLayoutWidth() * mDpToPx,
                         panel.getTabHeight() * mDpToPx,
+                        panel.getLayoutMarginX() * mDpToPx,
                         panel.getBasePageBrightness(),
                         panel.getBasePageY() * mDpToPx,
                         panelWebContents,
@@ -303,8 +304,9 @@ public class ContextualSearchSceneLayer extends SceneOverlayLayer {
                 float dpToPx,
                 float layoutWidth,
                 float layoutHeight,
+                float layoutMarginX,
                 float basePageBrightness,
-                float basePageYOffset,
+                float basePageOffsetY,
                 @JniType("content::WebContents*") @Nullable WebContents webContents,
                 boolean searchPromoVisible,
                 float searchPromoHeight,

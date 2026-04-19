@@ -90,6 +90,7 @@ class BrowserTabStripController : public TabStripController,
   int HasAvailableDragActions() const override;
   void OnDropIndexUpdate(std::optional<int> index, bool drop_before) override;
   void CreateNewTab(NewTabTypes context) override;
+  void CreateNewTabWithLocation(const std::u16string& loc) override;
   void OnStartedDragging() override;
   void OnStoppedDragging() override;
   void TabKeyboardFocusChangedTo(const tabs::TabInterface* tab) override;
@@ -126,12 +127,8 @@ class BrowserTabStripController : public TabStripController,
       const TabStripSelectionChange& selection) override;
   void OnTabWillBeAdded() override;
   void OnTabWillBeRemoved(tabs::TabInterface* tab, int index) override;
+  void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
   void OnTabGroupChanged(const TabGroupChange& change) override;
-  void OnTabChangedAt(tabs::TabInterface* contents,
-                      int model_index,
-                      TabChangeType change_type) override;
-  void OnTabPinnedStateChanged(tabs::TabInterface* tab,
-                               int model_index) override;
   void TabGroupedStateChanged(TabStripModel* tab_strip_model,
                               std::optional<tab_groups::TabGroupId> old_group,
                               std::optional<tab_groups::TabGroupId> new_group,
@@ -145,11 +142,8 @@ class BrowserTabStripController : public TabStripController,
   BrowserFrameView* GetFrameView();
   const BrowserFrameView* GetFrameView() const;
 
-  // Invokes tabstrip_->SetTabData.
-  void SetTabDataAt(int model_index);
-
   // Adds tabs to the view model.
-  void AddTabs(std::vector<std::pair<tabs::TabInterface*, int>> contents_list);
+  void AddTabs(const std::vector<TabStrip::AddTabData>& tabs_data);
 
   void OnDiscardRingTreatmentEnabledChanged();
 

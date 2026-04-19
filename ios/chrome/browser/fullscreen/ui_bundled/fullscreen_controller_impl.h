@@ -6,14 +6,14 @@
 #define IOS_CHROME_BROWSER_FULLSCREEN_UI_BUNDLED_FULLSCREEN_CONTROLLER_IMPL_H_
 
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_mediator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_web_state_list_observer.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/legacy_fullscreen_mediator.h"
 
 class Browser;
 @class ChromeBroadcastOberverBridge;
 @class FullscreenSystemNotificationObserver;
-enum class FullscreenExitReason;
+enum class FullscreenModeTransitionTrigger;
 
 // Implementation of FullscreenController.
 class FullscreenControllerImpl : public FullscreenController {
@@ -45,11 +45,15 @@ class FullscreenControllerImpl : public FullscreenController {
   void EnterFullscreen() override;
   // Needs to be cleanup.
   void ExitFullscreen() override;
-  void ExitFullscreen(FullscreenExitReason fullscreen_exit_reason) override;
+  void ExitFullscreen(
+      FullscreenModeTransitionTrigger fullscreen_exit_trigger) override;
   void ExitFullscreenWithoutAnimation() override;
   bool IsForceFullscreenMode() const override;
-  void EnterForceFullscreenMode(bool insets_update_enabled) override;
-  void ExitForceFullscreenMode() override;
+  void EnterForceFullscreenMode(
+      bool insets_update_enabled,
+      FullscreenModeTransitionTrigger trigger) override;
+  void ExitForceFullscreenMode(
+      FullscreenModeTransitionTrigger trigger) override;
   void ResizeHorizontalViewport() override;
   void SetToolbarsSize(ToolbarsSize* toolbars_size) override;
   ToolbarsSize* GetToolbarsSize() const override;
@@ -60,7 +64,7 @@ class FullscreenControllerImpl : public FullscreenController {
   // The model used to calculate fullscreen state.
   std::unique_ptr<FullscreenModel> model_ = nullptr;
   // Object that manages sending signals to FullscreenControllerImplObservers.
-  FullscreenMediator mediator_;
+  LegacyFullscreenMediator mediator_;
   // A WebStateListObserver that updates `model_` for WebStateList changes.
   FullscreenWebStateListObserver web_state_list_observer_;
   // The bridge used to forward brodcasted UI to `model_`.

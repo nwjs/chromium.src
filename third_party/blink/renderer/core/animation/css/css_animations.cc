@@ -69,6 +69,7 @@
 #include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_property_equality.h"
+#include "third_party/blink/renderer/core/css/css_unparsed_declaration_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/media_values.h"
 #include "third_party/blink/renderer/core/css/native_paint_image_generator.h"
@@ -519,7 +520,8 @@ StringKeyframeEffectModel* CreateKeyframeEffectModel(
     const AtomicString& name,
     TimingFunction* default_timing_function,
     EffectModel::CompositeOperation composite,
-    size_t animation_index) {
+    size_t animation_index,
+    const TreeScope* name_tree_scope) {
   // The algorithm for constructing string keyframes for a CSS animation is
   // covered in the following spec:
   // https://drafts.csswg.org/css-animations-2/#keyframes
@@ -542,7 +544,8 @@ StringKeyframeEffectModel* CreateKeyframeEffectModel(
   //    existing animation matching name is canceled.
 
   StyleResolver::FindKeyframesRuleResult find_result =
-      resolver->FindKeyframesRule(&element, &animating_element, name);
+      resolver->FindKeyframesRule(&element, &animating_element, name,
+                                  name_tree_scope);
   const StyleRuleKeyframes* keyframes_rule = find_result.rule;
   DCHECK(keyframes_rule);
 
@@ -1427,6 +1430,8 @@ ScrollSnapshotTimeline* CSSAnimations::FindAncestorTimeline(
 
   Element* parent_element = ParentElementForTimelineTraversal(*node);
   if (!parent_element) {
+    UseCounter::Count(node->GetDocument(),
+                      WebFeature::kCSSTimelineLookupFoundNothing);
     if (RuntimeEnabledFeatures::CSSTimelineScopeGlobalEnabled()) {
       return &node->GetDocument()
                   .GetDocumentAnimations()
@@ -1693,6 +1698,22 @@ bool ComputedValuesEqual(const PropertyHandle& property,
   }
 }
 
+// Same as `ComputedValuesEqual`, but correctly handles unregistered custom
+// properties. For unregistered custom properties, `GetVariableValue` always
+// returns nullptr, so equality must be determined by comparing the raw token
+// data returned by `GetVariableData`.
+bool ComputedTransitionValuesEqual(const PropertyHandle& property,
+                                   bool is_unregistered_custom_property,
+                                   const ComputedStyle& a,
+                                   const ComputedStyle& b) {
+  if (is_unregistered_custom_property) {
+    const AtomicString& name = property.CustomPropertyName();
+    return base::ValuesEquivalent(a.GetVariableData(name),
+                                  b.GetVariableData(name));
+  }
+  return ComputedValuesEqual(property, a, b);
+}
+
 }  // namespace
 
 void CSSAnimations::CalculateCompositorAnimationUpdate(
@@ -1843,17 +1864,22 @@ void CSSAnimations::CalculateAnimationUpdate(
   if (animation_data &&
       (style_builder.Display() != EDisplay::kNone ||
        (old_style && old_style->Display() != EDisplay::kNone))) {
-    const Vector<AtomicString>& name_list = animation_data->NameList();
+    const HeapVector<Member<const ScopedCSSName>>& name_list =
+        animation_data->NameList();
     for (wtf_size_t i = 0; i < name_list.size(); ++i) {
-      AtomicString name = name_list[i];
-      if (name == CSSAnimationData::InitialName())
+      const ScopedCSSName* scoped_name = name_list[i];
+      if (!scoped_name) {
         continue;
+      }
+      const AtomicString& name = scoped_name->GetName();
+      const TreeScope* name_tree_scope = scoped_name->GetTreeScope();
 
       // Find n where this is the nth occurrence of this animation name.
       wtf_size_t name_index = 0;
       for (wtf_size_t j = 0; j < i; j++) {
-        if (name_list[j] == name)
+        if (name_list[j] && name_list[j]->GetName() == name) {
           name_index++;
+        }
       }
 
       const bool is_paused =
@@ -1869,7 +1895,10 @@ void CSSAnimations::CalculateAnimationUpdate(
       timing.timing_function = Timing().timing_function;
 
       StyleRuleKeyframes* keyframes_rule =
-          resolver->FindKeyframesRule(&element, &animating_element, name).rule;
+          resolver
+              ->FindKeyframesRule(&element, &animating_element, name,
+                                  name_tree_scope)
+              .rule;
       if (!keyframes_rule)
         continue;  // Cancel the animation if there's no style rule for it.
 
@@ -1982,7 +2011,7 @@ void CSSAnimations::CalculateAnimationUpdate(
                   CreateKeyframeEffectModel(
                       resolver, element, animating_element, writing_direction,
                       parent_style, name, keyframe_timing_function.get(),
-                      composite, i),
+                      composite, i, name_tree_scope),
                   timing, animation_proxy),
               specified_timing, keyframes_rule, timeline,
               animation_data->PlayStateList(), range_start, range_end,
@@ -2009,7 +2038,7 @@ void CSSAnimations::CalculateAnimationUpdate(
                 CreateKeyframeEffectModel(resolver, element, animating_element,
                                           writing_direction, parent_style, name,
                                           keyframe_timing_function.get(),
-                                          composite, i),
+                                          composite, i, name_tree_scope),
                 timing, animation_proxy),
             specified_timing, keyframes_rule, timeline,
             animation_data->PlayStateList(), range_start, range_end,
@@ -2544,6 +2573,11 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
 
   const ComputedStyle& after_change_style =
       CalculateAfterChangeStyle(state, &property);
+  const PropertyRegistry* registry =
+      state.animating_element.GetDocument().GetPropertyRegistry();
+  const bool is_unregistered_custom_property =
+      property.IsCSSCustomProperty() &&
+      (!registry || !registry->Registration(property.CustomPropertyName()));
 
   const RunningTransition* running_transition = nullptr;
   if (state.active_transitions) {
@@ -2551,8 +2585,9 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
         state.active_transitions->find(property);
     if (active_transition_iter != state.active_transitions->end()) {
       running_transition = active_transition_iter->value;
-      if (ComputedValuesEqual(property, after_change_style,
-                              *running_transition->to)) {
+      if (ComputedTransitionValuesEqual(
+              property, is_unregistered_custom_property, after_change_style,
+              *running_transition->to)) {
         return;
       }
       state.update.CancelTransition(property);
@@ -2570,20 +2605,8 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
 
   const ComputedStyle& before_change_style =
       CalculateBeforeChangeStyle(state, &property);
-  const PropertyRegistry* registry =
-      state.animating_element.GetDocument().GetPropertyRegistry();
-  // For unregistered custom properties, GetVariableValue() returns nullptr,
-  // which prevents ComputedValuesEqual from detecting changes.
-  // Fall back to comparing raw token data via GetVariableData() instead.
-  if (property.IsCSSCustomProperty() &&
-      (!registry || !registry->Registration(property.CustomPropertyName()))) {
-    const AtomicString& name = property.CustomPropertyName();
-    if (base::ValuesEquivalent(before_change_style.GetVariableData(name),
-                               after_change_style.GetVariableData(name))) {
-      return;
-    }
-  } else if (ComputedValuesEqual(property, before_change_style,
-                                 after_change_style)) {
+  if (ComputedTransitionValuesEqual(property, is_unregistered_custom_property,
+                                    before_change_style, after_change_style)) {
     return;
   }
 
@@ -2643,6 +2666,22 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
         AnimationUtils::KeyframeValueFromComputedStyle(
             property, after_change_style, document,
             state.animating_element.GetLayoutObject());
+    if (is_unregistered_custom_property) {
+      bool missing_start = !start_css_value && end_css_value;
+      bool missing_end = start_css_value && !end_css_value;
+      // Use an empty CSSUnparsedDeclarationValue as a sentinel when one side
+      // is missing so the discrete flip works (e.g. "unset -> value").
+      if (missing_start || missing_end) {
+        auto* empty_value = MakeGarbageCollected<CSSUnparsedDeclarationValue>(
+            MakeGarbageCollected<CSSVariableData>(),
+            /*parser_context=*/nullptr);
+        if (missing_start) {
+          start_css_value = empty_value;
+        } else {
+          end_css_value = empty_value;
+        }
+      }
+    }
     if (!start_css_value || !end_css_value) {
       // TODO(crbug.com/1425925): Handle newly registered custom properties
       // correctly. If that bug is fixed, then this should never happen.

@@ -59,7 +59,6 @@
 #include "skia/ext/skia_utils_mac.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom.h"
-#include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom.h"
 #import "ui/accessibility/platform/browser_accessibility_cocoa.h"
 #import "ui/accessibility/platform/browser_accessibility_mac.h"
 #include "ui/accessibility/platform/browser_accessibility_manager_mac.h"
@@ -168,6 +167,10 @@ void RenderWidgetHostViewMac::SetCurrentDeviceScaleFactor(
   // TODO(crbug.com/40229152): does this need to be upscaled by
   // scale_override_for_capture_ for HiDPI capture mode?
   screen_infos_.mutable_current().device_scale_factor = device_scale_factor;
+}
+
+bool RenderWidgetHostViewMac::ShouldWaitRemoteCompositorFrameOnResize() const {
+  return remote_ns_view_.is_bound();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -535,7 +538,8 @@ void RenderWidgetHostViewMac::WasUnOccluded() {
 }
 
 void RenderWidgetHostViewMac::NotifyHostAndDelegateOnWasShown(
-    blink::mojom::RecordContentToVisibleTimeRequestPtr tab_switch_start_state) {
+    std::optional<blink::RecordContentToVisibleTimeRequest>
+        tab_switch_start_state) {
   DCHECK(host_->IsHidden());
 
   // SetRenderWidgetHostIsHidden may cause a state transition that switches to
@@ -547,38 +551,43 @@ void RenderWidgetHostViewMac::NotifyHostAndDelegateOnWasShown(
 
   browser_compositor_->SetRenderWidgetHostIsHidden(false);
 
-  const bool renderer_should_record_presentation_time = !has_saved_frame;
-  host()->WasShown(renderer_should_record_presentation_time
-                       ? tab_switch_start_state.Clone()
-                       : blink::mojom::RecordContentToVisibleTimeRequestPtr());
-
   // If the frame for the renderer is already available, then the
   // tab-switching time is the presentation time for the browser-compositor.
   // SetRenderWidgetHostIsHidden above will show the DelegatedFrameHost
   // in this state, but doesn't include the presentation time request.
   if (has_saved_frame && tab_switch_start_state) {
-    browser_compositor_->GetDelegatedFrameHost()
-        ->RequestSuccessfulPresentationTimeForNextFrame(
-            std::move(tab_switch_start_state));
+    if (std::optional<blink::RecordContentToVisibleTimeRequest>
+            delegated_visible_time_request =
+                tab_switch_start_state->ExtractTabSwitchEvents()) {
+      browser_compositor_->GetDelegatedFrameHost()
+          ->RequestSuccessfulPresentationTimeForNextFrame(
+              std::move(*delegated_visible_time_request));
+    }
   }
+
+  host()->WasShown(std::move(tab_switch_start_state));
 }
 
 void RenderWidgetHostViewMac::
     RequestSuccessfulPresentationTimeFromHostOrDelegate(
-        blink::mojom::RecordContentToVisibleTimeRequestPtr
-            visible_time_request) {
+        blink::RecordContentToVisibleTimeRequest visible_time_request) {
   DCHECK(!host_->IsHidden());
-  DCHECK(visible_time_request);
 
   // No state transition here so don't use
   // has_saved_frame_before_state_transition.
   if (browser_compositor_->GetDelegatedFrameHost()->HasSavedFrame()) {
     // If the frame for the renderer is already available, then the
     // tab-switching time is the presentation time for the browser-compositor.
-    browser_compositor_->GetDelegatedFrameHost()
-        ->RequestSuccessfulPresentationTimeForNextFrame(
-            std::move(visible_time_request));
-  } else {
+    if (std::optional<blink::RecordContentToVisibleTimeRequest>
+            delegated_visible_time_request =
+                visible_time_request.ExtractTabSwitchEvents()) {
+      browser_compositor_->GetDelegatedFrameHost()
+          ->RequestSuccessfulPresentationTimeForNextFrame(
+              std::move(*delegated_visible_time_request));
+    }
+  }
+
+  if (!visible_time_request.events.empty()) {
     host()->RequestSuccessfulPresentationTimeForNextFrame(
         std::move(visible_time_request));
   }
@@ -1141,9 +1150,7 @@ void RenderWidgetHostViewMac::TakeFallbackContentFrom(
   RenderWidgetHostViewMac* view_mac =
       static_cast<RenderWidgetHostViewMac*>(view);
   ScopedCAActionDisabler disabler;
-  std::optional<SkColor> color = view_mac->GetBackgroundColor();
-  if (color)
-    SetBackgroundColor(*color);
+  CopyBackgroundColorIfPresentFrom(*view);
 
   // Make the NSView for |this| display the same content as is being displayed
   // in the NSView for |view_mac|.
@@ -2192,6 +2199,11 @@ bool RenderWidgetHostViewMac::SyncGetFirstRectForRange(
   *success = true;
   if (!GetCachedFirstRectForCharacterRange(requested_range, rect,
                                            actual_range)) {
+    // GetFirstRectForRange() can enter a nested RunLoop that might clear the
+    // ScreenInfos list used by GetDeviceScaleFactor(), so cache the result
+    // first.
+    const float device_scale_factor = GetDeviceScaleFactor();
+
     // https://crbug.com/121917
     base::ScopedAllowBlocking allow_wait;
     // TODO(thakis): Pipe |actualRange| through TextInputClientMac machinery.
@@ -2201,7 +2213,7 @@ bool RenderWidgetHostViewMac::SyncGetFirstRectForRange(
 
     // With zoom-for-dsf, RenderWidgetHost coordinate system is physical points,
     // which means we have to scale the rect by the device scale factor.
-    *rect = gfx::ScaleToEnclosingRect(blink_rect, 1.f / GetDeviceScaleFactor());
+    *rect = gfx::ScaleToEnclosingRect(blink_rect, 1.f / device_scale_factor);
   }
   return true;
 }

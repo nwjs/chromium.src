@@ -94,7 +94,7 @@ suite('CertificateManagerV2FocusTest', () => {
     assertFalse(certManager.$.toast.open);
 
     const certLists =
-        certManager.$.platformClientCertsSection.shadowRoot!.querySelectorAll(
+        certManager.$.platformClientCertsSection.shadowRoot.querySelectorAll(
             'certificate-list');
     assertEquals(1, certLists.length, 'no cert lists displayed');
 
@@ -232,7 +232,7 @@ suite('CertificateManagerV2FocusTest', () => {
     initializeElement();
     await microtasksFinished();
     const rowToClick =
-        certManager.$.localCertSection.shadowRoot!.querySelector<HTMLElement>(
+        certManager.$.localCertSection.shadowRoot.querySelector<HTMLElement>(
             '#userCertsInstalledLinkRow');
     assertTrue(!!rowToClick);
     rowToClick.click();

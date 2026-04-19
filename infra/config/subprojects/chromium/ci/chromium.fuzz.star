@@ -252,6 +252,7 @@ def fuzz_target_builder(
         use_component_build = True,
         chromium_extra_apply_configs = [],
         clusterfuzz_archive_name_prefix = None,
+        clusterfuzz_archive_schema_version = None,
         clusterfuzz_archive_subdir = None,
         clusterfuzz_ios_targets_only = None,
         clusterfuzz_v8_targets_only = None,
@@ -278,6 +279,9 @@ def fuzz_target_builder(
 
     if clusterfuzz_v8_targets_only != None:
         properties["v8_targets_only"] = clusterfuzz_v8_targets_only
+
+    if clusterfuzz_archive_schema_version != None:
+        properties["archive_schema_version"] = clusterfuzz_archive_schema_version
 
     # Creating a dict in this manner will result in an error if a named
     # argument we provide collides with a value already specified in `kwargs`,
@@ -526,7 +530,7 @@ centipede_linux_asan_builder(
     branch_selector = branches.selector.LINUX_BRANCHES,
     clusterfuzz_archive_name_prefix = "centipede",
     console_short_name = "cent",
-    execution_timeout = 5 * time.hour,
+    execution_timeout = 6 * time.hour,
     gn_extra_configs = [
         "chromeos_codecs",
         "pdf_xfa",
@@ -904,6 +908,45 @@ libfuzzer_linux_asan_builder(
     max_concurrent_invocations = 5,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
     test_builder_name = "linux-x64-libfuzzer-asan-dbg-tests",
+)
+
+libfuzzer_linux_asan_builder(
+    name = "Libfuzzer Upload Linux ASanBrpV2",
+    description_html = "This builder uploads libfuzzer fuzzers, for x64 using ASan with AsanBackupRefPtrV2.",
+    # TODO(487852130): remove this once we've added a test builder for this and
+    # we've verified that the builder works.
+    gardener_rotations = args.ignore_default(None),
+    build_config = builder_config.build_config.RELEASE,
+    target_bits = 64,
+    clusterfuzz_archive_name_prefix = "libfuzzer-asan-brp-v2",
+    console_short_name = "linux-asan-brp-v2",
+    execution_timeout = 4 * time.hour,
+    gn_extra_configs = [
+        "mojo_fuzzer",
+        "enable_asan_backup_ref_ptr_v2",
+    ],
+    max_concurrent_invocations = 4,
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
+)
+
+# TODO(496589592): Deprecate this builder once archives using schema v1 are
+# tested and confirmed to work as intended on ClusterFuzz.
+libfuzzer_linux_asan_builder(
+    name = "Libfuzzer Upload Linux ASan Schema v1",
+    description_html = "This builder uploads linux libfuzzer fuzzers with archive schema v1, for x64 using ASan",
+    free_space = builders.free_space.high,
+    gardener_rotations = args.ignore_default(None),
+    build_config = builder_config.build_config.RELEASE,
+    target_bits = 64,
+    clusterfuzz_archive_name_prefix = "libfuzzer-schema-v1",
+    clusterfuzz_archive_schema_version = 1,
+    clusterfuzz_archive_subdir = "asan-schema-v1",
+    console_short_name = "linux-schema-v1",
+    execution_timeout = 4 * time.hour,
+    gn_extra_configs = [
+        "mojo_fuzzer",
+    ],
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
 libfuzzer_linux_builder(

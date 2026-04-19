@@ -258,7 +258,7 @@
       field_template: "primitive",
       // See the definition of the PseudoId enum for details. This field_size
       // must be updated when public IDs are added or removed.
-      field_size: 24,
+      field_size: 25,
       default_value: "kPseudoIdNone",
       type_name: "unsigned",
       reset_on_new_style: true,
@@ -904,31 +904,6 @@
       computed_style_protected_functions: ["getter"],
     },
     {
-      name: "WillChangeProperties",
-      field_template: "external",
-      type_name: "Vector<CSSPropertyID>",
-      field_group: "misc->will-change",
-      default_value: "Vector<CSSPropertyID>()",
-      include_paths: ["third_party/blink/renderer/platform/wtf/vector.h",
-                      "third_party/blink/renderer/core/css/css_property_names.h"],
-      invalidate: ["compositing"],
-    },
-    {
-      name: "WillChangeContents",
-      field_template: "primitive",
-      type_name: "bool",
-      field_group: "misc->will-change",
-      default_value: "false",
-    },
-    {
-      name: "WillChangeScrollPosition",
-      field_template: "primitive",
-      type_name: "bool",
-      field_group: "misc->will-change",
-      default_value: "false",
-      invalidate: ["compositing"],
-    },
-    {
       name: "HasAutoColumnWidth",
       field_template: "primitive",
       type_name: "bool",
@@ -1142,10 +1117,9 @@
       invalidate: ["layout", "paint"],
     },
     {
-      name: "EffectiveZIndexZero",
+      name: "AllowsZIndex",
       field_template: "primitive",
       type_name: "bool",
-      field_group: "*",
       default_value: "false",
     },
     {

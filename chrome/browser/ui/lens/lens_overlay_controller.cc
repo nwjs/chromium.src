@@ -70,7 +70,6 @@
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/pref_names.h"
@@ -1372,6 +1371,14 @@ bool LensOverlayController::ShouldShowPreselectionBubble() {
   return !pending_region_ && !IsResultsSidePanelShowing();
 }
 
+void LensOverlayController::ShowPreselectionBubble() {
+  // Don't show the preselection bubble if the overlay is not being shown.
+  if (IsResultsSidePanelShowing()) {
+    return;
+  }
+  OverlayBaseController::ShowPreselectionBubble();
+}
+
 bool LensOverlayController::UseOverlayBlur() {
   return lens::features::GetLensOverlayUseBlur();
 }
@@ -1500,6 +1507,12 @@ void LensOverlayController::NotifyTabWillEnterBackground() {
     interface->AbortFeaturePromo(
         feature_engagement::kIPHiOSLensPromoDesktopFeature);
   }
+}
+
+OverlayBaseController::PreselectionBubbleResources
+LensOverlayController::GetPreselectionBubbleResources() {
+  return {.message_string_id =
+              IDS_LENS_OVERLAY_INITIAL_TOAST_MESSAGE_SIMPLIFIED};
 }
 
 bool LensOverlayController::IsOverlayViewShared() const {
@@ -1709,13 +1722,9 @@ void LensOverlayController::IssueSearchBoxRequestPart2(
         /*is_initial_query=*/state_ == State::kOverlay);
     if (lens_search_controller_->should_route_to_contextual_tasks() &&
         state_ == State::kOverlay) {
-      // Post a task to close the overlay to avoid destroying the searchbox
-      // handler while it is still on the stack.
-      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(&LensSearchController::CloseLensSync,
-                                    lens_search_controller_->GetWeakPtr(),
-                                    lens::LensOverlayDismissalSource::
-                                        kContextualTasksQuerySubmitted));
+      // The overlay will be closed by
+      // LensQueryFlowRouter::OpenContextualTasksPanel when the query is
+      // submitted and the panel is opened.
       return;
     }
   } else if (initialization_data_->selected_region_.is_null()) {

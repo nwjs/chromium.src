@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/lazy_instance.h"
+#include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/no_destructor.h"
 #include "base/observer_list.h"
@@ -323,10 +324,9 @@ BrowserXRRuntimeImpl* XRRuntimeManagerImpl::GetImmersiveArRuntime() {
 #if BUILDFLAG(ENABLE_OPENXR)
   // If OpenXR is available and the runtime supports an AR blend mode, prefer
   // it over ARCore to unify VR/AR rendering paths.
-  if (device::features::IsOpenXrArEnabled()) {
-    auto* openxr = GetRuntime(device::mojom::XRDeviceId::OPENXR_DEVICE_ID);
-    if (openxr && openxr->SupportsArBlendMode())
-      return openxr;
+  auto* openxr = GetRuntime(device::mojom::XRDeviceId::OPENXR_DEVICE_ID);
+  if (openxr && openxr->SupportsArBlendMode()) {
+    return openxr;
   }
 #endif
 

@@ -12,7 +12,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -43,10 +42,8 @@
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/hid_delegate.h"
 #include "content/public/browser/usb_delegate.h"
-#include "content/public/browser/web_ui_url_loader_factory.h"
 #include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "ipc/constants.mojom.h"
@@ -101,7 +98,7 @@ bool HasSentStartWorker(EmbeddedWorkerInstance::StartingPhase phase) {
   return false;
 }
 
-void NotifyForegroundServiceWorker(bool added, int process_id) {
+void NotifyForegroundServiceWorker(bool added, ChildProcessId process_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   RenderProcessHost* rph = RenderProcessHost::FromID(process_id);
@@ -125,7 +122,7 @@ void NotifyForegroundServiceWorker(bool added, int process_id) {
 // ServiceWorkerOnUI.
 class EmbeddedWorkerInstance::DevToolsProxy {
  public:
-  DevToolsProxy(int process_id,
+  DevToolsProxy(ChildProcessId process_id,
                 int agent_route_id,
                 const base::UnguessableToken& devtools_id)
       : process_id_(process_id),
@@ -167,7 +164,7 @@ class EmbeddedWorkerInstance::DevToolsProxy {
   const base::UnguessableToken& devtools_id() const { return devtools_id_; }
 
  private:
-  const int process_id_;
+  const ChildProcessId process_id_;
   const int agent_route_id_;
   const base::UnguessableToken devtools_id_;
   bool worker_stop_ignored_notified_ = false;
@@ -182,12 +179,12 @@ class EmbeddedWorkerInstance::WorkerProcessHandle {
   WorkerProcessHandle(
       const base::WeakPtr<ServiceWorkerProcessManager>& process_manager,
       int embedded_worker_id,
-      int process_id)
+      ChildProcessId process_id)
       : process_manager_(process_manager),
         embedded_worker_id_(embedded_worker_id),
         process_id_(process_id) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    DCHECK_NE(ChildProcessHost::kInvalidUniqueID, process_id_);
+    DCHECK(process_id_);
   }
 
   WorkerProcessHandle(const WorkerProcessHandle&) = delete;
@@ -198,13 +195,13 @@ class EmbeddedWorkerInstance::WorkerProcessHandle {
     process_manager_->ReleaseWorkerProcess(embedded_worker_id_);
   }
 
-  int process_id() const { return process_id_; }
+  ChildProcessId process_id() const { return process_id_; }
 
  private:
   base::WeakPtr<ServiceWorkerProcessManager> process_manager_;
 
   const int embedded_worker_id_;
-  const int process_id_;
+  const ChildProcessId process_id_;
 };
 
 // Info that is recorded as UMA on OnStarted().
@@ -293,7 +290,7 @@ void EmbeddedWorkerInstance::Start(
     OnSetupFailed(std::move(callback), status);
     return;
   }
-  const int process_id = process_info->process_id;
+  const ChildProcessId process_id = process_info->process_id;
   RenderProcessHost* rph = RenderProcessHost::FromID(process_id);
   // TODO(falken): This CHECK should no longer fail, so turn to a DCHECK it if
   // crash reports agree. Consider also checking for
@@ -304,8 +301,9 @@ void EmbeddedWorkerInstance::Start(
   // the worker's URL. This is needed so that the worker process can access data
   // belonging to that origin.
   const url::Origin origin = url::Origin::Create(params->script_url);
-  ChildProcessSecurityPolicyImpl::GetInstance()->AddCommittedOrigin(process_id,
-                                                                    origin);
+  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
+  ChildProcessSecurityPolicyImpl::GetInstance()->AddCommittedOrigin(
+      process_id.GetUnsafeValue(), origin);
 
   // Pass the cross-origin isolated capability of the worker.
   params->cross_origin_isolated =
@@ -395,22 +393,6 @@ void EmbeddedWorkerInstance::Start(
         ContentBrowserClient::URLLoaderFactoryType::kServiceWorkerSubResource,
         params->devtools_worker_token.ToString());
   }
-
-  // To enable runtime features, the render process must be locked to the site.
-  // These features are highly privileged, so the renderer process with such
-  // features enabled shouldn't be used for other sites.
-  //
-  // WebUI schemes are process isolated already. To isolate other sites, the
-  // embedder can override ContentBrowserClient::ShouldLockProcessToSite().
-  if (rph->GetProcessLock().IsLockedToSite()) {
-    GetContentClient()
-        ->browser()
-        ->UpdateEnabledBlinkRuntimeFeaturesInIsolatedWorker(
-            context_->wrapper()->browser_context(), params->script_url,
-            params->forced_enabled_runtime_features);
-  }
-  CHECK(params->forced_enabled_runtime_features.empty() ||
-        rph->GetProcessLock().IsLockedToSite());
 
   // TODO(crbug.com/40584626): Support changes to blink::RendererPreferences
   // while the worker is running.
@@ -775,6 +757,7 @@ void EmbeddedWorkerInstance::UpdateForegroundPriority() {
     return;
   }
 
+  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
   if (process_handle_ &&
       owner_version_->ShouldRequireForegroundPriority(process_id())) {
     NotifyForegroundServiceWorkerAdded();
@@ -921,25 +904,6 @@ EmbeddedWorkerInstance::CreateFactoryBundle(
 
   ContentBrowserClient::NonNetworkURLLoaderFactoryMap non_network_factories;
   non_network_factories[url::kDataScheme] = DataURLLoaderFactory::Create();
-  // Allow service workers for chrome:// or chrome-untrusted:// based on flags.
-  if (base::FeatureList::IsEnabled(
-          features::kEnableServiceWorkersForChromeScheme) &&
-      origin.scheme() == content::kChromeUIScheme) {
-    non_network_factories.emplace(
-        content::kChromeUIScheme,
-        CreateWebUIServiceWorkerLoaderFactory(rph->GetBrowserContext(),
-                                              content::kChromeUIScheme,
-                                              base::flat_set<std::string>()));
-  } else if (base::FeatureList::IsEnabled(
-                 features::kEnableServiceWorkersForChromeUntrusted) &&
-             origin.scheme() == content::kChromeUIUntrustedScheme) {
-    non_network_factories.emplace(
-        content::kChromeUIUntrustedScheme,
-        CreateWebUIServiceWorkerLoaderFactory(rph->GetBrowserContext(),
-                                              content::kChromeUIUntrustedScheme,
-                                              base::flat_set<std::string>()));
-  }
-
   GetContentClient()
       ->browser()
       ->RegisterNonNetworkSubresourceURLLoaderFactories(
@@ -1010,10 +974,10 @@ void EmbeddedWorkerInstance::OnReportConsoleMessage(
   }
 }
 
-int EmbeddedWorkerInstance::process_id() const {
+ChildProcessId EmbeddedWorkerInstance::process_id() const {
   if (process_handle_)
     return process_handle_->process_id();
-  return ChildProcessHost::kInvalidUniqueID;
+  return ChildProcessId();
 }
 
 int EmbeddedWorkerInstance::worker_devtools_agent_route_id() const {

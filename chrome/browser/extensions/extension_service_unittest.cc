@@ -5650,8 +5650,8 @@ TEST_F(ExtensionServiceTest, ClearExtensionData) {
       extensions::ChromeExtensionCookies::Get(profile())
           ->GetCookieStoreForTesting();
   ASSERT_TRUE(cookie_store);
-  auto cookie = net::CanonicalCookie::CreateForTesting(ext_url, "dummy=value",
-                                                       base::Time::Now());
+  auto cookie = net::CanonicalCookie::CreateForTesting(
+      ext_url, "dummy=value", base::Time::Now(), net::CookieSourceType::kOther);
   cookie_store->SetCanonicalCookieAsync(
       std::move(cookie), ext_url, net::CookieOptions::MakeAllInclusive(),
       base::BindOnce(&ExtensionCookieCallback::SetCookieCallback,
@@ -5677,7 +5677,7 @@ TEST_F(ExtensionServiceTest, ClearExtensionData) {
   {
     base::test::TestFuture<bool> future;
     area->Put({'k', 'e', 'y'}, {'v', 'a', 'l', 'u', 'e'}, std::nullopt,
-              "source", future.GetCallback());
+              /*source=*/nullptr, future.GetCallback());
     ASSERT_TRUE(future.Get());
   }
 
@@ -5792,7 +5792,8 @@ TEST_F(ExtensionServiceTest, ClearAppData) {
 
   std::unique_ptr<net::CanonicalCookie> cc(
       net::CanonicalCookie::CreateForTesting(origin1, "dummy=value",
-                                             base::Time::Now()));
+                                             base::Time::Now(),
+                                             net::CookieSourceType::kOther));
   ASSERT_TRUE(cc.get());
 
   {
@@ -5824,7 +5825,7 @@ TEST_F(ExtensionServiceTest, ClearAppData) {
   {
     base::test::TestFuture<bool> future;
     area->Put({'k', 'e', 'y'}, {'v', 'a', 'l', 'u', 'e'}, std::nullopt,
-              "source", future.GetCallback());
+              /*source=*/nullptr, future.GetCallback());
     ASSERT_TRUE(future.Get());
   }
 

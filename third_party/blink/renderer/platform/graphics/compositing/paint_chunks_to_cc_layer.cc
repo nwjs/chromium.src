@@ -5,9 +5,11 @@
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_chunks_to_cc_layer.h"
 
 #include "base/containers/adapters.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/numerics/safe_conversions.h"
+#include "cc/base/features.h"
 #include "cc/input/layer_selection_bound.h"
 #include "cc/layers/layer.h"
 #include "cc/paint/display_item_list.h"
@@ -29,6 +31,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/scrollbar_display_item.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "ui/gfx/geometry/point_conversions.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 
 namespace blink {
@@ -1212,7 +1215,7 @@ class LayerPropertiesUpdater {
 
   void UpdateForNonCompositedScrollbar(const ScrollbarDisplayItem&);
   void UpdateRegionCaptureData(const RegionCaptureData&);
-  void UpdateTrackedElementData(const TrackedElementData&);
+  void UpdateTrackedElementRects(const TrackedElementRects&);
   gfx::Point MapSelectionBoundPoint(const gfx::Point&) const;
   cc::LayerSelectionBound PaintedSelectionBoundToLayerSelectionBound(
       const PaintedSelectionBound&) const;
@@ -1235,7 +1238,7 @@ class LayerPropertiesUpdater {
 #endif
   cc::Region main_thread_scroll_hit_test_region_;
   viz::RegionCaptureBounds capture_bounds_;
-  cc::TrackedElementBounds tracked_element_bounds_;
+  viz::TrackedElementRects tracked_element_rects_;
 
   // Top-level (i.e., non-nested) non-composited scrolls. Nested non-composited
   // scrollers will force the containing top non-composited scroller to hit test
@@ -1553,12 +1556,17 @@ void LayerPropertiesUpdater::UpdateRegionCaptureData(
   }
 }
 
-void LayerPropertiesUpdater::UpdateTrackedElementData(
-    const TrackedElementData& tracked_element_data) {
-  for (const std::pair<TrackedElementId, gfx::Rect>& pair :
-       tracked_element_data.map) {
-    gfx::Rect rect = chunk_to_layer_mapper_.MapVisualRect(pair.second);
-    tracked_element_bounds_[pair.first.value()] = {rect};
+void LayerPropertiesUpdater::UpdateTrackedElementRects(
+    const TrackedElementRects& tracked_element_rects) {
+  for (const auto& [feature, element_rects] : tracked_element_rects.map) {
+    for (const auto& element_rect : element_rects) {
+      gfx::Rect rect =
+          chunk_to_layer_mapper_.MapVisualRect(element_rect.bounds);
+      viz::TrackedElementRect rect_data(
+          element_rect.id.value(), rect,
+          element_rect.should_add_to_compositor_frame_metadata);
+      tracked_element_rects_[feature].push_back(std::move(rect_data));
+    }
   }
 }
 
@@ -1574,11 +1582,20 @@ LayerPropertiesUpdater::PaintedSelectionBoundToLayerSelectionBound(
   cc::LayerSelectionBound layer_bound;
   layer_bound.type = bound.type;
 
-  // This is similar to ComputeViewportSelectionBound(). Use the end point
-  // moved 1 pixel towards the start point and expanded by 1 as the sample
-  // rect to check visibility.
-  gfx::Rect sample(bound.edge_end, gfx::Size());
-  if (RuntimeEnabledFeatures::SelectionHandleWithBottomClippedEnabled()) {
+  gfx::Rect sample;
+  if (base::FeatureList::IsEnabled(
+          ::features::kSelectionEdgeVisibilityUsesFullEdge)) {
+    // Similar to ComputeViewportSelectionBound()
+    // (cc/trees/layer_tree_impl.cc), this is a conservative pre-check: if the
+    // mapped sample is empty, the bound must stay hidden. Use the full
+    // selection edge so the handle is shown when any part of the edge is
+    // visible (not fully clipped). This handles cases where edge_end
+    // overflows the clip by more than 1px, e.g. when line-height > height on
+    // input elements (crbug.com/451833352).
+    sample = gfx::BoundingRect(bound.edge_start, bound.edge_end);
+  } else {
+    // Legacy behavior kept as a runtime fallback.
+    sample = gfx::Rect(bound.edge_end, gfx::Size());
     auto offset = [](int start, int end) {
       return start < end ? -1 : start > end ? 1 : 0;
     };
@@ -1618,7 +1635,7 @@ void LayerPropertiesUpdater::Update() {
         NonCompositedScrollbarDisplayItem(it, layer_);
     if ((!selection_only_ &&
          (chunk.hit_test_data || non_composited_scrollbar ||
-          chunk.region_capture_data || chunk.tracked_element_data ||
+          chunk.region_capture_data || chunk.tracked_element_rects ||
           !top_non_composited_scrolls_.empty())) ||
         chunk.layer_selection_data) {
       chunk_to_layer_mapper_.SwitchToChunk(chunk);
@@ -1639,8 +1656,8 @@ void LayerPropertiesUpdater::Update() {
       if (chunk.region_capture_data) {
         UpdateRegionCaptureData(*chunk.region_capture_data);
       }
-      if (chunk.tracked_element_data) {
-        UpdateTrackedElementData(*chunk.tracked_element_data);
+      if (chunk.tracked_element_rects) {
+        UpdateTrackedElementRects(*chunk.tracked_element_rects);
       }
     }
     if (chunk.layer_selection_data) {
@@ -1660,7 +1677,7 @@ void LayerPropertiesUpdater::Update() {
 #endif
 
     layer_.SetCaptureBounds(std::move(capture_bounds_));
-    layer_.SetTrackedElementBounds(std::move(tracked_element_bounds_));
+    layer_.SetTrackedElementRects(std::move(tracked_element_rects_));
 
     std::vector<cc::ScrollHitTestRect> non_composited_scroll_hit_test_rects;
     for (const auto& scroll : top_non_composited_scrolls_) {

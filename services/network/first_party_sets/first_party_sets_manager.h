@@ -5,10 +5,8 @@
 #ifndef SERVICES_NETWORK_FIRST_PARTY_SETS_FIRST_PARTY_SETS_MANAGER_H_
 #define SERVICES_NETWORK_FIRST_PARTY_SETS_FIRST_PARTY_SETS_MANAGER_H_
 
-#include <map>
 #include <memory>
 #include <optional>
-#include <set>
 
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_map.h"
@@ -16,7 +14,6 @@
 #include "base/functional/callback.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/types/optional_ref.h"
 #include "net/base/schemeful_site.h"
 #include "net/first_party_sets/first_party_set_entry.h"
@@ -30,9 +27,6 @@ namespace network {
 // answers queries about First-Party Sets after they've been loaded.
 class FirstPartySetsManager {
  public:
-  using EntriesResult =
-      base::flat_map<net::SchemefulSite, net::FirstPartySetEntry>;
-
   explicit FirstPartySetsManager(bool enabled);
   ~FirstPartySetsManager();
 
@@ -62,23 +56,6 @@ class FirstPartySetsManager {
   // invocations are ignored.
   void SetCompleteSets(net::GlobalFirstPartySets sets);
 
-  // Returns the mapping of sites to entries for the given input sites (if an
-  // entry exists).
-  //
-  // When FPS is disabled, returns an empty map.
-  // When FPS is enabled, this maps each input site to its entry (if one
-  // exists), and returns the resulting mapping. If a site isn't in a
-  // non-trivial First-Party Set, it is not added to the output map.
-  //
-  // This may return a result synchronously, or asynchronously invoke `callback`
-  // with the result. The callback will be invoked iff the return value is
-  // nullopt; i.e. a result will be provided via return value or callback, but
-  // not both, and not neither.
-  [[nodiscard]] std::optional<EntriesResult> FindEntries(
-      const base::flat_set<net::SchemefulSite>& sites,
-      const net::FirstPartySetsContextConfig& fps_context_config,
-      base::OnceCallback<void(EntriesResult)> callback);
-
  private:
   // Same as `ComputeMetadata`, but plumbs the result into the callback. Must
   // only be called once the instance is fully initialized.
@@ -93,19 +70,6 @@ class FirstPartySetsManager {
   net::FirstPartySetMetadata ComputeMetadataInternal(
       const net::SchemefulSite& site,
       base::optional_ref<const net::SchemefulSite> top_frame_site,
-      const net::FirstPartySetsContextConfig& fps_context_config) const;
-
-  // Same as `FindEntries`, but plumbs the result into the callback. Must only
-  // be called once the instance is fully initialized.
-  void FindEntriesAndInvoke(
-      const base::flat_set<net::SchemefulSite>& sites,
-      const net::FirstPartySetsContextConfig& fps_context_config,
-      base::OnceCallback<void(EntriesResult)> callback) const;
-
-  // Synchronous version of `FindEntries`, to be run only once the instance is
-  // initialized.
-  EntriesResult FindEntriesInternal(
-      const base::flat_set<net::SchemefulSite>& sites,
       const net::FirstPartySetsContextConfig& fps_context_config) const;
 
   // Enqueues a query to be answered once the instance is fully initialized.
@@ -131,9 +95,6 @@ class FirstPartySetsManager {
   // The queue of queries that are waiting for the instance to be initialized.
   std::unique_ptr<base::circular_deque<base::OnceClosure>> pending_queries_
       GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Timer starting when the instance is constructed. Used for metrics.
-  base::ElapsedTimer construction_timer_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   SEQUENCE_CHECKER(sequence_checker_);
 

@@ -65,7 +65,6 @@
 <translation id="1640672724030957280">Downloader...</translation>
 <translation id="1651617469580841801">Når du bruger Google Lens, sendes sidetitlen, webadressen og indholdet, herunder PDF-filer, til Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Om ChromeOS Flex</translation>
-<translation id="1665867022636014702">Brug de browserindstillinger, der anbefales af Google</translation>
 <translation id="1674870198290878346">Åbn linket i et inko&amp;gnitovindue i Chrome</translation>
 <translation id="1682634494516646069">Google Chrome kan ikke læse og skrive i sin egen datamappe: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">Når du skriver i adresselinjen eller søgefeltet, sender Chrome det, du skriver, til din organisations søge-, AI- og agentværktøjer for at få forslag.</translation>
@@ -183,6 +182,7 @@
 <translation id="2885378588091291677">Jobliste</translation>
 <translation id="2888126860611144412">Om Chrome</translation>
 <translation id="2915996080311180594">Genstart senere</translation>
+<translation id="2916983411556218750">Lad os konfigurere Chrome</translation>
 <translation id="2926676257163822632">Svage adgangskoder er nemme at gætte. Få Chrome <ph name="BEGIN_LINK" />til at oprette og huske stærke adgangskoder for dig<ph name="END_LINK" />.</translation>
 <translation id="2926952073016206995">Chrome skal have kameratilladelse for at bruge dette website</translation>
 <translation id="2928420929544864228">Installationen er fuldført.</translation>
@@ -282,7 +282,6 @@
 <translation id="3889417619312448367">Afinstaller Google Chrome</translation>
 <translation id="3892148308691398805">Kopiér tekst</translation>
 <translation id="3893985792899396936">Tip til Chrome: Søg med Lens</translation>
-<translation id="3906096710440765802">Log ind i Chrome for at se dine adgangskoder, bogmærker m.m. på alle dine enheder</translation>
 <translation id="3941890832296813527">Installationsfejl: Installationens filnavn er ugyldigt eller understøttes ikke.</translation>
 <translation id="395904275706073188">Beskyttede sider kan ikke læses. Prøv en anden side.</translation>
 <translation id="3968962723676998462">Angiv din adgangssætning for at bruge og gemme Chrome-data på din konto, <ph name="ACCOUNT_EMAIL" /></translation>
@@ -296,6 +295,7 @@
 <translation id="4053720452172726777">Tilpas Google Chrome</translation>
 <translation id="408393047846373801">For at kunne se dine adgangskoder m.m. på alle dine enheder skal du logge ind på Chrome. Denne adgangskode gemmes på din Google-konto, når du er logget ind.</translation>
 <translation id="409936259433005390">Opgraderer du snart til Windows 11? Download Chrome-installationsprogrammet til OneDrive, så du er klar fra dag ét.</translation>
+<translation id="4102173024714616627">Udvidelser er tilføjelser, der giver dig mulighed for at tilpasse Chrome. Udvidelser hjælper dig med at organisere og forenkle hverdagens opgaver ved at tilpasse Chrome efter dine behov.</translation>
 <translation id="4110895483821904099">Konfigurer din nye Chrome-profil</translation>
 <translation id="4111566860456076004">Chrome kan ikke verificere, hvor denne udvidelse kommer fra, og den kan derfor være skadelig. Du bør fjerne udvidelsen fra Chrome, så den ikke længere kan se og ændre dine data på de websites, du besøger, bl.a. dine personlige oplysninger.</translation>
 <translation id="4147555960264124640">Du er ved at logge ind med en managerstyret konto og give dens administrator kontrol over din profil i Google Chrome. Dine Chrome-data, f.eks. dine apps, bogmærker, historikdata, adgangskoder og andre indstillinger, knyttes permanent til <ph name="USER_NAME" />. Du kan slette disse data via kontrolpanelet for Google Konti, men du kan ikke knytte disse data til en anden konto. <ph name="LEARN_MORE" /></translation>
@@ -599,6 +599,7 @@
 <translation id="7161904924553537242">Velkommen til Google Chrome</translation>
 <translation id="7193885263065350793">Din organisation lukker Chrome, når browseren ikke har været i brug i <ph name="TIMEOUT_DURATION" />.</translation>
 <translation id="7242029209006116544">Du er ved at logge ind med en managerstyret konto og give dens administrator kontrol over din profil i Google Chrome. Dine Chrome-data, f.eks. dine apps, bogmærker, historikdata, adgangskoder og andre indstillinger, knyttes permanent til <ph name="USER_NAME" />. Du kan slette disse data via kontrolpanelet for Google Konti, men du kan ikke knytte disse data til en anden konto. Du kan eventuelt oprette en ny profil for at holde dine eksisterende Chrome-data adskilt. <ph name="LEARN_MORE" /></translation>
+<translation id="7274402351400635015">Du kan bruge Chrome, hver gang du klikker på links i beskeder, dokumenter og andre apps. Den fastgøres også til proceslinjen.</translation>
 <translation id="7285616922384953075"><ph name="MANAGER" /> administrerer Chrome</translation>
 <translation id="7285990705317078173">Download Chrome på din telefon for at overvåge priser og få underretninger, når prisen falder på et website</translation>
 <translation id="7288567540154601580">Faner og udvidelser</translation>
@@ -608,6 +609,7 @@
 <translation id="7308322188646931570">Chrome skal have lageradgang for at downloade filer</translation>
 <translation id="7339898014177206373">Nyt vindue</translation>
 <translation id="7352651011704765696">Noget gik galt</translation>
+<translation id="73786666777299047">Åbn Chrome Webshop</translation>
 <translation id="7386878009611068389">Hvis du vil være mere sikker online med dine forældres valg, skal du skifte til din Chrome-profil, hvor du allerede er logget ind som <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="7398801000654795464">Du loggede ind i Chrome som <ph name="USER_EMAIL_ADDRESS" />. Brug den samme konto til at logge ind igen.</translation>
 <translation id="7412494426921990001">Klik på Chrome-menuen</translation>
@@ -772,6 +774,7 @@ Nye bogmærker kan ikke gemmes på din konto, før du sletter nogle. Hvis du log
 <translation id="8862326446509486874">Du har ikke de nødvendige rettigheder til en installation på systemniveau. Prøv at køre installationsprogrammet igen som administrator.</translation>
 <translation id="8865415417596392024">Chrome-data på din konto</translation>
 <translation id="8883862939660515976">Stil Google Lens spørgsmål om dette billede</translation>
+<translation id="8892956691293410744">Hvis du vil spørge AI-tilstand om din fane uden at forlade siden, skal du logge ind i Chrome. Du kan også se dine adgangskoder m.m. på alle dine enheder.</translation>
 <translation id="8914504000324227558">Genstart Chrome</translation>
 <translation id="8922193594870374009">Hvis du vil sende et nummer fra <ph name="ORIGIN" /> til din Android-telefon, skal du logge ind på Chrome på begge enheder.</translation>
 <translation id="8922998289262614701">Fjern denne apps data fra Chrome</translation>
@@ -785,7 +788,6 @@ Nye bogmærker kan ikke gemmes på din konto, før du sletter nogle. Hvis du log
 <translation id="8999208279178790196">{0,plural, =0{Der er en tilgængelig Chrome-opdatering}=1{Der er en tilgængelig Chrome-opdatering}one{En Chrome-opdatering har været tilgængelig i # dag}other{En Chrome-opdatering har været tilgængelig i # dage}}</translation>
 <translation id="9010418943148193727">Din standardsøgemaskine blev ændret uden for Chrome. Chrome har nulstillet den for at beskytte dig.</translation>
 <translation id="9014771989710951291">Flere organisationer administrerer Chrome</translation>
-<translation id="9024318700713112071">Angiv Chrome som din standardbrowser</translation>
 <translation id="9066987883552592250">Luk Gemini i Chrome Canary</translation>
 <translation id="9090566250983691233">Se, hvorfor Chrome blokerer visse filer</translation>
 <translation id="9106236359747881194">Markér den tekst, du vil søge efter</translation>

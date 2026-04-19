@@ -32,13 +32,6 @@ constexpr auto enabled_by_default_non_ios =
     base::FEATURE_ENABLED_BY_DEFAULT;
 #endif
 
-constexpr auto enabled_by_default_non_arm32 =
-#if defined(ARCH_CPU_ARMEL)
-    base::FEATURE_DISABLED_BY_DEFAULT;
-#else
-    base::FEATURE_ENABLED_BY_DEFAULT;
-#endif
-
 constexpr auto enabled_by_default_ios_only =
 #if BUILDFLAG(IS_IOS)
     base::FEATURE_ENABLED_BY_DEFAULT;
@@ -106,10 +99,6 @@ bool IsSupportedCountry(const std::string& country_code,
 // Enables page content to be annotated.
 BASE_FEATURE(kPageContentAnnotations, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the page visibility model to be annotated on every page load.
-BASE_FEATURE(kPageVisibilityPageContentAnnotations,
-             enabled_by_default_non_arm32);
-
 BASE_FEATURE(kPageContentAnnotationsValidation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -125,6 +114,12 @@ BASE_FEATURE(kExtractRelatedSearchesFromPrefetchedZPSResponse,
 
 BASE_FEATURE(kAnnotatedPageContentExtraction,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAnnotatedPageContentNonSalientFiltering,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kAnnotatedPageContentExcludeAdRelatedParam{
+    &kAnnotatedPageContentNonSalientFiltering, "exclude_ad_related", false};
 
 BASE_FEATURE(kOnDeviceCategoryClassifier, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -177,10 +172,11 @@ bool ShouldExtractRelatedSearches() {
 }
 
 bool ShouldExecutePageVisibilityModelOnPageContent(const std::string& locale) {
-  return base::FeatureList::IsEnabled(kPageVisibilityPageContentAnnotations) &&
-         IsSupportedLocaleForFeature(
-             locale, kPageVisibilityPageContentAnnotations,
-             /*default_value=*/"ar,en,es,fa,fr,hi,id,pl,pt,tr,vi");
+#if defined(ARCH_CPU_ARMEL)
+  return false;
+#else
+  return IsSupportedLocale(locale, "ar,en,es,fa,fr,hi,id,pl,pt,tr,vi");
+#endif
 }
 
 bool RemotePageMetadataEnabled(const std::string& locale,
@@ -264,6 +260,12 @@ bool ShouldAnnotatedPageContentStudyIncludeInnerText() {
 
 std::string AnnotatedPageContentMode() {
   return kAnnotatedPageContentMode.Get();
+}
+
+bool ShouldAnnotatedPageContentExcludeAdRelated() {
+  return base::FeatureList::IsEnabled(
+             kAnnotatedPageContentNonSalientFiltering) &&
+         kAnnotatedPageContentExcludeAdRelatedParam.Get();
 }
 
 PageContentExtractionTriggeringMode GetPageContentExtractionTriggeringMode() {

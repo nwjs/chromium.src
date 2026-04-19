@@ -267,4 +267,28 @@ TEST_F(Etc1ThumbnailHelperTest, WriteReadAndDeleteThumbnail) {
   EXPECT_FALSE(base::PathExists(post_delete_file_path));
 }
 
+TEST_F(Etc1ThumbnailHelperTest, DeleteAllExceptForIds) {
+  std::vector<int> tab_ids = {1, 2, 3, 4, 5};
+  for (int tab_id : tab_ids) {
+    base::WriteFile(GetFile(tab_id), "thumbnail_data");
+    EXPECT_TRUE(base::PathExists(GetFile(tab_id)));
+  }
+
+  // Create a jpeg file to make sure it is not deleted.
+  base::FilePath jpeg_file = GetFile(1).AddExtension(".jpeg");
+  base::WriteFile(jpeg_file, "thumbnail_data");
+  EXPECT_TRUE(base::PathExists(jpeg_file));
+
+  GetInterface().DeleteAllExceptForIds({2, 4});
+  task_environment_.RunUntilIdle();
+
+  EXPECT_FALSE(base::PathExists(GetFile(1)));
+  EXPECT_TRUE(base::PathExists(GetFile(2)));
+  EXPECT_FALSE(base::PathExists(GetFile(3)));
+  EXPECT_TRUE(base::PathExists(GetFile(4)));
+  EXPECT_FALSE(base::PathExists(GetFile(5)));
+
+  EXPECT_TRUE(base::PathExists(jpeg_file));
+}
+
 }  // namespace thumbnail

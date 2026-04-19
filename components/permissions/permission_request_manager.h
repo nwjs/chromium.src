@@ -16,6 +16,7 @@
 #include "base/callback_list.h"
 #include "base/check_is_test.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
@@ -202,6 +203,7 @@ class PermissionRequestManager
   void SetDismissOnTabClose() override;
   void SetPromptShown() override;
   GeolocationAccuracy GetInitialGeolocationAccuracySelection() const override;
+  bool ShouldShowLocationPrecisionSelector() const override;
   void SetDecisionTime() override;
   void SetManageClicked() override;
   void SetLearnMoreClicked() override;
@@ -305,7 +307,12 @@ class PermissionRequestManager
     embedding_origin_for_testing_ = embedding_origin;
   }
 
-  base::ObserverList<Observer>* get_observer_list_for_testing() {
+  base::ObserverList<
+      Observer,
+      /*check_empty=*/false,
+      /*allow_reentrancy=*/
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>*
+  get_observer_list_for_testing() {
     CHECK_IS_TEST();
     return &observer_list_;
   }
@@ -345,14 +352,6 @@ class PermissionRequestManager
     kFinalize
   };
 
-  struct lex_compare {
-    bool operator()(const base::WeakPtr<PermissionRequest>& lhs,
-                    const base::WeakPtr<PermissionRequest>& rhs) const {
-      CHECK(lhs);
-      CHECK(rhs);
-      return lhs.get() < rhs.get();
-    }
-  };
   // Reprioritize the current requests (preempting, finalizing) based on what
   // type of UI has been shown for `requests_` and current pending requests
   // queue.
@@ -375,11 +374,11 @@ class PermissionRequestManager
   //  RenderFrameHost::IsInactiveAndDisallowActivation()
 
   bool HasActiveSourceFrameOrDisallowActivationOtherwise(
-      PermissionRequest* request) const;
+      const PermissionRequest& request) const;
 
   // Cancels a request and removes it from |request_sources_map_| and
   // |validated_requests_|.
-  void FinalizeAndCancelRequest(PermissionRequest* request);
+  void FinalizeAndCancelRequest(PermissionRequest& request);
 
   // Adds `request` into `pending_permission_requests_`, and request's
   // `source_frame` into `request_sources_map_`.
@@ -559,15 +558,22 @@ class PermissionRequestManager
   // Maps each PermissionRequest currently in |requests_| or
   // |pending_permission_requests_| to which RenderFrameHost it originated from.
   // Note that no date is stored for |duplicate_requests_|.
-  std::map<PermissionRequest*, PermissionRequestSource> request_sources_map_;
+  std::map<base::raw_ref<PermissionRequest>, PermissionRequestSource>
+      request_sources_map_;
 
   // Sequence of requests from pending queue will be marked as validated, when
   // we are extracting a group of requests from the queue to show to user. This
   // is an immature solution to avoid an infinitive loop of preempting, we would
   // not prempt a request if the incoming request is already validated.
-  std::vector<base::WeakPtr<PermissionRequest>> validated_requests_;
+  std::vector<base::raw_ref<PermissionRequest>> validated_requests_;
 
-  base::ObserverList<Observer> observer_list_;
+  // TODO(crbug.com/484371187): Investigate if reentrancy can be removed.
+  base::ObserverList<
+      Observer,
+      /*check_empty=*/false,
+      /*allow_reentrancy=*/
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>
+      observer_list_;
   AutoResponseType auto_response_for_test_ = NONE;
   PromptOptions auto_response_prompt_options_for_test_ = std::monostate();
 

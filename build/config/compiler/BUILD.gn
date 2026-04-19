@@ -208,7 +208,7 @@ declare_args() {
   # warning serves as a flip switch to allow a gradual migration of targets
   # away from the opt-in wexit_time_destructors config, and into the default
   # compiler config.
-  is_wexit_time_destructors_default = true
+  is_wexit_time_destructors_default = build_with_chromium
 }
 
 declare_args() {
@@ -531,6 +531,18 @@ config("compiler") {
     # linker_driver.py script runs dsymutil itself, which is set to be the
     # linker for Rust targets as well.
     rustflags += [ "-Csplit-debuginfo=unpacked" ]
+
+    if (use_thin_lto && current_cpu == "x64") {
+      # These passes were recently added to the mach-o lld thintlo link step,
+      # but cause timeouts in certain build configs. Disable them until that's
+      # fixed (crbug.com/489711936).
+      ldflags += [
+        "-Wl,-mllvm",
+        "-Wl,-vectorize-loops=false",
+        "-Wl,-mllvm",
+        "-Wl,-vectorize-slp=false",
+      ]
+    }
   }
 
   # Linux/Android/Fuchsia common flags setup.
@@ -1055,12 +1067,15 @@ config("linker") {
     }
 
     # Linker warnings.
-    if (fatal_linker_warnings && !is_apple && current_os != "aix" &&
-        current_os != "zos") {
-      ldflags += [ "-Wl,--fatal-warnings" ]
-    }
-    if (fatal_linker_warnings && is_apple) {
-      ldflags += [ "-Wl,-fatal_warnings" ]
+    if (fatal_linker_warnings) {
+      if (is_apple && use_lld) {
+        # The Apple linker issues duplicate `-rpath` warnings which become fatal
+        # errors. We only apply fatal warnings when using lld.
+        ldflags += [ "-Wl,-fatal_warnings" ]
+      }
+      if (!is_apple && current_os != "aix" && current_os != "zos") {
+        ldflags += [ "-Wl,--fatal-warnings" ]
+      }
     }
   }
 
@@ -1097,6 +1112,15 @@ config("linker") {
     ldflags += [ "-Wl,--icf=none" ]
   } else if (use_icf && (!is_apple || use_lld)) {
     ldflags += [ "-Wl,--icf=all" ]
+  }
+
+  # Note: `use_lld=false` on Apple platforms is experimental and may not
+  # run properly on bots due to toolchain limitations. It is mainly
+  # intended to unblock local builds for debugging.
+  if (is_apple && !use_lld) {
+    if (!use_icf) {
+      ldflags += [ "-Wl,-no_deduplicate" ]
+    }
   }
 
   if (is_chromeos_device && current_toolchain == default_toolchain) {
@@ -1137,7 +1161,8 @@ config("linker") {
 
   # TODO(crbug.com/40242425): Cleanup undefined symbol errors caught by
   # --no-undefined-version.
-  if (use_lld && !is_win && !is_mac && !is_ios && !is_wasm) {
+  if ((use_lld || experimental_linker_path != "") && !is_win && !is_mac &&
+      !is_ios && !is_wasm) {
     ldflags += [ "-Wl,--undefined-version" ]
   }
 
@@ -1898,6 +1923,24 @@ config("sanitize_c_array_bounds") {
   }
 }
 
+# Enable UBSan subset to ensure we always hit `return` statement in non-void
+# functions (https://crbug.com/489565636). This is equivalent to inserting
+# `NOTREACHED()` at the end of such functions.
+config("sanitize_return") {
+  if (!is_ubsan && is_clang) {
+    cflags = [
+      "-fsanitize=return",
+      "-fsanitize-trap=return",
+
+      # Some code users feature detection to determine if UBSAN (or any
+      # sanitizer) is enabled, they then do expensive debug like operations. We
+      # want to suppress this behaviour since we want to keep performance costs
+      # as low as possible while having these checks.
+      "-fsanitize-ignore-for-ubsan-feature=return",
+    ]
+  }
+}
+
 config("rustc_revision") {
   if (rustc_revision != "") {
     # Similar to the `clang_revision` config, this is here so that all `.rs`
@@ -2097,6 +2140,10 @@ config("tot_warnings") {
   # Entries should generally require both is_clang and llvm_force_head_revision,
   # but may have additional constraints as well (e.g. only some OSes)
   if (is_clang && llvm_force_head_revision) {
+    cflags += [
+      # TODO(crbug.com/495753203): Fix and re-enable
+      "-Wno-unused-but-set-global",
+    ]
   }
 }
 
@@ -2298,8 +2345,7 @@ config("default_warnings") {
       cflags += [ "-Wno-gnu-line-marker" ]
     }
 
-    if (is_wexit_time_destructors_default &&
-        use_clang_warning_suppression_file) {
+    if (is_wexit_time_destructors_default) {
       # TODO(crbug.com/40031409): We are migrating towards making this warning
       # enabled by default. Once that is completed, the warning
       # should always be added for clang builds.
@@ -2329,7 +2375,7 @@ config("default_clippy_lints") {
     # `config("rustc_revision")` - a custom `--cfg` flag is used to force
     # rebuilding of all `.rs` files (which as a side-effect should also trigger
     # a Clippy check if `enable_rust_clippy = true`).
-    "--cfg=cr_clippy_revision=\"2026-03-04\"",
+    "--cfg=cr_clippy_revision=\"2026-03-17\"",
 
     # Treat all default Clippy lints as warnings.
     # See also `config("treat_warnings_as_errors")`.
@@ -3441,6 +3487,15 @@ if (is_android) {
         "-Wl,--no-warn-symbol-ordering",
       ]
       inputs = [ chrome_orderfile_path ]
+
+      # These are txt files used by gclient to decide which version to download.
+      # They have zero effect on the build. We add them here merely so that
+      # GN-analyze recognizes them as dependencies when the version gets rolled.
+      if (current_cpu == "arm64" || current_cpu == "x64") {
+        inputs += [ "//chrome/build/android-arm64.orderfile.txt" ]
+      } else if (current_cpu == "arm" || current_cpu == "x86") {
+        inputs += [ "//chrome/build/android-arm.orderfile.txt" ]
+      }
     }
   }
 }

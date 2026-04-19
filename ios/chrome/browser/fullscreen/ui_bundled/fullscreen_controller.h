@@ -13,7 +13,7 @@
 @class ChromeBroadcaster;
 class FullscreenControllerObserver;
 @class ToolbarsSize;
-enum class FullscreenExitReason;
+enum class FullscreenModeTransitionTrigger;
 
 // An object that observes scrolling events in the main content area and
 // calculates how much of the toolbar should be visible as a result.  When the
@@ -77,19 +77,24 @@ class FullscreenController : public BrowserUserData<FullscreenController> {
 
   // Exits fullscreen mode, animating in toolbars and resetting the progress to
   // 1.0.
-  virtual void ExitFullscreen(FullscreenExitReason fullscreen_exit_reason) = 0;
+  virtual void ExitFullscreen(
+      FullscreenModeTransitionTrigger fullscreen_exit_trigger) = 0;
 
   // Exits fullscreen without animation, resetting the progress to 1.0.
   virtual void ExitFullscreenWithoutAnimation() = 0;
 
   // Force fullscreen mode is used when the bottom omnibox is collapsed above
-  // the keyboard or find-in-page is triggered. When the mode is active:
+  // the keyboard or find-in-page is triggered or when the user manually enter
+  // in fullscreen. When the mode is active:
   // - Fullscreen progress is forced to 0 and should stay at 0.
   // - Updating browser insets if insets_update_enabled is true. (crbug/1490601)
   // When exiting the mode, fullscreen is reset.
   virtual bool IsForceFullscreenMode() const = 0;
-  virtual void EnterForceFullscreenMode(bool insets_update_enabled) = 0;
-  virtual void ExitForceFullscreenMode() = 0;
+  virtual void EnterForceFullscreenMode(
+      bool insets_update_enabled,
+      FullscreenModeTransitionTrigger trigger) = 0;
+  virtual void ExitForceFullscreenMode(
+      FullscreenModeTransitionTrigger trigger) = 0;
 
   // Force horizontal content resize, when content isn't tracking resize by
   // itself.

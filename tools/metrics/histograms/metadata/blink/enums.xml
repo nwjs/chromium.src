@@ -4847,7 +4847,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4376" label="EligibleForImageLoadingPrioritizationFix"/>
   <int value="4377" label="ExecutedNonTrivialJavaScriptURL"/>
   <int value="4378" label="StorageBucketsOpen"/>
-  <int value="4379" label="PerformanceEntryBufferSwaps"/>
+  <int value="4379" label="OBSOLETE_PerformanceEntryBufferSwaps"/>
   <int value="4380" label="ClearPerformanceEntries"/>
   <int value="4381"
       label="ViewportDependentLazyLoadedImageWithoutSizesAttribute"/>
@@ -5992,7 +5992,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5377" label="DOMWindowOpenPopup"/>
   <int value="5378" label="FencedFrameDisableUntrustedNetwork"/>
   <int value="5379" label="FencedFrameNotifyEvent"/>
-  <int value="5380" label="SharedStorageGetInFencedFrame"/>
+  <int value="5380" label="OBSOLETE_SharedStorageGetInFencedFrame"/>
   <int value="5381" label="OBSOLETE_Translator_MeasureInputUsage_Method"/>
   <int value="5382" label="OBSOLETE_Translator_InputQuota_AttributeGetter"/>
   <int value="5383" label="AriaNotify"/>
@@ -6358,7 +6358,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5727" label="V8Origin_FromURL_Method"/>
   <int value="5728" label="V8Origin_Parse_Method"/>
   <int value="5729" label="ExtendedTextMetrics"/>
-  <int value="5730" label="UseCssSizingProperties"/>
+  <int value="5730" label="OBSOLETE_UseCssSizingProperties"/>
   <int value="5731" label="SharedStorageAPIAll"/>
   <int value="5732" label="GamepadRawInputChangeEventListener"/>
   <int value="5733" label="LetterSpacingWithMargin"/>
@@ -6455,6 +6455,56 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5816" label="HTMLInputElementTypeChangedWhileConnected"/>
   <int value="5817" label="HTMLButtonElementTypeChangedWhileDisconnected"/>
   <int value="5818" label="HTMLInputElementTypeChangedWhileDisconnected"/>
+  <int value="5819" label="SynthesizedMiddleClickAnchor"/>
+  <int value="5820" label="SynthesizedMiddleClickArea"/>
+  <int value="5821" label="SynthesizedMiddleClickSVGAnchor"/>
+  <int value="5822" label="WebAuthenticationCspDisallowsRpId"/>
+  <int value="5823" label="HistoryGoBackWouldSkipAd"/>
+  <int value="5824" label="HistoryGoForwardWouldSkipAd"/>
+  <int value="5825"
+      label="HistoryGoBackWouldNotSkipAdDueToSameOriginExclusion"/>
+  <int value="5826"
+      label="HistoryGoForwardWouldNotSkipAdDueToSameOriginExclusion"/>
+  <int value="5827" label="SvgFilterPaintedOnLocalFrame"/>
+  <int value="5828" label="SvgFilterPaintedOnRemoteFrame"/>
+  <int value="5829" label="SvgFilterPaintedOnWebPlugin"/>
+  <int value="5830" label="SubtleCryptoEncapsulateKey"/>
+  <int value="5831" label="SubtleCryptoEncapsulateBits"/>
+  <int value="5832" label="SubtleCryptoDecapsulateKey"/>
+  <int value="5833" label="SubtleCryptoDecapsulateBits"/>
+  <int value="5834" label="CSSDiscardedVarWithValidArgumentGrammar"/>
+  <int value="5835" label="CSSDiscardedAttrWithValidArgumentGrammar"/>
+  <int value="5836" label="CSSDiscardedEnvWithValidArgumentGrammar"/>
+  <int value="5837" label="CSSDiscardedIfWithValidArgumentGrammar"/>
+  <int value="5838" label="HttpOnlyCookieShadowedByNonHttpOnlyPartitioned"/>
+  <int value="5839" label="XRMeshDetection"/>
+  <int value="5840" label="XRFrameDetectedMeshes"/>
+  <int value="5841" label="CSSLightDarkImage"/>
+  <int value="5842" label="CSSTimelineLookupFoundNothing"/>
+  <int value="5843" label="CSSTimelineScopeAttachedMultiple"/>
+  <int value="5844" label="SVGForeignObjectInImage"/>
+  <int value="5845" label="SVGForeignObjectDrawnIntoCanvas"/>
+  <int value="5846" label="HTMLPatching"/>
+  <int value="5847" label="HTMLStreaming"/>
+  <int value="5848" label="HTMLPositionalSetters"/>
+  <int value="5849" label="LazyLoadVideoLoadingAttributeLazy"/>
+  <int value="5850" label="LazyLoadVideoLoadingAttributeEager"/>
+  <int value="5851" label="LazyLoadAudioLoadingAttributeLazy"/>
+  <int value="5852" label="LazyLoadAudioLoadingAttributeEager"/>
+  <int value="5853" label="ResourceTimingWorkerMatchedSourceType"/>
+  <int value="5854" label="ResourceTimingWorkerFinalSourceType"/>
+  <int value="5855" label="NoVarySearchWithBooleanParams"/>
+  <int value="5856" label="DataUrlWorkerBroadcastChannel"/>
+  <int value="5857" label="NoscriptMarkupWithScriptingDisabledTemplate"/>
+  <int value="5858" label="NoscriptMarkupWithScriptingDisabledIframeSandbox"/>
+  <int value="5859" label="NoscriptMarkupWithScriptingDisabledXHR"/>
+  <int value="5860" label="NoscriptMarkupWithScriptingDisabledDOMParser"/>
+  <int value="5861"
+      label="NoscriptMarkupWithScriptingDisabledNoBrowsingContext"/>
+  <int value="5862" label="SingleAxisScroller"/>
+  <int value="5863" label="V8HoleyArrayReadthrough"/>
+  <int value="5864" label="LanguageModel_Create_Temperature"/>
+  <int value="5865" label="LanguageModel_Create_TopK"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -6651,6 +6701,32 @@ Called by update_permissions_policy_enum.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/webid/idp_network_request_manager.h:AccountsResponseInvalidReason) -->
+
+<!-- LINT.IfChange(FedCmAmbientClick) -->
+
+<enum name="FedCmAmbientClick">
+  <int value="0" label="SignIn Chip"/>
+  <int value="1" label="SignUp Chip"/>
+  <int value="2" label="SignIn Anchored message"/>
+  <int value="3" label="SignUp Anchored message"/>
+  <int value="4" label="SignIn Icon"/>
+  <int value="5" label="SignUp Icon"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webid/identity_ui_utils.h:AmbientClick) -->
+
+<!-- LINT.IfChange(FedCmAmbientImpression) -->
+
+<enum name="FedCmAmbientImpression">
+  <int value="0" label="SignIn Chip"/>
+  <int value="1" label="SignUp Chip"/>
+  <int value="2" label="SignIn Anchored message"/>
+  <int value="3" label="SignUp Anchored message"/>
+  <int value="4" label="SignIn Icon"/>
+  <int value="5" label="SignUp Icon"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webid/identity_ui_utils.h:AmbientImpression) -->
 
 <!-- LINT.IfChange(FedCmCancelReason) -->
 
@@ -7279,6 +7355,17 @@ Called by update_permissions_policy_enum.py.-->
              was not retrieved."/>
 </enum>
 
+<!-- LINT.IfChange(InlineScriptCacheFetchResult) -->
+
+<enum name="InlineScriptCacheFetchResult">
+  <int value="0" label="Fetch succeeded with non-empty cache"/>
+  <int value="1" label="Fetch succeeded with empty cache"/>
+  <int value="2" label="Fetch timed out"/>
+  <int value="3" label="Fetch skipped because script is too small"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/platform/loader/fetch/code_cache_host.cc:InlineScriptCacheFetchResult) -->
+
 <enum name="InnerHTMLFastPathParserParseResult">
   <int value="0" label="Content was successfully parsed"/>
   <int value="1" label="Could not use fast path because tracing is enabled"/>
@@ -7314,11 +7401,15 @@ Called by update_permissions_policy_enum.py.-->
       label="(Obsolete) Could not use fast path because
              Document::IsDirAttributeDirty() is true"/>
   <int value="24" label="Failed because an attribute name starts with 'on'."/>
-  <int value="25" label="Failed because a deep hierarchy was encountered."/>
-  <int value="26" label="Failed because a long text string was encountered."/>
-  <int value="27"
-      label="Could not use fast path because Document::IsDirAttributeDirty()
-             is true and css-pseudo-dir is enabled."/>
+  <int value="25"
+      label="(Obsolete due to erroneous use with two different errors.)"/>
+  <int value="26"
+      label="(Obsolete) Could not use fast path because
+             Document::IsDirAttributeDirty() is true and css-pseudo-dir is
+             enabled."/>
+  <int value="27" label="(Deliberately skipped due to C++/enums.xml mismatch)"/>
+  <int value="28" label="Failed because a deep hierarchy was encountered."/>
+  <int value="29" label="Failed because a long text string was encountered."/>
 </enum>
 
 <enum name="InnerHTMLFastPathParserUnsupportedTagType">
@@ -8400,21 +8491,6 @@ Called by update_use_counter_css.py.-->
 
 <!-- LINT.ThenChange(//third_party/blink/renderer/core/loader/shared_dictionary_hint_type.h:SharedDictionaryHintType) -->
 
-<!-- LINT.IfChange(SharedStorageGetInFencedFrameOutcome) -->
-
-<enum name="SharedStorageGetInFencedFrameOutcome">
-  <int value="0" label="Success"/>
-  <int value="1" label="Called from an insecure context"/>
-  <int value="2" label="Fenced storage read is disabled"/>
-  <int value="3" label="Untrusted network not disabled"/>
-  <int value="4" label="Shared Storage key not found"/>
-  <int value="5" label="Error calling get()"/>
-  <int value="6" label="Unpartitioned data access feature disabled"/>
-  <int value="7" label="Unpartitioned data access permission disabled"/>
-</enum>
-
-<!-- LINT.ThenChange(//third_party/blink/public/common/fenced_frame/fenced_frame_utils.h:SharedStorageGetInFencedFrameOutcome) -->
-
 <enum name="SmsParsingStatus">
   <int value="0" label="Parsed"/>
   <int value="1" label="OTP format regex not match"/>
@@ -8861,18 +8937,21 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="417" label="MetaTextScale"/>
   <int value="418" label="Jpegxl"/>
   <int value="419" label="PartitionedCookies"/>
-  <int value="420" label="Prompt"/>
+  <int value="420" label="LanguageModel"/>
   <int value="421" label="Proofreader"/>
   <int value="422" label="Rewriter"/>
   <int value="423" label="Writer"/>
   <int value="424" label="DRAFT_InstallElement"/>
   <int value="425" label="LanguageDetector"/>
   <int value="426" label="Translator"/>
-  <int value="427" label="DRAFT_WebMCP"/>
-  <int value="428" label="DRAFT_LoadingLazyMedia"/>
+  <int value="427" label="NavigatorModelcontext"/>
+  <int value="428" label="LoadingLazyMedia"/>
   <int value="429" label="ManifestLocalization"/>
   <int value="430" label="ContrastColor"/>
   <int value="431" label="DRAFT_WebAppMigration"/>
+  <int value="432" label="DeclarativeWebmcp"/>
+  <int value="433" label="Webgl"/>
+  <int value="434" label="Webgl2"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->
@@ -8886,6 +8965,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5" label="Success Sbix color font"/>
   <int value="6" label="Success COLR/CPAL color font"/>
   <int value="7" label="Success COLRv1 color font"/>
+  <int value="8" label="Success Avar2 font"/>
 </enum>
 
 <enum name="WebGLANGLEImplementation">

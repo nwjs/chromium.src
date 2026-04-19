@@ -276,11 +276,10 @@ bool PrefProvider::SetWebsiteSetting(
   return true;
 }
 
-bool PrefProvider::SetLastVisitTime(
+bool PrefProvider::UpdateLastVisitTime(
     const ContentSettingsPattern& primary_pattern,
     const ContentSettingsPattern& secondary_pattern,
-    ContentSettingsType content_type,
-    const base::Time time) {
+    ContentSettingsType content_type) {
   return UpdateSetting(
       content_type,
       [&](const Rule& rule) -> bool {
@@ -288,12 +287,9 @@ bool PrefProvider::SetLastVisitTime(
                rule.secondary_pattern == secondary_pattern;
       },
       [&](Rule& rule) -> bool {
-        // This should only be updated for settings that are
-        // already tracked.
-        DCHECK_NE(rule.metadata.last_visited(), base::Time());
-
-        rule.metadata.set_last_visited(time);
-
+        // TODO(crbug.com/40267370): Re-add the DCHECK to ensure the existing
+        // `last_visited` is not null.
+        rule.metadata.set_last_visited(GetCoarseVisitedTime(clock_->Now()));
         return true;
       });
 }
@@ -356,20 +352,20 @@ bool PrefProvider::UpdateLastUsedTime(const GURL& primary_url,
       });
 }
 
-bool PrefProvider::ResetLastVisitTime(
+bool PrefProvider::SetAutorevocationBypassedByUser(
     const ContentSettingsPattern& primary_pattern,
     const ContentSettingsPattern& secondary_pattern,
     ContentSettingsType content_type) {
-  return SetLastVisitTime(primary_pattern, secondary_pattern, content_type,
-                          base::Time());
-}
-
-bool PrefProvider::UpdateLastVisitTime(
-    const ContentSettingsPattern& primary_pattern,
-    const ContentSettingsPattern& secondary_pattern,
-    ContentSettingsType content_type) {
-  return SetLastVisitTime(primary_pattern, secondary_pattern, content_type,
-                          GetCoarseVisitedTime(clock_->Now()));
+  return UpdateSetting(
+      content_type,
+      [&](const Rule& rule) -> bool {
+        return rule.primary_pattern == primary_pattern &&
+               rule.secondary_pattern == secondary_pattern;
+      },
+      [&](Rule& rule) -> bool {
+        rule.metadata.set_autorevocation_bypassed_by_user(true);
+        return true;
+      });
 }
 
 std::optional<base::TimeDelta> PrefProvider::RenewContentSetting(

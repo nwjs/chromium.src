@@ -6,12 +6,45 @@
 
 #include <optional>
 
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/task/thread_pool.h"
+#include "base/trace_event/trace_event.h"
+#include "components/optimization_guide/proto/manifest.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace optimization_guide {
 
 namespace {
+
+base::expected<Manifest, Manifest::ParseError> ReadManifestFile(
+    const base::FilePath& directory,
+    DeviceCategory device_category) {
+  TRACE_EVENT("optimization_guide", "ReadManifestFile");
+  // Unpack and verify model config file.
+  std::string binary_manifest_pb;
+  if (!base::ReadFileToString(directory.Append(kManifestFileName),
+                              &binary_manifest_pb)) {
+    return base::unexpected(Manifest::ParseError::kFileNotFound);
+  }
+
+  proto::Manifest manifest;
+  if (!manifest.ParseFromString(binary_manifest_pb)) {
+    return base::unexpected(Manifest::ParseError::kProtoParseError);
+  }
+  return Manifest::Create(directory, std::move(manifest), device_category);
+}
+
+absl::flat_hash_map<std::string, std::string> ComputeAssetIdByPublicKey(
+    const proto::Assets& assets) {
+  absl::flat_hash_map<std::string, std::string> asset_id_by_public_key;
+  for (const auto& [id, component] : assets.on_demand_components()) {
+    asset_id_by_public_key[component.public_key()] = id;
+  }
+  return asset_id_by_public_key;
+}
 
 proto::DeviceCategoryConfig SelectDeviceCategoryConfig(
     const proto::Manifest& manifest,
@@ -230,6 +263,7 @@ std::ostream& operator<<(std::ostream& stream, DeviceCategory device_category) {
 
 // static
 base::expected<Manifest, Manifest::ParseError> Manifest::Create(
+    const base::FilePath& directory,
     proto::Manifest manifest,
     DeviceCategory device_category) {
   if (auto error = CheckUniqueIdentifiers(manifest); error.has_value()) {
@@ -254,16 +288,30 @@ base::expected<Manifest, Manifest::ParseError> Manifest::Create(
     return base::unexpected(error.value());
   }
 
-  return Manifest(std::move(device_category_config), std::move(recipes),
-                  std::move(assets));
+  return Manifest(directory, std::move(device_category_config),
+                  std::move(recipes), std::move(assets));
 }
 
-Manifest::Manifest(proto::DeviceCategoryConfig device_category_config,
+void Manifest::Load(
+    const base::FilePath& directory,
+    DeviceCategory device_category,
+    base::OnceCallback<void(base::expected<Manifest, ParseError>)> callback) {
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(&ReadManifestFile, directory, device_category),
+      std::move(callback));
+}
+
+Manifest::Manifest() = default;
+Manifest::Manifest(base::FilePath directory,
+                   proto::DeviceCategoryConfig device_category_config,
                    proto::Recipes recipes,
                    proto::Assets assets)
-    : device_category_config_(std::move(device_category_config)),
+    : directory_(std::move(directory)),
+      device_category_config_(std::move(device_category_config)),
       recipes_(std::move(recipes)),
-      assets_(std::move(assets)) {}
+      assets_(std::move(assets)),
+      asset_id_by_public_key_(ComputeAssetIdByPublicKey(assets_)) {}
 
 Manifest::~Manifest() = default;
 
@@ -271,6 +319,19 @@ Manifest::Manifest(const Manifest&) = default;
 Manifest& Manifest::operator=(const Manifest&) = default;
 Manifest::Manifest(Manifest&&) = default;
 Manifest& Manifest::operator=(Manifest&&) = default;
+
+bool Manifest::HasAssets() const {
+  return !assets_.on_demand_components().empty();
+}
+
+const proto::OnDemandComponent* Manifest::GetAssetByPublicKey(
+    const std::string& public_key) const {
+  auto it = asset_id_by_public_key_.find(public_key);
+  if (it == asset_id_by_public_key_.end()) {
+    return nullptr;
+  }
+  return &assets_.on_demand_components().at(it->second);
+}
 
 std::optional<absl::flat_hash_set<Manifest::AssetId>>
 Manifest::GetRequiredAssets(const UseCaseName& use_case) const {

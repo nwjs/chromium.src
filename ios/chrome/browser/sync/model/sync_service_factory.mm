@@ -31,6 +31,7 @@
 #import "components/sync/service/syncable_service_based_data_type_controller.h"
 #import "components/sync_preferences/pref_service_syncable.h"
 #import "components/variations/service/google_groups_manager.h"
+#import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_sync_service_factory.h"
@@ -55,6 +56,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/sharing_message/model/ios_sharing_message_bridge_factory.h"
 #import "ios/chrome/browser/signin/model/about_signin_internals_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
@@ -86,6 +88,8 @@ syncer::DataTypeController::TypeVector CreateControllers(
           profile, ServiceAccessType::IMPLICIT_ACCESS);
 
   browser_sync::CommonControllerBuilder builder;
+  builder.SetAccountSettingService(
+      IOSAccountSettingServiceFactory::GetForProfile(profile));
   builder.SetAutofillWebDataService(
       web::GetUIThreadTaskRunner({}), profile_web_data_service,
       ios::WebDataServiceFactory::GetAutofillWebDataForAccount(
@@ -150,7 +154,8 @@ syncer::DataTypeController::TypeVector CreateControllers(
   syncer::DataTypeController::TypeVector controllers = builder.Build(
       /*disabled_types=*/{}, sync_service, ::GetChannel());
 
-  if (base::FeatureList::IsEnabled(syncer::kSyncThemesIos)) {
+  if (base::FeatureList::IsEnabled(syncer::kSyncThemesIos) &&
+      IsNTPBackgroundCustomizationEnabled()) {
     HomeBackgroundCustomizationService* service =
         HomeBackgroundCustomizationServiceFactory::GetForProfile(profile);
     // TODO(crbug.com/481713548): Log metrics indicating service

@@ -64,6 +64,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/fullscreen/ui_bundled:ui",
     "//ios/chrome/browser/intelligence/bwg/metrics",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
+    "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/intelligence/proto_wrappers:utils",
@@ -79,6 +80,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/browser/shared/ui/util:util_swift",
     "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
     "//ios/chrome/browser/tabs/model:dependency_installer",
     "//ios/chrome/browser/url_loading/model",
@@ -95,9 +97,8 @@ source_set("tab_helper") {
   ]
   deps = [
     ":bwg_service",
-    ":bwg_service_factory",
+    ":gemini_service_factory",
     ":page_context",
-    ":snapshot_utils",
     "//components/favicon/ios",
     "//components/feature_engagement/public",
     "//components/google/core/common",
@@ -106,8 +107,10 @@ source_set("tab_helper") {
     "//components/search_engines",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/feature_engagement/model",
+    "//ios/chrome/browser/intelligence/bwg/metrics",
     "//ios/chrome/browser/intelligence/bwg/ui",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
+    "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/intelligence/proto_wrappers:utils",
@@ -122,7 +125,6 @@ source_set("tab_helper") {
     "//ios/chrome/browser/shared/model/utils",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/symbols",
-    "//ios/chrome/browser/snapshots/model",
     "//ios/public/provider/chrome/browser/bwg:bwg_api",
     "//ios/web/public",
     "//mojo/public/cpp/bindings",
@@ -132,7 +134,8 @@ source_set("tab_helper") {
 source_set("bwg_service") {
   sources = [
     "bwg_service.h",
-    "bwg_service.mm",
+    "bwg_service_impl.h",
+    "bwg_service_impl.mm",
   ]
   deps = [
     "//components/keyed_service/core",
@@ -140,6 +143,7 @@ source_set("bwg_service") {
     "//components/signin/public/identity_manager",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/browser/intelligence/bwg/metrics",
+    "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/optimization_guide/model",
@@ -152,10 +156,10 @@ source_set("bwg_service") {
   ]
 }
 
-source_set("bwg_service_factory") {
+source_set("gemini_service_factory") {
   sources = [
-    "bwg_service_factory.h",
-    "bwg_service_factory.mm",
+    "gemini_service_factory.h",
+    "gemini_service_factory.mm",
   ]
   deps = [
     ":bwg_service",
@@ -193,24 +197,12 @@ source_set("page_context") {
   ]
 }
 
-source_set("snapshot_utils") {
-  sources = [
-    "bwg_snapshot_utils.h",
-    "bwg_snapshot_utils.mm",
-  ]
-  deps = [
-    "//base",
-    "//ios/chrome/browser/shared/ui/util",
-  ]
-}
-
 source_set("unit_tests") {
   testonly = true
   sources = [
     "bwg_link_opening_handler_unittest.mm",
-    "bwg_service_unittest.mm",
+    "bwg_service_impl_unittest.mm",
     "bwg_session_handler_unittest.mm",
-    "bwg_snapshot_utils_unittest.mm",
     "bwg_tab_helper_unittest.mm",
     "gemini_browser_agent_unittest.mm",
     "gemini_camera_handler_unittest.mm",
@@ -218,10 +210,10 @@ source_set("unit_tests") {
   deps = [
     ":browser_agent",
     ":bwg_service",
-    ":bwg_service_factory",
+    ":gemini_service_factory",
     ":model",
-    ":snapshot_utils",
     ":tab_helper",
+    "//base",
     "//base/test:test_support",
     "//components/favicon/core",
     "//components/favicon/ios",
@@ -259,7 +251,10 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
+    "//ios/chrome/browser/signin/model:fake_system_identity",
+    "//ios/chrome/browser/signin/model:fake_system_identity_manager",
     "//ios/chrome/browser/signin/model:test_support",
     "//ios/chrome/browser/snapshots/model",
     "//ios/chrome/browser/snapshots/model:snapshot_source",

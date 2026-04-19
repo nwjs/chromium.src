@@ -31,14 +31,14 @@ ME2ME_PROGNAME = $(BUILD_DIR)/remoting_me2me_host
 ME2ME_DEBUGFILE = $(ME2ME_PROGNAME).debug
 START_PROGNAME = $(BUILD_DIR)/remoting_start_host
 START_DEBUGFILE = $(START_PROGNAME).debug
-SESSION_WRAPPER_PROGNAME = $(BUILD_DIR)/remoting_user_session
-SESSION_WRAPPER_DEBUGFILE = $(SESSION_WRAPPER_PROGNAME).debug
 ME2ME_NM_PROGNAME = $(BUILD_DIR)/remoting_native_messaging_host
 ME2ME_NM_DEBUGFILE = $(ME2ME_NM_PROGNAME).debug
 REMOTE_ASSISTANCE_PROGNAME = $(BUILD_DIR)/remote_assistance_host
 REMOTE_ASSISTANCE_DEBUGFILE = $(REMOTE_ASSISTANCE_PROGNAME).debug
 REMOTE_OPEN_URL_PROGNAME = $(BUILD_DIR)/remote_open_url
 REMOTE_OPEN_URL_DEBUGFILE = $(REMOTE_OPEN_URL_PROGNAME).debug
+REMOTE_SESSION_INFO_PROGNAME = $(BUILD_DIR)/remote_session_info
+REMOTE_SESSION_INFO_DEBUGFILE = $(REMOTE_SESSION_INFO_PROGNAME).debug
 REMOTE_WEBAUTHN_PROGNAME = $(BUILD_DIR)/remote_webauthn
 REMOTE_WEBAUTHN_DEBUGFILE = $(REMOTE_WEBAUTHN_PROGNAME).debug
 
@@ -61,6 +61,8 @@ install:
 	install "$(SRC_DIR)/remoting/host/linux/linux_me2me_host.py" \
 	  "$(INSTALL_DIR)/chrome-remote-desktop"
 	install "$(SRC_DIR)/remoting/host/installer/linux/is-remoting-session" \
+	  "$(INSTALL_DIR)"
+	install "$(SRC_DIR)/remoting/host/installer/linux/setup-session-environment" \
 	  "$(INSTALL_DIR)"
 	install "$(SRC_DIR)/remoting/host/installer/linux/Xsession" \
 	  "$(INSTALL_DIR)"
@@ -125,10 +127,6 @@ endif
 	install "$(START_PROGNAME)" "$(INSTALL_DIR)/start-host"
 	eu-strip -f "$(START_DEBUGFILE)" "$(INSTALL_DIR)/start-host"
 
-	install "$(SESSION_WRAPPER_PROGNAME)" "$(INSTALL_DIR)/user-session"
-	eu-strip -f "$(SESSION_WRAPPER_DEBUGFILE)" \
-	  "$(INSTALL_DIR)/user-session"
-
 	install "$(ME2ME_NM_PROGNAME)" "$(INSTALL_DIR)/native-messaging-host"
 	eu-strip -f "$(ME2ME_NM_DEBUGFILE)" \
 	  "$(INSTALL_DIR)/native-messaging-host"
@@ -142,6 +140,11 @@ endif
 	  "$(INSTALL_DIR)/remote-open-url"
 	eu-strip -f "$(REMOTE_OPEN_URL_DEBUGFILE)" \
 	  "$(INSTALL_DIR)/remote-open-url"
+
+	install "$(REMOTE_SESSION_INFO_PROGNAME)" \
+	  "$(INSTALL_DIR)/remote-session-info"
+	eu-strip -f "$(REMOTE_SESSION_INFO_DEBUGFILE)" \
+	  "$(INSTALL_DIR)/remote-session-info"
 
 	install "$(REMOTE_WEBAUTHN_PROGNAME)" "$(INSTALL_DIR)/remote-webauthn"
 	eu-strip -f "$(REMOTE_WEBAUTHN_DEBUGFILE)" "$(INSTALL_DIR)/remote-webauthn"
@@ -161,9 +164,6 @@ endif
 	install -m 0644 \
 	  "$(SRC_DIR)/remoting/host/installer/linux/chrome-remote-desktop@.service" \
 	  "$(SYSTEMD_UNIT_DIR)/chrome-remote-desktop@.service"
-
-	# Mask the SysV-style init script under systemd so both don't end up enabled.
-	ln -s /dev/null "$(SYSTEMD_UNIT_DIR)/chrome-remote-desktop.service"
 
 	install $(BUILD_DIR)/remoting/installer/cron/chrome-remote-desktop \
 	  "$(CRON_DIR)/chrome-remote-desktop"

@@ -30,18 +30,6 @@ chromium-metrics-reviews@google.com.
   <variant name="WebOmnibox" summary="Web Omnibox"/>
 </variants>
 
-<variants name="ContextualSearchContextState">
-  <variant name="WithContextNoText"
-      summary="recorded when a query is submitted with context but no typed
-               text"/>
-  <variant name="WithNonTabContext"
-      summary="recorded when a query is submitted with non-tab context"/>
-  <variant name="WithoutContext"
-      summary="recorded when a query is submitted without context"/>
-  <variant name="WithTabContext"
-      summary="recorded when a query is submitted with tab context"/>
-</variants>
-
 <variants name="ContextualSearchFileTypes">
   <variant name="Image"/>
   <variant name="Other"/>
@@ -56,12 +44,6 @@ chromium-metrics-reviews@google.com.
   <variant name="DeepSearchChip"/>
   <variant name="PlusButton"/>
   <variant name="RecentTabChip"/>
-</variants>
-
-<variants name="ContextualSearchInputStateDeletionType">
-  <variant name="File"/>
-  <variant name="Tab"/>
-  <variant name="Tool"/>
 </variants>
 
 <!-- LINT.IfChange(ContextualSearchSource) -->
@@ -168,8 +150,22 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
+<histogram name="ContextualSearch.Entrypoint.{Result}"
+    enum="ContextualSearchSource" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the entrypoint used when a session ended in {Result}. Recorded at
+    the end of the session.
+  </summary>
+  <token key="Result">
+    <variant name="Abandoned"/>
+    <variant name="Navigated"/>
+  </token>
+</histogram>
+
 <histogram name="ContextualSearch.ErrorPageShown.{ContextualSearchSource}"
-    enum="ContextualSearchErrorPage" expires_after="2026-06-21">
+    enum="ContextualSearchErrorPage" expires_after="2026-09-13">
   <owner>nguyenbryan@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -218,8 +214,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualSearch.Inputs.TypeOnSubmission.{ContextualSearchSource}"
+    enum="ContextualSearchAimInputType" expires_after="2026-08-06">
+  <owner>khalidpeer@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Tracks the input types included in the query when the user submitted the
+    query. This metric is recorded only once the user has submitted the query
+    and navigated to AIM. Emits one sample per unique input type attached to the
+    query (e.g. adding 2 images + 1 file at the time of query submission will
+    log 2 samples, 1 sample to the image bucket + 1 sample to the file bucket).
+  </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
     name="ContextualSearch.Models.ModeOnSubmission.{ContextualSearchSource}"
-    enum="ContextualSearchAimModel" expires_after="2026-08-06">
+    enum="OmniboxModelMode" expires_after="2026-08-06">
   <owner>bofengchen@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -230,8 +241,16 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
+<histogram name="ContextualSearch.Models.Shown.{ContextualSearchSource}"
+    enum="ContextualSearchAimModel" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>Recorded when an AIM model is shown in the composebox menu.</summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
 <histogram name="ContextualSearch.Models.{ContextualSearchSource}"
-    enum="ContextualSearchAimModel" expires_after="2026-08-06">
+    enum="OmniboxModelMode" expires_after="2026-08-06">
   <owner>bofengchen@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -268,7 +287,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Query.Modality.V2.FunnelMetrics.{ContextualSearchFunnel}.{ContextualSearchSource}"
-    enum="ContextualSearchMultimodalState" expires_after="2026-07-05">
+    enum="ContextualSearchMultimodalState" expires_after="2026-09-06">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -281,7 +300,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualSearch.Query.Modality.V2.{ContextualSearchSource}"
-    enum="ContextualSearchMultimodalState" expires_after="2026-07-05">
+    enum="ContextualSearchMultimodalState" expires_after="2026-09-06">
   <owner>hujaosonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -319,7 +338,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Query.Time.ToSubmission.{ContextualSearchSource}"
-    units="ms" expires_after="2026-07-26">
+    units="ms" expires_after="2026-09-27">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -350,7 +369,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.Duration.{Status}.{ContextualSearchSource}"
-    units="ms" expires_after="2026-07-26">
+    units="ms" expires_after="2026-09-27">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -665,13 +684,60 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Session.QuerySubmittedWithoutSessionStart.{ContextualSearchSource}"
-    enum="Boolean" expires_after="2026-06-21">
+    enum="Boolean" expires_after="2026-09-13">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
     Tracks queries that were submitted without calling session start. This
     should never happen. Always recorded as true.
   </summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.SessionEnd.NavigationResult.{ContextualSearchFileTypes}.{ContextualSearchSource}"
+    enum="Boolean" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    When a session ends either by successful navigation to the response (True)
+    or abandonment (False), this metric logs the result for the file state
+    associated with {ContextualSearchFileTypes} that was present in the compose
+    context.
+  </summary>
+  <token key="ContextualSearchFileTypes" variants="ContextualSearchFileTypes"/>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.SessionEnd.{Result}.ModelMode.{ContextualSearchSource}"
+    enum="ContextualSearchAimModel" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the active model mode used when a composebox session ended in
+    {Result}. Recorded at the end of the session.
+  </summary>
+  <token key="Result">
+    <variant name="Abandoned"/>
+    <variant name="Navigated"/>
+  </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
+<histogram
+    name="ContextualSearch.SessionEnd.{Result}.ToolMode.{ContextualSearchSource}"
+    enum="OmniboxToolMode" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the active tool mode used when a composebox session ended in
+    {Result}. Recorded at the end of the session.
+  </summary>
+  <token key="Result">
+    <variant name="Abandoned"/>
+    <variant name="Navigated"/>
+  </token>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
@@ -728,7 +794,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualSearch.Tools.ModeOnSubmission.{ContextualSearchSource}"
-    enum="ContextualSearchAimTool" expires_after="2026-08-06">
+    enum="OmniboxToolMode" expires_after="2026-08-06">
   <owner>bofengchen@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -739,8 +805,16 @@ chromium-metrics-reviews@google.com.
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
+<histogram name="ContextualSearch.Tools.Shown.{ContextualSearchSource}"
+    enum="OmniboxToolMode" expires_after="2027-04-01">
+  <owner>christianxu@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>Recorded when an AIM tool is shown in the composebox menu.</summary>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</histogram>
+
 <histogram name="ContextualSearch.Tools.{ContextualSearchSource}"
-    enum="ContextualSearchAimTool" expires_after="2026-08-06">
+    enum="OmniboxToolMode" expires_after="2026-08-06">
   <owner>bofengchen@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -776,33 +850,27 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="ContextualSearch.UserAction.InputStateDeletion.{ContextualSearchInputStateDeletionType}.{ContextualSearchSource}"
-    enum="Boolean" expires_after="2027-03-15">
+    name="ContextualSearch.UserAction.InputStateDeletion.{ContextualSearchSource}"
+    enum="ContextualSearchInputStateDeletionType" expires_after="2027-03-15">
   <owner>niharm@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
-    Records every time the user deletes a
-    {ContextualSearchInputStateDeletionType} from the composebox. Always
-    recorded as true.
+    Records the type of input state deleted from the composebox. Recorded when
+    the user deletes a file, tab, or tool.
   </summary>
-  <token key="ContextualSearchInputStateDeletionType"
-      variants="ContextualSearchInputStateDeletionType"/>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 
 <histogram
-    name="ContextualSearch.UserAction.SubmitQueryV2.{ContextualSearchContextState}.{ContextualSearchSource}"
-    enum="Boolean" expires_after="2027-03-15">
+    name="ContextualSearch.UserAction.SubmitQueryV2.{ContextualSearchSource}"
+    enum="ContextualSearchContextState" expires_after="2027-03-15">
   <owner>niharm@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
-    Recorded when a query is submitted {ContextualSearchContextState} from
-    {ContextualSearchSource}. Always recorded as true. Note that more than one
-    entry can be submitted per query submission if it overlaps with
-    WithContextNoText.
+    Records the context state when a query is submitted from
+    {ContextualSearchSource}. Note that more than one entry can be submitted per
+    query submission if it overlaps with WithContextNoText.
   </summary>
-  <token key="ContextualSearchContextState"
-      variants="ContextualSearchContextState"/>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </histogram>
 

@@ -141,6 +141,14 @@ public class TemplateUrlService {
         return TemplateUrlServiceJni.get().getDefaultSearchEngine(mNativeTemplateUrlServiceAndroid);
     }
 
+    /**
+     * @return The display URL of the search engine (converting {searchTerms} to %s).
+     */
+    public String getDisplayUrl(TemplateUrl templateUrl) {
+        return TemplateUrlServiceJni.get()
+                .getDisplayUrl(mNativeTemplateUrlServiceAndroid, templateUrl.getNativePtr());
+    }
+
     public void setSearchEngine(String selectedKeyword, @ChoiceMadeLocation int choiceLocation) {
         ThreadUtils.assertOnUiThread();
         TemplateUrlServiceJni.get()
@@ -343,6 +351,17 @@ public class TemplateUrlService {
     }
 
     /**
+     * Finds the TemplateUrl for the search engine for the given keyword.
+     *
+     * @param keyword The templateUrl keyword to look up.
+     * @return A {@link TemplateUrl} of the specified search engine, or null if not found.
+     */
+    public @Nullable TemplateUrl getTemplateUrlForKeyword(String keyword) {
+        return TemplateUrlServiceJni.get()
+                .getTemplateUrlForKeyword(mNativeTemplateUrlServiceAndroid, keyword);
+    }
+
+    /**
      * Finds the URL for the search engine for the given keyword.
      *
      * @param keyword The templateUrl keyword to look up.
@@ -467,7 +486,7 @@ public class TemplateUrlService {
     }
 
     /**
-     * Adds a search engine.
+     * Adds a search engine. The search engine is active by default.
      *
      * @param shortName The short name of the search engine to be added.
      * @param keyword The keyword of the search engine to be added.
@@ -663,6 +682,9 @@ public class TemplateUrlService {
                 boolean shouldPrefetch,
                 String protocolVersion);
 
+        TemplateUrl getTemplateUrlForKeyword(
+                long nativeTemplateUrlServiceAndroid, @JniType("std::u16string") String keyword);
+
         String getSearchEngineUrlFromTemplateUrl(
                 long nativeTemplateUrlServiceAndroid, String keyword);
 
@@ -698,6 +720,9 @@ public class TemplateUrlService {
                 @JniType("TemplateUrlServiceAndroid::TemplateUrlCategory") int category);
 
         TemplateUrl getDefaultSearchEngine(long nativeTemplateUrlServiceAndroid);
+
+        @JniType("std::u16string")
+        String getDisplayUrl(long nativeTemplateUrlServiceAndroid, long templateUrlPtr);
 
         String[] getImageUrlAndPostContent(long nativeTemplateUrlServiceAndroid);
 

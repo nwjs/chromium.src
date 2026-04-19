@@ -1708,7 +1708,7 @@ SharedStorageWorkletHost::GetAndConnectToSharedStorageWorkletService() {
     if (!blink::features::IsPersistentCacheForCodeCacheEnabled()) {
       mojo::PendingRemote<blink::mojom::CodeCacheHost> actual_code_cache_host;
       code_cache_host_receivers_->Add(
-          rfh.GetProcess()->GetDeprecatedID(), rfh.GetNetworkIsolationKey(),
+          rfh.GetProcess()->GetID(), rfh.GetNetworkIsolationKey(),
           rfh.GetStorageKey(),
           actual_code_cache_host.InitWithNewPipeAndPassReceiver());
 
@@ -1804,6 +1804,17 @@ SharedStorageWorkletHost::MaybeConstructPrivateAggregationOperationDetails(
 bool SharedStorageWorkletHost::IsSharedStorageAllowed(
     std::string* out_debug_message,
     bool* out_block_is_site_setting_specific) {
+  if (needs_data_origin_opt_in_ &&
+      (!data_origin_opt_in_state_ || !data_origin_opt_in_state_->first)) {
+    if (out_debug_message) {
+      *out_debug_message =
+          data_origin_opt_in_state_
+              ? data_origin_opt_in_state_->second
+              : "SharedStorage cross-origin data opt-in check failed.";
+    }
+    return false;
+  }
+
   RenderFrameHost* rfh =
       document_service_ ? &(document_service_->render_frame_host()) : nullptr;
   return GetContentClient()->browser()->IsSharedStorageAllowed(
@@ -1874,10 +1885,10 @@ void SharedStorageWorkletHost::OnJsonParsed(
     return;
   }
 
-  bool script_origin_match = false;
-  bool context_origin_match = false;
   url::Origin worklet_script_origin = url::Origin::Create(script_source_url_);
   for (const base::Value& item_value : result.value()) {
+    bool script_origin_match = false;
+    bool context_origin_match = false;
     if (!item_value.is_dict()) {
       SetDataOriginOptInResultAndMaybeFinish(
           /*opted_in=*/false, /*data_origin_opt_in_error_message=*/base::StrCat(

@@ -36,12 +36,41 @@ source_set("http_status") {
   ]
 }
 
+source_set("authentication_method") {
+  sources = [
+    "authentication_method.cc",
+    "authentication_method.h",
+  ]
+  deps = [
+    ":name_value_map",
+    "//base",
+  ]
+}
+
+source_set("remoting_export") {
+  sources = [ "remoting_export.h" ]
+  if (is_linux || is_mac || is_win) {
+    configs += [ "//remoting/build/config:host_implementation" ]
+  }
+}
+
+if (is_posix) {
+  source_set("security_key_socket_name") {
+    sources = [
+      "security_key_socket_name.cc",
+      "security_key_socket_name.h",
+    ]
+    deps = [
+      ":remoting_export",
+      "//base",
+    ]
+  }
+}
+
 source_set("base") {
   sources = [
     "async_file_util.cc",
     "async_file_util.h",
-    "authentication_method.cc",
-    "authentication_method.h",
     "auto_thread.cc",
     "auto_thread.h",
     "auto_thread_task_runner.cc",
@@ -96,6 +125,8 @@ source_set("base") {
     "leaky_bucket.h",
     "local_session_policies_provider.cc",
     "local_session_policies_provider.h",
+    "loggable.cc",
+    "loggable.h",
     "logging_service_client.h",
     "protobuf_http_client.cc",
     "protobuf_http_client.h",
@@ -127,8 +158,6 @@ source_set("base") {
     "session_authz_service_client_factory.h",
     "session_options.cc",
     "session_options.h",
-    "socket_reader.cc",
-    "socket_reader.h",
     "source_location.cc",
     "source_location.h",
     "task_util.h",
@@ -153,6 +182,7 @@ source_set("base") {
   ]
 
   public_deps = [
+    ":authentication_method",
     ":http_status",
     "//base",
     "//net",
@@ -192,6 +222,13 @@ source_set("base") {
     deps += [
       ":api_key_stubs",
       "//remoting/proto:internal_stubs",
+    ]
+  }
+
+  if (is_posix) {
+    sources += [
+      "passwd_utils.cc",
+      "passwd_utils.h",
     ]
   }
 
@@ -397,6 +434,9 @@ source_set("run_all_unittests") {
     "//mojo/core/embedder",
     "//testing/gtest",
   ]
+  if (is_posix) {
+    deps += [ ":security_key_socket_name" ]
+  }
   if (is_chromeos) {
     deps += [ "//chromeos/ash/components:test_support" ]
     data = [ "$root_out_dir/locales/en-US.pak" ]

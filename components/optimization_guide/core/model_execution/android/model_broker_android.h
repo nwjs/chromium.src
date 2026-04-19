@@ -45,10 +45,6 @@ class ModelBrokerAndroid final : public OnDeviceCapability {
   // OnDeviceCapability:
   void BindModelBroker(
       mojo::PendingReceiver<mojom::ModelBroker> receiver) override;
-  std::optional<SamplingParamsConfig> GetSamplingParamsConfig(
-      mojom::OnDeviceFeature feature) override;
-  std::optional<const optimization_guide::proto::Any> GetFeatureMetadata(
-      mojom::OnDeviceFeature feature) override;
 
   mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetOrCreateModelRemote(
       proto::ModelExecutionFeature feature);
@@ -65,7 +61,7 @@ class ModelBrokerAndroid final : public OnDeviceCapability {
   };
 
   // Initialize SolutionFactory, if not already initialized.
-  void EnsureSolutionFactory(base::OnceClosure done_callback);
+  void EnsureSolutionFactory(ModelBrokerImpl::InitCallback done_callback);
 
   void OnModelDisconnected(
       proto::ModelExecutionFeature feature,

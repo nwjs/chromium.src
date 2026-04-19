@@ -9,11 +9,11 @@
 #include <mutex>
 #include <vector>
 
-#include "partition_alloc/bounds_checks.h"
 #include "partition_alloc/partition_alloc_base/check.h"
 #include "partition_alloc/partition_alloc_base/debug/stack_trace.h"
 #include "partition_alloc/partition_alloc_base/no_destructor.h"
 #include "partition_alloc/partition_root.h"
+#include "partition_alloc/slot_address_and_size.h"
 
 namespace base::internal {
 
@@ -63,7 +63,7 @@ void InstanceTracer::TraceImpl(uint64_t owner_id,
           slot_and_size.slot_start, slot_and_size.size));
 
   const std::lock_guard guard(GetStorageMutex());
-  GetStorage().insert({owner_id, Info(slot_count, may_dangle)});
+  GetStorage().try_emplace(owner_id, slot_count, may_dangle);
 }
 
 void InstanceTracer::UntraceImpl(uint64_t owner_id) {

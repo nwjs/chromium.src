@@ -61,11 +61,11 @@ namespace blink {
 namespace {
 
 inline String RustStrToWtfString(rust::Str str) {
-  return String::FromUTF8(base::RustStrToStringView(str));
+  return String::FromUtf8(base::RustStrToStringView(str));
 }
 
 inline AtomicString RustStrToAtomicString(rust::Str str) {
-  return AtomicString::FromUTF8(base::RustStrToStringView(str));
+  return AtomicString::FromUtf8(base::RustStrToStringView(str));
 }
 
 inline bool HasNoStyleInformation(Document* document) {
@@ -258,7 +258,7 @@ void XMLDocumentParserRs::ProcessEvents() {
           OrdinalNumber::FromZeroBasedInt(static_cast<int>(column)));
     }
     if (xml_ffi::is_error_resumable(*read_state_) && !finish_called_) {
-      carry_unbalanced_root_error_ = {String::FromUTF8(error_message.c_str()),
+      carry_unbalanced_root_error_ = {String::FromUtf8(error_message.c_str()),
                                       position};
       xml_ffi::reset_error(*read_state_);
     } else {

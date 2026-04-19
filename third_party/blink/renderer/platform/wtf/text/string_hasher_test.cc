@@ -126,8 +126,8 @@ TEST(StringHasherTest, CaseFoldingHash) {
   EXPECT_TRUE(EqualCaseFoldingHash("foo", "FOO"));
   EXPECT_TRUE(EqualCaseFoldingHash("foo", "Foo"));
   EXPECT_TRUE(EqualCaseFoldingHash("Longer string 123", "longEr String 123"));
-  EXPECT_TRUE(EqualCaseFoldingHash(String::FromUTF8("Ünicode"),
-                                   String::FromUTF8("ünicode")));
+  EXPECT_TRUE(EqualCaseFoldingHash(String::FromUtf8("Ünicode"),
+                                   String::FromUtf8("ünicode")));
 }
 
 TEST(StringHasherTest, ContractionAndExpansion) {
@@ -138,7 +138,7 @@ TEST(StringHasherTest, ContractionAndExpansion) {
   String str =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_!?'$";
   for (unsigned i = 0; i < str.length(); ++i) {
-    String s8 = str.Substring(0, i);
+    String s8 = str.substr(0, i);
     String s16 = s8;
     s16.Ensure16Bit();
     EXPECT_EQ(CaseFoldingHash::GetHash(s8), CaseFoldingHash::GetHash(s16));

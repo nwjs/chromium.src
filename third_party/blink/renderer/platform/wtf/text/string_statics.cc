@@ -27,6 +27,7 @@
 
 #include <algorithm>
 
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "third_party/blink/renderer/platform/wtf/dynamic_annotations.h"
 #include "third_party/blink/renderer/platform/wtf/static_constructors.h"
@@ -85,7 +86,8 @@ bool NewlineThenWhitespaceStringsTable::IsNewlineThenWhitespaces(
   if (view.empty()) {
     return false;
   }
-  if (view[0] != '\n') {
+  // SAFETY: `view` tested for emptyness above.
+  if (UNSAFE_BUFFERS(view[0]) != '\n') {
     return false;
   }
   if (view.Is8Bit()) {
@@ -125,7 +127,7 @@ void AtomicString::Init() {
   new (base::NotNullTag::kNotNull, (void*)&g_empty_atom) AtomicString("");
 }
 
-scoped_refptr<StringImpl> AddStaticASCIILiteral(
+scoped_refptr<StringImpl> AddStaticAsciiLiteral(
     base::span<const char> literal) {
   return base::AdoptRef(StringImpl::CreateStatic(literal));
 }
@@ -145,15 +147,15 @@ void InitStringStatics() {
   // FIXME: These should be allocated at compile time.
   new (base::NotNullTag::kNotNull, (void*)&g_star_atom) AtomicString("*");
   new (base::NotNullTag::kNotNull, (void*)&g_xml_atom)
-      AtomicString(AddStaticASCIILiteral(base::span_from_cstring("xml")));
+      AtomicString(AddStaticAsciiLiteral(base::span_from_cstring("xml")));
   new (base::NotNullTag::kNotNull, (void*)&g_xmlns_atom)
-      AtomicString(AddStaticASCIILiteral(base::span_from_cstring("xmlns")));
+      AtomicString(AddStaticAsciiLiteral(base::span_from_cstring("xmlns")));
   new (base::NotNullTag::kNotNull, (void*)&g_xlink_atom)
-      AtomicString(AddStaticASCIILiteral(base::span_from_cstring("xlink")));
+      AtomicString(AddStaticAsciiLiteral(base::span_from_cstring("xlink")));
   new (base::NotNullTag::kNotNull, (void*)&g_http_atom)
-      AtomicString(AddStaticASCIILiteral(base::span_from_cstring("http")));
+      AtomicString(AddStaticAsciiLiteral(base::span_from_cstring("http")));
   new (base::NotNullTag::kNotNull, (void*)&g_https_atom)
-      AtomicString(AddStaticASCIILiteral(base::span_from_cstring("https")));
+      AtomicString(AddStaticAsciiLiteral(base::span_from_cstring("https")));
 
   NewlineThenWhitespaceStringsTable::Init();
 }

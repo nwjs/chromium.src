@@ -6,7 +6,6 @@
 
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "base/containers/flat_set.h"
 #include "base/i18n/case_conversion.h"
@@ -135,8 +134,8 @@ const char kImageStopwordsUtf8[] = {
     "september\n"
     "sep\n"
     "october\n"
-    "oct"
-    "november"
+    "oct\n"
+    "november\n"
     "nov\n"
     "december\n"
     "dec\n"
@@ -500,24 +499,20 @@ AXImageStopwords& AXImageStopwords::GetInstance() {
   return *instance;
 }
 
-AXImageStopwords::AXImageStopwords() {
-  // Parse the newline-delimited stopwords from kImageStopwordsUtf8 and store
-  // them as a flat_set of type string_view. This is very memory-efficient
-  // because it avoids ever needing to copy any of the strings; each
-  // string_view is just a pointer into kImageStopwordsUtf8 and flat_set
-  // acts like a set but basically just does a binary search.
-  std::vector<std::string_view> stopwords =
-      base::SplitStringPiece(kImageStopwordsUtf8, "\n", base::TRIM_WHITESPACE,
-                             base::SPLIT_WANT_NONEMPTY);
-
-  // It's inefficient to add things to a flat_set one at a time. Copy them
-  // all over at once.
-  stopword_set_ = stopwords;
-}
+// Parsing the newline-delimited stopwords from kImageStopwordsUtf8 and
+// storing them as a flat_set of type string_view is very memory-efficient
+// because it avoids ever needing to copy any of the strings; each
+// string_view is just a pointer into kImageStopwordsUtf8 and flat_set
+// acts like a set but basically just does a binary search.
+AXImageStopwords::AXImageStopwords()
+    : stopword_set_(base::SplitStringPiece(kImageStopwordsUtf8,
+                                           "\n",
+                                           base::TRIM_WHITESPACE,
+                                           base::SPLIT_WANT_NONEMPTY)) {}
 
 AXImageStopwords::~AXImageStopwords() = default;
 
-bool AXImageStopwords::IsImageStopword(const char* word_utf8) const {
+bool AXImageStopwords::IsImageStopword(std::string_view word_utf8) const {
   std::u16string word_utf16 = base::UTF8ToUTF16(word_utf8);
 
   // It's not really meaningful, but since short words are stopwords, for

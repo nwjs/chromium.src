@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/component_export.h"
@@ -27,6 +28,7 @@
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "mojo/public/cpp/bindings/direct_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -78,6 +80,7 @@
 #include "services/network/url_request_context_owner.h"
 #include "services/network/web_bundle/web_bundle_manager.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_REPORTING)
 #include "net/reporting/reporting_cache_observer.h"
@@ -202,6 +205,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   static void SetCertVerifierForTesting(net::CertVerifier* cert_verifier);
 
   net::URLRequestContext* url_request_context() { return url_request_context_; }
+
+#if BUILDFLAG(ENABLE_WEBSOCKETS)
+  // Creates synthetic WEBSOCKET_ALIVE NetLog entries for pre-existing
+  // WebSocket connections. Delegates to WebSocketFactory.
+  void CreateNetLogEntriesForActiveWebSockets(
+      net::NetLog::ThreadSafeObserver* observer) const;
+#endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
 
   NetworkService* network_service() const { return network_service_; }
 
@@ -348,6 +358,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojo::PendingReceiver<mojom::RestrictedUDPSocket> receiver,
       mojo::PendingRemote<mojom::UDPSocketListener> listener,
       bool allow_multicast,
+      bool allow_source_specific_multicast,
       mojom::NetworkContext::CreateRestrictedUDPSocketCallback callback)
       override;
   void CreateTCPServerSocket(
@@ -395,7 +406,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
           url_loader_network_observer,
       mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
-      const std::optional<base::UnguessableToken>& throttling_profile_id)
+      const std::optional<base::UnguessableToken>& throttling_profile_id,
+      const std::optional<base::UnguessableToken>& network_restrictions_id)
       override;
   void CreateWebTransport(
       const GURL& url,
@@ -521,6 +533,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const net::AuthCredentials& credentials,
       AddAuthCacheEntryCallback callback) override;
   void SetCorsNonWildcardRequestHeadersSupport(bool value) override;
+  void SetDohFallbackUpgradeAllowed(bool allowed) override;
+
 #if BUILDFLAG(IS_CHROMEOS)
   void LookupProxyAuthCredentials(
       const net::ProxyServer& proxy_server,
@@ -667,6 +681,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   bool AllURLLoaderFactoriesAreBoundToNetworkForTesting(
       net::handles::NetworkHandle bound_network) const;
 
+  GURL GetNetworkRestrictionResponseUrlForTesting(
+      const base::UnguessableToken& nonce) const;
+
   // Maintains Trust Tokens protocol state
   // (https://github.com/WICG/trust-token-api). Used by URLLoader to check
   // preconditions before annotating requests with protocol-related headers
@@ -728,15 +745,23 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   // Checks whether network access for the partition nonce `nonce` and url
   // `url` is allowed. See `network_revocation_nonces_` and
-  // `network_revocation_exemptions_`.
-  bool IsNetworkForNonceAndUrlAllowed(const base::UnguessableToken& nonce,
-                                      const GURL& url,
-                                      bool is_redirect = false) const;
+  // `network_revocation_exemptions_`. If the check fails for either enforced or
+  // report-only Connection Allowlists that specify a reporting endpoint, this
+  // method will queue a violation report.
+  bool IsNetworkForNonceAndUrlAllowed(
+      const base::UnguessableToken& nonce,
+      const GURL& url,
+      const net::NetworkAnonymizationKey& network_anonymization_key,
+      bool is_redirect = false);
+
   // Checks whether host resolution is allowed for `host` given the network
-  // restrictions ID `nonce`.
+  // restrictions ID `nonce`. If the check fails for either enforced or
+  // report-only Connection Allowlists that specify a reporting endpoint, this
+  // method will queue a violation report.
   bool IsHostResolutionForNonceAndHostAllowed(
       const base::UnguessableToken& nonce,
-      const mojom::HostResolverHost& host) const;
+      const mojom::HostResolverHost& host,
+      const net::NetworkAnonymizationKey& network_anonymization_key);
 
  private:
   class NetworkContextHttpAuthPreferences : public net::HttpAuthPreferences {
@@ -849,6 +874,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       base::DictValue body,
       net::ReportingTargetType target_type);
 
+  void QueueConnectionAllowlistReport(const GURL& context,
+                                      const GURL& resource,
+                                      const net::NetworkAnonymizationKey& key,
+                                      const std::string& group,
+                                      bool enforced);
+
   const raw_ptr<NetworkService> network_service_;
 
   mojo::Remote<mojom::NetworkContextClient> client_;
@@ -901,7 +932,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       app_status_listeners_;
 #endif
 
-  mojo::Receiver<mojom::NetworkContext> receiver_;
+  using Receiver = mojo::Receiver<mojom::NetworkContext>;
+  using DirectReceiver = mojo::DirectReceiver<mojom::NetworkContext>;
+  std::variant<Receiver, DirectReceiver> receiver_;
 
   FirstPartySetsAccessDelegate first_party_sets_access_delegate_;
 
@@ -1074,12 +1107,36 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   scoped_refptr<MojoBackendFileOperationsFactory>
       http_cache_file_operations_factory_;
 
-  // New nonces are inserted by `RevokeNetworkForNonce`,
-  // and membership is checked with `IsNetworkForNonceAndUrlAllowed`.
+  // `NetworkRestriction` objects hold a set of enforced and report-only
+  // URLPatterns to which a given initiator is allowed to connect, along
+  // with reporting metadata for each.
+  //
+  // Initiators are identified via a nonce, inserted via
+  // `RevokeNetworkForNonce`. The relevant allowlists for a given nonce are
+  // checked in `IsNetworkForNonceAndUrlAllowed`.
+  //
   // For details on use cases, please see RevokeNetworkForNonces in
   // `interface NetworkContext` in network_context.mojom.
-  std::map<base::UnguessableToken,
-           std::set<std::unique_ptr<url_pattern::SimpleUrlPatternMatcher>>>
+  struct NetworkRestriction {
+    NetworkRestriction();
+    NetworkRestriction(NetworkRestriction&&);
+    NetworkRestriction& operator=(NetworkRestriction&&);
+    ~NetworkRestriction();
+    std::optional<
+        std::set<std::unique_ptr<url_pattern::SimpleUrlPatternMatcher>>>
+        enforced_allowlisted_patterns;
+    std::optional<std::string> enforced_reporting_endpoint;
+    ConnectionAllowlist::RedirectBehavior enforced_redirect_behavior =
+        ConnectionAllowlist::RedirectBehavior::kBlock;
+    std::optional<
+        std::set<std::unique_ptr<url_pattern::SimpleUrlPatternMatcher>>>
+        report_only_allowlisted_patterns;
+    std::optional<std::string> report_only_reporting_endpoint;
+    ConnectionAllowlist::RedirectBehavior report_only_redirect_behavior =
+        ConnectionAllowlist::RedirectBehavior::kBlock;
+    GURL response_url;
+  };
+  std::map<base::UnguessableToken, NetworkRestriction>
       network_revocation_nonces_;
 
   // A data structure that tracks urls that should be exempted from network

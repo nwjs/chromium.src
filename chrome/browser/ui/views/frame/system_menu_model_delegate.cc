@@ -15,8 +15,8 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
-#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_metrics.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/tab_restore_service.h"
@@ -90,7 +90,8 @@ bool SystemMenuModelDelegate::GetAcceleratorForCommandId(
 
 bool SystemMenuModelDelegate::IsItemForCommandIdDynamic(int command_id) const {
   return std::set{IDC_RESTORE_TAB, IDC_GLIC_TOGGLE_PIN,
-                  IDC_TOGGLE_VERTICAL_TABS}
+                  IDC_TOGGLE_VERTICAL_TABS,
+                  IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER}
       .contains(command_id);
 }
 
@@ -124,6 +125,14 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
       string_id = controller->ShouldDisplayVerticalTabs()
                       ? IDS_SWITCH_TO_HORIZONTAL_TAB
                       : IDS_SWITCH_TO_VERTICAL_TAB;
+      break;
+    }
+    case IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER: {
+      auto* controller = tabs::VerticalTabStripStateController::From(browser_);
+      CHECK(controller);
+      string_id = controller->IsExpandOnHoverEnabled()
+                      ? IDS_VERTICAL_TABS_DISABLE_EXPAND_ON_HOVER
+                      : IDS_VERTICAL_TABS_ENABLE_EXPAND_ON_HOVER;
       break;
     }
     case IDC_GLIC_TOGGLE_PIN:

@@ -5455,6 +5455,9 @@ No devices connected.
       <message name="IDS_ASH_IN_SESSION_AUTH_TITLE" desc="Text shown in the auth dialog to indicate authentication is needed.">
         Verify your identity
       </message>
+      <message name="IDS_ASH_IN_SESSION_AUTH_CONFIRM_TITLE" desc="Title for the in-session auth dialog to confirm the user's identity.">
+        Confirm it's you
+      </message>
       <message name="IDS_ASH_IN_SESSION_AUTH_ORIGIN_NAME_PROMPT" desc="Text shown in the auth dialog to indicate which website / app we are authenticating for.">
         <ph name="ORIGIN_NAME">$1<ex>example.com</ex></ph> would like to confirm it's you
       </message>
@@ -8619,7 +8622,7 @@ To shut down the device, press and hold the power button on the device again.
       <message name="IDS_ASH_DEVICE_SETTINGS_SIX_PACK_KEY_INSERT" desc="Label for the Insert 6-pack key.">
         insert
       </message>
-      <message name="IDS_ASH_DEVICE_SETTINGS_SIX_PACK_KEY_HOME" desc="Label for the Home 6-pack key.">
+      <message name="IDS_ASH_DEVICE_SETTINGS_SIX_PACK_KEY_HOME" desc="Label for the Home 6-pack key." meaning="Home key on the keyboard">
         home
       </message>
       <message name="IDS_ASH_DEVICE_SETTINGS_SIX_PACK_KEY_END" desc="Label for the End 6-pack key.">
@@ -9073,6 +9076,733 @@ To shut down the device, press and hold the power button on the device again.
       <message name="IDS_ASH_BOREALIS_MOTD_TITLE_TEXT" desc="Title text for Borealis MOTD. Shown at the top of the dialog.">
         Steam for Chromebook News
       </message>
-     </messages>
-    </release>
+
+      <!-- Kiosk mode (app_mode) -->
+      <message name="IDS_KIOSK_APP_ERROR_EXTENSIONS_LOAD_TIMEOUT" desc="Error message used when a kiosk app fails to load force-installed extensions within the time limit.">
+        Failed to load extensions within the time limit. Please contact your administrator.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_EXTENSIONS_POLICY_INVALID" desc="Error message used when a kiosk app loads an invalid ExtensionInstallForcelist policy value.">
+        The policy value of ExtensionInstallForcelist is invalid. Please contact your administrator.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_IWA_UNSUPPORTED" desc="Error message used when a kiosk app fails to launch/install because of being unsupported (e.g., not allowlisted/blocklisted)">
+        Can't launch unsupported kiosk app. Notify your administrator about this issue.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_DOWNLOAD" desc="Error message used when a kiosk app fails to launch due to crx file download failure.">
+        Kiosk application could not be downloaded.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_INSTALL" desc="Error message used when a kiosk app fails to launch due to install failure.">
+        Kiosk application could not be installed.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_LAUNCH" desc="Error message used when a kiosk app fails to launch due to app launching failure.">
+        Kiosk application could not be launched.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_LAUNCH_CHROME_APP" desc="Error message used when a kiosk session fails to launch due to the app being launched is a deprecated Chrome App.">
+        Can't launch unsupported Chrome app. Notify your administrator about this issue.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_UNABLE_TO_MOUNT" desc="Error message used when a kiosk app fails to launch due to cryptohome error.">
+        The cryptohome for the kiosk application could not be mounted.
+      </message>
+      <message name="IDS_KIOSK_APP_ERROR_USER_CANCEL" desc="Error message used when a kiosk app launch is canceled by user.">
+        Kiosk application launch canceled.
+      </message>
+      <message name="IDS_KIOSK_APP_FAILED_TO_LAUNCH" desc="Generic error message used when a kiosk app fails to launch.">
+        The kiosk application could not be launched.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_BAD_CRX" desc="Error message for crx file unpacking failure.">
+        Bad crx file, unpacking failed.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_CANNOT_INSTALL_IN_LOCAL_CACHE" desc="Error message for not being able to install kiosk external crx file in local cache.">
+        Can't install <ph name="EXTERNAL_CRX_FILE">$1<ex>/media/usb/app_v2.crx</ex></ph> in local cache.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_COMPLETE" desc="Message shown on screen when the system completes updating kiosk apps from usb stick.">
+        Kiosk app has been updated. Please remove the USB stick.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_FAILED_COPY_CRX_TO_TEMP" desc="Error message for not being able to copy external crx file to a temp file.">
+        Can't copy external crx file to <ph name="TEMP_CRX_FILE">$1<ex>/tmp/kiosk_update/app.crx</ex></ph>.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_FAILED_UPDATED_APPS" desc="Message shown for failed updated kiosk apps.">
+        The following kiosk apps have been failed for updating:
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_IN_PROGRESS" desc="Message shown on screen when the system is updating kiosk apps from usb stick.">
+        Please wait....Kiosk app is in the process of being updated. Do not remove the USB stick.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_INVALID_MANIFEST" desc="Error message for invalid external update manifest file from usb stick.">
+        Invalid Kiosk external update manifest file found. Failed to update Kiosk app. Please remove the USB stick.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_NO_UPDATES" desc="Error message for no external extensions to update.">
+        No Kiosk apps with newer version found. Nothing to update. Please remove the USB stick.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_REQUIRE_HIGHER_BROWSER_VERSION" desc="Error message for external extension requires higher version of chrome to be installed.">
+        The external extension requires chrome version <ph name="MINIMUM_CHROME_VERSION">$1<ex>1.0.0</ex></ph> or greater to be installed.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_SAME_OR_LOWER_APP_VERSION" desc="Error message for external extension is the same or lower version comparing to the existing one.">
+        External extension is at the same or lower version comparing to the existing one.
+      </message>
+      <message name="IDS_KIOSK_EXTERNAL_UPDATE_SUCCESSFUL_UPDATED_APPS" desc="Message shown for successfully updated kiosk apps.">
+        The following kiosk apps "<ph name="updated_apps">$1<ex>PrintApp</ex></ph>" have been updated. Please reboot the device to complete the update process.
+      </message>
+
+      <!-- App launch splash screen -->
+      <message name="IDS_APP_START_BAILOUT_SHORTCUT_FORMAT" desc="Message displayed at the bottom of app launch splash screen to show user the shortcut key to bailout the launch.">
+        Press Ctrl + Alt + S to switch to <ph name="IDS_SHORT_PRODUCT_OS_NAME">$1<ex>ChromeOS</ex></ph>
+      </message>
+      <message name="IDS_APP_START_PREPARING_PROFILE_MESSAGE" desc="Message displayed while preparing profile in which the app will be run.">
+        Preparing app profile...
+      </message>
+      <message name="IDS_APP_START_NETWORK_WAIT_MESSAGE" desc="Message displayed while installing and/or launching web application in kiosk mode.">
+        Waiting for network connection...
+      </message>
+      <message name="IDS_APP_START_APP_WAIT_MESSAGE" desc="Message displayed while installing and/or launching web application in kiosk mode.">
+        Initializing application...
+      </message>
+      <message name="IDS_APP_START_EXTENSION_WAIT_MESSAGE" desc="Message displayed while installing and/or launching extensions in kiosk mode.">
+        Initializing extensions...
+      </message>
+      <message name="IDS_APP_START_WAIT_FOR_APP_WINDOW_MESSAGE" desc="Message displayed while waiting for the application to create its window in kiosk mode.">
+        Waiting for application window...
+      </message>
+      <message name="IDS_APP_START_NETWORK_WAIT_TIMEOUT_MESSAGE" desc="Message displayed while the network wait is timed out during app launching.">
+        Internet disconnected. Please check your internet connection.
+      </message>
+      <message name="IDS_APP_START_SHOWING_NETWORK_CONFIGURE_UI_MESSAGE" desc="Message displayed while waiting for the requested network configure UI to show up in kiosk mode.">
+        Network configure UI requested, please wait...
+      </message>
+
+      <!-- App List -->
+      <message name="IDS_APP_LIST_ACTION_SHORTCUT_ACCESSIBILITY_NAME" desc="Hint text for the search result that performs a specific action with an app.">
+        <ph name="ACTION_NAME">$1<ex>Compose</ex></ph> with <ph name="APP_NAME">$2<ex>GMail</ex></ph> App
+      </message>
+      <message name="IDS_APP_LIST_BRUSCHETTA_DEFAULT_FOLDER_NAME" desc="The default name for the Bruschetta apps folder in the App Launcher">
+        <ph name="VM_NAME">$1<ex>ManagedVM</ex></ph> apps
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_PIN_ENFORCED_BY_POLICY" desc="Short text for the pin/unpin context menu to tell user the setting is enforced by policy of an app list item">
+        Pinned by administrator
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_REORDER_BY_NAME" desc="Text for an option shown in a context menu for app items in the ChromeOS app list that allows users to reorder items by their names in the app list. This option is under the 'Reorder by' submenu">
+        Name
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_REORDER_BY_COLOR" desc="Text for an option shown in a context menu for app items in the ChromeOS app list that allows users to reorder items by their icon colors in the app list. This option is under the 'Reorder by' submenu">
+        Color
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_REORDER_TITLE" desc="Text for an option shown in a context menu for app items in the ChromeOS app list that allows users to reorder items in the app list. Clicking the option opens a submenu in which the user can choose how the items in the app list should be ordered (e.g. by name or the icon color).">
+        Sort by
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_NEW_TAB" desc="Title text for the 'open new' context menu item of an app list item configured to open in a tab">
+        New tab
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_NEW_WINDOW" desc="Title text for the 'open new' context menu item of an app list item configured to open windowed">
+        New window
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_NEW_TABBED_WINDOW" desc="Title text for the 'open new' context menu item of an app list item configured to open in a tabbed window">
+        New tabbed window
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_PIN" desc="Title text for the 'pin' context menu item of an app list item.">
+        Pin to shelf
+      </message>
+      <message name="IDS_APP_LIST_CONTEXT_MENU_UNPIN" desc="Title text for the 'unpin' context menu item of an app list item.">
+        Unpin from shelf
+      </message>
+      <message name="IDS_APP_LIST_CROSTINI_DEFAULT_FOLDER_NAME" desc="The default name for the Linux (Crostini) apps folder in the App Launcher">
+        Linux apps
+      </message>
+      <message name="IDS_APP_LIST_NEW_WINDOW" desc="The text label of the New Window menu item">
+        New window
+      </message>
+      <message name="IDS_APP_LIST_NEW_INCOGNITO_WINDOW" desc="The text label of the New Incognito window menu item">
+        New Incognito window
+      </message>
+      <message name="IDS_APP_LIST_OEM_DEFAULT_FOLDER_NAME" desc="The default name for OEM folders in the App Launcher">
+        OEM folder
+      </message>
+      <message name="IDS_APP_LIST_QUERY_SEARCH_DESCRIPTION" desc="Description text for the search result that will invoke a query search powered by the default search engine.">
+        <ph name="QUERY_NAME">$1<ex>Harry Potter</ex></ph> - <ph name="DEFAULT_SEARCH_ENGINE_NAME">$2<ex>Google</ex></ph> Search
+      </message>
+      <message name="IDS_APP_LIST_QUERY_SEARCH_ACCESSIBILITY_NAME" desc="Hint text for the search result that will invoke a query search powered by the default search engine.">
+        <ph name="QUERY_NAME">$1<ex>Harry Potter</ex></ph>, <ph name="DEFAULT_SEARCH_ENGINE_NAME">$2<ex>Google</ex></ph> Search
+      </message>
+      <message name="IDS_APP_LIST_REMOVE_SHORTCUT"
+               desc="Title text for the 'remove' context menu item of an app list shortcut item.">
+        Remove
+      </message>
+      <message name="IDS_APP_LIST_REMOVE_SUGGESTION_ACCESSIBILITY_NAME" desc="The spoken feedback for removing suggestion button">
+        Remove the suggestion <ph name="SUGGESTION_NAME">$1<ex>Harry Potter</ex></ph>
+      </message>
+      <message name="IDS_APP_LIST_UNINSTALL_ITEM"
+               desc="Title text for the 'uninstall' context menu item of an app list item.">
+        Uninstall
+      </message>
+
+      <!-- ARC -->
+      <message name="IDS_ARC_PLAYSTORE_ICON_TITLE_BETA" desc="The Play Store icon title with the beta label in the launcher.">
+        Play Store
+      </message>
+      <message name="IDS_ARC_NOTIFICATION_DISPLAY_SOURCE" desc="Context title of the first-run notification that enables Android apps.">
+        Google Play
+      </message>
+      <message name="IDS_ARC_PLAYSTORE_SETTING_UP_TITLE" desc="The text tile which is shown when Play Store is initializing.">
+        Setting up Google Play...
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_AGREE" desc="Agree button of the opt-in dialog for Android apps.">
+        Accept
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_CANCEL" desc="Cancel button of the opt-in dialog for Android apps.">
+        Cancel
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_NEXT" desc="Next button of the opt-in dialog for Android apps.">
+        More
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_RETRY" desc="Retry button of the opt-in dialog for Android apps.">
+        Try again
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_SEND_FEEDBACK" desc="Send feedback button of the opt-in dialog for Android apps.">
+        Send feedback
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BUTTON_RUN_NETWORK_TESTS" desc="Run network tests button of the opt-in dialog for Android apps.">
+        Check connection
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_PROGRESS_TERMS" desc="Name of Terms Of Services loading progress of the opt-in dialog for Android apps.">
+        Just a sec...
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_PROGRESS_ANDROID" desc="Name of Android loading progress of the opt-in dialog for Android apps.">
+        This may take a minute or so.
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_AUTHORIZATION_FAILED" desc="Error message shown when an auth code is not returned by server.">
+        Authorization failed
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_TERMS_OF_SERVICE" desc="Terms of service caption in the opt-in dialog for Android apps.">
+        Terms of Service
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_MANAGED_ENABLED" desc="Message in the opt-in dialog for Android apps in case metrics are managed on the device and on.">
+        Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This <ph name="BEGIN_LINK1">&lt;a href="#" id="settings-link"&gt;</ph>setting<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> is enforced by the owner. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_MANAGED_ENABLED_CHILD" desc="Message in the opt-in dialog for Android apps in case metrics are managed on the device and on, and a child account is in use.">
+        Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This <ph name="BEGIN_LINK1">&lt;a href="#" id="settings-link"&gt;</ph>setting<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> is enforced by the owner. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_MANAGED_DISABLED" desc="Message in the opt-in dialog for Android apps in case metrics are managed on the device and off.">
+        Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This <ph name="BEGIN_LINK1">&lt;a href="#" id="settings-link"&gt;</ph>setting<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_MANAGED_DISABLED_CHILD" desc="Message in the opt-in dialog for Android apps in case metrics are managed on the device and off, and a child account is in use.">
+        Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. This <ph name="BEGIN_LINK1">&lt;a href="#" id="settings-link"&gt;</ph>setting<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> is enforced by the owner. The owner may choose to send diagnostic and usage data for this device to Google. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_ENABLED" desc="Message in the opt-in dialog for Android apps in case metrics are already enabled on the device. User has no way to deactivate them using opt-in dialog.">
+        Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google Account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_ENABLED_CHILD" desc="Message in the opt-in dialog for Android apps in case metrics are already enabled on the device, and a child account is in use. User has no way to deactivate them using opt-in dialog.">
+        Send usage and diagnostic data. This device is currently automatically sending diagnostic, device, and app usage data to Google. This won't be used to idenfity your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity setting is turned on for your child, this data may be saved to their Google Account. <ph name="BEGIN_LINK2">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK2_END">"&gt;</ph>Learn More<ph name="END_LINK2">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_DISABLED" desc="Message in the opt-in dialog for Android apps in case metrics are disabled on the device. User has an option to active them using opt-in dialog">
+        Send usage and diagnostic data. Help improve your Android experience by automatically sending diagnostic, device, and app usage data to Google. This will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If your additional Web &#38; App Activity setting is turned on, this data may be saved to your Google account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_METRICS_DISABLED_CHILD" desc="Message in the opt-in dialog for Android apps in case metrics are disabled on the device, and a child account is in use. User has an option to active them using opt-in dialog">
+        Send usage and diagnostic data. Help improve your child's Android experience by automatically sending diagnostic, device, and app usage data to Google. This won't be used to identify your child and will help system and app stability and other improvements. Some aggregate data will also help Google apps and partners, such as Android developers. If additional Web &#38; App Activity is turned on for you child, this data may be saved to their Google account. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-metrics" aria-label="</ph>Learn more about metrics<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BACKUP_RESTORE" desc="Message in the opt-in dialog for users to enable Backup and Restore for Android apps.">
+        Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data. Your backups are uploaded to Google and encrypted using your Google Account password. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-backup-restore" aria-label="</ph>Learn more about backup<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BACKUP_RESTORE_CHILD" desc="Message in the opt-in dialog for users to enable Backup and Restore for Android apps, and a child account is in use.">
+        Back up to Google Drive. Easily restore data or switch device at any time. This backup includes app data. Backups are uploaded to Google and encrypted using your child's Google Account password. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-backup-restore" aria-label="</ph>Learn more about backup<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BACKUP_RESTORE_LABEL" desc="This string is spoken when ChromeVox focuses the checkbox to enable Backup and Restore for Android apps in the opt-in dialog." is_accessibility_with_no_ui="true">
+        Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data. Your backups are uploaded to Google and encrypted using your Google Account password.
+      </message>
+      <message name="IDS_ARC_OPT_IN_DIALOG_BACKUP_RESTORE_CHILD_LABEL" desc="This string is spoken when ChromeVox focuses the checkbox to enable Backup and Restore for Android apps in the opt-in dialog, and a child account is in use." is_accessibility_with_no_ui="true">
+        Back up to Google Drive. Easily restore data or switch device at any time. This backup includes app data. Backups are uploaded to Google and encrypted using your child's Google Account password.
+      </message>
+      <message name="IDS_ARC_OPT_IN_LOCATION_SETTING" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services.">
+        Use location. Allow apps and services with location permission to use your device’s location. Google may collect location data periodically and use this data in an anonymous way to improve location accuracy and location-based services. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-location-service" aria-label="</ph>Learn more about location<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LOCATION_SETTING_CHILD" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services, and a child account is in use.">
+        Use location. Allow apps and services with location permission to use this device’s location. Google may collect location data periodically and use this data in an anonymous way to improve location accuracy and location-based services. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-location-service" aria-label="</ph>Learn more about location<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_CROS_OPT_IN_LOCATION_SETTING" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services.">
+        Use location. Allow ChromeOS and Android apps, websites, and services with location permission to use your device's location. Location Accuracy provides more accurate location for Android apps and services. To do this, Google periodically processes information about device sensors and wireless signals from your device to crowdsource wireless signal locations. These are used without identifying you to improve location accuracy and location-based services and to improve, provide, and maintain Google's services based on Google's and third parties' legitimate interests to serve users' needs. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-location-service"&gt;</ph>Learn more about using location<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_CROS_OPT_IN_LOCATION_SETTING_CHILD" desc="Message in the opt-in dialog for Android apps for the user to turn on Google location services, and a child account is in use.">
+        Use location. Allow ChromeOS and Android apps, websites, and services with location permission to use this device's location. Location Accuracy provides more accurate location for Android apps and services. To do this, Google periodically processes information about device sensors and wireless signals from this device to crowdsource wireless signal locations. These are used without identifying any individual to improve location accuracy and location-based services and to improve, provide, and maintain Google's services based on Google's and third parties' legitimate interests to serve users' needs. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-location-service"&gt;</ph>Learn more about using location<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_PAI" desc="Message in the opt-in dialog for Play auto install.">
+        Install updates &#38; apps. By continuing, you agree that this device may also automatically download and install updates and apps from Google, your carrier, and your device's manufacturer, possibly using cellular data. Some of these apps may offer in-app purchases. <ph name="BEGIN_LINK1">&lt;a href="#" id="learn-more-link-pai" aria-label="</ph>Learn more about play auto install<ph name="BEGIN_LINK1_END">"&gt;</ph>Learn More<ph name="END_LINK1">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_GOOGLE_SERVICE_CONFIRMATION" desc="Message in the opt-in dialog for Accepting Google services.">
+        Tap “Accept” to confirm your selection of these Google services settings.
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_CLOSE" desc="Text for close button in learn more dialog">
+        Close
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_TITLE" desc="Title for pop up overlay dialog when user clicks learn more UMA">
+        Usage and diagnostic data
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS" desc="Message shown in pop up overlay dialog when user clicks learn more UMA">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>This is general information about your device and how you use it (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Turning off this feature doesn't affect your device's ability to send the information needed for essential services such as system updates and security.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If your additional Web &amp; App Activity setting is turned on, this data may be saved to your Google Account. You can see your data, delete it, and change your account settings at account.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_STATISTICS_CHILD" desc="Message shown in pop up overlay dialog when user clicks learn more UMA, and a child account is in use">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>This is general information about this device and how it's used (such as battery level, system and app activity, and errors). The data will be used to improve Android, and some aggregated information will also help Google apps and partners, such as Android developers, make their apps and products better.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Turning off this feature doesn't affect this device's ability to send the information needed for essential services such as system updates and security.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>The owner can control this feature from Settings &gt; Advanced &gt; Automatically send diagnostic and usage data to Google.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If additional Web &amp; App Activity setting is turned on for your child, this data may be saved to their Google Account. Learn more about these settings and how to adjust them at families.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_TITLE" desc="Title for pop up overlay dialog when user clicks learn more backup and restore">
+        Back up to Google Drive
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE" desc="Message shown in pop up overlay dialog when user clicks learn more backup and restore">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Back up to Google Drive. Easily restore your data or switch device at any time. Your backup includes app data.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Your backups are uploaded to Google and encrypted using your Google Account password.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>App data can be any data that an app has saved (based on developer settings), including data such as contacts, messages, and photos.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>Backup data will not count toward your Drive storage quota.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH5">&lt;p&gt;</ph>You can turn this service off in Settings.<ph name="END_PARAGRAPH5">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_BACKUP_AND_RESTORE_CHILD" desc="Message shown in pop up overlay dialog when user clicks learn more backup and restore, and a child account is in use">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>App data can be any data that an app has saved (based on developer settings), including data such as contacts, messages, and photos.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Backup data will not count toward your child's Drive storage quota.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>You can turn this service off in Settings.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_TITLE" desc="Title for pop up overlay dialog when user clicks learn more location services">
+        Location Services
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES" desc="Message shown in pop up overlay dialog when user clicks learn more location services">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate your device’s location.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can turn off Location by turning off the main Location setting on your device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_LOCATION_SERVICES_CHILD" desc="Message shown in pop up overlay dialog when user clicks learn more location services, and a child account is in use">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Google's location service uses sources like Wi-Fi, mobile networks, and sensors to help estimate this device’s location.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can turn off Location by turning off the main Location setting on this device. You can also turn off the use of Wi-Fi, mobile networks, and sensors for location in location settings.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_CROS_OPT_IN_LEARN_MORE_LOCATION_SERVICES" desc="Message shown in pop up overlay dialog when user clicks learn more location services">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>When Location Accuracy is on, information about wireless signals, such as Wi-Fi access points and cellular network towers, along with device sensor data, such as accelerometer and gyroscope, is used to estimate more accurate device location, which Android apps and services use to provide location-based features. To do this, Google periodically collects information about device sensors and wireless signals near you to contribute to crowdsourced wireless signal locations.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Google uses this information without identifying you to: improve location accuracy and location-based services; and generally improve, provide, and maintain Google's services. We process this information based on the legitimate interests of Google and third parties to serve users' needs.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>You can turn off Location Accuracy at any time in your device's location settings under Settings &gt; Privacy and security &gt; Privacy controls &gt; Location access &gt; Advanced location settings. If Location Accuracy is off, no Location Accuracy data will be collected. For Android apps and services, only IP address is used, if available, to determine your device's location, which may impact the availability and accuracy of locations for Android apps and services such as Google Maps.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph><ph name="LINK_BEGIN">&lt;a id="LocationAccuracyLink" href="$1<ex>https://google.com/</ex>" target="_blank"&gt;</ph>Learn more about Location Accuracy<ph name="LINK_END">&lt;/a&gt;</ph><ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_CROS_OPT_IN_LEARN_MORE_LOCATION_SERVICES_CHILD" desc="Message shown in pop up overlay dialog when user clicks learn more location services, and a child account is in use">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>When Location Accuracy is on, information about wireless signals, such as Wi-Fi access points and cellular network towers, along with device sensor data, such as accelerometer and gyroscope, is used to estimate more accurate device location, which Android apps and services use to provide location-based features. To do this, Google periodically collects information about device sensors and wireless signals near this device to contribute to crowdsourced wireless signal locations.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>Google uses this information collected from this device to: improve location accuracy and location-based services; and generally improve, provide, and maintain Google's services. We process this information based on the legitimate interests of Google and third parties to serve users' needs. This information is not used to identify any individual.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>You can turn off Location Accuracy at any time in this device's location settings under Settings &gt; Privacy and security &gt; Privacy controls &gt; Location access &gt; Advanced location settings. If Location Accuracy is off, no Location Accuracy data will be collected. For Android apps and services, only IP address is used, if available, to determine this device's location, which may impact the availability and accuracy of locations for Android apps and services such as Google Maps.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph><ph name="LINK_BEGIN">&lt;a id="LocationAccuracyLink" href="$1<ex>https://google.com/</ex>" target="_blank"&gt;</ph>Learn more about Location Accuracy<ph name="LINK_END">&lt;/a&gt;</ph><ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_PAI_SERVICE_TITLE" desc="Title for pop up overlay dialog when user clicks learn more play auto install services">
+        Install Updates and Apps
+      </message>
+      <message name="IDS_ARC_OPT_IN_LEARN_MORE_PAI_SERVICE" desc="Message shown in pop up overlay dialog when user clicks learn more play auto install services.">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>To remove apps, go to Settings &gt; Google Play Store &gt; Manage Android preferences &gt; Apps or Application manager. Then tap the app you want to uninstall (you may need to swipe right or left to find the app). Then tap Uninstall or Disable.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_ARC_OPT_IN_CONTACT_ADMIN_TITLE" desc="Title of dialog shown when user tries to launch ARC app but ARC is diabled by admin">
+        This app requires access to the Play Store
+      </message>
+      <message name="IDS_ARC_OPT_IN_CONTACT_ADMIN_CONTEXT" desc="Text of dialog shown when user tries to launch ARC app but ARC is diabled by admin">
+        To ask for access, contact the administrator of this device.
+      </message>
+      <message name="IDS_ARC_OPT_IN_PRIVACY_POLICY_LINK" desc="Text of the Link to Goolge Privacy Policy in opt-in dialog">
+        Google privacy policy
+      </message>
+      <message name="IDS_ARC_SIGN_IN_NETWORK_ERROR" desc="Android sign-in error because of network error">
+        Network connection was lost. Check your network connection or try another Wi-Fi network.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_GMS_SIGNIN_ERROR" desc="Android sign-in error because of service is unavailable">
+        Couldn't connect to Google Play. Check your network connection and try again. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_BAD_AUTHENTICATION_ERROR" desc="Android sign-in error because of bad authentification">
+        Couldn't verify your account. Please try again or restart your Chromebook.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_GMS_CHECKIN_ERROR" desc="Android sign-in error because of GMS services are unavailable">
+        Couldn't connect with Google services. Check your network connection and try again. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_ACCOUNT_MISSING_ERROR" desc="Android permament sign-in error because of cloud provision flow failed">
+        Provisioning failed because your account details could not be retrieved. Please try again. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_DOMAIN_JOIN_FAIL_ERROR" desc="Android permament sign-in error because of cloud provision flow failed">
+        Can't join the device to the domain. Please try again or contact your device owner or administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_ENROLLMENT_TOKEN_INVALID" desc="Android permament sign-in error because of cloud provision flow failed">
+        Device enrollment token is invalid. Please contact your device owner or administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_INTERRUPTED_ERROR" desc="Android permament sign-in error because of cloud provision flow failed">
+        Provisioning flow was interrupted. Please try again or contact your device owner or administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_NETWORK_ERROR" desc="Android permament sign-in error because of cloud provision flow failed">
+        Couldn’t connect with the server. Check your network connection and try again. If you're still having trouble, try restarting your Chromebook. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_PERMANENT_ERROR" desc="Android permament sign-in error because of cloud provision flow failed">
+        Something went wrong. Please contact your device owner or administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_CLOUD_PROVISION_FLOW_TRANSIENT_ERROR" desc="Android transient sign-in error because of cloud provision flow failed">
+        Something went wrong. Please try again or contact your device owner or administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_LOW_DISK_SPACE_ERROR" desc="Android sign-in failed due to low disk space">
+        Disk space is critically low. Please free up disk space.
+      </message>
+      <message name="IDS_ARC_LOW_DISK_SPACE_PRE_STOP_NOTIFICATION_TITLE" desc="Title of the notification warning Android users that they are critically low on disk space">
+        Device disk space critically low
+      </message>
+      <message name="IDS_ARC_LOW_DISK_SPACE_PRE_STOP_NOTIFICATION_MESSAGE" desc="Message in the notification warning Android users that they are critically low on disk space">
+        Free up space to avoid losing access to Android.
+      </message>
+      <message name="IDS_ARC_LOW_DISK_SPACE_POST_STOP_NOTIFICATION_TITLE" desc="Title of the notification shown when Android is stopped due to low disk space">
+        Android apps were stopped
+      </message>
+      <message name="IDS_ARC_LOW_DISK_SPACE_POST_STOP_NOTIFICATION_MESSAGE" desc="Message in the notification shown when Android is stopped due to low disk space">
+        Free up disk space to launch Android apps.
+      </message>
+      <message name="IDS_ARC_SIGN_IN_UNKNOWN_ERROR" desc="Android sign-in error because of unknown error">
+        Something went wrong. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+      </message>
+      <message name="IDS_ARC_SERVER_COMMUNICATION_ERROR" desc="Android sign-in error because of server communication error">
+        Couldn’t connect with the server. Check your network connection and try again. If you're still having trouble, try restarting your Chromebook.
+      </message>
+      <message name="IDS_ARC_ANDROID_MANAGEMENT_REQUIRED_ERROR" desc="Error message shown when Android management is required for an unmanaged ChromeOS user.">
+        Your organization has not enabled Google Play Store for your account. Contact your administrator for more information.
+      </message>
+      <message name="IDS_ARC_NETWORK_UNAVAILABLE_ERROR" desc="Error message shown when Android cannot set up network connection.">
+        Network connection cannot be established. Check your network connection and try again.
+      </message>
+      <message name="IDS_ARC_CRITICALLY_LOW_DISK_NOTIFICATION_TITLE" desc="Title of the notification warning users that they are critically low on disk space and Android apps can not be launched.">
+        Device disk space critically low
+      </message>
+      <message name="IDS_ARC_CRITICALLY_LOW_DISK_NOTIFICATION_MESSAGE" desc="Notification text warning users that they are critically low on disk space and Android apps can not be launched.">
+        Free up disk space to launch Android apps.
+      </message>
+      <message name="IDS_ARC_MANAGED_PROVISION_NOTIFICATION_TITLE" desc="Title of the notification shown to user during ARC provision when the ARC opt-in flow happens silently due to enterprise policies">
+        Google Play Store
+      </message>
+      <message name="IDS_ARC_MANAGED_PROVISION_NOTIFICATION_MESSAGE" desc="Notification shown to user during ARC provision when the ARC opt-in flow happens silently due to enterprise policies.">
+        Installing the Google Play Store on your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>. This could take a few minutes.
+      </message>
+      <message name="IDS_ARC_OOBE_TERMS_HEADING" desc="Heading of the Arc Terms OOBE dialog.">
+        Google Play apps and services
+      </message>
+      <message name="IDS_ARC_OOBE_TERMS_DESCRIPTION" desc="Description of the Arc Terms OOBE dialog.">
+        Use Google Play to install Android apps
+      </message>
+      <message name="IDS_ARC_OOBE_TERMS_POPUP_HELP_CLOSE_BUTTON" desc="Close button of the popup local help of Arc Play Store Terms OOBE dialog.">
+        Close
+      </message>
+      <message name="IDS_ARC_POPUP_HELP_LOADING" desc="Loading message of the Arc popup help.">
+        Loading...
+      </message>
+      <message name="IDS_ARC_CHILD_TRANSITION_TITLE" desc="Title of the notification shown when the user tries to activate ARC app and transition from child to regular user or from regular to child user is not completed.">
+        Action not available
+      </message>
+      <message name="IDS_ARC_CHILD_TRANSITION_MESSAGE" desc="Message of the notification shown when the user tries to activate ARC app and transition from child to regular user or from regular to child user is not completed.">
+        Please try again in a few moments
+      </message>
+      <message name="IDS_ARC_DATA_REMOVAL_CONFIRMATION_HEADING" desc="Heading text in the content area of the confirmation for data removal in case ARC comes to wrong state.">
+        To use apps from Google Play, you must first restore your apps. Some data may have been lost.
+      </message>
+      <message name="IDS_ARC_DATA_REMOVAL_CONFIRMATION_OK_BUTTON" desc="Text for the OK button of the confirmation for data removal in case ARC comes to wrong state.">
+        Restore apps
+      </message>
+      <message name="IDS_ARC_DATA_REMOVAL_CONFIRMATION_TITLE" desc="Title of the confirmation for data removal in case in case ARC comes to wrong state.">
+        Something went wrong
+      </message>
+      <message name="IDS_ARC_MIGRATE_ENCRYPTION_NOTIFICATION_TITLE" desc="Title of the notification to navigate the user to first update the device encryption before running Android apps.">
+        Install critical update
+      </message>
+      <message name="IDS_ARC_MIGRATE_ENCRYPTION_NOTIFICATION_MESSAGE" desc="Main message of the notification to navigate the user to first update the device encryption before running Android apps.">
+        To use Android apps and keep your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> working properly, sign in again and update.
+      </message>
+      <message name="IDS_ARC_MIGRATE_ENCRYPTION_NOTIFICATION_LOW_BATTERY_MESSAGE" desc="Main message of the notification to navigate the user to first update the device encryption before running Android apps.">
+        To use Android apps, charge &amp; update your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>.
+      </message>
+      <message name="IDS_ARC_USB_PERMISSION_TITLE" desc="Titlebar of Android app USB permissions prompt window">
+        Confirm USB Permission
+      </message>
+      <message name="IDS_ARC_USB_SCAN_DEVICE_LIST_PERMISSION_HEADING" desc="Heading text in the content area of the Android app scan device list permission prompt. Tells the user the app will be able to scan attached USB device list if confirmed.">
+        Allow "<ph name="APP_NAME">$1<ex>Gmail Checker</ex></ph>" to get the list of your attached USB devices?
+      </message>
+      <message name="IDS_ARC_USB_ACCESS_PERMISSION_HEADING" desc="Heading text in the content area of the Android app USB device access permission prompt. Tells the user the app will be able to access the usb device if confirmed.">
+        Allow "<ph name="APP_NAME">$1<ex>Gmail Checker</ex></ph>" to access:
+      </message>
+      <message name="IDS_ARC_ACCESSIBILITY_SELECTED_STATUS" desc="Text used by screen readers that represents that the element is selected.">
+        Selected
+      </message>
+      <message name="IDS_ARC_ACCESSIBILITY_WINDOW_TITLE_IN_PIP" is_accessibility_with_no_ui="true" desc="A hint text that is read by screen readers appended to the window title, explaning that the window is in the picture-pi-picture mode.">
+        Picture in picture
+      </message>
+      <message name="IDS_ARC_SDK_VERSION_LABEL" desc="Label for Android SDK Version bundled with ARC">
+        SDK Version:
+      </message>
+      <message name="IDS_ARC_SDK_VERSION_UNKNOWN" desc="Message displayed when the Android SDK Version can not be found">
+        Unknown
+      </message>
+
+      <!-- Borealis strings -->
+      <!-- TODO(danielng): Add string descriptions and remove translateable tags
+        when strings are finalized. -->
+      <message name="IDS_BOREALIS_APP_NAME" desc="Name of app, noun, video game distribution service" translateable="false">
+        Steam
+      </message>
+      <message name="IDS_BOREALIS_CREDITS_PLACEHOLDER" desc="Shown to users who navigate to about://borealis-credits when the real credits file can't be shown (e.g. because borealis is not running)" translateable="false">
+        Steam is either not installed or not running. Please run Steam to view credits.
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_TITLE" desc="Title of the dialog shown to users who are unable to install 'Steam for Chromebook' (Steam is a video game distribution service)">
+        Can't install Steam
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_HARDWARE" desc="Message shown to the user when 'Steam for Chromebook' is disabled on their device">
+        Steam for Chromebook (beta) is not available on your Chromebook.
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_FAILED" desc="Message shown to the user when 'Steam for Chromebook' failed to determine whether it should be allowed">
+        Restart your Chromebook and try again
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_IRREGULAR" desc="Message shown to users when they try to install 'Steam for Chromebook' on an irregular (incognito, kiosk, etc) profile">
+        You need to be signed-in to a Google Account to use Steam for Chromebook (Beta). Sign in and try again.
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_PRIMARY" desc="Message shown to users when they try to install 'Steam for Chromebook' on a secondary profile">
+        Steam for Chromebook (Beta) is only available for the account that signed in first on this Chromebook.
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_CHILD" desc="Message shown to the users when they try to install 'Steam for Chromebook' on a child account">
+        Steam for Chromebook (Beta) is not available for child Google Accounts
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_ADMIN" desc="Message shown to the user when 'Steam for Chromebook' is blocked by their admin. The placeholders are the names of policy settings.">
+        Steam for Chromebook (Beta) is blocked by your administrator. Your administrator needs to turn on these policies:
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_FLAG" desc="Message shown to the user when 'Steam for Chromebook' doesn't have the correct chrome://flags setting enabled">
+        You need to turn on the “Borealis Enabled” flag
+      </message>
+      <message name="IDS_BOREALIS_DISALLOWED_FLAG_BUTTON" desc="Button label used to bring up the user's chrome://flags settings. Shown when users try to install borealis but are unable to due to their flags.">
+        ChromeOS flags
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_APP_NAME" desc="Name of a utility which is used to install the Steam application (Steam is a video game distribution service)">
+        Steam installer
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_CONFIRMATION_TITLE" desc="Title of the installer for 'Steam for Chromebook'. 'Steam for Chromebook' is the name of the piece of software used to run 'Steam' (a software distribution platform) on Chromebooks.">
+        Welcome to Steam for Chromebook
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_CONFIRMATION_MESSAGE" desc="Body text shown in the installer for 'Steam for Chromebook'.">
+        This is a beta program. You can now use Steam to play some games on your Chromebook.
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ONGOING_TITLE" desc="Title for installer while 'Steam for Chromebook' is installing.">
+        Setting up Steam for Chromebook
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ONGOING_MESSAGE" desc="Body text shown in the installer while 'Steam for Chromebook' is installing.">
+        This may take a few minutes
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ONGOING_PERCENTAGE" desc="Message containing the progress percentage of the ongoing 'Steam for Chromebook' installation.">
+        <ph name="PERCENTAGE_COMPLETE">$1<ex>42</ex></ph>% completed
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ONGOING_INITIAL" desc="Message shown while the 'Steam for Chromebook' installer is calculating how much longer it will need to complete.">
+        estimating time
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_FINISHED_TITLE" desc="Title for installer when installation for 'Steam for Chromebook' completes succesfully.">
+        Let’s get gaming
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_FINISHED_MESSAGE" desc="Body text shown in the installer when 'Steam for Chromebook' installation suceeded.">
+        You can now use Steam for Chromebook (Beta)
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_LAUNCH_BUTTON" desc="Button in the installer for 'Steam for Chromebook' to launch Steam.">
+        Open Steam
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_TITLE" desc="Title for installer when Steam (noun, name of app) fails to install.">
+        Can’t set up Steam for Chromebook (Beta)
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_DUPLICATE" desc="Body for Steam (noun, name of app) when installation fails due to another process already running.">
+        Steam is already being set up. Wait for setup to complete.
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_UPDATE" desc="Body for Steam (noun, name of app) installer when installation fails due to device being out of date.">
+        Make sure your Chromebook is on the latest version. Then, restart your Chromebook and try again.
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_BUSY" desc="Body for Steam (noun, name of app) installer when installation fails with suggestion to try again.">
+        Wait a few minutes and try again
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_SPACE" desc="Body for Steam (noun, name of app) installer when installation fails due to low space.">
+        There is not enough device storage to complete setup. Free up space and try again.
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_OFFLINE" desc="Body for Steam (noun, name of app) installer when installation fails due to being offline.">
+        Make sure you’re connected to the internet and try again
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_STARTUP" desc="Body for Steam (noun, name of app) installer when installation fails trying to start up after installing">
+        Something went wrong. Try again.
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_BUTTON_RETRY" desc="Button for Steam (noun, name of app) installer to retry after failing.">
+        Try again
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_BUTTON_STORAGE" desc="Button for Steam (noun, name of app) installer to free disk-space if needed.">
+        Storage management
+      </message>
+      <message name="IDS_BOREALIS_INSTALLER_ERROR_LEARN_MORE" desc="Hyperlink to help page to learn more about the error encountered.">
+        Learn more
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_TITLE" desc="Title of a dialog shown when Steam (noun, name of app, a gaming software distribution platform) fails to launch.">
+        Can’t open Steam for Chromebook (Beta)
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_BODY" desc="Body of a dialog shown when Steam (noun, name of app, a gaming software distribution platform) fails to launch.">
+        Something went wrong. Try again.
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_NEED_RESTART_BODY" desc="Body of a dialog shown when Steam (noun, name of app, a gaming software distribution platform) fails to launch, due to needing an update.">
+        Steam for Chromebook (Beta) needs to be updated. Restart your Chromebook and try again.
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_NEED_SPACE_BODY" desc="Body of a dialog shown when Steam (noun, name of app, a gaming software distribution platform) fails to launch, due to needing more space.">
+        There is not enough device storage to open this app. Free up space and try again.
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_SEND_FEEDBACK" desc="Label for a checkbox the user can tick to send feedback about the error.">
+        Send feedback
+      </message>
+      <message name="IDS_BOREALIS_LAUNCH_ERROR_BUTTON_RESTART" desc="Button of a dialog shown when Steam (noun, name of app) fails to launch to restart and a restart is suggested.">
+        Restart
+      </message>
+      <message name="IDS_BOREALIS_BETA_BADGE" desc="Badge text indicating that borealis (steam on chromeos) is a beta product, i.e. it is still under development.">
+        Beta
+      </message>
+      <message name="IDS_BOREALIS_CLIENT_UNINSTALL_CONFIRM_BODY" desc="Confirmation dialog for uninstalling Steam (name of app).">
+          Any apps and games installed using Steam for Chromebook (Beta) will be removed from this device. Data associated with these apps and games will also be removed. Make sure to back up saved apps and games before uninstalling.
+      </message>
+      <message name="IDS_BOREALIS_APPLICATION_UNINSTALL_CONFIRM_BODY" desc="Confirmation dialog for uninstalling a game.">
+          Data associated with this app may be removed from this device
+      </message>
+      <message name="IDS_BOREALIS_SPLASHSCREEN_TITLE" desc="Title on splashscreen when starting Steam on Chrome OS. 'Steam for Chromebook' is the name of the product.">
+        Steam for Chromebook
+      </message>
+      <message name="IDS_BOREALIS_SPLASHSCREEN_MESSAGE" desc="Message on splashscreen when starting Steam on Chrome OS.">
+        Loading...
+      </message>
+      <message name="IDS_BOREALIS_HATS_TITLE" desc="Title for HaTS notification requesting feedback. It will appear occasionally when a user closes a Steam game. Clicking it will show a satisfaction survey to the user.">
+        Help us improve Steam for Chromebook
+      </message>
+      <message name="IDS_BOREALIS_HATS_BODY" desc="Message on HaTS notification requesting feedback. It will appear occasionally when a user closes a Steam game. Clicking it will show a satisfaction survey to the user.">
+        Tell us about your recent gameplay
+      </message>
+      <message name="IDS_BOREALIS_FEEDBACK_PLACEHOLDER" desc="Placeholder text for the Borealis feedback dialog.">
+        Share your feedback or describe your issue. If possible, include steps to reproduce your issue.
+      </message>
+
+      <!-- Bruschetta -->
+      <message name="IDS_BRUSCHETTA_NAME" desc="The display name for Bruschetta (codename) when a specific VM name cannot be used.">
+        Managed Development Environment
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_WINDOW_TITLE" desc="Title for the installer window while Bruschetta (codename) is installing.">
+        <ph name="VM_NAME">$1<ex>Managed VM</ex></ph> Installer
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_INSTALL_BUTTON" desc="Label for the button in the Bruschetta (codename) installer dialog to begin installing.">
+        Install
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_CONFIRMATION_TITLE" desc="In-window title for when the installer for Bruschetta (codename) first opens.">
+        Welcome
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_CONFIRMATION_MESSAGE" desc="More detailed message for when the installer for Bruschetta (codename) first opens.">
+        Select which version of <ph name="VM_NAME">$1<ex>Managed VM</ex></ph> to install.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_ONGOING_TITLE" desc="Title for the installer while Bruschetta (codename) is installing.">
+        Installing
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_ERROR_TITLE" desc="Title for the installer when Bruschetta (codename) fails to install.">
+        Sorry, an error occurred
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_GENERIC_ERROR_MESSAGE" desc="Generic message for the installer when Bruschetta fails to install.">
+        Sorry, something went wrong. Please file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>, this may be fixed by rebooting and trying again.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_PROHIBITED_MESSAGE" desc="Message for the installer when Bruschetta is blocked from being installed.">
+        Installing <ph name="VM_NAME">$1<ex>Managed VM</ex></ph>, is blocked by enterprise policy. Please contact your system administrator for support. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_DOWNLOAD_ERROR_MESSAGE" desc="More detailed message for the installer when Bruschetta fails to download needed files.">
+        Unable to download installer files. Please check your internet connection and that you have enough free disk space and try again. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_DLC_NEED_UPDATE_ERROR_MESSAGE" desc="More detailed message for the installer when Bruschetta fails to install due to a pending OS update.">
+        Unable to install, OS update is pending. Please apply any pending OS updates, restart, and try again. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_NEED_REBOOT_ERROR_MESSAGE" desc="More detailed message for the installer when Bruschetta fails to install due to a reboot being required.">
+        Unable to install, reboot is required. Please restart your computer and try again. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_DISK_FULL_ERROR_MESSAGE" desc="More detailed message for the installer when Bruschetta fails to install due to insufficient disk space.">
+        Not enough disk space. Please free up some more disk space and try again. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_GENERIC_DLC_ERROR_MESSAGE" desc="Generic message for the installer when Bruschetta fails to install.">
+        Sorry, something went wrong installing DLC dependencies. Please try rebooting and if the issue persists file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_UNINSTALLABLE_ERROR_MESSAGE" desc="Generic message for the installer when Bruschetta fails to install.">
+        Unfortunately this machine does not meet requirements for installing Bruschetta. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_ERROR_CLEANUP_MESSAGE" desc="More detailed message for the installer when Bruschetta fails to install and the cleaning up the incomplete install also failed.">
+        Sorry, something went wrong. Please file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>. Cleaning up failed, you may need to do so manually.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_INSTALLING_DLC_MESSAGE" desc="Message while DLC (DownLoadable Content - codename) to support Bruschetta is being installed.">
+        Configuring DLC.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_DOWNLOADING_MESSAGE" desc="Message while the installer is downloading files.">
+        This process may take a few minutes. Downloading files.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_STARTING_VM_MESSAGE" desc="Message while the installer is launching the Virtual Machine (VM).">
+        This process may take a few minutes. Starting the virtual machine.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_CLEANING_UP_MESSAGE" desc="Message while the installer is cleaning up a failed install.">
+        Install failed, cleaning up
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_UNKNOWN" desc="Bruschetta (codename) unknown result.">
+        Unknown result.
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_SUCCESS" desc="Bruschetta (codename) result for success.">
+        Success.
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_DLC_INSTALL_ERROR" desc="Bruschetta (codename) result for error installing DLC.">
+        Error installing DLC (oftentimes a reboot is needed, check Settings\>\>About ChromeOS for more information).
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_START_VM_FAILED" desc="Bruschetta (codename) result for when VM fails to start.">
+        Starting VM failed.
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_TIMEOUT" desc="Bruschetta (codename) result for a timeout.">
+        Timeout when booting or reconnecting to VM.
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_FORBIDDEN_BY_POLICY" desc="Bruschetta (codename) result for when Bruschetta (codename) is forbidden by policy.">
+        Forbidden by policy.
+      </message>
+      <message name="IDS_BRUSCHETTA_RESULT_CONCIERGE_UNAVAILABLE" desc="Bruschetta (codename) result for when concierge service is unavailable.">
+        Concierge service is unavailable.
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_TITLE" desc="Title of the Bruschetta (codename) uninstaller, a dialog for uninstalling Bruschetta, the associated VM and files.">
+        Remove <ph name="VM_NAME">$1<ex>Bruschetta</ex></ph>
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_BODY" desc="Description for the Bruschetta (codename) uninstaller, a dialog for uninstalling Bruschetta, the associated VM and files.">
+        Remove <ph name="VM_NAME">$1<ex>Bruschetta</ex></ph> from your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>? This will delete all apps and data in the virtual machine!
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALL_BUTTON_ARIA_DESCRIPTION" desc="Accessible description for the 'remove' button of the the Bruschetta (codename) uninstaller e.g. read out by screenreaders.">
+        Removes <ph name="VM_NAME">$1<ex>Bruschetta</ex></ph> from your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>. This will delete all apps and data in the virtual machine!
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALL_BUTTON" desc="Label for the button in the Bruschetta uninstaller dialog to uninstall the VM.">
+        Remove
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALLING_MESSAGE" desc="Text shown in the Bruschetta uninstaller dialog when uninstallation is in progress.">
+        Removing...
+      </message>
+      <message name="IDS_BRUSCHETTA_UNINSTALLER_ERROR" desc="Text shown in the Bruschetta (codename) uninstaller dialog when uninstallation fails.">
+        Error removing <ph name="VM_NAME">$1<ex>Bruschetta</ex></ph>. Please try again.
+      </message>
+      <message name="IDS_BRUSCHETTA_INSTALLER_RETRY_BUTTON" desc="Button for Bruschetta (Codename) installer to retry after failing.">
+        Retry
+      </message>
+      <message name="IDS_BRUSCHETTA_SHUT_DOWN_LINUX_MENU_ITEM" desc="Text shown in the context menu for the Bruschetta terminal app, allowing users to shut down the Linux virtual machine.">
+        Shut down <ph name="VM_NAME">$1<ex>Bruschetta</ex></ph>
+      </message>
+
+      <!-- Floating Workspace -->
+      <message name="IDS_FLOATING_WORKSPACE_STARTUP_DIALOG_TITLE" desc="Title for floating workspace startup dialog.">
+        Restoring windows from your previous session...
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_STARTUP_DIALOG_LONG_RESPONSE_TITLE" desc="Title for floating workspace startup dialog when floating workspace is taking too long.">
+        Restoring windows is taking longer than expected
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_STARTUP_DIALOG_BUTTON" desc="Button for floating workspace dialog that closes the dialog without waiting for browser and app windows to be restored.">
+        Don't restore windows
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_NETWORK_DIALOG_TITLE" desc="Title for floating workspace network dialog which is shown when there is no network connection.">
+        Network not available
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_NETWORK_DIALOG_SUBTITLE" desc="Subtitle for floating workspace network dialog which is shown when there is no network connection.">
+        Internet connection is required.
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_ERROR_DIALOG_TITLE" desc="Title for floating dialog error screen which is shown when floating workspace can not restore the session.">
+        Can't restore windows from your previous session
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_ERROR_DIALOG_SUBTITLE" desc="Subtitle for floating dialog error screen which is shown when floating workspace can not restore the session.">
+        An error occured
+      </message>
+      <message name="IDS_FLOATING_WORKSPACE_ERROR_DIALOG_BUTTON" desc="Button for floating workspace error dialog that disables floating workspace and closes the dialog after the error screen is shown.">
+        Continue to new session
+      </message>
+
+      <!-- Status bar -->
+      <message name="IDS_STATUSBAR_NETWORK_DEVICE_ETHERNET" desc="Label for an ethernet network device.">
+        Ethernet
+      </message>
+    </messages>
+  </release>
 </grit>

@@ -14,11 +14,11 @@ those files, or convert content back into a canonicalized version of the file.
 
 import abc
 import re
-import xml.etree.ElementTree as ET
-from typing import Callable, Iterable, Tuple, List, Dict, Optional, Set, Union
+from typing import cast, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 from xml.dom import minidom
+import xml.etree.ElementTree as ET
 
-import setup_modules
+import setup_modules  # pylint: disable=unused-import
 
 import chromium_src.tools.metrics.common.pretty_print_xml as pretty_print_xml
 
@@ -44,11 +44,12 @@ def IsTrailingComment(node: minidom.Comment) -> bool:
   # If all of the next siblings of this node are text nodes or comment nodes,
   # then we treat it as a trailing comment.
   only_text_next_sibling = True
-  curr_node = node
-  while curr_node := curr_node.nextSibling:
-    if curr_node.nodeType not in (minidom.Element.TEXT_NODE,
-                                  minidom.Element.COMMENT_NODE):
+  current_node: Optional[minidom.Node] = node
+  while current_node:
+    if current_node.nodeType not in (minidom.Element.TEXT_NODE,
+                                     minidom.Element.COMMENT_NODE):
       only_text_next_sibling = False
+    current_node = current_node.nextSibling
 
   return only_text_next_sibling or node.data.strip().startswith(
       'LINT.ThenChange')
@@ -63,15 +64,16 @@ def GetPrecedingCommentsForNode(node: minidom.Element) -> List[str]:
   Returns:
     A list of comment DOM nodes.
   """
-  comments = []
-  node = node.previousSibling
-  while node:
-    if node.nodeType == minidom.Element.COMMENT_NODE:
-      if not IsTrailingComment(node):
-        comments.append(node.data)
-    elif node.nodeType != minidom.Element.TEXT_NODE:
+  comments: List[str] = []
+  current_node: Optional[minidom.Node] = node.previousSibling
+  while current_node:
+    if current_node.nodeType == minidom.Element.COMMENT_NODE:
+      comment_node = cast(minidom.Comment, current_node)
+      if not IsTrailingComment(comment_node):
+        comments.append(comment_node.data)
+    elif current_node.nodeType != minidom.Element.TEXT_NODE:
       break
-    node = node.previousSibling
+    current_node = current_node.previousSibling
   return comments[::-1]
 
 
@@ -84,19 +86,21 @@ def GetTrailingCommentsForNode(node: minidom.Element) -> List[str]:
   Returns:
     A list of comment DOM nodes.
   """
-  comments = []
-  node = node.nextSibling
-  while node:
-    if node.nodeType == minidom.Element.COMMENT_NODE:
-      if IsTrailingComment(node):
-        comments.append(node.data)
-    elif node.nodeType != minidom.Element.TEXT_NODE:
+  comments: List[str] = []
+  current_node: Optional[minidom.Node] = node.nextSibling
+  while current_node:
+    if current_node.nodeType == minidom.Element.COMMENT_NODE:
+      comment_node = cast(minidom.Comment, current_node)
+      if IsTrailingComment(comment_node):
+        comments.append(comment_node.data)
+    elif current_node.nodeType != minidom.Element.TEXT_NODE:
       break
-    node = node.nextSibling
+    current_node = current_node.nextSibling
   return comments
 
 
-def PutCommentsInNode(doc: minidom.Document, node: minidom.Node,
+def PutCommentsInNode(doc: minidom.Document, node: Union[minidom.Element,
+                                                         minidom.Document],
                       comments: List[str]) -> None:
   """Appends comments to the DOM node.
 
@@ -118,7 +122,10 @@ def GetChildrenByTag(node: minidom.Element, tag: str) -> List[minidom.Element]:
   Returns:
     A list of DOM nodes.
   """
-  return [child for child in node.childNodes if child.nodeName == tag]
+  return [
+      child for child in node.childNodes
+      if isinstance(child, minidom.Element) and child.tagName == tag
+  ]
 
 
 def GetUnexpectedChildren(node: minidom.Element,
@@ -147,7 +154,7 @@ class NodeType:
   def __init__(self,
                tag: str,
                indent: bool = True,
-               extra_newlines: bool = None,
+               extra_newlines: Optional[Tuple[int, int, int]] = None,
                single_line: bool = False,
                alphabetization: Optional[List[Tuple[str, KeyFunc]]] = None):
     self.tag = tag
@@ -206,7 +213,8 @@ class NodeType:
     # The base NodeType does not store comments
     return []
 
-  def MarshallIntoNode(self, doc: minidom.Document, node: minidom.Node,
+  def MarshallIntoNode(self, doc: minidom.Document,
+                       node: Union[minidom.Element, minidom.Document],
                        obj: XMLObjectType) -> None:
     """Marshalls the object and appends it to a node, with comments.
 
@@ -267,7 +275,7 @@ class TextNodeType(NodeType):
       The object representation of the node.
     """
 
-    obj = {}
+    obj: XMLObjectType = {}
     obj[PRECEDING_COMMENT_KEY] = GetPrecedingCommentsForNode(node)
     obj[TRAILING_COMMENT_KEY] = GetTrailingCommentsForNode(node)
 
@@ -279,7 +287,7 @@ class TextNodeType(NodeType):
     # TextNode shouldn't have any child.
     unexpected = GetUnexpectedChildren(node, set())
     if unexpected:
-      raise ValueError("Unexpected children: %s in <%s> node" %
+      raise ValueError('Unexpected children: %s in <%s> node' %
                        (','.join(unexpected), self.tag))
 
     return obj
@@ -350,7 +358,7 @@ class ObjectNodeType(NodeType):
         r'^\w+$')].  The order of the attributes determines the ordering of
         attributes, when serializing objects to XML. The "regex" can be None
         to do no validation, otherwise the attribute must match that pattern.
-    text_attribute: An attribute stored in the text content of the node.
+    keep_inner_text: Whether to store the text content of the node.
     children: A list of ChildTypes describing the objects' children.
 
   Raises:
@@ -359,16 +367,17 @@ class ObjectNodeType(NodeType):
 
   def __init__(self,
                tag: str,
-               attributes: Optional[List[str]] = None,
+               attributes: Optional[List[Tuple[str, type,
+                                               Optional[str]]]] = None,
                required_attributes: Optional[List[str]] = None,
                children: Optional[List[ChildType]] = None,
-               text_attribute: Optional[bool] = None,
+               keep_inner_text: bool = False,
                **kwargs):
     NodeType.__init__(self, tag, **kwargs)
     self.attributes = attributes or []
     self.required_attributes = required_attributes or []
     self.children = children or []
-    self.text_attribute = text_attribute
+    self.keep_inner_text = keep_inner_text
     if len(self.attributes) != len(set(a for a, _, _ in self.attributes)):
       raise ValueError('Duplicate attribute definition.')
 
@@ -387,45 +396,45 @@ class ObjectNodeType(NodeType):
     Raises:
       ValueError: The node is missing required children.
     """
-    obj = {}
+    obj: XMLObjectType = {}
     obj[PRECEDING_COMMENT_KEY] = GetPrecedingCommentsForNode(node)
     obj[TRAILING_COMMENT_KEY] = GetTrailingCommentsForNode(node)
 
     for attr, attr_type, attr_re in self.attributes:
       if node.hasAttribute(attr):
         obj[attr] = attr_type(node.getAttribute(attr))
+
       if attr_re is not None:
         attr_val = obj.get(attr, '')
-        if not re.match(attr_re, attr_val):
+        if not isinstance(attr_val, str) or not re.match(attr_re, attr_val):
           raise ValueError('%s "%s" does not match regex "%s"' %
                            (attr, attr_val, attr_re))
 
-    # We need to iterate through all the children and get their nodeValue,
-    # to account for the cases where other children node precedes the text
-    # attribute.
-    obj[self.text_attribute] = ''
-    child = node.firstChild
-    while child:
-      obj[self.text_attribute] += (child.nodeValue.strip()
-                                   if child.nodeValue else '')
-      child = child.nextSibling
+    if self.keep_inner_text:
+      # Iterate through all the children and get their nodeValue, to account for
+      # the cases where other children node precedes the text attribute.
+      text_value = ''
+      child_node: Optional[minidom.Node] = node.firstChild
+      while child_node:
+        text_value += (child_node.nodeValue.strip()
+                       if child_node.nodeValue else '')
+        child_node = child_node.nextSibling
 
-    # This prevents setting a None key with empty string value
-    if obj[self.text_attribute] == '':
-      del obj[self.text_attribute]
+      if text_value:
+        obj[TEXT_KEY] = text_value
 
     for child in self.children:
+      assert child
       nodes = GetChildrenByTag(node, child.node_type.tag)
       if child.multiple:
-        obj[child.attr] = [
-            child.node_type.Unmarshall(n) for n in nodes]
+        obj[child.attr] = [child.node_type.Unmarshall(n) for n in nodes]
       elif nodes:
         obj[child.attr] = child.node_type.Unmarshall(nodes[0])
 
     unexpected = GetUnexpectedChildren(
         node, set([child.node_type.tag for child in self.children]))
     if unexpected:
-      raise ValueError("Unexpected children: %s in <%s> node" %
+      raise ValueError('Unexpected children: %s in <%s> node' %
                        (','.join(unexpected), self.tag))
 
     return obj
@@ -446,8 +455,8 @@ class ObjectNodeType(NodeType):
       if attr in obj:
         node.setAttribute(attr, str(obj[attr]))
 
-    if self.text_attribute and self.text_attribute in obj:
-      node.appendChild(doc.createTextNode(obj[self.text_attribute]))
+    if self.keep_inner_text and TEXT_KEY in obj:
+      node.appendChild(doc.createTextNode(obj[TEXT_KEY]))
 
     for child in self.children:
       if child.multiple:
@@ -503,7 +512,7 @@ class ObjectNodeType(NodeType):
       A map of tags to node-types for this node and all of the nodes that it
       can contain.
     """
-    types = {self.tag: self}
+    types: Dict[str, NodeType] = {self.tag: self}
     for child in self.children:
       types.update(child.node_type.GetNodeTypes())
     return types
@@ -549,11 +558,14 @@ class DocumentType:
       An object representing the unmarshalled content of the document's root
       node.
     """
-    if not isinstance(input_file, minidom.Document):
+    doc: minidom.Document
+    if isinstance(input_file, minidom.Document):
+      doc = input_file
+    else:
       if isinstance(input_file, ET.Element):
         input_file = ET.tostring(input_file, encoding='utf-8', method='xml')
-      input_file = minidom.parseString(input_file)
-    return self._ParseMinidom(input_file)
+      doc = minidom.parseString(cast(str, input_file))
+    return self._ParseMinidom(doc)
 
   def GetPrintStyle(self) -> pretty_print_xml.XmlStyle:
     """Gets an XmlStyle object for pretty printing a document of this type.
@@ -593,7 +605,7 @@ class DocumentType:
     self.root_type.MarshallIntoNode(doc, doc, obj)
     return doc
 
-  def PrettyPrint(self, obj: XMLObjectType) -> Union[minidom.Document, str]:
+  def PrettyPrint(self, obj: XMLObjectType) -> str:
     """Converts an object into pretty-printed XML as a string.
 
     Args:

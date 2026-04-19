@@ -200,9 +200,9 @@ static_library("renderer") {
     "//components/subresource_filter/core/common",
     "//components/supervised_user/core/common:buildflags",
     "//components/surface_embed/buildflags",
-    #"//components/translate/content/renderer",
+    "//components/translate/content/renderer",
     "//components/translate/core/common",
-    #"//components/translate/core/language_detection",
+    "//components/translate/core/language_detection",
     "//components/visitedlink/renderer",
     "//components/wallet/content/renderer",
     "//components/wallet/core/common:features",
@@ -358,6 +358,22 @@ static_library("renderer") {
     sources += [
       "accessibility/ax_tree_distiller.cc",
       "accessibility/ax_tree_distiller.h",
+      "accessibility/phrase_segmentation/base_phrase_segmenter.cc",
+      "accessibility/phrase_segmentation/base_phrase_segmenter.h",
+      "accessibility/phrase_segmentation/dependency_parser_model.cc",
+      "accessibility/phrase_segmentation/dependency_parser_model.h",
+      "accessibility/phrase_segmentation/dependency_parser_op_resolver.cc",
+      "accessibility/phrase_segmentation/dependency_parser_op_resolver.h",
+      "accessibility/phrase_segmentation/dependency_tree.cc",
+      "accessibility/phrase_segmentation/dependency_tree.h",
+      "accessibility/phrase_segmentation/phrase_segmenter.cc",
+      "accessibility/phrase_segmentation/phrase_segmenter.h",
+      "accessibility/phrase_segmentation/token_boundaries.cc",
+      "accessibility/phrase_segmentation/token_boundaries.h",
+      "accessibility/phrase_segmentation/tokenized_sentence.cc",
+      "accessibility/phrase_segmentation/tokenized_sentence.h",
+      "accessibility/phrase_segmentation/tokenizer.cc",
+      "accessibility/phrase_segmentation/tokenizer.h",
       "accessibility/read_anything/read_aloud_app_model.cc",
       "accessibility/read_anything/read_aloud_app_model.h",
       "accessibility/read_anything/read_aloud_traversal_utils.cc",
@@ -387,38 +403,14 @@ static_library("renderer") {
       "//services/screen_ai/public/mojom",
       "//services/strings",
       "//third_party/re2",
+      "//third_party/tensorflow-text",
+      "//third_party/tensorflow_models:tflite_custom_ops",
+      "//third_party/tflite",
+      "//third_party/tflite:buildflags",
+      "//third_party/tflite:tflite_public_headers",
+      "//third_party/tflite_support",
+      "//third_party/tflite_support:tflite_support_proto",
     ]
-
-    if (build_with_tflite_lib) {
-      sources += [
-        "accessibility/phrase_segmentation/base_phrase_segmenter.cc",
-        "accessibility/phrase_segmentation/base_phrase_segmenter.h",
-        "accessibility/phrase_segmentation/dependency_parser_model.cc",
-        "accessibility/phrase_segmentation/dependency_parser_model.h",
-        "accessibility/phrase_segmentation/dependency_parser_op_resolver.cc",
-        "accessibility/phrase_segmentation/dependency_parser_op_resolver.h",
-        "accessibility/phrase_segmentation/dependency_tree.cc",
-        "accessibility/phrase_segmentation/dependency_tree.h",
-        "accessibility/phrase_segmentation/phrase_segmenter.cc",
-        "accessibility/phrase_segmentation/phrase_segmenter.h",
-        "accessibility/phrase_segmentation/token_boundaries.cc",
-        "accessibility/phrase_segmentation/token_boundaries.h",
-        "accessibility/phrase_segmentation/tokenized_sentence.cc",
-        "accessibility/phrase_segmentation/tokenized_sentence.h",
-        "accessibility/phrase_segmentation/tokenizer.cc",
-        "accessibility/phrase_segmentation/tokenizer.h",
-      ]
-
-      deps += [
-        "//third_party/tensorflow-text",
-        "//third_party/tensorflow_models:tflite_custom_ops",
-        "//third_party/tflite",
-        "//third_party/tflite:buildflags",
-        "//third_party/tflite:tflite_public_headers",
-        "//third_party/tflite_support",
-        "//third_party/tflite_support:tflite_support_proto",
-      ]
-    }
   }
 
   if (is_chromeos) {
@@ -432,6 +424,13 @@ static_library("renderer") {
     deps += [
       "//ash/constants",
       "//ash/webui/file_manager:constants",
+    ]
+  }
+
+  if (!is_android) {
+    sources += [
+      "indigo/indigo_agent.cc",
+      "indigo/indigo_agent.h",
     ]
   }
 }

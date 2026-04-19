@@ -167,7 +167,7 @@ public class Fido2CredentialRequestRobolectricTest {
         Mockito.when(mFrameHost.getLastCommittedOrigin()).thenReturn(mOrigin);
         Mockito.doAnswer(
                         (invocation) -> {
-                            ((Callback<WebAuthSecurityChecksResults>) invocation.getArguments()[4])
+                            ((Callback<WebAuthSecurityChecksResults>) invocation.getArguments()[5])
                                     .onResult(
                                             new WebAuthSecurityChecksResults(
                                                     AuthenticatorStatus.SUCCESS, false));
@@ -179,10 +179,11 @@ public class Fido2CredentialRequestRobolectricTest {
                         any(Origin.class),
                         anyBoolean(),
                         Mockito.nullable(Origin.class),
+                        Mockito.nullable(String.class),
                         any(Callback.class));
         Mockito.doAnswer(
                         (invocation) -> {
-                            ((Callback<WebAuthSecurityChecksResults>) invocation.getArguments()[4])
+                            ((Callback<WebAuthSecurityChecksResults>) invocation.getArguments()[5])
                                     .onResult(
                                             new WebAuthSecurityChecksResults(
                                                     AuthenticatorStatus.SUCCESS, false));
@@ -194,6 +195,7 @@ public class Fido2CredentialRequestRobolectricTest {
                         any(Origin.class),
                         anyBoolean(),
                         Mockito.nullable(Origin.class),
+                        Mockito.nullable(String.class),
                         any(Callback.class));
 
         CredManSupportProvider.setupForTesting(
@@ -647,7 +649,7 @@ public class Fido2CredentialRequestRobolectricTest {
         var rpIdValidationCallback = new Callback[1];
         Mockito.doAnswer(
                         (invocation) -> {
-                            rpIdValidationCallback[0] = (Callback) invocation.getArguments()[4];
+                            rpIdValidationCallback[0] = (Callback) invocation.getArguments()[5];
                             return null;
                         })
                 .when(mFrameHost)
@@ -656,6 +658,7 @@ public class Fido2CredentialRequestRobolectricTest {
                         any(Origin.class),
                         anyBoolean(),
                         Mockito.nullable(Origin.class),
+                        Mockito.nullable(String.class),
                         any(Callback.class));
 
         handleGetCredentialRequest();
@@ -776,6 +779,36 @@ public class Fido2CredentialRequestRobolectricTest {
         mRequest.handleReportRequest(options, mOrigin);
         assertThat(mCallback.getStatus())
                 .isEqualTo(Integer.valueOf(AuthenticatorStatus.UNKNOWN_ERROR));
+    }
+
+    @Test
+    @SmallTest
+    public void testReportRequest_WebAuthnModeApp_originIsNull() {
+        PublicKeyCredentialReportOptions options = new PublicKeyCredentialReportOptions();
+        options.relyingPartyId = "rpId";
+        options.unknownCredentialId = new byte[] {1, 2, 3, 4};
+
+        IdentityCredentialsHelper mockHelper = Mockito.mock(IdentityCredentialsHelper.class);
+        mRequest.setIdentityCredentialsHelperForTesting(mockHelper);
+
+        Mockito.when(mModeProviderMock.getWebauthnMode(any())).thenReturn(WebauthnMode.APP);
+
+        Mockito.doAnswer(
+                        (invocation) -> {
+                            ((Callback<WebAuthSecurityChecksResults>) invocation.getArguments()[2])
+                                    .onResult(
+                                            new WebAuthSecurityChecksResults(
+                                                    AuthenticatorStatus.SUCCESS, false));
+                            return null;
+                        })
+                .when(mFrameHost)
+                .performReportWebAuthSecurityChecks(any(), any(), any());
+
+        setUpReportCallback();
+        mRequest.handleReportRequest(options, mOrigin);
+
+        verify(mockHelper).handleReportRequest(eq(options), eq(null));
+        assertThat(mCallback.getStatus()).isEqualTo(Integer.valueOf(AuthenticatorStatus.SUCCESS));
     }
 
     private void handleMakeCredentialRequest(Bundle browserOptions) {

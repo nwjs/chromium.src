@@ -335,55 +335,14 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilEnableFlagBrowserTest,
                     " disabled: disabled by policy");
 }
 
-class NewTabPageUtilTileTypesEnterpriseShortcutsDisabledBrowserTest
+class NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest
     : public NewTabPageUtilBrowserTest {
  public:
-  NewTabPageUtilTileTypesEnterpriseShortcutsDisabledBrowserTest() {
-    features().InitWithFeatures({}, {ntp_tiles::kNtpEnterpriseShortcuts});
-  }
+  NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest() = default;
 };
 
-IN_PROC_BROWSER_TEST_P(
-    NewTabPageUtilTileTypesEnterpriseShortcutsDisabledBrowserTest,
-    GetEnabledTileTypes) {
-  // By default, Custom Links should be enabled.
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
-
-  // Set enterprise shortcuts policy.
-  browser()->profile()->GetPrefs()->SetList(
-      ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
-      CreatePolicyList("work name", "https://work.com/"));
-
-  // If custom links are explicitly disabled, it falls back to Top Sites.
-  browser()->profile()->GetPrefs()->SetBoolean(
-      ntp_prefs::kNtpCustomLinksVisible, false);
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kTopSites}));
-
-  // Edge case: If enterprise shortcuts are visible (pref=true) but the
-  // feature is disabled, code forces Custom Links back on.
-  browser()->profile()->GetPrefs()->SetBoolean(
-      ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
-}
-
-class NewTabPageUtilTileTypesEnterpriseShortcutsEnabledNoMixingBrowserTest
-    : public NewTabPageUtilBrowserTest {
- public:
-  NewTabPageUtilTileTypesEnterpriseShortcutsEnabledNoMixingBrowserTest() {
-    features().InitWithFeaturesAndParameters(
-        {{ntp_tiles::kNtpEnterpriseShortcuts,
-          {{ntp_tiles::kNtpEnterpriseShortcutsAllowMixingParam.name,
-            "false"}}}},
-        {});
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(
-    NewTabPageUtilTileTypesEnterpriseShortcutsEnabledNoMixingBrowserTest,
-    GetEnabledTileTypes) {
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest,
+                       GetEnabledTileTypes) {
   // By default, personal shortcuts are visible (Custom Links).
   EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
             std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
@@ -393,46 +352,7 @@ IN_PROC_BROWSER_TEST_P(
       ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
       CreatePolicyList("work name", "https://work.com/"));
 
-  // If enterprise shortcuts are enabled and mixing is DISABLED,
-  // personal shortcuts (Custom Links) should disappear.
-  browser()->profile()->GetPrefs()->SetBoolean(
-      ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>(
-                {ntp_tiles::TileType::kEnterpriseShortcuts}));
-
-  // Remove enterprise shortcuts policy, personal shortcuts should be visible.
-  browser()->profile()->GetPrefs()->SetList(
-      ntp_tiles::prefs::kEnterpriseShortcutsPolicyList, base::ListValue());
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
-}
-
-class NewTabPageUtilTileTypesEnterpriseShortcutsEnabledAllowMixingBrowserTest
-    : public NewTabPageUtilBrowserTest {
- public:
-  NewTabPageUtilTileTypesEnterpriseShortcutsEnabledAllowMixingBrowserTest() {
-    features().InitWithFeaturesAndParameters(
-        {{ntp_tiles::kNtpEnterpriseShortcuts,
-          {{ntp_tiles::kNtpEnterpriseShortcutsAllowMixingParam.name, "true"}}}},
-        {});
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(
-    NewTabPageUtilTileTypesEnterpriseShortcutsEnabledAllowMixingBrowserTest,
-    GetEnabledTileTypes) {
-  // By default, personal shortcuts are visible (Custom Links).
-  EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
-            std::set<ntp_tiles::TileType>({ntp_tiles::TileType::kCustomLinks}));
-
-  // Set enterprise shortcuts policy.
-  browser()->profile()->GetPrefs()->SetList(
-      ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
-      CreatePolicyList("work name", "https://work.com/"));
-
-  // If enterprise shortcuts are also visible AND mixing is ALLOWED,
-  // both should be enabled.
+  // If enterprise shortcuts are also visible, both should be enabled.
   browser()->profile()->GetPrefs()->SetBoolean(
       ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
   EXPECT_EQ(GetEnabledTileTypes(browser()->profile()),
@@ -881,6 +801,11 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
 
   EXPECT_EQ(updated_time, is_above_update_threshold ? Now() : initial_time);
   EXPECT_EQ(updated_count, is_above_update_threshold ? 1 : 0);
+
+  histogram_tester_.ExpectBucketCount(
+      "NewTabPage.MostVisited.AutoRemovalSkipped",
+      NtpShortcutsAutoRemovalReason::kStaleDaysCount,
+      is_above_update_threshold ? 1 : 0);
 }
 
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
@@ -906,6 +831,11 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
 
   EXPECT_EQ(updated_time, is_auto_removal_disabled ? initial_time : Now());
   EXPECT_EQ(updated_count, is_auto_removal_disabled ? 0 : 1);
+
+  histogram_tester_.ExpectBucketCount(
+      "NewTabPage.MostVisited.AutoRemovalSkipped",
+      NtpShortcutsAutoRemovalReason::kDisabled,
+      is_auto_removal_disabled ? 1 : 0);
 }
 
 IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
@@ -931,6 +861,69 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
 
   EXPECT_EQ(updated_time, are_shortcuts_hidden ? initial_time : Now());
   EXPECT_EQ(updated_count, are_shortcuts_hidden ? 0 : 1);
+
+  histogram_tester_.ExpectBucketCount(
+      "NewTabPage.MostVisited.AutoRemovalSkipped",
+      NtpShortcutsAutoRemovalReason::kNotVisible, are_shortcuts_hidden ? 1 : 0);
+}
+
+// Parameterized to test for shortcuts with managed preference.
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
+                       ShouldUpdateShortcutsStalenessWithManagedPreference) {
+  // Arrange.
+  InitMockShortcutsPrefs();
+  const bool is_managed_preference = GetParam();
+  if (is_managed_preference) {
+    GetProfile()->GetPrefs()->SetList(
+        ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
+        CreatePolicyList("work name", "https://work.com/"));
+    GetProfile()->GetPrefs()->SetBoolean(
+        ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
+  }
+
+  const TimeDelta staleness_threshold =
+      ntp_features::kShortcutsMinStalenessUpdateTimeInterval.Get();
+  const TimeDelta time_delta = staleness_threshold + base::Seconds(1);
+
+  // Act.
+  FastForwardBy(time_delta);
+  UpdateShortcutsStaleness(GetProfile());
+
+  // Assert.
+  histogram_tester_.ExpectBucketCount(
+      "NewTabPage.MostVisited.AutoRemovalSkipped",
+      NtpShortcutsAutoRemovalReason::kManagedPreference,
+      is_managed_preference ? 1 : 0);
+}
+
+// Parameterized to test for logging the shortcuts staleness count metric.
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
+                       ShouldLogShortcutsStalenessCountMetric) {
+  // Arrange.
+  InitMockShortcutsPrefs();
+  const bool is_above_staleness_count = GetParam();
+  const int shortcuts_staleness_count = is_above_staleness_count ? 15 : 0;
+  if (is_above_staleness_count) {
+    GetProfile()->GetPrefs()->SetInteger(ntp_prefs::kNtpShortcutsStalenessCount,
+                                         shortcuts_staleness_count);
+  }
+
+  const TimeDelta staleness_threshold =
+      ntp_features::kShortcutsMinStalenessUpdateTimeInterval.Get();
+  const TimeDelta time_delta = staleness_threshold + base::Seconds(1);
+
+  // Act.
+  FastForwardBy(time_delta);
+  UpdateShortcutsStaleness(GetProfile());
+
+  // Assert.
+  EXPECT_EQ(GetProfile()->GetPrefs()->GetInteger(
+                ntp_prefs::kNtpShortcutsStalenessCount),
+            shortcuts_staleness_count + 1);
+
+  histogram_tester_.ExpectUniqueSample(
+      "NewTabPage.MostVisited.AutoRemovalStaleDays", shortcuts_staleness_count,
+      1);
 }
 
 INSTANTIATE_TEST_SUITE_P(All, NewTabPageUtilBrowserTest, testing::Bool());
@@ -943,20 +936,9 @@ INSTANTIATE_TEST_SUITE_P(All,
                          NewTabPageUtilDisableFlagBrowserTest,
                          testing::Bool());
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    NewTabPageUtilTileTypesEnterpriseShortcutsDisabledBrowserTest,
-    testing::Bool());
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    NewTabPageUtilTileTypesEnterpriseShortcutsEnabledNoMixingBrowserTest,
-    testing::Bool());
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    NewTabPageUtilTileTypesEnterpriseShortcutsEnabledAllowMixingBrowserTest,
-    testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         NewTabPageUtilTileTypesEnterpriseShortcutsBrowserTest,
+                         testing::Bool());
 
 INSTANTIATE_TEST_SUITE_P(All,
                          NewTabPageUtilFeatureOptimizationModuleRemovalTest,

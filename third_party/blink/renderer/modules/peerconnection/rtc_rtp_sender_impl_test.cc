@@ -78,8 +78,8 @@ class RTCRtpSenderImplTest : public ::testing::Test {
         blink::scheduler::GetSingleThreadTaskRunnerForTesting(), true);
     auto* audio_source_ptr = audio_source.get();
     auto* source = MakeGarbageCollected<MediaStreamSource>(
-        String::FromUTF8(id), MediaStreamSource::kTypeAudio,
-        String::FromUTF8("local_audio_track"), false, std::move(audio_source));
+        String::FromUtf8(id), MediaStreamSource::kTypeAudio,
+        "local_audio_track", false, std::move(audio_source));
 
     auto* component = MakeGarbageCollected<MediaStreamComponentImpl>(
         source->Id(), source,
@@ -114,9 +114,9 @@ class RTCRtpSenderImplTest : public ::testing::Test {
     // and the |run_loop| quit.
     sender_->ReplaceTrack(
         component,
-        blink::BindOnce(&RTCRtpSenderImplTest::CallbackOnComplete,
-                        Unretained(this), Unretained(result_holder.get()),
-                        blink::Unretained(run_loop.get())));
+        CrossThreadBindOnce(&RTCRtpSenderImplTest::CallbackOnComplete,
+                            Unretained(this), Unretained(result_holder.get()),
+                            blink::Unretained(run_loop.get())));
     // When the resulting callback is invoked, waits for |run_loop| to complete
     // and returns |*result_holder|.
     return base::BindOnce(&RTCRtpSenderImplTest::RunLoopAndReturnResult,

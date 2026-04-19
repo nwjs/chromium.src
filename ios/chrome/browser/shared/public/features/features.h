@@ -57,78 +57,6 @@ BASE_DECLARE_FEATURE(kIOSDockingPromoV2);
 // Helper function to check if `kIOSDockingPromoV2` is enabled.
 bool IsDockingPromoV2Enabled();
 
-// A parameter representing the experimental arm for when the Docking Promo is
-// displayed: during the FRE, or after the FRE.
-extern const char kIOSDockingPromoExperimentType[];
-
-// A parameter representing how many hours of inactivity are required (for users
-// no older than 2 days) before the Docking Promo is shown. This parameter is
-// only used if `kIOSDockingPromoNewUserInactiveThreshold` is not set.
-extern const char kIOSDockingPromoNewUserInactiveThresholdHours[];
-
-// A parameter representing how many hours of inactivity are required (for users
-// no older than 14 days) before the Docking Promo is shown. This parameter is
-// only used if `kIOSDockingPromoOldUserInactiveThreshold` is not set.
-extern const char kIOSDockingPromoOldUserInactiveThresholdHours[];
-
-// Minimum duration of inactivity required before showing the Docking Promo to
-// new users (<= 2 days old).
-extern const char kIOSDockingPromoNewUserInactiveThreshold[];
-
-// Minimum duration of inactivity required before showing the Docking Promo to
-// old users (<= 14 days old).
-extern const char kIOSDockingPromoOldUserInactiveThreshold[];
-
-// Feature flag to enable the Docking Promo.
-BASE_DECLARE_FEATURE(kIOSDockingPromo);
-
-// Feature flag to enable the Docking Promo feature exclusively for users who
-// first meet the promo's eligibility criteria.
-//
-// NOTE: This feature flag exists to improve metrics logging to better
-// understand the feature's impact on user engagement and conversion rates.
-BASE_DECLARE_FEATURE(kIOSDockingPromoForEligibleUsersOnly);
-
-// Killswitch to enable the fixed Docking Promo trigger logic.
-BASE_DECLARE_FEATURE(kIOSDockingPromoFixedTriggerLogicKillswitch);
-
-// Killswitch to prevent the Docking Promo from being deregistered in the Promos
-// Manager.
-BASE_DECLARE_FEATURE(kIOSDockingPromoPreventDeregistrationKillswitch);
-
-// Param values for the Docking Promo display trigger experimental arms.
-enum class DockingPromoDisplayTriggerArm {
-  kAfterFRE = 0,
-  kAppLaunch = 1,
-  kDuringFRE = 2,
-};
-
-// Helper function to check if `kIOSDockingPromo` is enabled.
-bool IsDockingPromoEnabled();
-
-// Helper function to check if `kIOSDockingPromoForEligibleUsersOnly` is
-// enabled.
-bool IsDockingPromoForEligibleUsersOnlyEnabled();
-
-// Returns the experiment type for the Docking Promo feature.
-DockingPromoDisplayTriggerArm DockingPromoExperimentTypeEnabled();
-
-// For users no older than 2 days, how many hours of inactivity must pass before
-// showing the Docking Promo.
-int HoursInactiveForNewUsersUntilShowingDockingPromo();
-
-// For users no older than 14 days, how many hours of inactivity must pass
-// before showing the Docking Promo.
-int HoursInactiveForOldUsersUntilShowingDockingPromo();
-
-// Minimum inactivity duration (between app launches) before showing the Docking
-// Promo to new users.
-const base::TimeDelta InactiveThresholdForNewUsersUntilDockingPromoShown();
-
-// Minimum inactivity duration (between app launches) before showing the Docking
-// Promo to old users.
-const base::TimeDelta InactiveThresholdForOldUsersUntilDockingPromoShown();
-
 // Feature flag to use direct upload for Lens searches.
 BASE_DECLARE_FEATURE(kIOSLensUseDirectUpload);
 
@@ -159,33 +87,8 @@ BASE_DECLARE_FEATURE(kLensOverlayCustomBottomSheet);
 // Feature flag to check headers for lens searches.
 BASE_DECLARE_FEATURE(kLensSearchHeadersCheckEnabled);
 
-// Variations of MIA NTP entrypoint.
-extern const char kNTPMIAEntrypointParam[];
-extern const char kNTPMIAEntrypointParamOmniboxContainedSingleButton[];
-extern const char kNTPMIAEntrypointParamOmniboxContainedInline[];
-extern const char kNTPMIAEntrypointParamOmniboxContainedEnlargedFakebox[];
-extern const char kNTPMIAEntrypointParamEnlargedFakeboxNoIncognito[];
-extern const char kNTPMIAEntrypointParamAIMInQuickActions[];
-
-// Feature flag to change the MIA entrypoint in NTP. Applies to en-US locales
-// only.
-BASE_DECLARE_FEATURE(kNTPMIAEntrypoint);
-// Like above, but applies regardless of client's locale.
-BASE_DECLARE_FEATURE(kNTPMIAEntrypointAllLocales);
-
 // Used to gate the immersive SRP in the Composebox.
 BASE_DECLARE_FEATURE(kComposeboxImmersiveSRP);
-
-// Variations of Composebox tab picker.
-extern const char kComposeboxTabPickerVariationParam[];
-extern const char kComposeboxTabPickerVariationParamCachedAPC[];
-extern const char kComposeboxTabPickerVariationParamOnFlightAPC[];
-
-// Feature flag for the tab picker in the Composebox.
-BASE_DECLARE_FEATURE(kComposeboxTabPickerVariation);
-
-// Returns true is we should use cached APCs in the Composebox.
-bool IsComposeboxTabPickerCachedAPCEnabled();
 
 // Variations of Composebox.
 extern const char kComposeboxParam[];
@@ -207,11 +110,6 @@ BASE_DECLARE_FEATURE(kTCRexKillSwitch);
 // When enabled uses new transitions in the TabGrid.
 BASE_DECLARE_FEATURE(kTabGridNewTransitions);
 
-// Feature flag for the tab grid drag and drop functionality.
-BASE_DECLARE_FEATURE(kTabGridDragAndDrop);
-
-// YES if the tab grid drag and drop feature is enabled.
-bool IsTabGridDragAndDropEnabled();
 
 // Whether the new tab grid tabs transitions should be enabled.
 bool IsNewTabGridTransitionsEnabled();
@@ -881,18 +779,13 @@ BASE_DECLARE_FEATURE(kIOSWebContextMenuNewTitle);
 // Returns true if the IOSWebContextMenuNewTitle feature is enabled.
 bool IsIOSWebContextMenuNewTitleEnabled();
 
-// Enables the CloseOtherTabs feature.
-BASE_DECLARE_FEATURE(kCloseOtherTabs);
-
-// Returns true if the CloseOtherTabs feature is enabled.
-bool IsCloseOtherTabsEnabled();
-
 // Feature flag to enable the Assistant Container.
 BASE_DECLARE_FEATURE(kAssistantContainer);
 
 // Variations for the Assistant Container feature.
 extern const char kAssistantContainerParam[];
 extern const char kAssistantContainerParamDebug[];
+extern const char kAssistantContainerMediumDetentPercentParam[];
 
 // Returns true if the Assistant Container is enabled.
 bool IsAssistantContainerEnabled();
@@ -900,6 +793,10 @@ bool IsAssistantContainerEnabled();
 // Returns true if debug elements (like detents) should be added to the
 // Assistant Container.
 bool ShouldShowAssistantContainerDebugElements();
+
+// Returns the experimental percentage for the Assistant medium detent height.
+// Returns 0 if no experimental percentage is selected.
+NSInteger GetAssistantMediumDetentPercentage();
 
 // Enables the ComposeboxIpad feature.
 BASE_DECLARE_FEATURE(kComposeboxIpad);
@@ -994,5 +891,36 @@ BASE_DECLARE_FEATURE(kAskAboutThisPage);
 
 // Returns true if the AskAboutThisPage feature is enabled.
 bool IsAskAboutThisPageEnabled();
+
+// Enables the PageToolsFeatureUnavailability feature.
+BASE_DECLARE_FEATURE(kPageToolsFeatureUnavailability);
+
+// Returns true if the PageToolsFeatureUnavailability feature is enabled.
+bool IsPageToolsFeatureUnavailabilityEnabled();
+
+// Feature flag to guard against snapshot updates in the grid mediator during
+// batch operations.
+BASE_DECLARE_FEATURE(kGridMediatorSnapshotUpdateBatchGuard);
+
+// Whether the grid mediator snapshot update batch guard is enabled.
+bool IsGridMediatorSnapshotUpdateBatchGuardEnabled();
+
+// Enables the AssistantSidePanel feature.
+BASE_DECLARE_FEATURE(kAssistantSidePanel);
+
+// Returns true if the AssistantSidePanel feature is enabled.
+bool IsAssistantSidePanelEnabled();
+
+// Enables the YourSavedInfoSettingsPageIos feature.
+BASE_DECLARE_FEATURE(kYourSavedInfoSettingsPageIos);
+
+// Returns true if the YourSavedInfoSettingsPageIos feature is enabled.
+bool IsYourSavedInfoSettingsPageIosEnabled();
+
+// Enables the OpenEditGroupViewByTappingTitle feature.
+BASE_DECLARE_FEATURE(kOpenEditGroupViewByTappingTitle);
+
+// Returns true if the OpenEditGroupViewByTappingTitle feature is enabled.
+bool IsOpenEditGroupViewByTappingTitleEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

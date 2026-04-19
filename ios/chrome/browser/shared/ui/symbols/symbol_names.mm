@@ -16,8 +16,10 @@ NSString* const kGoogleIconSymbol = @"google_icon";
 NSString* const kGoogleShieldSymbol = @"google_shield";
 NSString* const kGoogleMapsSymbol = @"google_maps";
 NSString* const kGooglePaySymbol = @"google_pay";
+NSString* const kGoogleWalletIconSymbol = @"google_wallet_icon";
 NSString* const kGoogleWalletSymbol = @"google_wallet";
 NSString* const kGooglePhotosSymbol = @"google_photos";
+NSString* const kGPayPillIconSymbol = @"gpay_pill_icon";
 NSString* const kMulticolorChromeballSymbol = @"multicolor_chromeball";
 NSString* const kPageInsightsSymbol = @"page_insights";
 #else
@@ -79,6 +81,7 @@ NSString* const kPDFFillSymbol = @"pdf_fill";
 NSString* const kLineThreeSparkSymbol = @"line_three_spark";
 NSString* const kDocumentBadgeSpark = @"document_badge_spark";
 NSString* const kDeepSearchSymbol = @"deep_search";
+NSString* const kGeminiLiveLogoSymbol = @"gemini_live";
 
 // Use custom symbol for camera because the default video icon in iOS should
 // always represent “Apple Facetime”.
@@ -96,6 +99,7 @@ NSString* const kChartLineDowntrendXYAxisSymbol =
 NSString* const kCircleSymbol = @"circle";
 NSString* const kCircleFillSymbol = @"circle.fill";
 NSString* const kPhotoSymbol = @"photo";
+NSString* const kPaperclipSymbol = @"paperclip";
 NSString* const kPhotoBadgeArrowDownSymbol = @"photo.badge.arrow.down";
 NSString* const kTabGroupsSymbol = @"square.grid.2x2";
 NSString* const kCropSymbol = @"crop";
@@ -308,6 +312,9 @@ NSString* const kArrowDownToLineSymbol = @"arrow.down.to.line";
 NSString* const kPhotoOnRectangleAngled = @"photo.on.rectangle.angled";
 NSString* const kSparklesSymbol = @"sparkles";
 NSString* const kSparkles2Symbol = @"sparkles.2";
+NSString* const kEnvelopeSymbol = @"envelope";
+NSString* const kSquareAndPencilSymbol = @"square.and.pencil";
+NSString* const kCreditCardFinderActionSymbol = @"creditcard.viewfinder";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

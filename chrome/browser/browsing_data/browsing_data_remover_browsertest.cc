@@ -45,6 +45,7 @@
 #include "components/browsing_data/core/features.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/history/core/browser/features.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -144,12 +145,6 @@ std::vector<std::string> GetHistogramSuffixes(
     types.push_back(entry.first.substr(prefix.length()));
   }
   return types;
-}
-
-void AppendRange(std::vector<std::string>& target,
-                 const std::vector<std::string_view>& append) {
-  // Use std append_range() when c++23 is available.
-  target.insert(target.end(), append.begin(), append.end());
 }
 
 }  // namespace
@@ -904,13 +899,13 @@ const char kImplHistogramPrefix[] = "History.ClearBrowsingData.Duration.Task.";
 
 // Add data types here that support filtering and only delete data that matches
 // the BrowsingDataFilterBuilder.
-const std::vector<std::string_view> kSupportsOriginFilteringImpl{
+const std::vector<std::string> kSupportsOriginFilteringImpl{
     "AuthCache",           "EmbedderData",   "HttpCache",
     "NetworkErrorLogging", "PrefetchCache",  "PreflightCache",
     "PrerenderCache",      "ReportingCache", "SharedDictionary",
     "StoragePartition",    "Synchronous",    "TrustTokens",
 };
-const std::vector<std::string_view> kSupportsOriginFilteringDelegate{
+const std::vector<std::string> kSupportsOriginFilteringDelegate{
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
     "CdmLicenses",
 #endif
@@ -948,11 +943,11 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, FullyFilteredDataTypes) {
 // "kPreserve" and MatchesMostOriginsAndDomains() is true. Otherwise data for
 // these types will be cleared when per-origin deletions like those from the
 // Clear-Site-Data header are performed.
-const std::vector<std::string_view> kDoesNotSupportOriginFilteringImpl{
+const std::vector<std::string> kDoesNotSupportOriginFilteringImpl{
     "CodeCaches",
     "NetworkHistory",
 };
-const std::vector<std::string_view> kDoesNotSupportOriginFilteringDelegate{
+const std::vector<std::string> kDoesNotSupportOriginFilteringDelegate{
     "FaviconCacheExpiration",
 #if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
     "UserDataSnapshot",
@@ -973,14 +968,14 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, AllFilterableDataTypes) {
                           std::move(filter_builder));
 
   std::vector<std::string> all_impl_types;
-  AppendRange(all_impl_types, kSupportsOriginFilteringImpl);
-  AppendRange(all_impl_types, kDoesNotSupportOriginFilteringImpl);
+  all_impl_types.append_range(kSupportsOriginFilteringImpl);
+  all_impl_types.append_range(kDoesNotSupportOriginFilteringImpl);
   EXPECT_THAT(GetHistogramSuffixes(tester, kImplHistogramPrefix),
               UnorderedElementsAreArray(all_impl_types));
 
   std::vector<std::string> all_delegate_types;
-  AppendRange(all_delegate_types, kSupportsOriginFilteringDelegate);
-  AppendRange(all_delegate_types, kDoesNotSupportOriginFilteringDelegate);
+  all_delegate_types.append_range(kSupportsOriginFilteringDelegate);
+  all_delegate_types.append_range(kDoesNotSupportOriginFilteringDelegate);
   EXPECT_THAT(GetHistogramSuffixes(tester, kDelegateHistogramPrefix),
               UnorderedElementsAreArray(all_delegate_types));
 }
@@ -1330,18 +1325,33 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
+// Parameterized variant of BrowsingDataRemoverBrowserTest that tests the
+// StorageRemovedFromDisk scenario under different history database modes.
+class BrowsingDataHistoryRemoverBrowserTest
+    : public BrowsingDataRemoverBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowsingDataHistoryRemoverBrowserTest() {
+    history_feature_list_.InitWithFeatureState(
+        history::kHistoryDatabaseWriteAheadLogging, GetParam());
+  }
+
+ private:
+  base::test::ScopedFeatureList history_feature_list_;
+};
+
 const std::vector<std::string> kStorageTypes{
     "Cookie",    "LocalStorage",  "FileSystem",   "SessionStorage",
     "IndexedDb", "ServiceWorker", "CacheStorage", "MediaLicense",
 };
 
 // Test that storage doesn't leave any traces on disk.
-IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
+IN_PROC_BROWSER_TEST_P(BrowsingDataHistoryRemoverBrowserTest,
                        PRE_StorageRemovedFromDisk) {
   // Checking leveldb content fails in most cases. See
   // https://crbug.com/1238325.
-  ASSERT_EQ(0, CheckUserDirectoryForString(kLocalHost, {},
-                                           /*check_leveldb_content=*/false));
+  CheckUserDirectoryForString(kLocalHost, {},
+                              /*check_leveldb_content=*/false);
   ASSERT_EQ(0, GetSiteDataCount());
   ExpectTotalModelCount(0);
 
@@ -1367,7 +1377,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 
 // Restart after creating the data to ensure that everything was written to
 // disk.
-IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
+IN_PROC_BROWSER_TEST_P(BrowsingDataHistoryRemoverBrowserTest,
+                       StorageRemovedFromDisk) {
   EXPECT_EQ(1, GetSiteDataCount());
   ExpectTotalModelCount(1);
   RemoveAndWait(chrome_browsing_data_remover::DATA_TYPE_SITE_DATA |
@@ -1392,14 +1403,20 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
             "[0-9]{6}",
 #endif
         };
-        int found = CheckUserDirectoryForString(
-            kLocalHost, ignore_file_patterns,
-            /*check_leveldb_content=*/true, /*strict_checking=*/true,
-            user_data_dir);
-        EXPECT_EQ(0, found) << "A non-ignored file contains the hostname.";
+        CheckUserDirectoryForString(kLocalHost, ignore_file_patterns,
+                                    /*check_leveldb_content=*/true,
+                                    /*strict_checking=*/true, user_data_dir);
       },
       g_browser_process->profile_manager()->user_data_dir());
 }
+
+INSTANTIATE_TEST_SUITE_P(,
+                         BrowsingDataHistoryRemoverBrowserTest,
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "HistoryDatabaseWalEnabled"
+                                             : "HistoryDatabaseWalDisabled";
+                         });
 
 const std::vector<std::string> kSessionOnlyStorageTestTypes{
     "Cookie",    "LocalStorage",  "FileSystem",   "SessionStorage",

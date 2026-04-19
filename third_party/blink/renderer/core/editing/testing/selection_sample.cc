@@ -63,8 +63,7 @@ class Parser final {
   // |SelectionInDOMTree| marked up within |selection_text|.
   SelectionInDOMTree SetSelectionText(HTMLElement* element,
                                       const std::string& selection_text) {
-    element->SetInnerHTMLWithoutTrustedTypes(
-        String::FromUTF8(selection_text.c_str()));
+    element->SetInnerHTMLWithoutTrustedTypes(String::FromUtf8(selection_text));
     element->GetDocument().View()->UpdateAllLifecyclePhasesForTest();
     ConvertTemplatesToShadowRoots(*element);
     Traverse(element);
@@ -184,7 +183,7 @@ class Serializer final {
 
   std::string Serialize(const ContainerNode& root) {
     SerializeChildren(root);
-    return builder_.ToString().Utf8();
+    return StringView(builder_).Utf8();
   }
 
  private:
@@ -201,38 +200,37 @@ class Serializer final {
     const int focus_offset = selection_.Focus().ComputeOffsetInContainerNode();
     if (anchor_node == node && focus_node == node) {
       if (anchor_offset == focus_offset) {
-        builder_.Append(text.Left(anchor_offset));
+        builder_.Append(text.subview(0, anchor_offset));
         builder_.Append('|');
-        builder_.Append(text.Substring(anchor_offset));
+        builder_.Append(text.subview(anchor_offset));
         return;
       }
       if (anchor_offset < focus_offset) {
-        builder_.Append(text.Left(anchor_offset));
+        builder_.Append(text.subview(0, anchor_offset));
         builder_.Append('^');
         builder_.Append(
-            text.Substring(anchor_offset, focus_offset - anchor_offset));
+            text.subview(anchor_offset, focus_offset - anchor_offset));
         builder_.Append('|');
-        builder_.Append(text.Substring(focus_offset));
+        builder_.Append(text.subview(focus_offset));
         return;
       }
-      builder_.Append(text.Left(focus_offset));
+      builder_.Append(text.subview(0, focus_offset));
       builder_.Append('|');
-      builder_.Append(
-          text.Substring(focus_offset, anchor_offset - focus_offset));
+      builder_.Append(text.subview(focus_offset, anchor_offset - focus_offset));
       builder_.Append('^');
-      builder_.Append(text.Substring(anchor_offset));
+      builder_.Append(text.subview(anchor_offset));
       return;
     }
     if (anchor_node == node) {
-      builder_.Append(text.Left(anchor_offset));
+      builder_.Append(text.subview(0, anchor_offset));
       builder_.Append('^');
-      builder_.Append(text.Substring(anchor_offset));
+      builder_.Append(text.subview(anchor_offset));
       return;
     }
     if (focus_node == node) {
-      builder_.Append(text.Left(focus_offset));
+      builder_.Append(text.subview(0, focus_offset));
       builder_.Append('|');
-      builder_.Append(text.Substring(focus_offset));
+      builder_.Append(text.subview(focus_offset));
       return;
     }
     builder_.Append(text);

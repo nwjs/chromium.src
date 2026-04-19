@@ -19,6 +19,8 @@ source_set("actor") {
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/signin",
     "//chrome/common:actor_webui_mojom",
+    "//components/enterprise/buildflags",
+    "//components/enterprise/connectors/core",
     "//components/tabs:public",
     "//components/variations/service",
     "//mojo/public/mojom/base:protobuf_support",
@@ -44,6 +46,7 @@ source_set("browser_tests") {
 
     deps = [
       ":actor",
+      ":test_support",
       "//chrome/browser/actor",
       "//chrome/browser/actor:test_support",
       "//chrome/browser/glic/test_support",
@@ -51,4 +54,15 @@ source_set("browser_tests") {
       "//chrome/test:test_support",
     ]
   }
+}
+
+source_set("test_support") {
+  sources = [
+    "glic_actor_test_util.cc",
+    "glic_actor_test_util.h",
+  ]
+
+  public_deps = [ "//base" ]
+
+  deps = [ "//components/actor" ]
 }

@@ -104,8 +104,6 @@
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
 #include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
@@ -674,8 +672,6 @@ Browser::Browser(const CreateParams& params)
   }
   tab_strip_model_->AddObserver(this);
 
-  ThemeServiceFactory::GetForProfile(profile_)->AddObserver(this);
-
   profile_pref_registrar_.Init(profile_->GetPrefs());
   profile_pref_registrar_.Add(
       prefs::kDevToolsAvailability,
@@ -750,17 +746,16 @@ Browser::~Browser() {
     OnWindowClosing();
   }
 
+  // Stop observing notifications and destroy the tab monitor before continuing
+  // with destruction. Profile destruction will unload extensions and reentrant
+  // calls to Browser:: should be avoided while it is being torn down.
+
   BrowserList::RemoveBrowser(this);
   window_.reset();
 
   // Tear down `BrowserWindowFeatures` to avoid exposing it to Browser in a
   // partially-destroyed state.
   features_.reset();
-
-  // Stop observing notifications and destroy the tab monitor before continuing
-  // with destruction. Profile destruction will unload extensions and reentrant
-  // calls to Browser:: should be avoided while it is being torn down.
-  ThemeServiceFactory::GetForProfile(profile_)->RemoveObserver(this);
 
   // The tab strip should not have any tabs at this point.
   //
@@ -1347,6 +1342,10 @@ bool Browser::IsTabModalPopupDeprecated() const {
   return is_tab_modal_popup_deprecated_;
 }
 
+bool Browser::CreatedBySessionRestore() const {
+  return creation_source() == CreationSource::kSessionRestore;
+}
+
 ui::BaseWindow* Browser::GetWindow() {
   return window_.get();
 }
@@ -1526,11 +1525,7 @@ void Browser::FullscreenTopUIStateChanged() {
 }
 
 void Browser::OnFindBarVisibilityChanged() {
-  if (!IsPageActionMigrated(PageActionIconType::kFind)) {
-    window()->UpdatePageActionIcon(PageActionIconType::kFind);
-  } else {
-    GetFeatures().GetFindBarController()->UpdatePageAction();
-  }
+  GetFeatures().GetFindBarController()->UpdatePageAction();
 
   GetCommandController()->FindBarVisibilityChanged();
 }
@@ -1657,7 +1652,7 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
     }
     case TabStripModelChange::kRemoved: {
       for (const auto& contents : change.GetRemove()->contents) {
-        if (contents.remove_reason == TabRemovedReason::kDeleted) {
+        if (TabRemoveReasonUtils::WillDeleteTab(contents.remove_reason)) {
           OnTabClosing(contents.contents);
         }
         OnTabDetached(contents.contents,
@@ -2071,6 +2066,29 @@ WebContents* Browser::OpenURLFromTab(
     DCHECK(window);
     return window->OpenURLFromTab(source, params,
                                   std::move(navigation_handle_callback));
+  }
+
+  // If the source is already split, navigate the other pane instead of
+  // creating a new tab. Return |source| so that WebContentsImpl::OpenURL()
+  // sees new_contents == this and skips the DidOpenRequestedURL notification,
+  // which is only meant for newly created WebContents.
+  if (params.disposition == WindowOpenDisposition::NEW_SPLIT_VIEW && source) {
+    tabs::TabInterface* const source_tab =
+        tabs::TabInterface::MaybeGetFromContents(source);
+    if (source_tab && source_tab->IsSplit()) {
+      const split_tabs::SplitTabId split_id = source_tab->GetSplit().value();
+      for (tabs::TabInterface* tab :
+           tab_strip_model()->GetSplitData(split_id)->ListTabs()) {
+        if (tab != source_tab) {
+          content::NavigationController::LoadURLParams load_params(params.url);
+          load_params.transition_type = params.transition;
+          load_params.referrer =
+              content::Referrer(params.referrer.url, params.referrer.policy);
+          tab->GetContents()->GetController().LoadURLWithParams(load_params);
+          return source;
+        }
+      }
+    }
   }
 
   NavigateParams nav_params(this, params.url, params.transition);
@@ -3120,13 +3138,6 @@ void Browser::OnZoomChanged(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Browser, ThemeServiceObserver implementation:
-
-void Browser::OnThemeChanged() {
-  window()->UserChangedTheme(BrowserThemeChangeType::kBrowserTheme);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Browser, Command and state updating (private):
 
 void Browser::OnTabInsertedAt(WebContents* contents, int index) {
@@ -3233,8 +3244,8 @@ void Browser::OnActiveTabChanged(const TabStripModelChange& change,
           selection.old_contents, selection.new_contents,
           /*tab_removed_for_deletion=*/
           (change.type() == TabStripModelChange::kRemoved) &&
-              (change.GetRemove()->contents[0].remove_reason ==
-               TabRemovedReason::kDeleted));
+              (TabRemoveReasonUtils::WillDeleteTab(
+                  change.GetRemove()->contents[0].remove_reason)));
     }
   }
 

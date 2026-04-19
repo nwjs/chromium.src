@@ -280,8 +280,9 @@ struct LowercaseLookupTranslator {
       return VisitCharacters(*query, [&](auto qch) {
         wtf_size_t len = query->length();
         for (wtf_size_t i = 0; i < len; ++i) {
-          if (bch[i] != ToASCIILower(qch[i]))
+          if (bch[i] != ToAsciiLower(qch[i])) {
             return false;
+          }
         }
         return true;
       });
@@ -508,6 +509,16 @@ String AtomicStringTable::AddUTF8(base::span<const uint8_t> characters_span) {
       characters_span, seen_non_ascii, seen_non_latin1);
   if (!seen_non_ascii) {
     return Add(characters_span);
+  }
+
+  // If CalculateStringLengthFromUtf8() detects invalid UTF-8, it will return
+  // 0. Calling ConvertUtf8ToUtf16() with a zero-length UTF-16 buffer will
+  // cause it to return a status of kTargetExhausted. Return a null String in
+  // this case instead. This matches String::FromUtf8(). If there are no
+  // characters, `seen_non_ascii` will be false, and thus the ASCII code-path
+  // will have been taken.
+  if (utf16_length == 0) {
+    return String();
   }
 
   auto utf16_buf = base::HeapArray<UChar>::Uninit(utf16_length);

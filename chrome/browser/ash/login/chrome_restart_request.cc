@@ -79,7 +79,7 @@ const char kGuestModeLoggingLevel[] = "1";
 bool IsRunningTest() {
   const base::CommandLine* current_command_line =
       base::CommandLine::ForCurrentProcess();
-  return current_command_line->HasSwitch(::switches::kTestName) ||
+  return current_command_line->HasSwitch(ash::switches::kTestName) ||
          current_command_line->HasSwitch(::switches::kTestType);
 }
 
@@ -179,7 +179,9 @@ void DeriveCommandLine(const GURL& start_url,
       blink::switches::kEnablePreferCompositingToLCDText,
       blink::switches::kEnableRGBA4444Textures,
       blink::switches::kEnableRasterSideDarkModeForImages,
-      blink::switches::kEnableWebGLImageChromium,
+#if BUILDFLAG(IS_CHROMEOS)
+      blink::switches::kEnableOverlaysAndLowLatencyUsageForWebGL,
+#endif
       blink::switches::kEnableZeroCopy,
       blink::switches::kForceGpuMemAvailableMb,
       blink::switches::

@@ -940,18 +940,19 @@ void NativeWidgetAura::FlashFrame(bool flash) {
   }
 }
 
-void NativeWidgetAura::RunShellDrag(std::unique_ptr<ui::OSExchangeData> data,
-                                    const gfx::Point& location,
-                                    int operation,
-                                    ui::mojom::DragEventSource source) {
+void NativeWidgetAura::RunDragDropLoop(std::unique_ptr<ui::OSExchangeData> data,
+                                       const gfx::Point& location,
+                                       int operation,
+                                       ui::mojom::DragEventSource source) {
   if (window_) {
-    views::RunShellDrag(window_, std::move(data), location, operation, source);
+    views::RunDragDropLoop(window_, std::move(data), location, operation,
+                           source);
   }
 }
 
-void NativeWidgetAura::CancelShellDrag(View* view) {
+void NativeWidgetAura::CancelDragDropLoop(View* view) {
   if (window_) {
-    views::CancelShellDrag(window_);
+    views::CancelDragDropLoop(window_);
   }
 }
 
@@ -1271,12 +1272,14 @@ void NativeWidgetAura::OnResizeLoopEnded(aura::Window* window) {
 
 void NativeWidgetAura::OnMoveLoopStarted(aura::Window* window) {
   if (delegate_) {
+    delegate_->OnNativeWidgetUserDragStarted();
     delegate_->OnNativeWidgetBeginUserBoundsChange();
   }
 }
 
 void NativeWidgetAura::OnMoveLoopEnded(aura::Window* window) {
   if (delegate_) {
+    delegate_->OnNativeWidgetUserDragEnded();
     delegate_->OnNativeWidgetEndUserBoundsChange();
   }
 }

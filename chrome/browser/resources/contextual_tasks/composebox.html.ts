@@ -35,7 +35,8 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
       ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
         <div id="suggestionActivity">
           <localized-link
-            localized-string="${this.i18nAdvanced('suggestionActivityLink')}">
+              .localizedString="${this.i18nAdvanced('suggestionActivityLink')}"
+              @link-clicked="${this.onSuggestionActivityLinkClicked_}">
           </localized-link>
         </div>
       `: ''}
@@ -47,23 +48,25 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
         >
       <cr-composebox
           id="composebox"
-          ?autofocus="${false}"
+          .autofocus="${false}"
           carousel-on-top_
           entrypoint-name="ContextualTasks"
           searchbox-layout-mode="TallBottomContext"
-          .lensButtonDisabled="${false}"
+          .lensButtonDisabled="${this.lensButtonDisabled_}"
           .showLensButton="${this.showLensButton_}"
           .suggestionActivityEnabled="${false}"
           .disableCaretColorAnimation="${!this.caretAnimationsEnabled_}"
           .inputPlaceholderOverride="${this.getInputPlaceholder_()}"
-          .isInCoBrowsingZeroState="${this.isZeroState}"
+          .dropdownNeeded="${this.dropdownNeeded_}"
           .lensButtonTriggersOverlay="${true}"
           .enableCarouselScrolling="${true}"
           .isFollowupQuery="${!this.isZeroState}"
           .enableFileHint="${this.enableFileHint_}"
+          .isCanvasQuerySubmitted="${this.isCanvasQuerySubmitted}"
           @result-changed="${this.onSuggestionsResultChanged_}"
           @open-image-upload="${this.onOpenImageUpload_}"
           @open-file-upload="${this.onOpenFileUpload_}"
+          @input-state-changed="${this.onInputStateChanged_}"
           @show-suggestion-activity-link=
               "${this.onShowSuggestionActivityLink_}">
       </cr-composebox>
@@ -83,7 +86,8 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
       ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
         <div id="suggestionActivity">
           <localized-link
-            localized-string="${this.i18nAdvanced('suggestionActivityLink')}">
+              .localizedString="${this.i18nAdvanced('suggestionActivityLink')}"
+              @link-clicked="${this.onSuggestionActivityLinkClicked_}">
           </localized-link>
         </div>
       `: ''}

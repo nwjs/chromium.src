@@ -298,6 +298,12 @@ template("single_apple_toolchain") {
       rustc = "$rust_compiler_prefix${rustc_bin}"
       rustc_wrapper += " --rustc=$rustc"
 
+      rustc_wrapper_inputs = [
+        "//build/action_helpers.py",
+        "//build/gn_helpers.py",
+        "//build/rust/gni_impl/rustc_wrapper.py",
+      ]
+
       tool("rust_staticlib") {
         libname = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
         rspfile = rustc_rsp_path
@@ -324,6 +330,7 @@ template("single_apple_toolchain") {
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $libname -- -Clinker=\"$_cxx\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
       }
 
       tool("rust_rlib") {
@@ -334,6 +341,7 @@ template("single_apple_toolchain") {
             "{{output_dir}}/lib{{target_output_name}}{{output_extension}}"
         rspfile = rustc_rsp_path
         depfile = "$rlibname.d"
+        rmetaname = "{{output_dir}}/lib{{target_output_name}}.rmeta"
 
         default_output_extension = ".rlib"
 
@@ -347,14 +355,16 @@ template("single_apple_toolchain") {
         description = "RUST {{output}}"
         outputs = [
           rlibname,
+          rmetaname,
           rustc_env_and_flags_path,
           "${rspfile}.rust",
         ]
 
         rspfile_content =
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $rlibname -- -Clinker=\"$_cxx\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link,metadata=$rmetaname -o $rlibname -- -Clinker=\"$_cxx\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
       }
 
       tool("rust_bin") {
@@ -387,6 +397,7 @@ template("single_apple_toolchain") {
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
         command = "$linker_driver_env $rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $exename -- -Clinker=\"$linker_driver\" {{source}} LDFLAGS $linker_driver_args {{ldflags}} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
       }
 
       tool("rust_cdylib") {
@@ -421,6 +432,7 @@ template("single_apple_toolchain") {
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
         command = "$linker_driver_env $rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"$linker_driver\" {{source}} LDFLAGS $linker_driver_args {{ldflags}} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
       }
 
       tool("rust_macro") {
@@ -455,6 +467,7 @@ template("single_apple_toolchain") {
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${_cxx}\" {{source}} LDFLAGS {{ldflags}} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
       }
     }
 
@@ -525,7 +538,10 @@ template("single_apple_toolchain") {
 
         # Specify explicit path for libtool.
         libtool = invoker.bin_path + "libtool"
-        command = "rm -f {{output}} && TOOL_VERSION=${tool_versions.filter_libtool} $python_path $script $libtool -static -D {{arflags}} -o {{output}} @$rspfile"
+
+        # Apple's libtool fails if the response file is empty (e.g., for empty targets).
+        # We work around this by writing a dummy archive with the ar magic number.
+        command = "rm -f {{output}} && if [ -s \"$rspfile\" ]; then TOOL_VERSION=${tool_versions.filter_libtool} $python_path $script $libtool -static -D {{arflags}} -o {{output}} @$rspfile; else printf '!<arch>\n' > {{output}}; fi"
         description = "LIBTOOL-STATIC {{output}}"
       } else {
         ar = "${prefix}llvm-ar"

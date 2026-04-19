@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Escribe unha solicitude</translation>
 <translation id="115705039208660697">ananases</translation>
 <translation id="1164939766849482256">Protector de pantalla Do amencer ao solpor</translation>
-<translation id="1167755866710282443">Abre o menú para personalizar as claves. Arrastra o menú para movelo.</translation>
 <translation id="1171349345463658120">albufeira</translation>
 <translation id="1174073918202301297">Engadiuse un atallo</translation>
 <translation id="11743817593307477">Usa as teclas de frecha para mover este control á acción do xogo que queiras. Utiliza a tecla Intro para colocalo. Utiliza a tecla Escape para cancelalo.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Substituír ficheiro</translation>
 <translation id="2006864819935886708">Conectividade</translation>
 <translation id="2008685064673031089">Busca principal</translation>
-<translation id="2011174342667534258">Versión do SDK:</translation>
 <translation id="2016697457005847575">Probar os pasos para tentar solucionar o problema</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">cubertos</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Cruceta de asignación de teclas</translation>
 <translation id="3217462202230355157">Comproba que o micrófono estea conectado ou proba a reiniciar o teu dispositivo (<ph name="DEVICE_TYPE" />)</translation>
 <translation id="3226405216343213872">Buscando escáneres</translation>
-<translation id="3226657629376379887">Menú de accións de deseño</translation>
 <translation id="3227186760713762082">Divide o valor de <ph name="CATEGORY_TEXT" /> entre <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">arte dixital</translation>
 <translation id="3246869037381808805">Quitaranse os traballos de impresión de máis de 1 día</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Dirección da clave</translation>
 <translation id="3294437725009624529">Invitado</translation>
 <translation id="3303855915957856445">Non se encontraron resultados da busca</translation>
-<translation id="3305294846493618482">máis</translation>
 <translation id="3310640316857623290">A latencia do DNS supera considerablemente o límite permitido</translation>
 <translation id="3316495615885967552">Descarga do modelo de creación de títulos e resumos completada</translation>
 <translation id="3321030238473337787">Velocidade de reprodución</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Produciuse un erro. Téntao de novo.</translation>
 <translation id="357889014807611375">wifi de pago por consumo</translation>
 <translation id="3583278742022654445">A intensidade do sinal é débil. Proba a poñerte máis preto da fonte do sinal wifi.</translation>
+<translation id="3586931643579894722">Ocultar detalles</translation>
 <translation id="3588034708467091142">Asegúrate de ter conexión a Internet e téntao de novo.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> é o nome fácil de usar de <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Batería completa</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Retroceder 10 segundos</translation>
 <translation id="4128271910628504223">Escribe unha solicitude (por exemplo, "debuxa un bosque bretemoso")</translation>
 <translation id="4130035430755296270">Pasa o cursor por enriba para ver máis opcións de deseño</translation>
-<translation id="4130750466177569591">Acepto</translation>
 <translation id="4131410914670010031">Branco e negro</translation>
 <translation id="4137700675046373159">o sábado</translation>
 <translation id="4139326893730851150">Actualizacións de firmware</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Tabulador</translation>
 <translation id="5612205513582918357">Ferramentas de clase está compartindo a túa pantalla con <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Pechouse a sesión</translation>
-<translation id="5620281292257375798">Só para uso interno</translation>
 <translation id="5628106863521633649">Idiomas dispoñibles</translation>
 <translation id="5630438231335788050">Bauhaus</translation>
 <translation id="5631759159893697722">resumo</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">retroceso</translation>
 <translation id="6137614725462089991">ciberpunk</translation>
 <translation id="6137767437444130246">Certificado de usuario</translation>
+<translation id="6140948187512243695">Mostrar detalles</translation>
 <translation id="6146993107019042706">Para finalizar, introduce o teu novo contrasinal</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Non se pode establecer conexión con Internet</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881"><ph name="MANAGER" /> xestiona este dispositivo (<ph name="DEVICE_TYPE" />). Os administradores poden configuralo de forma remota.</translation>
 <translation id="7180611975245234373">Actualizar</translation>
 <translation id="7180865173735832675">Personalizar</translation>
-<translation id="7184043045742675738">Fai clic en calquera tecla para personalizar o botón. Cambia a tecla de posición co rato ou coas teclas de frecha.</translation>
 <translation id="7187669805838282391">o mércores</translation>
 <translation id="7205318498545665455">Escolle o micrófono</translation>
-<translation id="7206979415662233817">Condicións de servizo</translation>
 <translation id="7210635925306941239">ciano</translation>
 <translation id="7212547870105584639">Xestiona a configuración do APN da rede. Os APN establecen unha conexión entre unha rede de telefonía móbil e Internet. <ph name="BEGIN_LINK_LEARN_MORE" />Máis información<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Actualizacións de firmware para dispositivos externos</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">verde e verde azulada</translation>
 <translation id="7328475450575141167">ave do paraíso</translation>
-<translation id="7331297744262591636">Debes ter 18 anos como mínimo e aceptar que o uso que fagas dos fondos de pantalla xerados por IA está suxeito ás <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Condicións de servizo de Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> e ás <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Condicións de servizo adicionais da IA xenerativa<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          Só podes crear fondos de pantalla coa IA para uso persoal e non comercial. Cando solicites axuda para crear un fondo de pantalla, enviarase o texto aos servidores da IA de Google para xerar suxestións de fondos de pantalla, de acordo co establecido na <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Política de privacidade de Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Máis información<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; preme Buscar e Espazo para ver o resultado na Busca de Google.</translation>
 <translation id="7343649194310845056">Dispositivos de rede</translation>
 <translation id="7344788170842919262">terrosa</translation>
 <translation id="7346768383111016081">Asigna un control a unha acción de xogo para xogar co teclado</translation>
@@ -1507,7 +1496,6 @@ Descarga o modelo de transcrición (ocupa un máximo de 100 MB) para ver estas 
 <translation id="7590883480672980941">Configuración da introdución de texto</translation>
 <translation id="7595982850646262331">Tempo restante: <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">A persoa administradora de <ph name="MANAGER" /> configurou cando se pode usar este dispositivo (<ph name="DEVICE_TYPE" />).</translation>
-<translation id="7613724632293948900">Cambia a posición co rato ou as teclas de frecha.</translation>
 <translation id="7618216277886673749">Seleccionar o <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Neutra</translation>
 <translation id="7620771111601174153">Máis información no Centro de axuda</translation>
@@ -1641,6 +1629,7 @@ Descarga o modelo de transcrición (ocupa un máximo de 100 MB) para ver estas 
 <translation id="819278132617411009">Usa a IA de Google para ser unha persoa máis produtiva</translation>
 <translation id="8200772114523450471">Retomar</translation>
 <translation id="8206859287963243715">Móbil</translation>
+<translation id="8208043093301544621">Inicio</translation>
 <translation id="8208861521865154048">Vantaxes</translation>
 <translation id="8226628635270268143">Escolle as fotos e os álbums que máis che gustan</translation>
 <translation id="8227119283605456246">Anexar ficheiro</translation>
@@ -1838,7 +1827,6 @@ Descarga o modelo de transcrición (ocupa un máximo de 100 MB) para ver estas 
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Usar este vídeo</translation>
-<translation id="9087578468327036362">Informar desta consulta</translation>
 <translation id="9088306295921699330">En uso</translation>
 <translation id="9088994563996376283">Simplificar</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@ Descarga o modelo de transcrición (ocupa un máximo de 100 MB) para ver estas 
 <translation id="921080052717160800">Imaxe definida como fondo de cámara</translation>
 <translation id="9211490828691860325">Todos os escritorios</translation>
 <translation id="9218016617214286986">Mostrar APN coñecidos</translation>
-<translation id="932327136139879170">Inicio</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Enviar comentarios</translation>
 <translation id="950520315903467048">Falta a tecla para <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

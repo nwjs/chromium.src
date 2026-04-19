@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="am">
 <translation id="1000436330784933699">ሌንስ እዚህ መክፈት ይችላሉ።</translation>
+<translation id="1005291068154454184">Chromiumን እንዴት እንደ ነባሪ ማቀናበር እንደሚቻል የሚያሳይ የሙሉ ገጽ ዕይታ ቪድዮ</translation>
 <translation id="1042296835509784301">በChromium ውስጥ የሚስጥር ቁልፍ አስተዳዳሪውን ይከፍታል።</translation>
 <translation id="1047130070405668746">Chromiumን ይምረጡ</translation>
 <translation id="1091252999271033193">ይህ ማለት Chromium የተንቀሳቃሽ ስልክ ጣቢያውን በእያንዳንዱ ጊዜ ይጠይቃል ማለት ነው።</translation>
@@ -69,9 +70,6 @@
 <translation id="2313870531055795960">በChromium ላይ በተከማቹ ደህንነታቸው ያልተጠበቁ ጣቢያዎች ዝርዝር ጋር ዩአርኤሎችን ይፈትሻል። አንድ ጣቢያ የእርስዎን የይለፍ ቃል ለመስረቅ ከሞከረ ወይም ጎጂ ፋይል ሲያወርዱ Chromium እንዲሁም የገጽ ይዘት ቢትስንም ጨምሮ ዩአርኤሎችን ወደ የጥንቃቄ አሰሳ ሊልክ ይችላል።</translation>
 <translation id="2314220608288760290">Chromium የYouTube ማንነት የማያሳውቁ አገናኞችን በራስ-ሰር በማንነት የማያሳውቅ ይከፍታል።</translation>
 <translation id="231828342043114302">በፍላጎቶችዎ ላይ የተመሠረተ ግላዊነት የተላበሰ ይዘትን ለመቀበል ወደ Chromium ይግቡ።</translation>
-<translation id="2326738825692478496">አንዳንድ የChromium ውሂብዎ በGoogle መለያዎ ውስጥ ገና አልተቀመጠም።
-
-ዘግተው ከመውጣትዎ በፊት ጥቂት ደቂቃዎች ለመጠበቅ ይሞክሩ። አሁን ዘግተው ከወጡ ይህ ውሂብ ይሰረዛል።</translation>
 <translation id="2334943301233020675">የሚከተሉት የይለፍ ቁልፎች ወደ የይለፍ ቃል አስተዳዳሪ አልመጡም፣ ምክንያቱም ከመስፈርቶቹ ጋር አይዛመዱም።</translation>
 <translation id="2337722506862731008">Chromium ያጋሩ</translation>
 <translation id="2340423701577464731">የንባብ ዝርዝር ንጥልን ወደ Chromium ያክሉ</translation>
@@ -102,7 +100,6 @@
 የChromium ተሞክሮዎን ለማሻሻል ውሂብን ለሚጠቀሙ ተጨማሪ ቅንብሮች ወደ <ph name="BEGIN_LINK" />የGoogle አገልግሎቶች<ph name="END_LINK" /> ይሂዱ።</translation>
 <translation id="2832168932648876507">በChromium ውስጥ በድምፅ ይፈልጉ</translation>
 <translation id="2843571538056574338">Chromiumን ለራስ-ሙላ ይጠቀሙ</translation>
-<translation id="2899085719655668655">Chromiumን እንዴት እንደ ነባሪ ማቀናበር እንደሚቻል የሚያሳዩ የሥዕል-ላይ-ሥዕል የቪድዮ መመሪያዎች</translation>
 <translation id="2918709798697875261">የእርስዎ ድርጅት ከChromium ዘግተው እንደወጡ እንዲቆዩ ይፈልጋል።</translation>
 <translation id="2942241131342758843">አገናኞችን ለመክፈት፣ ከመግብሮች ለመፈለግ እና የይለፍ ቃሎችን በራስ-ለመሙላት በሌሎች መተግበሪያዎች ውስጥ በነባሪነት Chromium ይጠቀሙ</translation>
 <translation id="2977470724722393594">Chromium የተዘመነ ነው</translation>

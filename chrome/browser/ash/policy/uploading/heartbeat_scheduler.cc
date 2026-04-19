@@ -7,16 +7,15 @@
 #include <memory>
 #include <vector>
 
+#include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
-#include "chrome/common/chrome_switches.h"
 #include "components/gcm_driver/gcm_driver.h"
 
 namespace policy {
@@ -59,9 +58,9 @@ const char kHeartbeatSchedulerScope[] =
 std::string GetDestinationID() {
   std::string receiver_id = kHeartbeatGCMDestinationID;
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kMonitoringDestinationID)) {
+          ash::switches::kMonitoringDestinationID)) {
     receiver_id = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-        switches::kMonitoringDestinationID);
+        ash::switches::kMonitoringDestinationID);
   }
   return receiver_id;
 }

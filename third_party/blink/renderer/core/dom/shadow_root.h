@@ -36,7 +36,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_rare_data_field.h"
 #include "third_party/blink/renderer/core/dom/tree_scope.h"
-#include "third_party/blink/renderer/core/html/parser/fragment_parser_options.h"
+#include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_parser_options.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -62,10 +62,7 @@ class CORE_EXPORT ShadowRoot final : public DocumentFragment,
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  ShadowRoot(Document&,
-             ShadowRootMode,
-             SlotAssignmentMode,
-             const Vector<AtomicString>& markers);
+  ShadowRoot(Document&, ShadowRootMode, SlotAssignmentMode);
   ~ShadowRoot() override;
   ShadowRoot(const ShadowRoot&) = delete;
   ShadowRoot& operator=(const ShadowRoot&) = delete;
@@ -142,9 +139,6 @@ class CORE_EXPORT ShadowRoot final : public DocumentFragment,
                      TrustedParserOptions*,
                      ExceptionState&);
   void setHTML(const String& html, SetHTMLOptions*, ExceptionState&);
-  void setHTML(const String& html, TrustedParserOptions*, ExceptionState&);
-
-  const Vector<AtomicString>& marker() const { return markers_; }
 
   Node* Clone(Document& factory,
               NodeCloningData& data,
@@ -216,7 +210,7 @@ class CORE_EXPORT ShadowRoot final : public DocumentFragment,
  private:
   friend class ReferenceTargetIdObserver;
 
-  HeapVector<Member<CSSStyleSheet>> GetFetchedStyleSheetsFromModuleMap(
+  HeapVector<Member<CSSStyleSheet>> ResolveAdoptedStyleSheets(
       const AtomicString& shadowrootadoptedstylesheets_attribute_value);
 
   void ChildrenChanged(const ChildrenChange&) override;
@@ -247,7 +241,6 @@ class CORE_EXPORT ShadowRoot final : public DocumentFragment,
   }
 
   Member<SlotAssignment> slot_assignment_;
-  Vector<AtomicString> markers_;
   Member<ReferenceTargetIdObserver> reference_target_id_observer_;
   unsigned child_shadow_root_count_ : 16;
   unsigned mode_ : 2;

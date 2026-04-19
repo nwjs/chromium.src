@@ -6,17 +6,17 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
-#include "components/omnibox/common/logger.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/embedder_support/user_agent_utils.h"
+#include "components/omnibox/common/logger.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -35,6 +35,10 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#endif
+
 namespace contextual_tasks {
 
 namespace {
@@ -42,6 +46,10 @@ namespace {
 const char* const kAuthTokenAllowList[] = {
     "google.com",
     "googlers.com",  // For local servers.
+};
+
+const char* const kAuthTokenDenyList[] = {
+    "lh3.google.com",
 };
 
 const char kAuthorizationHeader[] = "Authorization";
@@ -53,6 +61,13 @@ bool ShouldAddAuthHeader(const GURL& url) {
   // OAuth. Attaching an OAuth token can result in 403 errors.
   if (url.spec().contains(kOneGoogleIdentifier)) {
     return false;
+  }
+
+  // Don't add the Authorization header to any domain in the deny list.
+  for (const char* domain : kAuthTokenDenyList) {
+    if (url.DomainIs(domain)) {
+      return false;
+    }
   }
 
   // Only add the Authorization header to domains in the allow list.
@@ -302,7 +317,13 @@ class ContextualTasksProxyingURLLoaderFactory
                "OnAccessTokenReceived with token empty="
             << (token.empty() ? "true" : "false");
     if (!token.empty()) {
-      request.headers.SetHeader(kAuthorizationHeader, kBearerPrefix + token);
+      std::optional<std::string> existing_auth =
+          request.headers.GetHeader(kAuthorizationHeader);
+      // Do not override the auth header if it already exists to avoid breaking
+      // features that rely on adding their own auth header.
+      if (!existing_auth.has_value()) {
+        request.headers.SetHeader(kAuthorizationHeader, kBearerPrefix + token);
+      }
     }
 
     // Clone the target factory to pass to the custom URLLoader.
@@ -338,6 +359,9 @@ void MaybeInterceptURLLoaderFactory(
     return;
   }
 
+  content::WebContents* owner_web_contents = nullptr;
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   // Check if this is a WebView guest.
   extensions::WebViewGuest* guest =
       extensions::WebViewGuest::FromRenderFrameHost(frame);
@@ -346,7 +370,9 @@ void MaybeInterceptURLLoaderFactory(
   }
 
   // Check if the owner is the Contextual Tasks WebUI.
-  content::WebContents* owner_web_contents = guest->owner_web_contents();
+  owner_web_contents = guest->owner_web_contents();
+#endif
+
   if (!owner_web_contents) {
     return;
   }

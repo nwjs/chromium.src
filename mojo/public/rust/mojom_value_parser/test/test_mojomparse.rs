@@ -2,18 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-//! Verifies that the MojomParse attribute is correctly derived.
+//! This module verifies that the MojomParse attribute is correctly derived.
 //!
-//! FOR_RELEASE: Rewrite the below comment to be clearer.
+//! The tests in this file operate by taking various Rust types that implement
+//! the `MojomParse` trait, and manually writing out what ASTs (`MojomType`,
+//! `MojomWireType`) they should correspond to. The Rust types are generated
+//! from `../test_util/parser_unittests.test-mojom`.
 //!
-//! Testing strategy: The existing tests for mojom bindings are end-to-end,
-//! relying on mojom files to specify their inputs and outputs. However, we
-//! want to unit-test the parser and deparser alone. Since they take ASTs as
-//! input, we first validate that the bindings generate the correct ASTs, and
-//! then we can use the bindings to generate various parser/deparser tests.
+//! For each type, we then ensure:
+//! 1. The `MojomParse` trait generates the expected `MojomType`.
+//! 2. That `MojomType` packs to the expected `MojomWireType`.
+//! 3. A value of of that type turns into an equivalent `MojomValue`, and
+//!    vice-versa.
 //!
-//! The types in this file correspond to those defined in
-//! //mojo/public/rust/test_mojom/parser_unittests.mojom
+//! In other words, this file unit-tests the different parts of the
+//! Rust Value <-> `MojomValue` translation. The actual binary encoding
+//! (`MojomValue` <-> [u8]) is tested in `test_parser.rs`.
 
 chromium::import! {
     "//mojo/public/rust/mojom_value_parser:mojom_value_parser_core";
@@ -718,10 +722,10 @@ fn test_bad_conversion() {
 //   uint16 n1;
 //   TestEnum2 e2;
 // }
-const TEST_ENUM_PRED: Predicate<u32> =
-    Predicate::new::<TestEnum>(&(TestEnum::is_valid as fn(u32) -> bool));
-const TEST_ENUM2_PRED: Predicate<u32> =
-    Predicate::new::<TestEnum2>(&(TestEnum2::is_valid as fn(u32) -> bool));
+const TEST_ENUM_PRED: Predicate<i32> =
+    Predicate::new::<TestEnum>(&(TestEnum::is_valid as fn(i32) -> bool));
+const TEST_ENUM2_PRED: Predicate<i32> =
+    Predicate::new::<TestEnum2>(&(TestEnum2::is_valid as fn(i32) -> bool));
 
 static SOME_ENUMS_TY: LazyLock<TestType> = LazyLock::new(|| TestType {
     type_name: "SomeEnums",
@@ -740,7 +744,7 @@ static SOME_ENUMS_TY: LazyLock<TestType> = LazyLock::new(|| TestType {
     ),
 });
 
-fn some_enums_mojom(e1: u32, n1: u64, e2: u32) -> MojomValue {
+fn some_enums_mojom(e1: i32, n1: u64, e2: i32) -> MojomValue {
     wrap_struct_fields_value(vec![
         ("e1".to_string(), MojomValue::Enum(e1)),
         ("n1".to_string(), MojomValue::UInt64(n1)),
@@ -771,6 +775,25 @@ fn test_enums() {
     expect_true!(TestEnum::try_from(11).is_err());
     expect_true!(TestEnum2::try_from(0).is_err());
     expect_true!(TestEnum2::try_from(99).is_err());
+
+    expect_true!(TestEnumWithNegativeDiscriminants::is_valid(-1));
+    expect_true!(TestEnumWithNegativeDiscriminants::is_valid(0));
+    expect_true!(TestEnumWithNegativeDiscriminants::is_valid(1));
+    expect_true!(!TestEnumWithNegativeDiscriminants::is_valid(2));
+    expect_true!(!TestEnumWithNegativeDiscriminants::is_valid(-2));
+
+    expect_eq!(
+        TestEnumWithNegativeDiscriminants::try_from(-1).unwrap(),
+        TestEnumWithNegativeDiscriminants::NegVal
+    );
+    expect_eq!(
+        TestEnumWithNegativeDiscriminants::try_from(0).unwrap(),
+        TestEnumWithNegativeDiscriminants::ZeroVal
+    );
+    expect_eq!(
+        TestEnumWithNegativeDiscriminants::try_from(1).unwrap(),
+        TestEnumWithNegativeDiscriminants::PosVal
+    );
 }
 
 // Mojom Definition:
@@ -822,7 +845,7 @@ fn base_union_mojom_u1(u1: u64) -> MojomValue {
     MojomValue::Union(1, Box::new(MojomValue::UInt64(u1)))
 }
 
-fn base_union_mojom_e1(e1: u32) -> MojomValue {
+fn base_union_mojom_e1(e1: i32) -> MojomValue {
     MojomValue::Union(2, Box::new(MojomValue::Enum(e1)))
 }
 
@@ -1988,7 +2011,7 @@ fn nullable_basics_mojom(
     n1: Option<u16>,
     n2: Option<i8>,
     empty: Option<MojomValue>,
-    e: Option<u32>,
+    e: Option<i32>,
     fourints: Option<MojomValue>,
     f1: Option<f32>,
     f2: Option<f64>,

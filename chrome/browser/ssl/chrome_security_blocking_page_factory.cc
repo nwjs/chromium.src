@@ -5,7 +5,6 @@
 #include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -57,6 +56,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/captive_portal/content/captive_portal_tab_helper.h"
@@ -138,7 +138,7 @@ void LogSafeBrowsingSecuritySensitiveAction(
 std::unique_ptr<SSLBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateSSLPage(
     content::WebContents* web_contents,
-    int cert_error,
+    net::Error cert_error,
     const net::SSLInfo& ssl_info,
     const GURL& request_url,
     int options_mask,
@@ -175,7 +175,7 @@ ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
     const GURL& request_url,
     const GURL& login_url,
     const net::SSLInfo& ssl_info,
-    int cert_error) {
+    net::Error cert_error) {
   auto page = std::make_unique<CaptivePortalBlockingPage>(
       web_contents, request_url, login_url,
       /*can_show_enhanced_protection_message=*/true, ssl_info,
@@ -192,7 +192,7 @@ ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
 std::unique_ptr<BadClockBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateBadClockBlockingPage(
     content::WebContents* web_contents,
-    int cert_error,
+    net::Error cert_error,
     const net::SSLInfo& ssl_info,
     const GURL& request_url,
     const base::Time& time_triggered,
@@ -212,7 +212,7 @@ ChromeSecurityBlockingPageFactory::CreateBadClockBlockingPage(
 std::unique_ptr<MITMSoftwareBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateMITMSoftwareBlockingPage(
     content::WebContents* web_contents,
-    int cert_error,
+    net::Error cert_error,
     const GURL& request_url,
     const net::SSLInfo& ssl_info,
     const std::string& mitm_software_name) {
@@ -238,7 +238,7 @@ ChromeSecurityBlockingPageFactory::CreateMITMSoftwareBlockingPage(
 std::unique_ptr<BlockedInterceptionBlockingPage>
 ChromeSecurityBlockingPageFactory::CreateBlockedInterceptionBlockingPage(
     content::WebContents* web_contents,
-    int cert_error,
+    net::Error cert_error,
     const GURL& request_url,
     const net::SSLInfo& ssl_info) {
   LogSafeBrowsingSecuritySensitiveAction(
@@ -318,13 +318,13 @@ ChromeSecurityBlockingPageFactory::CreateHttpsOnlyModeBlockingPage(
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
 
 // Open a login tab or popup for the captive portal login page.
-void OpenLoginTab(Browser* browser,
+void OpenLoginTab(BrowserWindowInterface* browser,
                   captive_portal::CaptivePortalWindowType portal_type) {
   // We only end up here when a captive portal result was received, so it's safe
   // to assume profile has a captive_portal::CaptivePortalService.
   NavigateParams params(
       browser,
-      CaptivePortalServiceFactory::GetForProfile(browser->profile())
+      CaptivePortalServiceFactory::GetForProfile(browser->GetProfile())
           ->test_url(),
       ui::PAGE_TRANSITION_TYPED);
   WindowOpenDisposition disposition;
@@ -350,7 +350,7 @@ void OpenLoginTab(Browser* browser,
 
 // static
 void ChromeSecurityBlockingPageFactory::OpenLoginPageForBrowser(
-    base::FunctionRef<Browser*()> get_browser,
+    base::FunctionRef<BrowserWindowInterface*()> get_browser,
     bool focus_tab) {
   SecureDnsConfig secure_dns_config =
       SystemNetworkContextManager::GetStubResolverConfigReader()
@@ -382,7 +382,7 @@ void ChromeSecurityBlockingPageFactory::OpenLoginPageForBrowser(
     }
   }
 
-  Browser* browser = get_browser();
+  BrowserWindowInterface* browser = get_browser();
   // If the Profile doesn't have a tabbed browser window open, do nothing.
   if (!browser) {
     return;
@@ -397,14 +397,14 @@ void ChromeSecurityBlockingPageFactory::OpenLoginPageForBrowser(
   // If so, do nothing.
   // TODO(mmenke):  Consider focusing that tab, at least if this is the tab
   //                helper for the currently active tab for the profile.
-  for (int i = 0; i < browser->tab_strip_model()->count(); ++i) {
+  for (int i = 0; i < browser->GetTabStripModel()->count(); ++i) {
     content::WebContents* contents =
-        browser->tab_strip_model()->GetWebContentsAt(i);
+        browser->GetTabStripModel()->GetWebContentsAt(i);
     captive_portal::CaptivePortalTabHelper* captive_portal_tab_helper =
         captive_portal::CaptivePortalTabHelper::FromWebContents(contents);
     if (captive_portal_tab_helper->IsLoginTab()) {
       if (focus_tab) {
-        browser->tab_strip_model()->ActivateTabAt(i);
+        browser->GetTabStripModel()->ActivateTabAt(i);
       }
       return;
     }
@@ -427,8 +427,8 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
 void ChromeSecurityBlockingPageFactory::
     OpenLoginPageInAnyTabbedBrowserOrCreateOne(Profile* profile,
                                                bool focus_tab) {
-  auto lambda = [&profile]() -> Browser* {
-    Browser* browser = chrome::FindTabbedBrowser(profile, false);
+  auto lambda = [&profile]() -> BrowserWindowInterface* {
+    BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile, false);
     // Create browser if not exists.
     if (!browser && Browser::GetCreationStatusForProfile(profile) ==
                         Browser::CreationStatus::kOk) {
@@ -436,8 +436,8 @@ void ChromeSecurityBlockingPageFactory::
       browser = Browser::Create(params);
     }
 
-    if (browser && browser->window()) {
-      browser->window()->Activate();
+    if (browser && browser->GetWindow()) {
+      browser->GetWindow()->Activate();
       return browser;
     } else {
       return nullptr;

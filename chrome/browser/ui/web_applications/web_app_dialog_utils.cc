@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/web_apps/web_app_install_flow_dialog_delegate.h"
 #include "chrome/browser/ui/web_applications/pwa_install_page_action.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_screenshot_fetcher.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/common/chrome_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "components/webapps/browser/banners/web_app_banner_data.h"
@@ -42,6 +44,7 @@
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/installable/ml_install_operation_tracker.h"
 #include "components/webapps/browser/installable/ml_installability_promoter.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "content/public/browser/navigation_entry.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -70,6 +73,16 @@ void OnWebAppInstallShowInstallDialog(
     std::unique_ptr<WebAppInstallInfo> web_app_info,
     WebAppInstallationAcceptanceCallback web_app_acceptance_callback) {
   DCHECK(web_app_info);
+  InstallOsType os_type = InstallOsType::kOther;
+#if BUILDFLAG(IS_CHROMEOS)
+  os_type = InstallOsType::kCros;
+#endif
+#if BUILDFLAG(IS_MAC)
+  os_type = InstallOsType::kMac;
+#endif
+#if BUILDFLAG(IS_WIN)
+  os_type = InstallOsType::kWin;
+#endif
 
   switch (flow) {
     case WebAppInstallFlow::kInstallSite:
@@ -83,6 +96,21 @@ void OnWebAppInstallShowInstallDialog(
                 .SetAppId(app_id));
       }
 #endif
+      if (base::FeatureList::IsEnabled(features::kWebAppInstallDialog)) {
+        InstallDialogType install_type = kSimple;
+        if (screenshot_fetcher) {
+          install_type = kDetailed;
+        } else if (web_app_info->is_diy_app) {
+          install_type = kDiy;
+        }
+        WebAppInstallFlowDialogDelegate::Show(
+            initiator_web_contents, std::move(web_app_info),
+            std::move(install_tracker), std::move(web_app_acceptance_callback),
+            iph_state, std::move(screenshot_fetcher), show_initiating_origin,
+            install_type, os_type);
+        return;
+      }
+
       if (screenshot_fetcher) {
         ShowWebAppDetailedInstallDialog(
             initiator_web_contents, std::move(web_app_info),
@@ -148,7 +176,7 @@ bool CanCreateWebApp(const Browser* browser) {
   // Check whether we're able to install the current page as an app.
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
-  if (!IsValidWebAppUrl(web_contents->GetLastCommittedURL()) ||
+  if (!webapps::IsUrlEligibleForWebApp(web_contents->GetLastCommittedURL()) ||
       web_contents->IsCrashed()) {
     return false;
   }

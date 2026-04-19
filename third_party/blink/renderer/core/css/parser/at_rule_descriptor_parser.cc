@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -92,6 +93,8 @@ bool IsSupportedFontFormat(String font_format) {
 
 CSSFontFaceSrcValue::FontTechnology ValueIDToTechnology(CSSValueID valueID) {
   switch (valueID) {
+    case CSSValueID::kAvar2:
+      return CSSFontFaceSrcValue::FontTechnology::kTechnologyAvar2;
     case CSSValueID::kFeaturesAat:
       return CSSFontFaceSrcValue::FontTechnology::kTechnologyFeaturesAAT;
     case CSSValueID::kFeaturesOpentype:
@@ -511,9 +514,14 @@ CSSValue* AtRuleDescriptorParser::ParseAtViewTransitionDescriptor(
   switch (id) {
     case AtRuleDescriptorID::Navigation:
       stream.ConsumeWhitespace();
-      parsed_value =
-          css_parsing_utils::ConsumeIdent<CSSValueID::kAuto, CSSValueID::kNone>(
-              stream);
+      if (RuntimeEnabledFeatures::TwoPhaseViewTransitionEnabled()) {
+        parsed_value = css_parsing_utils::ConsumeIdent<
+            CSSValueID::kAuto, CSSValueID::kNone, CSSValueID::kPreview>(stream);
+      } else {
+        parsed_value =
+            css_parsing_utils::ConsumeIdent<CSSValueID::kAuto,
+                                            CSSValueID::kNone>(stream);
+      }
       break;
     case AtRuleDescriptorID::Types: {
       CSSValueList* types = CSSValueList::CreateSpaceSeparated();

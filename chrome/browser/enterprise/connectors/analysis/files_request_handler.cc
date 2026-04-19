@@ -16,11 +16,13 @@
 #include "base/notreached.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/file_opening_job.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/deep_scanning_utils.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/file_opening_job.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/file_access/scoped_file_access.h"
 #include "components/file_access/scoped_file_access_delegate.h"
@@ -93,13 +95,13 @@ FilesRequestHandler::FilesRequestHandler(
     CompletionCallback callback)
     : RequestHandlerBase(content_analysis_info,
                          upload_service,
-                         profile,
                          url,
                          access_point),
       paths_(paths),
       source_(source),
       destination_(destination),
       content_transfer_method_(content_transfer_method),
+      profile_(profile),
       callback_(std::move(callback)) {
   results_.resize(paths_.size());
   file_info_.resize(paths_.size());
@@ -152,11 +154,11 @@ void FilesRequestHandler::ReportWarningBypass(
     size_t index = warning.first;
 
     ReportAnalysisConnectorWarningBypass(
-        profile_, *content_analysis_info_, source_, destination_,
-        paths_[index].AsUTF8Unsafe(), file_info_[index].sha256,
+        ReportingEventRouterFactory::GetForBrowserContext(profile_),
+        content_analysis_info_.get(), source_, destination_,
+        paths_[index].AsUTF8Unsafe(), file_info_[index].sha256_or_cb,
         file_info_[index].mime_type, AccessPointToTriggerString(access_point_),
-        content_transfer_method_, file_info_[index].size,
-        content_analysis_info_->referrer_chain(), warning.second,
+        content_transfer_method_, file_info_[index].size, warning.second,
         user_justification);
   }
 }
@@ -172,17 +174,16 @@ void FilesRequestHandler::FileRequestCallbackForTesting(
 }
 
 bool FilesRequestHandler::UploadDataImpl() {
-  safe_browsing::IncrementCrashKey(
-      safe_browsing::ScanningCrashKey::PENDING_FILE_UPLOADS, paths_.size());
+  IncrementCrashKey(ScanningCrashKey::PENDING_FILE_UPLOADS, paths_.size());
 
   if (!paths_.empty()) {
-    safe_browsing::IncrementCrashKey(
-        safe_browsing::ScanningCrashKey::TOTAL_FILE_UPLOADS, paths_.size());
+    IncrementCrashKey(ScanningCrashKey::TOTAL_FILE_UPLOADS, paths_.size());
 
     std::vector<safe_browsing::FileOpeningJob::FileOpeningTask> tasks(
         paths_.size());
-    for (size_t i = 0; i < paths_.size(); ++i)
+    for (size_t i = 0; i < paths_.size(); ++i) {
       tasks[i].request = PrepareFileRequest(i);
+    }
 
     file_access::RequestFilesAccessForSystem(
         paths_,
@@ -204,8 +205,8 @@ bool FilesRequestHandler::UploadDataImpl() {
   return false;
 }
 
-safe_browsing::FileAnalysisRequest* FilesRequestHandler::PrepareFileRequest(
-    size_t index) {
+enterprise_connectors::FileAnalysisRequestBase*
+FilesRequestHandler::PrepareFileRequest(size_t index) {
   DCHECK_LT(index, paths_.size());
   base::FilePath path = paths_[index];
   auto request = std::make_unique<safe_browsing::FileAnalysisRequest>(
@@ -215,9 +216,12 @@ safe_browsing::FileAnalysisRequest* FilesRequestHandler::PrepareFileRequest(
       base::BindOnce(&FilesRequestHandler::FileRequestCallback,
                      weak_ptr_factory_.GetWeakPtr(), index),
       base::BindOnce(&FilesRequestHandler::FileRequestStartCallback,
-                     weak_ptr_factory_.GetWeakPtr(), index));
-  safe_browsing::FileAnalysisRequest* request_raw = request.get();
-  content_analysis_info_->InitializeRequest(request_raw);
+                     weak_ptr_factory_.GetWeakPtr(), index),
+      /* is_obfuscated */ false,
+      /* force_sync_hash_computation */ false);
+  enterprise_connectors::FileAnalysisRequestBase* request_raw = request.get();
+  content_analysis_info_->InitializeRequest(
+      request_raw, /*include_enterprise_only_fields=*/true);
   request_raw->set_analysis_connector(
       AccessPointToEnterpriseConnector(access_point_));
   request_raw->set_source(source_);
@@ -237,7 +241,15 @@ void FilesRequestHandler::OnGotFileInfo(
   DCHECK_LT(index, paths_.size());
   DCHECK_EQ(paths_.size(), file_info_.size());
 
-  file_info_[index].sha256 = data.hash;
+  file_info_[index].sha256_or_cb = data.hash;
+  if (data.hash.empty() && request->register_on_got_hash_callback_) {
+    request->register_on_got_hash_callback_.Run(
+        /* call_last= */ false,
+        base::BindOnce(&FilesRequestHandler::OnGotHash,
+                       weak_ptr_factory_.GetWeakPtr(), index));
+    file_info_[index].sha256_or_cb = base::BindRepeating(
+        request->register_on_got_hash_callback_, /* call_last= */ false);
+  }
   file_info_[index].size = data.size;
   file_info_[index].mime_type = data.mime_type;
 
@@ -270,6 +282,12 @@ void FilesRequestHandler::OnGotFileInfo(
   }
 
   UploadFileForDeepScanning(result, paths_[index], std::move(request));
+}
+
+void FilesRequestHandler::OnGotHash(size_t index, std::string hash) {
+  // The FileAnalysisRequest will soon be destroyed, so overwrite the callback
+  // to that object with the actual hash.
+  file_info_[index].sha256_or_cb = hash;
 }
 
 void FilesRequestHandler::FinishRequestEarly(
@@ -341,7 +359,7 @@ void FilesRequestHandler::FileRequestCallback(
                                    : upload_start_time_;
 
   const auto& analysis_settings = content_analysis_info_->settings();
-  safe_browsing::RecordDeepScanMetrics(
+  RecordDeepScanMetrics(
       analysis_settings.cloud_or_local_settings.is_cloud_analysis(),
       access_point_, base::TimeTicks::Now() - start_timestamp,
       file_info_[index].size, upload_result, response);
@@ -360,15 +378,14 @@ void FilesRequestHandler::FileRequestCallback(
   MaybeReportDeepScanningVerdict(
       ReportingEventRouterFactory::GetForBrowserContext(profile_),
       content_analysis_info_.get(), source_, destination_, path.AsUTF8Unsafe(),
-      file_info_[index].sha256, file_info_[index].mime_type,
+      file_info_[index].sha256_or_cb, file_info_[index].mime_type,
       AccessPointToTriggerString(access_point_), content_transfer_method_,
       content_analysis_info_->GetContentAreaAccountEmail(),
       file_info_[index].size, upload_result, response,
       CalculateEventResult(analysis_settings, request_handler_result.complies,
                            result_is_warning));
 
-  safe_browsing::DecrementCrashKey(
-      safe_browsing::ScanningCrashKey::PENDING_FILE_UPLOADS);
+  DecrementCrashKey(ScanningCrashKey::PENDING_FILE_UPLOADS);
 
   MaybeCompleteScanRequest();
 }
@@ -387,8 +404,10 @@ void FilesRequestHandler::CreateFileOpeningJob(
     file_access::ScopedFileAccess file_access) {
   scoped_file_access_ =
       std::make_unique<file_access::ScopedFileAccess>(std::move(file_access));
+  // Keep a reference to `file_opening_job` in each task to ensure
+  // its lifetime will be longer than the request.
   file_opening_job_ =
-      std::make_unique<safe_browsing::FileOpeningJob>(std::move(tasks));
+      base::MakeRefCounted<safe_browsing::FileOpeningJob>(std::move(tasks));
 }
 
 }  // namespace enterprise_connectors

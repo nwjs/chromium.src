@@ -558,6 +558,11 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   upload_request_.client_behavior_signals.push_back(
       ClientBehaviorConstants::kShowAccountEmailInLegalMessage);
+#else
+  if (base::FeatureList::IsEnabled(features::kAutofillEnableWalletBrandingV2)) {
+    upload_request_.client_behavior_signals.push_back(
+        ClientBehaviorConstants::kShowAccountEmailInLegalMessage);
+  }
 #endif
 
   // Check if we should request the CVC-inclusive legal message and if the user
@@ -1650,12 +1655,6 @@ void CreditCardSaveManager::LogSaveCardRequestExpirationDateReasonMetric() {
 }
 
 bool CreditCardSaveManager::ShouldRequestCvcInclusiveLegalMessage() const {
-  // If the main CVC storage feature is disabled, we should never request the
-  // CVC-inclusive legal message.
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillEnableCvcStorageAndFilling)) {
-    return false;
-  }
 #if BUILDFLAG(IS_IOS)
   // On iOS, we request the CVC-inclusive message if a CVC is already present,
   // or if the save prompt will be the infobar and detail page flow, where a CVC

@@ -27,6 +27,21 @@
 
 namespace content {
 
+struct CONTENT_EXPORT DownloadUrlMetadata {
+  DownloadUrlMetadata();
+  ~DownloadUrlMetadata();
+
+  DownloadUrlMetadata(const DownloadUrlMetadata&);
+  DownloadUrlMetadata& operator=(const DownloadUrlMetadata&);
+
+  DownloadUrlMetadata(DownloadUrlMetadata&&);
+  DownloadUrlMetadata& operator=(DownloadUrlMetadata&&);
+
+  std::string mime_type;
+  std::string suggested_file_name;
+  GURL url;
+};
+
 struct CONTENT_EXPORT DropData {
   struct CONTENT_EXPORT FileSystemFileInfo {
     // Writes file system files to the pickle.
@@ -92,8 +107,9 @@ struct CONTENT_EXPORT DropData {
   // Holds one or more URLs, such as those from dragging links or images.
   std::vector<ui::ClipboardUrlInfo> url_infos;
 
-  // User is dragging a link out-of the webview.
-  std::u16string download_metadata;
+  // User is dragging a link out-of the webview using the non-standard
+  // "downloadurl" type.
+  std::optional<DownloadUrlMetadata> download_metadata;
 
   // Referrer policy to use when dragging a link out of the webview results in
   // a download.
@@ -135,6 +151,9 @@ struct CONTENT_EXPORT DropData {
   // a discussion of `operation` and `document_is_handling_drag`.
   ui::mojom::DragOperation operation = ui::mojom::DragOperation::kNone;
   bool document_is_handling_drag = false;
+
+  // Raw source effectAllowed value, if available.
+  std::optional<std::u16string> source_effect_allowed;
 };
 
 }  // namespace content

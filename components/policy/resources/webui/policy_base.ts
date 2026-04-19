@@ -17,9 +17,15 @@ import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.j
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getRequiredElement} from 'chrome://resources/js/util.js';
 
+import {BrowserProxy} from './browser_proxy.js';
+import type {PolicyPageHandlerInterface} from './policy.mojom-webui.js';
 import type {Policy} from './policy_row.js';
 import type {PolicyTableElement, PolicyTableModel} from './policy_table.js';
 import type {Status} from './status_box.js';
+
+const policyPageMojoMigrationEnabled =
+    loadTimeData.getBoolean('policyPageMojoMigrationEnabled');
+
 export interface PolicyNamesResponse {
   [id: string]: {name: string, policyNames: NonNullable<string[]>};
 }
@@ -46,10 +52,19 @@ export class Page {
     this.policyTables = {};
   }
 
+  private get pageHandler(): PolicyPageHandlerInterface {
+    return BrowserProxy.getInstance().handler;
+  }
+
   /**
    * Main initialization function. Called by the browser on page load.
    */
   initialize() {
+    if (policyPageMojoMigrationEnabled) {
+      this.pageHandler.getDebugString().then(
+          ({message}) => console.info(message));
+    }
+
     // The default path is loaded when one path is not supported, so simple
     // redirect to the home path
     if (!loadTimeData.getString('acceptedPaths')
@@ -64,7 +79,7 @@ export class Page {
 
     const policyElement = getRequiredElement('policy-ui');
 
-    sendWithPromise('shouldShowPromotion').then((shouldShowPromo: boolean) => {
+    sendWithPromise<boolean>('shouldShowPromotion').then((shouldShowPromo: boolean) => {
       if (!shouldShowPromo) {
         return;
       }
@@ -108,18 +123,20 @@ export class Page {
         getRequiredElement<HTMLInputElement>('search-field-input');
     filterElement.focus();
 
-    filterElement.addEventListener('search', () => {
+    const onFilterChanged = () => {
       for (const policyTable in this.policyTables) {
         this.policyTables[policyTable]!.setFilterPattern(filterElement.value);
       }
-    });
+    };
+    filterElement.addEventListener('search', onFilterChanged);
+    filterElement.addEventListener('input', onFilterChanged);
 
     const reloadPoliciesButton =
         getRequiredElement<HTMLButtonElement>('reload-policies');
     reloadPoliciesButton.onclick = () => {
       reloadPoliciesButton.disabled = true;
       this.createToast(loadTimeData.getString('reloadingPolicies'));
-      sendWithPromise('reloadPolicies');
+      sendWithPromise<void>('reloadPolicies');
     };
 
     this.setupMoreActionsMenuNavigation_();
@@ -131,7 +148,7 @@ export class Page {
       exportButton.style.display = 'none';
     } else {
       exportButton.onclick = () => {
-        sendWithPromise('exportPoliciesJSON');
+        sendWithPromise<void>('exportPoliciesJSON');
       };
     }
 
@@ -144,7 +161,7 @@ export class Page {
     uploadReportButton.onclick = () => {
       uploadReportButton.disabled = true;
       this.createToast(loadTimeData.getString('reportUploading'));
-      sendWithPromise('uploadReport').then(() => {
+      sendWithPromise<void>('uploadReport').then(() => {
         uploadReportButton.disabled = false;
         this.createToast(loadTimeData.getString('reportUploaded'));
       });
@@ -152,7 +169,7 @@ export class Page {
     // </if>
 
     getRequiredElement('copy-policies').onclick = () => {
-      sendWithPromise('copyPoliciesJSON');
+      sendWithPromise<void>('copyPoliciesJSON');
       this.createToast(loadTimeData.getString('copyPoliciesDone'));
     };
 
@@ -162,7 +179,7 @@ export class Page {
       }
     };
 
-    sendWithPromise('listenPoliciesUpdates');
+    sendWithPromise<void>('listenPoliciesUpdates');
     addWebUiListener(
         'status-updated', (status: Status) => this.setStatus(status));
     addWebUiListener(

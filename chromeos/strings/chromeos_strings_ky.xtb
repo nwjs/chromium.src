@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Кеңешти киргизиңиз</translation>
 <translation id="115705039208660697">ананастар</translation>
 <translation id="1164939766849482256">Таңдан караңгыга көшөгөсү</translation>
-<translation id="1167755866710282443">Баскычтарды тууралоо үчүн менюну ачыңыз. Жылдыруу үчүн менюну сүйрөңүз.</translation>
 <translation id="1171349345463658120">кумдуу лагуна</translation>
 <translation id="1174073918202301297">Кыска жол кошулду</translation>
 <translation id="11743817593307477">Бул башкаруу элементин каалаган оюн аракетине жылдыруу үчүн жебе баскычтарын колдонуңуз. Башкаруу элементин жайгаштыруу үчүн Enter баскычын колдонуңуз. Жокко чыгаруу үчүн Escape баскычын колдонуңуз.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Файлды алмаштыруу</translation>
 <translation id="2006864819935886708">Байланыш</translation>
 <translation id="2008685064673031089">Баштапкы издөө</translation>
-<translation id="2011174342667534258">Иштеп чыгуучунун топтомунун версиясы:</translation>
 <translation id="2016697457005847575">Бузулууларды аныктап оңдоо кадамдарын аткарып көрүңүз</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">идиш-аяк</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Баскычтарды дайындоо үчүн D-pad</translation>
 <translation id="3217462202230355157">Микрофонуңуз туташып турганын текшерип же <ph name="DEVICE_TYPE" /> түзмөгүңүздү өчүрүп күйгүзүп көрүңүз</translation>
 <translation id="3226405216343213872">Сканерлер изделүүдө</translation>
-<translation id="3226657629376379887">Калып боюнча аракеттер менюсу</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> маанисин төмөнкүгө бөлүңүз: <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">санариптик искусство</translation>
 <translation id="3246869037381808805">1 күндөн мурунку басып чыгаруу тапшырмалары өчүрүлөт</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Ачкычтын багыты</translation>
 <translation id="3294437725009624529">Конок</translation>
 <translation id="3303855915957856445">Эч нерсе табылган жок</translation>
-<translation id="3305294846493618482">дагы</translation>
 <translation id="3310640316857623290">DNS күтүү убакыты уруксат берилген босогодон бир кыйла жогору</translation>
 <translation id="3316495615885967552">Корутунду жана аталыш түзүү үлгүсүн жүктөп алуу аяктады</translation>
 <translation id="3321030238473337787">Ылдамдыгы</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Бир жерден ката кетти. Кайталап көрүңүз.</translation>
 <translation id="357889014807611375">чектелген Wi-Fi</translation>
 <translation id="3583278742022654445">Cигнал начар. Wi-Fi сигналынын булагына жакыныраак жылып көрүңүз.</translation>
+<translation id="3586931643579894722">Чоо-жайын жашыруу</translation>
 <translation id="3588034708467091142">Интернет байланышыңызды текшерип, кайталап көрүңүз.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> – <ph name="APN_NAME" /> байланыш түйүнүнүн колдонуучуга ыңгайлуу аталышы.</translation>
 <translation id="3595596368722241419">Батарея толук</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">10 секунд артка түрдүрүү</translation>
 <translation id="4128271910628504223">Мисалы, "тумандуу токойдун сүрөтүн тарт" деген сурамды киргизиңиз</translation>
 <translation id="4130035430755296270">Дагы башка калыптарды көрүү үчүн үстүнө алып келиңиз</translation>
-<translation id="4130750466177569591">Макул</translation>
 <translation id="4131410914670010031">Ак-кара</translation>
 <translation id="4137700675046373159">ишембиде</translation>
 <translation id="4139326893730851150">Орнотулган программанын жаңыртуулары</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Өтмөк</translation>
 <translation id="5612205513582918357">Окуу куралдары экраныңызды <ph name="RECEIVER_NAME" /> менен бөлүшүп жатат</translation>
 <translation id="5613201299517339763">Чыгып кеттиңиз</translation>
-<translation id="5620281292257375798">Ички колдонуу үчүн</translation>
 <translation id="5628106863521633649">Жеткиликтүү тилдер</translation>
 <translation id="5630438231335788050">баухаус</translation>
 <translation id="5631759159893697722">аннотация</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">backspace</translation>
 <translation id="6137614725462089991">киберпанк</translation>
 <translation id="6137767437444130246">Колдонуучунун тастыктамасы</translation>
+<translation id="6140948187512243695">Чоо-жайын көрсөтүү</translation>
 <translation id="6146993107019042706">Бүтүрүү үчүн жаңы сырсөздү киргизиңиз</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Интернетке туташа албай жатат</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881"><ph name="DEVICE_TYPE" /> түзмөгүн <ph name="MANAGER" /> башкарат. Администраторлор түзмөктү алыстан конфигурациялай алышат.</translation>
 <translation id="7180611975245234373">Жаңылоо</translation>
 <translation id="7180865173735832675">Өзгөчөлөштүрүү</translation>
-<translation id="7184043045742675738">Баскычты тууралоо үчүн каалаган баскычты басыңыз. Чычкан же жебе баскычтары менен баскычты жылдырыңыз.</translation>
 <translation id="7187669805838282391">шаршембиде</translation>
 <translation id="7205318498545665455">Микрофонуңузду тандаңыз</translation>
-<translation id="7206979415662233817">Тейлөө шарттары</translation>
 <translation id="7210635925306941239">көгүлтүр</translation>
 <translation id="7212547870105584639">Тармактын APN параметрлерин тескеңиз. APN'дер мобилдик тармак менен Интернеттин ортосундагы байланышты түзүшөт. <ph name="BEGIN_LINK_LEARN_MORE" />Кеңири маалымат<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Тышкы түзмөктөр үчүн орнотулган программанын жаңыртуулары</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">жашыл жана көгүш жашыл</translation>
 <translation id="7328475450575141167">бейиш кушу</translation>
-<translation id="7331297744262591636">Сиз кеминде 18 жашта болуп, ЖИ тушкагаздарын <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Google'дун Тейлөө шарттарына<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> жана <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Генеративдик ЖИни пайдалануунун кошумча шарттарына<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" /> ылайык колдонууга макул болушуңуз керек.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ЖИ менен тушкагаздарды коммерциялык максатта эмес, жеке колдонуу үчүн гана түзө аласыз. Тушкагаз сунуштарын алуу үчүн сиз киргизген текст <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google'дун Купуялык саясатына<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> ылайык Google'дун ЖИ серверлерине жөнөтүлөт. <ph name="BEGIN_LINK_LEARN_MORE" />Кеңири маалымат<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; Google Издөөдөгү натыйжаларды көрүү үчүн Издөө жана Боштук баскычтарын басыңыз.</translation>
 <translation id="7343649194310845056">Тармак түзмөктөрү</translation>
 <translation id="7344788170842919262">топурак түсү</translation>
 <translation id="7346768383111016081">Баскычтоп менен ойноо үчүн оюн аракетине башкаруу элементин коюңуз</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">Киргизүү параметрлери</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> калды</translation>
 <translation id="7600430297804876776"><ph name="MANAGER" /> администратору ушул <ph name="DEVICE_TYPE" /> түзмөгүн колдонууга боло турган убакытты көрсөттү.</translation>
-<translation id="7613724632293948900">Чычкан же жебе баскычтары менен жылдырыңыз.</translation>
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> тандоо</translation>
 <translation id="7618774594543487847">Нейтралдуу</translation>
 <translation id="7620771111601174153">Жардам борборуна өтүп, кененирээк маалымат алыңыз</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">Майнаптуу иштөө үчүн Google'дун жасалма интеллектин колдонуңуз</translation>
 <translation id="8200772114523450471">Улантуу</translation>
 <translation id="8206859287963243715">Уюктук</translation>
+<translation id="8208043093301544621">Башкы бет</translation>
 <translation id="8208861521865154048">Бонустар</translation>
 <translation id="8226628635270268143">Сүйүктүү сүрөттөр менен альбомдорду тандоо</translation>
 <translation id="8227119283605456246">Файл тиркөө</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Ушул видеону колдонуу</translation>
-<translation id="9087578468327036362">Бул сурам тууралуу кабарлоо</translation>
 <translation id="9088306295921699330">Учурдагы колдонулушу</translation>
 <translation id="9088994563996376283">Жөнөкөйлөтүү</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">Сүрөт камера фону катары коюлган</translation>
 <translation id="9211490828691860325">Бардык иш такталар</translation>
 <translation id="9218016617214286986">Белгилүү APN'дерди көрсөтүү</translation>
-<translation id="932327136139879170">Башкы</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Пикириңизди билдириңиз</translation>
 <translation id="950520315903467048"><ph name="DIRECTION" /> багыты үчүн баскыч жок. <ph name="ASSIGN_INSTRUCTION" /></translation>

@@ -5,15 +5,20 @@
 #ifndef CHROME_BROWSER_AUXILIARY_SEARCH_AUXILIARY_SEARCH_DONATION_SERVICE_H_
 #define CHROME_BROWSER_AUXILIARY_SEARCH_AUXILIARY_SEARCH_DONATION_SERVICE_H_
 
-#include <optional>
+#include <jni.h>
+
+#include <memory>
+#include <vector>
 
 #include "base/android/application_status_listener.h"
-#include "base/memory/raw_ptr.h"
+#include "base/functional/callback.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
+#include "third_party/jni_zero/jni_zero.h"
 
 class PrefService;
 class PrefRegistrySimple;
@@ -27,16 +32,20 @@ struct URLVisitsMetadata;
 
 // AuxiliarySearchDonationService manages donation of Chrome data to AppSearch.
 // Currently only donates browsing history data.
+// The provided donate callback is only called with non-empty vectors.
 class AuxiliarySearchDonationService
     : public KeyedService,
       public page_content_annotations::PageContentAnnotationsService::
           PageContentAnnotationsObserver {
  public:
+  using DonateCallback = base::RepeatingCallback<void(
+      std::vector<jni_zero::ScopedJavaLocalRef<jobject>>)>;
   explicit AuxiliarySearchDonationService(
       page_content_annotations::PageContentAnnotationsService*
           page_content_annotations_service,
       visited_url_ranking::VisitedURLRankingService* ranking_service,
-      PrefService* pref_service);
+      PrefService* pref_service,
+      DonateCallback donate_callback);
   ~AuxiliarySearchDonationService() override;
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
@@ -63,10 +72,11 @@ class AuxiliarySearchDonationService
       const visited_url_ranking::URLVisitsMetadata& metadata);
   void OnApplicationStateChanged(base::android::ApplicationState state);
 
-  raw_ptr<page_content_annotations::PageContentAnnotationsService>
+  const raw_ref<page_content_annotations::PageContentAnnotationsService>
       page_content_annotations_service_;
-  raw_ptr<visited_url_ranking::VisitedURLRankingService> ranking_service_;
-  raw_ptr<PrefService> pref_service_;
+  const raw_ref<visited_url_ranking::VisitedURLRankingService> ranking_service_;
+  const raw_ref<PrefService> pref_service_;
+  const DonateCallback donate_callback_;
   std::unique_ptr<base::android::ApplicationStatusListener>
       application_status_listener_;
   base::OneShotTimer donation_timer_;

@@ -54,7 +54,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 // Checks whether `country_code` belongs to a country where Wallet is
 // supported.
 [[nodiscard]] bool IsWalletSupportedCountry(
-    const GeoIpCountryCode& country_code) {
+    const GeoIpCountryCode& country_code,
+    std::optional<EntityType> entity_type) {
   // List of countries where Wallet is supported.
   constexpr static auto kWalletSupportedCountries =
       base::MakeFixedFlatSet<std::string_view>(
@@ -85,7 +86,22 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     return true;
   }
 
-  return kWalletSupportedCountries.contains(country_code.value());
+  if (!kWalletSupportedCountries.contains(country_code.value())) {
+    return false;
+  }
+
+  // The entity type is not set for confirming whether the Wallet promotion can
+  // be shown.
+  if (!entity_type) {
+    return true;
+  }
+
+  // List of countries in which private passes are not supported.
+  constexpr static auto kPrivatePassExclusions =
+      base::MakeFixedFlatSet<std::string_view>({"FR", "OM"});
+  return !IsMaskedStorageSupported(*entity_type,
+                                   EntityInstance::RecordType::kServerWallet) ||
+         !kPrivatePassExclusions.contains(country_code.value());
 }
 
 // Checks whether `country_code` belongs to a permitted GeoIp.
@@ -144,13 +160,16 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case EntityTypeName::kNationalIdCard:
     case EntityTypeName::kPassport:
     case EntityTypeName::kDriversLicense:
-    case EntityTypeName::kOrder:
       return prefs.GetBoolean(prefs::kAutofillAiIdentityEntitiesEnabled);
     case EntityTypeName::kVehicle:
     case EntityTypeName::kFlightReservation:
     case EntityTypeName::kRedressNumber:
     case EntityTypeName::kKnownTravelerNumber:
       return prefs.GetBoolean(prefs::kAutofillAiTravelEntitiesEnabled);
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      // TODO(crbug.com/484094746): Add prefs for orders and shipments.
+      return false;
   }
   NOTREACHED();
 }
@@ -184,9 +203,14 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 // (`kAutofillAiWithDataSchema`, `kAutofillAiServerModel`).
 [[nodiscard]] bool SatisfiesFeatureRequirements(
     FeatureCheck is_enabled,
+    bool has_entity_data_saved,
     AutofillAiAction action,
     std::optional<EntityType> entity_type,
     std::string* debug_message) {
+  if (IsRelevantForDataTransparency(action) && has_entity_data_saved) {
+    return true;
+  }
+
   // Everything requires that `kAutofillAiWithDataSchema` is enabled.
   if (!is_enabled(features::kAutofillAiWithDataSchema)) {
     MaybeOutputReason(debug_message,
@@ -206,6 +230,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
         return is_enabled(features::kAutofillAiWalletPrivatePasses);
       case EntityTypeName::kFlightReservation:
       case EntityTypeName::kOrder:
+      case EntityTypeName::kShipment:
         return false;
     }
     NOTREACHED();
@@ -373,6 +398,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     const IdentityManager* identity_manager,
     bool has_entity_data_saved,
     AutofillAiAction action,
+    std::optional<EntityType> entity_type,
     std::string* debug_message) {
   if (IsRelevantForDataTransparency(action) && has_entity_data_saved) {
     return true;
@@ -392,6 +418,44 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
                       "User's sign-in is in a persistent error state.");
     return false;
   }
+  switch (action) {
+    case AutofillAiAction::kImportToWallet:
+      CHECK(entity_type) << "An entity type is required to check if an entity "
+                            "can be upstreamed";
+      if (!IsMaskedStorageSupported(
+              *entity_type, EntityInstance::RecordType::kServerWallet)) {
+        // For public passes, there are no additional account requirements.
+        break;
+      }
+      // For private passes, underaged users are not allowed to save.
+      // TODO(crbug.com/495779639): This `can_use_model_execution_features()`
+      // check is a very hacky way to check whether the user is underaged.
+      // Consider defining a separate capability or syncing a separate setting
+      // through ACCOUNT_SETTING instead.
+      if (identity_manager
+              ->FindExtendedAccountInfo(identity_manager->GetPrimaryAccountInfo(
+                  signin::ConsentLevel::kSignin))
+              .capabilities.can_use_model_execution_features() !=
+          signin::Tribool::kTrue) {
+        MaybeOutputReason(debug_message, "User is underaged.");
+        return false;
+      }
+      break;
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kCrowdsourcingVote:
+    case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
+    case AutofillAiAction::kFilling:
+    case AutofillAiAction::kImport:
+    case AutofillAiAction::kIphForOptIn:
+    case AutofillAiAction::kListEntityInstancesInSettings:
+    case AutofillAiAction::kLogToMqls:
+    case AutofillAiAction::kOptIn:
+    case AutofillAiAction::kEnableOrDisable:
+    case AutofillAiAction::kServerClassificationModel:
+    case AutofillAiAction::kUseCachedServerClassificationModelResults:
+    case AutofillAiAction::kWalletDataSharingPromotion:
+      break;
+  }
   return true;
 }
 
@@ -399,9 +463,11 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 // are satisfied.
 [[nodiscard]] bool SatisfiesMiscellaneousRequirements(
     bool is_off_the_record,
+    bool supports_reauth,
     bool has_entity_data_saved,
     const GeoIpCountryCode& country_code,
     AutofillAiAction action,
+    std::optional<EntityType> entity_type,
     std::string* debug_message) {
   // Off-the-record.
   switch (action) {
@@ -433,10 +499,41 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
   switch (action) {
     case AutofillAiAction::kImportToWallet:
     case AutofillAiAction::kWalletDataSharingPromotion:
-      if (!IsWalletSupportedCountry(country_code)) {
+      if (!IsWalletSupportedCountry(country_code, entity_type)) {
         return false;
       }
       break;
+    case AutofillAiAction::kAddLocalEntityInstanceInSettings:
+    case AutofillAiAction::kCrowdsourcingVote:
+    case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
+    case AutofillAiAction::kImport:
+    case AutofillAiAction::kIphForOptIn:
+    case AutofillAiAction::kListEntityInstancesInSettings:
+    case AutofillAiAction::kLogToMqls:
+    case AutofillAiAction::kOptIn:
+    case AutofillAiAction::kEnableOrDisable:
+    case AutofillAiAction::kServerClassificationModel:
+    case AutofillAiAction::kFilling:
+    case AutofillAiAction::kUseCachedServerClassificationModelResults:
+      break;
+  }
+
+  // Re-auth availability.
+  switch (action) {
+    case AutofillAiAction::kImportToWallet:
+      CHECK(entity_type) << "An entity type is required to check if an entity "
+                            "can be upstreamed";
+      // Importing Wallet private passes is only supported on devices with
+      // re-auth.
+      if (!supports_reauth &&
+          IsMaskedStorageSupported(*entity_type,
+                                   EntityInstance::RecordType::kServerWallet) &&
+          !base::FeatureList::IsEnabled(
+              features::debug::kAutofillAiDisableReauthRequirement)) {
+        return false;
+      }
+      break;
+    case AutofillAiAction::kWalletDataSharingPromotion:
     case AutofillAiAction::kAddLocalEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
@@ -504,19 +601,19 @@ bool MayPerformAutofillAiAction(
 #endif
   };
 
-  if (!SatisfiesFeatureRequirements(feature_check, action, entity_type,
-                                    debug_message)) {
-    return false;
-  }
-
   if (!edm) {
     MaybeOutputReason(debug_message, "No EDM.");
     return false;
   }
   const bool has_entity_data_saved = !edm->GetEntityInstances().empty();
 
+  if (!SatisfiesFeatureRequirements(feature_check, has_entity_data_saved,
+                                    action, entity_type, debug_message)) {
+    return false;
+  }
+
   if (!SatisfiesAccountRequirements(identity_manager, has_entity_data_saved,
-                                    action, debug_message)) {
+                                    action, entity_type, debug_message)) {
     return false;
   }
 
@@ -533,9 +630,10 @@ bool MayPerformAutofillAiAction(
     return false;
   }
 
-  return SatisfiesMiscellaneousRequirements(is_off_the_record,
-                                            has_entity_data_saved, country_code,
-                                            action, debug_message);
+  // If the re-auth availability is unknown, error on the side of caution.
+  return SatisfiesMiscellaneousRequirements(
+      is_off_the_record, edm->GetReauthAvailability().value_or(false),
+      has_entity_data_saved, country_code, action, entity_type, debug_message);
 }
 
 bool GetAutofillAiOptInStatus(const AutofillClient& client) {

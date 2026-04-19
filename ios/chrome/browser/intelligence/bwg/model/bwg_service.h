@@ -5,84 +5,27 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_
 
-#include <optional>
+#import <optional>
 
-#import "base/memory/raw_ptr.h"
 #import "components/keyed_service/core/keyed_service.h"
-#import "components/signin/public/identity_manager/identity_manager.h"
 
-class AuthenticationService;
-namespace signin {
-class CoreAccountInfo;
-class IdentityManager;
-}  // namespace signin
-class OptimizationGuideService;
-class PrefService;
-class ProfileIOS;
+namespace gemini {
+struct IneligibilityReasons;
+}  // namespace gemini
 
-// A browser-context keyed service for BWG.
-class BwgService : public KeyedService,
-                   public signin::IdentityManager::Observer {
+// Interface for BwgService.
+class BwgService : public KeyedService {
  public:
-  BwgService(ProfileIOS* profile,
-             AuthenticationService* auth_service,
-             signin::IdentityManager* identity_manager,
-             PrefService* pref_service,
-             OptimizationGuideService* optimization_guide);
-  ~BwgService() override;
-  void Shutdown() override;
+  ~BwgService() override = default;
 
   // Returns whether the current profile is eligible for Gemini.
-  bool IsProfileEligibleForGemini();
+  virtual bool IsProfileEligibleForGemini() = 0;
 
-  // signin::IdentityManager::Observer:
-  void OnPrimaryAccountChanged(
-      const signin::PrimaryAccountChangeEvent& event) override;
-  void OnRefreshTokenUpdatedForAccount(
-      const CoreAccountInfo& account_info) override;
-  void OnIdentityManagerShutdown(
-      signin::IdentityManager* identity_manager) override;
-
- private:
-  friend class BwgServiceTest;
-
-  // The associated profile.
-  raw_ptr<ProfileIOS> profile_;
-
-  // AuthenticationService used to check the user's account status.
-  raw_ptr<AuthenticationService> auth_service_;
-
-  // Identity manager used to check account capabilities.
-  raw_ptr<signin::IdentityManager> identity_manager_;
-
-  // The PrefService associated with the Profile.
-  raw_ptr<PrefService> pref_service_;
-
-  // The optimization guide service for model execution and page metadata.
-  raw_ptr<OptimizationGuideService> optimization_guide_;
-
-  // Whether the user is ineligible by the Gemini Enterprise policy (not Chrome
-  // Enterprise).
-  std::optional<bool> is_disabled_by_gemini_policy_;
-
-  // Checks if the account is eligible for Gemini Enterprise and populates
-  // `is_disabled_by_gemini_policy_`.
-  void CheckGeminiEnterpriseEligibility();
-
-  // Checks if the account has eligibility for executing the Gemini model.
-  bool CanUseGeminiModelExecution(const AccountInfo& account_info);
-
-  // Clears the Gemini consent profile pref.
-  void ClearConsentPref();
-
-  // Invoked when the eligibility check is done.
-  void OnGeminiEligibilityResult(bool eligible);
-
-  // Weak pointer factory for Gemini eligibility checks.
-  base::WeakPtrFactory<BwgService> eligibility_weak_ptr_factory_{this};
-
-  // Generic weak pointer factory.
-  base::WeakPtrFactory<BwgService> weak_ptr_factory_{this};
+  // Provides more information than `IsProfileEligibleForGemini` for cases where
+  // you need to know the ineligibility reasons of the profile. Profiles which
+  // are deemed eligible for Gemini will result in std::nullopt.
+  virtual std::optional<gemini::IneligibilityReasons>
+  GeminiIneligibilityForProfile() = 0;
 };
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_

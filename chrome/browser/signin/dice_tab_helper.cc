@@ -12,12 +12,14 @@
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
+#include "chrome/browser/metrics/profile_metrics_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_service.h"
@@ -63,8 +65,9 @@ DiceTabHelper::GetEnableSyncCallbackForBrowser() {
                                 content::WebContents* web_contents,
                                 const CoreAccountInfo& account_info) {
     DCHECK(profile);
-    Browser* browser = web_contents ? chrome::FindBrowserWithTab(web_contents)
-                                    : chrome::FindBrowserWithProfile(profile);
+    BrowserWindowInterface* browser =
+        web_contents ? chrome::FindBrowserWithTab(web_contents)
+                     : chrome::FindBrowserWithProfile(profile);
     if (!browser) {
       return;
     }
@@ -80,7 +83,8 @@ DiceTabHelper::GetEnableSyncCallbackForBrowser() {
 
     // TurnSyncOnHelper is suicidal (it will kill itself once it
     // finishes enabling sync).
-    new TurnSyncOnHelper(profile, browser, access_point, promo_action,
+    new TurnSyncOnHelper(profile, browser->GetBrowserForMigrationOnly(),
+                         access_point, promo_action,
                          account_info.account_id, abort_mode, is_sync_promo);
   });
 }
@@ -92,12 +96,12 @@ DiceTabHelper::GetHistorySyncOptinCallbackForBrowser() {
                                 content::WebContents* web_contents,
                                 const CoreAccountInfo& account_info,
                                 signin_metrics::AccessPoint access_point) {
-    CHECK(base::FeatureList::IsEnabled(
-        syncer::kReplaceSyncPromosWithSignInPromos));
+    CHECK(syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
     CHECK(profile);
 
-    Browser* browser = web_contents ? chrome::FindBrowserWithTab(web_contents)
-                                    : chrome::FindBrowserWithProfile(profile);
+    BrowserWindowInterface* browser =
+        web_contents ? chrome::FindBrowserWithTab(web_contents)
+                     : chrome::FindBrowserWithProfile(profile);
     if (!browser) {
       return;
     }
@@ -133,8 +137,9 @@ DiceTabHelper::GetShowSigninErrorCallbackForBrowser() {
     if (!profile) {
       return;
     }
-    Browser* browser = web_contents ? chrome::FindBrowserWithTab(web_contents)
-                                    : chrome::FindBrowserWithProfile(profile);
+    BrowserWindowInterface* browser =
+        web_contents ? chrome::FindBrowserWithTab(web_contents)
+                     : chrome::FindBrowserWithProfile(profile);
     if (!browser) {
       return;
     }
@@ -186,11 +191,12 @@ void DiceTabHelper::InitializeSigninFlow(
     state_->sync_signin_flow_status = SyncSigninFlowStatus::kStarted;
   }
 
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   // This profile creation may lead to the user signing in. To speed up a
   // potential subsequent account capabililties fetch, notify IdentityManager.
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(
-          Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
+      IdentityManagerFactory::GetForProfile(profile);
   identity_manager->PrepareForAddingNewAccount();
 
   if (!record_signin_started_metrics) {
@@ -203,7 +209,8 @@ void DiceTabHelper::InitializeSigninFlow(
   if (reason == signin_metrics::Reason::kSigninPrimaryAccount ||
       reason == signin_metrics::Reason::kAddSecondaryAccount) {
     // See details at go/chrome-signin-metrics-revamp.
-    signin_metrics::LogSignInStarted(access_point);
+    signin_metrics::LogSignInStarted(
+        access_point, *ProfileMetricsServiceFactory::GetForProfile(profile));
   }
 
   if (reason == signin_metrics::Reason::kSigninPrimaryAccount) {

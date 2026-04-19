@@ -39,7 +39,6 @@
 #include "build/build_config.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
-#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -156,6 +155,7 @@
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_source.h"
+#include "ui/base/mojom/menu_source_type.mojom-blink.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/gfx/geometry/transform.h"
@@ -1069,6 +1069,8 @@ void AXObject::SetCachedValuesNeedUpdate(
     bool cached_values_need_update,
     std::optional<TreeUpdateReason> reason) {
   cached_values_need_update_ = cached_values_need_update;
+  cached_values_dirty_reason_ =
+      cached_values_need_update ? reason : std::nullopt;
 #if AX_FAIL_FAST_BUILD()
   CHECK(ax_object_cache_);
   if (cached_values_need_update) {
@@ -1479,7 +1481,7 @@ void AXObject::SerializeHTMLTagAndClass(ui::AXNodeData* node_data) const {
 
   TruncateAndAddStringAttribute(node_data,
                                 ax::mojom::blink::StringAttribute::kHtmlTag,
-                                element->tagName().LowerASCII());
+                                element->tagName().ToAsciiLower());
 
   if (const AtomicString& class_name = element->GetClassAttribute()) {
     TruncateAndAddStringAttribute(
@@ -1507,7 +1509,7 @@ void AXObject::SerializeHTMLAttributesForSnapshot(
       // Attribute already in kHtmlId or kClassName.
       continue;
     }
-    std::string name = attr_name.LocalName().LowerASCII().Utf8();
+    std::string name = attr_name.LocalName().ToAsciiLower().Utf8();
     std::string value = attr.Value().Utf8();
     node_data->html_attributes.push_back(std::make_pair(name, value));
   }
@@ -2943,10 +2945,6 @@ bool AXObject::IsProgressIndicator() const {
   return false;
 }
 
-bool AXObject::IsAXRadioInput() const {
-  return false;
-}
-
 bool AXObject::IsSlider() const {
   return false;
 }
@@ -2961,11 +2959,15 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   //  * Parent is a focusgroup owner whose role was implied (parent has no
   //    explicit role attribute and was generic before inference).
   //  * Current element has no explicit ARIA role (aria_role_ still kUnknown).
-  //  * Current element's native role is generic container or button (to avoid
-  //    overriding richer native semantics like <a>, <input>, etc.).
-  //    Button is included because it is the most common interactive element
-  //    used inside focusgroup patterns (e.g. tabs, menu items) and authors
-  //    expect its role to be inferred from the focusgroup behavior.
+  //  * Current element's native role is generic container, button, or popup
+  //    button (to avoid overriding richer native semantics like <a>, <input>,
+  //    etc.). Button and popup button are included because they are the most
+  //    common interactive elements used inside focusgroup patterns (e.g. tabs,
+  //    menu items, submenu triggers) and authors expect their roles to be
+  //    inferred from the focusgroup behavior. Toggle button (kToggleButton,
+  //    from aria-pressed) is intentionally excluded: aria-pressed declares
+  //    explicit stateful semantics that should not be overridden by implied
+  //    role inference.
   //  * The focusgroup owner's behavior maps to a child role (e.g. tablist->tab,
   //    radiogroup->radio, etc.).
   // TODO(crbug.com/40074157): Investigate why we need to check
@@ -2981,7 +2983,8 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
           element->GetExecutionContext()) &&
       (role_ == ax::mojom::blink::Role::kGenericContainer ||
        role_ == ax::mojom::blink::Role::kUnknown ||
-       role_ == ax::mojom::blink::Role::kButton)) {
+       role_ == ax::mojom::blink::Role::kButton ||
+       role_ == ax::mojom::blink::Role::kPopUpButton)) {
     // Avoid calling GetFocusgroupOwnerOfItem here to prevent
     // unnecessary style recalcs, and state-associated CHECKS.
     // Calling IsKeyboardFocusableSlow is safe here because we are passing the
@@ -3215,10 +3218,6 @@ bool AXObject::IsImageMapLink() const {
   return false;
 }
 
-bool AXObject::IsMenu() const {
-  return RoleValue() == ax::mojom::blink::Role::kMenu;
-}
-
 bool AXObject::IsCheckable() const {
   switch (RoleValue()) {
     case ax::mojom::blink::Role::kCheckBox:
@@ -3335,14 +3334,6 @@ bool AXObject::IsNativeCheckboxInMixedState(const Node* node) {
   return input->ShouldAppearIndeterminate();
 }
 
-bool AXObject::IsMenuRelated() const {
-  return ui::IsMenuRelated(RoleValue());
-}
-
-bool AXObject::IsMeter() const {
-  return RoleValue() == ax::mojom::blink::Role::kMeter;
-}
-
 bool AXObject::IsNativeImage() const {
   return false;
 }
@@ -3413,10 +3404,6 @@ bool AXObject::IsRangeValueSupported() const {
   return ui::IsRangeValueSupported(RoleValue());
 }
 
-bool AXObject::IsScrollbar() const {
-  return RoleValue() == ax::mojom::blink::Role::kScrollBar;
-}
-
 bool AXObject::IsNativeSlider() const {
   return false;
 }
@@ -3427,10 +3414,6 @@ bool AXObject::IsSpinButton() const {
 
 bool AXObject::IsTabItem() const {
   return RoleValue() == ax::mojom::blink::Role::kTab;
-}
-
-bool AXObject::IsTabList() const {
-  return RoleValue() == ax::mojom::blink::Role::kTabList;
 }
 
 bool AXObject::IsTextField() const {
@@ -4340,11 +4323,9 @@ bool AXObject::ComputeIsIgnoredButIncludedInTree() {
     // the final offset because the associated tree position. In some cases
     // platform accessibility code will instead incorrectly emit a caret moved
     // event for the AXPosition which follows the input.
-    if (IsA<HTMLInputElement>(owner) &&
-        (DynamicTo<HTMLInputElement>(owner)->FormControlType() ==
-             FormControlType::kInputSearch ||
-         DynamicTo<HTMLInputElement>(owner)->FormControlType() ==
-             FormControlType::kInputNumber)) {
+    if (auto* input = DynamicTo<HTMLInputElement>(owner);
+        input && (input->FormControlType() == FormControlType::kInputSearch ||
+                  input->FormControlType() == FormControlType::kInputNumber)) {
       return false;
     }
   }
@@ -7485,7 +7466,7 @@ bool AXObject::PerformAction(const ui::AXActionData& action_data) {
     case ax::mojom::blink::Action::kSetSequentialFocusNavigationStartingPoint:
       return RequestSetSequentialFocusNavigationStartingPointAction();
     case ax::mojom::blink::Action::kSetValue:
-      return RequestSetValueAction(String::FromUTF8(action_data.value));
+      return RequestSetValueAction(String::FromUtf8(action_data.value));
     case ax::mojom::blink::Action::kShowContextMenu:
       return RequestShowContextMenuAction();
     case ax::mojom::blink::Action::kScrollToMakeVisible:
@@ -7873,7 +7854,7 @@ bool AXObject::OnNativeShowContextMenuAction() {
   ContextMenuAllowedScope scope;
   WebInputEventResult result =
       document->GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
-          element, kMenuSourceKeyboard);
+          element, ui::mojom::blink::MenuSourceType::kKeyboard);
 
   // The node may have ceased to exist due to the event handler actions, so we
   // check its detached state. We also check the result of the contextMenu
@@ -7934,7 +7915,7 @@ ax::mojom::blink::Role AXObject::FirstValidRoleInRoleString(
       value.SimplifyWhiteSpace().SplitSkippingEmpty(' ');
   for (const auto& child : role_vector) {
     ax::mojom::blink::Role role =
-        AriaRoleToInternalRole(AtomicString(child.LowerASCII()));
+        AriaRoleToInternalRole(AtomicString(child.ToAsciiLower()));
     if (role == ax::mojom::blink::Role::kUnknown ||
         (ignore_form_and_region && (role == ax::mojom::blink::Role::kForm ||
                                     role == ax::mojom::blink::Role::kRegion))) {
@@ -8323,8 +8304,11 @@ const AXObject* AXObject::LowestCommonAncestor(const AXObject& first,
 
 // Extra checks that only occur during serialization.
 void AXObject::PreSerializationConsistencyCheck() const{
-  SCOPED_CRASH_KEY_STRING256("AXObject", "Error",
-                             this->ToString().Utf8().c_str());
+  int reason_val = cached_values_dirty_reason_.has_value()
+                       ? static_cast<int>(cached_values_dirty_reason_.value())
+                       : -1;
+  SCOPED_CRASH_KEY_NUMBER("AXObject", "DirtyReason", reason_val);
+
   CHECK(!IsDetached()) << "Do not serialize detached nodes: " << this;
   CHECK(AXObjectCache().IsFrozen());
   CHECK(!NeedsToUpdateCachedValues()) << "Stale values on: " << this;
@@ -8357,7 +8341,7 @@ String AXObject::GetNodeString(Node* node) {
   }
 
   StringBuilder string_builder;
-  string_builder << "<" << element->tagName().LowerASCII();
+  string_builder << "<" << element->tagName().ToAsciiLower();
   // Cannot safely get @class from SVG elements.
   if (!element->IsSVGElement() &&
       element->FastHasAttribute(html_names::kClassAttr)) {

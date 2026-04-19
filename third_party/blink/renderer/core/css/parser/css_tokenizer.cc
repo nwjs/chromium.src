@@ -117,7 +117,7 @@ CSSParserToken CSSTokenizer::Hash(UChar cc) {
 
 CSSParserToken CSSTokenizer::LetterU(UChar cc) {
   if (unicode_ranges_allowed_ && input_.PeekWithoutReplacement(0) == '+' &&
-      (IsASCIIHexDigit(input_.PeekWithoutReplacement(1)) ||
+      (IsAsciiHexDigit(input_.PeekWithoutReplacement(1)) ||
        input_.PeekWithoutReplacement(1) == '?')) {
     input_.Advance();
     return ConsumeUnicodeRange();
@@ -319,26 +319,26 @@ CSSParserToken CSSTokenizer::ConsumeNumber() {
     sign = kMinusSign;
   }
 
-  number_length = input_.SkipWhilePredicate<IsASCIIDigit>(number_length);
+  number_length = input_.SkipWhilePredicate<IsAsciiDigit>(number_length);
   next = input_.PeekWithoutReplacement(number_length);
   if (next == '.' &&
-      IsASCIIDigit(input_.PeekWithoutReplacement(number_length + 1))) {
+      IsAsciiDigit(input_.PeekWithoutReplacement(number_length + 1))) {
     type = kNumberValueType;
-    number_length = input_.SkipWhilePredicate<IsASCIIDigit>(number_length + 2);
+    number_length = input_.SkipWhilePredicate<IsAsciiDigit>(number_length + 2);
     next = input_.PeekWithoutReplacement(number_length);
   }
 
   if (next == 'E' || next == 'e') {
     next = input_.PeekWithoutReplacement(number_length + 1);
-    if (IsASCIIDigit(next)) {
+    if (IsAsciiDigit(next)) {
       type = kNumberValueType;
       number_length =
-          input_.SkipWhilePredicate<IsASCIIDigit>(number_length + 1);
+          input_.SkipWhilePredicate<IsAsciiDigit>(number_length + 1);
     } else if ((next == '+' || next == '-') &&
-               IsASCIIDigit(input_.PeekWithoutReplacement(number_length + 2))) {
+               IsAsciiDigit(input_.PeekWithoutReplacement(number_length + 2))) {
       type = kNumberValueType;
       number_length =
-          input_.SkipWhilePredicate<IsASCIIDigit>(number_length + 3);
+          input_.SkipWhilePredicate<IsAsciiDigit>(number_length + 3);
     }
   }
 
@@ -435,14 +435,14 @@ CSSParserToken CSSTokenizer::ConsumeStringTokenUntil(UChar ending_code_point) {
 }
 
 CSSParserToken CSSTokenizer::ConsumeUnicodeRange() {
-  DCHECK(IsASCIIHexDigit(input_.PeekWithoutReplacement(0)) ||
+  DCHECK(IsAsciiHexDigit(input_.PeekWithoutReplacement(0)) ||
          input_.PeekWithoutReplacement(0) == '?');
   int length_remaining = 6;
   UChar32 start = 0;
 
   while (length_remaining &&
-         IsASCIIHexDigit(input_.PeekWithoutReplacement(0))) {
-    start = start * 16 + ToASCIIHexValue(Consume());
+         IsAsciiHexDigit(input_.PeekWithoutReplacement(0))) {
+    start = start * 16 + ToAsciiHexValue(Consume());
     --length_remaining;
   }
 
@@ -454,15 +454,15 @@ CSSParserToken CSSTokenizer::ConsumeUnicodeRange() {
       --length_remaining;
     } while (length_remaining && ConsumeIfNext('?'));
   } else if (input_.PeekWithoutReplacement(0) == '-' &&
-             IsASCIIHexDigit(input_.PeekWithoutReplacement(1))) {
+             IsAsciiHexDigit(input_.PeekWithoutReplacement(1))) {
     input_.Advance();
     length_remaining = 6;
     end = 0;
     do {
-      end = end * 16 + ToASCIIHexValue(Consume());
+      end = end * 16 + ToAsciiHexValue(Consume());
       --length_remaining;
     } while (length_remaining &&
-             IsASCIIHexDigit(input_.PeekWithoutReplacement(0)));
+             IsAsciiHexDigit(input_.PeekWithoutReplacement(0)));
   }
 
   return CSSParserToken(kUnicodeRangeToken, start, end);
@@ -602,14 +602,14 @@ StringView CSSTokenizer::ConsumeName() {
       int8_t b __attribute__((vector_size(16)));
       UNSAFE_BUFFERS(memcpy(&b, ptr + size, sizeof(b)));
 
-      // Exactly the same as IsNameCodePoint(), except the IsASCII() part,
+      // Exactly the same as IsNameCodePoint(), except the IsAscii() part,
       // which we deal with below. Note that we compute the inverted condition,
       // since __builtin_ctz wants to find the first 1-bit, not the first 0-bit.
       auto non_name_mask = ((b | 0x20) < 'a' || (b | 0x20) > 'z') && b != '_' &&
                            b != '-' && (b < '0' || b > '9');
 #ifdef __SSE2__
       // pmovmskb extracts only the top bit and ignores the rest,
-      // so to implement the IsASCII() test, which for LChar only
+      // so to implement the IsAscii() test, which for LChar only
       // tests whether the top bit is set, we don't need a compare;
       // we can just rely on the top bit directly (using a PANDN).
       uint16_t bits =
@@ -654,11 +654,13 @@ StringView CSSTokenizer::ConsumeName() {
 
   // Slow path for non-UTF-8 and tokens near the end of the string.
   for (; size < buffer.length(); ++size) {
-    UChar cc = buffer[size];
+    // SAFETY: size checked against length in loop condition.
+    UChar cc = UNSAFE_BUFFERS(buffer[size]);
     if (IsSurrogate(cc)) {
       // Valid surrogate pairs can stay on the fast path.
+      // SAFETY: size + 1 checked against length before use.
       if (IsLeadingSurrogate(cc) && ((size + 1) < buffer.length()) &&
-          IsTrailingSurrogate(buffer[size + 1])) {
+          IsTrailingSurrogate(UNSAFE_BUFFERS(buffer[size + 1]))) {
         ++size;
         continue;
       }
@@ -696,15 +698,15 @@ bool CSSTokenizer::NextTwoCharsAreValidEscape() {
 // http://www.w3.org/TR/css3-syntax/#starts-with-a-number
 bool CSSTokenizer::NextCharsAreNumber(UChar first) {
   UChar second = input_.PeekWithoutReplacement(0);
-  if (IsASCIIDigit(first)) {
+  if (IsAsciiDigit(first)) {
     return true;
   }
   if (first == '+' || first == '-') {
-    return ((IsASCIIDigit(second)) ||
-            (second == '.' && IsASCIIDigit(input_.PeekWithoutReplacement(1))));
+    return ((IsAsciiDigit(second)) ||
+            (second == '.' && IsAsciiDigit(input_.PeekWithoutReplacement(1))));
   }
   if (first == '.') {
-    return (IsASCIIDigit(second));
+    return (IsAsciiDigit(second));
   }
   return false;
 }
@@ -722,6 +724,9 @@ bool CSSTokenizer::NextCharsAreIdentifier(UChar first) {
 }
 
 bool CSSTokenizer::NextCharsAreIdentifier() {
+  if (input_.AtEnd()) {
+    return false;
+  }
   UChar first = Consume();
   bool are_identifier = NextCharsAreIdentifier(first);
   Reconsume(first);

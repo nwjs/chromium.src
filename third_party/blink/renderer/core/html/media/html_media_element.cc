@@ -32,6 +32,7 @@
 #include <variant>
 
 #include "base/auto_reset.h"
+#include "base/check_is_test.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
@@ -122,6 +123,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
@@ -207,7 +209,7 @@ String UrlForLoggingMedia(const KURL& url) {
   if (url.GetString().length() < kMaximumURLLengthForLogging)
     return url.GetString();
   return StrCat(
-      {url.GetString().GetString().Substring(0, kMaximumURLLengthForLogging),
+      {url.GetString().GetString().substr(0, kMaximumURLLengthForLogging),
        "..."});
 }
 
@@ -624,9 +626,39 @@ void HTMLMediaElement::DidMoveToNewDocument(Document& old_document) {
   // load event from within the destructor.
   old_document.DecrementLoadEventDelayCount();
 
+  // When moving a video into a Document Picture-in-Picture window, we must
+  // reparent its frame sink to the new document's compositor. This ensures
+  // the video continues to receive vsyncs even if the opener window is
+  // backgrounded or suspended. This also automatically handles reparenting
+  // back to the original tab when exiting PiP.
+  // Note: For document moves other than Document PiP, there is typically no
+  // player at this point. We generally destroy the player when moving the
+  // element between frames (see the `ShouldReusePlayer()` check above).
+  // Therefore, `GetWebMediaPlayer()` will be null here and reparenting will be
+  // skipped.
+  if (base::FeatureList::IsEnabled(
+          media::kDocumentPictureInPictureReparenting)) {
+    if (IsHTMLVideoElement() && GetWebMediaPlayer() &&
+        GetDocument().GetFrame()) {
+      // A Document will always have a non-null FrameWidget when it has a
+      // LocalFrame, except in specialized cases like DevTools or internal
+      // popups. Because ShouldReusePlayer() restricts player reuse strictly to
+      // valid Document PiP transitions, those specialized frameless cases are
+      // already filtered out.
+      // However, Blink unit tests sometimes use DummyPageHolder, which
+      // intentionally mocks a LocalFrame without creating a FrameWidget.
+      if (auto* frame_widget =
+              GetDocument().GetFrame()->GetWidgetForLocalRoot()) {
+        GetWebMediaPlayer()->ReparentFrameSinkHierarchy(
+            frame_widget->GetFrameSinkId());
+      } else {
+        CHECK_IS_TEST();
+      }
+    }
+  }
+
   HTMLElement::DidMoveToNewDocument(old_document);
 }
-
 bool HTMLMediaElement::ShouldReusePlayer(Document& old_document,
                                          Document& new_document) const {
   // A NULL frame implies a NULL domWindow, so just check one of them
@@ -3480,22 +3512,24 @@ void HTMLMediaElement::SelectedVideoTrackChanged(
 }
 
 void HTMLMediaElement::AddTrack(const media::MediaTrack& track) {
+  // `track.label()` and `track.language()` may contains invalid UTF-8
+  // sequences, and AtomicString::FromUtf8() doesn't accept invalid sequences.
   switch (track.type()) {
     case media::MediaTrack::Type::kVideo: {
       bool enabled = track.enabled() && videoTracks().selectedIndex() == -1;
       videoTracks().Add(MakeGarbageCollected<VideoTrack>(
-          String::FromUTF8(track.track_id().value()),
-          AtomicString(String::FromUTF8(track.kind().value())),
-          AtomicString(String::FromUTF8(track.label().value())),
-          AtomicString(String::FromUTF8(track.language().value())), enabled));
+          String::FromUtf8(track.track_id().value()),
+          AtomicString(String::FromUtf8(track.kind().value())),
+          AtomicString(String::FromUtf8(track.label().value())),
+          AtomicString(String::FromUtf8(track.language().value())), enabled));
       break;
     }
     case media::MediaTrack::Type::kAudio: {
       audioTracks().Add(MakeGarbageCollected<AudioTrack>(
-          String::FromUTF8(track.track_id().value()),
-          AtomicString(String::FromUTF8(track.kind().value())),
-          AtomicString(String::FromUTF8(track.label().value())),
-          AtomicString(String::FromUTF8(track.language().value())),
+          String::FromUtf8(track.track_id().value()),
+          AtomicString(String::FromUtf8(track.kind().value())),
+          AtomicString(String::FromUtf8(track.label().value())),
+          AtomicString(String::FromUtf8(track.language().value())),
           track.enabled(), track.exclusive()));
       break;
     }
@@ -3505,11 +3539,11 @@ void HTMLMediaElement::AddTrack(const media::MediaTrack& track) {
 void HTMLMediaElement::RemoveTrack(const media::MediaTrack& track) {
   switch (track.type()) {
     case media::MediaTrack::Type::kVideo: {
-      videoTracks().Remove(String::FromUTF8(track.track_id().value()));
+      videoTracks().Remove(String::FromUtf8(track.track_id().value()));
       break;
     }
     case media::MediaTrack::Type::kAudio: {
-      audioTracks().Remove(String::FromUTF8(track.track_id().value()));
+      audioTracks().Remove(String::FromUtf8(track.track_id().value()));
       break;
     }
   }
@@ -3517,7 +3551,7 @@ void HTMLMediaElement::RemoveTrack(const media::MediaTrack& track) {
 
 void HTMLMediaElement::SetTrackState(const media::MediaTrack& track,
                                      media::MediaTrack::State state) {
-  auto id = String::FromUTF8(track.track_id().value());
+  auto id = String::FromUtf8(track.track_id().value());
   bool active = state == media::MediaTrack::State::kActive;
   switch (track.type()) {
     case media::MediaTrack::Type::kVideo: {
@@ -4885,11 +4919,6 @@ void HTMLMediaElement::AudioSourceProviderImpl::Wrap(
   web_audio_source_provider_ = std::move(provider);
   if (web_audio_source_provider_) {
     web_audio_source_provider_->SetClient(client_.Get());
-    if (connection_to_destination_ready_) {
-      // The destination is already connected, then we need to notify the
-      // provider.
-      web_audio_source_provider_->ConnectToDestinationReady();
-    }
   }
 }
 
@@ -4927,16 +4956,6 @@ void HTMLMediaElement::AudioSourceProviderImpl::ProvideInput(
   }
 
   web_audio_source_provider_->ProvideInput(web_audio_data, frames_to_process);
-}
-
-void HTMLMediaElement::AudioSourceProviderImpl::ConnectToDestinationReady() {
-  base::AutoLock locker(provide_input_lock);
-
-  if (web_audio_source_provider_) {
-    web_audio_source_provider_->ConnectToDestinationReady();
-  } else {
-    connection_to_destination_ready_ = true;
-  }
 }
 
 void HTMLMediaElement::AudioClientImpl::SetFormat(uint32_t number_of_channels,
@@ -5084,13 +5103,21 @@ HTMLMediaElement::AddMediaPlayerObserverAndPassReceiver() {
   return observer_receiver;
 }
 
-void HTMLMediaElement::RequestPlay() {
-  LocalFrame* frame = GetDocument().GetFrame();
-  if (frame) {
-    LocalFrame::NotifyUserActivation(
-        frame, mojom::blink::UserActivationNotificationType::kInteraction);
+void HTMLMediaElement::RequestPlay(bool triggered_by_user) {
+  if (triggered_by_user) {
+    LocalFrame* frame = GetDocument().GetFrame();
+    if (frame) {
+      LocalFrame::NotifyUserActivation(
+          frame, mojom::blink::UserActivationNotificationType::kInteraction);
+    }
   }
   autoplay_policy_->EnsureAutoplayInitiatedSet();
+  if (web_media_player_ && !triggered_by_user) {
+    // If it was not user triggered, it is an authorized system resume.
+    // Call UnlockBackgroundPlayback to bypass the user activation check while
+    // still unlocking background playback.
+    web_media_player_->UnlockBackgroundPlayback();
+  }
   PlayInternal();
 }
 
@@ -5216,15 +5243,6 @@ std::string HTMLMediaElement::GetActivePresentationId() {
 ExecutionContext* HTMLMediaElement::GetExecutionContextForPlayer() const {
   return opener_document_ ? opener_document_->GetExecutionContext()
                           : GetExecutionContext();
-}
-
-void HTMLMediaElement::ConnectToDestinationReady() {
-  if (!audio_source_node_ || is_audio_destination_connected_) {
-    return;
-  }
-
-  is_audio_destination_connected_ = true;
-  GetAudioSourceProvider().ConnectToDestinationReady();
 }
 
 HTMLMediaElement::OpenerContextObserver::OpenerContextObserver(

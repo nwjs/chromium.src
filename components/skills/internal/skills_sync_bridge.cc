@@ -148,8 +148,7 @@ std::optional<syncer::ModelError> SkillsSyncBridge::ApplyIncrementalSyncChanges(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   std::unique_ptr<syncer::DataTypeStore::WriteBatch> write_batch =
-      store_->CreateWriteBatch();
-  write_batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
+      store_->CreateWriteBatch(std::move(metadata_change_list));
 
   for (const std::unique_ptr<syncer::EntityChange>& entity_change :
        entity_changes) {
@@ -361,6 +360,10 @@ void SkillsSyncBridge::OnSkillUpdated(std::string_view skill_id,
   store_->CommitWriteBatch(std::move(batch),
                            base::BindOnce(&SkillsSyncBridge::OnDatabaseSave,
                                           weak_ptr_factory_.GetWeakPtr()));
+}
+
+bool SkillsSyncBridge::Require1PSkillRefresh() {
+  return false;
 }
 
 void SkillsSyncBridge::OnStoreCreated(

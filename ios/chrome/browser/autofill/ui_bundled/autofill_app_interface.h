@@ -8,7 +8,6 @@
 #import <Foundation/Foundation.h>
 
 #import "base/time/time.h"
-#import "ios/chrome/common/ui/reauthentication/reauthentication_protocol.h"
 
 // CreditCardSaveManager events that can be waited on by the IOSTestEventWaiter.
 // Name reflects the observer method that is triggering this event.
@@ -146,14 +145,6 @@ enum CreditCardSaveManagerObserverEvent : int {
 // want to use this for tests.
 + (void)considerCreditCardFormSecureForTesting;
 
-// Sets a re-authentication mock (i.e. what asks user for fingerprint to
-// view password) and its options for next test.
-+ (void)setUpMockReauthenticationModule;
-+ (void)clearMockReauthenticationModule;
-+ (void)mockReauthenticationModuleCanAttempt:(BOOL)canAttempt;
-+ (void)mockReauthenticationModuleExpectedResult:
-    (ReauthenticationResult)expectedResult;
-
 // Configs the mandatory reauth preference.
 + (void)setMandatoryReauthEnabled:(BOOL)enabled;
 
@@ -162,6 +153,21 @@ enum CreditCardSaveManagerObserverEvent : int {
 
 // Triggers the Autofill AI save entity bubble.
 + (void)showAutofillAiSaveEntityBubble;
+
+// Saves a Redress Number entity with the given name and number. Returns the
+// UUID of the created entity. Because entities are saved asynchronously, it is
+// not immediately available to be retrieved from the EntityDataManager.
++ (NSString*)saveRedressNumberEntityWithName:(NSString*)name
+                                      number:(NSString*)number;
+
+// Removes the entity with the given UUID.
++ (void)removeEntityWithUUID:(NSString*)uuid;
+
+// Deletes all entities modified since the given time.
++ (void)removeEntityModifiedSince:(NSDate*)time;
+
+// Saves a Passport entity with test data.
++ (BOOL)savePassportEntity;
 
 @end
 

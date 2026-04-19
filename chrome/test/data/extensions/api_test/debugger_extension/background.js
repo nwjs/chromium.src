@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var pass = chrome.test.callbackPass;
-var fail = chrome.test.callbackFail;
+const pass = chrome.test.callbackPass;
+const fail = chrome.test.callbackFail;
 
-var debuggee;
-var protocolVersion = "1.3";
+let debuggee;
+let protocolVersion = '1.3';
 
 // Returns true if the platform is Android.
 async function isAndroid() {
@@ -19,36 +19,31 @@ async function isAndroid() {
 chrome.test.runTests([
 
   async function attachToWebUI() {
-    // TODO(crbug.com/371432155): Support chrome.tabs on desktop Android.
-    if (await isAndroid()) {
-      chrome.test.succeed('skipped');
-      return;
-    }
     const {openTab} = await import('/_test_resources/test_util/tabs_util.js');
     const tab = await openTab('chrome://version');
     const debuggee = {tabId: tab.id};
     chrome.debugger.attach(debuggee, protocolVersion,
-                           fail("Cannot attach to this target."));
+                           fail('Cannot attach to this target.'));
     chrome.tabs.remove(tab.id);
   },
 
   function attach() {
-    var extensionId = chrome.runtime.getURL('').split('/')[2];
+    let extensionId = chrome.runtime.getURL('').split('/')[2];
     debuggee = {extensionId: extensionId};
     chrome.debugger.attach(debuggee, protocolVersion, pass());
   },
 
   function attachToMissing() {
-    var missingDebuggee = {extensionId: "foo"};
+    let missingDebuggee = {extensionId: 'foo'};
     chrome.debugger.attach(missingDebuggee, protocolVersion,
-        fail("No background page with given id " +
-            missingDebuggee.extensionId + "."));
+        fail('No background page with given id ' +
+            missingDebuggee.extensionId + '.'));
   },
 
   function attachAgain() {
     chrome.debugger.attach(debuggee, protocolVersion,
-        fail("Another debugger is already attached " +
-            "to the background page with id: " + debuggee.extensionId + "."));
+        fail('Another debugger is already attached ' +
+            'to the background page with id: ' + debuggee.extensionId + '.'));
   },
 
   function detach() {
@@ -57,8 +52,8 @@ chrome.test.runTests([
 
   function detachAgain() {
     chrome.debugger.detach(debuggee,
-        fail("Debugger is not attached to the background page with id: " +
-            debuggee.extensionId + "."));
+        fail('Debugger is not attached to the background page with id: ' +
+            debuggee.extensionId + '.'));
   },
 
   async function discoverOwnBackgroundPage() {
@@ -70,7 +65,7 @@ chrome.test.runTests([
       return;
     }
     chrome.debugger.getTargets(function(targets) {
-      var target = targets.filter(
+      let target = targets.filter(
         function(t) {
           return t.type == 'background_page' &&
                  t.extensionId == debuggee.extensionId &&
@@ -79,27 +74,21 @@ chrome.test.runTests([
       if (target) {
         chrome.debugger.attach({targetId: target.id}, protocolVersion, pass());
       } else {
-        chrome.test.fail("Cannot discover own background page");
+        chrome.test.fail('Cannot discover own background page');
       }
     });
   },
 
   async function discoverWorker() {
-    // SharedWorker is not supported on Chrome for Android.
-    // https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
-    if (await isAndroid()) {
-      chrome.test.succeed('skipped');
-      return;
-    }
-    var workerPort = new SharedWorker("worker.js").port;
+    let workerPort = new SharedWorker('worker.js').port;
     workerPort.onmessage = function() {
       chrome.debugger.getTargets(function(targets) {
-        var page = targets.filter(
+        let page = targets.filter(
             function(t) { return t.type == 'worker' })[0];
         if (page) {
           chrome.debugger.attach({targetId: page.id}, protocolVersion, pass());
         } else {
-          chrome.test.fail("Cannot discover a newly created worker");
+          chrome.test.fail('Cannot discover a newly created worker');
         }
       });
     };

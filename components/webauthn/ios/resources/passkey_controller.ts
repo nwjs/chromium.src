@@ -22,7 +22,13 @@ const GPM_AAGUID = new Uint8Array([
 ]);
 
 // The algorithm supported for passkey registration or assertion.
-const ES256 = -7;
+const ES256: COSEAlgorithmIdentifier = -7;
+
+// The supported AuthenticatorAttachment is 'platform'.
+const PLATFORM: AuthenticatorAttachment = 'platform';
+
+// The supported PublicKeyCredentialType is 'public-key'.
+const PUBLIC_KEY: PublicKeyCredentialType = 'public-key';
 
 // Checks whether provided aaguid is equal to Google Password Manager's aaguid.
 function isGpmAaguid(aaguid: Uint8Array): boolean {
@@ -70,6 +76,24 @@ function isConditionalMediation(
 function shouldHandlePasskeyRequests(isConditional: boolean): boolean {
   return isConditional ? shouldHandleConditionalPasskeyRequests() :
                          shouldHandleModalPasskeyRequests();
+}
+
+// Helper to generate the standard abort error.
+function getAbortError(): DOMException {
+  return new DOMException('The request has been aborted.', 'AbortError');
+}
+
+// Helper to handle the AbortSignal event listener.
+function setupAbortSignalHandler(signal: AbortSignal, promiseId: string): void {
+  signal.addEventListener('abort', () => {
+    DeferredPublicKeyCredentialPromise.reject(promiseId, getAbortError());
+
+    sendWebKitMessage(HANDLER_NAME, {
+      'event': 'cancelRequest',
+      'frameId': gCrWeb.getFrameId(),
+      'requestId': promiseId,
+    });
+  }, {once: true});
 }
 
 // Partial interface for overriding getClientCapabilities properties.
@@ -241,7 +265,7 @@ function isPublicKeyCredential(credential: Credential):
     credential is PublicKeyCredential {
   // Verify that the Credential interface matches the webauthn spec as described
   // here: https://w3c.github.io/webappsec-credential-management/#credential
-  if (credential.type !== 'public-key' || typeof credential.id !== 'string') {
+  if (credential.type !== PUBLIC_KEY || typeof credential.id !== 'string') {
     return false;
   }
 
@@ -533,30 +557,106 @@ function deserializeExtensions(
   return result;
 }
 
+// JSON formatted authenticator response for passkey assertions.
+// eslint-disable-next-line @typescript-eslint/naming-convention
+interface AuthenticatorAssertionResponseJSON {
+  clientDataJSON: string;
+  authenticatorData: string;
+  signature: string;
+  userHandle?: string;
+}
+
+// JSON formatted authenticator response for passkey attestations.
+// eslint-disable-next-line @typescript-eslint/naming-convention
+interface AuthenticatorAttestationResponseJSON {
+  attestationObject: string;
+  authenticatorData: string;
+  clientDataJSON: string;
+  transports: AuthenticatorTransport[];
+  publicKey: string;
+  publicKeyAlgorithm: COSEAlgorithmIdentifier;
+}
+
+// Type containing both types of JSON formatted authenticator responses.
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type AuthenticatorRequestResponseJSON =
+    AuthenticatorAssertionResponseJSON|AuthenticatorAttestationResponseJSON;
+
+// Helper function to convert a list of string transports to
+// AuthenticatorTransport types.
+function toAuthenticatorTransports(transports: string[]):
+    AuthenticatorTransport[] {
+  return transports.map(transport => transport as AuthenticatorTransport);
+}
+
+// Helper function to serialize an AuthenticatorAttestationResponse.
+function toAuthenticatorAttestationResponseJSON(
+    response: AuthenticatorAttestationResponse):
+    AuthenticatorAttestationResponseJSON {
+  const publicKey = response.getPublicKey();
+  return {
+    clientDataJSON: bufferSourceToBase64URL(response.clientDataJSON),
+    authenticatorData: bufferSourceToBase64URL(response.getAuthenticatorData()),
+    attestationObject: bufferSourceToBase64URL(response.attestationObject),
+    transports: toAuthenticatorTransports(response.getTransports()),
+    publicKeyAlgorithm: response.getPublicKeyAlgorithm(),
+    publicKey: publicKey ? bufferSourceToBase64URL(publicKey) : '',
+  };
+}
+
+// Helper function to serialize an AuthenticatorAssertionResponse.
+function toAuthenticatorAssertionResponseJSON(
+    response: AuthenticatorAssertionResponse):
+    AuthenticatorAssertionResponseJSON {
+  const responseJson: AuthenticatorAssertionResponseJSON = {
+    clientDataJSON: bufferSourceToBase64URL(response.clientDataJSON),
+    authenticatorData: bufferSourceToBase64URL(response.authenticatorData),
+    signature: bufferSourceToBase64URL(response.signature),
+  };
+  if (response.userHandle) {
+    responseJson.userHandle = bufferSourceToBase64URL(response.userHandle);
+  }
+  return responseJson;
+}
+
+// Helper function to serialize an AuthenticatorResponse.
+function toAuthenticatorRequestResponseJSON(response: AuthenticatorResponse):
+    AuthenticatorRequestResponseJSON {
+  if ('attestationObject' in response) {
+    const attestationResponse = response as AuthenticatorAttestationResponse;
+    return toAuthenticatorAttestationResponseJSON(attestationResponse);
+  } else {
+    const assertionResponse = response as AuthenticatorAssertionResponse;
+    return toAuthenticatorAssertionResponseJSON(assertionResponse);
+  }
+}
+
 // Creates a PublicKeyCredential from the provided list of arguments.
-// The credential's type is always set to 'public-key'.
 function createPublicKeyCredential(
-    authenticatorAttachment: string, rawId: ArrayBuffer,
+    authenticatorAttachment: AuthenticatorAttachment, rawId: ArrayBuffer,
     response: AuthenticatorResponse,
     extensionOutputs: AuthenticationExtensionsClientOutputs):
     PublicKeyCredential {
   return {
     id: arrayBufferToBase64URL(rawId),
-    type: 'public-key',
+    type: PUBLIC_KEY,
     authenticatorAttachment: authenticatorAttachment,
     rawId: rawId,
     response: response,
     getClientExtensionResults(): AuthenticationExtensionsClientOutputs {
       return extensionOutputs;
     },
-    toJSON(): Record<string, unknown> {
+    // TODO(crbug.com/487338357): Update returned object to match expected type
+    // and remove casting through `any`.
+    toJSON() {
       return {
         id: this.id,
-        type: this.type,
-        authenticatorAttachment: this.authenticatorAttachment,
-        rawId: this.rawId,
-        response: this.response,
-      };
+        rawId: this.id,
+        response: toAuthenticatorRequestResponseJSON(this.response),
+        authenticatorAttachment: authenticatorAttachment,
+        clientExtensionResults: extensionOutputs,
+        type: PUBLIC_KEY,
+      } as unknown as any;
     },
   };
 }
@@ -566,7 +666,7 @@ function createPublicKeyCredential(
 function createEmptyCredential(): PublicKeyCredential {
   const emptyArray = new ArrayBuffer(0);
   const emptyResponse: AuthenticatorResponse = {clientDataJSON: emptyArray};
-  return createPublicKeyCredential('', emptyArray, emptyResponse, {});
+  return createPublicKeyCredential(PLATFORM, emptyArray, emptyResponse, {});
 }
 
 // Returns whether a credential is non empty.
@@ -594,10 +694,10 @@ function createAuthenticatorAttestationResponse(
         null {
           return publicKeySpkiDer;
         },
-    getPublicKeyAlgorithm(): number {
+    getPublicKeyAlgorithm(): COSEAlgorithmIdentifier {
       return ES256;
     },
-    getTransports(): string[] {
+    getTransports(): AuthenticatorTransport[] {
       // Passkeys created by GPM have the 'hybrid' and 'internal' transports.
       return ['hybrid', 'internal'];
     },
@@ -614,8 +714,12 @@ class DeferredPublicKeyCredentialPromise {
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
   public promise: Promise<PublicKeyCredential>;
   // Resolve function of the deferred promise.
+  // TODO(crbug.com/493884900): Fix members asserted as non-null.
+  /* eslint-disable-next-line no-restricted-syntax */
   private resolve!: ResolveFunction<PublicKeyCredential>;
   // Reject function of the deferred promise.
+  // TODO(crbug.com/493884900): Fix members asserted as non-null.
+  /* eslint-disable-next-line no-restricted-syntax */
   private reject!: RejectFunction;
   // Unique ID for this deferred promise.
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
@@ -656,8 +760,8 @@ class DeferredPublicKeyCredentialPromise {
   }
 
   // Rejects a deferred promise.
-  static reject(id: string): void {
-    DeferredPublicKeyCredentialPromise.ongoingPromises.get(id)?.reject();
+  static reject(id: string, reason?: DOMException|string): void {
+    DeferredPublicKeyCredentialPromise.ongoingPromises.get(id)?.reject(reason);
   }
 }
 
@@ -713,9 +817,17 @@ function createPassthroughAssertionRequest(
 // Creates a registration request from the provided parameters.
 function createRegistrationRequest(
     publicKeyOptions: PublicKeyCredentialCreationOptions,
-    isConditional: boolean): Promise<Credential|null> {
+    isConditional: boolean, signal?: AbortSignal): Promise<Credential|null> {
+  if (signal?.aborted) {
+    return Promise.reject(getAbortError());
+  }
+
   const deferredPromise =
       new DeferredPublicKeyCredentialPromise(publicKeyOptions.timeout);
+
+  if (signal) {
+    setupAbortSignalHandler(signal, deferredPromise.id);
+  }
 
   sendWebKitMessage(HANDLER_NAME, {
     'event': 'handleCreateRequest',
@@ -734,10 +846,18 @@ function createRegistrationRequest(
 
 // Creates an assertion request from the provided parameters.
 function createAssertionRequest(
-    publicKeyOptions: PublicKeyCredentialRequestOptions,
-    isConditional: boolean): Promise<Credential|null> {
+    publicKeyOptions: PublicKeyCredentialRequestOptions, isConditional: boolean,
+    signal?: AbortSignal): Promise<Credential|null> {
+  if (signal?.aborted) {
+    return Promise.reject(getAbortError());
+  }
+
   const deferredPromise =
       new DeferredPublicKeyCredentialPromise(publicKeyOptions.timeout);
+
+  if (signal) {
+    setupAbortSignalHandler(signal, deferredPromise.id);
+  }
 
   sendWebKitMessage(HANDLER_NAME, {
     'event': 'handleGetRequest',
@@ -766,7 +886,8 @@ const credentialsContainer: CredentialsContainer = {
     const isConditional: boolean = isConditionalMediation(options);
     if (shouldHandlePasskeyRequests(isConditional) &&
         options.publicKey.challenge) {
-      return createAssertionRequest(options.publicKey, isConditional)
+      return createAssertionRequest(
+                 options.publicKey, isConditional, options.signal)
           .then(result => {
             if (isValidCredential(result)) {
               // TODO(crbug.com/460485333): Notification message of success
@@ -791,7 +912,8 @@ const credentialsContainer: CredentialsContainer = {
     if (shouldHandlePasskeyRequests(isConditional) &&
         options.publicKey.challenge && options.publicKey.user &&
         options.publicKey.user.id) {
-      return createRegistrationRequest(options.publicKey, isConditional)
+      return createRegistrationRequest(
+                 options.publicKey, isConditional, options.signal)
           .then(result => {
             if (isValidCredential(result)) {
               // TODO(crbug.com/460485333): Notification message of success
@@ -873,7 +995,7 @@ function resolveCredentialPromise(
     extensions: AuthenticationExtensionsClientOutputsJSON): void {
   const id = decodeBase64URLToArrayBuffer(id64);
   const credential: PublicKeyCredential = createPublicKeyCredential(
-      'platform', id, response, deserializeExtensions(extensions));
+      PLATFORM, id, response, deserializeExtensions(extensions));
 
   DeferredPublicKeyCredentialPromise.resolve(requestId, credential);
 }

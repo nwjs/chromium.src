@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ro">
 <translation id="1000436330784933699">Poți deschide Lens aici.</translation>
+<translation id="1005291068154454184">Videoclip pe tot ecranul despre cum să setezi Chromium ca browser prestabilit</translation>
 <translation id="1042296835509784301">Deschide Managerul de parole în Chromium.</translation>
 <translation id="1047130070405668746">Selectează Chromium.</translation>
 <translation id="1091252999271033193">Aceasta înseamnă că Chromium va solicita de fiecare dată site-ul mobil.</translation>
@@ -70,9 +71,6 @@ Nu poți salva marcaje noi în cont până când nu ștergi câteva. Dacă te de
 <translation id="2313870531055795960">Verifică adresele URL folosind o listă de site-uri nesigure, stocată în Chromium. Dacă un site încearcă să îți fure parola sau descarci un fișier dăunător, Chromium poate să trimită adresele URL, inclusiv fragmente din conținutul paginilor, către funcția Navigare sigură.</translation>
 <translation id="2314220608288760290">Chromium deschide automat linkurile YouTube incognito în modul incognito.</translation>
 <translation id="231828342043114302">Pentru a primi conținut personalizat în funcție de interesele tale, conectează-te la Chromium.</translation>
-<translation id="2326738825692478496">Unele date Chromium nu au fost salvate încă în Contul Google.
-
-Așteaptă câteva minute înainte să te deconectezi. Dacă te deconectezi acum, aceste date vor fi șterse.</translation>
 <translation id="2334943301233020675">Următoarele chei de acces nu au fost importate în Managerul de parole, deoarece nu corespund cerințelor.</translation>
 <translation id="2337722506862731008">Permite accesul la Chromium</translation>
 <translation id="2340423701577464731">Adaugă un element din lista de lecturi în Chromium</translation>
@@ -103,7 +101,6 @@ Așteaptă câteva minute înainte să te deconectezi. Dacă te deconectezi acum
 Pentru mai multe setări care folosesc date pentru a-ți îmbunătăți experiența în Chromium, accesează <ph name="BEGIN_LINK" />Serviciile Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Căutarea vocală în Chromium.</translation>
 <translation id="2843571538056574338">Folosește Chromium pentru completare automată</translation>
-<translation id="2899085719655668655">Instrucțiuni video picture-in-picture despre cum să setezi Chromium ca browser prestabilit</translation>
 <translation id="2918709798697875261">Organizația îți solicită să nu te conectezi la Chromium.</translation>
 <translation id="2942241131342758843">Folosește Chromium în mod prestabilit ca să deschizi linkuri, să cauți din widgeturi și să completezi automat parolele în alte aplicații</translation>
 <translation id="2977470724722393594">Chromium este actualizat</translation>

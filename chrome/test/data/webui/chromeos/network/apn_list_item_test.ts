@@ -18,10 +18,9 @@ import type {ApnProperties} from 'chrome://resources/mojo/chromeos/services/netw
 import {ApnAuthenticationType, ApnIpType, ApnSource, ApnState, ApnType} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
 import {NetworkType, PortalState} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/network_types.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {FakeNetworkConfig} from 'chrome://webui-test/chromeos/fake_network_config_mojom.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
-
-import {FakeNetworkConfig} from '../fake_network_config_mojom.js';
 
 const TEST_APN_EVENT_DATA_GUID = 'test_guid';
 
@@ -195,10 +194,10 @@ suite('ApnListItemTest', function() {
     });
     await flushTasks();
     assertTrue(!!getRemoveButton());
-    assertFalse(!!getRemoveButton().disabled);
+    assertFalse(getRemoveButton().disabled);
 
     apnListItem.shouldDisallowApnModification = true;
-    assertTrue(!!getRemoveButton().disabled);
+    assertTrue(getRemoveButton().disabled);
 
     apnListItem.shouldDisallowApnModification = false;
     mojoApi_.setNetworkTypeEnabledState(NetworkType.kCellular, true);
@@ -255,11 +254,11 @@ suite('ApnListItemTest', function() {
     apnListItem.apn = disabledApn;
     await flushTasks();
     assertTrue(!!getEnableButton());
-    assertFalse(!!getEnableButton().disabled);
+    assertFalse(getEnableButton().disabled);
     assertFalse(!!getDisableButton());
 
     apnListItem.shouldDisallowApnModification = true;
-    assertTrue(!!getEnableButton().disabled);
+    assertTrue(getEnableButton().disabled);
 
     apnListItem.shouldDisallowApnModification = false;
     getEnableButton().click();
@@ -273,11 +272,11 @@ suite('ApnListItemTest', function() {
     apnListItem.apn = createApn(/*disabled=*/ false);
     await flushTasks();
     assertTrue(!!getDisableButton());
-    assertFalse(!!getDisableButton().disabled);
+    assertFalse(getDisableButton().disabled);
     assertFalse(!!getEnableButton());
 
     apnListItem.shouldDisallowApnModification = true;
-    assertTrue(!!getDisableButton().disabled);
+    assertTrue(getDisableButton().disabled);
 
     apnListItem.shouldDisallowApnModification = false;
     getDisableButton().click();

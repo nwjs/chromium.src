@@ -6,7 +6,6 @@
 
 #include <string>
 
-#include "base/containers/enum_set.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/proto/privacy_sandbox_attestations.pb.h"
@@ -44,15 +43,6 @@ void InsertAPI(
     case privacy_sandbox::SHARED_STORAGE: {
       allowed_api_set.Put(
           privacy_sandbox::PrivacySandboxAttestationsGatedAPI::kSharedStorage);
-      return;
-    }
-    case privacy_sandbox::FENCED_STORAGE_READ: {
-      if (base::FeatureList::IsEnabled(
-              blink::features::kFencedFramesLocalUnpartitionedDataAccess)) {
-        allowed_api_set.Put(
-            privacy_sandbox::PrivacySandboxAttestationsGatedAPI::
-                kFencedStorageRead);
-      }
       return;
     }
     case privacy_sandbox::UNKNOWN: {

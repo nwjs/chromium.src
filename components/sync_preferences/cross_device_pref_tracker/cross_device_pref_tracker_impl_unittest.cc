@@ -23,6 +23,8 @@
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/sync/base/data_type.h"
+#include "components/sync/model/syncable_service.h"
+#include "components/sync/test/fake_sync_change_processor.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/device_info_util.h"
@@ -30,6 +32,7 @@
 #include "components/sync_device_info/fake_device_info_tracker.h"
 #include "components/sync_device_info/fake_local_device_info_provider.h"
 #include "components/sync_preferences/cross_device_pref_tracker/cross_device_pref_provider.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -154,6 +157,13 @@ class CrossDevicePrefTrackerTest : public testing::Test {
     // will call `ResetLocalDeviceInfo()`.
     InitializeLocalDeviceInfo();
     SetSyncEnabled(true);
+
+    // By default, mark sync prefs as active. Tests verifying the "waiting for
+    // initial sync" state will explicitly avoid this or reset it.
+    profile_prefs_.GetSyncableService(syncer::PREFERENCES)
+        ->MergeDataAndStartSyncing(
+            syncer::PREFERENCES, syncer::SyncDataList(),
+            std::make_unique<syncer::FakeSyncChangeProcessor>());
   }
 
   ~CrossDevicePrefTrackerTest() override {
@@ -262,8 +272,8 @@ class CrossDevicePrefTrackerTest : public testing::Test {
       const std::string& name = "name",
       const std::optional<syncer::DeviceInfo::SharingInfo>& sharing_info =
           std::nullopt,
-      sync_pb::SyncEnums_DeviceType device_type =
-          sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+      syncer::DeviceInfo::DeviceType device_type =
+          syncer::DeviceInfo::DeviceType::kLinux,
       syncer::DeviceInfo::OsType os_type = syncer::DeviceInfo::OsType::kLinux,
       syncer::DeviceInfo::FormFactor form_factor =
           syncer::DeviceInfo::FormFactor::kDesktop,
@@ -277,9 +287,7 @@ class CrossDevicePrefTrackerTest : public testing::Test {
         full_hardware_class, last_updated_timestamp,
         syncer::DeviceInfoUtil::GetPulseInterval(),
         /*send_tab_to_self_receiving_enabled=*/
-        false,
-        sync_pb::
-            SyncEnums_SendTabReceivingType_SEND_TAB_RECEIVING_TYPE_CHROME_OR_UNSPECIFIED,
+        false, syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
         sharing_info,
         /*paask_info=*/std::nullopt,
         /*fcm_registration_token=*/std::string(),
@@ -295,7 +303,7 @@ class CrossDevicePrefTrackerTest : public testing::Test {
       syncer::DeviceInfo::FormFactor form_factor,
       base::Time last_updated_timestamp = base::Time::Now()) {
     return CreateFakeDeviceInfo(guid, "Device Name", std::nullopt,
-                                sync_pb::SyncEnums::TYPE_UNSET, os_type,
+                                syncer::DeviceInfo::DeviceType::kUnset, os_type,
                                 form_factor, "manufacturer", "model",
                                 std::string(), last_updated_timestamp);
   }
@@ -322,12 +330,40 @@ class CrossDevicePrefTrackerTest : public testing::Test {
  protected:
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  TestingPrefServiceSimple profile_prefs_;
+  TestingPrefServiceSyncable profile_prefs_;
   TestingPrefServiceSimple local_state_prefs_;
   syncer::FakeDeviceInfoSyncService device_info_sync_service_;
   syncer::TestSyncService test_sync_service_;
   std::unique_ptr<CrossDevicePrefTrackerImpl> tracker_;
 };
+
+// Verifies that the service status is `kWaitingForInitialSync` when Sync is
+// enabled but initial sync preferences have not been downloaded.
+TEST_F(CrossDevicePrefTrackerTest,
+       ReportsWaitingForInitialSyncWhenSyncingNotStarted) {
+  // Use a fresh `TestingPrefServiceSyncable` which starts in the "not syncing"
+  // state.
+  TestingPrefServiceSyncable profile_prefs;
+  RegisterProfilePrefs(profile_prefs.registry());
+
+  auto tracker = std::make_unique<CrossDevicePrefTrackerImpl>(
+      &profile_prefs, &local_state_prefs_, &device_info_sync_service_,
+      &test_sync_service_, std::make_unique<FakeCrossDevicePrefProvider>());
+
+  EXPECT_EQ(tracker->GetServiceStatus(), ServiceStatus::kWaitingForInitialSync);
+
+  // Simulate initial sync download.
+  profile_prefs.GetSyncableService(syncer::PREFERENCES)
+      ->MergeDataAndStartSyncing(
+          syncer::PREFERENCES, syncer::SyncDataList(),
+          std::make_unique<syncer::FakeSyncChangeProcessor>());
+
+  EXPECT_EQ(tracker->GetServiceStatus(), ServiceStatus::kAvailable);
+
+  // Shutdown explicitly so it doesn't try to access destroyed
+  // `profile_prefs` later.
+  tracker->Shutdown();
+}
 
 // Verifies that when the tracker is initialized with `DeviceInfo` and Sync
 // already available, it performs an initial sync of all tracked preferences.

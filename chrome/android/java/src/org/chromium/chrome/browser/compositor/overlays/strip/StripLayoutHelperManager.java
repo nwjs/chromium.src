@@ -32,6 +32,7 @@ import android.view.animation.Interpolator;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 
@@ -60,6 +61,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.ButtonType;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
+import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorTextButton;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.AreaMotionEventFilter;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.AreaMotionEventHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
@@ -201,10 +203,13 @@ public class StripLayoutHelperManager
     private static final float GLIC_BUTTON_BACKGROUND_Y_OFFSET_DP = 5.f;
     private static final float GLIC_BUTTON_BACKGROUND_WIDTH_DP = 28.f;
     private static final float GLIC_BUTTON_BACKGROUND_HEIGHT_DP = 28.f;
-    private static final float GLIC_BUTTON_HOVER_BACKGROUND_PRESSED_OPACITY = 0.24f;
-    private static final float GLIC_BUTTON_HOVER_BACKGROUND_DEFAULT_OPACITY = 0.16f;
+    private static final float GLIC_BUTTON_HOVER_BACKGROUND_PRESSED_OPACITY = 0.30f;
+    private static final float GLIC_BUTTON_HOVER_BACKGROUND_DEFAULT_OPACITY = 0.20f;
+    private static final float GLIC_BUTTON_UNFOCUSED_OPACITY = 0.65f;
     private static final float GLIC_BUTTON_CLICK_SLOP_DP =
             (BUTTON_DESIRED_TOUCH_TARGET_SIZE - GLIC_BUTTON_BACKGROUND_WIDTH_DP) / 2;
+    // Total vertical margin (Tab Strip Height(40dp) - Glic Background Height(28dp) = 12dp).
+    public static final float GLIC_BUTTON_MARGIN_HEIGHT_DP = 12.f;
     private static final float GLIC_BUTTON_START_PADDING_DP = 6.f;
     private static final float GLIC_ICON_WIDTH_DP = 16.f;
     private static final float GLIC_ICON_TEXT_PADDING_DP = 4.f;
@@ -255,7 +260,7 @@ public class StripLayoutHelperManager
     private final float mDensity;
     private int mOrientation;
     private final Runnable mGlicClickHandler;
-    private @Nullable TintedCompositorButton mGlicButton;
+    private @Nullable TintedCompositorTextButton mGlicButton;
     private @Nullable TintedCompositorButton mModelSelectorButton;
     private final Context mContext;
     private float mStripTransitionScrimOpacity;
@@ -276,7 +281,8 @@ public class StripLayoutHelperManager
 
     /**
      * Whether the current activity is the top resumed activity. This is only relevant for use in
-     * the desktop windowing mode, to determine the tab strip background color.
+     * the desktop windowing mode, to determine the tab strip background color and the Glic button
+     * opacity.
      */
     private boolean mIsTopResumedActivity;
 
@@ -303,6 +309,8 @@ public class StripLayoutHelperManager
     private final SettableNonNullObservableSupplier<@StripVisibilityState Integer>
             mStripVisibilityStateSupplier =
                     ObservableSuppliers.createNonNull(StripVisibilityState.VISIBLE);
+    private final SettableNonNullObservableSupplier<Integer> mStripBottomPxSupplier =
+            ObservableSuppliers.createNonNull(0);
     private final @Nullable NonNullObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
 
     // Drag-Drop
@@ -633,8 +641,7 @@ public class StripLayoutHelperManager
                             dragDropDelegate,
                             browserControlsStateProvider,
                             () -> windowAndroid.getActivity().get(),
-                            toolbarManager.getTabStripHeightSupplier(),
-                            this::isAppInDesktopWindow);
+                            toolbarManager.getTabStripHeightSupplier());
 
             if (ChromeFeatureList.sEscCancelDrag.isEnabled()) {
                 backPressManager.addHandler(
@@ -715,6 +722,7 @@ public class StripLayoutHelperManager
                 (LayerTitleCache layerTitleCache) -> {
                     mNormalHelper.setLayerTitleCache(layerTitleCache);
                     mIncognitoHelper.setLayerTitleCache(layerTitleCache);
+                    setGlicButtonText(mContext.getString(R.string.glic_button_entrypoint_label));
                 });
 
         if (mDesktopWindowStateManager != null) {
@@ -756,17 +764,21 @@ public class StripLayoutHelperManager
             StripLayoutViewOnClickHandler selectorClickHandler,
             StripLayoutViewOnKeyboardFocusHandler keyboardFocusHandler) {
         mGlicButton =
-                new TintedCompositorButton(
+                new TintedCompositorTextButton(
                         context,
                         ButtonType.GLIC,
                         /* parentView= */ null,
                         GLIC_BUTTON_BACKGROUND_WIDTH_DP,
                         GLIC_BUTTON_BACKGROUND_HEIGHT_DP,
-                        /* tooltipHandler= */ null,
+                        (tooltipText) -> {
+                            mToolbarControlContainer.setTooltipText(tooltipText);
+                        },
                         selectorClickHandler,
                         keyboardFocusHandler,
                         R.drawable.ic_spark_16dp,
-                        GLIC_BUTTON_CLICK_SLOP_DP);
+                        GLIC_BUTTON_CLICK_SLOP_DP,
+                        /* hasLongClickAction= */ false,
+                        /* dismissButton= */ null);
 
         // y-offset for folio = lowered tab container + (tab container size - bg size)/2 -
         // folio tab title y-offset = 2 + (38 - 28)/2 - 2 = 5dp
@@ -774,24 +786,20 @@ public class StripLayoutHelperManager
         mGlicButton.setVisible(false);
 
         @ColorInt
-        int backgroundDefaultColor =
-                TabUiThemeUtil.getTabStripSelectedTabColor(context, /* isIncognito= */ false);
+        int backgroundDefaultColor = SemanticColorUtils.getColorSurfaceContainerLow(context);
 
         @ColorInt
         int apsBackgroundHoveredColor =
                 ColorUtils.setAlphaComponentWithFloat(
-                        SemanticColorUtils.getDefaultTextColor(context),
+                        SemanticColorUtils.getColorPrimary(context),
                         GLIC_BUTTON_HOVER_BACKGROUND_DEFAULT_OPACITY);
         @ColorInt
         int backgroundPressedColor =
                 ColorUtils.setAlphaComponentWithFloat(
-                        SemanticColorUtils.getDefaultTextColor(context),
+                        SemanticColorUtils.getColorPrimary(context),
                         GLIC_BUTTON_HOVER_BACKGROUND_PRESSED_OPACITY);
 
-        @ColorInt
-        int iconDefaultColor =
-                AppCompatResources.getColorStateList(context, R.color.default_icon_color_tint_list)
-                        .getDefaultColor();
+        @ColorInt int iconDefaultColor = SemanticColorUtils.getDefaultIconColor(context);
 
         mGlicButton.setTint(
                 iconDefaultColor, iconDefaultColor, Color.TRANSPARENT, Color.TRANSPARENT);
@@ -806,7 +814,11 @@ public class StripLayoutHelperManager
                 Color.TRANSPARENT,
                 Color.TRANSPARENT);
 
-        // TODO(crbug.com/481101300): Set accessibility description.
+        updateGlicButtonOpacity();
+
+        mGlicButton.setAccessibilityDescription(
+                context.getString(R.string.glic_tab_strip_button_tooltip),
+                /* incognitoDescription= */ "");
     }
 
     private void createModelSelectorButton(
@@ -975,8 +987,7 @@ public class StripLayoutHelperManager
         if (!TextUtils.isEmpty(glicButtonText)) {
             LayerTitleCache titleCache = mLayerTitleCacheSupplier.get();
             if (titleCache != null) {
-                float textWidthDp =
-                        titleCache.getTitleWidth(/* incognito= */ false, glicButtonText) / mDensity;
+                float textWidthDp = titleCache.getButtonTextWidth(glicButtonText) / mDensity;
                 width =
                         GLIC_BUTTON_START_PADDING_DP
                                 + GLIC_ICON_WIDTH_DP
@@ -1015,6 +1026,12 @@ public class StripLayoutHelperManager
         }
     }
 
+    private void updateGlicButtonOpacity() {
+        if (mGlicButton == null) return;
+        boolean isUnfocusedInDw = isAppInDesktopWindow() && !mIsTopResumedActivity;
+        mGlicButton.setOpacity(isUnfocusedInDw ? GLIC_BUTTON_UNFOCUSED_OPACITY : 1.0f);
+    }
+
     private void handleModelSelectorButtonClick() {
         if (mTabModelSelector == null) return;
         getActiveStripLayoutHelper().finishAnimationsAndPushTabUpdates();
@@ -1046,6 +1063,7 @@ public class StripLayoutHelperManager
                     mBrowserControlsStateProvider.getTopControlOffset() / mDensity;
             mSceneLayerVisibleHeight = getVisibleHeightDp(topControlOffsetDp);
             mSceneLayerYOffset = getAdjustedYOffset(topControlOffsetDp);
+            updateStripBottomPx();
         }
 
         pushAndUpdateStrip(mSceneLayerYOffset, mSceneLayerVisibleHeight);
@@ -1156,6 +1174,10 @@ public class StripLayoutHelperManager
         return mEventFilter;
     }
 
+    public Context getContext() {
+        return mContext;
+    }
+
     @Override
     public void onSizeChanged(
             float width, float height, float visibleViewportOffsetY, int orientation) {
@@ -1250,6 +1272,7 @@ public class StripLayoutHelperManager
             mSceneLayerYOffset = yOffsetDp;
             mSceneLayerVisibleHeight = visibleHeightDp;
             pushAndUpdateStrip(mSceneLayerYOffset, mSceneLayerVisibleHeight);
+            updateStripBottomPx();
         }
     }
 
@@ -1421,6 +1444,9 @@ public class StripLayoutHelperManager
         // TODO (crbug/328055199): Check if losing focus to a non-Chrome task.
         if (!mIsHeaderCustomizationSupported) return;
         mIsTopResumedActivity = isTopResumedActivity;
+
+        updateGlicButtonOpacity();
+
         mUpdateHost.requestUpdate();
     }
 
@@ -1478,7 +1504,7 @@ public class StripLayoutHelperManager
         return getActiveStripLayoutHelper().getNewTabButtonVisualOffset();
     }
 
-    public @Nullable TintedCompositorButton getGlicButton() {
+    public @Nullable TintedCompositorTextButton getGlicButton() {
         return mGlicButton;
     }
 
@@ -1716,10 +1742,8 @@ public class StripLayoutHelperManager
                 mTabModelSelector.getModel(true),
                 tabCreatorManager.getTabCreator(true),
                 tabStateInitialized);
-        mNormalHelper.setTabGroupModelFilter(
-                assumeNonNull(mTabModelSelector.getTabGroupModelFilter(false)));
-        mIncognitoHelper.setTabGroupModelFilter(
-                assumeNonNull(mTabModelSelector.getTabGroupModelFilter(true)));
+        mNormalHelper.setTabGroupModelFilter(mTabModelSelector.getModel(false));
+        mIncognitoHelper.setTabGroupModelFilter(mTabModelSelector.getModel(true));
         tabModelSwitched(mTabModelSelector.isIncognitoSelected());
         // Manually called on initialization, since the logic in #tabModelSwitched only runs if the
         // Incognito state actually changes. Since mIncognito defaults to false, it may not actually
@@ -1890,6 +1914,8 @@ public class StripLayoutHelperManager
 
         mDesktopWindowStateManager.updateForegroundColor(getBackgroundColor());
         updateHorizontalPaddings(newState.getLeftPadding(), newState.getRightPadding());
+
+        updateGlicButtonOpacity();
     }
 
     /**
@@ -2094,6 +2120,18 @@ public class StripLayoutHelperManager
         @StripVisibilityState int curVisibility = mStripVisibilityStateSupplier.get();
         mStripVisibilityStateSupplier.set(
                 clear ? (curVisibility & ~visibilityState) : (curVisibility | visibilityState));
+    }
+
+    /** Returns a {@link NonNullObservableSupplier} for the bottom of the tab strip in px. */
+    public NonNullObservableSupplier<Integer> getStripBottomPxSupplier() {
+        return mStripBottomPxSupplier;
+    }
+
+    private void updateStripBottomPx() {
+        @Px
+        int tabStripBottomPx =
+                Math.round(mDensity * (mSceneLayerYOffset + mSceneLayerVisibleHeight));
+        mStripBottomPxSupplier.set(tabStripBottomPx);
     }
 
     void simulateHoverEventForTesting(int event, float x, float y) {

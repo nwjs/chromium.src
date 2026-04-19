@@ -91,11 +91,11 @@ class CONTENT_EXPORT DatabaseConnection {
   }
 
   // Prepares the connection for destruction by moving out the `sql::Database`.
-  // Returns a closure that performs cleanup (close, vacuum, recovery, etc.).
-  // Callers are free to run the closure synchronously or on a background
+  // Returns a callback that performs cleanup (close, vacuum, recovery, etc.).
+  // Callers are free to run the callback synchronously or on a background
   // thread as appropriate. Some "optional" cleanup steps are skipped if the
-  // backing store is `force_closing`.
-  base::OnceClosure GetCleanupTask(bool force_closing) &&;
+  // backing store is `force_closing` when the callback is run.
+  base::OnceCallback<void(bool force_closing)> GetCleanupTask() &&;
 
   // Gets the version of the database that is actually committed. This can be
   // different from the version in `metadata_` during a version change
@@ -296,7 +296,8 @@ class CONTENT_EXPORT DatabaseConnection {
       bool should_delete,
       bool should_attempt_recovery,
       bool should_vacuum,
-      std::optional<std::set<int64_t>> known_legacy_blob_ids);
+      std::optional<std::set<int64_t>> known_legacy_blob_ids,
+      bool force_closing);
 
   DatabaseConnection(base::FilePath path, BackingStoreImpl& backing_store);
 
@@ -355,6 +356,18 @@ class CONTENT_EXPORT DatabaseConnection {
   // Attempts to read metadata from the SQLite DB for storing in memory (in
   // `metadata_`).
   StatusOr<blink::IndexedDBDatabaseMetadata> GenerateIndexedDbMetadata();
+
+  // Serves as the checkpoint callback. This is static because it may be
+  // called on a different thread, and it's not possible to check the validity
+  // of a WeakPtr-bound callback on a different sequence.
+  static void OnWalFileWritten(base::WeakPtr<DatabaseConnection> db,
+                               int wal_file_page_count);
+
+  // Executes a checkpoint. This needs to first drop resources that would block
+  // a complete checkpoint. Returns true if the checkpoint finished
+  // successfully, i.e. all frames in the WAL file were written to the main DB
+  // file.
+  bool Checkpoint(bool truncate);
 
   // This enum is used to track various events of interest, mostly errors.
   //
@@ -500,6 +513,9 @@ class CONTENT_EXPORT DatabaseConnection {
   // transaction is ultimately committed or rolled back.
   bool sync_active_blobs_after_transaction_ = false;
 
+  // Set from `OnWalFileWritten()`; used to avoid no-op checkpointing on idle.
+  bool is_wal_dirty_ = false;
+
   // A snapshot of the set of legacy blobs that are stored as standalone files
   // on disk. This is used to track which standalone files need to be deleted
   // from disk. This is lazily initialized the first time a r/w txn is created.
@@ -525,8 +541,6 @@ class CONTENT_EXPORT DatabaseConnection {
   // attempting to open this database.
   IndexedDBDataLossInfo data_loss_info_;
 
-  // TODO(crbug.com/419203257): this should invalidate its weak pointers when
-  // `db_` is closed.
   base::WeakPtrFactory<DatabaseConnection> cursor_weak_factory_{this};
 
   // Only used for the callbacks passed to `blob_writers_`.
@@ -535,6 +549,8 @@ class CONTENT_EXPORT DatabaseConnection {
   // Used to vend pointers to the interfaces within `BackingStore`.
   base::WeakPtrFactory<DatabaseConnection> interface_wrapper_weak_factory_{
       this};
+
+  base::WeakPtrFactory<DatabaseConnection> wal_checkpoint_weak_factory_{this};
 };
 
 }  // namespace sqlite

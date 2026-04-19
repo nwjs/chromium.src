@@ -18,6 +18,7 @@
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/observer_list.h"
 #include "build/blink_buildflags.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_type.h"
@@ -215,6 +216,9 @@ class PasswordManager : public PasswordManagerInterface {
 
   // Returns true if password element is detected on the current page.
   bool IsPasswordFieldDetectedOnPage() const override;
+
+  void AddObserver(Observer* observer) override;
+  void RemoveObserver(Observer* observer) override;
 
 #if BUILDFLAG(USE_BLINK)
   // Reports the success from the renderer's PasswordAutofillAgent to fill
@@ -419,10 +423,6 @@ class PasswordManager : public PasswordManagerInterface {
   // predictions.
   void ResetFormsAndPredictionsCache();
 
-  // Returns true if the password saving should be allowed for the in-flow
-  // Trusted Vault key recovery.
-  bool ShouldAllowSavingPasswordsWithInFlowRecovery();
-
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Triggers a user survey to rate Password Manager, if the user actively
   // engaged with Password Manager (filled a form manually).
@@ -509,6 +509,8 @@ class PasswordManager : public PasswordManagerInterface {
       possible_usernames_ =
           base::LRUCache<PossibleUsernameFieldIdentifier, PossibleUsernameData>(
               kMaxSingleUsernameFieldsToStore);
+
+  base::ObserverList<Observer> observers_;
 };
 
 }  // namespace password_manager

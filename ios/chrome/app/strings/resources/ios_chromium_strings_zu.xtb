@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="zu">
 <translation id="1000436330784933699">Ungavula iLens lapha.</translation>
+<translation id="1005291068154454184">Ividiyo yesikrini esigcwele yendlela yokusetha iChromium njengokuzenzakalelayo</translation>
 <translation id="1042296835509784301">Ivula Isiphathi Sephasiwedi kuChromium.</translation>
 <translation id="1047130070405668746">Khetha i-Chromium</translation>
 <translation id="1091252999271033193">Lokhu kusho ukuthi i-Chromium izocela isayithi yeselula ngaso sonke isikhathi.</translation>
@@ -70,9 +71,6 @@ Amabhukhimakhi amasha awakwazi ukulondolozwa e-akhawuntini yakho uze usule amany
 <translation id="2313870531055795960">Kuhlola ama-URL anohlu lwamasayithi angaphephile agcinwe ku-Chromium. Uma isayithi lizama ukuntshontsha iphasiwedi yakho, noma uma ulanda ifayela eliyingozi, i-Chromium ingathumela nama-URL, kuhlanganise nokuthile okuqukethwe kulelo khasi, Ekuphequluleni Okuphephile.</translation>
 <translation id="2314220608288760290">IChromium ivula ngokuzenzekela amalinki eYouTube Incognito ku-Incognito.</translation>
 <translation id="231828342043114302">Ukuze uthole okuqukethwe okwenzelwe wena ngokusekelwe kokuthandayo, ngena ngemvume ku-Chromium.</translation>
-<translation id="2326738825692478496">Enye idatha yakho yeChromium ayikalondolozwa kuGoogle Account.
-
-Zama ukulinda imizuzu embalwa ngaphambi kokuphuma. Uma uphuma ngemvume manje, le datha izosulwa.</translation>
 <translation id="2334943301233020675">Okhi abalandelayo bokudlula abazange bafakwe Kusiphathi Sephasiwedi, ngoba abahambisani nezimfuneko.</translation>
 <translation id="2337722506862731008">Yabelana ngeChromium</translation>
 <translation id="2340423701577464731">Faka into yohlu lokufunda kuChromium</translation>
@@ -103,7 +101,6 @@ Zama ukulinda imizuzu embalwa ngaphambi kokuphuma. Uma uphuma ngemvume manje, le
 Ukuze uthole amasethingi engeziwe asebenzisa idatha ukuthuthukisa ukuzizwisa kwakho kwe-Chromium, iya <ph name="BEGIN_LINK" />Kumasevisi e-Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Sesha ngezwi kuChromium.</translation>
 <translation id="2843571538056574338">Sebenzisa i-Chromium kokuthi Ukugcwalisa okuzenzakalelayo</translation>
-<translation id="2899085719655668655">Iziqondiso zevidiyo yesithombe esithombeni zendlela yokusetha iChromium njengokuzenzakalelayo</translation>
 <translation id="2918709798697875261">Inhlangano yakho idinga ukuthi uhlale ukhishwe ngemvume ku-Chromium.</translation>
 <translation id="2942241131342758843">Sebenzisa i-Chromium ngokuzenzekelayo ukuze uvule amalinki, ukusesha kumawijethi, kanye nokugcwalisa ngokuzenzakalelayo amaphasiwedi kwamanye ama-app</translation>
 <translation id="2977470724722393594">I-Chromium isesikhathini samanje</translation>

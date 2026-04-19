@@ -66,14 +66,19 @@ BASE_FEATURE_PARAM(bool,
                    "prompt_user_for_navigation_to_new_origins",
                    false);
 BASE_FEATURE_PARAM(bool,
+                   kGlicConfirmNavigationToNewOriginsDarkLaunch,
+                   &kGlicCrossOriginNavigationGating,
+                   "confirm_navigation_to_new_origins_dark_launch",
+                   false);
+BASE_FEATURE_PARAM(bool,
                    kGlicNavigationGatingUseSiteNotOrigin,
                    &kGlicCrossOriginNavigationGating,
                    "gate_on_site_not_origin",
                    false);
 BASE_FEATURE_PARAM(bool,
-                   kGlicIncludeHardcodedBlockListEntries,
+                   kGlicEnforceComponentUpdaterBlockListEntries,
                    &kGlicCrossOriginNavigationGating,
-                   "include_hardcoded_block_list_entries",
+                   "enforce_component_updater_block_list_entries",
                    true);
 BASE_FEATURE_PARAM(bool,
                    kGlicAllowImplicitToolOriginGrants,
@@ -83,11 +88,6 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kGlicRecordNavigationConfirmationRequestMetrics,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicEnableAutoLoginDialogs, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicEnableAutoLoginPersistedPermissions,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSkipAwaitVisualStateForNewTabs,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -161,5 +161,13 @@ BASE_FEATURE(kGlicActorLoadAndExtractContentTool,
 const base::FeatureParam<base::TimeDelta>
     kGlicActorLoadAndExtractContentToolTimeout{
         &kGlicActorLoadAndExtractContentTool, "timeout", base::Seconds(30)};
+
+BASE_FEATURE(kGlicActorEnableScriptTools, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kActorScriptToolDelayObservation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kActorScriptToolDelayObservationMillis{
+    &kActorScriptToolDelayObservation, "script_tool_delay_observation_ms", 0};
 
 }  // namespace actor

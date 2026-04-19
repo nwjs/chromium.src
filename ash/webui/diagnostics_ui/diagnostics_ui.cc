@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include "ash/webui/diagnostics_ui/diagnostics_ui.h"
 
 #include <memory>
@@ -179,11 +178,14 @@ void AddDiagnosticsStrings(content::WebUIDataSource* html_source) {
       {"gatewayCanBePingedRoutineText",
        IDS_NETWORK_DIAGNOSTICS_GATEWAY_CAN_BE_PINGED},
       {"gatewayRoutineText", IDS_NETWORK_DIAGNOSTICS_GATEWAY_GROUP},
+      {"googleServicesGroupLabel",
+       IDS_NETWORK_DIAGNOSTICS_GOOGLE_SERVICES_GROUP},
       {"hasSecureWiFiConnectionFailedText",
        IDS_DIAGNOSTICS_HAS_SECURE_WIFI_CONNECTION_FAILED_TEXT},
       {"hasSecureWiFiConnectionRoutineText",
        IDS_NETWORK_DIAGNOSTICS_HAS_SECURE_WIFI_CONNECTION},
       {"hideReportText", IDS_DIAGNOSTICS_HIDE_REPORT_TEXT},
+      {"hideTestDetailsText", IDS_DIAGNOSTICS_HIDE_TEST_DETAILS_TEXT},
       {"httpFirewallFailedText", IDS_DIAGNOSTICS_HTTP_FIREWALL_FAILED_TEXT},
       {"httpFirewallRoutineText", IDS_NETWORK_DIAGNOSTICS_HTTP_FIREWALL},
       {"httpsFirewallFailedText", IDS_DIAGNOSTICS_HTTPS_FIREWALL_FAILED_TEXT},
@@ -319,6 +321,7 @@ void AddDiagnosticsStrings(content::WebUIDataSource* html_source) {
       {"runCpuTestText", IDS_DIAGNOSTICS_CPU_RUN_TESTS_BUTTON_TEXT},
       {"runMemoryTestText", IDS_DIAGNOSTICS_MEMORY_RUN_TESTS_BUTTON_TEXT},
       {"seeReportText", IDS_DIAGNOSTICS_SEE_REPORT_TEXT},
+      {"seeTestDetailsText", IDS_DIAGNOSTICS_SEE_TEST_DETAILS_TEXT},
       {"sessionLog", IDS_DIAGNOSTICS_SESSION_LOG_LABEL},
       {"sessionLogToastTextFailure",
        IDS_DIAGNOSTICS_SESSION_LOG_TOAST_TEXT_FAILURE},
@@ -400,7 +403,8 @@ DiagnosticsDialogUI::DiagnosticsDialogUI(
     const diagnostics::SessionLogHandler::SelectFilePolicyCreator&
         select_file_policy_creator,
     HoldingSpaceClient* holding_space_client,
-    const base::FilePath& log_directory_path)
+    const base::FilePath& log_directory_path,
+    std::unique_ptr<diagnostics::SystemRoutineControllerDelegate> delegate)
     : ui::MojoWebDialogUI(web_ui) {
   content::WebUIDataSource* html_source =
       content::WebUIDataSource::CreateAndAdd(
@@ -419,7 +423,7 @@ DiagnosticsDialogUI::DiagnosticsDialogUI(
   auto session_log_handler = std::make_unique<diagnostics::SessionLogHandler>(
       select_file_policy_creator, holding_space_client, log_directory_path);
   diagnostics_manager_ = std::make_unique<diagnostics::DiagnosticsManager>(
-      session_log_handler.get(), web_ui);
+      session_log_handler.get(), web_ui, std::move(delegate));
   web_ui->AddMessageHandler(std::move(session_log_handler));
 
   AddDiagnosticsStrings(html_source);

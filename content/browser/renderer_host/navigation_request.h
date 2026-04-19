@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/debug/crash_logging.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
@@ -381,6 +383,7 @@ class CONTENT_EXPORT NavigationRequest
   bool IsInOutermostMainFrame() const override;
   bool IsInPrerenderedMainFrame() const override;
   bool IsPrerenderedPageActivation() const override;
+  PrerenderHostId GetPrerenderHostId() const override;
   bool IsInFencedFrameTree() const override;
   bool IsGuestViewMainFrame() const override;
   FrameType GetNavigatingFrameType() const override;
@@ -424,7 +427,7 @@ class CONTENT_EXPORT NavigationRequest
   void SetRequestHeader(std::string_view header_name,
                         std::string_view header_value) override;
   void SetLCPPNavigationHint(
-      const blink::mojom::LCPCriticalPathPredictorNavigationTimeHint& hint)
+      blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr hint)
       override;
   const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&
   GetLCPPNavigationHint() override;
@@ -498,6 +501,7 @@ class CONTENT_EXPORT NavigationRequest
       blink::mojom::RendererContentSettingsPtr content_settings) override;
   blink::mojom::RendererContentSettingsPtr GetContentSettingsForTesting()
       override;
+  BeforeUnloadExecutionMode GetBeforeUnloadExecutionMode() const override;
   void SetIsAdTagged() override;
   std::optional<NavigationDiscardReason> GetNavigationDiscardReason() override;
   // NOTE: Read function comments in NavigationHandle before use!
@@ -607,7 +611,7 @@ class CONTENT_EXPORT NavigationRequest
   }
 
   const mojo::DataPipeConsumerHandle& response_body() {
-    DCHECK_EQ(state_, WILL_PROCESS_RESPONSE);
+    CHECK_EQ(state_, WILL_PROCESS_RESPONSE);
     return response_body_.get();
   }
 
@@ -740,7 +744,7 @@ class CONTENT_EXPORT NavigationRequest
                            const GURL& previous_main_frame_url);
 
   NavigationType navigation_type() const {
-    DCHECK(state_ == DID_COMMIT || state_ == DID_COMMIT_ERROR_PAGE);
+    CHECK(state_ == DID_COMMIT || state_ == DID_COMMIT_ERROR_PAGE);
     return navigation_type_;
   }
 
@@ -816,7 +820,7 @@ class CONTENT_EXPORT NavigationRequest
 
   void set_renderer_cancellation_window_ended_callback(
       base::OnceClosure callback) {
-    DCHECK(!renderer_cancellation_window_ended());
+    CHECK(!renderer_cancellation_window_ended());
     renderer_cancellation_window_ended_callback_ = std::move(callback);
   }
 
@@ -874,7 +878,7 @@ class CONTENT_EXPORT NavigationRequest
   // OnResponseStarted(), this is expected to be equivalent to
   // HasRenderFrameHost().
   bool response_should_be_rendered() const {
-    DCHECK_GE(state_, WILL_PROCESS_RESPONSE);
+    CHECK_GE(state_, WILL_PROCESS_RESPONSE);
     return response_should_be_rendered_;
   }
 
@@ -1138,7 +1142,7 @@ class CONTENT_EXPORT NavigationRequest
   }
 
   PrerenderHostId activating_prerender_host_id() const {
-    DCHECK(activating_prerender_host_id_.has_value())
+    CHECK(activating_prerender_host_id_.has_value())
         << "Must be called after StartNavigation()";
     return *activating_prerender_host_id_;
   }
@@ -1170,14 +1174,14 @@ class CONTENT_EXPORT NavigationRequest
   std::vector<blink::mojom::WebFeature> TakeWebFeaturesToLog();
 
   void set_same_document_metrics_token(base::UnguessableToken token) {
-    DCHECK(!same_document_metrics_token_);
+    CHECK(!same_document_metrics_token_);
     same_document_metrics_token_ = token;
   }
 
   void set_subresource_proxying_url_loader_service_bind_context(
       base::WeakPtr<SubresourceProxyingURLLoaderService::BindContext>
           bind_context) {
-    DCHECK(!subresource_proxying_url_loader_service_bind_context_);
+    CHECK(!subresource_proxying_url_loader_service_bind_context_);
     subresource_proxying_url_loader_service_bind_context_ = bind_context;
   }
 
@@ -1248,6 +1252,7 @@ class CONTENT_EXPORT NavigationRequest
   // Initializes state which is passed from the old Document to the new Document
   // for a ViewTransition.
   void SetViewTransitionState(
+      const url::Origin& source_origin,
       std::unique_ptr<ScopedViewTransitionResources> resources,
       blink::ViewTransitionState view_transition_state);
 
@@ -1376,7 +1381,7 @@ class CONTENT_EXPORT NavigationRequest
   // URL's process (kDestinationProcess), an isolated process
   // (kIsolatedProcess), or is a post-commit error page that does not have any
   // specific process requirements and goes through the "normal navigation"
-  // path. Returns kNotErrorPage if the navigation is not anerror page
+  // path. Returns kNotErrorPage if the navigation is not an error page
   // navigation.
   ErrorPageProcess ComputeErrorPageProcess();
 
@@ -1709,11 +1714,6 @@ class CONTENT_EXPORT NavigationRequest
       NavigationThrottleEvent event,
       NavigationThrottle::ThrottleCheckResult result);
 
-  // Returns the PrerenderHostId driving the navigation. If the navigation
-  // is not derived from a prerendered page, the default-consturcted null
-  // value will be returned.
-  PrerenderHostId GetPrerenderHostId() const;
-
   const std::optional<base::UnguessableToken>& network_restrictions_id() const {
     return network_restrictions_id_;
   }
@@ -1755,12 +1755,40 @@ class CONTENT_EXPORT NavigationRequest
   // navigation started.
   bool DidCookiesChangeAfterStart(bool exclude_http_only) const;
 
+  // Sets the closure that will be invoked to resume the navigation commit once
+  // all asynchronous beforeunload handlers have finished executing.
+  void SetAsyncBeforeUnloadCommitResumeClosure(
+      base::OnceClosure commit_resume_closure);
+
+  // Starts a timer to force the navigation to proceed if asynchronous
+  // beforeunload handlers take too long.
+  void StartAsyncBeforeUnloadTimer();
+
+  // Resume the navigation commit once all asynchronous beforeunload handlers
+  // have finished executing. `acked_rfh_id` is the ID of the RenderFrameHost
+  // that just finished its beforeunload handler, or nullopt if the timer
+  // expired.
+  void MaybeResumeAsyncBeforeUnloadCommit(
+      std::optional<GlobalRenderFrameHostId> acked_rfh_id);
+
+  // Returns true if the navigation is currently deferred waiting for
+  // asynchronous beforeunload handlers to complete.
+  bool IsWaitingForAsyncBeforeUnload() const;
+
+  std::set<GlobalRenderFrameHostId>& async_before_unload_pending_replies() {
+    return async_before_unload_pending_replies_;
+  }
+
   void set_remove_extra_headers_on_cross_origin_redirect(bool value) {
     remove_extra_headers_on_cross_origin_redirect_ = value;
   }
 
   bool remove_extra_headers_on_cross_origin_redirect() const {
     return remove_extra_headers_on_cross_origin_redirect_;
+  }
+
+  void set_before_unload_execution_mode(BeforeUnloadExecutionMode mode) {
+    before_unload_execution_mode_ = mode;
   }
 
  private:
@@ -1781,7 +1809,7 @@ class CONTENT_EXPORT NavigationRequest
       bool from_begin_navigation,
       bool is_synchronous_renderer_commit,
       const FrameNavigationEntry* frame_navigation_entry,
-      NavigationEntryImpl* navitation_entry,
+      NavigationEntryImpl* navigation_entry,
       std::unique_ptr<NavigationUIData> navigation_ui_data,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       mojo::PendingAssociatedRemote<mojom::NavigationClient> navigation_client,
@@ -1966,11 +1994,9 @@ class CONTENT_EXPORT NavigationRequest
   void CommitPageActivation();
 
   // Checks whether this navigation is allowed based on the connection
-  // allowlist header, if present. This method can have two side effects:
+  // allowlist header, if present. Side effect:
   // - If a CA is configured to send reports and the request violates the CA,
   //   a report will be sent.
-  // - If CA is checked, the navigation request's
-  //  connection_allowlists_blocks_redirect_ will be set accordingly.
   bool IsAllowedByConnectionAllowlist(bool is_redirect);
 
   // Checks if the specified CSP context's relevant CSP directive
@@ -2183,6 +2209,12 @@ class CONTENT_EXPORT NavigationRequest
                                                        bool is_first_response);
   void UpdateNavigationHandleTimingsOnCommitSent();
 
+  // Populates information in `navigation_handle_timing_` as early as possible
+  // so that it can be accessed by PageLoadMetricsObservers via
+  // `NavigationRequest::GetNavigationHandleTiming()`.
+  void UpdateNavigationHandleTimingsOnCreated();
+  void UpdateNavigationHandleTimingsOnBeginNavigation();
+
   // Populates information in `navigation_handle_timing_` from the
   // `NavigationTimeline` so that it can be accessed by PageLoadMetricsObservers
   // via `NavigationRequest::GetNavigationHandleTiming()`.
@@ -2353,11 +2385,11 @@ class CONTENT_EXPORT NavigationRequest
   // response.
   void ComputePoliciesToCommitForError();
 
-  // DCHECK that tranistioning from the current state to |state| valid. This
+  // CHECK that transitioning from the current state to |state| valid. This
   // does nothing in non-debug builds.
   void CheckStateTransition(NavigationState state) const;
 
-  // Set |state_| to |state| and also DCHECK that this state transition is
+  // Set |state_| to |state| and also CHECK that this state transition is
   // valid.
   void SetState(NavigationState state);
 
@@ -2540,6 +2572,12 @@ class CONTENT_EXPORT NavigationRequest
   // This is also used in `MaybeRecordTraceEventsAndHistograms()`, which should
   // eventually be replaced with the navigation timeline metrics.
   bool ShouldRecordNavigationTimelineUkm() const;
+
+  // Given the known destination origin, this updates the view transition state
+  // and resources. Namely, it clears it if the view transition state and
+  // resources were generated from a different origin with the given origin.
+  // This is because we disallow cross origin view transitions.
+  void UpdateViewTransitionStateForDestinationOrigin(const url::Origin& origin);
 
   // Used for short-lived NavigationRequest created at DidCommit time for the
   // purpose of committing navigation that were not driven by the browser
@@ -2817,6 +2855,9 @@ class CONTENT_EXPORT NavigationRequest
   // Tracks whether a beforeunload dialog was shown as part of this navigation.
   bool beforeunload_dialog_shown_ = false;
 
+  BeforeUnloadExecutionMode before_unload_execution_mode_ =
+      BeforeUnloadExecutionMode::kNotBlocked;
+
   // The time this NavigationRequest was created.
   base::TimeTicks creation_time_ = base::TimeTicks().Now();
 
@@ -2988,7 +3029,7 @@ class CONTENT_EXPORT NavigationRequest
   // left referencing it.
   std::unique_ptr<NavigationControllerImpl::PendingEntryRef> pending_entry_ref_;
 
-  // Used only by DCHECK.
+  // Used only by CHECK.
   // True if the NavigationThrottles are running an event, the request then can
   // be cancelled for deferring.
   bool processing_navigation_throttle_ = false;
@@ -3384,7 +3425,7 @@ class CONTENT_EXPORT NavigationRequest
   // will observe all device bound session changes starting from the
   // navigation/redirection, and it will be moved to the
   // `RenderFrameHostImpl` when the navigation is committed and
-  // continues observing until the destructoin of the document.
+  // continues observing until the destruction of the document.
   // See `RenderFrameHostImpl::DeviceBoundSessionObserver`.
   std::unique_ptr<RenderFrameHostImpl::DeviceBoundSessionObserver>
       device_bound_session_observer_;
@@ -3442,17 +3483,20 @@ class CONTENT_EXPORT NavigationRequest
   // request.
   bool did_encounter_cross_origin_redirect_ = false;
 
-  // This field is checked to see if server-side redirects should be blocked.
-  // It is only used if Connection allowlists were consulted when this
-  // navigation started.
-  bool connection_allowlists_blocks_redirect_ = false;
-
   // A scoped reference on the ViewTransition resources generated for this
   // navigation. This is set after we received the cached results from the old
   // Document's renderer. If the navigation commits, the resources are
   // transferred to the new Document's view. If the navigation finishes without
   // committing, the resources are destroyed with this request.
   std::unique_ptr<ScopedViewTransitionResources> view_transition_resources_;
+
+  // An origin that generated the view transition state
+  // (`view_transition_resources_` and `commit_params_->view_transition_state`.
+  // This is used to ensure that at the time of commit, if the origin changed
+  // because this was a pre-render activation, we don't try and initiate a view
+  // transition since that can (unintentionally) leak view transition state
+  // across origins.
+  url::Origin view_transition_source_origin_;
 
   // If true, this means that this navigation request was initiated by an
   // animated transition.
@@ -3500,11 +3544,53 @@ class CONTENT_EXPORT NavigationRequest
   // cross-document navigations.
   std::optional<base::UnguessableToken> network_restrictions_id_;
 
+  // Tracks frames in the navigating subtree that are running `beforeunload`
+  // handlers asynchronously.
+  //
+  // Similar to `RenderFrameHostImpl::beforeunload_pending_replies_`, this set
+  // includes the navigating frame and/or its descendants that serve as local
+  // frame roots for the beforeunload dispatch. When a beforeunload IPC is sent
+  // to a frame, the renderer dispatches it to that frame and all its local
+  // descendants.
+  //
+  // This state is kept here rather than in `RenderFrameHostImpl` because the
+  // async beforeunload optimization (crbug.com/475716933) is
+  // navigation-specific. This is in contrast to
+  // `RenderFrameHostImpl::beforeunload_pending_replies_`, which can be used for
+  // non-navigation cases like closing a tab. Currently, we decided not to
+  // interleave the sync/async beforeunload processing, though this decision
+  // could be revisited in the future.
+  std::set<GlobalRenderFrameHostId> async_before_unload_pending_replies_;
+
+  // The closure that will be run to resume the commit of the navigation once
+  // the asynchronous beforeunload replies are received from the renderer(s) or
+  // a timeout occurs.
+  base::OnceClosure async_before_unload_commit_resume_closure_;
+
+  // A timer to force the navigation to proceed if beforeunload handlers take
+  // too long in the asynchronous beforeunload code path, preventing the
+  // navigation from being hung indefinitely.
+  //
+  // This timer is mutually exclusive with the synchronous
+  // `beforeunload_timeout_` in `RenderFrameHostImpl`. When entering the
+  // AsyncBeforeUnload mode, the `beforeunload_timeout_` timer is explicitly
+  // stopped before this timer is started (see: https://crbug.com/475716933).
+  base::OneShotTimer async_before_unload_timeout_;
+
   // If true, any extra headers provided will be removed on a cross-origin
   // redirect.
   bool remove_extra_headers_on_cross_origin_redirect_ = false;
   mojo::PendingReceiver<blink::mojom::NavigationResumeDeferredCommitListener>
       resume_after_deferred_commit_listener_;
+
+  // If true, the destructor of the NavigationRequest is ongoing. The flag is
+  // added to avoid resuming the NavigationRequest in the destructor while
+  // calling DidFinishNavigation() back.
+  // TODO(crbug.com/496792860): Ideally we can destruct the navigation throttles
+  // first before issuing the DidFinishNavigation callback. However
+  // ContentSubresourceFilterThrottleManager currently relies on the throttle to
+  // be alive during the callback to work.
+  bool is_destructing_ = false;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 };

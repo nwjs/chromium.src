@@ -490,7 +490,7 @@ TEST_F(FormFillerTest, UndoSavesFormFillingDataForAutofillAi) {
   EntityInstance passport = test::GetPassportEntityInstance();
   autofill_manager().FillOrPreviewForm(
       mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      &passport, AutofillTriggerSource::kPopup);
+      &passport, AutofillTriggerSource::kPopup, /*blocked_fields=*/{});
   autofill_manager().UndoAutofill(mojom::ActionPersistence::kFill, form,
                                   form.fields().front());
 }
@@ -1677,7 +1677,7 @@ TEST_F(FormFillerTest, FillPassportEntity) {
     std::vector<FieldType> actual_types = base::ToVector(
         form_structure->fields()[field_index]->server_predictions(),
         [](const auto& p) {
-          return ToSafeFieldType(p.type(), NO_SERVER_DATA);
+          return ToSafeFieldType(p.type()).value_or(NO_SERVER_DATA);
         });
     CHECK(expected_types == actual_types);
   };
@@ -2224,64 +2224,27 @@ TEST_F(RefillTest, FormChanged_IrrelevantFieldChanges) {
     fields.front().set_css_classes(u"field-css-classes");
     form.set_fields(std::move(fields));
   };
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitWithFeatures(
-        /*enabled_features=*/{features::kAutofillFixFormEquality},
-        /*disabled_features=*/{features::kAutofillFewerTrivialRefills});
-    FormData form = test::GetFormData(
-        {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"}}});
-    FormsSeen({form});
-    AutofillForm(form, form.fields().front(), &profile);
-    EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(1);
-    change_field_css_classes(form);
-    FormsSeen({form});
-  }
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitWithFeatures(
-        /*enabled_features=*/{features::kAutofillFixFormEquality,
-                              features::kAutofillFewerTrivialRefills},
-        /*disabled_features=*/{});
-    FormData form = test::GetFormData(
-        {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"}}});
-    FormsSeen({form});
-    AutofillForm(form, form.fields().front(), &profile);
-    EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(0);
-    change_field_css_classes(form);
-    FormsSeen({form});
-  }
+
+  FormData form = test::GetFormData(
+      {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"}}});
+  FormsSeen({form});
+  AutofillForm(form, form.fields().front(), &profile);
+  EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(0);
+  change_field_css_classes(form);
+  FormsSeen({form});
 }
 
 TEST_F(RefillTest, SelectOptionsChanged_IrrelevantSelectField) {
   AutofillProfile profile = test::GetFullProfile();
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndDisableFeature(
-        features::kAutofillFewerTrivialRefills);
-    FormData form = test::GetFormData(
-        {.fields = {
-             {.role = NAME_FULL, .autocomplete_attribute = "name"},
-             {.form_control_type = mojom::FormControlType::kSelectOne}}});
-    FormsSeen({form});
-    AutofillForm(form, form.fields().front(), &profile);
-    EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(1);
-    autofill_manager().OnSelectFieldOptionsDidChange(
-        form, form.fields().back().global_id());
-  }
-  {
-    base::test::ScopedFeatureList scoped_feature_list{
-        features::kAutofillFewerTrivialRefills};
-    FormData form = test::GetFormData(
-        {.fields = {
-             {.role = NAME_FULL, .autocomplete_attribute = "name"},
-             {.form_control_type = mojom::FormControlType::kSelectOne}}});
-    FormsSeen({form});
-    AutofillForm(form, form.fields().front(), &profile);
-    EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(0);
-    autofill_manager().OnSelectFieldOptionsDidChangeImpl(
-        form, form.fields().back().global_id());
-  }
+
+  FormData form = test::GetFormData(
+      {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"},
+                  {.form_control_type = mojom::FormControlType::kSelectOne}}});
+  FormsSeen({form});
+  AutofillForm(form, form.fields().front(), &profile);
+  EXPECT_CALL(mock_form_filler(), ScheduleRefill).Times(0);
+  autofill_manager().OnSelectFieldOptionsDidChangeImpl(
+      form, form.fields().back().global_id());
 }
 
 // Test fixture for FormFiller::SuppressAutomaticRefills().

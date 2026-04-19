@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Մուտքագրեք հարցում</translation>
 <translation id="115705039208660697">արքայախնձորներ</translation>
 <translation id="1164939766849482256">«Լուսաբացից մայրամուտ» էկրանապահ</translation>
-<translation id="1167755866710282443">Բացեք ընտրացանկը՝ ստեղները կարգավորելու համար։ Տեղաշարժելու համար քաշեք ընտրացանկը։</translation>
 <translation id="1171349345463658120">ավազե ծովածոց</translation>
 <translation id="1174073918202301297">Դյուրանցումն ավելացվեց</translation>
 <translation id="11743817593307477">Այս կարգավորումը սլաքներով ստեղների միջոցով տեղափոխեք ձեզ անհրաժեշտ գործողություն խաղում։ Enter կոճակի օգնությամբ զետեղեք կարգավորումը։ Չեղարկելու համար օգտագործեք Esc ստեղնը։</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Փոխարինել ֆայլը</translation>
 <translation id="2006864819935886708">Կապ</translation>
 <translation id="2008685064673031089">Prime որոնում</translation>
-<translation id="2011174342667534258">SDK-ի տարբերակը՝</translation>
 <translation id="2016697457005847575">Փորձել վերացնել անսարքությունները</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">դանակ-պատառաքաղ</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Ստեղների նշանակման D-pad</translation>
 <translation id="3217462202230355157">Համոզվեք, որ ձեր խոսափողը միացված է կամ վերագործարկեք ձեր <ph name="DEVICE_TYPE" /> սարքը</translation>
 <translation id="3226405216343213872">Սկաներների որոնում</translation>
-<translation id="3226657629376379887">Դասավորության գործողությունների ընտրացանկ</translation>
 <translation id="3227186760713762082">Բաժանեք «<ph name="CATEGORY_TEXT" />» արժեքը <ph name="CONVERSION_RATE" />-ի</translation>
 <translation id="3242622575335502454">թվային արվեստ</translation>
 <translation id="3246869037381808805">Տպման առաջադրանքները, որոնք 1 օրից հին են, կհեռացվեն</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Բանալու ուղղություն</translation>
 <translation id="3294437725009624529">Հյուր</translation>
 <translation id="3303855915957856445">Որոնման արդյունքներ չկան</translation>
-<translation id="3305294846493618482">ավելին</translation>
 <translation id="3310640316857623290">DNS-ի հապաղումը մեծ առավելություն ունի թույլատրելի սահմանափակման նկատմամբ</translation>
 <translation id="3316495615885967552">Ամփոփման և անվանման ստեղծման մոդելի ներբեռնումն ավարտված է</translation>
 <translation id="3321030238473337787">Նվագարկման արագություն</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Սխալ առաջացավ։ Նորից փորձեք։</translation>
 <translation id="357889014807611375">սահմանափակ Wi-Fi</translation>
 <translation id="3583278742022654445">Ազդանշանը թույլ է։ Փորձեք սարքը մոտեցնել Wi-Fi ազդանշանի աղբյուրին։</translation>
+<translation id="3586931643579894722">Թաքցնել մանրամասները</translation>
 <translation id="3588034708467091142">Համոզվեք, որ միացած եք ինտերնետին, և նորից փորձեք։</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" />-ը <ph name="APN_NAME" />-ի հարմար անվանումն է։</translation>
 <translation id="3595596368722241419">Մարտկոցը լրիվ լիցքավորված է</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">10 վայրկյան հետ գնալ</translation>
 <translation id="4128271910628504223">Մուտքագրեք հուշում, ինչպիսին է «նկարել մառախլապատ անտառ»</translation>
 <translation id="4130035430755296270">Մկնիկի նշորդը շարունակեք պահել վրան՝ դասավորության այլ տարբերակներ տեսնելու համար</translation>
-<translation id="4130750466177569591">Համաձայն եմ</translation>
 <translation id="4131410914670010031">Սև ու սպիտակ</translation>
 <translation id="4137700675046373159">շաբաթ օրը</translation>
 <translation id="4139326893730851150">Ներկառուցված ծրագրի թարմացումներ</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Ներդիր</translation>
 <translation id="5612205513582918357">Class Tools-ը ցուցադրում է ձեր էկրանը <ph name="RECEIVER_NAME" />-ին</translation>
 <translation id="5613201299517339763">Դուք դուրս եք գրվել հաշվից</translation>
-<translation id="5620281292257375798">Միայն ներքին օգտագործման համար</translation>
 <translation id="5628106863521633649">Հասանելի լեզուներ</translation>
 <translation id="5630438231335788050">բաուհաուս</translation>
 <translation id="5631759159893697722">համառոտ շարադրանք</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">հետշարժ</translation>
 <translation id="6137614725462089991">կիբեռպանկ</translation>
 <translation id="6137767437444130246">Օգտատիրոջ հավաստագիր</translation>
+<translation id="6140948187512243695">Մանրամասներ</translation>
 <translation id="6146993107019042706">Ավարտելու համար մուտքագրեք ձեր նոր գաղտնաբառը</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Հնարավոր չէ միանալ համացանցին</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Այս <ph name="DEVICE_TYPE" /> սարքը կառավարվում է <ph name="MANAGER" />-ի կողմից։ Ադմինիստրատորները կարող են հեռակա փոխել սարքի կարգավորումները։</translation>
 <translation id="7180611975245234373">Թարմացնել</translation>
 <translation id="7180865173735832675">Հարմարեցնել</translation>
-<translation id="7184043045742675738">Կոճակը կարգավորելու համար սեղմեք ցանկացած ստեղն։ Փոխեք դիրքը մկնիկի կամ սլաքի ստեղների միջոցով։</translation>
 <translation id="7187669805838282391">չորեքշաբթի օրը</translation>
 <translation id="7205318498545665455">Ընտրեք ձեր խոսափողը</translation>
-<translation id="7206979415662233817">Օգտագործման պայմաններ</translation>
 <translation id="7210635925306941239">կապտականաչ</translation>
 <translation id="7212547870105584639">Կառավարեք ցանցի APN-ի կարգավորումները։ APN-ները կապ են հաստատում բջջային ցանցի և համացանցի միջև։ <ph name="BEGIN_LINK_LEARN_MORE" />Իմանալ ավելին<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Ներկառուցված ծրագրաշարի թարմացումներ արտաքին սարքերի համար</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">կանաչ և փիրուզագույն</translation>
 <translation id="7328475450575141167">ստրելիցիա</translation>
-<translation id="7331297744262591636">Դուք պետք է առնվազն 18 տարեկան լինեք և համաձայնեք օգտագործել AI պաստառները՝ <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Google-ի օգտագործման պայմանների<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> և <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Գեներատիվ արհեստական բանականության օգտագործման պայմանների<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" /> համաձայն։
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          Արհեստական բանականության միջոցով պաստառներ կարող եք ստեղծել միայն անձնական և ոչ առևտրային նպատակներով։ Երբ դուք պաստառի հետ կապված հարցում եք անում, <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google-ի գաղտնիության քաղաքականության<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> համաձայն՝ հարցման տեքստն ուղարկվում է Google AI-ի սերվերներ՝ պաստառների առաջարկներ գեներացնելու համար։ <ph name="BEGIN_LINK_LEARN_MORE" />Իմանալ ավելին<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />։ Արդյունքը Google Որոնման մեջ տեսնելու համար սեղմեք «Որոնում» + բացատ։</translation>
 <translation id="7343649194310845056">Ցանցային սարքեր</translation>
 <translation id="7344788170842919262">հողեղեն</translation>
 <translation id="7346768383111016081">Ստեղնաշարի միջոցով խաղալու համար ընտրեք գործողության համար ստեղն</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">Ներածման կարգավորումներ</translation>
 <translation id="7595982850646262331">Մնացել է <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">Ադմինիստրատորը (<ph name="MANAGER" />) սահմանափակել է <ph name="DEVICE_TYPE" /> սարքի օգտագործման ժամանակը։</translation>
-<translation id="7613724632293948900">Փոխեք դիրքը մկնիկի կամ սլաքի ստեղների միջոցով։</translation>
 <translation id="7618216277886673749">Ընտրել <ph name="LANGUAGE_NAME" /> լեզուն</translation>
 <translation id="7618774594543487847">Չեզոք</translation>
 <translation id="7620771111601174153">Մանրամասն Օգնության կենտրոնի մասին</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">Օգտագործեք Google AI-ը՝ ավելի արդյունավետ լինելու համար</translation>
 <translation id="8200772114523450471">Շարունակել</translation>
 <translation id="8206859287963243715">Բջջային</translation>
+<translation id="8208043093301544621">Գլխավոր էջ</translation>
 <translation id="8208861521865154048">Բոնուսներ</translation>
 <translation id="8226628635270268143">Ընտրեք ձեր սիրած լուսանկարներն ու ալբոմները</translation>
 <translation id="8227119283605456246">Կցել ֆայլ</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Օգտագործել այս տեսանյութը</translation>
-<translation id="9087578468327036362">Հաղորդել այս հարցման մասին</translation>
 <translation id="9088306295921699330">Օգտագործված տարածքը</translation>
 <translation id="9088994563996376283">Պարզեցնել</translation>
 <translation id="9095775724867566971">PluginVm</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">Պատկերը սահմանվեց որպես տեսախցիկի ֆոն</translation>
 <translation id="9211490828691860325">Բոլոր աշխատասեղանները</translation>
 <translation id="9218016617214286986">Ցույց տալ հայտնի APN-ները</translation>
-<translation id="932327136139879170">Գլխավոր էջ</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Կարծիք հայտնել</translation>
 <translation id="950520315903467048">Սահմանված ստեղն չկա «<ph name="DIRECTION" />» ուղղության համար։ <ph name="ASSIGN_INSTRUCTION" /></translation>

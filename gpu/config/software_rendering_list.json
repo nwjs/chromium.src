@@ -947,7 +947,7 @@
         "op": "<",
         "value": "10.4.3"
       },
-      "vendor_id": "8086",
+      "vendor_id": "0x8086",
       "device_id": ["0x2a02"],
       "features": [
         "all"
@@ -1532,6 +1532,20 @@
         "op": "<",
         "value": "12.0"
       },
+      "features": [
+        "skia_graphite"
+      ]
+    },
+    {
+      "id": 189,
+      "cr_bugs": [
+        496616828
+      ],
+      "description": "Disable Graphite on PowerVR due to rendering glitches",
+      "os": {
+        "type": "android"
+      },
+      "gl_renderer": "PowerVR.*",
       "features": [
         "skia_graphite"
       ]

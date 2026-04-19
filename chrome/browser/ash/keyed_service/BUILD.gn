@@ -40,7 +40,6 @@ static_library("keyed_service") {
     "//chrome/browser/ash/child_accounts",
     "//chrome/browser/ash/child_accounts/on_device_controls",
     "//chrome/browser/ash/concierge_helper",
-    "//chrome/browser/ash/crosapi",
     "//chrome/browser/ash/crostini",
     "//chrome/browser/ash/crostini/throttle",
     "//chrome/browser/ash/data_migration",
@@ -100,5 +99,6 @@ static_library("keyed_service") {
     # Currently ArcApps is a KeyedService.
     # TODO(crbug.com/442761233): Resolve the dependency.
     "//chrome/browser/apps/app_service/publishers",
+    "//chrome/browser/speech",
   ]
 }

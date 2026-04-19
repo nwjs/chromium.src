@@ -59,16 +59,19 @@ source_set("internal") {
       "//chrome/browser/actor/ui/task_list_bubble:controller",
       "//chrome/browser/autocomplete:aim_eligibility_service",
       "//chrome/browser/collaboration",
+      "//chrome/browser/contextual_cueing",
       "//chrome/browser/contextual_tasks:ui",
       "//chrome/browser/devtools",
       "//chrome/browser/glic",
+      "//chrome/browser/glic/browser_ui",
       "//chrome/browser/lens/region_search",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/prefs",
-      "//chrome/browser/skills:ui",
+      "//chrome/browser/skills:public",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ui:tab_search_feature",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/animation",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/call_to_action",
       "//chrome/browser/ui/commerce",
@@ -86,13 +89,14 @@ source_set("internal") {
       "//chrome/browser/ui/tabs:glic",
       "//chrome/browser/ui/tabs:tab_list_bridge",
       "//chrome/browser/ui/tabs:tab_strip",
-      "//chrome/browser/ui/tabs/organization",
       "//chrome/browser/ui/tabs/projects:impl",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/tabs/tab_strip_api",
-      "//chrome/browser/ui/tabs/tab_strip_api:impl_header",
+      "//chrome/browser/ui/tabs/tab_strip_api:impl",
+      "//chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toolbar/chrome_labs",
+      "//chrome/browser/ui/views/animations",
       "//chrome/browser/ui/views/contextual_tasks",
       "//chrome/browser/ui/views/download",
       "//chrome/browser/ui/views/interaction:impl",
@@ -132,6 +136,10 @@ source_set("internal") {
 
     if (is_win || is_mac || is_linux) {
       deps += [ "//chrome/browser/ui/views/session_restore_infobar" ]
+    }
+
+    if (is_win || is_mac || is_linux || is_chromeos) {
+      deps += [ "//chrome/browser/ui/ai_overlay_dialog" ]
     }
 
     if (is_chromeos) {
@@ -234,6 +242,7 @@ if (is_android) {
       "//third_party/androidx:androidx_core_core_java",
       "//third_party/jni_zero:jni_zero_java",
       "//ui/android:ui_no_recycler_view_java",
+      "//ui/base:ui_base_types_java",
       "//ui/base/mojom:ui_base_types_java",
     ]
     srcjar_deps = [ ":jni" ]
@@ -282,11 +291,13 @@ if (is_android) {
       "//chrome/browser/ui/browser_window/public/android:java",
       "//chrome/browser/ui/browser_window/test:junit_test_support",
       "//chrome/browser/util:java",
+      "//components/browser_ui/desktop_windowing/android:java",
       "//third_party/androidx:androidx_core_core_java",
       "//third_party/androidx:androidx_test_core_java",
       "//third_party/junit",
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_no_recycler_view_java",
+      "//ui/base:ui_base_types_java",
       "//ui/base/mojom:ui_base_types_java",
     ]
   }
@@ -297,6 +308,7 @@ if (is_android) {
     deps = [
       ":java",
       "//base:base_java_test_support",
+      "//base:flagged_apis_java",
       "//base/test:public_transit_java",
       "//chrome/android:chrome_test_java",
       "//chrome/android/javatests:chrome_test_java_helper",
@@ -314,6 +326,7 @@ if (is_android) {
       "//third_party/junit",
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_no_recycler_view_java",
+      "//ui/base:ui_base_types_java",
       "//ui/base/mojom:ui_base_types_java",
     ]
     data = [ "//chrome/test/data/android/about.html" ]

@@ -7,12 +7,18 @@ package org.chromium.chrome.browser.ui.side_ui;
 import android.view.View;
 import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
+import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewParent;
 import android.view.ViewStub;
 
+import androidx.annotation.Px;
+
+import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.build.annotations.RequiresNonNull;
 
 /** Implementation of {@link SideUiCoordinator}. */
 @NullMarked
@@ -25,18 +31,28 @@ final class SideUiCoordinatorImpl implements SideUiCoordinator {
     @Nullable private SideUiContainer mSideUiContainer;
     private final ObserverList<SideUiObserver> mSideUiObservers = new ObserverList<>();
 
+    private final NonNullObservableSupplier<Integer> mTopMarginSupplier;
+    private final Callback<Integer> mTopMarginObserver;
+
     /**
      * Constructor for a {@link SideUiCoordinatorImpl}.
      *
      * @param startAnchorContainerStub The {@link ViewStub} for the start-anchored container.
      * @param endAnchorContainerStub The {@link ViewStub} for the end-anchored container.
+     * @param topMarginSupplier The supplier for the Side UI's top margin.
      */
     /* package */ SideUiCoordinatorImpl(
-            ViewStub startAnchorContainerStub, ViewStub endAnchorContainerStub) {
+            ViewStub startAnchorContainerStub,
+            ViewStub endAnchorContainerStub,
+            NonNullObservableSupplier<Integer> topMarginSupplier) {
         // TODO(crbug.com/485309827): Account for the height of Side UI. Specifically, show beneath
         //  the tab strip when it is visible.
         mStartAnchorContainer = (ViewGroup) startAnchorContainerStub.inflate();
         mEndAnchorContainer = (ViewGroup) endAnchorContainerStub.inflate();
+
+        mTopMarginObserver = this::onTopMarginChanged;
+        mTopMarginSupplier = topMarginSupplier;
+        mTopMarginSupplier.addSyncObserver(mTopMarginObserver);
     }
 
     // SideUiCoordinator Implementation
@@ -55,42 +71,34 @@ final class SideUiCoordinatorImpl implements SideUiCoordinator {
 
     @Override
     public void requestUpdateContainer(SideUiContainerProperties properties) {
+        // 1. Verify the request is valid.
         assert mSideUiContainer != null
                 : "#requestUpdateContainer called with null SideUiContainer.";
+        assert properties.mWidth >= 0 : "SideUiContainer unexpectedly requested a negative width.";
 
-        int requestedWidth = properties.mWidth;
-        assert requestedWidth >= 0 : "SideUiContainer unexpectedly requested a negative width.";
+        // 2. Determine containers' widths and the upcoming SideUiSpecs.
+        // TODO(crbug.com/478306743): Loop through the registered SideUiContainers and call
+        //  SideUiContainer#determineContainerWidth to determine all of the containers' accepted
+        //  widths, rather than just implicitly accepting the requested width. Determine the
+        //  upcoming SideUiSpecs based on the accepted widths.
+        @Px int acceptedWidth = properties.mWidth;
 
-        // Determine the container widths.
-        // TODO(crbug.com/478306743): Validate the request based on the available space,
-        //  SideUiContainer#determineContainerWidth, etc. in this step instead of just accepting the
-        //  request. When we support multiple SideUiContainers, we'll also need to loop through and
-        //  determine all the final widths before pushing any of the individual changes (e.g. we'll
-        //  want to aggregate all the animators before kicking off any individual one).
-        @AnchorSide int anchorSide = properties.mAnchorSide;
-        SideUiSpecs newSideUiSpecs = SideUiSpecs.EMPTY_SIDE_UI_SPECS;
-        if (anchorSide == AnchorSide.START) {
-            newSideUiSpecs = new SideUiSpecs(requestedWidth, /* endX= */ 0);
-        } else if (anchorSide == AnchorSide.END) {
-            newSideUiSpecs = new SideUiSpecs(/* startX= */ 0, requestedWidth);
-        } else {
-            assert false : "SideUiContainer requested an unknown AnchorSide.";
-        }
-        notifyObservers(newSideUiSpecs);
+        // 3. If animating, notify observers of the upcoming SideUiSpecs from the previous step.
+        // TODO(crbug.com/491606333): Use the new SideUiSpecs calculated in the previous step to
+        //  notify observers and collect animators. See the proposed event (#onPreSideUiSpecsChange)
+        //  in SideUiObserver.java for more details.
 
-        // Push the new container widths. Attach/detach views if needed.
-        View sideUiContainerView = mSideUiContainer.getView();
-        if (requestedWidth == 0) {
-            detachSideUiContainerView(sideUiContainerView);
-        } else {
-            attachSideUiContainerView(sideUiContainerView, properties.mAnchorSide);
-        }
-        mSideUiContainer.setWidth(properties.mWidth);
+        // 4. Commit the new SideUiSpecs.
+        // TODO(crbug.com/478338737): Track accepted widths for all of the registered containers.
+        commitNewSideUiSpecs(properties.mAnchorSide, acceptedWidth);
     }
 
     @Override
     public void destroy() {
-        if (mSideUiContainer != null) unregisterSideUiContainer(mSideUiContainer);
+        if (mSideUiContainer != null) {
+            unregisterSideUiContainer(mSideUiContainer);
+        }
+        mTopMarginSupplier.removeObserver(mTopMarginObserver);
     }
 
     // SideUiStateProvider Implementation
@@ -111,13 +119,37 @@ final class SideUiCoordinatorImpl implements SideUiCoordinator {
 
     @Override
     public SideUiSpecs getCurrentSideUiSpecs() {
-        //  Infers based on measuring the two parent containers. Should not be used in
-        //  #requestUpdateContainer as that notifies Observers of the updated SideUiSpecs before any
-        //  UI changes are actually made.
+        // Infers by measuring the two parent containers.
         mStartAnchorContainer.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
         mEndAnchorContainer.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
         return new SideUiSpecs(
                 mStartAnchorContainer.getMeasuredWidth(), mEndAnchorContainer.getMeasuredWidth());
+    }
+
+    /**
+     * Commits a {@link SideUiContainer}'s requested update. Currently, statically resizes and
+     * attaches/detaches as necessary. As per the inline TODO, this will eventually support
+     * dynamic/animated resizes, where we'll instead kick off animators to handle the resizes.
+     *
+     * @param anchorSide The requesting container's desired {@link AnchorSide}.
+     * @param acceptedWidth The requesting container's accepted width in px.
+     */
+    @RequiresNonNull("mSideUiContainer")
+    private void commitNewSideUiSpecs(@AnchorSide int anchorSide, @Px int acceptedWidth) {
+        // TODO(crbug.com/491606333): Support dynamically updating/animating the changes. i.e.
+        //  Rather than statically changing the SideUiContainers here, we would instead kick off
+        //  animators to handle the width changes. We'd also defer 1) detaching the backing views
+        //  and 2) notifying observers that the change is complete to #onAnimationEnd, as those
+        //  depend on first reaching the resting state.
+        View sideUiContainerView = mSideUiContainer.getView();
+        if (acceptedWidth == 0) {
+            detachSideUiContainerView(sideUiContainerView);
+        } else {
+            attachSideUiContainerView(sideUiContainerView, anchorSide);
+        }
+        mSideUiContainer.setWidth(acceptedWidth);
+
+        notifySideUiSpecsChanged();
     }
 
     /**
@@ -191,16 +223,33 @@ final class SideUiCoordinatorImpl implements SideUiCoordinator {
     }
 
     /**
-     * Notifies each {@link SideUiObserver} of the new {@link SideUiSpecs}. Called when new {@link
-     * SideUiSpecs} have been determined, but before these specs are actually used to statically
-     * kick off a UI change.
-     *
-     * @param newSideUiSpecs The update {@link SideUiSpecs}.
+     * Notifies each {@link SideUiObserver} of the new {@link SideUiSpecs}. Called after the
+     * containers and their views have reached their resting state (and {@link
+     * #getCurrentSideUiSpecs()} represents this resting state).
      */
-    private void notifyObservers(SideUiSpecs newSideUiSpecs) {
+    private void notifySideUiSpecsChanged() {
+        SideUiSpecs newSideUiSpecs = getCurrentSideUiSpecs();
         for (SideUiObserver observer : mSideUiObservers) {
             observer.onSideUiSpecsChanged(newSideUiSpecs);
         }
+    }
+
+    /**
+     * Called to respond to the tab strip location changing. The side UI anchor containers will
+     * adjust their top margins accordingly.
+     *
+     * @param tabStripBottomPx The tab strip's bottom in relation to the top of the window in px.
+     */
+    private void onTopMarginChanged(@Px int tabStripBottomPx) {
+        MarginLayoutParams startLayoutParams =
+                ((MarginLayoutParams) mStartAnchorContainer.getLayoutParams());
+        startLayoutParams.topMargin = tabStripBottomPx;
+        mStartAnchorContainer.setLayoutParams(startLayoutParams);
+
+        MarginLayoutParams endLayoutParams =
+                ((MarginLayoutParams) mEndAnchorContainer.getLayoutParams());
+        endLayoutParams.topMargin = tabStripBottomPx;
+        mEndAnchorContainer.setLayoutParams(endLayoutParams);
     }
 
     // Test Support

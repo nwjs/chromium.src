@@ -61,6 +61,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom-forward.h"
+#include "third_party/blink/public/common/page/content_to_visible_time_request.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_context.mojom.h"
@@ -68,7 +69,6 @@
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/blink/public/mojom/page/widget.mojom.h"
 #include "third_party/blink/public/mojom/widget/platform_widget.mojom.h"
-#include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom-forward.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
 #include "ui/base/ime/text_input_mode.h"
 #include "ui/base/ime/text_input_type.h"
@@ -116,6 +116,7 @@ namespace content {
 class FrameTree;
 class MockRenderWidgetHost;
 class MockRenderWidgetHostImpl;
+class RenderFrameHost;
 class RenderWidgetHostFactory;
 class RenderWidgetHostOwnerDelegate;
 class SiteInstanceGroup;
@@ -448,6 +449,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
           frame_widget_host,
       mojo::PendingAssociatedRemote<blink::mojom::FrameWidget> frame_widget);
 
+  // Bind to a non-associated pipe. Provided for MojoJS testing.
+  void BindFrameWidgetHostReceiver(
+      mojo::PendingReceiver<blink::mojom::FrameWidgetHost> receiver);
+
   // The Bind*Interfaces() methods are called before creating the renderer-side
   // Widget object, and RendererWidgetCreated() is called afterward. At that
   // point the bound mojo interfaces are connected to the renderer Widget. The
@@ -479,14 +484,14 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Called to notify the RenderWidget that it has been hidden or restored from
   // having been hidden.
   void WasHidden();
-  void WasShown(blink::mojom::RecordContentToVisibleTimeRequestPtr
+  void WasShown(std::optional<blink::RecordContentToVisibleTimeRequest>
                     record_tab_switch_time_request);
 
   // Called to request the presentation time for the next frame or cancel any
   // requests when the RenderWidget's visibility state is not changing. If the
   // visibility state is changing call WasHidden or WasShown instead.
   void RequestSuccessfulPresentationTimeForNextFrame(
-      blink::mojom::RecordContentToVisibleTimeRequestPtr visible_time_request);
+      blink::RecordContentToVisibleTimeRequest visible_time_request);
   void CancelSuccessfulPresentationTimeRequest();
 
 #if BUILDFLAG(IS_ANDROID)
@@ -970,13 +975,25 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const std::optional<cc::BrowserControlsOffsetTagModifications>&
           offset_tag_modifications);
 
-  void StartDragging(blink::mojom::DragDataPtr drag_data,
-                     const url::Origin& source_origin,
+  void StartDragging(RenderFrameHost& source_rfh,
+                     blink::mojom::DragDataPtr drag_data,
                      blink::DragOperationsMask drag_operations_mask,
                      const SkBitmap& unsafe_bitmap,
                      const gfx::Vector2d& cursor_offset_in_dip,
                      const gfx::Rect& drag_obj_rect_in_dip,
                      blink::mojom::DragEventSourceInfoPtr event_info);
+
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, drag and drop may need to request input back from Viz, so the
+  // actual drag and drop may be started asynchronously.
+  void AsyncStartDragging(WeakDocumentPtr source_document,
+                          blink::mojom::DragDataPtr drag_data,
+                          blink::DragOperationsMask drag_operations_mask,
+                          const SkBitmap& unsafe_bitmap,
+                          const gfx::Vector2d& cursor_offset_in_dip,
+                          const gfx::Rect& drag_obj_rect_in_dip,
+                          blink::mojom::DragEventSourceInfoPtr event_info);
+#endif
 
   // Notifies the widget that the viz::FrameSinkId assigned to it is now bound
   // to its renderer side widget. If the renderer issued a FrameSink request
@@ -1305,14 +1322,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // process_->UpdateClientPriority when this value changes.
   bool is_hidden_ = true;
 
-  // Indicates whether the widget is ever shown to the user so far.  This state
-  // remains `false` until `is_hidden_` becomes `false` for the first time.
-  bool was_ever_shown_ = false;
-
-  // Records the time when `was_ever_shown_` above becomes `true` for the first
-  // time.
-  base::TimeTicks first_shown_time_;
-
   // Records the latest time when |this| widget's visibility state changes from
   // hidden to shown.
   base::TimeTicks latest_shown_time_;
@@ -1320,10 +1329,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Indicates whether the renderer host has received the first metadata signal
   // implying the renderer has pushed content to cc.
   bool first_content_metadata_received_ = false;
-
-  // Records the time when `first_content_metadata_received_` above becomes
-  // `true` for the first time.
-  base::TimeTicks first_content_metadata_time_;
 
   // True if both of the following conditions are met:
   // - This widget is for the main frame of the outermost frame tree.
@@ -1499,8 +1504,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   std::unique_ptr<input::TimeoutMonitor> new_content_rendering_timeout_;
 
-  bool paint_holding_activated_ = false;
-
   int next_browser_snapshot_id_ = 1;
   using PendingSnapshotMap = std::map<int, GetSnapshotFromBrowserCallback>;
   PendingSnapshotMap pending_browser_snapshots_;
@@ -1564,7 +1567,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // RequestSuccessfulPresentationTimeForNextFrame is called while waiting.
   struct PendingShowParams {
     PendingShowParams(bool is_evicted,
-                      blink::mojom::RecordContentToVisibleTimeRequestPtr
+                      std::optional<blink::RecordContentToVisibleTimeRequest>
                           visible_time_request);
     ~PendingShowParams();
 
@@ -1572,7 +1575,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
     PendingShowParams& operator=(const PendingShowParams&) = delete;
 
     bool is_evicted;
-    blink::mojom::RecordContentToVisibleTimeRequestPtr visible_time_request;
+    std::optional<blink::RecordContentToVisibleTimeRequest>
+        visible_time_request;
   };
   std::optional<PendingShowParams> pending_show_params_;
 
@@ -1580,6 +1584,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // can be used to send messages directly to blink.
   mojo::AssociatedReceiver<blink::mojom::FrameWidgetHost>
       blink_frame_widget_host_receiver_{this};
+  // Non-associated pipe provided for MojoJS testing.
+  mojo::Receiver<blink::mojom::FrameWidgetHost> frame_widget_host_receiver_{
+      this};
   mojo::AssociatedRemote<blink::mojom::FrameWidget> blink_frame_widget_;
 
   // If this is initialized with a popup this member will be valid and

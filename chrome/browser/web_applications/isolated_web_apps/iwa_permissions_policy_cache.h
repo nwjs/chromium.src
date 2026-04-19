@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_ISOLATED_WEB_APPS_IWA_PERMISSIONS_POLICY_CACHE_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_ISOLATED_WEB_APPS_IWA_PERMISSIONS_POLICY_CACHE_H_
 
+#include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
@@ -15,6 +16,8 @@
 #include "chrome/browser/web_applications/web_app_install_manager_observer.h"
 #include "components/webapps/isolated_web_apps/service/isolated_web_app_browser_context_service_factory.h"
 #include "components/webapps/isolated_web_apps/types/iwa_origin.h"
+#include "components/webapps/isolated_web_apps/types/iwa_version.h"
+#include "content/public/browser/console_message.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
 class Profile;
@@ -53,6 +56,28 @@ class IwaPermissionsPolicyCache : public KeyedService,
     std::vector<std::string> allowed_origins;
   };
 
+  struct ManifestWarning {
+    blink::mojom::ConsoleMessageSource source;
+    std::string message;
+  };
+
+  struct Policy {
+    explicit Policy(
+        const std::vector<Entry>& unfiltered = {},
+        const std::vector<Entry>& filtered = {},
+        std::optional<IwaVersion> app_version_for_filtering = std::nullopt,
+        std::vector<ManifestWarning> manifest_warnings = {});
+    Policy(const Policy&);
+    Policy(Policy&&);
+    Policy& operator=(const Policy&);
+    ~Policy();
+
+    std::vector<Entry> unfiltered;
+    std::vector<Entry> filtered;
+    std::optional<IwaVersion> app_version_for_filtering;
+    std::vector<ManifestWarning> manifest_warnings;
+  };
+
   explicit IwaPermissionsPolicyCache(WebAppProvider& provider);
   ~IwaPermissionsPolicyCache() override;
 
@@ -62,18 +87,33 @@ class IwaPermissionsPolicyCache : public KeyedService,
   // Returns nullptr if not found or not yet cached.
   const CacheEntry* GetPolicy(const IwaOrigin& iwa_origin) const;
 
+  std::vector<content::ConsoleMessage> GetWarningMessages(
+      const IwaOrigin& iwa_origin) const;
+
   // Retrieves IWA manifest, parses it and stores in cache.
   // Callback is queued to run immediately if the cache is already populated.
   void ObtainManifestAndCache(const IwaOrigin& iwa_origin,
                               base::OnceCallback<void(bool success)> callback);
 
-  void SetPolicyForTesting(const IwaOrigin& iwa_origin, CacheEntry policy) {
-    SetPolicy(iwa_origin, std::move(policy));
-  }
+  void SetPolicyForTesting(const IwaOrigin& iwa_origin, CacheEntry policy);
+
+  void SetPolicyWithViolationsForTesting(const IwaOrigin& iwa_origin,
+                                         CacheEntry unfiltered_policy,
+                                         CacheEntry filtered_policy);
 
  private:
+  // Returns a list of features that were present in the unfiltered policy
+  // but removed due to entitlement violations.
+  std::vector<content::ConsoleMessage> GetViolationWarningMessages(
+      const IwaOrigin& iwa_origin) const;
+
+  std::vector<content::ConsoleMessage> GetManifestWarningMessages(
+      const IwaOrigin& iwa_origin) const;
+
   // Stores the policy for the given IWA origin and runs pending callbacks.
-  void SetPolicy(const IwaOrigin& iwa_origin, CacheEntry policy);
+  void SetPolicy(const IwaOrigin& iwa_origin,
+                 CacheEntry policy,
+                 std::vector<ManifestWarning> manifest_warnings);
 
   // Parses the manifest and stores the policy for the given IWA origin.
   // Returns true if the manifest was parsed successfully (even if the policy
@@ -83,6 +123,12 @@ class IwaPermissionsPolicyCache : public KeyedService,
 
   // Clears the cached policy for the given IWA origin.
   void ClearPolicy(const IwaOrigin& iwa_origin);
+
+  // Re-calculates filtered policy for a specific origin in the cache.
+  void UpdateFilteredPolicy(const IwaOrigin& origin, Policy& policy);
+
+  // Re-calculates filtered policies for all entries in the cache.
+  void UpdateFilteredPolicies();
 
   // KeyedService:
   void Shutdown() override;
@@ -120,17 +166,22 @@ class IwaPermissionsPolicyCache : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(
       IwaPermissionsPolicyCacheTest,
       ParseManifestAndSetPolicy_InvalidPolicyFormat_ItemNotString);
+  FRIEND_TEST_ALL_PREFIXES(IwaPermissionsPolicyCacheTest,
+                           ParseManifestAndSetPolicy_UnknownFeature);
   FRIEND_TEST_ALL_PREFIXES(IsolatedWebAppThrottleTest,
                            WebAppProviderInitialized);
 
   void ClearCacheForApp(const webapps::AppId& app_id);
-  // Map from IWA origin to its cache entry.
-  base::flat_map<IwaOrigin, CacheEntry> cache_;
+
+  // Map from IWA origin to its cache entry (unfiltered and filtered policies).
+  base::flat_map<IwaOrigin, Policy> cache_;
 
   raw_ptr<WebAppProvider> provider_;
 
   base::ScopedObservation<WebAppInstallManager, WebAppInstallManagerObserver>
       install_manager_observation_{this};
+
+  base::CallbackListSubscription runtime_data_subscription_;
 
   base::WeakPtrFactory<IwaPermissionsPolicyCache> weak_ptr_factory_{this};
 };

@@ -11,22 +11,49 @@
 #include "overridden/jni_zero_internal.h"
 #include "extra_include.h"
 
-// C++ classes that mirror the Java classes:
-#ifndef _JNI_ZERO_org_jni_zero_JJavapClass_DEFINED
-namespace org::jni_zero {
-class _JJavapClass : public _jobject {};
-using JJavapClass = _JJavapClass*;
-}  // namespace org::jni_zero
-#define _JNI_ZERO_org_jni_zero_JJavapClass_DEFINED
+// Relevant jobject subclasses:
+#ifndef _JNI_ZERO_java_lang_JRunnable_DEFINED
+#define _JNI_ZERO_java_lang_JRunnable_DEFINED
+namespace java::lang {
+class _JRunnable : public _jobject {};
+using JRunnable = _JRunnable*;
+}
 #endif
 
-namespace JNI_JavapClass {
+#ifndef _JNI_ZERO_JRunnable_DEFINED
+#define _JNI_ZERO_JRunnable_DEFINED
+using ::java::lang::JRunnable;
+#endif
 
-using JJavapClass = ::org::jni_zero::JJavapClass;
-using JJavapClassClass = ::jni_zero::internal::_CalledByNatives<JJavapClass>;
+#ifndef _JNI_ZERO_java_util_JArrayList_DEFINED
+#define _JNI_ZERO_java_util_JArrayList_DEFINED
+namespace java::util {
+template <::jni_zero::internal::IsJobject T>
+class _JArrayList : public _jobject {};
+template <typename T>
+using JArrayList = _JArrayList<T>*;
+}
+#endif
 
-}  // namespace JNI_JavapClass
+#ifndef _JNI_ZERO_JArrayList_DEFINED
+#define _JNI_ZERO_JArrayList_DEFINED
+using ::java::util::JArrayList;
+#endif
 
+#ifndef _JNI_ZERO_org_jni_zero_JJavapClass_DEFINED
+#define _JNI_ZERO_org_jni_zero_JJavapClass_DEFINED
+namespace org::jni_zero {
+template <::jni_zero::internal::IsJobject T>
+class _JJavapClass : public _jobject {};
+template <typename T>
+using JJavapClass = _JJavapClass<T>*;
+}
+#endif
+
+#ifndef _JNI_ZERO_JJavapClass_DEFINED
+#define _JNI_ZERO_JJavapClass_DEFINED
+using ::org::jni_zero::JJavapClass;
+#endif
 
 
 #endif  // org_jni_1zero_JavapClass_SHARED_JNI

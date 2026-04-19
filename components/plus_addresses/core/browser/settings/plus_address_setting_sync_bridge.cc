@@ -93,9 +93,8 @@ void PlusAddressSettingSyncBridge::WriteSetting(
                           metadata_change_list.get());
   // Update the `store_`'s data and metadata.
   std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
-      store_->CreateWriteBatch();
+      store_->CreateWriteBatch(std::move(metadata_change_list));
   batch->WriteData(storage_key, specifics.SerializeAsString());
-  batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
   store_->CommitWriteBatch(
       std::move(batch),
       base::BindOnce(&PlusAddressSettingSyncBridge::ReportErrorIfSet,
@@ -124,8 +123,7 @@ PlusAddressSettingSyncBridge::ApplyIncrementalSyncChanges(
     syncer::EntityChangeList entity_changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
-      store_->CreateWriteBatch();
-  batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
+      store_->CreateWriteBatch(std::move(metadata_change_list));
   for (const std::unique_ptr<syncer::EntityChange>& change : entity_changes) {
     switch (change->type()) {
       case syncer::EntityChange::ACTION_ADD:
@@ -179,6 +177,14 @@ PlusAddressSettingSyncBridge::GetAllDataForDebugging() {
     batch->Put(name, CreateEntityData(specifics));
   }
   return batch;
+}
+
+sync_pb::EntitySpecifics
+PlusAddressSettingSyncBridge::TrimAllSupportedFieldsFromRemoteSpecifics(
+    const sync_pb::EntitySpecifics& entity_specifics) const {
+  // Clears all fields by default to avoid the memory and I/O overhead of an
+  // additional copy of the data.
+  return sync_pb::EntitySpecifics();
 }
 
 bool PlusAddressSettingSyncBridge::IsEntityDataValid(

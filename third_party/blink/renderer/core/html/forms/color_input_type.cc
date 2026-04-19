@@ -125,7 +125,7 @@ String ColorInputType::SanitizeValue(const String& proposed_value) const {
       // it opaque). Convert to sRGB and serialize as #rrggbb.
       return Color::FromRGBA32(color.MakeOpaque().Rgb())
           .SerializeAsCanvasColor()
-          .LowerASCII();
+          .ToAsciiLower();
     }
     return kFallbackColorValue;
   }
@@ -133,7 +133,7 @@ String ColorInputType::SanitizeValue(const String& proposed_value) const {
   if (!IsValidColorString(proposed_value)) {
     return kFallbackColorValue;
   }
-  return proposed_value.LowerASCII();
+  return proposed_value.ToAsciiLower();
 }
 
 Color ColorInputType::ValueAsColor() const {
@@ -312,7 +312,7 @@ Vector<mojom::blink::ColorSuggestionPtr> ColorInputType::Suggestions() const {
       if (!color.SetFromString(option->value()))
         continue;
       suggestions.push_back(mojom::blink::ColorSuggestion::New(
-          color.Rgb(), option->label().Left(kMaxSuggestionLabelLength)));
+          color.Rgb(), option->label().substr(0, kMaxSuggestionLabelLength)));
       if (suggestions.size() >= kMaxSuggestions)
         break;
     }

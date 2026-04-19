@@ -28,8 +28,12 @@
 #include "chrome/browser/ash/policy/server_backed_state/server_backed_state_keys_broker.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_test_device_settings_service.h"
+#include "ash/constants/ash_pref_names.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
+#include "chrome/browser/notifications/notification_display_service_tester.h"
+#include "chrome/browser/notifications/notification_handler.h"
+#include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
@@ -56,6 +60,7 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/message_center/public/cpp/notification.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -117,6 +122,15 @@ class DeviceCommandQueryGeolocationJobTest : public testing::Test {
   void SetUp() override {
     ash::DBusThreadManager::Initialize();
     ash::DeviceSettingsService::Initialize();
+
+    auto* local_state =
+        TestingBrowserProcess::GetGlobal()->GetTestingLocalState();
+    if (!local_state->FindPreference(
+            ash::prefs::kDeviceCommandQueryGeolocationReported)) {
+      DeviceCommandQueryGeolocationJob::RegisterPrefs(local_state->registry());
+    }
+    TestingBrowserProcess::GetGlobal()->SetSystemNotificationHelper(
+        std::make_unique<SystemNotificationHelper>());
     network_handler_test_helper_ =
         std::make_unique<ash::NetworkHandlerTestHelper>();
 
@@ -170,6 +184,7 @@ class DeviceCommandQueryGeolocationJobTest : public testing::Test {
     test_manager_->Shutdown();
     network_handler_test_helper_.reset();
     ash::SystemLocationProvider::DestroyForTesting();
+    TestingBrowserProcess::GetGlobal()->SetSystemNotificationHelper(nullptr);
     ash::DeviceSettingsService::Shutdown();
     ash::DBusThreadManager::Shutdown();
   }
@@ -226,6 +241,47 @@ class DeviceCommandQueryGeolocationJobTest : public testing::Test {
   std::unique_ptr<TestDeviceCloudPolicyManagerAsh> test_manager_;
 };
 
+TEST_F(DeviceCommandQueryGeolocationJobTest, ShowNotificationWhenPrefIsSet) {
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetBoolean(
+      ash::prefs::kDeviceCommandQueryGeolocationReported, true);
+
+  NotificationDisplayServiceTester tester(/*profile=*/nullptr);
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+
+  std::optional<message_center::Notification> notification =
+      tester.GetNotification("device-located-disabled-device");
+  EXPECT_TRUE(notification);
+}
+
+TEST_F(DeviceCommandQueryGeolocationJobTest, NoNotificationWhenPrefNotSet) {
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetBoolean(
+      ash::prefs::kDeviceCommandQueryGeolocationReported, false);
+
+  NotificationDisplayServiceTester tester(/*profile=*/nullptr);
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+
+  std::optional<message_center::Notification> notification =
+      tester.GetNotification("device-located-disabled-device");
+  EXPECT_FALSE(notification);
+}
+
+TEST_F(DeviceCommandQueryGeolocationJobTest, ClearPrefOnNotificationClose) {
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetBoolean(
+      ash::prefs::kDeviceCommandQueryGeolocationReported, true);
+
+  NotificationDisplayServiceTester tester(/*profile=*/nullptr);
+  DeviceCommandQueryGeolocationJob::ShowLocationReportedNotificationIfNeeded();
+
+  tester.RemoveNotification(
+      NotificationHandler::Type::TRANSIENT,
+      "device-located-disabled-device", /*by_user=*/true);
+
+  EXPECT_FALSE(TestingBrowserProcess::GetGlobal()
+                   ->GetTestingLocalState()
+                   ->GetBoolean(
+                       ash::prefs::kDeviceCommandQueryGeolocationReported));
+}
+
 TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsIfNotDisabled) {
   SetDevicePolicy(em::DeviceState::DEVICE_MODE_NORMAL,
                   /*location_tracking_enabled=*/true);
@@ -233,6 +289,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsIfNotDisabled) {
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
+  task_environment_.FastForwardBy(base::Seconds(10));
   ASSERT_TRUE(job_finished_future.Wait());
   EXPECT_EQ(job->status(), RemoteCommandJob::Status::FAILED);
   std::unique_ptr<std::string> payload = job->GetResultPayload();
@@ -250,6 +307,45 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsIfNotDisabled) {
 }
 
 TEST_F(DeviceCommandQueryGeolocationJobTest,
+       CommandSucceedsIfDeviceBecomesDisabledDuringRetry) {
+  SetDevicePolicy(em::DeviceState::DEVICE_MODE_NORMAL,
+                  /*location_tracking_enabled=*/true);
+
+  const double latitude = 51.0;
+  const double longitude = -0.1;
+  const double accuracy = 1200.4;
+  const GURL geolocation_url = GetGeolocationUrl();
+  AddMockResponse(geolocation_url, test_utils::kSimpleResponseBody);
+
+  auto job = CreateJob(test_start_time_, test_manager_.get());
+  base::test::TestFuture<void> job_finished_future;
+  EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
+                       job_finished_future.GetCallback()));
+
+  // Device becomes disabled during the 10 seconds delay.
+  task_environment_.FastForwardBy(base::Seconds(5));
+  SetDevicePolicy(em::DeviceState::DEVICE_MODE_DISABLED,
+                  /*location_tracking_enabled=*/true);
+  task_environment_.FastForwardBy(base::Seconds(5));
+
+  ASSERT_TRUE(job_finished_future.Wait());
+  EXPECT_EQ(job->status(), RemoteCommandJob::Status::SUCCEEDED);
+
+  std::unique_ptr<std::string> payload = job->GetResultPayload();
+  ASSERT_TRUE(payload);
+
+  const std::optional<base::Value> parsed_payload =
+      base::JSONReader::Read(*payload, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(parsed_payload.has_value());
+  ASSERT_TRUE(parsed_payload->is_dict());
+  const base::DictValue& dict = parsed_payload->GetDict();
+
+  EXPECT_EQ(dict.FindDouble("latitude"), latitude);
+  EXPECT_EQ(dict.FindDouble("longitude"), longitude);
+  EXPECT_EQ(dict.FindDouble("accuracy"), accuracy);
+}
+
+TEST_F(DeviceCommandQueryGeolocationJobTest,
        CommandFailsIfLocationTrackingDisabled) {
   SetDevicePolicy(em::DeviceState::DEVICE_MODE_DISABLED,
                   /*location_tracking_enabled=*/false);
@@ -257,6 +353,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest,
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
+  task_environment_.FastForwardBy(base::Seconds(10));
   ASSERT_TRUE(job_finished_future.Wait());
   EXPECT_EQ(job->status(), RemoteCommandJob::Status::FAILED);
   std::unique_ptr<std::string> payload = job->GetResultPayload();
@@ -280,6 +377,7 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, CommandFailsForUnmanagedDevice) {
   base::test::TestFuture<void> job_finished_future;
   EXPECT_TRUE(job->Run(base::Time::Now(), base::TimeTicks::Now(),
                        job_finished_future.GetCallback()));
+  task_environment_.FastForwardBy(base::Seconds(10));
   ASSERT_TRUE(job_finished_future.Wait());
 
   EXPECT_EQ(job->status(), RemoteCommandJob::Status::FAILED);
@@ -323,6 +421,11 @@ TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationSuccess) {
   ASSERT_TRUE(timestamp_str);
   int64_t timestamp_val;
   EXPECT_TRUE(base::StringToInt64(*timestamp_str, &timestamp_val));
+
+  EXPECT_TRUE(TestingBrowserProcess::GetGlobal()
+                  ->GetTestingLocalState()
+                  ->GetBoolean(
+                      ash::prefs::kDeviceCommandQueryGeolocationReported));
 }
 
 TEST_F(DeviceCommandQueryGeolocationJobTest, GetLocationTimeout) {

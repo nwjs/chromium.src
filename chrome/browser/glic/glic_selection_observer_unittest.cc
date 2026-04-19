@@ -10,8 +10,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "chrome/test/base/testing_profile.h"
-#include "content/public/test/web_contents_tester.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/test/test_renderer_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace glic {
@@ -38,6 +39,9 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
     last_processed_text_.reset();
     update_count_ = 0;
   }
+
+  // Expose OnInputEvent for testing.
+  using GlicSelectionObserver::OnInputEvent;
 
  private:
   std::optional<std::u16string> last_processed_text_;
@@ -72,36 +76,41 @@ class GlicSelectionObserverTest : public ChromeRenderViewHostTestHarness {
   TestGlicSelectionObserver* GetObserver() { return observer_.get(); }
 };
 
-TEST_F(GlicSelectionObserverTest, SelectionUpdatesImmediatelyIfIdle) {
+TEST_F(GlicSelectionObserverTest, SelectionUpdatesDebounced) {
   auto* observer = GetObserver();
   ASSERT_TRUE(observer);
 
   std::u16string selected_text = u"Hello World";
   observer->OnTextSelectionChanged(nullptr, selected_text);
 
-  // Should be immediate.
+  // Should be debounced.
+  EXPECT_EQ(0, observer->update_count());
+
+  task_environment()->FastForwardBy(base::Milliseconds(300));
+
   EXPECT_EQ(1, observer->update_count());
   ASSERT_TRUE(observer->last_processed_text().has_value());
   EXPECT_EQ(selected_text, *observer->last_processed_text());
 }
 
-TEST_F(GlicSelectionObserverTest, SelectionUpdatesDebouncedWhenActive) {
+TEST_F(GlicSelectionObserverTest, MultipleSelectionUpdatesDebounced) {
   auto* observer = GetObserver();
   ASSERT_TRUE(observer);
 
-  // First update immediate.
+  // First update.
   observer->OnTextSelectionChanged(nullptr, u"First");
-  EXPECT_EQ(1, observer->update_count());
+  EXPECT_EQ(0, observer->update_count());
 
-  // Second update immediately after.
+  // Second update before the timer fires.
+  task_environment()->FastForwardBy(base::Milliseconds(100));
   observer->OnTextSelectionChanged(nullptr, u"Second");
-  EXPECT_EQ(1, observer->update_count());  // Still 1.
+  EXPECT_EQ(0, observer->update_count());
 
-  // Fast forward.
+  // Fast forward to fire the timer for the second update.
   task_environment()->FastForwardBy(base::Milliseconds(300));
 
-  // Verify updated.
-  EXPECT_EQ(2, observer->update_count());
+  // Verify updated with the second text.
+  EXPECT_EQ(1, observer->update_count());
   ASSERT_TRUE(observer->last_processed_text().has_value());
   EXPECT_EQ(u"Second", *observer->last_processed_text());
 }
@@ -145,30 +154,96 @@ TEST_F(GlicSelectionObserverTest, TooLongSelectionIgnored) {
   EXPECT_EQ(u"", *observer->last_processed_text());
 }
 
+TEST_F(GlicSelectionObserverTest, TooShortSelectionIgnored) {
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  // kMinSelectionLength is 3.
+  std::u16string short_text(2, 'a');
+  observer->OnTextSelectionChanged(nullptr, short_text);
+  task_environment()->FastForwardBy(base::Milliseconds(300));
+
+  // Should be treated as clearing (empty text).
+  EXPECT_EQ(1, observer->update_count());
+  ASSERT_TRUE(observer->last_processed_text().has_value());
+  EXPECT_EQ(u"", *observer->last_processed_text());
+}
+
 TEST_F(GlicSelectionObserverTest, DebounceRestarted) {
   auto* observer = GetObserver();
   ASSERT_TRUE(observer);
 
-  // First update immediate.
+  // First update.
   observer->OnTextSelectionChanged(nullptr, u"First");
-  EXPECT_EQ(1, observer->update_count());
+  EXPECT_EQ(0, observer->update_count());
 
   // Advance time partially (150ms).
   task_environment()->FastForwardBy(base::Milliseconds(150));
+  EXPECT_EQ(0, observer->update_count());
 
-  // Second update. Should be debounced because only 150ms passed since first.
-  // Delay needed: 300 - 150 = 150ms.
+  // Second update. Timer should be restarted.
   observer->OnTextSelectionChanged(nullptr, u"Second");
-  EXPECT_EQ(1, observer->update_count());
+  EXPECT_EQ(0, observer->update_count());
 
   // Wait 100ms. Total since second update = 100ms.
   task_environment()->FastForwardBy(base::Milliseconds(100));
-  EXPECT_EQ(1, observer->update_count());
+  EXPECT_EQ(0, observer->update_count());
 
-  // Wait 60ms. Total since second update = 160ms ( > 150ms).
-  task_environment()->FastForwardBy(base::Milliseconds(60));
-  EXPECT_EQ(2, observer->update_count());
+  // Wait 150ms. Total since second update = 250ms ( > 200ms).
+  task_environment()->FastForwardBy(base::Milliseconds(150));
+  EXPECT_EQ(1, observer->update_count());
   EXPECT_EQ(u"Second", *observer->last_processed_text());
+}
+
+TEST_F(GlicSelectionObserverTest, KeyboardSelectionIgnored) {
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  // Simulate a keyboard event.
+  blink::WebKeyboardEvent key_event(
+      blink::WebInputEvent::Type::kKeyDown, blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+
+  // We need a dummy RenderWidgetHost, but we can pass a nullptr since it's not
+  // used by OnInputEvent in this context except for signature. Wait,
+  // OnInputEvent takes `const content::RenderWidgetHost&`, so passing nullptr
+  // is UB. Let's just create a dummy WebMouseEvent. Wait, I can use the
+  // web_contents's RWH.
+  content::RenderWidgetHost* rwh =
+      web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost();
+  ASSERT_TRUE(rwh);
+
+  observer->OnInputEvent(*rwh, key_event,
+                         content::RenderWidgetHost::InputEventObserver::
+                             InputEventSource::kUnknown);
+
+  // Send a text selection event
+  observer->OnTextSelectionChanged(nullptr, u"Keyboard Selection");
+
+  // It should clear the selection immediately
+  EXPECT_EQ(1, observer->update_count());
+  ASSERT_TRUE(observer->last_processed_text().has_value());
+  EXPECT_EQ(u"", *observer->last_processed_text());
+
+  observer->Reset();
+
+  // Now simulate a mouse down event to clear the keyboard state.
+  blink::WebMouseEvent mouse_event(
+      blink::WebInputEvent::Type::kMouseDown,
+      blink::WebInputEvent::kNoModifiers,
+      blink::WebInputEvent::GetStaticTimeStampForTests());
+  observer->OnInputEvent(*rwh, mouse_event,
+                         content::RenderWidgetHost::InputEventObserver::
+                             InputEventSource::kUnknown);
+
+  observer->OnTextSelectionChanged(nullptr, u"Mouse Selection");
+  // Should be debounced.
+  EXPECT_EQ(0, observer->update_count());
+
+  task_environment()->FastForwardBy(base::Milliseconds(300));
+  EXPECT_EQ(1, observer->update_count());
+  ASSERT_TRUE(observer->last_processed_text().has_value());
+  EXPECT_EQ(u"Mouse Selection", *observer->last_processed_text());
 }
 
 }  // namespace glic

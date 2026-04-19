@@ -16,6 +16,7 @@
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_frame_view.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/throbber.h"
 #include "ui/views/metadata/view_factory.h"
@@ -280,7 +281,11 @@ void SaveAndFillDialog::DismissThrobberAndUpdateMainView() {
   if (controller_->GetDialogState() == SaveAndFillDialogState::kUploadDialog) {
     GetBubbleFrameView()->SetTitleView(
         std::make_unique<TitleWithIconAfterLabelView>(
-            GetWindowTitle(), TitleWithIconAfterLabelView::Icon::GOOGLE_PAY));
+            GetWindowTitle(),
+            base::FeatureList::IsEnabled(
+                features::kAutofillEnableWalletBrandingV2)
+                ? TitleWithIconAfterLabelView::Icon::GOOGLE_WALLET
+                : TitleWithIconAfterLabelView::Icon::GOOGLE_PAY));
   } else {
     auto title_view = std::make_unique<views::Label>(
         GetWindowTitle(), views::style::CONTEXT_DIALOG_TITLE);

@@ -43,9 +43,10 @@ constexpr BehaviorMapping kBehaviorMap[] = {
     {"tablist", FocusgroupBehavior::kTablist, ax::mojom::blink::Role::kTabList,
      FocusgroupFlags::kInline | FocusgroupFlags::kWrapInline},
     {"radiogroup", FocusgroupBehavior::kRadiogroup,
-     ax::mojom::blink::Role::kRadioGroup, FocusgroupFlags::kNone},
+     ax::mojom::blink::Role::kRadioGroup,
+     FocusgroupFlags::kWrapInline | FocusgroupFlags::kWrapBlock},
     {"listbox", FocusgroupBehavior::kListbox, ax::mojom::blink::Role::kListBox,
-     FocusgroupFlags::kNone},
+     FocusgroupFlags::kBlock},
     {"menu", FocusgroupBehavior::kMenu, ax::mojom::blink::Role::kMenu,
      FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock},
     {"menubar", FocusgroupBehavior::kMenubar, ax::mojom::blink::Role::kMenuBar,
@@ -221,7 +222,7 @@ FocusgroupData ParseFocusgroup(const Element* element,
   }
 
   // Validate and consume the first token before iterating the rest.
-  AtomicString first_token = tokens[0].LowerASCII();
+  AtomicString first_token = tokens[0].ToAsciiLower();
   // First token is the single allowed behavior.
   FocusgroupData data;
   data.behavior = FocusgroupBehaviorFromString(first_token);
@@ -251,7 +252,7 @@ FocusgroupData ParseFocusgroup(const Element* element,
   StringBuilder invalid_tokens;
   // Start at the second token.
   for (unsigned i = 1; i < tokens.size(); i++) {
-    AtomicString lowercase_token = tokens[i].LowerASCII();
+    AtomicString lowercase_token = tokens[i].ToAsciiLower();
 
     // Handle nowrap specially (not in kModifierMap since it has no flag bits).
     if (lowercase_token == "nowrap") {

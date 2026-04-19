@@ -41,6 +41,12 @@ public class UiAndroidFeatureList {
                     /* defaultValue= */ false,
                     /* defaultValueInTests= */ false);
 
+    public static final CachedFlag sBlockMouseEventsOnView =
+            newCachedFlag(
+                    UiAndroidFeatures.BLOCK_MOUSE_EVENTS_ON_VIEW,
+                    /* defaultValue= */ true,
+                    /* defaultValueInTests= */ true);
+
     public static final CachedFlag sRefactorMinWidthContextOverride =
             newCachedFlag(
                     UiAndroidFeatures.REFACTOR_MIN_WIDTH_CONTEXT_OVERRIDE,
@@ -59,6 +65,10 @@ public class UiAndroidFeatureList {
             newMutableFlagWithSafeDefault(
                     UiAndroidFeatures.ANDROID_TOUCHPAD_OVERSCROLL_HISTORY_NAVIGATION,
                     /* defaultValue= */ true);
+
+    public static final MutableFlagWithSafeDefault sSupportKeyboard =
+            newMutableFlagWithSafeDefault(
+                    UiAndroidFeatures.SUPPORT_KEYBOARD, /* defaultValue= */ true);
 
     public static final List<CachedFlag> sFlagsCachedUiAndroid =
             List.of(

@@ -226,6 +226,7 @@ class Locale;
 class Location;
 class MediaQueryListListener;
 class MediaQueryMatcher;
+class MenuSafeTriangle;
 class NodeIterator;
 class NthIndexCache;
 class Page;
@@ -648,6 +649,10 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsFrameSet() const;
 
   bool IsSrcdocDocument() const { return is_srcdoc_document_; }
+  bool IsDOMParserDocument() const { return is_dom_parser_document_; }
+  void SetIsDOMParserDocument(bool is) { is_dom_parser_document_ = is; }
+  bool IsXHRDocument() const { return is_xhr_document_; }
+  void SetIsXHRDocument(bool is) { is_xhr_document_ = is; }
   bool IsMobileDocument() const { return is_mobile_document_; }
 
   StyleResolver& GetStyleResolver() const;
@@ -913,6 +918,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool DispatchBeforeUnloadEvent(
       ChromeClient* chrome_client,
       bool is_reload,
+      bool force_to_proceed,
       bool& did_allow_navigation,
       base::TimeTicks& out_before_unload_dialog_opened_time,
       base::TimeTicks& out_before_unload_dialog_closed_time);
@@ -1611,6 +1617,10 @@ class CORE_EXPORT Document : public ContainerNode,
   void EnqueueScrollSnapChangingEvent(Node* target,
                                       Member<Node>& block_target,
                                       Member<Node>& inline_target);
+  void EnqueueOverscrollEvent(const AtomicString& type,
+                              Node* target,
+                              Element* overscroll_target,
+                              bool overscrolling = false);
 
   void DispatchMediaQueryListEvents();
 
@@ -1702,7 +1712,7 @@ class CORE_EXPORT Document : public ContainerNode,
     return top_layer_elements_;
   }
   void ScheduleForTopLayerRemoval(Element*, TopLayerReason);
-  void RemoveFinishedTopLayerElements();
+  bool RemoveFinishedTopLayerElements();
   // Returns std::nullopt if the provided element is not scheduled for top
   // layer removal. If it is scheduled for removal, then this returns the reason
   // for the element being in the top layer.
@@ -1753,6 +1763,14 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapLinkedHashSet<Member<Element>>& ElementsWithInterest() {
     return elements_with_interest_;
   }
+
+  MenuSafeTriangle* GetMenuSafeTriangle();
+  void SetMenuSafeTriangle(MenuSafeTriangle*);
+  // TODO(https://crbug.com/406566432): For now the menu stack is just the
+  // same as the popover stack, but it's possible it should be slightly
+  // different.  Having it be a distinct method also makes it clearer why
+  // callers are using it.
+  PopoverStack& MenuStack() { return popover_auto_stack_; }
 
   // https://crbug.com/1453291
   // The DOM Parts API:
@@ -2306,6 +2324,9 @@ class CORE_EXPORT Document : public ContainerNode,
   void AddOverscrollCommandInvoker(Element& invoker);
   void RemoveOverscrollCommandInvoker(Element& invoker);
 
+  void UpdateActiveState(bool is_active, bool update_active_chain, Element*);
+  void UpdateHoverState(Element*);
+
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
 
@@ -2483,8 +2504,10 @@ class CORE_EXPORT Document : public ContainerNode,
   // after parsing finished.
   void UnblockLoadEventAfterLayoutTreeUpdate();
 
-  // ImplicitClose() actually does the work of closing the input stream.
-  void ImplicitClose();
+  // Dispatches the load event and finalizes document loading: detaches the
+  // parser, fires load events, starts SVG animations, notifies the frame, and
+  // updates style/layout.
+  void DispatchLoadEventAndFinalize();
   bool ShouldComplete();
 
   // Returns |true| if both document and its owning frame are still attached.
@@ -2565,9 +2588,6 @@ class CORE_EXPORT Document : public ContainerNode,
     in_pseudo_has_checking_ = true;
   }
   void LeavePseudoHasChecking() { in_pseudo_has_checking_ = false; }
-
-  void UpdateActiveState(bool is_active, bool update_active_chain, Element*);
-  void UpdateHoverState(Element*);
 
   const AtomicString& BodyAttributeValue(const QualifiedName&) const;
   void SetBodyAttribute(const QualifiedName&, const AtomicString&);
@@ -2916,6 +2936,8 @@ class CORE_EXPORT Document : public ContainerNode,
   bool is_xr_overlay_ = false;
   bool saw_elements_in_known_namespaces_ = false;
   bool is_srcdoc_document_;
+  bool is_dom_parser_document_ = false;
+  bool is_xhr_document_ = false;
   bool is_mobile_document_ = false;
 
   Member<LayoutView> layout_view_;
@@ -3226,6 +3248,10 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapHashSet<Member<const Element>> overscroll_command_targets_;
   HeapHashSet<Member<Element>> overscroll_command_invokers_;
   bool overscroll_command_targets_dirty_ = false;
+
+  // Data on the currently active safe-triangle (if any), for HTML menu
+  // elements, that is delaying interest gain/loss.
+  Member<MenuSafeTriangle> menu_safe_triangle_;
 
   // If you want to add new data members to blink::Document, please reconsider
   // if the members really should be in blink::Document.  document.h is a very

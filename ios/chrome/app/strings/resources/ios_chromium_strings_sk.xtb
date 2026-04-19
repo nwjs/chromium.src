@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sk">
 <translation id="1000436330784933699">Tu môžete otvoriť Lens.</translation>
+<translation id="1005291068154454184">Video v režime celej obrazovky s pokynmi, ako nastaviť Chromium ako predvolený prehliadač</translation>
 <translation id="1042296835509784301">Otvorí Správcu hesiel v prehliadači Chromium.</translation>
 <translation id="1047130070405668746">Vyberte Chromium</translation>
 <translation id="1091252999271033193">Znamená to, že Chromium bude zakaždým žiadať o mobilný web.</translation>
@@ -70,9 +71,6 @@ Nové záložky sa nebudú môcť ukladať do vášho účtu, kým niektoré neo
 <translation id="2313870531055795960">Kontroluje webové adresy podľa zoznamu nebezpečných webov uloženého v prehliadači Chromium. Ak sa vám určitý web pokúsi ukradnúť heslo alebo stiahnete škodlivý súbor, Chromium môže tiež odoslať webové adresy vrátane častí obsahu stránky Bezpečnému prehliadaniu.</translation>
 <translation id="2314220608288760290">Chromium automaticky otvára odkazy na YouTube v režime inkognito.</translation>
 <translation id="231828342043114302">Ak chcete dostávať prispôsobený obsah na základe záujmov, prihláste sa do prehliadača Chromium.</translation>
-<translation id="2326738825692478496">Niektoré údaje prehliadača Chromium zatiaľ neboli vo vašom účte Google uložené.
-
-Pred odhlásením skúste počkať niekoľko minút. Ak sa odhlásite teraz, tieto údaje budú odstránené.</translation>
 <translation id="2334943301233020675">Nasledujúce prístupové kľúče neboli importované do Správcu hesiel, pretože nespĺňajú požiadavky.</translation>
 <translation id="2337722506862731008">Zdieľať Chromium</translation>
 <translation id="2340423701577464731">Pridanie položky čitateľského zoznamu do prehliadača Chromium</translation>
@@ -103,7 +101,6 @@ Pred odhlásením skúste počkať niekoľko minút. Ak sa odhlásite teraz, tie
 Ďalšie nastavenia, ktoré zlepšujú prostredie prehliadača Chromium pomocou údajov, nájdete v <ph name="BEGIN_LINK" />službách Googlu<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Vyhľadávanie hlasom v prehliadači Chromium.</translation>
 <translation id="2843571538056574338">Automaticky dopĺňajte pomocou prehliadača Chromium</translation>
-<translation id="2899085719655668655">Video s pokynmi, ako nastaviť Chromium ako predvolený prehliadač. Video sa zobrazuje v režime obraz v obraze.</translation>
 <translation id="2918709798697875261">Vaša organizácia vyžaduje, aby ste sa do prehliadača Chromium neprihlasovali.</translation>
 <translation id="2942241131342758843">Predvolene otvárajte odkazy, vyhľadávajte v miniaplikáciách a automaticky dopĺňajte heslá v iných aplikáciách pomocou prehliadača Chromium</translation>
 <translation id="2977470724722393594">Prehliadač Chromium bol aktualizovaný</translation>

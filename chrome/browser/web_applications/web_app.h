@@ -68,6 +68,13 @@ class InstalledByPassKey {
   InstalledByPassKey() = default;
 };
 
+// Represents an installed web app in RAM. Its member fields largely reflect all
+// the ways a site can configure their web app manifest, plus miscellaneous
+// internal bookkeeping and user settings.
+//
+// Some settings on this class can also be influenced by other sources of truth
+// like policy. Thus it is often safer to access properties via getters on the
+// WebAppRegistrar, which combines these sources of truth.
 class WebApp {
  public:
   // This creates a web app object, and will CHECK-fail if the arguments are
@@ -254,6 +261,11 @@ class WebApp {
 
   const base::flat_set<ScopeExtensionInfo>& validated_scope_extensions() const {
     return validated_scope_extensions_;
+  }
+
+  const std::optional<base::Time>&
+  origin_association_last_validation_check_time() const {
+    return origin_association_last_validation_check_time_;
   }
 
   WebAppScope GetScope() const;
@@ -505,6 +517,8 @@ class WebApp {
   void SetScopeExtensions(base::flat_set<ScopeExtensionInfo> scope_extensions);
   void SetValidatedScopeExtensions(
       base::flat_set<ScopeExtensionInfo> validated_scope_extensions);
+  void SetOriginAssociationLastValidationCheckTime(
+      const std::optional<base::Time>& time);
   void SetLockScreenStartUrl(const GURL& lock_screen_start_url);
   void SetNoteTakingNewNoteUrl(const GURL& note_taking_new_note_url);
   void SetLastBadgingTime(const base::Time& time);
@@ -750,6 +764,8 @@ class WebApp {
   std::vector<MigrationSource> unvalidated_migration_sources_;
   std::vector<MigrationSource> validated_migration_sources_;
   std::optional<PendingMigrationInfo> pending_migration_info_;
+
+  std::optional<base::Time> origin_association_last_validation_check_time_;
   // LINT.ThenChange(//chrome/browser/web_applications/proto/web_app.proto)
 
   // New fields must be added to:

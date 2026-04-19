@@ -26,8 +26,9 @@ using ProfileMetricsContext = std::optional<size_t>;
 // and the per-profile histogram (if the profile is suitable for per-profile
 // histograms, on supported platforms).
 //
-// The histograms should be defined in the XML file using the `ProfileIndex`
-// variant from tools/metrics/histograms/metadata/profile/histograms.xml
+// The histograms should be defined in the XML file using the
+// `ProfileIndex{sub_dir}` variant from
+// tools/metrics/histograms/metadata/{sub_dir}/histograms.xml
 class ProfileMetricsService : public KeyedService {
  public:
   explicit ProfileMetricsService(ProfileMetricsContext context = std::nullopt);
@@ -37,8 +38,6 @@ class ProfileMetricsService : public KeyedService {
 
   // These methods exactly mirror those in base/metrics/histogram_functions.h.
   // See usage comments in those methods for more details.
-  //
-  // TODO(crbug.com/417921579): Add the other methods.
   template <typename T>
   void UmaHistogramEnumeration(std::string_view name, T sample) {
     base::UmaHistogramEnumeration(name, sample);
@@ -47,6 +46,27 @@ class ProfileMetricsService : public KeyedService {
                                     sample);
     }
   }
+
+  template <typename T>
+  void UmaHistogramEnumeration(std::string_view name, T sample, T enum_size) {
+    base::UmaHistogramEnumeration(name, sample, enum_size);
+    if (!histogram_suffix_.empty()) {
+      base::UmaHistogramEnumeration(base::StrCat({name, histogram_suffix_}),
+                                    sample, enum_size);
+    }
+  }
+
+  void UmaHistogramBoolean(std::string_view name, bool sample);
+
+  void UmaHistogramCounts1000(std::string_view name, int sample);
+
+  void UmaHistogramSparse(std::string_view name, int sample);
+
+  void UmaHistogramCustomTimes(std::string_view name,
+                               base::TimeDelta sample,
+                               base::TimeDelta min,
+                               base::TimeDelta max,
+                               size_t buckets);
 
  private:
   const ProfileMetricsContext profile_metrics_context_;

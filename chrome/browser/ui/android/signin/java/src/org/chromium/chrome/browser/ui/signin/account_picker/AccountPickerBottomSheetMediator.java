@@ -11,8 +11,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.text.TextUtils;
 
-import androidx.annotation.NonNull;
-
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -68,29 +66,33 @@ public class AccountPickerBottomSheetMediator
     private final Runnable mDismissBottomSheet;
     private final DeviceLockActivityLauncher mDeviceLockActivityLauncher;
     private final @ViewState int mInitialViewState;
-    // TODO(crbug.com/328747528): The web sign-in specific logic should be moved out of the bottom
-    // sheet MVC.
-    private final boolean mIsWebSignin;
-    private final @SigninAccessPoint int mSigninAccessPoint;
     private final ProfileDataCache mProfileDataCache;
     private final PropertyModel mModel;
     private final AccountManagerFacade mAccountManagerFacade;
     private final boolean mIsSeamlessSignin;
 
     private @Nullable Runnable mRequestDisplayBottomSheet;
-    private @Nullable SigninFlowTimestampsLogger mSigninTimestampsLogger;
     private @Nullable CoreAccountInfo mSelectedAccount;
     private @Nullable CoreAccountInfo mDefaultAccount;
-    private @Nullable CoreAccountInfo mAddedAccount;
+
     // This field is used to save the added account email while the account info becomes available
     // in AccountManagerFacade for sign-in.
     private @Nullable String mPendingAddedAccountEmail;
     private boolean mAcceptedAccountManagement;
 
+    // Properties for metrics recording.
+    private final AccountPickerDismissalLogger mDismissalLogger;
+    private @Nullable SigninFlowTimestampsLogger mSigninTimestampsLogger;
+    private @Nullable CoreAccountInfo mAddedAccount;
+    private final @SigninAccessPoint int mSigninAccessPoint;
+    private boolean mInitializedWithNoAccount;
+    // TODO(crbug.com/328747528): The web sign-in specific logic should be moved out of the bottom
+    // sheet MVC.
+    private final boolean mIsWebSignin;
+
     private final PropertyObserver<PropertyKey> mModelPropertyChangedObserver;
     private final SettableNonNullObservableSupplier<Boolean> mBackPressStateChangedSupplier =
             ObservableSuppliers.createNonNull(false);
-    private final AccountPickerDismissalLogger mDismissalLogger;
 
     static AccountPickerBottomSheetMediator create(
             WindowAndroid windowAndroid,
@@ -295,7 +297,7 @@ public class AccountPickerBottomSheetMediator
      * Called by the embedder when an account is added through the latter. Sign-in the just added
      * user.
      */
-    public void onAccountAdded(@NonNull String accountEmail) {
+    public void onAccountAdded(String accountEmail) {
         assert !mIsSeamlessSignin
                 : "Signing in an added account is not supported in the seamless sign-in flow.";
         assert mAccountPickerDelegate.canHandleAddAccount();
@@ -380,7 +382,7 @@ public class AccountPickerBottomSheetMediator
         mModel.set(AccountPickerBottomSheetProperties.VIEW_STATE, ViewState.SIGNIN_AUTH_ERROR);
     }
 
-    /** Implements {@link AccountPickerDelegate.ResultHandler}. */
+    /** Implements {@link AccountPickerDelegate.SigninStateController}. */
     @Override
     public void onSigninComplete() {
         assertNonNull(mSigninTimestampsLogger).recordTimestamp(Event.SIGNIN_COMPLETED);
@@ -424,6 +426,7 @@ public class AccountPickerBottomSheetMediator
             // If all accounts disappeared, no matter if the account list initial state, we will go
             // to the zero account screen.
             setNoAccountState();
+            mInitializedWithNoAccount = true;
             return;
         }
 
@@ -652,7 +655,11 @@ public class AccountPickerBottomSheetMediator
         }
         mModel.set(AccountPickerBottomSheetProperties.VIEW_STATE, ViewState.SIGNIN_IN_PROGRESS);
 
-        if (Objects.equals(mSelectedAccount, mAddedAccount)) {
+        if (mInitializedWithNoAccount) {
+            SigninMetricsUtils.logAccountConsistencyPromoAction(
+                    AccountConsistencyPromoAction.SIGNED_IN_WITH_NO_DEVICE_ACCOUNT,
+                    mSigninAccessPoint);
+        } else if (Objects.equals(mSelectedAccount, mAddedAccount)) {
             SigninMetricsUtils.logAccountConsistencyPromoAction(
                     AccountConsistencyPromoAction.SIGNED_IN_WITH_ADDED_ACCOUNT, mSigninAccessPoint);
         } else if (Objects.equals(mSelectedAccount, mDefaultAccount)) {
@@ -682,8 +689,13 @@ public class AccountPickerBottomSheetMediator
                 new SigninManager.SignInCallback() {
                     @Override
                     public void onSignInComplete() {
-                        mAccountPickerDelegate.onSignInComplete(
-                                selectedAccount, AccountPickerBottomSheetMediator.this);
+                        // Delegates can optionally run extra operations immediately after sign-in
+                        // while the loading bottom sheet is still shown. For example, websignin
+                        // creates a WebSigninBridge which asynchronously awaits cookie sync. If
+                        // this fails reauthentication is necessary.
+                        mAccountPickerDelegate.runPostSigninAction(
+                                selectedAccount,
+                                result -> handlePostSigninResult(selectedAccount, result));
                     }
 
                     @Override
@@ -691,6 +703,25 @@ public class AccountPickerBottomSheetMediator
                         showGenericError();
                     }
                 });
+    }
+
+    private void handlePostSigninResult(
+            CoreAccountInfo signedInAccount, @PostSigninOperationResult int result) {
+        @ViewState int viewState = mModel.get(AccountPickerBottomSheetProperties.VIEW_STATE);
+        assert viewState == ViewState.SIGNIN_IN_PROGRESS;
+
+        if (result == PostSigninOperationResult.SUCCESS) {
+            // TODO(crbug.com/469772349): After {@link SigninStateController} is removed, inline
+            // {@link #onSigninComplete()} here.
+            mAccountPickerDelegate.onSignInComplete(
+                    signedInAccount, AccountPickerBottomSheetMediator.this);
+        } else if (result == PostSigninOperationResult.AUTH_ERROR) {
+            showAuthError();
+        } else if (result == PostSigninOperationResult.OTHER_ERROR) {
+            showGenericError();
+        } else {
+            throw new IllegalStateException("Unexpected result: " + result);
+        }
     }
 
     /** Handles a missing selected account during sign-in. */

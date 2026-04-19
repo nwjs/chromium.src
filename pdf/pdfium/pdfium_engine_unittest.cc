@@ -936,15 +936,9 @@ TEST_P(PDFiumEngineTest, GetScreenRectsForCaret) {
   ASSERT_EQ(30u, engine->GetCharCount(0));
   ASSERT_EQ(30u, engine->GetCharCount(1));
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-  constexpr gfx::Rect kExpectedRect1{32, 186, 12, 22};
-  constexpr gfx::Rect kExpectedRect2{67, 186, 5, 22};
-  constexpr gfx::Rect kExpectedRect3{43, 466, 8, 22};
-#else
   constexpr gfx::Rect kExpectedRect1{32, 188, 12, 19};
   constexpr gfx::Rect kExpectedRect2{67, 188, 5, 19};
   constexpr gfx::Rect kExpectedRect3{43, 468, 8, 19};
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   EXPECT_THAT(engine->GetScreenRectsForCaret({0, 0}),
               ElementsAre(kExpectedRect1));
   EXPECT_THAT(engine->GetScreenRectsForCaret({0, 5}),
@@ -2856,6 +2850,44 @@ TEST_P(PDFiumEngineInkDrawTest, LoadedV2InkPathsAndUpdateShapeActive) {
             1);
 }
 
+TEST_P(PDFiumEngineInkDrawTest, LoadedV2InkPathsAndApplyAndDiscardStroke) {
+  TestClient client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+
+  // Check the initial loaded PDF.
+  constexpr int kPageIndex = 0;
+  std::map<InkModeledShapeId, ink::PartitionedMesh> ink_shapes =
+      engine->LoadV2InkPathsForPage(kPageIndex);
+  ASSERT_EQ(1u, ink_shapes.size());
+  ASSERT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            1);
+  ASSERT_TRUE(engine->stroked_pages_unload_preventers_for_testing().contains(
+      kPageIndex));
+
+  // Draw a stroke and immediately discard the stroke to undo.
+  auto brush = std::make_unique<PdfInkBrush>(PdfInkBrush::Type::kPen,
+                                             SK_ColorRED, /*size=*/4.0f);
+  constexpr auto kInputs0 = std::to_array<PdfInkInputData>({
+      {{5.0f, 5.0f}, base::Seconds(0.0f)},
+      {{50.0f, 5.0f}, base::Seconds(0.1f)},
+  });
+  std::optional<ink::StrokeInputBatch> batch = CreateInkInputBatch(kInputs0);
+  ASSERT_TRUE(batch.has_value());
+  ink::Stroke stroke0(brush->ink_brush(), batch.value());
+  constexpr InkStrokeId kStrokeId(1);
+  engine->ApplyStroke(kPageIndex, kStrokeId, stroke0);
+  engine->DiscardStroke(kPageIndex, kStrokeId);
+
+  // The page at `kPageIndex` should still not be allowed to unload, since
+  // `engine` is holding onto page objects within that page.
+  EXPECT_TRUE(engine->stroked_pages_unload_preventers_for_testing().contains(
+      kPageIndex));
+}
+
 TEST_P(PDFiumEngineInkDrawTest, ThumbnailsDoNotContainStrokes) {
   TestClient client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine =
@@ -3670,7 +3702,7 @@ TEST_P(PDFiumEngineHighlightTextFragmentTest, ScrollToFirstTextFragment) {
   engine->PluginSizeUpdated({200, 400});
 
   EXPECT_CALL(client, ScrollToX(424, /*force_smooth_scroll=*/true));
-  EXPECT_CALL(client, ScrollToY(749, /*force_smooth_scroll=*/true));
+  EXPECT_CALL(client, ScrollToY(750, /*force_smooth_scroll=*/true));
 
   engine->FindAndHighlightTextFragments({"difficult to implement"});
   engine->ScrollToFirstTextFragment(/*force_smooth_scroll=*/true);

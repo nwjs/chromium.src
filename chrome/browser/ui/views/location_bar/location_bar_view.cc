@@ -361,10 +361,11 @@ void LocationBarView::Init() {
 
   const bool is_web_app =
       browser_ && web_app::AppBrowserController::IsWebApp(browser_);
+  const bool is_devtools = browser_ && browser_->is_type_devtools();
 
-  // Skip creating the AIM WebUI for web apps since it's not supported there
-  // and results in an extra Omnibox process being created.
-  if (!is_web_app && omnibox::IsAimPopupFeatureEnabled()) {
+  // Skip creating the AIM WebUI for web apps and devtools windows since it's
+  // not supported there and results in an extra Omnibox process being created.
+  if (!is_web_app && !is_devtools && omnibox::IsAimPopupFeatureEnabled()) {
     omnibox_popup_aim_presenter_ = std::make_unique<OmniboxPopupAimPresenter>(
         this, omnibox_controller_.get());
   }
@@ -373,19 +374,19 @@ void LocationBarView::Init() {
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup) &&
       !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup);
 
-  // Default to the legacy popup view for web apps since creating the WebUI
-  // popup results in an extra Omnibox process being created (note that the
-  // address bar is not shown in web apps). When the legacy
+  // Default to the legacy popup view for web apps and devtools windows since
+  // creating the WebUI popup results in an extra Omnibox process being created
+  // (note that the address bar is not shown in web apps). When the legacy
   // `OmniboxPopupViewViews` is deprecated we will need to ensure that a null
   // `omnibox_popup_view_` doesn't cause any issues (or aim for a cleaner
   // solution).
-  if (!is_web_app &&
+  if (!is_web_app && !is_devtools &&
       ((web_ui_popup_dropdown_only &&
         !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug)) ||
        base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup))) {
     omnibox_popup_view_ = std::make_unique<OmniboxPopupViewWebUI>(
         /*omnibox_view=*/omnibox_view_, omnibox_controller_.get(),
-        /*location_bar_view=*/this);
+        /*location_bar=*/this, /*presenter_delegate=*/*this);
   } else {
     omnibox_popup_view_ = std::make_unique<OmniboxPopupViewViews>(
         /*omnibox_view=*/omnibox_view_, omnibox_controller_.get(),
@@ -504,20 +505,15 @@ void LocationBarView::Init() {
     // first so that they appear on the left side of the icon container.
     // TODO(crbug.com/40835681): Improve the ordering heuristics for page action
     // icons and determine a way to handle simultaneous icon animations.
-    params.types_enabled.push_back(PageActionIconType::kDiscounts);
-    params.types_enabled.push_back(PageActionIconType::kPriceInsights);
 
     if (optimization_guide::features::ShouldEnableOptimizationGuideIconView()) {
       params.types_enabled.push_back(PageActionIconType::kOptimizationGuide);
     }
-    params.types_enabled.push_back(PageActionIconType::kClickToCall);
-    params.types_enabled.push_back(PageActionIconType::kAutofillAddress);
     params.types_enabled.push_back(PageActionIconType::kManagePasswords);
     if (!apps::features::ShouldShowLinkCapturingUX()) {
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
     }
     params.types_enabled.push_back(PageActionIconType::kPwaInstall);
-    params.types_enabled.push_back(PageActionIconType::kFind);
     params.types_enabled.push_back(PageActionIconType::kTranslate);
     params.types_enabled.push_back(PageActionIconType::kZoom);
     params.types_enabled.push_back(PageActionIconType::kFileSystemAccess);
@@ -526,6 +522,7 @@ void LocationBarView::Init() {
     params.types_enabled.push_back(
         PageActionIconType::kPaymentsOfferNotification);
     params.types_enabled.push_back(PageActionIconType::kMemorySaver);
+    params.types_enabled.push_back(PageActionIconType::kFederation);
   }
   params.types_enabled.push_back(PageActionIconType::kSaveCard);
   params.types_enabled.push_back(PageActionIconType::kSaveIban);
@@ -567,10 +564,6 @@ void LocationBarView::Init() {
     // meets AIM eligibility criteria.
     params.types_enabled.insert(params.types_enabled.begin(),
                                 PageActionIconType::kAiMode);
-  }
-
-  if (browser_ && tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
-    params.types_enabled.push_back(PageActionIconType::kCollaborationMessaging);
   }
 
   if (browser_ && !is_popup_mode_) {
@@ -622,17 +615,24 @@ bool LocationBarView::IsInitialized() const {
 }
 
 int LocationBarView::GetBorderRadius() const {
-  return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-      views::Emphasis::kMaximum, size());
+  return ComputeBorderRadius(size());
 }
 
+// static
+int LocationBarView::ComputeBorderRadius(gfx::Size size) {
+  return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
+      views::Emphasis::kMaximum, size);
+}
+
+// static
 std::unique_ptr<views::Background> LocationBarView::CreateRoundRectBackground(
     SkColor background_color,
     SkColor stroke_color,
+    gfx::Size size,
     SkBlendMode blend_mode,
     bool antialias,
-    bool should_border_scale) const {
-  const int radius = GetBorderRadius();
+    bool should_border_scale) {
+  const int radius = ComputeBorderRadius(size);
   auto painter =
       stroke_color == SK_ColorTRANSPARENT
           ? views::Painter::CreateSolidRoundRectPainter(
@@ -1245,7 +1245,8 @@ std::optional<bubble_anchor_util::AnchorConfiguration>
 LocationBarView::GetChipAnchor() {
   auto* chip = GetChipController()->chip();
   if (chip->GetVisible()) {
-    return {{chip, PermissionChipView::kPermissionRequestChipElementId,
+    return {{views::BubbleAnchor(chip),
+             PermissionChipView::kPermissionRequestChipElementId,
              views::BubbleBorder::TOP_LEFT}};
   }
   return std::nullopt;
@@ -1257,6 +1258,10 @@ ui::TrackedElement* LocationBarView::GetAnchorOrNull() {
 
 Browser* LocationBarView::GetBrowser() {
   return browser();
+}
+
+Profile* LocationBarView::GetProfile() {
+  return profile_;
 }
 
 bool LocationBarView::IsVisible() const {
@@ -1277,6 +1282,10 @@ void LocationBarView::InvalidateLayout() {
 
 gfx::Rect LocationBarView::Bounds() const {
   return bounds();
+}
+
+gfx::Rect LocationBarView::BoundsInScreen() const {
+  return GetBoundsInScreen();
 }
 
 gfx::Size LocationBarView::MinimumSize() const {
@@ -1331,6 +1340,18 @@ void LocationBarView::OnPermissionManagerShuttingDown() {
 }
 #endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
+views::Widget* LocationBarView::GetLocationBarWidget() {
+  return GetWidget();
+}
+
+OmniboxPopupFileSelector* LocationBarView::GetOmniboxPopupFileSelector() const {
+  return omnibox_popup_file_selector_.get();
+}
+
+OmniboxPopupAimPresenter* LocationBarView::GetOmniboxPopupAimPresenter() const {
+  return omnibox_popup_aim_presenter_.get();
+}
+
 WebContents* LocationBarView::GetWebContentsForPageActionIconView() {
   return GetWebContents();
 }
@@ -1372,10 +1393,10 @@ bool LocationBarView::ShouldHidePageActionIcon(
     return false;
   }
 
-  PinnedToolbarActionsContainer* pinned_toolbar_actions_container =
-      browser_view->toolbar()->pinned_toolbar_actions_container();
-  return pinned_toolbar_actions_container &&
-         pinned_toolbar_actions_container->IsActionPinnedOrPoppedOut(
+  PinnedToolbarActions* pinned_toolbar_actions =
+      browser_view->toolbar()->pinned_toolbar_actions();
+  return pinned_toolbar_actions &&
+         pinned_toolbar_actions->IsActionPinnedOrPoppedOut(
              icon_view->action_id().value_or(-1));
 }
 
@@ -1579,7 +1600,8 @@ void LocationBarView::RefreshBackground() {
     SetBackground(views::CreateSolidBackground(background_color_));
   } else {
     SetBackground(CreateRoundRectBackground(
-        background_color_, border_color, /*blend_mode=*/SkBlendMode::kSrcOver,
+        background_color_, border_color, size(),
+        /*blend_mode=*/SkBlendMode::kSrcOver,
         /*antialias=*/true, /*should_border_scale=*/true));
   }
 
@@ -1611,8 +1633,8 @@ bool LocationBarView::RefreshContentSettingViews() {
   for (ContentSettingImageView* v : content_setting_views_) {
     const bool was_visible = v->GetVisible();
     // The Left-Hand Side indicators currently supports only
-    // `ImageType::MEDIASTREAM`.
-    if (v->GetType() == ContentSettingImageModel::ImageType::MEDIASTREAM &&
+    // `ImageType::kMediaStream`.
+    if (v->GetType() == ContentSettingImageModel::ImageType::kMediaStream &&
         // WebApps do not support the Left-Hand Side indicators.
         !web_app::AppBrowserController::IsWebApp(browser_) &&
         base::FeatureList::IsEnabled(
@@ -1761,6 +1783,7 @@ bool LocationBarView::IsContentSettingBubbleShowing(size_t index) {
 
 void LocationBarView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   RefreshBackground();
+  NotifyBoundsChanged();
 }
 
 bool LocationBarView::GetNeedsNotificationWhenVisibleBoundsChange() const {
@@ -2184,10 +2207,7 @@ void LocationBarView::OnLocationIconGestureEvent(ui::GestureEvent* event) {
 }
 
 void LocationBarView::OnLocationIconPressed(const ui::MouseEvent& event) {
-  if (!OpenContextMenu()) {
-    return;
-  }
-
+  // "Paste-and-Go" behavior should take priority over all other interactions.
   if (event.IsOnlyMiddleMouseButton() &&
       ui::Clipboard::IsMiddleClickPasteEnabled() &&
       ui::Clipboard::IsSupportedClipboardBuffer(
@@ -2196,7 +2216,10 @@ void LocationBarView::OnLocationIconPressed(const ui::MouseEvent& event) {
         ui::ClipboardBuffer::kSelection, /* data_dst = */ std::nullopt,
         base::BindOnce(&LocationBarView::OnMiddleClickPaste,
                        weak_factory_.GetWeakPtr(), event.time_stamp()));
+    return;
   }
+
+  OpenContextMenu();
 }
 
 void LocationBarView::OnMiddleClickPaste(base::TimeTicks event_timestamp,
@@ -2246,7 +2269,8 @@ bool LocationBarView::ShowPageInfoDialog() {
   DCHECK(GetWidget());
 
   std::unique_ptr<PageInfoBubbleSpecification> specification =
-      PageInfoBubbleSpecification::Builder(this, GetWidget()->GetNativeWindow(),
+      PageInfoBubbleSpecification::Builder(views::BubbleAnchor(this),
+                                           GetWidget()->GetNativeWindow(),
                                            contents, entry->GetVirtualURL())
           .AddInitializedCallback(
               GetPageInfoDialogCreatedCallbackForTesting()

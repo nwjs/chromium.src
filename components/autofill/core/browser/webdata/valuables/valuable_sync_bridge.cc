@@ -12,6 +12,7 @@
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
+#include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
@@ -46,6 +47,14 @@ bool AreAnyItemsDifferent(const std::vector<Item>& old_data,
   return base::MakeFlatSet<Item>(old_data) != base::MakeFlatSet<Item>(new_data);
 }
 
+constexpr bool IsLoyaltyCardSyncEnabled() {
+#if BUILDFLAG(IS_IOS)
+  return false;
+#else
+  return true;
+#endif
+}
+
 // Tests if the valuable `specifics` are valid and can be converted into an
 // Autofill class instance using `CreateAutofillLoyaltyCardFromSpecifics()`.
 bool AreAutofillLoyaltyCardSpecificsValid(
@@ -73,6 +82,11 @@ bool IsSyncWalletVehicleRegistrationsEnabled() {
 
 bool IsSyncAutofillValuableMetadataEnabled() {
   return base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata);
+}
+
+bool IsSyncLoyaltyCardValuableMetadataEnabled() {
+  return IsSyncAutofillValuableMetadataEnabled() &&
+         base::FeatureList::IsEnabled(syncer::kSyncLoyaltyCardMetadata);
 }
 
 bool IsSyncWalletPrivatePassesEnabled() {
@@ -132,8 +146,26 @@ bool IsPassTypeEnabled(EntityTypeName entity_name) {
     case EntityTypeName::kRedressNumber:
       return IsSyncWalletPrivatePassesEnabled();
     case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
       return false;
   }
+}
+
+// Creates a `LoyaltyCard` from `specifics` and loads its metadata from
+// `valuables_table` if it exists. Server entities do not come with metadata
+// attached. Therefore, we update the loyalty card's metadata with the client's
+// existing metadata. This prevents the client from removing the related
+// metadata when replacing an old loyalty card with a new one during
+// `ValuablesTable::AddOrUpdateLoyaltyCard`.
+LoyaltyCard CreateLoyaltyCardFromSpecificsAndLoadMetadata(
+    const sync_pb::AutofillValuableSpecifics& specifics,
+    const ValuablesTable& valuables_table) {
+  LoyaltyCard loyalty_card = CreateAutofillLoyaltyCardFromSpecifics(specifics);
+  if (std::optional<ValuableMetadata> metadata =
+          valuables_table.GetValuableMetadata(loyalty_card.id())) {
+    loyalty_card.set_metadata(std::move(*metadata));
+  }
+  return loyalty_card;
 }
 
 }  // namespace
@@ -209,8 +241,23 @@ ValuableDatabaseOperationResult ValuableSyncBridge::HandleDeleteRequest(
     const std::string& storage_key) {
   if (std::optional<LoyaltyCard> loyalty_card =
           GetValuablesTable()->GetLoyaltyCardById(ValuableId(storage_key))) {
+    // Requesting the associated metadata before the loyalty card is removed.
+    std::optional<ValuableMetadata> metadata =
+        GetValuablesTable()->GetValuableMetadata(loyalty_card->id());
     if (!GetValuablesTable()->RemoveLoyaltyCard(loyalty_card->id())) {
       return ValuableDatabaseOperationResult::kDatabaseError;
+    }
+
+    // Server entities can not be removed directly by the user in the client.
+    // They are only removed via a ACTION_DELETE directive received through the
+    // valuables bridge. When the bridge removes a loyalty card and its
+    // associated metadata directly from the local table, server metadata
+    // observers (e.g. ValuableMetadataSyncBridge) must be manually notified of
+    // the deletion so it can be committed to the server.
+    if (IsSyncLoyaltyCardValuableMetadataEnabled() && metadata) {
+      web_data_backend_->NotifyOnValuableMetadataChanged(
+          ValuableMetadataChange(ValuableMetadataChange::REMOVE,
+                                 loyalty_card->id(), std::move(*metadata)));
     }
     return ValuableDatabaseOperationResult::kDataChanged;
   }
@@ -280,12 +327,15 @@ ValuableSyncBridge::ApplyIncrementalSyncChanges(
             entity_data.specifics.autofill_valuable();
         switch (specifics.valuable_data_case()) {
           case sync_pb::AutofillValuableSpecifics::kLoyaltyCard: {
-            const LoyaltyCard loyalty_card =
-                CreateAutofillLoyaltyCardFromSpecifics(specifics);
-            if (!GetValuablesTable()->AddOrUpdateLoyaltyCard(loyalty_card)) {
-              db_operation_result =
-                  ValuableDatabaseOperationResult::kDatabaseError;
-              break;
+            if (IsLoyaltyCardSyncEnabled()) {
+              const LoyaltyCard loyalty_card =
+                  CreateLoyaltyCardFromSpecificsAndLoadMetadata(
+                      specifics, *GetValuablesTable());
+              if (!GetValuablesTable()->AddOrUpdateLoyaltyCard(loyalty_card)) {
+                db_operation_result =
+                    ValuableDatabaseOperationResult::kDatabaseError;
+                break;
+              }
             }
             break;
           }
@@ -296,6 +346,8 @@ ValuableSyncBridge::ApplyIncrementalSyncChanges(
           case sync_pb::AutofillValuableSpecifics::kNationalIdCard:
           case sync_pb::AutofillValuableSpecifics::kRedressNumber:
           case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
+          case sync_pb::AutofillValuableSpecifics::kEventTicket:
+          case sync_pb::AutofillValuableSpecifics::kTransitPass:
             if (std::optional<EntityInstance> entity =
                     CreateEntityInstanceFromSpecificsAndLoadMetadata(
                         specifics, *GetEntityTable())) {
@@ -342,10 +394,12 @@ ValuableSyncBridge::ApplyIncrementalSyncChanges(
 
 std::unique_ptr<syncer::MutableDataBatch> ValuableSyncBridge::GetData() {
   auto batch = std::make_unique<syncer::MutableDataBatch>();
-  for (const LoyaltyCard& card : GetValuablesTable()->GetLoyaltyCards()) {
-    const std::string& id = card.id().value();
-    batch->Put(id, CreateEntityDataFromLoyaltyCard(
-                       card, GetPossiblyTrimmedValuableSpecifics(id)));
+  if (IsLoyaltyCardSyncEnabled()) {
+    for (const LoyaltyCard& card : GetValuablesTable()->GetLoyaltyCards()) {
+      const std::string& id = card.id().value();
+      batch->Put(id, CreateEntityDataFromLoyaltyCard(
+                         card, GetPossiblyTrimmedValuableSpecifics(id)));
+    }
   }
 
   for (const EntityInstance& instance : GetEntityTable()->GetEntityInstances(
@@ -402,7 +456,8 @@ bool ValuableSyncBridge::IsEntityDataValid(
 
   switch (autofill_valuable.valuable_data_case()) {
     case sync_pb::AutofillValuableSpecifics::kLoyaltyCard:
-      return AreAutofillLoyaltyCardSpecificsValid(autofill_valuable);
+      return IsLoyaltyCardSyncEnabled() &&
+             AreAutofillLoyaltyCardSpecificsValid(autofill_valuable);
     case sync_pb::AutofillValuableSpecifics::kFlightReservation:
       return IsSyncWalletFlightReservationsEnabled();
     case sync_pb::AutofillValuableSpecifics::kVehicleRegistration:
@@ -413,6 +468,8 @@ bool ValuableSyncBridge::IsEntityDataValid(
     case sync_pb::AutofillValuableSpecifics::kRedressNumber:
     case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
       return IsSyncWalletPrivatePassesEnabled();
+    case sync_pb::AutofillValuableSpecifics::kEventTicket:
+    case sync_pb::AutofillValuableSpecifics::kTransitPass:
     case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
       // Ignore new entry types that the client doesn't know about.
       return false;
@@ -557,8 +614,11 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
             change->data().specifics.autofill_valuable();
         switch (autofill_valuable.valuable_data_case()) {
           case sync_pb::AutofillValuableSpecifics::kLoyaltyCard: {
-            loyalty_cards.push_back(
-                CreateAutofillLoyaltyCardFromSpecifics(autofill_valuable));
+            if (IsLoyaltyCardSyncEnabled()) {
+              loyalty_cards.push_back(
+                  CreateLoyaltyCardFromSpecificsAndLoadMetadata(
+                      autofill_valuable, *GetValuablesTable()));
+            }
             break;
           }
           case sync_pb::AutofillValuableSpecifics::kFlightReservation:
@@ -574,6 +634,8 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
               entities.push_back(std::move(*entity));
             }
             break;
+          case sync_pb::AutofillValuableSpecifics::kEventTicket:
+          case sync_pb::AutofillValuableSpecifics::kTransitPass:
           case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
             // Ignore new entry types that the client doesn't know about.
             break;

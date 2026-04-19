@@ -36,8 +36,8 @@ GlicMediaContext::~GlicMediaContext() {
   for (const auto& pair : transcripts_by_title_) {
     const auto& transcript = pair.second;
     if (transcript->max_transcript_size_ > 0) {
-      UMA_HISTOGRAM_COUNTS_1M("Glic.Media.TotalContextLength",
-                              transcript->max_transcript_size_);
+      UMA_HISTOGRAM_COUNTS_10M("Glic.Media.TotalContextLength",
+                               transcript->max_transcript_size_);
     }
   }
 }
@@ -80,8 +80,8 @@ bool GlicMediaContext::OnResult(const media::SpeechRecognitionResult& result) {
     HandleNonFinalResult(transcript, std::move(new_chunk));
   } else {
     // Record timestamp metric for final result.
-    base::UmaHistogramExactLinear("Glic.Media.TimestampCount", timestamp_count,
-                                  10);
+    base::UmaHistogramExactLinear("Glic.Media.TimestampRangeCount",
+                                  timestamp_count, 10);
     HandleFinalResult(transcript, std::move(new_chunk));
   }
 
@@ -240,19 +240,6 @@ void GlicMediaContext::TrimTranscript(Transcript* transcript) {
   }
 }
 
-std::string GlicMediaContext::GetContext() const {
-  const Transcript* transcript = GetTranscriptIfExists();
-  if (!transcript) {
-    return "";
-  }
-
-  std::vector<std::string_view> pieces;
-  for (const auto& chunk : transcript->transcript_chunks_) {
-    pieces.push_back(chunk.text);
-  }
-  return base::JoinString(pieces, "");
-}
-
 std::list<GlicMediaContext::TranscriptChunk>
 GlicMediaContext::GetTranscriptChunks() const {
   const Transcript* transcript = GetTranscriptIfExists();
@@ -261,6 +248,13 @@ GlicMediaContext::GetTranscriptChunks() const {
     return {};
   }
   return transcript->transcript_chunks_;
+}
+
+bool GlicMediaContext::HasTranscriptChunks() const {
+  const Transcript* transcript = GetTranscriptIfExists();
+  // We don't have transcripts if we don't have any final chunk.
+  return transcript && transcript->next_sequence_number_ > 0 &&
+         !transcript->transcript_chunks_.empty();
 }
 
 void GlicMediaContext::OnPeerConnectionAdded() {

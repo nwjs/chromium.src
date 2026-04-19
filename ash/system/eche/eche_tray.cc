@@ -45,7 +45,6 @@
 #include "chromeos/ash/components/multidevice/logging/logging.h"
 #include "components/account_id/account_id.h"
 #include "components/session_manager/session_manager_types.h"
-#include "components/vector_icons/vector_icons.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -69,7 +68,6 @@
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/strings/grit/ui_strings.h"
-#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
@@ -211,29 +209,25 @@ void EcheTray::EventInterceptor::OnKeyEvent(ui::KeyEvent* event) {
 }
 
 EcheTray::EcheTray(Shelf* shelf)
-    : TrayBackgroundView(shelf, TrayBackgroundViewCatalogName::kEche),
-      icon_(
-          tray_container()->AddChildView(std::make_unique<views::ImageView>())),
+    : ImagedTrayIcon(
+          shelf,
+          ui::ImageModel::FromVectorIcon(kPhoneHubPhoneIcon,
+                                         cros_tokens::kCrosSysOnSurface),
+          /*tooltip=*/GetAccessibleName(),
+          /*accessibility_name=*/GetAccessibleName(),
+          TrayBackgroundViewCatalogName::kEche),
       event_interceptor_(std::make_unique<EventInterceptor>(this)) {
   SetCallback(
       base::BindRepeating(&EcheTray::OnButtonPressed, base::Unretained(this)));
 
-  const int icon_padding = (kTrayItemSize - kIconSize) / 2;
-
-  icon_->SetBorder(
-      views::CreateEmptyBorder(gfx::Insets::VH(icon_padding, icon_padding)));
-
   // Observers setup
   // Note: `ScreenLayoutObserver` starts observing at its constructor.
   observed_session_.Observe(Shell::Get()->session_controller());
-  icon_->SetTooltipText(GetAccessibleName());
   UpdateTrayItemColor(is_active());
 
   shelf_observation_.Observe(shelf);
   shell_observer_.Observe(Shell::Get());
   keyboard_observation_.Observe(keyboard::KeyboardUIController::Get());
-
-  GetViewAccessibility().SetName(GetAccessibleName());
 }
 
 EcheTray::~EcheTray() {
@@ -254,14 +248,10 @@ void EcheTray::ClickedOutsideBubble(const ui::LocatedEvent& event) {
 }
 
 void EcheTray::UpdateTrayItemColor(bool is_active) {
-  icon_->SetImage(ui::ImageModel::FromVectorIcon(
+  image_view()->SetImage(ui::ImageModel::FromVectorIcon(
       kPhoneHubPhoneIcon, is_active
                               ? cros_tokens::kCrosSysSystemOnPrimaryContainer
                               : cros_tokens::kCrosSysOnSurface));
-}
-
-void EcheTray::HandleLocaleChange() {
-  icon_->SetTooltipText(GetAccessibleName());
 }
 
 void EcheTray::HideBubbleWithView(const TrayBubbleView* bubble_view) {

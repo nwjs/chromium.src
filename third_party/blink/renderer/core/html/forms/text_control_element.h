@@ -174,6 +174,13 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
   // For example, when value contains a bidirectional character.
   virtual bool IsAutoDirectionalityFormAssociated() const = 0;
 
+  // Returns whether this element is or has ever been identified as a custom
+  // password field via JS masking heuristics.
+  // This is distinct from native passwords (<input type=password>).
+  bool HasBeenHeuristicCustomPasswordJS() const {
+    return has_been_heuristic_custom_password_js_;
+  }
+
   // Set the value trimmed to the max length of the field and dispatch the input
   // and change events. If |value| is empty, the autofill state is always
   // set to WebAutofillState::kNotFilled.
@@ -234,6 +241,7 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
 
  protected:
   TextControlElement(const QualifiedName&, Document&);
+
   void RemovedFrom(ContainerNode&) override;
   void DisconnectAllOpaqueRanges();
   virtual HTMLElement* UpdatePlaceholderText() = 0;
@@ -273,7 +281,19 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
   }
 
   // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#barred-from-constraint-validation
+  //
+  // While the 'readonly' attribute technically applies only to specific input
+  // types (e.g., text), Blink and other browsers bar validation for
+  // all input types when the 'readonly' attribute is present. This behavior is
+  // maintained for web compatibility.
+  // See: https://github.com/web-platform-tests/wpt/pull/35389
+  //      https://github.com/whatwg/html/issues/8133
+  //      https://github.com/whatwg/html/issues/8089
   bool ReadOnlyPreventsConstraintValidation() const final { return true; }
+
+  // Checks the current value and latches as a custom password field if it
+  // matches JS masking heuristics (e.g. "••••a").
+  void MaybeSetHasBeenHeuristicCustomPasswordJS();
 
  private:
   // Used by ComputeSelection() to specify which values are needed.
@@ -349,8 +369,12 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
   unsigned cached_selection_end_;
   TextFieldSelectionDirection cached_selection_direction_;
 
+  // Value to display in the text element without actually changing its
+  // `Value()`. This is introduced to be able to display information on an
+  // element without leaking it to JavaScript. Reasons for that could be
+  // previewing a value to be filled before getting explicit user consent for
+  // filling.
   String suggested_value_;
-  String value_before_set_suggested_value_;
 
   // Snapshot taken at 'beforeinput' retained until the first observable change.
   // Selection defines the edit region; that change is treated as one replace
@@ -389,6 +413,8 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
 
   // Indicate whether there is one scheduled selectionchange event.
   bool has_scheduled_selectionchange_event_ = false;
+
+  bool has_been_heuristic_custom_password_js_ = false;
 
   FRIEND_TEST_ALL_PREFIXES(TextControlElementTest, IndexForPosition);
   FRIEND_TEST_ALL_PREFIXES(HTMLTextAreaElementTest, ValueWithHardLineBreaks);

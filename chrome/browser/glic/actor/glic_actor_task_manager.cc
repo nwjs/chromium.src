@@ -8,6 +8,7 @@
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/to_string.h"
 #include "base/task/task_runner.h"
 #include "base/time/time.h"
@@ -102,6 +103,7 @@ GlicActorTaskManager::~GlicActorTaskManager() = default;
 
 void GlicActorTaskManager::CreateTask(
     base::WeakPtr<actor::ActorTaskDelegate> delegate,
+    std::optional<std::string> conversation_id,
     actor::webui::mojom::TaskOptionsPtr options,
     mojom::WebClientHandler::CreateTaskCallback callback) {
   if (!base::FeatureList::IsEnabled(features::kGlicActor)) {
@@ -115,6 +117,12 @@ void GlicActorTaskManager::CreateTask(
         base::unexpected(mojom::CreateTaskErrorReason::kExistingActiveTask));
     return;
   }
+
+  const GlicActorPolicyChecker::CannotActReason reason_to_log =
+      actor_policy_checker_->CanActOnWeb()
+          ? GlicActorPolicyChecker::CannotActReason::kNone
+          : actor_policy_checker_->CannotActOnWebReason();
+  base::UmaHistogramEnumeration("Actor.Task.CreateFailedReason", reason_to_log);
 
   if (!actor_policy_checker_->CanActOnWeb()) {
     // TODO(bokan): This was moved here to preserve behavior; the failure case
@@ -135,6 +143,8 @@ void GlicActorTaskManager::CreateTask(
 
   actor::RecordActorTaskCreated(true);
   current_task_id_ = actor_keyed_service_->CreateTaskWithOptions(
+      actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kGlic,
+                            conversation_id),
       &actor_policy_checker_.get(), std::move(options), std::move(delegate));
   CHECK(!current_task_id_.is_null());
 
@@ -154,17 +164,19 @@ void GlicActorTaskManager::PerformActionsFinished(
     std::optional<page_content_annotations::ScreenshotOptions::
                       ScreenshotCollectionOptions>
         screenshot_collection_options,
-    actor::mojom::ActionResultCode result_code,
-    std::optional<size_t> index_of_failed_action,
     std::vector<actor::ActionResultWithLatencyInfo> action_results) {
-  actor::ActorTask* task = actor_keyed_service_->GetTask(task_id);
-
+  actor::mojom::ActionResultCode result_code =
+      actor::mojom::ActionResultCode::kOk;
+  std::optional<size_t> index_of_failed_action;
+  actor::ExtractErrorResult(action_results, &result_code,
+                            index_of_failed_action);
   actor_keyed_service_->GetJournal().Log(
       GURL::EmptyGURL(), task_id, "PerformActionsFinished",
       actor::JournalDetailsBuilder()
           .Add("result_code", base::ToString(result_code))
           .Build());
 
+  actor::ActorTask* task = actor_keyed_service_->GetTask(task_id);
   // TODO(b/470985724): Reply at the time the task is stopped/canceled instead
   // of here.
   if (!task) {
@@ -198,9 +210,7 @@ void GlicActorTaskManager::PerformActionsFinished(
           &GlicActorTaskManager::PerformActionsFinished,
           weak_ptr_factory_.GetWeakPtr(), std::move(callback), task_id,
           start_time, skip_async_observation_information,
-          std::move(screenshot_collection_options),
-          actor::mojom::ActionResultCode::kRendererCrashed,
-          index_of_failed_action, std::move(action_results));
+          std::move(screenshot_collection_options), std::move(action_results));
       ReloadCrashedTab(*crashed_tab, task->id(),
                        std::move(retry_perform_actions_finished));
       return;
@@ -208,9 +218,8 @@ void GlicActorTaskManager::PerformActionsFinished(
   }
 
   actor::BuildActionsResultWithObservations(
-      *profile_, start_time, result_code, index_of_failed_action,
-      std::move(action_results), *task, skip_async_observation_information,
-      screenshot_collection_options,
+      *profile_, start_time, std::move(action_results), *task,
+      skip_async_observation_information, screenshot_collection_options,
       base::BindOnce(&GlicActorTaskManager::DidFinishBuildObservation,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
@@ -218,8 +227,6 @@ void GlicActorTaskManager::PerformActionsFinished(
 void GlicActorTaskManager::DidFinishBuildObservation(
     mojom::WebClientHandler::PerformActionsCallback callback,
     base::TimeTicks start_time,
-    actor::mojom::ActionResultCode result_code,
-    std::optional<size_t> index_of_failed_action,
     std::vector<actor::ActionResultWithLatencyInfo> action_results,
     actor::TaskId task_id,
     bool skip_async_observation_information,
@@ -254,8 +261,8 @@ void GlicActorTaskManager::DidFinishBuildObservation(
             &GlicActorTaskManager::PerformActionsFinished,
             weak_ptr_factory_.GetWeakPtr(), std::move(callback), task_id,
             start_time, skip_async_observation_information,
-            std::move(screenshot_collection_options), result_code,
-            index_of_failed_action, std::move(action_results));
+            std::move(screenshot_collection_options),
+            std::move(action_results));
 
         base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
             FROM_HERE, std::move(retry_perform_actions_finished),
@@ -671,15 +678,13 @@ void GlicActorTaskManager::CanActOnWebChanged(bool can_act_on_web) {
   }
 }
 
-void GlicActorTaskManager::NotifyActorTaskStateChanged(
-    actor::TaskId task_id,
-    actor::ActorTask::State task_state) {
-  CHECK(!task_id.is_null());
-  if (current_task_id_ != task_id) {
+void GlicActorTaskManager::NotifyActorTaskStateChanged(actor::ActorTask& task) {
+  CHECK(!task.id().is_null());
+  if (current_task_id_ != task.id()) {
     return;
   }
 
-  if (actor::ActorTask::IsCompletedState(task_state)) {
+  if (task.IsCompleted()) {
     current_task_id_ = actor::TaskId();
     attempted_reload_after_crash_ = false;
     reload_observer_.reset();

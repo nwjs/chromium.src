@@ -7,8 +7,12 @@
 #import "base/check_op.h"
 #import "base/feature_list.h"
 #import "base/files/file_path.h"
+#import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/enterprise/common/proto/connectors.pb.h"
+#import "components/enterprise/connectors/core/analysis_settings.h"
+#import "components/enterprise/connectors/core/common.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h"
@@ -21,6 +25,10 @@
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
 #import "ios/chrome/browser/drive/model/upload_task.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_analysis_request_handler.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/scan_decision_helper.h"
+#import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -37,10 +45,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/download/download_task.h"
 #import "ui/base/l10n/l10n_util_mac.h"
-
-namespace {
-
-}  // namespace
 
 DownloadManagerTabHelper::DownloadManagerTabHelper(web::WebState* web_state)
     : web_state_(web_state) {
@@ -239,19 +243,7 @@ void DownloadManagerTabHelper::OnDownloadUpdated(web::DownloadTask* task) {
     case web::DownloadTask::State::kInProgress:
       break;
     case web::DownloadTask::State::kComplete:
-      // If the download succeeded and the file will not be uploaded, move it to
-      // the appropriate folder.
-      if (!WillDownloadTaskBeSavedToDrive()) {
-        base::FilePath user_download_path;
-        GetDownloadsDirectory(&user_download_path);
-        base::FilePath base_file_name = task_->GenerateFileName();
-
-        GetDownloadFileService()->ResolveAvailableFilePath(
-            user_download_path, base_file_name,
-            base::BindOnce(
-                &DownloadManagerTabHelper::UseAvailableUserDocumentsPath,
-                weak_ptr_factory_.GetWeakPtr()));
-      }
+      DownloadManagerTabHelper::ProcessCompleteDownloadTask();
       break;
     case web::DownloadTask::State::kFailed:
     case web::DownloadTask::State::kFailedNotResumable:
@@ -279,6 +271,8 @@ void DownloadManagerTabHelper::DidCreateDownload(
                       didCreateDownload:task_.get()
                       webStateIsVisible:true];
   }
+
+  MaybeEnrollFileForAutoDeletion(task_.get());
 }
 
 void DownloadManagerTabHelper::OnDownloadPolicyDecision(
@@ -339,10 +333,11 @@ void DownloadManagerTabHelper::MoveComplete(bool move_completed,
                                             const base::FilePath& source_path,
                                             const base::FilePath& final_path) {
   DCHECK(move_completed);
-  MaybeScheduleFileForAutoDeletion();
+  MaybeSetDownloadPathForAutoDeletion();
 }
 
-void DownloadManagerTabHelper::MaybeScheduleFileForAutoDeletion() {
+void DownloadManagerTabHelper::MaybeEnrollFileForAutoDeletion(
+    web::DownloadTask* task) {
   PrefService* localState = GetApplicationContext()->GetLocalState();
   BOOL isAutoDeletionEnabled =
       localState->GetBoolean(prefs::kDownloadAutoDeletionEnabled);
@@ -352,7 +347,20 @@ void DownloadManagerTabHelper::MaybeScheduleFileForAutoDeletion() {
 
   auto_deletion::AutoDeletionService* service =
       GetApplicationContext()->GetAutoDeletionService();
-  service->MarkTaskForDeletion(task_.get(), GetDownloadTaskFinalFilePath());
+  service->SetDownloadTask(task);
+}
+
+void DownloadManagerTabHelper::MaybeSetDownloadPathForAutoDeletion() {
+  PrefService* localState = GetApplicationContext()->GetLocalState();
+  BOOL isAutoDeletionEnabled =
+      localState->GetBoolean(prefs::kDownloadAutoDeletionEnabled);
+  if (!IsDownloadAutoDeletionFeatureEnabled() || !isAutoDeletionEnabled) {
+    return;
+  }
+
+  auto_deletion::AutoDeletionService* service =
+      GetApplicationContext()->GetAutoDeletionService();
+  service->SetDownloadPath(GetDownloadTaskFinalFilePath());
 }
 
 void DownloadManagerTabHelper::ScheduleTaskDestruction() {
@@ -375,4 +383,70 @@ DownloadFileService* DownloadManagerTabHelper::GetDownloadFileService() {
 
   CHECK(download_file_service);
   return download_file_service;
+}
+
+void DownloadManagerTabHelper::MaybeMoveDownloadToDownloadsDirectory(
+    bool shouldProceed) {
+  // Ensure the handler is destroyed as soon as it is no longer necessary.
+  base::ScopedClosureRunner cleanup(base::BindOnce(
+      [](std::unique_ptr<enterprise_connectors::IOSAnalysisRequestHandler>
+             handler) {},
+      std::move(analysis_request_handler_)));
+
+  if (!shouldProceed) {
+    CleanupCurrentDownload();
+    return;
+  }
+
+  base::FilePath user_download_path;
+  GetDownloadsDirectory(&user_download_path);
+  base::FilePath base_file_name = task_->GenerateFileName();
+
+  GetDownloadFileService()->ResolveAvailableFilePath(
+      user_download_path, base_file_name,
+      base::BindOnce(&DownloadManagerTabHelper::UseAvailableUserDocumentsPath,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void DownloadManagerTabHelper::ProcessCompleteDownloadTask() {
+  if (WillDownloadTaskBeSavedToDrive()) {
+    return;
+  }
+
+  CHECK(web_state_);
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+
+  const GURL& url = task_->GetRedirectedUrl();
+  std::optional<enterprise_connectors::AnalysisSettings> settings =
+      std::nullopt;
+
+  enterprise_connectors::ConnectorsService* connectors_service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForProfile(profile);
+  if (connectors_service) {
+    settings = connectors_service->GetAnalysisSettings(
+        url, enterprise_connectors::AnalysisConnector::FILE_DOWNLOADED);
+  }
+
+  auto content_analysis_info =
+      std::make_unique<enterprise_connectors::ContentAnalysisInfo>(
+          url,
+          settings.has_value() ? std::move(settings.value())
+                               : enterprise_connectors::AnalysisSettings(),
+          enterprise_connectors::ContentAnalysisRequest::NORMAL_DOWNLOAD,
+          web_state_->GetWeakPtr());
+
+  // Send the download file for enterprise DLP download content scanning.
+  analysis_request_handler_ = std::make_unique<
+      enterprise_connectors::IOSAnalysisRequestHandler>(
+      std::move(content_analysis_info), profile, "",
+      enterprise_connectors::DeepScanAccessPoint::DOWNLOAD,
+      task_->GetResponsePath(),
+      base::BindOnce(
+          &enterprise_connectors::HandleScanDecision, web_state_->GetWeakPtr(),
+          enterprise_connectors::TriggerType::kSavePrompt,
+          base::BindOnce(
+              &DownloadManagerTabHelper::MaybeMoveDownloadToDownloadsDirectory,
+              weak_ptr_factory_.GetWeakPtr())));
+  analysis_request_handler_->PrepareContentAnalysisRequest();
 }

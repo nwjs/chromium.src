@@ -48,7 +48,10 @@ BASE_FEATURE(kAndroidDumpForBadCompositedUiState,
 BASE_FEATURE(kBackForwardTransitionsSameDocSharedImage,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBackdropFilterMirrorEdgeMode, base::FEATURE_ENABLED_BY_DEFAULT);
+// If enabled, each render pass eligible for scanout gets its own BufferQueue.
+// This allows for BufferQueue to be used in scenarios like partial delegated
+// compositing, where no root render pass is present.
+BASE_FEATURE(kBufferQueuePerRenderPass, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 #if BUILDFLAG(IS_CHROMEOS)
@@ -180,7 +183,9 @@ const base::FeatureParam<int> kCALayerNewLimitManyVideos{&kCALayerNewLimit,
 #if BUILDFLAG(IS_MAC)
 // Whether the presentation should be delayed until the next DisplayLink
 // callback. Currently only for frames that handle interaction.
-BASE_FEATURE(kVSyncAlignedPresent, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kVSyncAlignedPresentationForScrolling,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kVSyncAlignedPresentation, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Sends a CopyOutputRequest completion Ack early for view transitions so it can
@@ -268,27 +273,10 @@ BASE_FEATURE(kEnableADPFWorkloadReset, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableADPFScrollNoRendererMain,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, Chrome sends an ADPF(Android Dynamic Performance Framework)
-// timing report with a fake actual durarion > target duration only if there
-// were no frame timing reports for `adpf_boost_rate_limit_min_wait`, instead
-// of doing it for every touch start input.
-// The goal is to avoid boosts during continuous user input to reduce power
-// consumption.
-BASE_FEATURE(kEnableADPFBoostRateLimit, base::FEATURE_DISABLED_BY_DEFAULT);
-
-const base::FeatureParam<base::TimeDelta> kAdpfBoostRateLimitMinWait{
-    &kEnableADPFBoostRateLimit, "adpf_boost_rate_limit_min_wait",
-    base::Milliseconds(50)};
-
 // If enabled, Chrome calls the SetThreads
 // ADPF(Android Dynamic Performance Framework) method on a worker thread
 // instead of Viz. The goal is to prevent Viz from blocking on a binder call.
 BASE_FEATURE(kEnableADPFAsyncSetThreads, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, Chrome ignores the time spent between swap throttled and the
-// next ScheduleBeginFrameDeadline when sending an ADPF(Android Dynamic
-// Performance Framework) timing report.
-BASE_FEATURE(kEnableADPFIgnoreThrottledTime, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, we immediately send acks to clients when a viz surface
 // activates. This effectively removes back-pressure. This can result in wasted
@@ -509,8 +497,12 @@ NumCooldownFramesForAckOnSurfaceActivationDuringInteraction() {
 }
 
 #if BUILDFLAG(IS_MAC)
-bool IsVSyncAlignedPresentEnabled() {
-  return base::FeatureList::IsEnabled(features::kVSyncAlignedPresent);
+bool IsVSyncAlignedForScrolling() {
+  return base::FeatureList::IsEnabled(
+      features::kVSyncAlignedPresentationForScrolling);
+}
+bool IsVSyncAligned() {
+  return base::FeatureList::IsEnabled(features::kVSyncAlignedPresentation);
 }
 #endif
 
@@ -539,6 +531,13 @@ bool ShouldRemoveRedirectionBitmap() {
 
   // When using swiftshader for testing, we will also use an ANGLE EGLSurface.
   if (command_line->HasSwitch(switches::kOverrideUseSoftwareGLForTests)) {
+    return false;
+  }
+
+  // With --in-process-gpu, the GPU runs in the browser process and the
+  // rendering path does not use DirectComposition, so the redirection
+  // bitmap is still needed.
+  if (command_line->HasSwitch("in-process-gpu")) {
     return false;
   }
 

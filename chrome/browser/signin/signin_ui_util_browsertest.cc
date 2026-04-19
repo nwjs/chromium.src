@@ -35,6 +35,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/promos/signin_promo_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -258,7 +259,11 @@ class SigninUiUtilTest_ReplaceSyncPromosWithSignInPromos
  public:
   SigninUiUtilTest_ReplaceSyncPromosWithSignInPromos()
       : base::test::WithFeatureOverride(
-            syncer::kReplaceSyncPromosWithSignInPromos) {}
+            syncer::kReplaceSyncPromosWithSignInPromos) {
+    feature_list_.InitWithFeatureState(
+        syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
+        IsParamFeatureEnabled());
+  }
 
   bool IsReplaceSyncPromosWithSignInPromosEnabled() const {
     return IsParamFeatureEnabled();
@@ -366,7 +371,8 @@ IN_PROC_BROWSER_TEST_P(SigninUiUtilTest_ReplaceSyncPromosWithSignInPromos,
   // require a reauth before enabling sync.
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       GetIdentityManager(), account_id,
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   for (bool is_default_promo_account : {true, false}) {
     base::HistogramTester histogram_tester;
@@ -528,7 +534,8 @@ IN_PROC_BROWSER_TEST_F(SigninUiUtilTest, SignInWithAccountThatNeedsReauth) {
   // require a reauth before signing in.
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       GetIdentityManager(), account_id,
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   EXPECT_CALL(
       mock_delegate_,
@@ -704,7 +711,8 @@ IN_PROC_BROWSER_TEST_F(SigninUiUtilTest, ShowReauthTab) {
   // require a reauth before enabling sync.
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       GetIdentityManager(), account_info.account_id,
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   EXPECT_CALL(
       mock_delegate_,
@@ -930,7 +938,8 @@ IN_PROC_BROWSER_TEST_F(SigninUiUtilTest, ShowExtensionSigninPromptReauth) {
       signin_metrics::AccessPoint::kStartPage);
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       GetIdentityManager(), account_id,
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   Profile* profile = browser()->profile();
   TabStripModel* tab_strip = browser()->tab_strip_model();
@@ -993,9 +1002,10 @@ IN_PROC_BROWSER_TEST_F(DiceSigninUiUtilBrowserTest,
   ShowExtensionSigninPrompt(new_profile, /*enable_sync=*/false,
                             /*email_hint=*/std::string());
   // `ShowExtensionSigninPrompt()` creates a new browser.
-  Browser* browser = chrome::FindBrowserWithProfile(new_profile);
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithProfile(new_profile);
   ASSERT_TRUE(browser);
-  EXPECT_EQ(1, browser->tab_strip_model()->count());
+  EXPECT_EQ(1, browser->GetTabStripModel()->count());
 
   // Scheduling a profile for deletion closes the browser. Prevent Profile from
   // being destroyed before we attempt to show the signin prompt.

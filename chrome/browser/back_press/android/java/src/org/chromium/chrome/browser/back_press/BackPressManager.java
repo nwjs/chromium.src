@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.back_press;
 
+import static androidx.activity.BackEventCompat.EDGE_LEFT;
+
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.annotation.SuppressLint;
@@ -23,12 +25,15 @@ import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.Type;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistry;
 import org.chromium.components.browser_ui.widget.gesture.OnSystemNavigationObserver;
+import org.chromium.components.feature_engagement.EventConstants;
 
 import java.util.function.Supplier;
 
@@ -131,7 +136,6 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
         @SuppressLint("WrongConstant") // Suppress mLastCalledHandlerType assignment warning
         @Override
         public void handleOnBackPressed() {
-            if (mOnBackPressed != null) mOnBackPressed.run();
             mLastCalledHandlerType = -1;
             if (ChromeFeatureList.sLockBackPressHandlerAtStart.isEnabled()
                     && mActiveHandler != null) {
@@ -162,6 +166,16 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
                 if (mLastCalledHandlerType == Type.TAB_HISTORY) {
                     BackPressMetrics.recordTabNavigationSwipedFromEdge(
                             mLastBackEvent.getSwipeEdge());
+
+                    // Tracks back swipe from left edge
+                    if (mLastBackEvent.getSwipeEdge() == EDGE_LEFT && mProfileSupplier != null) {
+                        Profile profile = mProfileSupplier.get();
+                        if (profile != null) {
+                            TrackerFactory.getTrackerForProfile(profile)
+                                    .notifyEvent(
+                                            EventConstants.SWIPE_ON_LEFT_EDGE_FOR_NAVIGATION_USED);
+                        }
+                    }
                 }
             }
             mActiveHandler = null;
@@ -209,8 +223,8 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     private @Nullable OnBackInvokedCallback mOnSystemNavigationCallback;
     private Runnable mFallbackOnBackPressed;
     private int mLastCalledHandlerType = -1;
-    private @Nullable Runnable mOnBackPressed;
     private Supplier<Boolean> mIsGestureNavEnabledSupplier = () -> false;
+    private @Nullable Supplier<Profile> mProfileSupplier;
     private final ObserverList<OnSystemNavigationObserver> mOnSystemNavigationObservers =
             new ObserverList<>();
 
@@ -319,6 +333,14 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     }
 
     /**
+     * @param type The {@link Type} which needs to check.
+     * @return True if a handler of this type is the enabled handler that consumes the back event.
+     */
+    public boolean isBackPressHandlerConsumingBackEvent(@Type int type) {
+        return getEnabledBackPressHandler() == mHandlers[type];
+    }
+
+    /**
      * @return A {@link OnBackPressedCallback} which should be added to {@link
      *     androidx.activity.OnBackPressedDispatcher}.
      */
@@ -347,16 +369,9 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     }
 
     /**
-     * Set a callback fired when a back press is triggered. This is introduced to investigate data
-     * inconsistency between experimental groups. and is not intended to be re-used.
-     */
-    public void setOnBackPressedListener(Runnable callback) {
-        mOnBackPressed = callback;
-    }
-
-    /**
      * Turn on more checks if a system back arm is available, such as when running on tabbed
      * activity.
+     *
      * @param hasSystemBackArm True if system back arm is feasible.
      */
     public void setHasSystemBackArm(boolean hasSystemBackArm) {
@@ -366,6 +381,11 @@ public class BackPressManager implements Destroyable, BackPressHandlerRegistry {
     /** Set a supplier to provide whether gesture nav mode is on when called. */
     public void setIsGestureNavEnabledSupplier(Supplier<Boolean> supplier) {
         mIsGestureNavEnabledSupplier = supplier;
+    }
+
+    /** Set a supplier to provide the current Profile. */
+    public void setProfileSupplier(Supplier<Profile> supplier) {
+        mProfileSupplier = supplier;
     }
 
     /**

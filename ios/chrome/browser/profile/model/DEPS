@@ -1,6 +1,7 @@
 include_rules = [
   # keep-sorted start
   "+ios/chrome/browser/content_settings/model",
+  "+ios/chrome/browser/enterprise/client_certificates/cert_utils.h",
   "+ios/chrome/browser/language_detection/model",
   "+ios/chrome/browser/net/model",
   "+ios/chrome/browser/policy/model",
@@ -13,6 +14,7 @@ include_rules = [
 
 specific_include_rules = {
   'keyed_service_factories.mm': [
+    "+ios/chrome/browser/account_settings/model",
     "+ios/chrome/browser/affiliations/model",
     "+ios/chrome/browser/app_store_bundle/model",
     "+ios/chrome/browser/autocomplete/model",
@@ -39,8 +41,10 @@ specific_include_rules = {
     "+ios/chrome/browser/download/model",
     "+ios/chrome/browser/drive/model",
     "+ios/chrome/browser/enterprise/client_certificates",
+    "+ios/chrome/browser/enterprise/cloud_content_scanning/model",
     "+ios/chrome/browser/enterprise/connectors",
     "+ios/chrome/browser/enterprise/data_controls",
+    "+ios/chrome/browser/enterprise/data_protection",
     "+ios/chrome/browser/enterprise/identifiers",
     "+ios/chrome/browser/enterprise/model",
     "+ios/chrome/browser/external_files/model",
@@ -101,7 +105,7 @@ specific_include_rules = {
     "+ios/chrome/browser/webauthn/model",
     "+ios/chrome/browser/webdata_services/model",
     "+ios/chrome/browser/image_fetcher/model",
-    "+ios/chrome/browser/intelligence/actuation/model",
+    "+ios/chrome/browser/intelligence/actor/model",
     "+ios/chrome/browser/omnibox/model",
     "+ios/chrome/browser/aim/model",
     "+ios/chrome/browser/composebox/model",
@@ -109,4 +113,7 @@ specific_include_rules = {
   'test_with_profile.mm': [
     "+ios/chrome/browser/optimization_guide/model",
   ],
+  'profile_deleter_ios_unittest.mm': [
+    "+components/unexportable_keys/scoped_mock_unexportable_key_provider.h",
+  ]
 }

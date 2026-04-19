@@ -792,7 +792,8 @@ bool AV1VaapiVideoDecoderDelegate::OutputPicture(const AV1Picture& pic) {
   const auto* vaapi_pic = static_cast<const VaapiAV1Picture*>(&pic);
   vaapi_dec_->SurfaceReady(vaapi_pic->display_va_surface_id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
-                           vaapi_pic->get_colorspace());
+                           vaapi_pic->get_colorspace(),
+                           vaapi_pic->dynamic_hdr_metadata());
   return true;
 }
 
@@ -903,7 +904,8 @@ DecodeStatus AV1VaapiVideoDecoderDelegate::SubmitDecode(
     buffers.push_back(
         {encoded_data->id(),
          {encoded_data->type(), encoded_data->size(),
-          data.data() + decrypt_config->subsamples()[0].clear_bytes}});
+          UNSAFE_TODO(data.data() +
+                      decrypt_config->subsamples()[0].clear_bytes)}});
   } else {
 #endif  // BUILDFLAG(IS_CHROMEOS)
     encoded_data = vaapi_wrapper_->CreateVABuffer(VASliceDataBufferType,

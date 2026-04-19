@@ -612,7 +612,6 @@ viz_source_set("unit_tests") {
     "display/overdraw_tracker_unittest.cc",
     "display/overlay_candidate_factory_unittest.cc",
     "display/readback_pixeltest.cc",
-    "display/renderer_pixeltest.cc",
     "display/resolved_frame_data_unittest.cc",
     "display/software_renderer_unittest.cc",
     "display/surface_aggregator_pixeltest.cc",
@@ -652,6 +651,8 @@ viz_source_set("unit_tests") {
     "layers/layer_context_impl_tiling_unittest.cc",
     "layers/layer_context_impl_unittest.cc",
     "layers/layer_context_impl_view_transition_unittest.cc",
+    "layers/viz_layer_context_unittest.cc",
+    "layers/viz_layer_context_unittest.h",
     "main/viz_compositor_thread_runner_impl_unittest.cc",
     "main/viz_main_impl_unittest.cc",
     "performance_hint/boost_manager_unittest.cc",
@@ -659,6 +660,17 @@ viz_source_set("unit_tests") {
     "surfaces/surface_unittest.cc",
     "transitions/transferable_resource_tracker_unittest.cc",
   ]
+
+  if (!is_android) {
+    sources += [
+      "display/renderer_pixeltest.cc",
+      "display/renderer_pixeltest_delegated_ink.cc",
+      "display/renderer_pixeltest_intersecting_quad.cc",
+      "display/renderer_pixeltest_utils.cc",
+      "display/renderer_pixeltest_utils.h",
+      "display/renderer_pixeltest_video.cc",
+    ]
+  }
 
   if (!use_aura && !is_mac && !is_win) {
     sources -= [ "display_embedder/buffer_queue_unittest.cc" ]
@@ -670,6 +682,7 @@ viz_source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//cc:test_support",
+    "//cc/mojo_embedder",
     "//cc/paint",
     "//components/input",
     "//components/viz/client",
@@ -779,6 +792,7 @@ viz_source_set("perf_tests") {
     "//cc",
     "//cc:test_support",
     "//cc/base",
+    "//cc/mojo_embedder",
     "//components/viz/client",
     "//components/viz/test:test_support",
     "//testing/gtest",
@@ -827,7 +841,36 @@ if (is_android) {
   }
 }
 
+import("//mojo/public/tools/fuzzers/mojolpm.gni")
+
+mojolpm_fuzzer_test("layer_context_impl_mojolpm_fuzzer") {
+  sources = [
+    "layers/layer_context_impl_base_unittest.cc",
+    "layers/layer_context_impl_base_unittest.h",
+    "layers/layer_context_impl_mojolpm_fuzzer.cc",
+  ]
+
+  proto_source = "layers/layer_context_impl_mojolpm_fuzzer.proto"
+
+  deps = [
+    ":service",
+    "//base",
+    "//base/test:test_support",
+    "//components/viz/test:test_support",
+    "//mojo/core/embedder",
+    "//mojo/public/tools/fuzzers:mojolpm",
+    "//services/viz/public/mojom:mojom_mojolpm",
+    "//testing/gtest",
+  ]
+
+  proto_deps = [ "//services/viz/public/mojom:mojom_mojolpm" ]
+}
+
 group("viz_service_fuzzers") {
   testonly = true
   deps = [ ":hit_test_manager_fuzzer" ]
+
+  if (enable_mojom_fuzzer) {
+    deps += [ ":layer_context_impl_mojolpm_fuzzer" ]
+  }
 }

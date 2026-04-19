@@ -83,7 +83,8 @@ WebUIStubLocationBar::GetChipAnchor() {
       BrowserElements::From(window_->browser())
           ->GetElement(kLocationIconElementId);
   CHECK(location_button) << "Location button not found";
-  return {{location_button, std::nullopt, views::BubbleBorder::TOP_LEFT}};
+  return {{views::BubbleAnchor(location_button), std::nullopt,
+           views::BubbleBorder::TOP_LEFT}};
 }
 
 ui::TrackedElement* WebUIStubLocationBar::GetAnchorOrNull() {
@@ -92,6 +93,11 @@ ui::TrackedElement* WebUIStubLocationBar::GetAnchorOrNull() {
 }
 
 Browser* WebUIStubLocationBar::GetBrowser() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+Profile* WebUIStubLocationBar::GetProfile() {
   NOTIMPLEMENTED();
   return nullptr;
 }
@@ -134,6 +140,11 @@ void WebUIStubLocationBar::InvalidateLayout() {
 }
 
 gfx::Rect WebUIStubLocationBar::Bounds() const {
+  NOTIMPLEMENTED();
+  return gfx::Rect();
+}
+
+gfx::Rect WebUIStubLocationBar::BoundsInScreen() const {
   NOTIMPLEMENTED();
   return gfx::Rect();
 }

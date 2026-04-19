@@ -161,31 +161,31 @@ TEST_P(FindLengthOfDeclarationListTest, IgnoringDangerousAfterBlock) {
 TEST_P(FindLengthOfDeclarationListTest, NonASCII) {
   // Non-ASCII long after the block should not matter.
   EXPECT_EQ(10u, FindLengthOfDeclarationList(
-                     String::FromUTF8("--foo: bar}                   ❤️")));
+                     String::FromUtf8("--foo: bar}                   ❤️")));
 
   // We should also support these characters inside the block itself.
-  EXPECT_TRUE(BlockAccepted(String::FromUTF8("--foo: \"❤️\"")));
-  EXPECT_TRUE(BlockAccepted(String::FromUTF8("font-family: 😊")));
+  EXPECT_TRUE(BlockAccepted(String::FromUtf8("--foo: \"❤️\"")));
+  EXPECT_TRUE(BlockAccepted(String::FromUtf8("font-family: 😊")));
 
   // Also make sure we don't simply _ignore_ the top UTF-16 byte;
   // these two characters become 01 7B and 7B 01 depending on
   // endianness, and should _not_ match as { (which is 0x7B).
-  EXPECT_TRUE(BlockAccepted(String::FromUTF8("--fooŻ笁: value")));
+  EXPECT_TRUE(BlockAccepted(String::FromUtf8("--fooŻ笁: value")));
 }
 
 TEST_P(FindLengthOfDeclarationListTest, NewlineInString) {
   // Newlines are invalid in strings (they will produce “bad string tokens”,
   // which immediately ends the string), so we give up here.
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: \"\n\"")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: '\n'")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: \"\r\"")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: '\r'")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: \"\f\"")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--foo: '\f'")));
-  EXPECT_FALSE(BlockAccepted(String::FromUTF8("--longer-than-16: \"\n\"")));
+  EXPECT_FALSE(BlockAccepted("--foo: \"\n\""));
+  EXPECT_FALSE(BlockAccepted("--foo: '\n'"));
+  EXPECT_FALSE(BlockAccepted("--foo: \"\r\""));
+  EXPECT_FALSE(BlockAccepted("--foo: '\r'"));
+  EXPECT_FALSE(BlockAccepted("--foo: \"\f\""));
+  EXPECT_FALSE(BlockAccepted("--foo: '\f'"));
+  EXPECT_FALSE(BlockAccepted("--longer-than-16: \"\n\""));
 
   // However, newlines in general are allowed.
-  EXPECT_TRUE(BlockAccepted(String::FromUTF8("--foo: 'bar'\n--bar: 'foo'\n")));
+  EXPECT_TRUE(BlockAccepted("--foo: 'bar'\n--bar: 'foo'\n"));
 }
 
 #endif  // SIMD

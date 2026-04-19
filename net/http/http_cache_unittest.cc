@@ -861,7 +861,7 @@ class HttpSplitCacheKeyTest : public HttpCacheTest {
     request_info.method = "GET";
     request_info.network_isolation_key = NetworkIsolationKey(site, site);
     request_info.network_anonymization_key =
-        NetworkAnonymizationKey::CreateSameSite(site);
+        NetworkAnonymizationKey::CreateSameSite(std::move(site));
     MockHttpCache cache;
     return *HttpCache::GenerateCacheKeyForRequest(&request_info);
   }
@@ -1273,7 +1273,7 @@ TEST_P(HttpCacheTestSplitCacheFeature, SimpleGetVerifyGoogleFontMetrics) {
   MockHttpRequest request(transaction);
   request.network_isolation_key = NetworkIsolationKey(site_a, site_a);
   request.network_anonymization_key =
-      NetworkAnonymizationKey::CreateSameSite(site_a);
+      NetworkAnonymizationKey::CreateSameSite(std::move(site_a));
 
   // Attempt to populate the cache.
   RunTransactionTestWithRequest(cache.http_cache(), transaction, request,
@@ -7303,7 +7303,7 @@ TEST_F(HttpCacheTestSplitCacheFeatureEnabled,
   MockHttpRequest req1b(transaction);
   req1b.network_isolation_key = NetworkIsolationKey(site_b, site_b);
   req1b.network_anonymization_key =
-      NetworkAnonymizationKey::CreateSameSite(site_b);
+      NetworkAnonymizationKey::CreateSameSite(std::move(site_b));
   RunTransactionTestWithRequest(cache.http_cache(), transaction, req1b,
                                 nullptr);
 
@@ -7322,7 +7322,7 @@ TEST_F(HttpCacheTestSplitCacheFeatureEnabled,
   req2.upload_data_stream = &upload_data_stream;
   req2.network_isolation_key = NetworkIsolationKey(site_a, site_a);
   req2.network_anonymization_key =
-      NetworkAnonymizationKey::CreateSameSite(site_a);
+      NetworkAnonymizationKey::CreateSameSite(std::move(site_a));
 
   RunTransactionTestWithRequest(cache.http_cache(), transaction, req2, nullptr);
 
@@ -11524,7 +11524,7 @@ TEST_F(HttpCacheTest, HttpCacheProfileThirdPartyJavaScript) {
   // but should still be recorded as JavaScript
   trans_info.network_isolation_key = NetworkIsolationKey(site_a, site_a);
   trans_info.network_anonymization_key =
-      NetworkAnonymizationKey::CreateSameSite(site_a);
+      NetworkAnonymizationKey::CreateSameSite(std::move(site_a));
   trans_info.possibly_top_frame_origin = origin_a;
 
   RunTransactionTestWithRequest(cache.http_cache(), transaction, trans_info,
@@ -15306,6 +15306,7 @@ TEST_P(HttpCacheEarlyInitTest, FileExists) {
     transaction.is_shared_resource = true;
     RunTransactionTest(cache.http_cache(), transaction);
   }
+  base::RunLoop().RunUntilIdle();
   disk_cache::FlushCacheThreadForTesting();
 
   EXPECT_TRUE(base::PathExists(temp_dir.GetPath().AppendASCII("index")));
@@ -15326,16 +15327,19 @@ TEST_P(HttpCacheEarlyInitTest, FileExists) {
     factory_ptr->set_create_backend_called_ptr(&create_backend_called);
   }
 
-  MockHttpCache cache(std::move(factory));
+  {
+    MockHttpCache cache(std::move(factory));
 
-  if (GetParam()) {
-    run_loop.Run();
-    backend_creation_loop.Run();
+    if (GetParam()) {
+      run_loop.Run();
+      backend_creation_loop.Run();
+    }
+
+    EXPECT_EQ(GetParam(), create_backend_called);
+    histogram_tester.ExpectBucketCount("HttpCache.CreateBackendEarly", true,
+                                       GetParam() ? 1 : 0);
   }
-
-  EXPECT_EQ(GetParam(), create_backend_called);
-  histogram_tester.ExpectBucketCount("HttpCache.CreateBackendEarly", true,
-                                     GetParam() ? 1 : 0);
+  base::RunLoop().RunUntilIdle();
 }
 
 TEST_P(HttpCacheEarlyInitTest, NoFile) {

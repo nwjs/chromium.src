@@ -176,7 +176,6 @@ namespace http://www.w3.org/1999/xhtml
     property localName
     property lookupNamespaceURI
     property lookupPrefix
-    property marker
     property matches
     property moveBefore
     property namespaceURI
@@ -256,7 +255,10 @@ namespace http://www.w3.org/1999/xhtml
     property onmouseover
     property onmouseup
     property onmousewheel
-    property onoverscroll
+    property onoverscrollcancel
+    property onoverscrollchanging
+    property onoverscrollend
+    property onoverscrollstart
     property onpaste
     property onpause
     property onplay
@@ -361,10 +363,18 @@ namespace http://www.w3.org/1999/xhtml
     property slot
     property spellcheck
     property startViewTransition
+    property streamAfterHTML
+    property streamAfterHTMLUnsafe
     property streamAppendHTML
     property streamAppendHTMLUnsafe
+    property streamBeforeHTML
+    property streamBeforeHTMLUnsafe
     property streamHTML
     property streamHTMLUnsafe
+    property streamPrependHTML
+    property streamPrependHTMLUnsafe
+    property streamReplaceWithHTML
+    property streamReplaceWithHTMLUnsafe
     property style
     property tabIndex
     property tagName
@@ -559,6 +569,7 @@ html element button
     property value
     property willValidate
 html element canvas
+    property captureElementImage
     property captureStream
     property configureHighDynamicRange
     property getContext
@@ -1177,6 +1188,7 @@ html element td
     property width
 html element template
     property content
+    property htmlFor
     property shadowRootClonable
     property shadowRootCustomElementRegistry
     property shadowRootDelegatesFocus
@@ -1279,6 +1291,7 @@ html element ul
     property compact
     property type
 html element usermedia
+    property error
     property initialPermissionStatus
     property invalidReason
     property isValid
@@ -1287,6 +1300,8 @@ html element usermedia
     property onstream
     property onvalidationstatuschange
     property permissionStatus
+    property setConstraints
+    property stream
     property type
 html element var
 html element video
@@ -1521,7 +1536,6 @@ namespace http://www.w3.org/2000/svg
     property localName
     property lookupNamespaceURI
     property lookupPrefix
-    property marker
     property matches
     property moveBefore
     property namespaceURI
@@ -1596,7 +1610,10 @@ namespace http://www.w3.org/2000/svg
     property onmouseover
     property onmouseup
     property onmousewheel
-    property onoverscroll
+    property onoverscrollcancel
+    property onoverscrollchanging
+    property onoverscrollend
+    property onoverscrollstart
     property onpaste
     property onpause
     property onplay
@@ -1697,10 +1714,18 @@ namespace http://www.w3.org/2000/svg
     property shadowRoot
     property slot
     property startViewTransition
+    property streamAfterHTML
+    property streamAfterHTMLUnsafe
     property streamAppendHTML
     property streamAppendHTMLUnsafe
+    property streamBeforeHTML
+    property streamBeforeHTMLUnsafe
     property streamHTML
     property streamHTMLUnsafe
+    property streamPrependHTML
+    property streamPrependHTMLUnsafe
+    property streamReplaceWithHTML
+    property streamReplaceWithHTMLUnsafe
     property style
     property tabIndex
     property tagName

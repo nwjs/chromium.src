@@ -10,6 +10,7 @@
 //ios/chrome/test/data/policy/pref_mapping/AutoSelectCertificateForUrls.json
 //ios/chrome/test/data/policy/pref_mapping/AutofillAddressEnabled.json
 //ios/chrome/test/data/policy/pref_mapping/AutofillCreditCardEnabled.json
+//ios/chrome/test/data/policy/pref_mapping/AutofillPredictionSettings.json
 //ios/chrome/test/data/policy/pref_mapping/BrowserSignin.json
 //ios/chrome/test/data/policy/pref_mapping/BrowserThemeColor.json
 //ios/chrome/test/data/policy/pref_mapping/ChromeDataRegionSetting.json
@@ -62,6 +63,7 @@
 //ios/chrome/test/data/policy/pref_mapping/NTPContentSuggestionsEnabled.json
 //ios/chrome/test/data/policy/pref_mapping/NTPCustomBackgroundEnabled.json
 //ios/chrome/test/data/policy/pref_mapping/NewTabPageLocation.json
+//ios/chrome/test/data/policy/pref_mapping/OnFileDownloadedEnterpriseConnector.json
 //ios/chrome/test/data/policy/pref_mapping/OnSecurityEventEnterpriseConnector.json
 //ios/chrome/test/data/policy/pref_mapping/OptimizationGuideFetchingEnabled.json
 //ios/chrome/test/data/policy/pref_mapping/PasswordManagerEnabled.json

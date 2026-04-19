@@ -4,7 +4,8 @@
 
 #import "ios/chrome/browser/assistant/ui/assistant_container_animator.h"
 
-#import "ios/chrome/browser/assistant/ui/assistant_container_view_controller.h"
+#import "ios/chrome/browser/assistant/ui/assistant_container_animatable.h"
+#import "ios/chrome/browser/assistant/ui/assistant_container_provider.h"
 
 namespace {
 // Animation constants.
@@ -15,32 +16,99 @@ constexpr CGFloat kTranslationMargin = 20.0;
 
 @implementation AssistantContainerAnimator
 
-- (void)animatePresentation:(AssistantContainerViewController*)viewController
+- (void)animatePresentation:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
                  completion:(void (^)(void))completion {
   [self animate:viewController presentation:YES completion:completion];
 }
 
-- (void)animateDismissal:(AssistantContainerViewController*)viewController
+- (void)animateDismissal:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
               completion:(void (^)(void))completion {
   [self animate:viewController presentation:NO completion:completion];
+}
+
+- (void)animateSidePanelPresentation:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
+                  baseViewController:
+                      (UIViewController<AssistantContainerProvider>*)
+                          baseViewController
+                          completion:(void (^)(void))completion {
+  UIView* assistantView = viewController.view;
+  if (!assistantView) {
+    if (completion) {
+      completion();
+    }
+    return;
+  }
+
+  [baseViewController.view layoutIfNeeded];
+  CGFloat width = assistantView.frame.size.width;
+
+  [baseViewController updateAssistantContainerOffset:-width];
+
+  [UIView animateWithDuration:kAnimationDuration
+      delay:0
+      usingSpringWithDamping:kSpringDamping
+      initialSpringVelocity:0
+      options:0
+      animations:^{
+        [baseViewController updateAssistantContainerOffset:0];
+      }
+      completion:^(BOOL finished) {
+        if (completion) {
+          completion();
+        }
+      }];
+}
+
+- (void)animateSidePanelDismissal:
+            (UIViewController<AssistantContainerAnimatable>*)viewController
+               baseViewController:
+                   (UIViewController<AssistantContainerProvider>*)
+                       baseViewController
+                       completion:(void (^)(void))completion {
+  UIView* assistantView = viewController.view;
+  if (!assistantView) {
+    if (completion) {
+      completion();
+    }
+    return;
+  }
+
+  [baseViewController.view layoutIfNeeded];
+  CGFloat width = assistantView.frame.size.width;
+
+  [baseViewController updateAssistantContainerOffset:0];
+
+  [UIView animateWithDuration:kAnimationDuration
+      delay:0
+      usingSpringWithDamping:kSpringDamping
+      initialSpringVelocity:0
+      options:0
+      animations:^{
+        [baseViewController updateAssistantContainerOffset:-width];
+      }
+      completion:^(BOOL finished) {
+        if (completion) {
+          completion();
+        }
+      }];
 }
 
 #pragma mark - Private
 
 // Animates the container view. If `presentation` is YES, the container slides
 // up from the bottom. Otherwise, it slides down.
-- (void)animate:(AssistantContainerViewController*)viewController
+- (void)animate:(UIViewController<AssistantContainerAnimatable>*)viewController
     presentation:(BOOL)presentation
       completion:(void (^)(void))completion {
   UIView* view = viewController.view;
-  UIView* anchorView = viewController.anchorView;
+  UIView* containerView = viewController.assistantContainerView;
+  UIView* dimmingView = viewController.dimmingView;
 
   // Prepare for animation.
   viewController.isAnimating = YES;
-
-  // Ensure Anchor View is visually on top during animation.
-  CGFloat originalZPosition = anchorView.layer.zPosition;
-  anchorView.layer.zPosition = view.layer.zPosition + 1;
 
   // Layout to ensure frame is valid.
   [view.superview layoutIfNeeded];
@@ -51,9 +119,12 @@ constexpr CGFloat kTranslationMargin = 20.0;
 
   CGAffineTransform targetTransform;
   UIViewAnimationOptions options;
+  CGFloat targetAlpha = 0.0;
 
   if (presentation) {
-    view.transform = hiddenTransform;
+    targetAlpha = dimmingView.alpha;
+    dimmingView.alpha = 0.0;
+    containerView.transform = hiddenTransform;
     targetTransform = CGAffineTransformIdentity;
     options = UIViewAnimationOptionCurveEaseOut;
   } else {
@@ -68,11 +139,11 @@ constexpr CGFloat kTranslationMargin = 20.0;
       initialSpringVelocity:0
       options:options
       animations:^{
-        view.transform = targetTransform;
+        containerView.transform = targetTransform;
+        dimmingView.alpha = targetAlpha;
       }
       completion:^(BOOL finished) {
         viewController.isAnimating = NO;
-        anchorView.layer.zPosition = originalZPosition;
         if (completion) {
           completion();
         }

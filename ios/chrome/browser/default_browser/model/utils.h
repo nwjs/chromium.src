@@ -278,11 +278,6 @@ bool IsChromeLikelyDefaultBrowser7Days();
 bool IsChromePotentiallyNoLongerDefaultBrowser(int likelyDefaultInterval,
                                                int likelyNotDefaultInterval);
 
-// Returns true if the past behavior of the user indicates that the user fits
-// the categorization that would likely benefit from having Chrome set as their
-// default browser for the passed `type`. Returns false otherwise.
-bool IsLikelyInterestedDefaultBrowserUser(DefaultPromoType type);
-
 // Return YES if the user has seen a full screen promo recently, and shouldn't
 // see another one.
 bool UserInFullscreenPromoCooldown();
@@ -347,24 +342,6 @@ base::Time GetGenericDefaultBrowserPromoTimestamp();
 // Returns tailored Default Browser timestamp if user seen a tailored promo
 // before. Otherwise, returns unix epoch.
 base::Time GetTailoredDefaultBrowserPromoTimestamp();
-
-// Log to UserDefaults FRE timestamp migration is done.
-void LogFRETimestampMigrationDone();
-
-// Returns whether FRE timestamp migrating is done.
-BOOL FRETimestampMigrationDone();
-
-// Log to UserDefaults promo interest event migration is done.
-void LogPromoInterestEventMigrationDone();
-
-// Returns whether promo interest event migratin is done.
-BOOL IsPromoInterestEventMigrationDone();
-
-// Log to UserDefaults promo impressions migration is done.
-void LogPromoImpressionsMigrationDone();
-
-// Returns whether promo impressions migratin is done.
-BOOL IsPromoImpressionsMigrationDone();
 
 // Records the last action the user took when a Default Browser Promo was
 // presented.

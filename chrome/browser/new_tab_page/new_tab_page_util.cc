@@ -34,14 +34,17 @@
 
 namespace {
 
-constexpr char kAutoRemovalReasonManagedPreference[] =
+constexpr char kModulesAutoRemovalReasonManagedPreference[] =
     "NewTabPage.Modules.AutoRemovalSkipped.ManagedPreference";
-constexpr char kAutoRemovalReasonDisabledAllModules[] =
+constexpr char kModulesAutoRemovalReasonDisabledAllModules[] =
     "NewTabPage.Modules.AutoRemovalSkipped.DisabledAllModules";
-constexpr char kAutoRemovalReasonDisabled[] =
+constexpr char kModulesAutoRemovalReasonDisabled[] =
     "NewTabPage.Modules.AutoRemovalSkipped.Disabled";
-constexpr char kAutoRemovalReasonStaleDaysCount[] =
+constexpr char kModulesAutoRemovalReasonStaleDaysCount[] =
     "NewTabPage.Modules.AutoRemovalSkipped.StaleDaysCount";
+
+constexpr char kShortcutsAutoRemovalReasonHistogram[] =
+    "NewTabPage.MostVisited.AutoRemovalSkipped";
 
 bool IsOsSupportedForCart() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -277,14 +280,7 @@ bool IsTopSitesEnabled(Profile* profile) {
 }
 
 bool IsCustomLinksEnabled(Profile* profile) {
-  // If the enterprise shortcuts feature is disabled, but the preference is set
-  // to enterprise shortcuts visible, treat MostVisitedSites as if enterpise
-  // shortcuts is disabled and custom links is enabled. This may occur if the
-  // user is moved in and out of the experiment.
-  return profile->GetPrefs()->GetBoolean(ntp_prefs::kNtpCustomLinksVisible) ||
-         (!base::FeatureList::IsEnabled(ntp_tiles::kNtpEnterpriseShortcuts) &&
-          profile->GetPrefs()->GetBoolean(
-              ntp_prefs::kNtpEnterpriseShortcutsVisible));
+  return profile->GetPrefs()->GetBoolean(ntp_prefs::kNtpCustomLinksVisible);
 }
 
 bool IsEnterpriseShortcutsEmpty(Profile* profile) {
@@ -294,27 +290,18 @@ bool IsEnterpriseShortcutsEmpty(Profile* profile) {
 }
 
 bool IsEnterpriseShortcutsEnabled(Profile* profile) {
-  // Enable enterprise shortcuts if the feature is enabled, enterprise shortcuts
-  // policy is set, and user has enabled visibility.
-  return base::FeatureList::IsEnabled(ntp_tiles::kNtpEnterpriseShortcuts) &&
-         !IsEnterpriseShortcutsEmpty(profile) &&
+  // Enable enterprise shortcuts if the enterprise shortcuts policy is set, and
+  // user has enabled visibility.
+  return !IsEnterpriseShortcutsEmpty(profile) &&
          profile->GetPrefs()->GetBoolean(
              ntp_prefs::kNtpEnterpriseShortcutsVisible);
 }
 
 bool IsPersonalShortcutsVisible(Profile* profile) {
-  // Always return true if enterprise shortcuts feature is disabled or no
-  // enterprise shortcuts are set by policy. Rely on `IsTopSitesEnabled()` and
-  // `IsCustomLinksEnabled()` only.
-  if (!base::FeatureList::IsEnabled(ntp_tiles::kNtpEnterpriseShortcuts) ||
-      IsEnterpriseShortcutsEmpty(profile)) {
+  // Always return true if no enterprise shortcuts are set by policy. Rely on
+  // `IsTopSitesEnabled()` and `IsCustomLinksEnabled()` only.
+  if (IsEnterpriseShortcutsEmpty(profile)) {
     return true;
-  }
-  // If enterprise shortcuts mixing is disabled, return the opposite of
-  // `IsEnterpriseShortcutsEnabled()` since only enterprise OR personal
-  // shortcuts should be visible.
-  if (!ntp_tiles::kNtpEnterpriseShortcutsAllowMixingParam.Get()) {
-    return !IsEnterpriseShortcutsEnabled(profile);
   }
   return profile->GetPrefs()->GetBoolean(
       ntp_prefs::kNtpPersonalShortcutsVisible);
@@ -339,11 +326,13 @@ void UpdateShortcutsStaleness(Profile* profile) {
   // Do not update staleness if shortcuts auto removal is disabled.
   if (profile->GetPrefs()->GetBoolean(
           ntp_prefs::kNtpShortcutsAutoRemovalDisabled)) {
+    RecordShortcutsAutoRemovalMetrics(profile, /*prev_count=*/0);
     return;
   }
 
   // Do not update staleness if shortcuts are not visible.
   if (!profile->GetPrefs()->GetBoolean(ntp_prefs::kNtpShortcutsVisible)) {
+    RecordShortcutsAutoRemovalMetrics(profile, /*prev_count=*/0);
     return;
   }
 
@@ -372,6 +361,8 @@ void UpdateShortcutsStaleness(Profile* profile) {
                                shortcuts_load_time);
   profile->GetPrefs()->SetInteger(ntp_prefs::kNtpShortcutsStalenessCount,
                                   staleness_count + 1);
+
+  RecordShortcutsAutoRemovalMetrics(profile, staleness_count);
 }
 
 void UpdateModulesStaleness(Profile* profile,
@@ -405,8 +396,8 @@ void UpdateModulesStaleness(Profile* profile,
           .value_or(false);
   if (is_disabled_for_all_modules) {
     for (const std::string& module_id : module_ids) {
-      LogModuleAutoRemovalMetrics(profile, auto_removal_disabled_dict,
-                                  module_id, /*prev_count=*/0);
+      RecordModuleAutoRemovalMetrics(profile, auto_removal_disabled_dict,
+                                     module_id, /*prev_count=*/0);
     }
     return;
   }
@@ -428,8 +419,8 @@ void UpdateModulesStaleness(Profile* profile,
     if (!is_disabled_for_module) {
       update->Set(module_id, prev_count + 1);
     }
-    LogModuleAutoRemovalMetrics(profile, auto_removal_disabled_dict, module_id,
-                                prev_count);
+    RecordModuleAutoRemovalMetrics(profile, auto_removal_disabled_dict,
+                                   module_id, prev_count);
   }
 }
 
@@ -453,14 +444,53 @@ void DisableModuleListAutoRemoval(Profile* profile,
   }
 }
 
-void LogModuleAutoRemovalMetrics(
+void RecordShortcutsAutoRemovalMetrics(Profile* profile, int prev_count) {
+  // Auto-removal skipped due to managed preference.
+  if (IsEnterpriseShortcutsEnabled(profile)) {
+    base::UmaHistogramEnumeration(
+        kShortcutsAutoRemovalReasonHistogram,
+        NtpShortcutsAutoRemovalReason::kManagedPreference);
+    return;
+  }
+
+  // Auto-removal skipped due to shortcuts being hidden.
+  if (!profile->GetPrefs()->GetBoolean(ntp_prefs::kNtpShortcutsVisible)) {
+    base::UmaHistogramEnumeration(kShortcutsAutoRemovalReasonHistogram,
+                                  NtpShortcutsAutoRemovalReason::kNotVisible);
+    return;
+  }
+
+  // Auto-removal skipped due to it being disabled.
+  if (profile->GetPrefs()->GetBoolean(
+          ntp_prefs::kNtpShortcutsAutoRemovalDisabled)) {
+    base::UmaHistogramEnumeration(kShortcutsAutoRemovalReasonHistogram,
+                                  NtpShortcutsAutoRemovalReason::kDisabled);
+    return;
+  }
+
+  // Log the new staleness count for shortcuts. We're only logging it here
+  // because the auto-removal will be skipped anyway due to conditions above.
+  // NOTE: An exclusive max of 101 days was picked as the max threshold.
+  base::UmaHistogramExactLinear("NewTabPage.MostVisited.AutoRemovalStaleDays",
+                                prev_count, 101);
+
+  // Auto-removal skipped due to the staleness threshold.
+  if (prev_count < ntp_features::kStaleShortcutsCountThreshold.Get()) {
+    base::UmaHistogramEnumeration(
+        kShortcutsAutoRemovalReasonHistogram,
+        NtpShortcutsAutoRemovalReason::kStaleDaysCount);
+    return;
+  }
+}
+
+void RecordModuleAutoRemovalMetrics(
     Profile* profile,
     const base::DictValue& auto_removal_disabled_dict,
     const std::string& module_id,
     const int prev_count) {
   // Auto-removal skipped due to managed preference.
   if (profile->GetPrefs()->IsManagedPreference(prefs::kNtpModulesVisible)) {
-    base::UmaHistogramSparse(kAutoRemovalReasonManagedPreference,
+    base::UmaHistogramSparse(kModulesAutoRemovalReasonManagedPreference,
                              base::PersistentHash(module_id));
     return;
   }
@@ -470,7 +500,7 @@ void LogModuleAutoRemovalMetrics(
       auto_removal_disabled_dict.FindBool(ntp_modules::kAllModulesId)
           .value_or(false);
   if (is_disabled_for_all_modules) {
-    base::UmaHistogramSparse(kAutoRemovalReasonDisabledAllModules,
+    base::UmaHistogramSparse(kModulesAutoRemovalReasonDisabledAllModules,
                              base::PersistentHash(module_id));
     return;
   }
@@ -479,7 +509,7 @@ void LogModuleAutoRemovalMetrics(
   const bool is_disabled_for_module =
       auto_removal_disabled_dict.FindBool(module_id).value_or(false);
   if (is_disabled_for_module) {
-    base::UmaHistogramSparse(kAutoRemovalReasonDisabled,
+    base::UmaHistogramSparse(kModulesAutoRemovalReasonDisabled,
                              base::PersistentHash(module_id));
     return;
   }
@@ -499,7 +529,7 @@ void LogModuleAutoRemovalMetrics(
   const int staleness_threshold =
       ntp_features::kStaleModulesCountThreshold.Get();
   if (prev_count < staleness_threshold) {
-    base::UmaHistogramSparse(kAutoRemovalReasonStaleDaysCount,
+    base::UmaHistogramSparse(kModulesAutoRemovalReasonStaleDaysCount,
                              base::PersistentHash(module_id));
   }
 }

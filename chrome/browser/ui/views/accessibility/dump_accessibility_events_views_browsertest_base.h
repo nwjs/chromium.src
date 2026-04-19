@@ -101,6 +101,17 @@ class DumpAccessibilityEventsViewsTestBase
   void AddAllowFilter(const std::string& filter_str);
   void AddDenyFilter(const std::string& filter_str);
 
+  // Pumps the message loop until the event recorder captures an event whose
+  // string representation starts with |event_prefix|, or until a timeout.
+  // Returns true if a matching event was captured, false on timeout.
+  //
+  // Use this in UIA tests after the action that fires the event, before the
+  // EventRecordingSession goes out of scope. This prevents a race where the
+  // UIA TestComplete sentinel (fired from a different HWND than the tooltip
+  // widget) is delivered to the handler before the tooltip event, causing
+  // the event to be discarded.
+  [[nodiscard]] bool WaitForCapturedEvent(const std::string& event_prefix);
+
   // Parses a multi-line string of filter directives using the same format
   // as accessibility test expectation files (parsed via AXInspectScenario).
   // Only directives matching the current platform are applied. Example:
@@ -117,6 +128,12 @@ class DumpAccessibilityEventsViewsTestBase
 
   void SetUpTestWidget();
   void StopRecordingAndCompare(const std::string& test_name);
+
+  // Waits for any pending WidgetAXManager serialization to complete.
+  // Use this instead of RunUntilIdle(), which is brittle because it
+  // guesses async timing rather than waiting for a specific signal.
+  void WaitForPendingSerialization();
+
   base::FilePath GetExpectationFilePath(const std::string& test_name) const;
   std::vector<std::string> CollectEventLogs();
   std::vector<std::string> FilterEventLogs(

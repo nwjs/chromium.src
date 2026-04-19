@@ -8,18 +8,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_view.h"
-#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_controller.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/page_context.h"
@@ -55,7 +50,8 @@ void SendTabToSelfToolbarIconController::DisplayNewEntries(
   // If the active browser matches `profile_`, show the toolbar icon.
   // Otherwise, we will store this entry and wait to show on the next active
   // appropriate browser.
-  auto* browser = chrome::FindLastActiveWithProfile(profile_);
+  BrowserWindowInterface* const browser =
+      ProfileBrowserCollection::GetForProfile(profile_)->GetLastActiveBrowser();
   if (browser && browser->IsActive() && CanShowOnBrowser(browser)) {
     ShowToolbarButton(*new_entry, browser);
     return;
@@ -70,14 +66,8 @@ void SendTabToSelfToolbarIconController::StorePendingEntry(
 
   // |pending_entry_| might already be set, but it's better to overwrite
   // it with a fresher value.
-  pending_entry_ = std::make_unique<SendTabToSelfEntry>(
-      new_entry_pending_notification->GetGUID(),
-      new_entry_pending_notification->GetURL(),
-      new_entry_pending_notification->GetTitle(),
-      new_entry_pending_notification->GetSharedTime(),
-      new_entry_pending_notification->GetDeviceName(),
-      new_entry_pending_notification->GetTargetDeviceSyncCacheGuid(),
-      PageContext());
+  pending_entry_ =
+      std::make_unique<SendTabToSelfEntry>(*new_entry_pending_notification);
   // Prevent adding the observer several times. This might happen when the
   // window is inactive and this method is called more than once (i.e. the
   // server sends multiple entry batches).
@@ -118,16 +108,16 @@ void SendTabToSelfToolbarIconController::ShowToolbarButton(
     const SendTabToSelfEntry& entry,
     BrowserWindowInterface* browser) {
   CHECK(browser);
-  PinnedToolbarActionsController* controller =
-      browser->GetFeatures().pinned_toolbar_actions_controller();
+  PinnedToolbarActions* controller =
+      browser->GetFeatures().pinned_toolbar_actions();
   CHECK(controller);
 
   controller->ShowActionEphemerallyInToolbar(kActionSendTabToSelf, true);
-  auto* button = controller->GetButtonFor(kActionSendTabToSelf);
-  CHECK(button);
+  auto anchor = controller->GetBubbleAnchor(kActionSendTabToSelf);
+  CHECK(!std::holds_alternative<std::nullptr_t>(anchor));
   browser->GetFeatures()
       .send_tab_to_self_toolbar_bubble_controller()
-      ->ShowBubble(entry, button);
+      ->ShowBubble(entry, anchor);
 
   send_tab_to_self::RecordNotificationShown();
 }

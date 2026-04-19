@@ -6,11 +6,12 @@
 
 #include <utility>
 
+#include "ash/constants/ash_pref_names.h"
+#include "base/check_deref.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
@@ -21,7 +22,6 @@
 #include "chrome/browser/ash/policy/dev_mode/dev_mode_policy_util.h"
 #include "chrome/browser/ash/policy/value_validation/onc_device_policy_value_validator.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/dbus/constants/dbus_paths.h"
 #include "components/ownership/owner_key_util.h"
@@ -49,7 +49,7 @@ bool CanUseDeviceIdValidation() {
   // validation now.
   auto* local_state = g_browser_process->local_state();
   return local_state &&
-         !local_state->GetString(prefs::kEnrollmentVersionOS).empty();
+         !local_state->GetString(ash::prefs::kEnrollmentVersionOS).empty();
 }
 
 }  // namespace
@@ -330,11 +330,14 @@ void DeviceCloudPolicyStoreAsh::CheckDMToken() {
              << "no DM token! Status: " << service_status
              << ", debug_info: " << debug_info.str() << ".";
 
+  // TODO(crbug.com/404133022): Avoid using g_browser_process.
+  PrefService& local_state = CHECK_DEREF(g_browser_process->local_state());
+
   // At the time LoginDisplayHostWebUI decides whether enrollment flow is to
   // be started, policy hasn't been read yet.  To work around this, once the
   // need for recovery is detected upon policy load, a flag is stored in prefs
   // which is accessed by LoginDisplayHostWebUI early during (next) boot.
-  ash::StartupUtils::MarkEnrollmentRecoveryRequired();
+  ash::StartupUtils::MarkEnrollmentRecoveryRequired(local_state);
 }
 
 void DeviceCloudPolicyStoreAsh::UpdateFirstPoliciesLoaded() {

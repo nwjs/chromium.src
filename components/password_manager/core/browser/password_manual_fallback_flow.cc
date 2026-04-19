@@ -16,6 +16,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
@@ -196,7 +197,8 @@ void PasswordManualFallbackFlow::OnSuggestionsShown(
       IsTriggerFieldRelevantInPasswordForm(form));
 }
 
-void PasswordManualFallbackFlow::OnSuggestionsHidden() {}
+void PasswordManualFallbackFlow::OnSuggestionsHidden(
+    autofill::SuggestionHidingReason reason) {}
 
 void PasswordManualFallbackFlow::DidSelectSuggestion(
     const Suggestion& suggestion) {
@@ -352,6 +354,12 @@ void PasswordManualFallbackFlow::ClearPreviewedForm() {
 autofill::FillingProduct PasswordManualFallbackFlow::GetMainFillingProduct()
     const {
   return autofill::FillingProduct::kPassword;
+}
+
+void PasswordManualFallbackFlow::OnTabSelected(
+    autofill::TabbedPaneTabType tab_type) {
+  // Tabbed panes do not currently exist for passwords.
+  NOTREACHED();
 }
 
 void PasswordManualFallbackFlow::RunFlowImpl(

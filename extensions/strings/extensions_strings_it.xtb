@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">Prodotto sconosciuto <ph name="PRODUCT_ID" /> del fornitore <ph name="VENDOR_ID" /> (numero di serie <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Impossibile sostituire il file crx. Controlla se il file è in uso.</translation>
 <translation id="3163201441334626963">Prodotto sconosciuto <ph name="PRODUCT_ID" /> del fornitore <ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">L'accesso a questa estensione è bloccato dalla tua organizzazione.</translation>
 <translation id="3242289508736283383">L'app con l'attributo del file manifest "kiosk_only" deve essere installata in modalità kiosk di ChromeOS</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (numero di serie <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> del fornitore <ph name="VENDOR_ID" /> (numero di serie <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">Impossibile aggiungere l'applicazione "<ph name="TO_INSTALL_APP_NAME" />" perché è in conflitto con "<ph name="INSTALLED_APP_NAME" />".</translation>
 <translation id="388442998277590542">Impossibile caricare la pagina delle opzioni "<ph name="OPTIONS_PAGE" />".</translation>
 <translation id="3984413272403535372">Errore durante la firma dell'estensione.</translation>
+<translation id="4094452115117798451">L'accesso a questa categoria di estensioni è bloccato dalla tua organizzazione.</translation>
 <translation id="4233778200880751280">Impossibile caricare la pagina di informazioni "<ph name="ABOUT_PAGE" />".</translation>
 <translation id="424963718355121712">Le app devono essere installate dall'host che controllano</translation>
 <translation id="4306119971288449206">Le app devono essere installate con il tipo di contenuto "<ph name="CONTENT_TYPE" />"</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">Prodotto sconosciuto <ph name="PRODUCT_ID" /> di <ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">File manifest non valido</translation>
 <translation id="7217838517480956708">L'amministratore di questo computer richiede che l'estensione <ph name="EXTENSION_NAME" /> sia installata. Non è possibile rimuovere o modificare l'estensione.</translation>
+<translation id="7287143125007575591">Accesso negato.</translation>
 <translation id="7612608473764576263">Il valore da inserire per la chiave privata deve essere in un formato valido (chiave RSA con codifica PEM in formato PKCS#8).</translation>
 <translation id="765293928828334535">Non è possibile aggiungere app, estensioni e script utente da questo sito web</translation>
 <translation id="7876803335449432072">Impossibile caricare il file "<ph name="RELATIVE_PATH" />" per lo script di contenuti. I fogli di stile degli script di contenuti possono essere caricati solo dai file di fogli di stile supportati, ad esempio i file .css.</translation>

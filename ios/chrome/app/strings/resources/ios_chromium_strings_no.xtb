@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="no">
 <translation id="1000436330784933699">Du kan åpne Lens her.</translation>
+<translation id="1005291068154454184">Fullskjermvideo om hvordan du angir Chromium som standard</translation>
 <translation id="1042296835509784301">Åpner Passordlagring i Chromium.</translation>
 <translation id="1047130070405668746">Velg Chromium</translation>
 <translation id="1091252999271033193">Dette betyr at Chromium kommer til å forespørre mobilnettstedet hver gang.</translation>
@@ -70,9 +71,6 @@ Du kan ikke lagre nye bokmerker i kontoen din før du sletter noen. Hvis du logg
 <translation id="2313870531055795960">Kontrollerer nettadresser opp mot en liste i Chromium over utrygge nettsteder. Hvis nettsteder prøver å stjele passordet ditt, eller når du laster ned skadelige filer, kan Chromium også sende nettadresser, inkludert deler av sideinnholdet, til Safe Browsing.</translation>
 <translation id="2314220608288760290">Chromium åpner automatisk YouTube-inkognitolinker i inkognitomodus.</translation>
 <translation id="231828342043114302">For å få personlig tilpasset innhold basert på interessene dine, logg på Chromium.</translation>
-<translation id="2326738825692478496">Noen av Chromium-dataene dine er ikke lagret i Google-kontoen din ennå.
-
-Prøv å vente i noen minutter før du logger av. Hvis du logger av nå, blir disse dataene slettet.</translation>
 <translation id="2334943301233020675">Følgende passnøkler ble ikke importert til Passordlagring fordi de ikke oppfyller kravene.</translation>
 <translation id="2337722506862731008">Del Chromium</translation>
 <translation id="2340423701577464731">Legg til elementet på leselisten i Chromium</translation>
@@ -103,7 +101,6 @@ Prøv å vente i noen minutter før du logger av. Hvis du logger av nå, blir di
 For å se flere innstillinger som bruker data for å forbedre Chromium-opplevelsen, gå til <ph name="BEGIN_LINK" />Google-tjenester<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Søk med stemmen i Chromium.</translation>
 <translation id="2843571538056574338">Bruk Chromium til autofyll</translation>
-<translation id="2899085719655668655">Bilde-i-bilde-videoveiledning om hvordan du velger Chromium som standard</translation>
 <translation id="2918709798697875261">Organisasjonen din krever at du forblir logget av Chromium.</translation>
 <translation id="2942241131342758843">Bruk Chromium som standard til å åpne linker, søke i moduler og fylle ut passord i andre apper automatisk</translation>
 <translation id="2977470724722393594">Chromium er oppdatert</translation>

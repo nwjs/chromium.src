@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CHROME_BROWSER_WEB_APPLICATIONS_SYSTEM_MEDIA_CONTROLS_BRIDGE_BROWSERTEST_H_
-#define CHROME_BROWSER_WEB_APPLICATIONS_SYSTEM_MEDIA_CONTROLS_BRIDGE_BROWSERTEST_H_
-
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -47,11 +44,11 @@ class SystemMediaControlsBridgeBrowsertest
   ~SystemMediaControlsBridgeBrowsertest() override = default;
 
   void SetUpOnMainThread() override {
-    InProcessBrowserTest::SetUpOnMainThread();
+    // Serve the test media session pages from the test server.
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        "content/test/data");
 
-    // Start the test server so we can use the test media session pages.
-    https_server()->ServeFilesFromSourceDirectory("content/test/data");
-    ASSERT_TRUE(https_server()->Start());
+    web_app::WebAppBrowserTestBase::SetUpOnMainThread();
 
     wait_for_bridge_creation_run_loop_.emplace();
   }
@@ -136,8 +133,8 @@ class SystemMediaControlsBridgeBrowsertest
 
 IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, TwoApps) {
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -163,7 +160,7 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, TwoApps) {
   wait_for_bridge_creation_run_loop_.emplace();  // Reset run loop for reuse.
 
   // Install and launch a different test media session PWA.
-  webapps::AppId app_id2 = InstallPWA(https_server()->GetURL(
+  webapps::AppId app_id2 = InstallPWA(embedded_https_test_server().GetURL(
       "/media/session/media_controls/media-session2.html"));
   Browser* web_app_browser2 = LaunchWebAppBrowserAndWait(app_id2);
   EXPECT_TRUE(web_app_browser2);
@@ -188,7 +185,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, OneBrowser) {
 
   // Navigate the browser to the test media page.
   NavigateParams params(
-      browser(), https_server()->GetURL("/media/session/media-session.html"),
+      browser(),
+      embedded_https_test_server().GetURL("/media/session/media-session.html"),
       ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&params);
 
@@ -206,7 +204,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, OneBrowserOneApp) {
 
   // Navigate the browser to the test media page.
   NavigateParams params(
-      browser(), https_server()->GetURL("/media/session/media-session.html"),
+      browser(),
+      embedded_https_test_server().GetURL("/media/session/media-session.html"),
       ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&params);
 
@@ -219,8 +218,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, OneBrowserOneApp) {
   wait_for_bridge_creation_run_loop_.emplace();
 
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -247,8 +246,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, OneBrowserOneApp) {
 
 IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, DuplicateApp) {
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -292,8 +291,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest, DuplicateApp) {
 IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
                        CommandQuitOneApp) {
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -316,8 +315,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
 IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
                        NowPlayingInfoHiddenOnNavigationAway) {
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -352,7 +351,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
 
   // Check the pwa is still playing, and navigate away to a different url.
   EXPECT_TRUE(IsPlaying(web_app_browser1, "long-video-loop"));
-  GURL http_url2(https_server()->GetURL("/media/session/title1.html"));
+  GURL http_url2(
+      embedded_https_test_server().GetURL("/media/session/title1.html"));
   NavigateParams params(web_app_browser1, http_url2, ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&params);
 
@@ -367,8 +367,8 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
                        NowPlayingInfoHiddenOnAudioEnd) {
   // Set up a media session in 1 PWA.
   // Install and launch a test media session PWA.
-  webapps::AppId app_id1 =
-      InstallPWA(https_server()->GetURL("/media/session/media-session.html"));
+  webapps::AppId app_id1 = InstallPWA(
+      embedded_https_test_server().GetURL("/media/session/media-session.html"));
   Browser* web_app_browser1 = LaunchWebAppBrowserAndWait(app_id1);
   EXPECT_TRUE(web_app_browser1);
 
@@ -414,5 +414,3 @@ IN_PROC_BROWSER_TEST_F(SystemMediaControlsBridgeBrowsertest,
 
 }  // namespace testing
 }  // namespace system_media_controls
-
-#endif  // CHROME_BROWSER_WEB_APPLICATIONS_SYSTEM_MEDIA_CONTROLS_BRIDGE_MAC_BROWSERTEST_H_

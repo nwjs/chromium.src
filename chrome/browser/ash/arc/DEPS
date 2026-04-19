@@ -48,11 +48,9 @@ include_rules = [
   "+chrome/browser/ui/ash",
   "+chrome/browser/ui/browser_commands.h",
   "+chrome/browser/ui/browser.h",
-  "+chrome/browser/ui/browser_list.h",
-  "+chrome/browser/ui/browser_list_observer.h",
   "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/chrome_pages.h",
-  "+chrome/browser/ui/chrome_select_file_policy.h",
+  "+chrome/browser/ui/select_file_policy/chrome_select_file_policy.h",
   "+chrome/browser/ui/simple_message_box.h",
   "+chrome/browser/ui/tabs",
   "+chrome/browser/ui/test",
@@ -68,7 +66,6 @@ include_rules = [
   "+chrome/common/net",
   "+chrome/common/pref_names.h",
   "+chrome/common/url_constants.h",
-  "+chrome/grit",
   "+chrome/services/printing/public/mojom",
   "+chrome/test/base",
   "+chrome/test/views",
@@ -93,7 +90,12 @@ specific_include_rules = {
   ],
 
   "arc_support_host\\.cc": [
+    "+chrome/grit",
     "+chrome/browser/ui/extensions/app_launch_params.h",
     "+chrome/browser/ui/extensions/application_launch.h",
-  ]
+  ],
+
+  "icon_decode_request\\.cc": [
+    "+chrome/grit",
+  ],
 }

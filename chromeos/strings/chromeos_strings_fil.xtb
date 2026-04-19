@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Maglagay ng prompt</translation>
 <translation id="115705039208660697">mga pinya</translation>
 <translation id="1164939766849482256">Screen saver na pagtakipsilim</translation>
-<translation id="1167755866710282443">Buksan ang menu para mag-customize ng mga key. I-drag ang menu para maglipat.</translation>
 <translation id="1171349345463658120">mabuhanging lagoon</translation>
 <translation id="1174073918202301297">Naidagdag na ang shortcut</translation>
 <translation id="11743817593307477">Gumamit ng mga arrow key para ilipat ang kontrol na ito sa gusto mong pagkilos sa laro. Gamitin ang enter key para ilagay ang kontrol. Gamitin ang escape key para kanselahin.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Magpalit ng file</translation>
 <translation id="2006864819935886708">Pagkakakonekta</translation>
 <translation id="2008685064673031089">Prime na paghahanap</translation>
-<translation id="2011174342667534258">Bersyon ng SDK:</translation>
 <translation id="2016697457005847575">Subukan ang mga hakbang sa pag-troubleshoot</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">kubyertos</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">D-pad para sa keymapping</translation>
 <translation id="3217462202230355157">Tiyaking nakakonekta ang iyong mikropono o subukang i-restart ang <ph name="DEVICE_TYPE" /> mo</translation>
 <translation id="3226405216343213872">Naghahanap ng mga scanner</translation>
-<translation id="3226657629376379887">Menu ng mga pagkilos sa layout</translation>
 <translation id="3227186760713762082">I-divide ang value ng <ph name="CATEGORY_TEXT" /> sa <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">digital art</translation>
 <translation id="3246869037381808805">Aalisin ang mga pag-print na lampas 1 araw na</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Direksyon ng key</translation>
 <translation id="3294437725009624529">Bisita</translation>
 <translation id="3303855915957856445">Walang nakitang resulta ng paghahanap</translation>
-<translation id="3305294846493618482">higit pa</translation>
 <translation id="3310640316857623290">Napakataas kumpara sa pinapayagang limitasyon ang latency ng DNS</translation>
 <translation id="3316495615885967552">Natapos na ang pag-download sa modelo para sa paggawa ng buod at pamagat</translation>
 <translation id="3321030238473337787">Bilis ng pag-playback</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Nagkaproblema. Subukan ulit.</translation>
 <translation id="357889014807611375">nakametrong Wi-Fi</translation>
 <translation id="3583278742022654445">Mahina ang signal. Subukang mas lumapit sa source ng signal ng Wi-Fi.</translation>
+<translation id="3586931643579894722">Magtago ng mga detalye</translation>
 <translation id="3588034708467091142">Tiyaking nakakonekta ka sa internet at subukan ulit.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> ang user-friendly na pangalan ng <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Puno na ang baterya</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Bumalik nang 10 segundo</translation>
 <translation id="4128271910628504223">Maglagay ng prompt tulad ng "gumuhit ng mahamog na gubat"</translation>
 <translation id="4130035430755296270">Mag-hover lang para sa higit pang opsyon sa layout</translation>
-<translation id="4130750466177569591">Sumasang-ayon ako</translation>
 <translation id="4131410914670010031">Itim at puti</translation>
 <translation id="4137700675046373159">sa Sabado</translation>
 <translation id="4139326893730851150">Mga update sa firmware</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Tab</translation>
 <translation id="5612205513582918357">Shine-share ng Tools sa Klase ang iyong screen sa <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Na-sign out ka</translation>
-<translation id="5620281292257375798">Internal lang</translation>
 <translation id="5628106863521633649">Mga available na wika</translation>
 <translation id="5630438231335788050">bauhaus</translation>
 <translation id="5631759159893697722">abstract</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">backspace</translation>
 <translation id="6137614725462089991">cyberpunk</translation>
 <translation id="6137767437444130246">Certificate ng user</translation>
+<translation id="6140948187512243695">Magpakita ng mga detalye</translation>
 <translation id="6146993107019042706">Para tapusin, ilagay ang bago mong password</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Hindi makakonekta sa internet</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Pinapamahalaan ng <ph name="MANAGER" /> ang <ph name="DEVICE_TYPE" /> na ito. Puwedeng i-configure ng mga administrator ang device sa remote na paraan.</translation>
 <translation id="7180611975245234373">I-refresh</translation>
 <translation id="7180865173735832675">I-customize</translation>
-<translation id="7184043045742675738">Mag-click sa anumang key para i-customize ang iyong button. Baguhin ang posisyon ng key gamit ang mouse o mga arrow key.</translation>
 <translation id="7187669805838282391">sa Miyerkoles</translation>
 <translation id="7205318498545665455">Piliin ang iyong mikropono</translation>
-<translation id="7206979415662233817">Mga tuntunin ng serbisyo</translation>
 <translation id="7210635925306941239">cyan</translation>
 <translation id="7212547870105584639">Pamahalaan ang mga setting ng APN ng network. Bumubuo ang mga APN ng koneksyon sa pagitan ng cellular network at internet. <ph name="BEGIN_LINK_LEARN_MORE" />Matuto pa<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Mga update sa firmware para sa mga external na device</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">berde at teal</translation>
 <translation id="7328475450575141167">bird of paradise</translation>
-<translation id="7331297744262591636">Dapat ay hindi ka bababa sa 18 taong gulang at dapat kang sumang-ayon na napapailalim sa <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Mga Tuntunin ng Serbisyo ng Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> at <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Mga Karagdagang Tuntunin ng Serbisyo ng Generative AI<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" /> ang iyong paggamit ng mga AI wallpaper.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          Makakagawa ka lang ng mga wallpaper gamit ang AI para sa personal at di-komersyal na paggamit. Kapag humihingi ka ng tulong sa wallpaper, magpapadala ng text sa mga server ng Google AI para bumuo ng mga suhestyon sa wallpaper, na napapailalim sa <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Patakaran sa Privacy ng Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Matuto pa<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; Pindutin ang Search at Space para tingnan ang resulta sa Google Search.</translation>
 <translation id="7343649194310845056">Mga Device sa Network</translation>
 <translation id="7344788170842919262">earthy</translation>
 <translation id="7346768383111016081">Ilagay ang kontrol sa pagkilos sa laro para maglaro gamit ang iyong keyboard</translation>
@@ -1507,7 +1496,6 @@ I-download ang modelo ng transcription (hanggang 100MB) para makuha ang mga tran
 <translation id="7590883480672980941">Mga setting ng input</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> pa</translation>
 <translation id="7600430297804876776">Itinakda ng administrator ng <ph name="MANAGER" /> kung kailan magagamit ang <ph name="DEVICE_TYPE" /> na ito.</translation>
-<translation id="7613724632293948900">Baguhin ang posisyon gamit ang mouse o mga arrow key.</translation>
 <translation id="7618216277886673749">Piliin ang <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Neutral</translation>
 <translation id="7620771111601174153">Matuto pa sa Help Center</translation>
@@ -1641,6 +1629,7 @@ I-download ang modelo ng transcription (hanggang 100MB) para makuha ang mga tran
 <translation id="819278132617411009">Gamitin ang Google AI para mas maging produktibo</translation>
 <translation id="8200772114523450471">Resume</translation>
 <translation id="8206859287963243715">Cellular</translation>
+<translation id="8208043093301544621">Home</translation>
 <translation id="8208861521865154048">Mga Perk</translation>
 <translation id="8226628635270268143">Piliin ang iyong mga paboritong larawan at album</translation>
 <translation id="8227119283605456246">Mag-attach ng file</translation>
@@ -1838,7 +1827,6 @@ I-download ang modelo ng transcription (hanggang 100MB) para makuha ang mga tran
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Gamitin ang video na ito</translation>
-<translation id="9087578468327036362">Iulat ang query na ito</translation>
 <translation id="9088306295921699330">Kasalukuyang paggamit</translation>
 <translation id="9088994563996376283">Pasimplehin</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@ I-download ang modelo ng transcription (hanggang 100MB) para makuha ang mga tran
 <translation id="921080052717160800">Itinakda ang larawan bilang background ng camera</translation>
 <translation id="9211490828691860325">Lahat ng desk</translation>
 <translation id="9218016617214286986">Ipakita ang mga kilalang APN</translation>
-<translation id="932327136139879170">Home</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Magpadala ng feedback</translation>
 <translation id="950520315903467048">Walang key para sa <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

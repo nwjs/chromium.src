@@ -6,7 +6,7 @@
 #define IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_
 
 #import "base/feature_list.h"
-#import "ios/chrome/browser/intelligence/actuation/actuation_util.h"
+#import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 
 namespace base {
 class TimeDelta;
@@ -44,6 +44,12 @@ BASE_DECLARE_FEATURE(kGeminiKillSwitch);
 
 // Returns true if the page action menu is enabled.
 bool IsPageActionMenuEnabled();
+
+// Feature flag controlling the Ask Gemini auth flow in the Page Action Menu.
+BASE_DECLARE_FEATURE(kPageActionMenuAuthFlow);
+
+// Returns true if the Ask Gemini auth flow in the Page Action Menu is enabled.
+bool IsPageActionMenuAuthFlowEnabled();
 
 // Feature flag controlling the Ask Gemini chip.
 BASE_DECLARE_FEATURE(kAskGeminiChip);
@@ -117,11 +123,11 @@ enum class PositionForExplainGeminiEditMenu {
 // Returns the position of Explain Gemini in the EditMenu.
 PositionForExplainGeminiEditMenu ExplainGeminiEditMenuPosition();
 
-// Feature flag to enable Precise Location in BWG Settings Menu.
-BASE_DECLARE_FEATURE(kBWGPreciseLocation);
+// Feature flag to enable Precise Location in Gemini Settings Menu.
+BASE_DECLARE_FEATURE(kGeminiPreciseLocation);
 
 // Returns true if the precise location setting is enabled.
-bool IsBWGPreciseLocationEnabled();
+bool IsGeminiPreciseLocationEnabled();
 
 // Feature flag to show the AI Hub new badge.
 BASE_DECLARE_FEATURE(kAIHubNewBadge);
@@ -218,18 +224,6 @@ bool IsZeroStateSuggestionsAIHubEnabled();
 // overlay.
 bool IsZeroStateSuggestionsAskGeminiEnabled();
 
-// Feature flag for showing full chat history in the floaty.
-BASE_DECLARE_FEATURE(kGeminiFullChatHistory);
-bool IsGeminiFullChatHistoryEnabled();
-
-// Feature flag for the redesigned loading state UI.
-BASE_DECLARE_FEATURE(kGeminiLoadingStateRedesign);
-bool IsGeminiLoadingStateRedesignEnabled();
-
-// Feature flag for the floaty latency improvements.
-BASE_DECLARE_FEATURE(kGeminiLatencyImprovement);
-bool IsGeminiLatencyImprovementEnabled();
-
 // Feature flag to use the new refactored version of the page context extractor.
 // Acts as a killswitch where the feature is enabled by default.
 BASE_DECLARE_FEATURE(kPageContextExtractorRefactored);
@@ -279,10 +273,6 @@ bool IsGeminiEligibilityAblationEnabled();
 BASE_DECLARE_FEATURE(kGeminiLive);
 bool IsGeminiLiveEnabled();
 
-// Feature flag for Gemini Personalization.
-BASE_DECLARE_FEATURE(kGeminiPersonalization);
-bool IsGeminiPersonalizationEnabled();
-
 // Feature flag for Gemini Copresence.
 BASE_DECLARE_FEATURE(kGeminiCopresence);
 bool IsGeminiCopresenceEnabled();
@@ -290,6 +280,11 @@ bool IsGeminiCopresenceEnabled();
 // The threshold interval for displaying the response ready state in seconds.
 extern const char kGeminiCopresenceResponseReadyInterval[];
 double GetGeminiCopresenceResponseReadyInterval();
+
+// Feature parameter for kGeminiCopresence to skip checking for a Search
+// Related Page.
+extern const char kGeminiCopresenceSRPCheck[];
+bool IsGeminiCopresenceSRPCheckEnabled();
 
 // Returns true if the Gemini chat persistence is enabled.
 bool IsGeminiChatPersistenceEnabled();
@@ -313,12 +308,12 @@ bool IsGeminiResponseViewDynamicResizingEnabled();
 BASE_DECLARE_FEATURE(kGeminiDynamicSettings);
 bool IsGeminiDynamicSettingsEnabled();
 
-// Feature flag for Actuation tools.
-BASE_DECLARE_FEATURE(kActuationTools);
-bool IsActuationEnabled();
+// Feature flag for Actor tools.
+BASE_DECLARE_FEATURE(kActorTools);
+bool IsActorEnabled();
 
 // Returns true if the specified tool is disabled via the "DisabledTools"
-// feature parameter of the `kActuationTools` feature.
+// feature parameter of the `kActorTools` feature.
 bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool);
 
 // Feature flag for Model based page classification experiment.
@@ -380,5 +375,23 @@ BASE_DECLARE_FEATURE(kGeminiBinaryMigration);
 
 // Returns true if the GeminiBinaryMigration feature is enabled.
 bool IsGeminiBinaryMigrationEnabled();
+
+// Enables the PersistTabContextRichExtraction feature.
+BASE_DECLARE_FEATURE(kPersistTabContextRichExtraction);
+
+// Returns true if the PersistTabContextRichExtraction feature is enabled.
+bool IsPersistTabContextRichExtractionEnabled();
+
+// Enables the PageContextIPCOptimization feature.
+BASE_DECLARE_FEATURE(kPageContextIPCOptimization);
+
+// Returns true if the PageContextIPCOptimization feature is enabled.
+bool IsPageContextIPCOptimizationEnabled();
+
+// Enables the GeminiClientMigration feature.
+BASE_DECLARE_FEATURE(kGeminiClientMigration);
+
+// Returns true if the GeminiClientMigration feature is enabled.
+bool IsGeminiClientMigrationEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

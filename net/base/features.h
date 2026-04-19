@@ -26,6 +26,11 @@ namespace net::features {
 // https://vasilvv.github.io/httpbis-alps/draft-vvv-httpbis-alps.html.
 NET_EXPORT BASE_DECLARE_FEATURE(kAlpsForHttp2);
 
+// If enabled, HttpNetworkTransaction will use a hybrid retry strategy for
+// connection errors: retrying synchronously initially, and switching to
+// asynchronous (yielding to the message loop) after many attempts.
+NET_EXPORT BASE_DECLARE_FEATURE(kAsyncRetryOnTooManyConnectionErrors);
+
 // Disable H2 reprioritization, in order to measure its impact.
 NET_EXPORT BASE_DECLARE_FEATURE(kAvoidH2Reprioritization);
 
@@ -187,6 +192,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSplitCodeCacheByNetworkIsolationKey);
 // NetworkAnonymizationKey associated with a request.
 // See https://github.com/MattMenke2/Explainer---Partition-Network-State.
 NET_EXPORT BASE_DECLARE_FEATURE(kPartitionConnectionsByNetworkIsolationKey);
+
+// Splits HostCache and DNS resolution requests by the request's
+// NetworkAnonymizationKey if one is available.
+NET_EXPORT BASE_DECLARE_FEATURE(kSplitHostCacheByNetworkAnonymizationKey);
 
 // Changes the interval between two search engine preconnect attempts.
 NET_EXPORT BASE_DECLARE_FEATURE(kSearchEnginePreconnectInterval);
@@ -432,17 +441,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessions);
 // across restarts. This feature is only valid if `kDeviceBoundSessions` is
 // enabled.
 NET_EXPORT BASE_DECLARE_FEATURE(kPersistDeviceBoundSessions);
-// This feature will enable the Device Bound Session Credentials
-// protocol on all pages, ignoring the requirements for Origin Trial
-// headers. This is required because we cannot properly add the origin
-// trial header due to the circumstances outlined in
-// https://crbug.com/40860522. An EmbeddedTestServer cannot reliably be
-// started on one origin due to port randomization, an Origin Trial
-// cannot be generated dynamically, and a URLLoaderInterceptor will mock
-// the exact code we need to test.
-NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    bool,
-    kDeviceBoundSessionsRequireOriginTrialTokens);
 // This feature enables the Device Bound Session Credentials refresh quota.
 // This behavior is expected by default; disabling it should only be for
 // testing purposes.
@@ -489,6 +487,11 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
     std::string,
     kDeviceBoundSessionsForRestrictedSitesExperimentIdParam);
 
+// This feature will enable the browser to use Device Bound Session Credentials
+// for Single Sign On. This feature is only valid if `kDeviceBoundSessions` is
+// enabled.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsForSingleSignOn);
+
 // Enables more checks when creating a SpdySession for proxy. These checks are
 // already applied to non-proxy SpdySession creations.
 // TODO(crbug.com/343519247): Remove this once we are sure that these checks are
@@ -524,6 +527,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys);
 // Enables enforcement of One-RFC6962 policy for Certificate Transparency. When
 // disabled, Chrome does not distinguish between SCTs based on log type.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnforceOneRfc6962CtPolicy);
+
+// If enabled, Signed Certificate Timestamps (SCTs) delivered via OCSP
+// responses are ignored.
+NET_EXPORT BASE_DECLARE_FEATURE(kCertificateTransparencyIgnoreOcspScts);
 
 // Finch experiment to select a disk cache backend.
 enum class DiskCacheBackend {
@@ -765,6 +772,15 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTryQuicByDefault);
 // separate the values with a comma (e.g. "ABCD,EFGH").
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string, kQuicOptions);
 
+// When enabled, allows the browser to ignore IP matching and rely on
+// the hostname being present in the existing session's certificate when
+// connection coalescing.
+NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreIpMatching);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string, kNoIPQuicOption);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kIgnoreIpMatchingWhenFindingExistingSessions);
+
 NET_EXPORT BASE_DECLARE_FEATURE(kDnsResponseDiscardPartialQuestions);
 
 // When enabled, allows DoH upgrade even if there are local nameservers.
@@ -773,6 +789,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDohFallbackAllowedWithLocalNameservers);
 // When enabled, users can make Secure DNS in AUTOMATIC mode fallback to a
 // well-known DoH provider before using insecure DNS.
 NET_EXPORT BASE_DECLARE_FEATURE(kAddAutomaticWithDohFallbackMode);
+
+// When enabled, and when the configured secure_dns_mode is AUTOMATIC, the DoH
+// fallback setting (dns_over_https.automatic_mode_fallback_to_doh) should be
+// forced to be interpreted as enabled.
+NET_EXPORT BASE_DECLARE_FEATURE(kForceSecureDnsDohFallback);
 
 // If true, a CONNECT-UDP response is not needed to start sending datagrams.
 NET_EXPORT BASE_DECLARE_FEATURE(
@@ -786,8 +807,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableBootstrapIPRandomizationForDoh);
 // lock-free certificate verification mechanism.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseLockFreeX509Verification);
 
-// When enabled, at the same time that DoH probes are started, a canary domain
-// will be probed to check whether Secure DNS is allowed by the network.
+// When enabled, and when Secure DNS Automatic mode is selected *with DoH
+// fallback*, then a canary domain will be probed to check whether DoH fallback
+// is allowed by the network. This will happen at the same time that DoH probes
+// are started. When disabled, the canary domain check is entirely inactive
+// (killswitch).
 NET_EXPORT BASE_DECLARE_FEATURE(kProbeSecureDnsCanaryDomain);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string, kSecureDnsCanaryDomainHost);
 
@@ -806,6 +830,40 @@ NET_EXPORT BASE_DECLARE_FEATURE(kLogicalClearHttpCache);
 // transport socket is detected to be disconnected in GetRemoteEndpoint().
 NET_EXPORT BASE_DECLARE_FEATURE(
     kDrainSpdySessionSynchronouslyOnRemoteEndpointDisconnect);
+
+// When enabled, SQLitePersistentCookieStore is initialized upon creation,
+// rather than waiting for the first load request.
+NET_EXPORT BASE_DECLARE_FEATURE(kSQLitePersistentCookieStoreEarlyInit);
+NET_EXPORT extern const base::FeatureParam<bool>
+    kSQLitePersistentCookieStoreEarlyInitCheckDisk;
+
+// If enabled, the error code will be propagated for preconnect attempts.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableErrorCodePropagationForPreconnect);
+
+// If enabled, TransportClientSocketPool can retry stalled connections.
+// See crbug.com/481934003 to track efforts to disable this by default.
+NET_EXPORT BASE_DECLARE_FEATURE(kPermitTcpSocketPoolConnectBackupJobs);
+
+// If enabled, examine why a network operation was blocked due to local network
+// permission.
+NET_EXPORT BASE_DECLARE_FEATURE(kLocalNetworkPermissionCheck);
+
+// Whether or not this client is participating in the TCP connection pool proxy
+// limit and, if so, what the limit should be.
+// See crbug.com/467278609 to track efforts to raise defaults.
+NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketPoolProxyLimit);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpSocketPoolProxyLimitNormal);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpSocketPoolProxyLimitWebSocket);
+
+// If enabled, QuicCryptoClientConfigOwner will ignore memory pressure events
+// for the kDnsOverHttps partition.
+NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressureForDoh);
+
+// If enabled, cookie parsing will reject a cookie line whose first
+// semicolon-separated substring looks like "=Foo=Bar", i.e. starts with an
+// equals sign and has another equals sign. Such cookies have an ambiguous
+// serialization.
+NET_EXPORT BASE_DECLARE_FEATURE(kCookieParseRejectEmptyNameAmbiguous);
 
 }  // namespace net::features
 

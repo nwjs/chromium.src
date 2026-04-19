@@ -13,6 +13,12 @@ namespace features {
 
 // Please keep features in alphabetical order.
 
+// When enabled, Android events will include more metadata about the incoming
+// events.
+BASE_FEATURE(kAccessibilityExpandEventMetadata,
+             "AccessibilityExpandEventMetadata",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, the full accessibility tree will be exposed for non-atomic
 // text fields, such as contenteditables.
 BASE_FEATURE(kAccessibilityExposeNonAtomicTextFieldChildren,
@@ -23,6 +29,9 @@ BASE_FEATURE(kAccessibilityExposeNonAtomicTextFieldChildren,
 //               https://www.chromestatus.com/feature/5669602927312896
 BASE_FEATURE(kAllowContentInitiatedDataUrlNavigations,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables desktop-style scrollbars.
+BASE_FEATURE(kAndroidDesktopStyleScrollbars, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allows Blink to request fonts from the Android Downloadable Fonts API through
 // the service implemented on the Java side.
@@ -35,8 +44,18 @@ BASE_FEATURE(kAndroidDragDropOopif, base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_WIN)
 // Flag guard for Windows Arabic Indic digit input solution.
 // crbug.com/440381284
-BASE_FEATURE(kArabicIndicDigitInput, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kArabicIndicDigitInput, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
+
+// If enabled, runs beforeunload handlers asynchronously when the user
+// hasn't interacted with the frame. (See: https://crbug.com/475716933)
+BASE_FEATURE(kAsyncBeforeUnload, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kAsyncBeforeUnloadTimeout,
+                   &kAsyncBeforeUnload,
+                   "AsyncBeforeUnloadTimeout",
+                   base::Milliseconds(500));
 
 // Synchronously continuing with navigation can lead to trying to start another
 // navigation synchronously while the first navigation is still being processed
@@ -77,7 +96,6 @@ BASE_FEATURE_ENUM_PARAM(
     AvoidUnnecessaryBeforeUnloadCheckSyncMode,
     kAvoidUnnecessaryBeforeUnloadCheckSyncMode,
     &kAvoidUnnecessaryBeforeUnloadCheckSync,
-    "AvoidUnnecessaryBeforeUnloadCheckSyncMode",
     AvoidUnnecessaryBeforeUnloadCheckSyncMode::kWithSendBeforeUnload,
     &kAvoidUnnecessaryBeforeUnloadCheckSyncModeOption);
 
@@ -110,13 +128,8 @@ BASE_FEATURE(kHoldbackDebugReasonStringRemoval,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
-
-BASE_FEATURE(kBlockThirdPartyInProcessPlugins,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCancelCompositionWhenWindowLosesFocus,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
 #endif  // BUILDFLAG(IS_MAC)
 
 // When enabled, CDP method Page.captureScreenshot will increment
@@ -172,6 +185,19 @@ BASE_FEATURE(kDocumentIsolationPolicyWithoutSiteIsolation,
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, DumpWithoutCrashing() is called if a renderer process provides
+// invalid (non-allowlisted) headers in a navigation request.
+BASE_FEATURE(kDumpOnInvalidNavigationHeaders, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, DumpWithoutCrashing() is called if a renderer process provides
+// an Origin header on a navigation request that doesn't match the expected
+// origin.
+BASE_FEATURE(kDumpOnOriginHeaderMismatch, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, DumpWithoutCrashing() is called if a renderer process provides
+// an Origin header on a navigation request that shouldn't have one.
+BASE_FEATURE(kDumpOnUnexpectedOriginHeader, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Requires documents embedded via <iframe>, etc, to explicitly opt-into the
 // embedding: https://github.com/mikewest/embedding-requires-opt-in.
 BASE_FEATURE(kEmbeddingRequiresOptIn, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -181,6 +207,13 @@ BASE_FEATURE(kEmbeddingRequiresOptIn, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableDevToolsJsErrorReporting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
+// Enforces the use of the browser-authoritative origin from the Mojo receiver
+// context instead of the renderer-supplied origin in FileSystemManager::Open.
+// TODO(crbug.com/497254383): Remove this flag and the origin parameter from
+// the Mojo interface.
+BASE_FEATURE(kEnforceFileSystemManagerOpenOrigin,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, enforces that same-document navigations must not change
 // the committed origin, insecure request policy, or insecure navigations set.
@@ -450,6 +483,12 @@ BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigations,
 BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigationsWarningOnly,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables enhanced security checks for direct sockets.
+// This includes checking local/loopback network policies and prompting
+// in unmanaged Isolated Web Apps (IWAs).
+BASE_FEATURE(kLocalNetworkAccessPromptDirectSockets,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, allows the ReusePrerenderingProcessForMainFrames feature
 // and the ProcessPerSiteUpToMainFrameThreshold feature to reuse processes
 // even when DevTools was ever attached.
@@ -645,6 +684,12 @@ BASE_FEATURE(kServiceWorkerSrcdocSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// crbug.com/495999481: When this is enabled, the navigation request should be
+// blocked when it receives an opaque response from the service worker static
+// router.
+BASE_FEATURE(kServiceWorkerStaticRouterOpaqueCheck,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // (crbug.com/1371756): When enabled, the static routing API starts
 // ServiceWorker when the routing result of a main resource request was network
 // fallback.
@@ -666,6 +711,18 @@ BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
 
 BASE_FEATURE(kServiceWorkerWindowClientInitiator,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// (crbug.com/486495094): When enabled, triggers a soft update check after
+// functional events complete (spec step 8) and on worker start failure
+// (spec step 5), per the "Fire Functional Event" spec algorithm.
+BASE_FEATURE(kServiceWorkerSoftUpdateOnFunctionalEvent,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the browser process will derive the secure context state of a
+// SharedWorker connection from its own authoritative ground truth
+// (PolicyContainerHost) instead of trusting the renderer-supplied parameter.
+BASE_FEATURE(kSharedWorkerSecureContextDerivationFromBrowser,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.
@@ -701,10 +758,12 @@ BASE_FEATURE_PARAM(bool,
                    true);
 #endif
 
-// Allows swipe left/right from touchpad change browser navigation. Currently
-// only enabled by default on CrOS and Windows.
+// Allows swipe left/right from touchpad change browser navigation.
+// On platforms that don't have this enabled by default, the overscroll gesture
+// is handled at a different level and not through the interpretation of scroll
+// events.
 BASE_FEATURE(kTouchpadOverscrollHistoryNavigation,
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT

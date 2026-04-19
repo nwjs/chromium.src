@@ -36,7 +36,7 @@
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
@@ -165,7 +165,6 @@
 #include "chrome/browser/ui/shortcuts/desktop_shortcuts_utils.h"
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
-
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS));
 
 using Extension = extensions::Extension;
@@ -197,7 +196,7 @@ void AppInfoDialogClosedCallback(SessionID session_id,
   // Ensure that the session id we have is still valid. It's possible
   // (though unlikely) that either the browser or session has been pulled
   // out from underneath us.
-  Browser* const browser = chrome::FindBrowserWithID(session_id);
+  BrowserWindowInterface* const browser = chrome::FindBrowserWithID(session_id);
   if (!browser) {
     return;
   }
@@ -205,7 +204,7 @@ void AppInfoDialogClosedCallback(SessionID session_id,
   // We want to focus the active web contents, which again, might not be the
   // original web contents (though it should be the vast majority of the time).
   content::WebContents* const active_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+      browser->GetTabStripModel()->GetActiveWebContents();
   if (active_contents) {
     active_contents->Focus();
   }
@@ -350,11 +349,12 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
     auto* service =
         glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
     if (service) {
-      glic_window_activation_subscription_ =
-          service->window_controller().AddWindowActivationChangedCallback(
-              base::BindRepeating(
-                  &BrowserCommandController::GlicWindowActivationChanged,
-                  base::Unretained(this)));
+      glic_active_instance_changed_subscription_ =
+          service->instance_coordinator()
+              .AddActiveInstanceChangedCallbackAndNotifyImmediately(
+                  base::BindRepeating(
+                      &BrowserCommandController::GlicActiveInstanceChanged,
+                      base::Unretained(this)));
       glic_fre_state_change_subscription_ =
           service->fre_controller().AddWebUiStateChangedCallback(
               base::BindRepeating(
@@ -488,7 +488,8 @@ void BrowserCommandController::LoadingStateChanged(bool is_loading,
   UpdateReloadStopState(is_loading, force);
 }
 
-void BrowserCommandController::GlicWindowActivationChanged(bool active) {
+void BrowserCommandController::GlicActiveInstanceChanged(
+    glic::GlicInstance* instance) {
   UpdateGlicState();
 }
 
@@ -636,6 +637,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
                                /*description_placeholder_text=*/"",
                                /*category_tag=*/"vertical_tabs",
                                /*extra_diagnostics=*/"");
+      break;
+    case IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER:
+      ToggleVerticalTabsExpandOnHover(browser_);
       break;
     // Window management commands
     case IDC_NEW_WINDOW:
@@ -875,9 +879,6 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_VIRTUAL_CARD_ENROLL:
       ShowVirtualCardEnrollBubble(browser_);
-      break;
-    case IDC_ORGANIZE_TABS:
-      StartTabOrganizationRequest(browser_);
       break;
     case IDC_SEND_SHARED_TAB_GROUP_FEEDBACK:
       OpenFeedbackDialog(browser_, feedback::kFeedbackSourceDesktopTabGroups,
@@ -1321,6 +1322,12 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     }
 
+    case IDC_SHOW_READING_MODE_KEYBOARD: {
+      read_anything::ReadAnythingEntryPointController::ToggleUI(
+          browser_, ReadAnythingOpenTrigger::kKeyboardShortcut);
+      break;
+    }
+
     case IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL: {
       ShowCustomizeChromeSidePanel(SidePanelOpenTrigger::kAppMenu,
                                    CustomizeChromeSection::kAppearance);
@@ -1541,9 +1548,10 @@ void BrowserCommandController::InitCommandState() {
   UpdateTabRestoreCommandState();
   command_updater_.UpdateCommandEnabled(IDC_EXIT, true);
   command_updater_.UpdateCommandEnabled(IDC_NAME_WINDOW, true);
-  command_updater_.UpdateCommandEnabled(IDC_ORGANIZE_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_TOGGLE_VERTICAL_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_VERTICAL_TABS_SEND_FEEDBACK, true);
+  command_updater_.UpdateCommandEnabled(
+      IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER, true);
 #if BUILDFLAG(IS_CHROMEOS)
   command_updater_.UpdateCommandEnabled(IDC_TOGGLE_MULTITASK_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
@@ -1634,6 +1642,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_FIND_AND_EDIT_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_SAVE_AND_SHARE_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_READING_MODE_SIDE_PANEL, true);
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_READING_MODE_KEYBOARD, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
                                         true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_CUSTOMIZE_CHROME_TOOLBAR,
@@ -1955,15 +1964,8 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   UpdateCommandAndActionEnabled(IDC_QRCODE_GENERATOR, kActionQrCodeGenerator,
                                 CanGenerateQrCode(browser_));
 
-#if 0
-  ChromeTranslateClient* chrome_translate_client =
-      ChromeTranslateClient::FromWebContents(current_web_contents);
-  const bool can_translate =
-      chrome_translate_client &&
-      chrome_translate_client->GetTranslateManager()->CanManuallyTranslate();
   UpdateCommandAndActionEnabled(IDC_SHOW_TRANSLATE, kActionShowTranslate,
-                                can_translate);
-#endif
+                                false);
 
   bool is_isolated_app = browser_->app_controller() &&
                          browser_->app_controller()->IsIsolatedWebApp();
@@ -2260,9 +2262,14 @@ void BrowserCommandController::UpdateGlicState() {
     auto* service =
         glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
     if (service) {
+      bool glic_active = false;
+      auto* instance = service->GetInstanceForActiveTab(browser_);
+      if (instance) {
+        glic_active = instance->IsActive();
+      }
       command_updater_.UpdateCommandEnabled(
-          IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()) &&
-                             !service->IsWindowOrFreShowing());
+          IDC_OPEN_GLIC,
+          glic::GlicEnabling::IsEnabledForProfile(profile()) && !glic_active);
     }
   }
 }

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <type_traits>
 
+#include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
@@ -112,9 +113,9 @@ class WTF_EXPORT StringView {
   StringView() { Clear(); }
 
   // From a StringView:
+  StringView(const StringView&) = default;
+  StringView(const StringView& view, size_type offset);
   StringView(const StringView&, size_type offset, size_type length);
-  StringView(const StringView& view, size_type offset)
-      : StringView(view, offset, view.length_ - offset) {}
 
   // From a StringImpl:
   StringView(const StringImpl*);
@@ -178,6 +179,8 @@ class WTF_EXPORT StringView {
   StringView(const char*, size_type) = delete;
   StringView(const UChar*, size_type) = delete;
 
+  StringView& operator=(const StringView&) = default;
+
 #if DCHECK_IS_ON()
   ~StringView();
 #endif
@@ -213,9 +216,9 @@ class WTF_EXPORT StringView {
   // Returns a code unit at the specified index.
   // This operator performs an out-of-bounds access if the specified
   // index is out of range.
-  UChar operator[](size_type i) const {
+  UNSAFE_BUFFER_USAGE UChar operator[](size_type i) const {
     SECURITY_DCHECK(i < length());
-    // SAFETY: safe when i < length().
+    // SAFETY: Performance-sensitive, enforced by UNSAFE_BUFFER_USAGE.
     UNSAFE_BUFFERS({
       if (Is8Bit()) {
         return static_cast<const LChar*>(bytes_)[i];
@@ -228,13 +231,13 @@ class WTF_EXPORT StringView {
   // string. If the offset points an unpaired surrogate, this function returns
   // the surrogate code unit as is. If you'd like to check such surroagtes,
   // use U_IS_SURROGATE() defined in unicode/utf.h.
-  UChar32 CodepointAt(size_type i) const;
+  UChar32 CodePointAt(size_type i) const;
 
   // Returns i+2 if a pair of [i] and [i+1] is a valid surrogate pair.
   // Returns i+1 otherwise.
   size_type NextCodePointOffset(size_type i) const;
 
-  // Does `CodepointAt()`, and the specified `i` is updated by
+  // Does `CodePointAt()`, and the specified `i` is updated by
   // `NextCodePointOffset()`.
   UChar32 CodePointAtAndNext(size_type& i) const;
 
@@ -252,10 +255,7 @@ class WTF_EXPORT StringView {
 
   // [string.view.ops] ----------------------------------------------
 
-  bool Is8Bit() const {
-    DCHECK(impl_);
-    return impl_->Is8Bit();
-  }
+  bool Is8Bit() const { return impl_->Is8Bit(); }
 
   String ToString() const;
   AtomicString ToAtomicString() const;
@@ -286,9 +286,8 @@ class WTF_EXPORT StringView {
 
   base::span<const uint8_t> RawByteSpan() const {
     if (Is8Bit()) {
-      return base::as_byte_span(Span8());
+      return Span8();
     }
-
     return base::as_byte_span(Span16());
   }
 
@@ -317,23 +316,29 @@ class WTF_EXPORT StringView {
   // `length()`. It's compatible with both std::string_view::substr() and
   // blink::String::Substring(). This behavior does not match to
   // `StringView(*this, offset, len)`.
-  StringView substr(size_type offset, size_type len = npos) const;
+  StringView substr(size_type offset) const;
+  StringView substr(size_type offset, size_type length) const;
 
   // This is an alias for `substr()`.
-  StringView subview(size_type offset, size_type len = npos) const {
-    return substr(offset, len);
+  StringView subview(size_type offset) const { return substr(offset); }
+  StringView subview(size_type offset, size_type length) const {
+    return substr(offset, length);
   }
 
   // Returns `true` if `this` string starts with `other`.
   bool starts_with(const StringView& other) const;
   // Returns `true` if `this` string starts with `c`.
-  bool starts_with(UChar c) const { return !empty() && (*this)[0] == c; }
+  bool starts_with(UChar c) const {
+    // SAFETY: non-empty implies first element is accessible.
+    return !empty() && UNSAFE_BUFFERS((*this)[0]) == c;
+  }
 
   // Returns `true` if `this` string ends with `other`.
   bool ends_with(const StringView& other) const;
   // Returns `true` if `this` string ends with `c`.
   bool ends_with(UChar c) const {
-    return !empty() && (*this)[length() - 1] == c;
+    // SAFETY: non-empty implies last element is accessible.
+    return !empty() && UNSAFE_BUFFERS((*this)[length() - 1]) == c;
   }
 
   // Returns `true` if this StringView contains the specified string.
@@ -394,7 +399,7 @@ class WTF_EXPORT StringView {
   // The odd lifetime of the returned object occurs because lowercasing may
   // require allocation. When that happens, |backing_store| is used as the
   // backing store and the returned StringView has the same lifetime.
-  StringView LowerASCIIMaybeUsingBuffer(StackBackingStore& backing_store) const;
+  StringView LowerAsciiMaybeUsingBuffer(StackBackingStore& backing_store) const;
 
   // Returns a substring removing leading and trailing white spaces.
   // This function removes spaces, \n, \t, \r, \f, \v, and unicode spaces such
@@ -422,6 +427,7 @@ class WTF_EXPORT StringView {
   [[nodiscard]] String EncodeForDebugging() const;
 
  private:
+  void Set(const StringImpl&, size_type offset);
   void Set(const StringImpl&, size_type offset, size_type length);
 
 // We use the StringImpl to mark for 8bit or 16bit, even for strings where
@@ -436,18 +442,31 @@ class WTF_EXPORT StringView {
   size_type length_;
 };
 
+inline StringView::StringView(const StringView& view, size_type offset)
+    : impl_(view.impl_), length_(view.length() - offset) {
+  CHECK(offset <= view.length());
+  // SAFETY: Hard CHECK() in previous line.
+  UNSAFE_BUFFERS({
+    if (Is8Bit()) {
+      bytes_ = static_cast<const LChar*>(view.bytes_) + offset;
+    } else {
+      bytes_ = static_cast<const UChar*>(view.bytes_) + offset;
+    }
+  });
+}
+
 inline StringView::StringView(const StringView& view,
                               size_type offset,
                               size_type length)
     : impl_(view.impl_), length_(length) {
-  SECURITY_DCHECK(offset <= view.length());
-  SECURITY_DCHECK(length <= view.length() - offset);
-  // SAFETY: Invariants are checked last two line.
+  // Deliberately combine tests to minimize code size.
+  CHECK(offset <= view.length() && length <= view.length() - offset);
+  // SAFETY: Hard CHECK()s in previous two lines.
   UNSAFE_BUFFERS({
     if (Is8Bit()) {
-      bytes_ = view.Span8().data() + offset;
+      bytes_ = static_cast<const LChar*>(view.bytes_) + offset;
     } else {
-      bytes_ = view.Span16().data() + offset;
+      bytes_ = static_cast<const UChar*>(view.bytes_) + offset;
     }
   });
 }
@@ -463,7 +482,7 @@ inline StringView::StringView(const StringImpl* impl) {
 }
 
 inline StringView::StringView(const StringImpl* impl, size_type offset) {
-  impl ? Set(*impl, offset, impl->length() - offset) : Clear();
+  impl ? Set(*impl, offset) : Clear();
 }
 
 inline StringView::StringView(const StringImpl* impl,
@@ -473,7 +492,7 @@ inline StringView::StringView(const StringImpl* impl,
 }
 
 inline StringView::StringView(StringImpl& impl, size_type offset) {
-  Set(impl, offset, impl.length() - offset);
+  Set(impl, offset);
 }
 
 inline StringView::StringView(StringImpl& impl,
@@ -488,19 +507,33 @@ inline void StringView::Clear() {
   impl_ = StringImpl::empty_;  // mark as 8 bit.
 }
 
+inline void StringView::Set(const StringImpl& impl, size_type offset) {
+  impl_ = const_cast<StringImpl*>(&impl);
+  length_ = impl.length() - offset;
+  CHECK(offset <= impl.length());
+  // SAFETY: Hard CHECK() in previous line.
+  UNSAFE_BUFFERS({
+    if (impl.Is8Bit()) {
+      bytes_ = impl.Span8().data() + offset;
+    } else {
+      bytes_ = impl.Span16().data() + offset;
+    }
+  });
+}
+
 inline void StringView::Set(const StringImpl& impl,
                             size_type offset,
                             size_type length) {
-  SECURITY_DCHECK(offset <= impl.length());
-  SECURITY_DCHECK(length <= impl.length() - offset);
-  length_ = length;
   impl_ = const_cast<StringImpl*>(&impl);
-  // SAFETY: Invariants are checked at beginning of this method.
+  length_ = length;
+  // Deliberately combine tests to minimize code size.
+  CHECK(offset <= impl.length() && length <= impl.length() - offset);
+  // SAFETY: Hard CHECK()s in previous line.
   UNSAFE_BUFFERS({
     if (impl.Is8Bit()) {
-      bytes_ = impl.Characters8() + offset;
+      bytes_ = impl.Span8().data() + offset;
     } else {
-      bytes_ = impl.Characters16() + offset;
+      bytes_ = impl.Span16().data() + offset;
     }
   });
 }
@@ -527,9 +560,10 @@ inline bool EqualIgnoringAsciiCase(const StringView& a,
                     : EqualIgnoringAsciiCase(a.Span16(), span);
 }
 
-WTF_EXPORT int CodeUnitCompareIgnoringAsciiCase(StringView a, StringView b);
-inline bool CodeUnitCompareIgnoringAsciiCaseLessThan(StringView a,
-                                                     StringView b) {
+WTF_EXPORT int CodeUnitCompareIgnoringAsciiCase(const StringView& a,
+                                                const StringView& b);
+inline bool CodeUnitCompareIgnoringAsciiCaseLessThan(const StringView& a,
+                                                     const StringView& b) {
   return CodeUnitCompareIgnoringAsciiCase(a, b) < 0;
 }
 

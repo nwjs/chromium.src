@@ -7,6 +7,7 @@
 #include "base/base64.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/logging.h"
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -79,6 +80,7 @@ StoredSeedInfo CreateStoredSeedInfo() {
   stored_seed_info.set_signature("signature");
   stored_seed_info.set_milestone(92);
   stored_seed_info.set_session_country_code("us");
+  stored_seed_info.set_session_geo_level1("us-ny");
   stored_seed_info.set_seed_date(1234);
   return stored_seed_info;
 }
@@ -104,6 +106,9 @@ struct SeedReaderWriterTestParams {
       : SeedReaderWriterTestParams(std::get<0>(t),
                                    std::get<1>(t),
                                    std::get<2>(t)) {}
+  bool HasGeoLevel1Pref() const {
+    return seed_fields_prefs.session_geo_level1 != nullptr;
+  }
 
   SeedFieldsPrefs seed_fields_prefs;
   std::string_view field_trial_group;
@@ -120,6 +125,10 @@ struct ExpectedFieldTrialGroupTestParams {
 
   explicit ExpectedFieldTrialGroupTestParams(const TupleT& t)
       : ExpectedFieldTrialGroupTestParams(std::get<0>(t), std::get<1>(t)) {}
+
+  bool HasGeoLevel1Pref() const {
+    return seed_fields_prefs.session_geo_level1 != nullptr;
+  }
 
   variations::SeedFieldsPrefs seed_fields_prefs;
   version_info::Channel channel;
@@ -151,6 +160,8 @@ class SeedReaderWriterTestBase {
   TestingPrefServiceSimple local_state_;
   base::MockOneShotTimer timer_;
   std::unique_ptr<const MockEntropyProviders> entropy_providers_;
+
+  std::string_view GetHistogramSuffix() const { return "Test"; }
 };
 
 class ExpectedFieldTrialGroupChannelsTest
@@ -181,7 +192,7 @@ TEST_P(ExpectedFieldTrialGroupAllChannelsTest, NoSeedFileDir) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/base::FilePath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial), IsEmpty());
 }
@@ -191,7 +202,7 @@ TEST_P(ExpectedFieldTrialGroupAllChannelsTest, NoEntropyProvider) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      /*entropy_providers=*/nullptr, /*histogram_suffix=*/"",
+      /*entropy_providers=*/nullptr, GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial), IsEmpty());
 }
@@ -211,7 +222,7 @@ TEST_P(ExpectedFieldTrialGroupPreStableTest, AssignedGroup) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial),
               ::testing::AnyOf(kControlGroup, kSeedFilesGroup));
@@ -230,7 +241,7 @@ TEST_P(ExpectedFieldTrialGroupUnknownTest, NotAssignedGroup) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial), IsEmpty());
 }
@@ -275,10 +286,12 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, WriteSeed) {
   EXPECT_FALSE(base::PathExists(temp_seed_file_path_));
 
   // Initialize seed_reader_writer with test thread and timer.
+  base::HistogramTester histogram_tester;
+  std::string_view histogram_suffix = GetHistogramSuffix();
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), histogram_suffix,
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -293,6 +306,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, WriteSeed) {
       .seed_date = seed_date,
       .client_fetch_time = fetch_time,
       .session_country_code = "us",
+      .session_geo_level1 = "us-ny",
   });
 
   // Force write.
@@ -304,13 +318,29 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, WriteSeed) {
   ASSERT_TRUE(base::ReadFileToString(temp_seed_file_path_, &seed_file_data));
   EXPECT_THAT(seed_file_data, Not(IsEmpty()));
 
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({"Variations.SeedFile.CompressionTime.", histogram_suffix}),
+      1);
+
   // Verify that the seed data is loaded correctly.
   std::string stored_seed_data;
   std::string stored_signature;
-  LoadSeedResult read_seed_result = seed_reader_writer.ReadSeedDataOnStartup(
-      &stored_seed_data, &stored_signature);
+  // Initialize a new seed_reader_writer to read the seed from disk.
+  SeedReaderWriter seed_reader_writer_for_read(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), histogram_suffix,
+      file_writer_thread_.task_runner());
+  LoadSeedResult read_seed_result =
+      seed_reader_writer_for_read.ReadSeedDataOnStartup(&stored_seed_data,
+                                                        &stored_signature);
   EXPECT_EQ(read_seed_result, LoadSeedResult::kSuccess);
   EXPECT_EQ(stored_seed_data, seed_data);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat(
+          {"Variations.SeedFile.DecompressionTime.", histogram_suffix}),
+      1);
   EXPECT_EQ(stored_signature, "signature");
   EXPECT_EQ(seed_reader_writer.GetSeedInfo().signature, "signature");
   EXPECT_EQ(seed_reader_writer.GetSeedInfo().milestone, 2);
@@ -332,7 +362,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -349,6 +379,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   ASSERT_NE(seed_info.milestone, 0);
   ASSERT_FALSE(seed_info.seed_date.is_null());
   ASSERT_THAT(seed_info.session_country_code, Not(IsEmpty()));
+  ASSERT_THAT(seed_info.session_geo_level1, Not(IsEmpty()));
 
   // Clear seed and force write.
   seed_reader_writer.ClearSeedInfo();
@@ -365,6 +396,8 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   // Session country code is not cleared.
   EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_geo_level1,
+              Not(IsEmpty()));
 
   // Verify that the seed info in the seed file is cleared.
   StoredSeedInfo cleared_seed_info = ReadStoredSeedInfo();
@@ -375,6 +408,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   EXPECT_EQ(cleared_seed_info.client_fetch_time(), 0);
   // Session country code is not cleared.
   EXPECT_THAT(cleared_seed_info.session_country_code(), Not(IsEmpty()));
+  EXPECT_THAT(cleared_seed_info.session_geo_level1(), Not(IsEmpty()));
 }
 
 // Verifies that session country code is cleared from a seed file for clients in
@@ -384,24 +418,38 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSessionCountryCode) {
             GetParam().field_trial_group);
   local_state_.SetString(GetParam().seed_fields_prefs.session_country_code,
                          "us");
+  if (GetParam().HasGeoLevel1Pref()) {
+    local_state_.SetString(GetParam().seed_fields_prefs.session_geo_level1,
+                           "us-ny");
+  }
   // Initialize seed_reader_writer with test thread and timer.
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
 
   ASSERT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
+  if (GetParam().HasGeoLevel1Pref()) {
+    ASSERT_THAT(seed_reader_writer.GetSeedInfo().session_geo_level1,
+                Not(IsEmpty()));
+  }
 
   seed_reader_writer.ClearSessionCountry();
 
   // Session country code is cleared.
   EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code, IsEmpty());
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_geo_level1, IsEmpty());
   // Local state pref should be cleared.
   EXPECT_THAT(
       local_state_.GetString(GetParam().seed_fields_prefs.session_country_code),
       IsEmpty());
+  if (GetParam().HasGeoLevel1Pref()) {
+    EXPECT_THAT(
+        local_state_.GetString(GetParam().seed_fields_prefs.session_geo_level1),
+        IsEmpty());
+  }
 }
 
 // Verifies clients in SeedFiles group read seeds from the seed file.
@@ -430,6 +478,11 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedFileBasedSeed) {
       &stored_seed_data, &stored_signature);
   ASSERT_EQ(read_seed_result, LoadSeedResult::kSuccess);
   EXPECT_EQ(stored_seed_data, stored_seed_info.data());
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat(
+          {"Variations.SeedFile.DecompressionTime.", histogram_suffix}),
+      1);
   EXPECT_EQ(stored_signature, stored_seed_info.signature());
   histogram_tester.ExpectUniqueSample(
       base::StrCat({"Variations.SeedFileRead.", histogram_suffix}),
@@ -636,7 +689,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedData) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -671,7 +724,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataCorruptGzip) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -754,7 +807,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataCallback) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -797,7 +850,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataCallbackCorruptGzip) {
       &local_state_,
       /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -846,7 +899,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -890,7 +943,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataCallback_LimitSizeSeed) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -941,7 +994,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, WriteSeed) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -956,6 +1009,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, WriteSeed) {
       .seed_date = seed_date,
       .client_fetch_time = fetch_time,
       .session_country_code = "us",
+      .session_geo_level1 = "us-ny",
   });
 
   // Ensure there's no pending write.
@@ -987,7 +1041,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSeed) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
 
   // Create and store seed.
@@ -1001,6 +1055,11 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSeed) {
                        base::Time::Now());
   local_state_.SetString(GetParam().seed_fields_prefs.session_country_code,
                          "us");
+
+  if (GetParam().HasGeoLevel1Pref()) {
+    local_state_.SetString(GetParam().seed_fields_prefs.session_geo_level1,
+                           "us-ny");
+  }
 
   // Clear seed and force file delete.
   seed_reader_writer.ClearSeedInfo();
@@ -1017,6 +1076,10 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSeed) {
   // Session country code is not cleared.
   EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
+  if (GetParam().HasGeoLevel1Pref()) {
+    EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_geo_level1,
+                Not(IsEmpty()));
+  }
 
   // Verify seed cleared correctly in Local State prefs and that seed file is
   // deleted.
@@ -1034,6 +1097,12 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSeed) {
   EXPECT_THAT(
       local_state_.GetString(GetParam().seed_fields_prefs.session_country_code),
       Not(IsEmpty()));
+  if (GetParam().HasGeoLevel1Pref()) {
+    EXPECT_THAT(
+        local_state_.GetString(GetParam().seed_fields_prefs.session_geo_level1),
+        Not(IsEmpty()));
+  }
+
   EXPECT_FALSE(base::PathExists(temp_seed_file_path_));
 }
 
@@ -1046,12 +1115,16 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSessionCountryCode) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
 
   // Create and store seed.
   local_state_.SetString(GetParam().seed_fields_prefs.session_country_code,
                          "us");
+  if (GetParam().HasGeoLevel1Pref()) {
+    local_state_.SetString(GetParam().seed_fields_prefs.session_geo_level1,
+                           "us-ny");
+  }
 
   // Clear seed and force file delete.
   seed_reader_writer.ClearSessionCountry();
@@ -1061,6 +1134,13 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSessionCountryCode) {
   EXPECT_THAT(
       local_state_.GetString(GetParam().seed_fields_prefs.session_country_code),
       IsEmpty());
+
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_geo_level1, IsEmpty());
+  if (GetParam().HasGeoLevel1Pref()) {
+    EXPECT_THAT(
+        local_state_.GetString(GetParam().seed_fields_prefs.session_geo_level1),
+        IsEmpty());
+  }
 }
 
 // Verifies clients using local state to store seeds read seeds from local
@@ -1078,7 +1158,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadLocalStateBasedSeed) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
 
   // Ensure seed data loaded from prefs, not seed file.
@@ -1103,7 +1183,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, EmptySeedFilePathIsValid) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1146,7 +1226,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedData) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1175,7 +1255,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCorruptBase64) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1197,7 +1277,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCorruptGzip) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1224,7 +1304,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataExceedsSizeLimit) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1248,7 +1328,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedData_LimitSizeSeed) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1275,7 +1355,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCallback) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1309,7 +1389,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest,
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1333,7 +1413,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCallbackCorruptGzip) {
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1363,7 +1443,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest,
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1394,7 +1474,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest,
       &local_state_,
       /*seed_file_dir=*/base::FilePath(), kSeedFilename, kOldSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1430,7 +1510,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, MigrateFromSeedFileToLocalState) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   file_writer_thread_.FlushForTesting();
 
@@ -1465,7 +1545,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   file_writer_thread_.FlushForTesting();
 
@@ -1503,7 +1583,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, NoSeedFile) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   file_writer_thread_.FlushForTesting();
 
@@ -1567,7 +1647,7 @@ TEST_P(SeedReaderWriterAllGroupsTest, ReadSeedDataEmptySeedData) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1591,7 +1671,7 @@ TEST_P(SeedReaderWriterAllGroupsTest, ReadSeedDataSentinel) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1617,7 +1697,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1681,7 +1761,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1724,7 +1804,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 
@@ -1752,7 +1832,7 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       kOldSeedFilename, GetParam().seed_fields_prefs, GetParam().channel,
-      entropy_providers_.get(), /*histogram_suffix=*/"",
+      entropy_providers_.get(), GetHistogramSuffix(),
       file_writer_thread_.task_runner());
   seed_reader_writer.SetTimerForTesting(&timer_);
 

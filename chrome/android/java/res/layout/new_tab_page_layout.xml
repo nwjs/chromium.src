@@ -14,6 +14,8 @@ found in the LICENSE file.
     android:layout_gravity="center_horizontal"
     android:orientation="vertical"
     android:gravity="center"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:paddingTop="@dimen/toolbar_height_no_shadow"
     android:visibility="gone" >
 
@@ -33,20 +35,10 @@ found in the LICENSE file.
         android:id="@+id/composeplate_view_stub"
         android:layout_width="match_parent"
         android:layout_height="@dimen/composeplate_view_height"
-        android:layout_marginTop="@dimen/composeplate_view_margin_top_v1"
-        android:layout_marginStart="@dimen/mvt_container_lateral_margin"
-        android:layout_marginEnd="@dimen/mvt_container_lateral_margin"
-        android:layout="@layout/composeplate_view_layout"
-        />
-
-    <ViewStub
-        android:id="@+id/composeplate_view_v2_stub"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/composeplate_view_height"
         android:layout_marginTop="@dimen/composeplate_view_margin_top"
         android:layout_marginStart="@dimen/mvt_container_lateral_margin"
         android:layout_marginEnd="@dimen/mvt_container_lateral_margin"
-        android:layout="@layout/composeplate_view_layout_v2"
+        android:layout="@layout/composeplate_view_layout"
         />
 
     <!-- Most Visited Tiles -->
@@ -79,13 +71,6 @@ found in the LICENSE file.
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout="@layout/tab_switcher_module_container" />
-
-    <ViewStub
-        android:id="@+id/search_resumption_module_container_stub"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/search_resumption_module_margin_top"
-        android:layout="@layout/search_resumption_module_layout" />
 
     <!-- Spacer for when there is no search provider logo. -->
     <View

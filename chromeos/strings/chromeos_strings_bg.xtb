@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Въведете подкана</translation>
 <translation id="115705039208660697">ананаси</translation>
 <translation id="1164939766849482256">Скрийнсейвър „От зазоряване до здрачаване“</translation>
-<translation id="1167755866710282443">Отворете менюто, за да персонализирате клавишите. Плъзнете менюто за преместване.</translation>
 <translation id="1171349345463658120">пясъчна лагуна</translation>
 <translation id="1174073918202301297">Прекият път бе добавен</translation>
 <translation id="11743817593307477">Използвайте клавишите със стрелки, за да преместите тази контрола до желаното от вас действие в играта. Натиснете клавиша Enter, за да поставите контролата, или Escape, за да анулирате.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Замяна на файла</translation>
 <translation id="2006864819935886708">Свързване към мрежата</translation>
 <translation id="2008685064673031089">Търсене на прости числа</translation>
-<translation id="2011174342667534258">Версия на SDK:</translation>
 <translation id="2016697457005847575">Изпробвайте стъпките за отстраняване на неизправности</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">прибори за хранене</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Контролен пад за задаване на функции за клавишите</translation>
 <translation id="3217462202230355157">Уверете се, че микрофонът ви е свързан, или опитайте да рестартирате своя <ph name="DEVICE_TYPE" /></translation>
 <translation id="3226405216343213872">Търсят се скенери</translation>
-<translation id="3226657629376379887">Меню с действия за оформлението</translation>
 <translation id="3227186760713762082">Разделете стойността за <ph name="CATEGORY_TEXT" /> на <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">дигитално изкуство</translation>
 <translation id="3246869037381808805">Заданията за отпечатване, по-стари от 1 ден, ще бъдат премахнати</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Посока на ключа</translation>
 <translation id="3294437725009624529">Гост</translation>
 <translation id="3303855915957856445">Няма намерени резултати от търсенето</translation>
-<translation id="3305294846493618482">още</translation>
 <translation id="3310640316857623290">Забавянето на DNS е значително над допустимия праг</translation>
 <translation id="3316495615885967552">Моделът за създаване на обобщения и заглавия бе изтеглен</translation>
 <translation id="3321030238473337787">Скорост на възпроизвеждане</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Нещо се обърка. Опитайте отново.</translation>
 <translation id="357889014807611375">Wi-Fi мрежа с отчитане</translation>
 <translation id="3583278742022654445">Сигналът е слаб. Приближете се до източника на Wi-Fi сигнал.</translation>
+<translation id="3586931643579894722">Скриване на подробностите</translation>
 <translation id="3588034708467091142">Проверете дали имате връзка с интернет и опитайте отново.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> е лесното за използване име на <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Батерията е заредена</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Превъртане с 10 секунди назад</translation>
 <translation id="4128271910628504223">Въведете подкана, като например „нарисувай мъглива гора“</translation>
 <translation id="4130035430755296270">Продължете да задържате курсора на мишката за още опции за оформление</translation>
-<translation id="4130750466177569591">Приемам</translation>
 <translation id="4131410914670010031">Черно-бяло</translation>
 <translation id="4137700675046373159">в събота</translation>
 <translation id="4139326893730851150">Актуализации на фърмуера</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Tab</translation>
 <translation id="5612205513582918357">„Инструменти за класната стая“ споделя екрана ви с(ъс) <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Вече не сте в профила си</translation>
-<translation id="5620281292257375798">Само за вътрешно ползване</translation>
 <translation id="5628106863521633649">Налични езици</translation>
 <translation id="5630438231335788050">Баухаус</translation>
 <translation id="5631759159893697722">резюме</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">изтриване назад</translation>
 <translation id="6137614725462089991">киберпънк</translation>
 <translation id="6137767437444130246">Потребителски сертификат</translation>
+<translation id="6140948187512243695">Показване на подробностите</translation>
 <translation id="6146993107019042706">За да завършите процеса, въведете новата си парола</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Не може да се установи връзка с интернет</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Това устройство <ph name="DEVICE_TYPE" /> се управлява от <ph name="MANAGER" />. Администраторите може да го конфигурират отдалечено.</translation>
 <translation id="7180611975245234373">Опресняване</translation>
 <translation id="7180865173735832675">Персонализиране</translation>
-<translation id="7184043045742675738">Кликнете върху който и да е клавиш, за да персонализирате бутона. Преместете клавиша с мишката или клавишите със стрелки.</translation>
 <translation id="7187669805838282391">в сряда</translation>
 <translation id="7205318498545665455">Изберете микрофон</translation>
-<translation id="7206979415662233817">Общи условия</translation>
 <translation id="7210635925306941239">синьо-зелен</translation>
 <translation id="7212547870105584639">Управление на настройките за името на точката за достъп (APN) за мрежата. Чрез APN се установява връзка между мобилна мрежа и интернет. <ph name="BEGIN_LINK_LEARN_MORE" />Научете повече<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Актуализации на фърмуера на външни устройства</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">зелено и тъмно синьо-зелено</translation>
 <translation id="7328475450575141167">Стрелиция</translation>
-<translation id="7331297744262591636">Трябва да сте навършили 18 години и да приемете, че използването на тапети от AI от ваша страна е предмет на <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Общите условия на Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> и <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Допълнителните общи условия за генеративния AI<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-<ph name="LINE_BREAK" />
-Можете да създавате тапети с AI само за лична употреба с нетърговска цел. Когато получавате помощ за създаването на тапет, до сървърите за AI на Google се изпраща текст с цел генериране на съответните предложения, като това е предмет на <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Декларацията ни за поверителност<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Научете повече<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; За да видите резултата в Google Търсене, натиснете клавиша „търсене“ + интервал.</translation>
 <translation id="7343649194310845056">Мрежови устройства</translation>
 <translation id="7344788170842919262">земни</translation>
 <translation id="7346768383111016081">Задайте контрола за действие в играта, за да играете с клавиатурата</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">Настройки за въвеждане</translation>
 <translation id="7595982850646262331">Оставащо време: <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">Администраторът на <ph name="MANAGER" /> е задал кога може да се използва това устройство (<ph name="DEVICE_TYPE" />).</translation>
-<translation id="7613724632293948900">Преместете с мишката или клавишите със стрелки.</translation>
 <translation id="7618216277886673749">Избиране на <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Неутрален</translation>
 <translation id="7620771111601174153">Научете повече в Помощния център</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">Използвайте AI на Google, за да повишите продуктивността си</translation>
 <translation id="8200772114523450471">Възобновяване</translation>
 <translation id="8206859287963243715">Клетъчно</translation>
+<translation id="8208043093301544621">Начална страница</translation>
 <translation id="8208861521865154048">Предимства</translation>
 <translation id="8226628635270268143">Изберете любимите си снимки и албуми</translation>
 <translation id="8227119283605456246">Прикачване на файл</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Използване на този видеоклип</translation>
-<translation id="9087578468327036362">Подаване на сигнал за тази заявка</translation>
 <translation id="9088306295921699330">Текущо използване</translation>
 <translation id="9088994563996376283">Опростяване</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">Изображението бе зададено като фон на камерата</translation>
 <translation id="9211490828691860325">Всички работни кътове</translation>
 <translation id="9218016617214286986">Показване на известните имена на точки за достъп (APN)</translation>
-<translation id="932327136139879170">Начална страница</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Изпращане на отзиви</translation>
 <translation id="950520315903467048">Липсва клавиш за <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

@@ -61,7 +61,7 @@ class FakeProfileOAuth2TokenServiceDelegate
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  bool IsRefreshTokenBound(const CoreAccountId& account_id) const override;
+  bool IsRefreshTokenBoundToKey(const CoreAccountId& account_id) const override;
   std::vector<uint8_t> GetWrappedBindingKey(
       const CoreAccountId& account_id) const override;
   bool AllBoundTokensShareSameBindingKey() const override;
@@ -104,7 +104,7 @@ class FakeProfileOAuth2TokenServiceDelegate
   void UpdateCredentialsInternal(
       const CoreAccountId& account_id,
       const std::string& refresh_token,
-      const std::vector<uint8_t>& wrapped_binding_key) override;
+      const signin::TokenBindingInfo& token_binding_info) override;
   void RevokeCredentialsInternal(const CoreAccountId& account_id) override;
   void ExtractCredentialsInternal(ProfileOAuth2TokenService* to_service,
                                   const CoreAccountId& account_id) override;
@@ -112,7 +112,7 @@ class FakeProfileOAuth2TokenServiceDelegate
   void IssueRefreshTokenForUser(
       const CoreAccountId& account_id,
       const std::string& token,
-      const std::vector<uint8_t>& wrapped_binding_key);
+      const signin::TokenBindingInfo& token_binding_info);
 
 #if BUILDFLAG(IS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject() override;

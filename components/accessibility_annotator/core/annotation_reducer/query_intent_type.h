@@ -8,6 +8,7 @@
 namespace accessibility_annotator {
 
 // Represents the type of data a query or piece of information is related to.
+// LINT.IfChange(QueryIntentType)
 enum class QueryIntentType {
   kUnknown,
   kNameFull,
@@ -21,6 +22,7 @@ enum class QueryIntentType {
   kEmail,
   kCompanyName,
   kIban,
+  kIbanNickname,
   kVehicle,
   kVehicleMake,
   kVehicleModel,
@@ -43,6 +45,14 @@ enum class QueryIntentType {
   kFlightReservationDepartureAirport,
   kFlightReservationArrivalAirport,
   kFlightReservationDepartureDate,
+  kFlightReservationArrivalDate,
+  kShipmentFull,
+  kShipmentTrackingNumber,
+  kShipmentAssociatedOrderId,
+  kShipmentDeliveryAddress,
+  kShipmentCarrierName,
+  kShipmentCarrierDomain,
+  kShipmentEstimatedDeliveryDate,
   kNationalIdCardFull,
   kNationalIdCardName,
   kNationalIdCardCountry,
@@ -70,7 +80,14 @@ enum class QueryIntentType {
   kOrderMerchantDomain,
   kOrderProductNames,
   kOrderGrandTotal,
+  kCreditCardFull,
+  kCreditCardNumber,
+  kCreditCardExpirationDate,
+  kCreditCardSecurityCode,
+  kCreditCardNameOnCard,
+  kCreditCardNickname,
 };
+// LINT.ThenChange(//components/accessibility_annotator/core/annotation_reducer/util.cc:QueryIntentType)
 
 }  // namespace accessibility_annotator
 

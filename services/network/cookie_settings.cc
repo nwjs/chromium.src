@@ -75,8 +75,6 @@ net::CookieInclusionStatus::ExemptionReason GetExemptionReason(
   switch (allow_mechanism) {
     case AllowMechanism::kAllowByExplicitSetting:
       return ExemptionReason::kUserSetting;
-    case AllowMechanism::kAllowBy3PCDHeuristics:
-      return ExemptionReason::k3PCDHeuristics;
     case AllowMechanism::kAllowBy3PCDMetadataSourceUnspecified:
     case AllowMechanism::kAllowBy3PCDMetadataSourceTest:
     case AllowMechanism::kAllowBy3PCDMetadataSource1pDt:
@@ -394,8 +392,7 @@ bool CookieSettings::ShouldBlockThirdPartyCookies(
     return modifier_decision.value();
   }
   return block_third_party_cookies_ ||
-         net::cookie_util::IsForceThirdPartyCookieBlockingEnabled() ||
-         tracking_protection_enabled_for_3pcd_;
+         net::cookie_util::IsForceThirdPartyCookieBlockingEnabled();
 }
 
 bool CookieSettings::IsThirdPartyPhaseoutEnabled(
@@ -403,8 +400,7 @@ bool CookieSettings::IsThirdPartyPhaseoutEnabled(
     net::CookieSettingOverrides overrides) const {
   switch (GetModifierMode(top_frame_origin, overrides)) {
     case ModifierMode::kUndefined:
-      return net::cookie_util::IsForceThirdPartyCookieBlockingEnabled() ||
-             tracking_protection_enabled_for_3pcd_;
+      return net::cookie_util::IsForceThirdPartyCookieBlockingEnabled();
     case ModifierMode::kPhaseout:
       return true;
     case ModifierMode::kAllow:

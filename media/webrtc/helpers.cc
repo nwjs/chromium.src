@@ -13,7 +13,6 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "media/base/media_switches.h"
 #include "media/webrtc/webrtc_features.h"
 #include "third_party/webrtc/api/audio/audio_processing.h"
@@ -23,8 +22,8 @@
 #include "third_party/webrtc/modules/audio_processing/aec_dump/aec_dump_factory.h"
 #include "third_party/webrtc_overrides/environment.h"
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-#include "components/optimization_guide/core/tflite_op_resolver.h"
+#if !BUILDFLAG(IS_FUCHSIA)
+#include "components/optimization_guide/core/tflite_op_resolver.h"  // nogncheck
 #endif
 
 namespace media {
@@ -145,34 +144,31 @@ CreateWebRtcAudioProcessingModule(
   apm_config.echo_canceller.enabled = settings.echo_cancellation;
   ConfigAutomaticGainControl(settings, apm_config);
 
+  webrtc::BuiltinAudioProcessingBuilder apm_builder(apm_config);
   base::TimeDelta added_delay;
-  webrtc::EchoCanceller3Config aec3_config;
-  webrtc::EchoCanceller3Config multichannel_aec3_config =
-      webrtc::EchoCanceller3Config::CreateDefaultMultichannelConfig();
   std::unique_ptr<webrtc::NeuralResidualEchoEstimator> echo_estimator;
 
   // Fuchsia does not use the optimization guide.
   // Avoid linking the op resolver to keep Fuchsia binary size down.
   // TODO(crbug.com/450466837): Investigate if this build guard can be avoided.
-#if !BUILDFLAG(IS_FUCHSIA) && BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+#if !BUILDFLAG(IS_FUCHSIA)
   if (residual_echo_estimator_model) {
     optimization_guide::TFLiteOpResolver op_resolver;
     echo_estimator = webrtc::CreateNeuralResidualEchoEstimator(
         residual_echo_estimator_model, &op_resolver);
-    if (echo_estimator) {
-      aec3_config = echo_estimator->GetConfiguration(/*multi_channel=*/false);
-      multichannel_aec3_config =
-          echo_estimator->GetConfiguration(/*multi_channel=*/true);
-    } else {
+    if (!echo_estimator) {
       LOG(ERROR) << "Failed to initialize neural residual echo estimator.";
     }
   }
-#endif  // !BUILDFLAG(IS_FUCHSIA) && BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+#endif  // !BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(SYSTEM_LOOPBACK_AS_AEC_REFERENCE)
   if (settings.use_loopback_aec_reference) {
     added_delay = media::GetAecAddedDelay();
     int num_filters = media::GetAecDelayNumFilters();
+    webrtc::EchoCanceller3Config aec3_config;
+    webrtc::EchoCanceller3Config multichannel_aec3_config =
+        webrtc::EchoCanceller3Config::CreateDefaultMultichannelConfig();
     // If we are using system loopback as AEC reference, we delay the capture
     // signal so that the reference signal arrives before the capture signal.
     // AEC considers the delay to be provided at 16 kHz sample rate.
@@ -182,11 +178,10 @@ CreateWebRtcAudioProcessingModule(
     multichannel_aec3_config.delay.fixed_capture_delay_samples =
         aec3_config.delay.fixed_capture_delay_samples;
     multichannel_aec3_config.delay.num_filters = aec3_config.delay.num_filters;
+    apm_builder.SetEchoCancellerConfig(aec3_config, multichannel_aec3_config);
   }
 #endif  // BUILDFLAG(SYSTEM_LOOPBACK_AS_AEC_REFERENCE)
 
-  webrtc::BuiltinAudioProcessingBuilder apm_builder(apm_config);
-  apm_builder.SetEchoCancellerConfig(aec3_config, multichannel_aec3_config);
   apm_builder.SetNeuralResidualEchoEstimator(std::move(echo_estimator));
   return {apm_builder.Build(WebRtcEnvironment()), added_delay};
 }

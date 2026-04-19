@@ -1054,8 +1054,32 @@ static NSWindow* __weak _deferredResignKeyWindow;
 
   // Because |updateCursor:| changes the current cursor, we have to reset it to
   // the default cursor on mouse exit.
-  if (type == NSEventTypeMouseExited)
+  if (type == NSEventTypeMouseExited) {
     [[NSCursor arrowCursor] set];
+  }
+
+  // In macOS immersive fullscreen, the browser UI is held in an AppKit-managed
+  // `NSToolbarFullScreenWindow`. When this toolbar auto-hides, the window
+  // becomes invisible but remains positioned at the top of the screen.
+  // Mouse events pass through it to this view, but a macOS bug causes the OS
+  // to forcefully reset the system cursor to the default arrow when the mouse
+  // crosses the bottom boundary of that invisible window.
+  //
+  // To fix this, this code detect spurious cursor resets during mouse move by
+  // checking if `currentSystemCursor` diverged from Chrome's `_currentCursor`
+  // state. If it did, we forcefully re-apply our cursor.
+  //
+  // This is safe for overlapping UI (like popups or context menus), which will
+  // intercept the mouse event before it reaches here, meaning we won't
+  // improperly override their cursors.
+  if (type == NSEventTypeMouseMoved || type == NSEventTypeLeftMouseDragged ||
+      type == NSEventTypeRightMouseDragged ||
+      type == NSEventTypeOtherMouseDragged) {
+    if ([self shouldChangeCurrentCursor] &&
+        [NSCursor currentSystemCursor] != _currentCursor) {
+      [_currentCursor set];
+    }
+  }
 
   if ([self shouldIgnoreMouseEvent:theEvent]) {
     // If this is the first such event, send a mouse exit to the host view.
@@ -2240,6 +2264,10 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   thePoint.y = NSHeight([self frame]) - thePoint.y;
   gfx::PointF rootPoint(thePoint.x, thePoint.y);
 
+  // SyncGetCharacterIndexAtPoint can enter a nested RunLoop that might delete
+  // `self`.
+  NS_VALID_UNTIL_END_OF_SCOPE RenderWidgetHostViewCocoa* keepSelfAlive = self;
+
   uint32_t index = UINT32_MAX;
   _host->SyncGetCharacterIndexAtPoint(rootPoint, &index);
   // |index| could be blink::kNotFound (-1) and its value is different from
@@ -2261,6 +2289,11 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   bool success = false;
   if (actualRange)
     gfxActualRange = gfx::Range::FromPossiblyInvalidNSRange(*actualRange);
+
+  // SyncGetFirstRectForRange can enter a nested RunLoop that might delete
+  // `self`.
+  NS_VALID_UNTIL_END_OF_SCOPE RenderWidgetHostViewCocoa* keepSelfAlive = self;
+
   _host->SyncGetFirstRectForRange(
       gfx::Range::FromPossiblyInvalidNSRange(theRange), &gfxRect,
       &gfxActualRange, &success);

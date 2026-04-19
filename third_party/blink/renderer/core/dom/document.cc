@@ -94,6 +94,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_import_node_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_overscroll_event_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_elementcreationoptions_string.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_htmlscriptelement_svgscriptelement.h"
@@ -186,6 +187,7 @@
 #include "third_party/blink/renderer/core/dom/text_diff_range.h"
 #include "third_party/blink/renderer/core/dom/transform_source.h"
 #include "third_party/blink/renderer/core/dom/tree_walker.h"
+#include "third_party/blink/renderer/core/dom/user_action_element_traversal.h"
 #include "third_party/blink/renderer/core/dom/visited_link_state.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/dom/xml_document.h"
@@ -262,8 +264,9 @@
 #include "third_party/blink/renderer/core/html/html_title_element.h"
 #include "third_party/blink/renderer/core/html/html_unknown_element.h"
 #include "third_party/blink/renderer/core/html/media/lazy_load_media_observer.h"
+#include "third_party/blink/renderer/core/html/menu_safe_triangle.h"
 #include "third_party/blink/renderer/core/html/nesting_level_incrementer.h"
-#include "third_party/blink/renderer/core/html/parser/fragment_parser_options.h"
+#include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/html/parser/html_document_parser.h"
 #include "third_party/blink/renderer/core/html/parser/html_document_parser_fastpath.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
@@ -310,6 +313,7 @@
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/mobile_metrics/mobile_friendliness_checker.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
+#include "third_party/blink/renderer/core/overscroll/overscroll_event.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/event_with_hit_test_results.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
@@ -556,7 +560,7 @@ std::optional<CharType> ParseNamespacePrefix(
     // A string is a valid namespace prefix if its length is at least 1 and
     // it does not contain ASCII whitespace, U+0000 NULL, U+002F (/), or
     // U+003E (>).
-    if (c == '>' || c == '/' || !c || IsASCIISpaceWHATWG(c)) {
+    if (c == '>' || c == '/' || !c || IsAsciiSpaceWhatwg(c)) {
       return c;
     }
   }
@@ -574,7 +578,7 @@ std::optional<CharType> ParseAttributeLocalName(
     // A string is a valid attribute local name if its length is at least 1
     // and it does not contain ASCII whitespace, U+0000 NULL, U+002F (/),
     // U+003D (=), or U+003E (>).
-    if (!c || IsASCIISpaceWHATWG(c) || c == '/' || c == '=' || c == '>') {
+    if (!c || IsAsciiSpaceWhatwg(c) || c == '/' || c == '=' || c == '>') {
       return c;
     }
   }
@@ -590,12 +594,12 @@ std::optional<CharType> ParseElementLocalName(
   DCHECK(!characters.empty());
   CharType next_char = characters[0];
   // If name's 0th code point is an ASCII alpha, then:
-  if (IsASCIIAlpha(next_char)) {
+  if (IsAsciiAlpha(next_char)) {
     for (size_t i = 1; i < characters.size(); i++) {
       // If name contains ASCII whitespace, U+0000 NULL, U+002F (/), or U+003E
       // (>), then return false.
       next_char = characters[i];
-      if (!next_char || IsASCIISpaceWHATWG(next_char) || next_char == '/' ||
+      if (!next_char || IsAsciiSpaceWhatwg(next_char) || next_char == '/' ||
           next_char == '>') {
         return next_char;
       }
@@ -611,7 +615,7 @@ std::optional<CharType> ParseElementLocalName(
       // digits, U+002D (-), U+002E (.), U+003A (:), U+005F (_), or in the range
       // U+0080 to U+10FFFF, inclusive, then return false.
       next_char = characters[i];
-      if (!IsASCIIAlpha(next_char) && !IsASCIIDigit(next_char) &&
+      if (!IsAsciiAlpha(next_char) && !IsAsciiDigit(next_char) &&
           next_char != '-' && next_char != '.' && next_char != ':' &&
           next_char != '_' && next_char < 0x80) {
         return next_char;
@@ -1282,7 +1286,7 @@ bool Document::IsInOutermostMainFrame() const {
 }
 
 AtomicString Document::ConvertLocalName(const AtomicString& name) {
-  return IsA<HTMLDocument>(this) ? name.LowerASCII() : name;
+  return IsA<HTMLDocument>(this) ? name.ToAsciiLower() : name;
 }
 
 // Just creates an element with specified qualified name without any
@@ -2123,7 +2127,7 @@ void Document::UpdateTitle(const String& title) {
 
 void Document::DispatchDidReceiveTitle() {
   if (IsInMainFrame()) {
-    String shortened_title = title_.Substring(0, mojom::blink::kMaxTitleChars);
+    String shortened_title = title_.substr(0, mojom::blink::kMaxTitleChars);
     GetFrame()->GetLocalFrameHostRemote().UpdateTitle(shortened_title);
     GetFrame()->GetPage()->GetPageScheduler()->OnTitleOrFaviconUpdated();
   }
@@ -2475,6 +2479,7 @@ static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
                                  kPseudoIdCheckMark,
                                  kPseudoIdBefore,
                                  kPseudoIdAfter,
+                                 kPseudoIdExpandIcon,
                                  kPseudoIdPickerIcon,
                                  kPseudoIdInterestHint,
                                  kPseudoIdMarker,
@@ -4245,7 +4250,7 @@ bool NeedsStyleAndLayoutUpdateAtClose(Document& document) {
 }
 }  // namespace
 
-void Document::ImplicitClose() {
+void Document::DispatchLoadEventAndFinalize() {
   DCHECK(!InStyleRecalc());
 
   load_event_progress_ = kLoadEventInProgress;
@@ -4264,7 +4269,7 @@ void Document::ImplicitClose() {
     AccessSVGExtensions().DispatchSVGLoadEventToOutermostSVGElements();
 
   if (domWindow())
-    domWindow()->DocumentWasClosed();
+    domWindow()->DispatchLoadAndPageshowEvents();
 
   if (GetFrame() && GetFrame()->IsMainFrame())
     GetFrame()->GetLocalFrameHostRemote().DocumentOnLoadCompleted();
@@ -4378,7 +4383,7 @@ bool Document::CheckCompletedInternal() {
   SetReadyState(kComplete);
   const bool load_event_needed = LoadEventStillNeeded();
   if (load_event_needed) {
-    ImplicitClose();
+    DispatchLoadEventAndFinalize();
   }
 
   DCHECK(fetcher_);
@@ -4459,6 +4464,7 @@ void RecordBeforeUnloadUse(Document::BeforeUnloadUse metric) {
 bool Document::DispatchBeforeUnloadEvent(
     ChromeClient* chrome_client,
     bool is_reload,
+    bool force_to_proceed,
     bool& did_allow_navigation,
     base::TimeTicks& out_before_unload_dialog_opened_time,
     base::TimeTicks& out_before_unload_dialog_closed_time) {
@@ -4522,7 +4528,7 @@ bool Document::DispatchBeforeUnloadEvent(
     return true;
   }
 
-  if (!GetFrame()->HasStickyUserActivation()) {
+  if (!GetFrame()->HasStickyUserActivation() || force_to_proceed) {
     RecordBeforeUnloadUse(BeforeUnloadUse::kNoDialogNoUserGesture);
     String message =
         "Blocked attempt to show a 'beforeunload' confirmation panel for a "
@@ -5681,20 +5687,8 @@ void Document::DynamicViewportUnitsChanged() {
 //
 // This reimplements TraversalParent<FlatTreeTraversal> with that slight
 // variation so that we can do traversals this way in a bunch of places.
-class FlatTreeTraversalParentElementExceptSelectPopover {
- public:
-  using Traversal = FlatTreeTraversal;
-  using TraversalNodeType = Element;
-  static TraversalNodeType* Next(const TraversalNodeType& node) {
-    if (HTMLSelectElement::IsPopoverPickerElement(&node)) {
-      return nullptr;
-    }
-    return Traversal::ParentElement(node);
-  }
-};
-
-using InclusiveAncestorsForActiveOrHover = TraversalRange<
-    TraversalIterator<FlatTreeTraversalParentElementExceptSelectPopover>>;
+using InclusiveAncestorsForActiveOrHover =
+    TraversalRange<TraversalIterator<UserActionElementTraversal>>;
 
 void EmitDidChangeHoverElement(Document& document, Element* new_hover_element) {
   LocalFrame* local_frame = document.GetFrame();
@@ -5857,8 +5851,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
   Element* ancestor =
       (old_focused_element && old_focused_element->isConnected() &&
        new_focused_element)
-          ? DynamicTo<Element>(FlatTreeTraversal::CommonAncestor(
-                *old_focused_element, *new_focused_element))
+          ? DynamicTo<Element>(old_focused_element->CommonAncestor(
+                *new_focused_element, UserActionElementParent))
           : nullptr;
 
   // Remove focus from the existing focus node (if any)
@@ -5882,8 +5876,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
         new_focused_element = nullptr;
 
         if (ancestor) {
-          auto* new_ancestor = DynamicTo<Element>(
-              FlatTreeTraversal::CommonAncestor(*ancestor, *focused_element_));
+          auto* new_ancestor = DynamicTo<Element>(ancestor->CommonAncestor(
+              *focused_element_, UserActionElementParent));
           if (new_ancestor != ancestor) {
             ancestor->SetHasFocusWithinUpToAncestor(
                 false, new_ancestor,
@@ -5910,8 +5904,8 @@ bool Document::SetFocusedElement(Element* new_focused_element,
         new_focused_element = nullptr;
 
         if (ancestor) {
-          auto* new_ancestor = DynamicTo<Element>(
-              FlatTreeTraversal::CommonAncestor(*ancestor, *focused_element_));
+          auto* new_ancestor = DynamicTo<Element>(ancestor->CommonAncestor(
+              *focused_element_, UserActionElementParent));
           if (new_ancestor != ancestor) {
             ancestor->SetHasFocusWithinUpToAncestor(
                 false, new_ancestor,
@@ -6575,6 +6569,22 @@ void Document::EnqueueScrollSnapChangingEvent(Node* target,
   scrollsnapchanging_event->SetTarget(target);
   scripted_animation_controller_->EnqueuePerFrameEvent(
       scrollsnapchanging_event);
+}
+
+void Document::EnqueueOverscrollEvent(const AtomicString& type,
+                                      Node* target,
+                                      Element* overscroll_target,
+                                      bool overscrolling) {
+  OverscrollEventInit* init = OverscrollEventInit::Create();
+  init->setOverscrollTarget(overscroll_target);
+  // We bubble if we're on the document.
+  init->setBubbles(target->IsDocumentNode());
+  if (type == event_type_names::kOverscrollchanging) {
+    init->setOverscrolling(overscrolling);
+  }
+  Event* overscroll_event = OverscrollEvent::Create(type, init);
+  overscroll_event->SetTarget(target);
+  scripted_animation_controller_->EnqueuePerFrameEvent(overscroll_event);
 }
 
 void Document::EnqueueMoveEvent() {
@@ -7350,14 +7360,16 @@ static bool IsValidNameNonASCII(base::span<const UChar> characters) {
 template <typename CharType>
 static inline bool IsValidNameASCII(base::span<const CharType> characters) {
   CharType c = characters[0];
-  if (!(IsASCIIAlpha(c) || c == ':' || c == '_'))
+  if (!(IsAsciiAlpha(c) || c == ':' || c == '_')) {
     return false;
+  }
 
   for (size_t i = 1; i < characters.size(); ++i) {
     c = characters[i];
-    if (!(IsASCIIAlphanumeric(c) || c == ':' || c == '_' || c == '-' ||
-          c == '.'))
+    if (!(IsAsciiAlphanumeric(c) || c == ':' || c == '_' || c == '-' ||
+          c == '.')) {
       return false;
+    }
   }
 
   return true;
@@ -7936,7 +7948,7 @@ void Document::FinishedParsing() {
   SetParsingState(kInDOMContentLoaded);
   DocumentParserTiming::From(*this).MarkParserStop();
 
-  if (RuntimeEnabledFeatures::WebMCPEnabled()) {
+  if (RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext())) {
     auto* navigator = domWindow() ? domWindow()->navigator() : nullptr;
     auto* model_context =
         navigator ? ModelContextSupplement::modelContext(*navigator) : nullptr;
@@ -8364,7 +8376,7 @@ void Document::SupportsReducedMotionMetaChanged() {
     if (EqualIgnoringAsciiCase(meta_element.GetName(),
                                "supports-reduced-motion")) {
       SpaceSplitString split_content(
-          AtomicString(meta_element.Content().GetString().LowerASCII()));
+          AtomicString(meta_element.Content().GetString().ToAsciiLower()));
       if (split_content.Contains(AtomicString("reduce"))) {
         supports_reduced_motion = true;
       }
@@ -8637,9 +8649,9 @@ void Document::ScheduleForTopLayerRemoval(Element* element,
   ScheduleLayoutTreeUpdateIfNeeded();
 }
 
-void Document::RemoveFinishedTopLayerElements() {
+bool Document::RemoveFinishedTopLayerElements() {
   if (top_layer_elements_pending_removal_.empty()) {
-    return;
+    return false;
   }
   HeapVector<Member<Element>> to_remove;
   for (const auto& pending_removal : top_layer_elements_pending_removal_) {
@@ -8653,9 +8665,12 @@ void Document::RemoveFinishedTopLayerElements() {
       to_remove.push_back(element);
     }
   }
+  bool removed = false;
   for (Element* remove_element : to_remove) {
     RemoveFromTopLayerImmediately(remove_element);
+    removed = true;
   }
+  return removed;
 }
 
 void Document::RemoveFromTopLayerImmediately(Element* element) {
@@ -8749,6 +8764,15 @@ HTMLDocument::PopoverPickerPointerdownInfo Document::PopoverPickerPointerdown()
 }
 void Document::SetPopoverPickerPointerdown(PopoverPickerPointerdownInfo info) {
   popover_picker_pointerdown_info_ = std::move(info);
+}
+
+MenuSafeTriangle* Document::GetMenuSafeTriangle() {
+  return menu_safe_triangle_;
+}
+
+void Document::SetMenuSafeTriangle(MenuSafeTriangle* new_safe_triangle) {
+  CHECK_NE(!menu_safe_triangle_, !new_safe_triangle);
+  menu_safe_triangle_ = new_safe_triangle;
 }
 
 void Document::exitPointerLock() {
@@ -9562,6 +9586,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(view_transitions_);
   visitor->Trace(overscroll_command_targets_);
   visitor->Trace(overscroll_command_invokers_);
+  visitor->Trace(menu_safe_triangle_);
   Supplementable<Document>::Trace(visitor);
   TreeScope::Trace(visitor);
   ContainerNode::Trace(visitor);
@@ -9584,6 +9609,11 @@ bool Document::IsFocusAllowed(FocusTrigger trigger) const {
       LocalFrame::HasTransientUserActivation(frame)) {
     // 'autofocus' runs Element::focus asynchronously at which point the
     // document might not have a frame (see https://crbug.com/960224).
+    return true;
+  }
+
+  // Allow focus during prerendering to match same-origin behavior.
+  if (frame->GetDocument() && frame->GetDocument()->IsPrerendering()) {
     return true;
   }
 
@@ -10151,6 +10181,9 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                  /*context_element*/ doc, /*root_element*/ doc,
                                  FragmentParserOptions(options),
                                  exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
   return doc;
 }
 
@@ -10165,6 +10198,9 @@ Document* Document::parseHTML(ExecutionContext* context,
                                  /*context_element*/ doc, /*root_element*/ doc,
                                  FragmentParserOptions(options),
                                  exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
   return doc;
 }
 

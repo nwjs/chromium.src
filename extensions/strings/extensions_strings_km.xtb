@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">មិនស្គាល់ផលិតផល <ph name="PRODUCT_ID" /> ពីអ្នកលក់ <ph name="VENDOR_ID" /> (លេខសេរ៊ី <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">បានបរាជ័យក្នុងការប្តូរឯកសារ crx។ ពិនិត្យដើម្បីមើលថាតើឯកសារនេះស្ថិតនៅក្នុងការប្រើប្រាស់ឬអត់។</translation>
 <translation id="3163201441334626963">មិនស្គាល់ផលិតផល <ph name="PRODUCT_ID" /> ពីអ្នកលក់ <ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">សិទ្ធិចូលប្រើ​កម្មវិធី​បន្ថែមនេះ​ត្រូវបាន​ទប់ស្កាត់​ដោយ​ស្ថាប័ន​របស់អ្នក។</translation>
 <translation id="3242289508736283383">កម្មវិធី​ដែលមាន​លក្ខណៈ​មេនីហ្វេសថ៍ 'kiosk_only' ត្រូវតែ​ដំឡើង​នៅក្នុង​មុខងារបញ្ជរ ChromeOS</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (លេខសេរ៊ី <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> ពីអ្នកលក់ <ph name="VENDOR_ID" /> (លេខសេរ៊ី <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">មិនអាចបន្ថែមកម្មវិធី "<ph name="TO_INSTALL_APP_NAME" />" បានទេ ព្រោះវាមិនត្រូវគ្នាជាមួយ "<ph name="INSTALLED_APP_NAME" />"</translation>
 <translation id="388442998277590542">មិនអាចដំណើរការទំព័រជម្រើស '<ph name="OPTIONS_PAGE" />' ទេ។</translation>
 <translation id="3984413272403535372">កំហុសឆ្គងខណៈពេលចុះហត្ថលេខាកម្មវិធីបន្ថែម។</translation>
+<translation id="4094452115117798451">សិទ្ធិចូលប្រើ​ប្រភេទ​កម្មវិធីបន្ថែមនេះ​ត្រូវបាន​ទប់ស្កាត់​ដោយ​ស្ថាប័ន​របស់អ្នក។</translation>
 <translation id="4233778200880751280">មិនអាចដំណើរការទំព័រអំពីទេ '<ph name="ABOUT_PAGE" />'។</translation>
 <translation id="424963718355121712">កម្មវិធី​ត្រូវ​បាន​ផ្ដល់​ពី​ម៉ាស៊ីន​ដែល​ដែលវាមានឥទ្ធិពលលើ</translation>
 <translation id="4306119971288449206">កម្មវិធី​ត្រូវបាន​ផ្ដល់​ជា​ប្រភេទ​ខ្លឹមសារ "<ph name="CONTENT_TYPE" />"</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">មិនស្គាល់ផលិតផល <ph name="PRODUCT_ID" /> ពី <ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">ឯកសារ​មេនីហ្វេសថ៍​មិនត្រឹមត្រូវ​​ទេ</translation>
 <translation id="7217838517480956708">អ្នកគ្រប់ឧបករណ៍នេះតម្រូវឲ្យតំឡើង <ph name="EXTENSION_NAME" />។ វាមិនអាចត្រូវបានដកចេញ ឬកែសម្រួលទេ។</translation>
+<translation id="7287143125007575591">បានបដិសេធការចូលប្រើ។</translation>
 <translation id="7612608473764576263">តម្លៃ​បញ្ចូល​សម្រាប់​សោឯកជន​ត្រូវមានទម្រង់​ត្រឹមត្រូវ (PKCS#8-format PEM-encoded RSA key)។</translation>
 <translation id="765293928828334535">កម្មវិធី កម្មវិធីបន្ថែម និងស្គ្រីប​អ្នកប្រើប្រាស់​មិនអាច​ត្រូវ​បាន​បញ្ចូល​ពី​គេហទំព័រ​នេះទេ</translation>
 <translation id="7876803335449432072">មិនអាច​ផ្ទុក​ឯកសារ '<ph name="RELATIVE_PATH" />' សម្រាប់​ស្គ្រីប​ខ្លឹមសារ​បានទេ អាចផ្ទុក​សន្លឹករចនាបថ​ស្គ្រីប​ខ្លឹមសារ​បានតែពី​សន្លឹក​រចនាបថ​ដែលអាច​ប្រើបាន ដូចជា​ឯកសារ .css ប៉ុណ្ណោះ។</translation>

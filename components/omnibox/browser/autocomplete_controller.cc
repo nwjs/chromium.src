@@ -90,7 +90,6 @@
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/open_from_clipboard/clipboard_recent_content.h"
-#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -114,9 +113,7 @@
 #include "components/open_from_clipboard/clipboard_recent_content_generic.h"
 #endif
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 #include "components/omnibox/browser/autocomplete_scoring_model_service.h"
-#endif
 
 constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
 
@@ -1090,8 +1087,16 @@ bool AutocompleteController::ShouldRunProvider(
 
   if (omnibox::IsComposebox(input_.current_page_classification())) {
     return provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST ||
-           provider->type() == AutocompleteProvider::TYPE_SEARCH;
+           provider->type() == AutocompleteProvider::TYPE_SEARCH ||
+           provider->type() == AutocompleteProvider::TYPE_VERBATIM_MATCH;
   }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  // Should only be run for the composebox.
+  if (provider->type() == AutocompleteProvider::TYPE_VERBATIM_MATCH) {
+    return false;
+  }
+#endif
 
   // For contextual realbox queries, we only want to run a subset of providers
   // to filter out irrelevant suggestions (like history suggestions).
@@ -1631,7 +1636,6 @@ void AutocompleteController::MlRerank(OldResult& old_result) {
     return;
   }
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   if (OmniboxFieldTrial::GetMLConfig().piecewise_mapped_search_blending) {
     RunBatchUrlScoringModelPiecewiseMappedSearchBlending(old_result);
   } else if (OmniboxFieldTrial::GetMLConfig().mapped_search_blending) {
@@ -1639,9 +1643,6 @@ void AutocompleteController::MlRerank(OldResult& old_result) {
   } else {
     RunBatchUrlScoringModel(old_result);
   }
-#else
-  NOTREACHED();
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 }
 
 void AutocompleteController::PostProcessMatches() {
@@ -2343,7 +2344,6 @@ AutocompleteController::GetOmniboxPositionExperimentStatsV2() const {
   return experiment_stats_v2;
 }
 
-#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   TRACE_EVENT0("omnibox", "AutocompleteController::RunBatchUrlScoringModel");
 
@@ -2747,7 +2747,6 @@ void AutocompleteController::
     obs.OnMlScored(this, internal_result_);
   }
 }
-#endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 
 void AutocompleteController::MaybeRemoveCompanyEntityImages(
     AutocompleteResult* result) {

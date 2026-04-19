@@ -60,12 +60,10 @@ source_set("feedback") {
 }
 
 source_set("feedback_impl") {
-  sources = [
-    "report_unsafe_site_dialog.cc",
-    "report_unsafe_site_dialog.h",
-  ]
+  sources = [ "report_unsafe_site_dialog.h" ]
   deps = [
     ":feedback",
+    "//chrome/browser:browser_features",
     "//chrome/browser/profiles:profile",
     "//chrome/common:constants",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -78,10 +76,10 @@ source_set("feedback_impl") {
       "feedback_dialog_utils.cc",
       "feedback_uploader_chrome.cc",
       "feedback_uploader_factory_chrome.cc",
+      "report_unsafe_site/screenshot_taker.cc",
+      "report_unsafe_site/screenshot_taker.h",
       "report_unsafe_site_dialog_views.cc",
       "report_unsafe_site_dialog_views.h",
-      "screenshot_taker.cc",
-      "screenshot_taker.h",
       "show_feedback_page.cc",
       "system_logs/about_system_logs_fetcher.cc",
       "system_logs/about_system_logs_fetcher.h",
@@ -121,6 +119,7 @@ source_set("feedback_impl") {
       "//chrome/browser/google",
       "//chrome/browser/metrics",
       "//chrome/browser/performance_manager/public/user_tuning",
+      "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/signin",
       "//chrome/browser/sync",
       "//chrome/browser/sync:factories",
@@ -128,12 +127,14 @@ source_set("feedback_impl") {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/bubble",
+      "//chrome/browser/ui/webui/feedback/report_unsafe_site:mojo_bindings",
       "//chrome/browser/ui/webui/top_chrome",
       "//chrome/browser/updater",
       "//chrome/common",
       "//components/device_event_log",
       "//components/feedback",
       "//components/performance_manager",
+      "//components/safe_browsing/content/browser:client_side_detection",
       "//components/supervised_user/core/browser",
       "//content/public/browser",
       "//extensions/browser",
@@ -179,11 +180,20 @@ source_set("feedback_impl") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "report_unsafe_site_dialog_unittest.cc" ]
+  if (is_android) {
+    sources = [ "report_unsafe_site_dialog_android_unittest.cc" ]
+  } else {
+    sources = [
+      "report_unsafe_site/screenshot_taker_unittest.cc",
+      "report_unsafe_site_dialog_views_unittest.cc",
+      "show_feedback_page_unittest.cc",
+    ]
+  }
   deps = [
     ":feedback_impl",
     "//base/test:test_support",
     "//chrome/browser",
+    "//chrome/browser:browser_features",
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//components/safe_browsing/core/common",

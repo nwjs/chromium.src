@@ -24,6 +24,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/webauthn/context_menu_helper.h"
 #include "chrome/browser/user_education/user_education_service.h"
@@ -85,15 +86,18 @@ const gfx::VectorIcon& kPlusAddressLogoIcon = vector_icons::kEmailIcon;
 #endif
 
 bool ShouldShowAutofillContextMenu(const content::ContextMenuParams& params) {
+  if (params.is_content_editable_for_autofill) {
+    return true;
+  }
   if (!params.form_control_type) {
     return false;
   }
   // Return true (only) on text fields.
   //
   // Note that this switch is over `blink::mojom::FormControlType`, not
-  // `autofill::FormControlType`. Therefore, it does not handle
-  // `autofill::FormControlType::kContentEditable`, which is covered by the
-  // above if-condition `!params.form_control_type`.
+  // `autofill::FormControlType`. Standard form controls are handled by this
+  // switch, while `contenteditable` elements are handled by the
+  // `is_content_editable_for_autofill` check above.
   //
   // TODO(crbug.com/40285492): Unify with functions from form_autofill_util.cc.
   switch (*params.form_control_type) {
@@ -207,6 +211,11 @@ AutofillContextMenuManager::AutofillContextMenuManager(
 AutofillContextMenuManager::~AutofillContextMenuManager() = default;
 
 void AutofillContextMenuManager::AppendItems() {
+  if (params_.is_content_editable_for_autofill) {
+    MaybeAddAutofillAtMemoryItem();
+    return;
+  }
+
   MaybeAddAutofillManualFallbackItems();
   MaybeAddAutofillAtMemoryItem();
   MaybeAddAutofillFeedbackItem();
@@ -501,7 +510,7 @@ void AutofillContextMenuManager::ExecuteFallbackForAtMemoryCommand(
     AutofillDriver& driver) {
   driver.RendererShouldTriggerSuggestions(
       {driver.GetFrameToken(), FieldRendererId(params_.field_renderer_id)},
-      AutofillSuggestionTriggerSource::kAtMemory);
+      AutofillSuggestionTriggerSource::kAtMemoryContextMenu);
 }
 
 void AutofillContextMenuManager::ExecuteAutofillFeedbackCommand(
@@ -509,7 +518,8 @@ void AutofillContextMenuManager::ExecuteAutofillFeedbackCommand(
     AutofillManager& manager) {
   // The cast is safe since the context menu is only available on Desktop.
   auto& client = static_cast<ContentAutofillClient&>(manager.client());
-  Browser* browser = chrome::FindBrowserWithTab(&client.GetWebContents());
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithTab(&client.GetWebContents());
   chrome::ShowFeedbackPage(
       browser, feedback::kFeedbackSourceAutofillContextMenu,
       /*description_template=*/std::string(),

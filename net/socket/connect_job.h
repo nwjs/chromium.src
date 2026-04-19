@@ -23,6 +23,7 @@
 #include "net/base/net_export.h"
 #include "net/base/request_priority.h"
 #include "net/dns/public/host_resolver_results.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_server_properties.h"
 #include "net/log/net_log_with_source.h"
@@ -146,6 +147,8 @@ using OnHostResolutionCallback =
         const HostResolverEndpointsOrServiceEndpoints& endpoint_results,
         const std::set<std::string>& aliases)>;
 
+using OnConnectJobCompleteCallback = base::OnceCallback<void(int)>;
+
 // ConnectJob provides an abstract interface for "connecting" a socket.
 // The connection may involve host resolution, tcp connection, ssl connection,
 // etc.
@@ -246,6 +249,10 @@ class NET_EXPORT_PRIVATE ConnectJob {
   // Returns an empty list if connecting to a proxy.
   virtual ConnectionAttempts GetConnectionAttempts() const;
 
+  // Returns the details of the host resolution if available. Can be nullopt
+  // if resolution failed.
+  virtual std::optional<ResolutionDetails> GetResolutionDetails() const;
+
   // Returns error information about any host resolution attempt.
   virtual ResolveErrorInfo GetResolveErrorInfo() const = 0;
 
@@ -271,7 +278,7 @@ class NET_EXPORT_PRIVATE ConnectJob {
   }
 
   // Sets |done_closure_| which will be called when |this| is deleted.
-  void set_done_closure(base::OnceClosure done_closure);
+  void set_done_closure(OnConnectJobCompleteCallback done_closure);
 
   const NetLogWithSource& net_log() const { return net_log_; }
 
@@ -352,6 +359,10 @@ class NET_EXPORT_PRIVATE ConnectJob {
   // ConnectJob has started / after it has completed.
   const bool top_level_job_;
   NetLogWithSource net_log_;
+
+  // The final net error code of the `ConnectJob`. Set when the `ConnectJob`
+  // completes.
+  std::optional<int> net_error_;
   // This is called when |this| is deleted.
   base::ScopedClosureRunner done_closure_;
   const NetLogEventType net_log_connect_event_type_;

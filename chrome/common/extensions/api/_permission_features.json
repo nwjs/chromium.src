@@ -401,6 +401,14 @@
     // "desktop_android" is not supported.
     "platforms": ["chromeos", "linux", "mac", "win"]
   },
+  "glicPrivate": {
+    "extension_types": ["extension"],
+    "channel": "stable",
+    "location": "component",
+    "platforms": ["chromeos", "desktop_android", "linux", "mac", "win"],
+    "allowlist": ["56D158B3E10A304CB840CD4C28C7AF74A4B11433"],
+    "feature_flag": "ApiGlicPrivate"
+  },
   "favicon": {
     "channel": "stable",
     "extension_types": ["extension"]
@@ -1055,7 +1063,7 @@
     "channel": "stable",
     "extension_types": ["extension"],
     "min_manifest_version": 3,
-    "platforms": ["desktop_android", "linux", "mac", "win"]
+    "platforms": ["linux", "mac", "win"]
   },
   "webNavigation": {
     "channel": "stable",

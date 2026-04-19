@@ -30,10 +30,14 @@
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/profiles/profile_shortcut_manager.h"
 #include "chrome/common/buildflags.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/scoped_observation.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
-#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"  // nogncheck
+
+class GlobalBrowserCollection;
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -121,12 +125,21 @@ class ProfileManager : public Profile::Delegate {
   //
   // DEPRECATED on ChromeOS because of known issues that it may return non User
   // Profile instance. Please use:
-  //   ash::BrowserContextHelper::Get()->GetBrowserContextByUser(
-  //       user_manager::UserManager::Get()->GetPrimaryUser())
+  //   ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+  //       session_manager::SessionManager::Get()->GetPrimarySession()
+  //           ->account_id());
   // or even simpler code if you need only limited parts of Profile.
   // E.g., if you need only PrefService of the Profile, you can take it from
   // user_manager::User::GetProfilePrefs(), e.g.:
-  //   user_manager::UserManager::Get()->GetPrimaryUser()->GetProfilePrefs().
+  //   user_manager::UserManager::Get()->FindUser(
+  //       session_manager::SessionManager::Get()->GetPrimarySession()
+  //           ->account_id())->GetProfilePrefs();
+  // Note that, due to the current implementation, despite of its name, this
+  // may return non-user profile or null depending on the current session
+  // state. For migration, we must take care of when this is called from the
+  // callers. Specifically, if this may be called before login or during login
+  // process, the extra check is needed. Otherwise, we may want CHECK for
+  // the session state.
   // For the safer migration, we record the callers of unexpected use via
   // location. It should be always called FROM_HERE as default value.
   // TODO(crbug.com/40227502): Remove this.
@@ -141,12 +154,21 @@ class ProfileManager : public Profile::Delegate {
   //
   // DEPRECATED on ChromeOS because of known issues that it may return non User
   // Profile instance. Please use:
-  //   ash::BrowserContextHelper::Get()->GetBrowserContextByUser(
-  //       user_manager::UserManager::Get()->GetActiveUser())
+  //   ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+  //       session_manager::SessionManager::Get()->GetActiveSession()
+  //           ->account_id());
   // or simpler code if you need only limited parts of Profile.
   // E.g., if you need only PrefService of the Profile, you can take it from
   // user_manager::User::GetProfilePrefs(), e.g.:
-  //   user_manager::UserManager::Get()->GetActiveUser()->GetProfilePrefs().
+  //   user_manager::UserManager::Get()->FindUser(
+  //       session_manager::SessionManager::Get()->GetActiveSession()
+  //           ->account_id())->GetProfilePrefs();
+  // Note that, due to the current implementation, despite of its name, this
+  // may return non-user profile or null depending on the current session
+  // state. For migration, we must take care of when this is called from the
+  // callers. Specifically, if this may be called before login or during login
+  // process, the extra check is needed. Otherwise, we may want CHECK for
+  // the session state.
   // For the safer migration, we record the callers of unexpected use via
   // location. It should be always called FROM_HERE as default value.
   // TODO(crbug.com/40227502): Remove this.
@@ -427,9 +449,12 @@ class ProfileManager : public Profile::Delegate {
     // Returns a non-created ProfileInfo that does not own |profile|.
     static std::unique_ptr<ProfileInfo> FromUnownedProfile(Profile* profile);
 
-    // Takes ownership of |profile|, so it gets destroyed when this ProfileInfo
-    // is deleted.
-    void TakeOwnershipOfProfile(std::unique_ptr<Profile> profile);
+    // Takes ownership of `profile`, so it gets destroyed when this
+    // `ProfileInfo` is deleted.
+    void TakeOwnershipOfProfile(
+        std::unique_ptr<Profile> profile,
+        base::OnceCallback<void(std::unique_ptr<Profile>)>
+            destroy_profile_callback);
 
     // Marks the Profile as created, so GetCreatedProfile() returns non-null.
     void MarkProfileAsCreated(Profile* profile);
@@ -459,15 +484,18 @@ class ProfileManager : public Profile::Delegate {
     std::vector<ProfileLoadedCallback> created_callbacks;
 
    private:
-    // Callers should use FromOwned/UnownedProfile() instead.
+    // Callers should use `UnownedProfile()` instead.
     ProfileInfo();
 
     // The Profile pointed to by this ProfileInfo.
     raw_ptr<Profile> unowned_profile_ = nullptr;
 
-    // For when the Profile is owned, via FromOwnedProfile() or
-    // TakeOwnershipOfProfile().
+    // For when the Profile is owned, via `TakeOwnershipOfProfile()`.
     std::unique_ptr<Profile> owned_profile_;
+
+    // Callback to be run in `~ProfileInfo()` to destroy the profile.
+    base::OnceCallback<void(std::unique_ptr<Profile>)>
+        destroy_profile_callback_;
 
     // Whether profile has been fully loaded (created and initialized). See
     // MarkProfileAsCreated().
@@ -545,24 +573,43 @@ class ProfileManager : public Profile::Delegate {
 
   void SaveActiveProfiles();
 
+  // Takes ownership of `profile`, so it gets destroyed when this
+  // `ProfileManager` is deleted.
+  void TakeOwnershipOfProfile(std::unique_ptr<Profile> profile,
+                              ProfileInfo* info);
+
+  // Starts the destruction of `profile`. Adds it to
+  // `profiles_pending_destruction_` and transfer the ownership of `profile`
+  // to `ProfileDestroyer`.
+  void StartProfileDestruction(std::unique_ptr<Profile> profile);
+
+  // Called when a profile has finished destruction by `ProfileDestroyer`. This
+  // is used to remove the profile from the list of pending destructions and to
+  // run any callbacks that were queued to run after the profile was destroyed.
+  void OnProfileDestructionComplete(const base::FilePath& profile_path);
+
 #if !BUILDFLAG(IS_ANDROID)
-  void OnBrowserOpened(Browser* browser);
-  void OnBrowserClosed(Browser* browser);
+  void OnBrowserOpened(BrowserWindowInterface* browser);
+  void OnBrowserClosed(BrowserWindowInterface* browser);
 
-  class BrowserListObserver : public ::BrowserListObserver {
+  class BrowserCollectionObserver : public ::BrowserCollectionObserver {
    public:
-    explicit BrowserListObserver(ProfileManager* manager);
-    BrowserListObserver(const BrowserListObserver&) = delete;
-    BrowserListObserver& operator=(const BrowserListObserver&) = delete;
-    ~BrowserListObserver() override;
+    explicit BrowserCollectionObserver(ProfileManager* manager);
+    BrowserCollectionObserver(const BrowserCollectionObserver&) = delete;
+    BrowserCollectionObserver& operator=(const BrowserCollectionObserver&) =
+        delete;
+    ~BrowserCollectionObserver() override;
 
-    // ::BrowserListObserver implementation.
-    void OnBrowserAdded(Browser* browser) override;
-    void OnBrowserRemoved(Browser* browser) override;
-    void OnBrowserSetLastActive(Browser* browser) override;
+    // ::BrowserCollectionObserver implementation.
+    void OnBrowserCreated(BrowserWindowInterface* browser) override;
+    void OnBrowserClosed(BrowserWindowInterface* browser) override;
+    void OnBrowserActivated(BrowserWindowInterface* browser) override;
 
    private:
     raw_ptr<ProfileManager> profile_manager_;
+    base::ScopedObservation<GlobalBrowserCollection,
+                            ::BrowserCollectionObserver>
+        browser_collection_observer_{this};
   };
 
   void OnClosingAllBrowsersChanged(bool closing);
@@ -601,7 +648,7 @@ class ProfileManager : public Profile::Delegate {
   bool logged_in_ = false;
 
 #if !BUILDFLAG(IS_ANDROID)
-  BrowserListObserver browser_list_observer_{this};
+  BrowserCollectionObserver browser_collection_observer_{this};
 
   std::unique_ptr<DeleteProfileHelper> delete_profile_helper_;
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -623,7 +670,7 @@ class ProfileManager : public Profile::Delegate {
   std::vector<raw_ptr<Profile, VectorExperimental>> active_profiles_;
   bool closing_all_browsers_ = false;
 
-  // Tracks whether the the list of last opened Profiles has been updated for
+  // Tracks whether the list of last opened Profiles has been updated for
   // the current session. If this is false `GetLastOpenedProfiles()` will return
   // the list of Profiles that were open the last time Chrome was running.
   bool has_updated_last_opened_profiles_ = false;
@@ -648,6 +695,11 @@ class ProfileManager : public Profile::Delegate {
 
   bool defer_async_loading_ = true;
   std::vector<base::OnceClosure> deferred_asynchronous_loads_;
+
+  // Callbacks queued to run after a profile finishes destruction, mapped by
+  // the profile path.
+  absl::flat_hash_map<base::FilePath, std::vector<base::OnceClosure>>
+      profiles_pending_destruction_;
 
   // TODO(chrome/browser/profiles/OWNERS): Usage of this in profile_manager.cc
   // should likely be turned into DCHECK_CURRENTLY_ON(BrowserThread::UI) for

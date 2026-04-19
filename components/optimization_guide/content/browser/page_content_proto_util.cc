@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/feature_list.h"
+#include "base/logging.h"
 #include "base/notreached.h"
 #include "base/supports_user_data.h"
 #include "base/types/expected.h"
@@ -144,6 +145,10 @@ optimization_guide::proto::ClickabilityReason ConvertClickabilityReason(
       return optimization_guide::proto::CLICKABILITY_REASON_MOUSE_HOVER;
     case blink::mojom::AIPageContentClickabilityReason::kHoverPseudoClass:
       return optimization_guide::proto::CLICKABILITY_REASON_HOVER_PSEUDO_CLASS;
+    case blink::mojom::AIPageContentClickabilityReason::kAriaToggle:
+      return optimization_guide::proto::CLICKABILITY_REASON_ARIA_TOGGLE;
+    case blink::mojom::AIPageContentClickabilityReason::kAriaSelectable:
+      return optimization_guide::proto::CLICKABILITY_REASON_ARIA_SELECTABLE;
   }
   NOTREACHED();
 }
@@ -294,6 +299,14 @@ void ConvertNodeInteractionInfo(
   }
   proto_interaction_info->set_is_focusable(
       mojom_node_interaction_info.is_focusable);
+  proto_interaction_info->set_is_tabbable(
+      mojom_node_interaction_info.is_tabbable);
+  proto_interaction_info->set_has_aria_activedescendant(
+      mojom_node_interaction_info.has_aria_activedescendant);
+  for (int32_t dom_node_id :
+       mojom_node_interaction_info.aria_action_target_node_ids) {
+    proto_interaction_info->add_aria_action_target_node_ids(dom_node_id);
+  }
 
   if (mojom_node_interaction_info.document_scoped_z_order) {
     proto_interaction_info->set_document_scoped_z_order(
@@ -579,6 +592,7 @@ optimization_guide::proto::RedactionDecision ConvertRedactionDecision(
 
 void ConvertFormControlData(
     const blink::mojom::AIPageContentFormControlData& mojom_form_control_data,
+    blink::mojom::AIPageContentRedactionDecision redaction_decision,
     const std::optional<AutofillFieldMetadata>& autofill_metadata,
     optimization_guide::proto::FormControlData* proto_form_control_data) {
   proto_form_control_data->set_form_control_type(
@@ -608,8 +622,11 @@ void ConvertFormControlData(
     }
     proto_select_option->set_is_selected(select_option->is_selected);
   }
+  // Set the deprecated proto field for compatibility. The canonical redaction
+  // decision now lives on `ContentAttributes.redaction_decision`.
+  // TODO(crbug.com/480135178): Remove when consumers are migrated.
   proto_form_control_data->set_redaction_decision(
-      ConvertRedactionDecision(mojom_form_control_data.redaction_decision));
+      ConvertRedactionDecision(redaction_decision));
 
   // Incorporate any information received from Autofill.
   if (autofill_metadata) {
@@ -685,6 +702,8 @@ base::expected<void, std::string> ConvertAttributes(
 
   proto_attributes->set_attribute_type(
       ConvertAttributeType(mojom_attributes.attribute_type));
+  proto_attributes->set_redaction_decision(
+      ConvertRedactionDecision(mojom_attributes.redaction_decision));
 
   // When sensitive payment redaction is enabled, we populate
   // `mojom_attributes.geometry` for form controls that may contain
@@ -767,6 +786,7 @@ base::expected<void, std::string> ConvertAttributes(
     }
     ConvertFormControlData(
         *mojom_attributes.form_control_data,
+        mojom_attributes.redaction_decision,
         GetAutofillFieldData(source_frame_token, session, *proto_attributes),
         proto_attributes->mutable_form_control_data());
   } else if (mojom_attributes.table_data) {
@@ -979,6 +999,19 @@ class Converter {
           return base::ok();
         }
         return base::unexpected("could not find render_frame_info for iframe");
+      }
+
+      // Security check: Verify that the child frame is a child of the current
+      // frame.
+      content::RenderFrameHost* child_rfh =
+          content::RenderFrameHost::FromFrameToken(
+              render_frame_info->global_frame_token);
+      content::RenderFrameHost* parent_rfh =
+          content::RenderFrameHost::FromFrameToken(source_frame_token);
+      if (child_rfh && parent_rfh &&
+          child_rfh->GetParentOrOuterDocument() != parent_rfh) {
+        return base::unexpected(
+            "compromised renderer: iframe is not a child of the current frame");
       }
 
       auto* proto_iframe_data =

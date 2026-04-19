@@ -28,7 +28,6 @@
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "ui/base/l10n/l10n_util.h"
 
-using chrome_test_util::SettingsAccountButton;
 using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsSignInRowMatcher;
 
@@ -61,7 +60,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In identity, then open the Sync Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   // Forget fakeIdentity, screens should be popped back to the Main Settings.
   [ChromeEarlGreyUI waitForAppToIdle];
@@ -85,7 +84,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In fakeIdentity, then open the Account Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity1];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   [SigninEarlGrey forgetFakeIdentity:fakeIdentity2];
 
@@ -113,7 +112,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In fakeIdentity1, then open the Account Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity1];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   // Ensure both identities show up.
   [[EarlGrey
@@ -167,7 +166,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In `fakeIdentity1`, then open the Account Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity1];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   // Tap on Remove fakeIdentity1 button.
   [[EarlGrey
@@ -196,8 +195,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 // identity. And finally the remove identity confirmation dialog is opened a
 // third time to remove a second identity.
 // The goal of this test is to confirm the dialog can be opened several times.
-// TODO(crbug.com/460742009): Test is flaky.
-- (void)FLAKY_testRemoveAccountSeveralTime {
+- (void)testRemoveAccountSeveralTime {
   FakeSystemIdentity* fakeIdentity1 = [FakeSystemIdentity fakeIdentity1];
   FakeSystemIdentity* fakeIdentity2 = [FakeSystemIdentity fakeIdentity2];
   FakeSystemIdentity* fakeIdentity3 = [FakeSystemIdentity fakeIdentity3];
@@ -206,7 +204,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In `fakeIdentity1`, then open the Account Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity1];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   // Open the remove identity confirmation dialog for the first time.
   // Tap on Remove fakeIdentity1 button.
@@ -228,7 +226,8 @@ using chrome_test_util::SettingsSignInRowMatcher;
                     stringByAppendingString:fakeIdentity1.userEmail])]
         performAction:grey_tap()];
   } else {
-    [[EarlGrey selectElementWithMatcher:chrome_test_util::CancelButton()]
+    [[EarlGrey
+        selectElementWithMatcher:chrome_test_util::ActionSheetCancelButton()]
         performAction:grey_tap()];
   }
 
@@ -263,7 +262,7 @@ using chrome_test_util::SettingsSignInRowMatcher;
 
   // Sign In identity, then open the Sync Settings.
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
-  [SigninEarlGreyUI openAccountsListFromSettings];
+  [SigninEarlGreyUI openManageAccountsFromSettings];
 
   for (NSString* cancelButtonId in
            signin::FakeSystemIdentityManagerStaySignedOutButtons()) {

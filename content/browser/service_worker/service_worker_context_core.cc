@@ -461,9 +461,8 @@ ScopedServiceWorkerClient
 ServiceWorkerClientOwner::CreateServiceWorkerClientForWorker(
     ChildProcessId process_id,
     ServiceWorkerClientInfo client_info) {
-  // TODO(crbug.com/379869738) Remove GetUnsafeValue().
-  auto client = std::make_unique<ServiceWorkerClient>(
-      context_->AsWeakPtr(), process_id.GetUnsafeValue(), client_info);
+  auto client = std::make_unique<ServiceWorkerClient>(context_->AsWeakPtr(),
+                                                      process_id, client_info);
   auto weak_client = client->AsWeakPtr();
   auto inserted = service_worker_clients_by_uuid_
                       .emplace(weak_client->client_uuid(), std::move(client))
@@ -951,6 +950,11 @@ void ServiceWorkerContextCore::RemoveLiveVersion(int64_t id) {
   CHECK(it != live_versions_.end());
   ServiceWorkerVersion* version = it->second;
 
+  // Protect `wrapper_` (and `sync_observer_list_`) from being destroyed
+  // during the synchronous observer loop.
+  scoped_refptr<ServiceWorkerContextWrapper> protect_wrapper =
+      base::WrapRefCounted(wrapper_.get());
+
   if (version->running_status() != blink::EmbeddedWorkerStatus::kStopped) {
     // Notify all observers that this live version is stopped, as it will
     // be removed from |live_versions_|.
@@ -1251,6 +1255,12 @@ void ServiceWorkerContextCore::OnRunningStateChanged(
     ServiceWorkerVersion* version) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK_EQ(this, version->context().get());
+
+  // Protect `wrapper_` (and `sync_observer_list_`) from being destroyed
+  // during the synchronous observer loop.
+  scoped_refptr<ServiceWorkerContextWrapper> protect_wrapper =
+      base::WrapRefCounted(wrapper_.get());
+
   switch (version->running_status()) {
     case blink::EmbeddedWorkerStatus::kStopped:
       observer_list_->Notify(FROM_HERE,
@@ -1358,7 +1368,7 @@ void ServiceWorkerContextCore::OnReportConsoleMessage(
   for (auto& observer : sync_observer_list_->observers) {
     observer.OnReportConsoleMessageSync(
         version->embedded_worker() ? version->embedded_worker()->process_id()
-                                   : ChildProcessHost::kInvalidUniqueID,
+                                   : ChildProcessId(),
         version->version_id(), version->scope(), console_message);
   }
 }

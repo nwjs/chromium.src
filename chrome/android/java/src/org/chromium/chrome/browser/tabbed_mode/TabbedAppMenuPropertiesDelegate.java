@@ -43,6 +43,9 @@ import org.chromium.chrome.browser.feed.webfeed.WebFeedFaviconFetcher;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedMainMenuItem;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedSnackbarController;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.hub.HubManager;
+import org.chromium.chrome.browser.hub.Pane;
+import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsController;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
@@ -61,7 +64,6 @@ import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.supervised_user.SupervisedUserServiceBridge;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegate;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuItemState;
 import org.chromium.chrome.browser.toolbar.top.ToolbarUtils;
@@ -143,6 +145,8 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
 
     private final PageZoomMenuItemCoordinator mPageZoomMenuItemCoordinator;
 
+    private final OneshotSupplier<HubManager> mHubManagerSupplier;
+
     public TabbedAppMenuPropertiesDelegate(
             Context context,
             ActivityTabProvider activityTabProvider,
@@ -159,6 +163,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
             OneshotSupplier<IncognitoReauthController> incognitoReauthControllerOneshotSupplier,
             MonotonicObservableSupplier<ReadAloudController> readAloudControllerSupplier,
             PageZoomManager pageZoomManager,
+            OneshotSupplier<HubManager> hubManagerSupplier,
             @Nullable OpenInAppMenuItemProvider openInAppMenuItemProvider) {
         super(
                 context,
@@ -176,6 +181,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         mModalDialogManager = modalDialogManager;
         mSnackbarManager = snackbarManager;
         mPageZoomMenuItemCoordinator = new PageZoomMenuItemCoordinator(pageZoomManager);
+        mHubManagerSupplier = hubManagerSupplier;
 
         incognitoReauthControllerOneshotSupplier.onAvailable(
                 mIncognitoReauthCallbackController.makeCancelable(
@@ -233,12 +239,13 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
 
         if (shouldShowIconRow()) {
             List<PropertyModel> iconModels = new ArrayList<>();
+            if (ChromeFeatureList.sThreeDotMenuBackButton.isEnabled()) {
+                iconModels.add(buildBackwardActionModel(currentTab));
+            }
             iconModels.add(buildForwardActionModel(currentTab));
             iconModels.add(buildBookmarkActionModel(currentTab));
             iconModels.add(buildDownloadActionModel(currentTab));
-            if (ChromeFeatureList.sGlic.isEnabled()) {
-                iconModels.add(buildGlicActionModel(currentTab));
-            } else {
+            if (!ChromeFeatureList.sThreeDotMenuBackButton.isEnabled()) {
                 iconModels.add(buildPageInfoModel(currentTab));
             }
 
@@ -296,14 +303,21 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
             modelList.add(buildHistoryItem());
         }
 
-        // Tinker Tank
-        if (shouldShowTinkerTank()) modelList.add(buildTinkerTankItem());
+        boolean isPageInfoItemShown = shouldShowPageInfoItem();
 
         // Quick Delete
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_IN_APP_MENU)
                 && shouldShowQuickDeleteItem()) {
             modelList.add(buildQuickDeleteItem());
-            maybeAddDividerLine(modelList, R.id.quick_delete_divider_line_id);
+            if (!isPageInfoItemShown) {
+                maybeAddDividerLine(modelList, R.id.quick_delete_divider_line_id);
+            }
+        }
+
+        // Page info
+        if (isPageInfoItemShown) {
+            modelList.add(buildPageInfoItem(currentTab));
+            maybeAddDividerLine(modelList, R.id.page_info_divider_line_id);
         }
 
         // Downloads
@@ -323,7 +337,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_IN_APP_MENU)) {
                 modelList.add(buildExtensionsParentItem());
             } else {
-                modelList.add(buildExtensionsItem());
+                modelList.add(buildExtensionsMenuItem());
             }
         }
 
@@ -524,8 +538,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         }
         modelList.add(buildNewTabGroupItem());
         modelList.add(buildCloseAllTabsItem());
-        if (shouldShowTinkerTank()) modelList.add(buildTinkerTankItem());
-        modelList.add(buildSelectTabsItem());
+        if (shouldShowSelectTabsItem()) modelList.add(buildSelectTabsItem());
         if (shouldShowQuickDeleteItem()) modelList.add(buildQuickDeleteItem());
         modelList.add(buildSettingsItem());
     }
@@ -767,25 +780,11 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         return ExtensionUi.isEnabled(getProfileFromTabModel());
     }
 
-    private MVCListAdapter.ListItem buildExtensionsItem() {
-        assert shouldShowExtensionsItem();
-
-        // The id {@code R.id.extensions_menu_id} is used for both when this flag is enabled and
-        // disabled but in different context.
-        assert !ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_IN_APP_MENU);
-
-        return new MVCListAdapter.ListItem(
-                AppMenuHandler.AppMenuItemType.STANDARD,
-                buildModelForStandardMenuItem(
-                        R.id.extensions_menu_id,
-                        R.string.menu_extensions,
-                        shouldShowIconBeforeItem() ? R.drawable.ic_extension_24dp : 0));
-    }
-
     private MVCListAdapter.ListItem buildExtensionsParentItem() {
         assert shouldShowExtensionsItem();
 
         List<ListItem> submenuItems = new ArrayList<>();
+        submenuItems.add(buildExtensionsMenuItem());
         submenuItems.add(buildManageExtensionsItem());
         submenuItems.add(buildChromeWebstoreItem());
 
@@ -800,6 +799,19 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
                         submenuItems));
     }
 
+    private MVCListAdapter.ListItem buildExtensionsMenuItem() {
+        assert shouldShowExtensionsItem();
+
+        return new MVCListAdapter.ListItem(
+                AppMenuHandler.AppMenuItemType.STANDARD,
+                buildModelForStandardMenuItem(
+                        R.id.extensions_menu_menu_id,
+                        R.string.menu_extensions_menu,
+                        shouldShowIconBeforeItem()
+                                ? R.drawable.ic_extension_24dp
+                                : Resources.ID_NULL));
+    }
+
     private MVCListAdapter.ListItem buildManageExtensionsItem() {
         assert shouldShowExtensionsItem();
 
@@ -810,7 +822,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         return new MVCListAdapter.ListItem(
                 AppMenuHandler.AppMenuItemType.STANDARD,
                 buildModelForStandardMenuItem(
-                        R.id.extensions_menu_id,
+                        R.id.manage_extensions_menu_id,
                         R.string.menu_manage_extensions,
                         shouldShowIconBeforeItem()
                                 ? R.drawable.ic_extension_24dp
@@ -1169,18 +1181,15 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         return new MVCListAdapter.ListItem(AppMenuHandler.AppMenuItemType.STANDARD, model);
     }
 
-    private boolean shouldShowTinkerTank() {
-        return TinkerTankDelegate.isEnabled();
-    }
+    private boolean shouldShowSelectTabsItem() {
+        HubManager hubManager = mHubManagerSupplier.get();
+        if (hubManager == null) return false;
 
-    private MVCListAdapter.ListItem buildTinkerTankItem() {
-        assert shouldShowTinkerTank();
-        return new MVCListAdapter.ListItem(
-                AppMenuHandler.AppMenuItemType.STANDARD,
-                buildModelForStandardMenuItem(
-                        R.id.tinker_tank_menu_id,
-                        R.string.menu_tinker_tank,
-                        shouldShowIconBeforeItem() ? R.drawable.ic_add_box_rounded_corner : 0));
+        Pane focusedPane = hubManager.getPaneManager().getFocusedPaneSupplier().get();
+        if (focusedPane == null) return false;
+
+        return focusedPane.getPaneId() == PaneId.TAB_SWITCHER
+                || focusedPane.getPaneId() == PaneId.INCOGNITO_TAB_SWITCHER;
     }
 
     private MVCListAdapter.ListItem buildSelectTabsItem() {
@@ -1412,9 +1421,9 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
         // Hide the menu on automotive devices.
         if (DeviceInfo.isAutomotive()) return false;
 
-        if (instanceSwitcherWithMultiInstanceEnabled()) {
+        if (isMultiInstanceEnabled()) {
             // Hide the menu if we already have the maximum number of windows.
-            if (MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ACTIVE)
+            if (MultiWindowUtils.getInstanceCount(PersistedInstanceType.ACTIVE)
                     >= MultiWindowUtils.getMaxInstances()) return false;
 
             // On phones, show the menu only when in split-screen, with a single instance
@@ -1425,9 +1434,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
                                     || mMultiWindowModeStateDispatcher.isInMultiDisplayMode()));
         } else {
             if (mMultiWindowModeStateDispatcher.isMultiInstanceRunning()) return false;
-            return (mMultiWindowModeStateDispatcher.canEnterMultiWindowMode()
-                            && isTabletSizeScreen())
-                    || mMultiWindowModeStateDispatcher.isInMultiWindowMode()
+            return mMultiWindowModeStateDispatcher.isInMultiWindowMode()
                     || mMultiWindowModeStateDispatcher.isInMultiDisplayMode();
         }
     }
@@ -1456,7 +1463,7 @@ public class TabbedAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateIm
      * @return Whether the "Move to other window" menu item should be displayed.
      */
     protected boolean shouldShowMoveToOtherWindow() {
-        if (!instanceSwitcherWithMultiInstanceEnabled() && shouldShowNewWindow()) return false;
+        if (!isMultiInstanceEnabled() && shouldShowNewWindow()) return false;
         return mMultiWindowModeStateDispatcher.isMoveToOtherWindowSupported(mTabModelSelector);
     }
 

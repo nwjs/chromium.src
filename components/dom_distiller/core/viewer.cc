@@ -10,7 +10,6 @@
 
 #include "base/feature_list.h"
 #include "base/json/json_writer.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -318,8 +317,7 @@ const std::string GetUnsafeArticleContentJs(
 
 const std::string GetAddToPageJs(const std::string& unsafe_content) {
   std::string output =
-      base::WriteJson(base::Value(EnsureNonEmptyContent(unsafe_content)))
-          .value_or("");
+      base::WriteJson(EnsureNonEmptyContent(unsafe_content)).value_or("");
   return "addToPage(" + output + ");";
 }
 

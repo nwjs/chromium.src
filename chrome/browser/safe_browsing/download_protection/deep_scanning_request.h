@@ -11,6 +11,7 @@
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
@@ -20,7 +21,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/file_opening_job.h"
 #include "chrome/browser/safe_browsing/download_protection/deep_scanning_metadata.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
@@ -37,6 +37,7 @@ namespace safe_browsing {
 
 class DownloadProtectionService;
 class DownloadRequestMaker;
+class FileOpeningJob;
 
 // This class encapsulates the process of uploading a file to Safe Browsing for
 // deep scanning and reporting the result.
@@ -225,6 +226,24 @@ class DeepScanningRequest : public download::DownloadItem::Observer,
       const enterprise_connectors::ContentAnalysisResponse& response,
       DownloadCheckResult& result);
 
+  // Evaluates whether force save to cloud is enabled, and if so, finds the
+  // correct web contents. Modifies `result` to SENSITIVE_CONTENT_BLOCK if the
+  // feature is disabled. Returns the WebContents to use for the dialog, or
+  // nullptr if no dialog should be shown (either because it's not a force save,
+  // the feature is disabled, or no web contents could be found).
+  content::WebContents* MaybeGetWebContentsForForceSave(
+      DownloadCheckResult& result);
+
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+  // Shows the force save to cloud dialog. `file_count` should be 1 for single
+  // file scans. For save package scans, it should be the number of files in
+  // the package.
+  void ShowForceSaveToCloudDialog(base::OnceClosure keep_closure,
+                                  base::OnceClosure discard_closure,
+                                  content::WebContents* web_contents,
+                                  size_t file_count);
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+
   // Metadata for the item being scanned. This is owned by `DeepScanningRequest`
   // and provides an abstraction layer over different types of scan sources
   // (download items, file system access writes).
@@ -269,7 +288,7 @@ class DeepScanningRequest : public download::DownloadItem::Observer,
 
   // Owner of the FileOpeningJob used to safely open multiple files in parallel
   // for save package scans. Always nullptr for non-save package scans.
-  std::unique_ptr<FileOpeningJob> file_opening_job_;
+  scoped_refptr<FileOpeningJob> file_opening_job_;
 
   // The total number of files beings scanned for which OnScanComplete hasn't
   // been called. Once this is 0, FinishRequest should be called and `this`

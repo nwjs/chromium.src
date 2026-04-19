@@ -14,10 +14,12 @@
 #include <string_view>
 #include <utility>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/scoped_observation.h"
@@ -388,6 +390,7 @@ class ExtensionDevToolsClientHost : public content::DevToolsAgentHostClient,
   bool MayAttachToRenderFrameHost(
       content::RenderFrameHost* render_frame_host) override;
   bool MayAttachToURL(const GURL& url, bool is_webui) override;
+  bool MayAccessAllCookies() override;
   bool IsTrusted() override;
   bool MayReadLocalFiles() override;
   bool MayWriteLocalFiles() override;
@@ -662,6 +665,10 @@ bool ExtensionDevToolsClientHost::MayAttachToURL(const GURL& url,
   std::string error;
   return ExtensionMayAttachToURLOrInnerURL(*extension_, profile_, url, nullptr,
                                            &error);
+}
+
+bool ExtensionDevToolsClientHost::MayAccessAllCookies() {
+  return false;
 }
 
 bool ExtensionDevToolsClientHost::IsTrusted() {

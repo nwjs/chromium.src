@@ -6,24 +6,37 @@
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_WEBUI_LOCATION_BAR_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
+#include "chrome/browser/ui/views/omnibox/webui_readonly_omnibox.h"
+#include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
+#include "ui/base/interaction/element_tracker.h"
 
 class Browser;
 class OmniboxController;
+class OmniboxPopupView;
 class PermissionDashboardController;
 class PermissionDashboardView;
+class Profile;
 class WebUIToolbarWebView;
 
 // A LocationBar implementation using WebUI.
 class WebUILocationBar : public LocationBar,
-                         public ContentSettingImageViewDelegate {
+                         public ContentSettingImageViewDelegate,
+                         public WebUIReadOnlyOmnibox::UpdatePropagator,
+                         public OmniboxPopupPresenterDelegate {
  public:
   WebUILocationBar(Browser* browser, LocationBarView::Delegate* delegate);
   ~WebUILocationBar() override;
 
   void Init(WebUIToolbarWebView* toolbar_view);
+
+  // WebUIReadOnlyOmnibox::UpdatePropagator:
+  void PropagateOmniboxUpdate(
+      toolbar_ui_api::mojom::OmniboxViewStatePtr update) override;
 
   // LocationBar:
   void FocusLocation(bool is_user_initiated,
@@ -43,6 +56,7 @@ class WebUILocationBar : public LocationBar,
       override;
   ui::TrackedElement* GetAnchorOrNull() override;
   Browser* GetBrowser() override;
+  Profile* GetProfile() override;
   void OnChanged() override;
   void UpdateWithoutTabRestore() override;
   bool IsInitialized() const override;
@@ -52,6 +66,7 @@ class WebUILocationBar : public LocationBar,
   bool IsEditingOrEmpty() const override;
   void InvalidateLayout() override;
   gfx::Rect Bounds() const override;
+  gfx::Rect BoundsInScreen() const override;
   gfx::Size MinimumSize() const override;
   gfx::Size PreferredSize() const override;
   void Update(content::WebContents* contents) override;
@@ -65,18 +80,29 @@ class WebUILocationBar : public LocationBar,
   ContentSettingBubbleModelDelegate* GetContentSettingBubbleModelDelegate()
       override;
 
+  // OmniboxPopupPresenterDelegate:
+  views::Widget* GetLocationBarWidget() override;
+  OmniboxPopupFileSelector* GetOmniboxPopupFileSelector() const override;
+  OmniboxPopupAimPresenter* GetOmniboxPopupAimPresenter() const override;
+
  private:
+  void OnMoved(ui::TrackedElement* element);
+
   raw_ptr<Browser> browser_ = nullptr;
   raw_ptr<LocationBarView::Delegate> delegate_ = nullptr;
   raw_ptr<WebUIToolbarWebView> toolbar_view_ = nullptr;
+
+  ui::ElementTracker::Subscription moved_subscription_;
 
   std::unique_ptr<PermissionDashboardController>
       permission_dashboard_controller_;
   raw_ptr<PermissionDashboardView> permission_dashboard_view_ = nullptr;
 
   std::unique_ptr<OmniboxController> omnibox_controller_;
-
+  std::unique_ptr<WebUIReadOnlyOmnibox> omnibox_view_;
+  std::unique_ptr<OmniboxPopupView> omnibox_popup_view_;
   bool is_initialized_ = false;
+  base::WeakPtrFactory<WebUILocationBar> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_WEBUI_LOCATION_BAR_H_

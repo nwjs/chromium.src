@@ -44,27 +44,30 @@ class StyleAdjuster {
  public:
   CORE_EXPORT static void AdjustComputedStyle(StyleResolverState&, Element*);
   static void AdjustStyleForCombinedText(ComputedStyleBuilder&);
-  static void AdjustStyleForEditing(ComputedStyleBuilder&, Element*);
   static void AdjustStyleForTextCombine(ComputedStyleBuilder&);
+  static void AdjustStyleForEditing(ComputedStyleBuilder&, Element*);
+  static void AdjustStyleForDisplay(ComputedStyleBuilder&,
+                                    const ComputedStyle& layout_parent_style,
+                                    const Element*,
+                                    Document*);
+
+ private:
   static void AdjustStyleForSvgElement(
       const SVGElement& element,
       const SVGElement* styled_element,
       ComputedStyleBuilder& builder,
       const ComputedStyle& layout_parent_style);
-  static void AdjustStyleForDisplay(ComputedStyleBuilder&,
-                                    const ComputedStyle& layout_parent_style,
-                                    const Element*,
-                                    Document*);
   static void AdjustStyleForHTMLElement(ComputedStyleBuilder&, HTMLElement&);
 
- private:
   static bool IsEditableElement(Element*, const ComputedStyleBuilder&);
   static bool IsPasswordFieldWithUnrevealedPassword(Element*);
   static void AdjustEffectiveTouchAction(ComputedStyleBuilder&,
                                          const ComputedStyle& parent_style,
                                          Element* element,
                                          bool is_svg_root);
-  static void AdjustOverflow(ComputedStyleBuilder&, Element* element);
+  static void AdjustOverflow(ComputedStyleBuilder&,
+                             Element* element,
+                             Document&);
   static void AdjustForForcedColorsMode(ComputedStyleBuilder&, Document&);
   static void AdjustForSVGTextElement(ComputedStyleBuilder&);
 };

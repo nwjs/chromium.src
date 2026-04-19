@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model_states.h"
+#include "chrome/browser/ui/content_settings/content_setting_image_view_delegate.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "components/user_education/common/help_bubble/help_bubble.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -34,24 +35,6 @@ namespace views {
 class BubbleDialogDelegateView;
 }
 
-class ContentSettingImageViewDelegate {
- public:
-  // Delegate should return true if the content setting icon should be hidden.
-  virtual bool ShouldHideContentSettingImage() = 0;
-
-  // Gets the web contents the ContentSettingImageView is for.
-  virtual content::WebContents* GetContentSettingWebContents() = 0;
-
-  // Gets the ContentSettingBubbleModelDelegate for this
-  // ContentSettingImageView.
-  virtual ContentSettingBubbleModelDelegate*
-  GetContentSettingBubbleModelDelegate() = 0;
-
-  // Invoked when a bubble is shown.
-  virtual void OnContentSettingImageBubbleShown(
-      ContentSettingImageModel::ImageType type) const {}
-};
-
 // The ContentSettingImageView displays an icon and optional text label for
 // various content settings affordances in the location bar (i.e. plugin
 // blocking, geolocation).
@@ -60,10 +43,6 @@ class ContentSettingImageView : public IconLabelBubbleView,
   METADATA_HEADER(ContentSettingImageView, IconLabelBubbleView)
 
  public:
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kMediaActivityIndicatorElementId);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kMidiActivityIndicatorElementId);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kMidiSysexActivityIndicatorElementId);
-
   ContentSettingImageView(std::unique_ptr<ContentSettingImageModel> image_model,
                           IconLabelBubbleView::Delegate* parent_delegate,
                           ContentSettingImageViewDelegate* delegate,

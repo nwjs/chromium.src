@@ -52,6 +52,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -106,6 +107,8 @@ public class PrivacySettingsFragmentTest {
 
     public final SigninTestRule mSigninTestRule = new SigninTestRule();
     private static final int RENDER_TEST_REVISION = 2;
+    private static final int WEB_GPU_DISABLED_MESSAGE =
+            R.string.settings_privacy_and_security_advanced_protection_webgpu_disabled_bullet;
 
     @Rule
     public final AdvancedProtectionTestRule mAdvancedProtectionRule =
@@ -195,7 +198,10 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+    @DisableFeatures({
+        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
+        ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION
+    })
     public void testRenderTopView() throws IOException {
         mSettingsActivityTestRule.startSettingsActivity();
         waitForOptionsMenu();
@@ -210,7 +216,10 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+    @DisableFeatures({
+        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
+        ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION
+    })
     public void testRenderBottomView() throws IOException {
         mSettingsActivityTestRule.startSettingsActivity();
         waitForOptionsMenu();
@@ -231,7 +240,10 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+    @DisableFeatures({
+        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
+        ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION
+    })
     public void testRenderWhenPrivacyGuideViewed() throws IOException {
         setPrivacyGuideViewed(true);
         mSettingsActivityTestRule.startSettingsActivity();
@@ -247,7 +259,10 @@ public class PrivacySettingsFragmentTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.SETTINGS_MULTI_COLUMN)
+    @DisableFeatures({
+        ChromeFeatureList.SETTINGS_MULTI_COLUMN,
+        ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION
+    })
     public void testRenderWhenPrivacyGuideNotViewed() throws IOException {
         setPrivacyGuideViewed(false);
         mSettingsActivityTestRule.startSettingsActivity();
@@ -262,6 +277,7 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
+    @DisableFeatures({ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION})
     public void testPrivacySandboxV4View() throws IOException {
         mSettingsActivityTestRule.startSettingsActivity();
         // Scroll down and open Privacy Sandbox page.
@@ -273,6 +289,7 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
+    @DisableFeatures({ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION})
     public void testPrivacySandboxV4RestrictedWithRestrictedNoticeEnabled() throws IOException {
         mFakePrivacySandboxBridge.setRestrictedNoticeEnabled(true);
         mFakePrivacySandboxBridge.setPrivacySandboxRestricted(true);
@@ -290,6 +307,7 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
+    @DisableFeatures({ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION})
     public void testPrivacySandboxV4NotRestrictedWithRestrictedNoticeEnabled() throws IOException {
         mFakePrivacySandboxBridge.setRestrictedNoticeEnabled(true);
         mFakePrivacySandboxBridge.setPrivacySandboxRestricted(false);
@@ -308,6 +326,22 @@ public class PrivacySettingsFragmentTest {
     @LargeTest
     public void testPrivacySandboxV4ViewRestricted() throws IOException {
         mFakePrivacySandboxBridge.setPrivacySandboxRestricted(true);
+        mSettingsActivityTestRule.startSettingsActivity();
+        PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
+        // Scroll down and verify that the Privacy Sandbox is not there.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    RecyclerView recyclerView = fragment.getView().findViewById(R.id.recycler_view);
+                    recyclerView.scrollToPosition(PRIVACY_SANDBOX_V4_POS_IDX);
+                });
+        onView(withText(R.string.ad_privacy_link_row_label)).check(doesNotExist());
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
+    public void testPrivacySandboxV4ViewHiddenWhenDeprecationFeatureEnabled() throws IOException {
+        mFakePrivacySandboxBridge.setPrivacySandboxRestricted(false);
         mSettingsActivityTestRule.startSettingsActivity();
         PrivacySettings fragment = mSettingsActivityTestRule.getFragment();
         // Scroll down and verify that the Privacy Sandbox is not there.
@@ -564,6 +598,69 @@ public class PrivacySettingsFragmentTest {
         scrollToSetting(withText(R.string.prefs_safe_browsing_title));
         onView(withText(R.string.settings_privacy_and_security_advanced_protection_section_title))
                 .check(doesNotExist());
+        String webGpuDisabledString =
+                mSettingsActivityTestRule.getActivity().getString(WEB_GPU_DISABLED_MESSAGE);
+        onView(withText(containsString(webGpuDisabledString))).check(doesNotExist());
+    }
+
+    /**
+     * Test that the webgpu string is not shown and advanced-protection-info is shown when (1)
+     * Advanced-Protection is on AND (2) the AAPM_BLOCKS_WEB_GPU feature is disabled.
+     */
+    @Test
+    @LargeTest
+    @DisableFeatures(ChromeFeatureList.AAPM_BLOCKS_WEB_GPU)
+    public void testWebGpuStringNotShown_AdvancedProtectionOn_FeatureDisabled() {
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(true);
+
+        SharedPreferencesManager preferences = ChromeSharedPreferences.getInstance();
+        preferences
+                .getEditor()
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING)
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME)
+                .apply();
+
+        mSettingsActivityTestRule.startSettingsActivity();
+
+        // "advanced-protection-info" section should be visible
+        scrollToSetting(withText(R.string.prefs_safe_browsing_title));
+        onView(withText(R.string.settings_privacy_and_security_advanced_protection_section_title))
+                .check(matches(isDisplayed()));
+
+        // "webgpu-disabled" string should not be visible
+        String webGpuDisabledString =
+                mSettingsActivityTestRule.getActivity().getString(WEB_GPU_DISABLED_MESSAGE);
+        onView(withText(containsString(webGpuDisabledString))).check(doesNotExist());
+    }
+
+    /**
+     * Test that the webgpu string is shown and advanced-protection-info is shown when (1)
+     * Advanced-Protection is on AND (2) the AAPM_BLOCKS_WEB_GPU feature is enabled.
+     */
+    @Test
+    @LargeTest
+    @EnableFeatures(ChromeFeatureList.AAPM_BLOCKS_WEB_GPU)
+    public void testWebGpuStringShown_AdvancedProtectionOn_FeatureEnabled() {
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(true);
+
+        SharedPreferencesManager preferences = ChromeSharedPreferences.getInstance();
+        preferences
+                .getEditor()
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING)
+                .remove(ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME)
+                .apply();
+
+        mSettingsActivityTestRule.startSettingsActivity();
+
+        // "advanced-protection-info" section should be visible
+        scrollToSetting(withText(R.string.prefs_safe_browsing_title));
+        onView(withText(R.string.settings_privacy_and_security_advanced_protection_section_title))
+                .check(matches(isDisplayed()));
+
+        // "webgpu-disabled" string should also be visible
+        String webGpuDisabledString =
+                mSettingsActivityTestRule.getActivity().getString(WEB_GPU_DISABLED_MESSAGE);
+        onView(withText(containsString(webGpuDisabledString))).check(matches(isDisplayed()));
     }
 
     /**

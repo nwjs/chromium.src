@@ -97,13 +97,9 @@ std::optional<VideoTrackRecorder::CodecProfile> VideoStringTagToCodecProfile(
   for (auto& codecs_tag : codecs_tags) {
     wtf_size_t codecs_start = codecs.find(codecs_tag);
     if (codecs_start != kNotFound) {
-      wtf_size_t codecs_end = codecs.find(",");
+      wtf_size_t codecs_end = codecs.find(',');
       auto codec_id =
-          codecs
-              .Substring(codecs_start,
-                         codecs_end == kNotFound ? UINT_MAX : codecs_end)
-              .StripWhiteSpace()
-              .Ascii();
+          codecs.substr(codecs_start, codecs_end).StripWhiteSpace().Ascii();
       // Do not use lowercase `codecId` here, as `codecId` is case sensitive
       // when parsing.
       if (auto result = media::ParseCodec(codec_id)) {
@@ -117,7 +113,7 @@ std::optional<VideoTrackRecorder::CodecProfile> VideoStringTagToCodecProfile(
 #endif
 
 media::AudioCodec AudioStringToAudioCodec(const String& codecs) {
-  String codecs_str = codecs.LowerASCII();
+  String codecs_str = codecs.ToAsciiLower();
 
   if (codecs_str.contains("opus")) {
     return media::AudioCodec::kOpus;
@@ -161,7 +157,7 @@ bool IsMp4MuxerRequired(const String& type) {
 bool ShouldAddParameterSetsToBitstream(const String& codecs) {
 #if BUILDFLAG(USE_PROPRIETARY_CODECS) || \
     BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-  String codecs_str = codecs.LowerASCII();
+  String codecs_str = codecs.ToAsciiLower();
   return codecs_str.contains("hev1") || codecs_str.contains("avc3");
 #else
   return false;
@@ -176,7 +172,7 @@ bool ShouldAddParameterSetsToBitstream(const String& codecs) {
 // type is returned.
 VideoTrackRecorder::CodecProfile VideoStringToCodecProfile(
     const String& codecs) {
-  String codecs_str = codecs.LowerASCII();
+  String codecs_str = codecs.ToAsciiLower();
   media::VideoCodec codec = media::VideoCodec::kUnknown;
 
   if (codecs_str.contains("vp8")) {
@@ -329,11 +325,11 @@ bool MediaRecorderHandler::CanSupportMimeTypeForCodec(const String& type,
   // after first '.' to do the case insensitive match based on historical
   // logic. For `video/mp4`, and `audio/mp4`, preserve the whole string to do
   // the case sensitive match.
-  String codec_string = String::FromUTF8(codec);
+  String codec_string = String::FromUtf8(codec);
   if (!mp4_mime_type) {
     auto str_index = codec.find_first_of('.');
     if (str_index != std::string::npos) {
-      codec_string = String::FromUTF8(codec.substr(0, str_index));
+      codec_string = String::FromUtf8(codec.substr(0, str_index));
     }
   }
 

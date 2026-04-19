@@ -49,9 +49,9 @@ bool DigitalCredential::userAgentAllowsProtocol(const String& protocol) {
     // protocol[i] returns a UChar (16-bit) to handle all cases safely.
     UChar c = protocol[i];
 
-    if (IsASCIILower(c)) {
+    if (IsAsciiLower(c)) {
       has_lower_alpha = true;
-    } else if (!IsASCIIDigit(c) && c != uchar::kHyphenMinus) {
+    } else if (!IsAsciiDigit(c) && c != uchar::kHyphenMinus) {
       return false;
     }
   }

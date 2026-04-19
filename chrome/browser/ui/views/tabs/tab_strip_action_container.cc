@@ -8,7 +8,6 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/pass_key.h"
@@ -18,12 +17,14 @@
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_passkeys.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -46,6 +47,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/tabs/public/tab_interface.h"
+#include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/animation/tween.h"
@@ -60,10 +62,14 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/feature_list.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
-#include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
+#include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/private_ai/private_ai_service.h"
 #include "chrome/browser/private_ai/private_ai_service_factory.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "components/private_ai/client.h"
 #include "components/private_ai/error_code.h"
 #include "components/private_ai/features.h"
@@ -90,8 +96,7 @@ void EstablishPrivateAiConnection(Profile* profile) {
     return;
   }
   if (base::FeatureList::IsEnabled(private_ai::kPrivateAi) &&
-      base::FeatureList::IsEnabled(
-          contextual_cueing::kZeroStateSuggestionsUsePrivateAi)) {
+      base::FeatureList::IsEnabled(glic::kZeroStateSuggestionsUsePrivateAi)) {
     private_ai::PrivateAiService* private_ai_service =
         private_ai::PrivateAiServiceFactory::GetForProfile(profile);
     if (private_ai_service) {
@@ -254,7 +259,7 @@ void TabStripActionContainer::TabStripNudgeAnimationSession::Show() {
 
 TabStripActionContainer::TabStripActionContainer(
     BrowserWindowInterface* browser_window_interface,
-    tabs::GlicNudgeController* glic_nudge_controller)
+    glic::GlicNudgeController* glic_nudge_controller)
     : AnimationDelegateViews(this),
       locked_expansion_view_(this),
       glic_nudge_controller_(glic_nudge_controller),
@@ -279,7 +284,7 @@ TabStripActionContainer::TabStripActionContainer(
           AddChildView(CreateGlicActorButtonContainer());
       glic_actor_task_icon_ =
           glic_actor_button_container_->AddChildView(CreateGlicActorTaskIcon());
-      glic_actor_task_icon_->SetVisible(false);
+      UpdateGlicActorVisibility(false);
       glic_actor_button_container_->SetVisible(false);
     }
     glic_button_ = AddChildView(CreateGlicButton());
@@ -350,9 +355,92 @@ void TabStripActionContainer::OnTriggerGlicNudgeUI(std::string label) {
   }
 }
 
+void TabStripActionContainer::OnTriggerAnchoredMessage(
+    std::string label,
+    std::string anchored_message_text,
+    std::optional<std::string> prompt_suggestion) {
+  if (GetIsShowingGlicActorTaskIconNudge()) {
+    return;
+  }
+
+  CHECK(glic_button_);
+
+  auto* active_tab = browser_window_interface_->GetActiveTabInterface();
+  if (!active_tab) {
+    return;
+  }
+
+  auto* tab_features = active_tab->GetTabFeatures();
+  if (!tab_features) {
+    return;
+  }
+
+  auto* controller = tab_features->page_action_controller();
+  if (!controller) {
+    return;
+  }
+
+  // Find the ActionItem for contextual cueing, registered at browser
+  // initialization in BrowserActions::InitializeBrowserActions().
+  auto* action =
+      actions::ActionManager::Get().FindAction(kActionGlicContextualCueing);
+  if (!action) {
+    return;
+  }
+
+  // Set the chip text to the cue label.
+  action->SetText(base::UTF8ToUTF16(label));
+  action->SetEnabled(true);
+  action->SetVisible(true);
+  action->SetInvokeActionCallback(base::BindRepeating(
+      [](base::WeakPtr<BrowserWindowInterface> bwi,
+         std::optional<std::string> prompt, actions::ActionItem* item,
+         actions::ActionInvocationContext context) {
+        if (!bwi) {
+          return;
+        }
+        if (auto* glic_service =
+                glic::GlicKeyedService::Get(bwi->GetProfile())) {
+          if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
+            glic::GlicInvokeOptions options(
+                glic::mojom::InvocationSource::kAnchoredContextualCue);
+            if (prompt.has_value()) {
+              options.prompts.push_back(prompt.value());
+            }
+            glic_service->InvokeWithAutoSubmit(
+                glic::InvokeWithAutoSubmitPasskeyProvider::GetPassKey(), tab,
+                std::move(options));
+          }
+        }
+      },
+      browser_window_interface_->GetWeakPtr(), std::move(prompt_suggestion)));
+
+  anchored_message_subscription_ =
+      controller->CreateActionItemSubscription(action);
+  controller->Show(kActionGlicContextualCueing);
+  // The secondary label becomes the anchored message bubble text.
+  controller->SetAnchoredMessageText(kActionGlicContextualCueing,
+                                     base::UTF8ToUTF16(anchored_message_text));
+  controller->SetAnchoredMessageAction(
+      kActionGlicContextualCueing,
+      page_actions::AnchoredMessageActionIconType::kClose, /*model=*/nullptr);
+  controller->ShowAnchoredMessage(kActionGlicContextualCueing);
+}
+
 void TabStripActionContainer::OnHideGlicNudgeUI() {
   CHECK(glic_button_);
   HideTabStripNudge(glic_button_);
+
+  // Also dismiss the anchored message if it was shown via the page action path.
+  anchored_message_subscription_ = {};
+  auto* active_tab = browser_window_interface_->GetActiveTabInterface();
+  if (active_tab) {
+    if (auto* tab_features = active_tab->GetTabFeatures()) {
+      if (auto* controller = tab_features->page_action_controller()) {
+        controller->Hide(kActionGlicContextualCueing);
+      }
+    }
+  }
 }
 
 bool TabStripActionContainer::GetIsShowingGlicNudge() {
@@ -361,7 +449,7 @@ bool TabStripActionContainer::GetIsShowingGlicNudge() {
 
 void TabStripActionContainer::SetGlicShowState(bool show) {
   if (glic_button_) {
-    glic_button_->SetVisible(show);
+    UpdateGlicButtonVisibility(show);
   }
   if (separator_) {
     separator_->SetVisible(show);
@@ -394,8 +482,8 @@ void TabStripActionContainer::ShowGlicActorTaskIcon() {
   }
   glic_button_ =
       glic_actor_button_container_->InsertGlicButton(glic_button_.get());
-  glic_actor_task_icon_->SetVisible(true);
-  glic_actor_button_container_->SetVisible(true);
+  UpdateGlicActorVisibility(true);
+  UpdateGlicButtonVisibility(true);
   glic_button_->Collapse();
   glic_button_->SetSplitButtonCornerStyling();
   UpdateGlicActorButtonContainerBorders();
@@ -591,7 +679,7 @@ void TabStripActionContainer::OnGlicButtonClicked() {
 
   if (glic_button_->GetIsShowingNudge()) {
     glic_nudge_controller_->OnNudgeActivity(
-        tabs::GlicNudgeActivity::kNudgeClicked);
+        glic::GlicNudgeActivity::kNudgeClicked);
   }
 
   ExecuteHideTabStripNudge(glic_button_);
@@ -602,7 +690,7 @@ void TabStripActionContainer::OnGlicButtonClicked() {
 
 void TabStripActionContainer::OnGlicButtonDismissed() {
   glic_nudge_controller_->OnNudgeActivity(
-      tabs::GlicNudgeActivity::kNudgeDismissed);
+      glic::GlicNudgeActivity::kNudgeDismissed);
 
   // Force hide the button when pressed, bypassing locked expansion mode.
   ExecuteHideTabStripNudge(glic_button_);
@@ -943,7 +1031,7 @@ void TabStripActionContainer::FinalizeHideGlicActorTaskIcon() {
     }
     glic_actor_task_icon_->SetIsShowingNudge(false);
   }
-  glic_actor_task_icon_->SetVisible(false);
+  UpdateGlicActorVisibility(false);
   glic_actor_task_icon_->SetTaskIconToDefault();
   glic_button_ = AddChildView(std::move(glic_button_));
   glic_actor_button_container_->SetVisible(false);
@@ -956,6 +1044,36 @@ void TabStripActionContainer::FinalizeHideGlicActorTaskIcon() {
   // Re-add the separator so it's ordered after the GlicButton.
   separator_ = AddChildView(std::move(separator_));
 #endif  // !BUILDFLAG(IS_MAC)
+}
+
+void TabStripActionContainer::UpdateGlicActorVisibility(bool should_show) {
+  if (!glic_actor_task_icon_) {
+    return;
+  }
+
+  bool is_glic_actor_visible =
+      should_show &&
+      !base::FeatureList::IsEnabled(features::kGlicHorizontalTabToolbarButton);
+
+  glic_actor_task_icon_->SetVisible(is_glic_actor_visible);
+}
+
+void TabStripActionContainer::UpdateGlicButtonVisibility(bool should_show) {
+  if (!glic_button_) {
+    return;
+  }
+
+  bool is_glic_visible =
+      should_show &&
+      !base::FeatureList::IsEnabled(features::kGlicHorizontalTabToolbarButton);
+
+  glic_button_->SetVisible(is_glic_visible);
+
+  if (glic_actor_button_container_) {
+    // glic_actor_button_container_ should only be visible at the same time as
+    // glic_button_.
+    glic_actor_button_container_->SetVisible(is_glic_visible);
+  }
 }
 
 BEGIN_METADATA(TabStripActionContainer)

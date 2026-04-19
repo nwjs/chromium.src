@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_DEVICE_REAUTH_CHROMEOS_AUTHENTICATOR_CHROMEOS_H_
 
 #include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
+#include "components/device_reauth/device_reauth_metrics_util.h"
 
 // Enum specifying possible states of biometric authentication availability on
 // ChromeOS. These values are persisted to logs. Entries should not be
@@ -26,6 +26,7 @@ class AuthenticatorChromeOSInterface {
       base::OnceCallback<void(BiometricsStatusChromeOS)>;
   virtual ~AuthenticatorChromeOSInterface() = default;
   virtual void AuthenticateUser(const std::u16string& message,
+                                device_reauth::DeviceAuthSource source,
                                 base::OnceCallback<void(bool)> callback) = 0;
   virtual BiometricsStatusChromeOS CheckIfBiometricsAvailable() = 0;
   virtual void CheckIfPinIsAvailable(
@@ -43,6 +44,7 @@ class AuthenticatorChromeOS : public AuthenticatorChromeOSInterface {
 
   void AuthenticateUser(
       const std::u16string& message,
+      device_reauth::DeviceAuthSource source,
       base::OnceCallback<void(bool)> result_callback) override;
 
   // Returns the status for biometric authentication availability on the

@@ -245,6 +245,14 @@ BASE_FEATURE_PARAM(int,
                    "percent_threshold",
                    15);
 
+BASE_FEATURE(kDiscardOnCommitLimit, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(int,
+                   kDiscardOnCommitLimit_MinAvailablePercent,
+                   &kDiscardOnCommitLimit,
+                   "min_available_percent",
+                   10);
+
 BASE_FEATURE(kResourceAttributionIncludeOrigins,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -300,5 +308,8 @@ BASE_FEATURE(kBrowserProcessAboveNormalPriority,
 // tabs to save memory. This is used to measure the impact of tab discarding on
 // memory usage and user experience compared to other memory saving features.
 BASE_FEATURE(kDisableTabDiscarding, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseLoadingStateToDetectBackgroundTitleOrFaviconUpdate,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace performance_manager::features

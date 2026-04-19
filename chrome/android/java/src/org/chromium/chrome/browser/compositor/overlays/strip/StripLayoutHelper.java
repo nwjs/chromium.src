@@ -14,7 +14,6 @@ import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutU
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.MIN_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.PINNED_TAB_WIDTH_DP;
 import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.TAB_OVERLAP_WIDTH_DP;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.isTabPinningFromStripEnabled;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil.FOLIO_FOOT_LENGTH_DP;
 
 import android.animation.Animator;
@@ -22,7 +21,6 @@ import android.animation.Animator.AnimatorListener;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -65,9 +63,6 @@ import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpenerImpl;
-import org.chromium.chrome.browser.bookmarks.BookmarkModel;
-import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerHost;
@@ -77,7 +72,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.ButtonType;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
-import org.chromium.chrome.browser.compositor.layouts.phone.stack.StackScroller;
+import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorTextButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle.StripLayoutGroupTitleDelegate;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnKeyboardFocusHandler;
@@ -98,9 +93,6 @@ import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
-import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.MediaState;
@@ -119,7 +111,6 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModel.RecentlyClosedEntryType;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabRemover;
@@ -153,8 +144,6 @@ import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.MotionEventUtils;
 import org.chromium.ui.widget.RectProvider;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -422,6 +411,19 @@ public class StripLayoutHelper
                                     /* animate= */ true, /* deferAnimations= */ true);
                     assumeNonNull(pinnedAnimations);
 
+                    // Center tab favicon if pinned.
+                    float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
+                    if (stripTab.getPinnedTabFaviconOffsetX() != targetFaviconOffsetX) {
+                        pinnedAnimations.add(
+                                CompositorAnimator.ofFloatProperty(
+                                        mUpdateHost.getAnimationHandler(),
+                                        stripTab,
+                                        StripLayoutTab.PINNED_TAB_FAVICON_OFFSET,
+                                        stripTab.getPinnedTabFaviconOffsetX(),
+                                        targetFaviconOffsetX,
+                                        ANIM_TAB_RESIZE_MS));
+                    }
+
                     // Animate the moving tab to the pinned boundary. Normally we animate from drawX
                     // to idealX, but if the first unpinned slot is off-screen, a newly unpinned tab
                     // would “fly” toward the strip start. To make it appear to fly into the
@@ -524,7 +526,7 @@ public class StripLayoutHelper
     private final Set<StripLayoutGroupTitle> mClosingGroupTitles = new HashSet<>();
 
     private final TintedCompositorButton mNewTabButton;
-    private final @Nullable TintedCompositorButton mGlicButton;
+    private final @Nullable TintedCompositorTextButton mGlicButton;
     private final @Nullable CompositorButton mModelSelectorButton;
 
     // Layout Constants
@@ -688,25 +690,6 @@ public class StripLayoutHelper
         int EMPTY_SPACE_CONTEXT_MENU = 1;
     }
 
-    // These values are persisted to logs. Entries should not be renumbered and
-    // numeric values should never be reused.
-    // LINT.IfChange(BookmarkAllTabsResult)
-    @IntDef({
-        BookmarkAllTabsResult.SUCCESS,
-        BookmarkAllTabsResult.MODEL_NULL,
-        BookmarkAllTabsResult.TAB_LIST_EMPTY,
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    private @interface BookmarkAllTabsResult {
-        int SUCCESS = 0;
-        int MODEL_NULL = 1;
-        int TAB_LIST_EMPTY = 2;
-
-        int NUM_ENTRIES = 3;
-    }
-
-    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidTabStripBookmarkAllTabsResult)
-
     /**
      * Creates an instance of the {@link StripLayoutHelper}.
      *
@@ -743,7 +726,7 @@ public class StripLayoutHelper
             LayoutUpdateHost updateHost,
             LayoutRenderHost renderHost,
             boolean incognito,
-            @Nullable TintedCompositorButton glicButton,
+            @Nullable TintedCompositorTextButton glicButton,
             @Nullable CompositorButton modelSelectorButton,
             @Nullable TabStripDragHandler tabStripDragHandler,
             View toolbarContainerView,
@@ -1323,7 +1306,12 @@ public class StripLayoutHelper
                 assumeNonNull(mModel);
                 Tab tab = mModel.getTabById(stripTab.getTabId());
                 if (tab != null) {
-                    stripTab.setIsPinned(tab.getIsPinned());
+                    boolean isPinned = tab.getIsPinned();
+                    if (isPinned) {
+                        stripTab.setIsPinned(true);
+                        float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
+                        stripTab.setPinnedTabFaviconOffsetX(targetFaviconOffsetX);
+                    }
                 }
             }
             mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
@@ -1575,9 +1563,7 @@ public class StripLayoutHelper
     }
 
     private void recordPinnedOnlyTabStripUserAction() {
-        if (isTabPinningFromStripEnabled()
-                && !mIsPinnedOnlyStripRecorded
-                && doPinnedTabsOccupyEntireVisibleArea()) {
+        if (!mIsPinnedOnlyStripRecorded && doPinnedTabsOccupyEntireVisibleArea()) {
             mIsPinnedOnlyStripRecorded = true;
             RecordUserAction.record("MobileToolbarPinnedOnlyTabStripSkipInit");
         }
@@ -2691,7 +2677,7 @@ public class StripLayoutHelper
             // Check whether the close button on the hovered tab is being hovered on.
             StripLayoutTabDelegate.updateTabCloseHoverState(hoveredTab, x, y);
         } else {
-            // Check whether new tab button or model selector button is being hovered.
+            // Check whether the model selector, Glic, or new tab button is being hovered.
             updateCompositorButtonHoverState(x, y);
         }
         mUpdateHost.requestUpdate();
@@ -2703,7 +2689,7 @@ public class StripLayoutHelper
      * @param x The x coordinate of the position of the hover move event.
      */
     public void onHoverMove(float x, float y) {
-        // Check whether new tab button or model selector button is being hovered.
+        // Check whether the model selector, Glic, or new tab button is being hovered.
         updateCompositorButtonHoverState(x, y);
 
         StripLayoutTab hoveredTab = getTabAtPosition(x);
@@ -2772,31 +2758,51 @@ public class StripLayoutHelper
         }
     }
 
-    /** Check whether model selector button or new tab button is being hovered. */
+    /** Check whether the model selector, Glic, or new tab button is being hovered. */
     private void updateCompositorButtonHoverState(float x, float y) {
-        boolean isModelSelectorHovered = false;
-        if (mModelSelectorButton != null) {
-            // Model selector button is being hovered.
-            isModelSelectorHovered = mModelSelectorButton.checkClickedOrHovered(x, y);
-            mModelSelectorButton.setHovered(isModelSelectorHovered);
+        boolean isModelSelectorHovered =
+                mModelSelectorButton != null && mModelSelectorButton.checkClickedOrHovered(x, y);
+        boolean isGlicHovered =
+                !isModelSelectorHovered
+                        && mGlicButton != null
+                        && mGlicButton.checkClickedOrHovered(x, y);
+        boolean isNewTabHovered =
+                !isModelSelectorHovered
+                        && !isGlicHovered
+                        && mNewTabButton.checkClickedOrHovered(x, y);
+
+        if (mModelSelectorButton != null && !isModelSelectorHovered) {
+            mModelSelectorButton.setHovered(false);
         }
-        // There's a delay in updating NTB's position/touch target when MSB initially appears on the
-        // strip, taking over NTB's position and moving NTB closer to the tabs. Consequently, hover
-        // highlights are observed on both NTB and MSB. To address this, this check is added to
-        // ensure only one button can be hovered at a time.
-        if (!isModelSelectorHovered) {
-            mNewTabButton.setHovered(mNewTabButton.checkClickedOrHovered(x, y));
-        } else {
+        if (mGlicButton != null && !isGlicHovered) {
+            mGlicButton.setHovered(false);
+        }
+        if (!isNewTabHovered) {
             mNewTabButton.setHovered(false);
+        }
+
+        // There's a delay in updating NTB's position/touch target when the MSB or Glic button
+        // initially appears on the strip, taking over NTB's position and moving NTB closer to the
+        // tabs. Consequently, hover highlights can be observed on multiple buttons. To address
+        // this, we allow only one button to be hovered at a time.
+        if (isModelSelectorHovered) {
+            assumeNonNull(mModelSelectorButton).setHovered(true);
+        } else if (isGlicHovered) {
+            assumeNonNull(mGlicButton).setHovered(true);
+        } else if (isNewTabHovered) {
+            mNewTabButton.setHovered(true);
         }
     }
 
     /** Clear button hover state */
     private void clearCompositorButtonHoverStateIfNotClicked() {
-        mNewTabButton.setHovered(false);
         if (mModelSelectorButton != null) {
             mModelSelectorButton.setHovered(false);
         }
+        if (mGlicButton != null) {
+            mGlicButton.setHovered(false);
+        }
+        mNewTabButton.setHovered(false);
     }
 
     void setTabHoverCardView(StripTabHoverCardView tabHoverCardView) {
@@ -3196,115 +3202,23 @@ public class StripLayoutHelper
     private void showTabStripContextMenu(float xDp, float yDp) {
         if (mTabStripContextMenuCoordinator == null) {
             mTabStripContextMenuCoordinator =
-                    new TabStripContextMenuCoordinator(
-                            mContext,
-                            new TabStripContextMenuDelegate() {
-                                @Override
-                                public void onNewTab() {
-                                    handleNewTabClick(NewTabSource.EMPTY_SPACE_CONTEXT_MENU);
-                                }
-
-                                @Override
-                                public @RecentlyClosedEntryType int getRecentlyClosedEntryType() {
-                                    return (mModel != null)
-                                            ? mModel.getMostRecentlyClosedEntryType()
-                                            : RecentlyClosedEntryType.NONE;
-                                }
-
-                                @Override
-                                public void onReopenClosedEntry() {
-                                    RecordUserAction.record(
-                                            "Android.TabStripMenu.ReopenClosedEntry");
-                                    if (mModel != null) {
-                                        RecordHistogram.recordBooleanHistogram(
-                                                "Android.TabStripMenu.ReopenClosedEntry.Result",
-                                                true);
-                                        mModel.openMostRecentlyClosedEntry();
-                                    } else {
-                                        RecordHistogram.recordBooleanHistogram(
-                                                "Android.TabStripMenu.ReopenClosedEntry.Result",
-                                                false);
-                                    }
-                                }
-
-                                @Override
-                                public int getTabCount() {
-                                    return mModel != null ? mModel.getCount() : 0;
-                                }
-
-                                @Override
-                                public void onBookmarkAllTabs() {
-                                    RecordUserAction.record("Android.TabStripMenu.BookmarkAllTabs");
-                                    if (mModel == null) {
-                                        RecordHistogram.recordEnumeratedHistogram(
-                                                "Android.TabStripMenu.BookmarkAllTabs.Result",
-                                                BookmarkAllTabsResult.MODEL_NULL,
-                                                BookmarkAllTabsResult.NUM_ENTRIES);
-                                        return;
-                                    }
-                                    List<Tab> tabs =
-                                            TabModelUtils.convertTabListToListOfTabs(mModel);
-                                    if (tabs.isEmpty()) {
-                                        RecordHistogram.recordEnumeratedHistogram(
-                                                "Android.TabStripMenu.BookmarkAllTabs.Result",
-                                                BookmarkAllTabsResult.TAB_LIST_EMPTY,
-                                                BookmarkAllTabsResult.NUM_ENTRIES);
-                                        return;
-                                    }
-
-                                    RecordHistogram.recordEnumeratedHistogram(
-                                            "Android.TabStripMenu.BookmarkAllTabs.Result",
-                                            BookmarkAllTabsResult.SUCCESS,
-                                            BookmarkAllTabsResult.NUM_ENTRIES);
-                                    Profile profile = tabs.get(0).getProfile();
-                                    BookmarkModel bookmarkModel =
-                                            BookmarkModel.getForProfile(profile);
-                                    bookmarkModel.finishLoadingBookmarkModel(
-                                            () -> {
-                                                Activity activity =
-                                                        mWindowAndroid.getActivity().get();
-                                                if (activity == null) return;
-                                                BookmarkUtils.addBookmarksOnMultiSelect(
-                                                        activity,
-                                                        bookmarkModel,
-                                                        tabs,
-                                                        mSnackbarManager,
-                                                        new BookmarkManagerOpenerImpl());
-                                            });
-                                }
-
-                                @Override
-                                public void onNameWindow() {
-                                    mMultiInstanceManager.showNameWindowDialog(
-                                            NameWindowDialogSource.TAB_STRIP);
-                                }
-
-                                @Override
-                                public void onPinGlic() {
-                                    RecordUserAction.record("Android.TabStripMenu.PinGlic");
-                                    ChromeSharedPreferences.getInstance()
-                                            .writeBoolean(
-                                                    ChromePreferenceKeys.GLIC_BUTTON_PINNED, true);
-                                }
-
-                                @Override
-                                public void onUnpinGlic() {
-                                    RecordUserAction.record("Android.TabStripMenu.UnpinGlic");
-                                    ChromeSharedPreferences.getInstance()
-                                            .writeBoolean(
-                                                    ChromePreferenceKeys.GLIC_BUTTON_PINNED, false);
-                                }
-                            });
+                    TabStripContextMenuCoordinator.createContextMenuCoordinator(
+                            mModel,
+                            mMultiInstanceManager,
+                            mWindowAndroid,
+                            mSnackbarManager,
+                            () -> handleNewTabClick(NewTabSource.EMPTY_SPACE_CONTEXT_MENU));
         }
 
         // Determine the anchor view rect to position the menu.
         float dpToPx = mContext.getResources().getDisplayMetrics().density;
         RectProvider anchorRectProvider = new RectProvider();
+        int tabWidthPx = Math.round(mCachedTabWidthSupplier.get() * dpToPx);
         anchorRectProvider.setRect(
                 new Rect(
                         Math.round(xDp * dpToPx),
                         Math.round(yDp * dpToPx),
-                        Math.round(xDp * dpToPx),
+                        Math.round(xDp * dpToPx) + tabWidthPx,
                         Math.round(yDp * dpToPx)));
         getAdjustedAnchorRect(anchorRectProvider);
 
@@ -3959,7 +3873,7 @@ public class StripLayoutHelper
             final Tab tab = assumeNonNull(mModel.getTabAt(i));
             final int id = tab.getId();
             final StripLayoutTab oldTab = findTabById(id);
-            boolean isPinned = isTabPinningFromStripEnabled() && tab.getIsPinned();
+            boolean isPinned = tab.getIsPinned();
             tabs[i] = oldTab != null ? oldTab : createStripTab(id, isPinned, tab.getMediaState());
             setAccessibilityDescription(tabs[i], tab);
         }
@@ -5402,7 +5316,8 @@ public class StripLayoutHelper
         anchorView.getAnchorRect(anchorRectProvider.getRect());
         getAdjustedAnchorRect(anchorRectProvider);
         var activity = assertNonNull(mWindowAndroid.getActivity().get());
-        mGlicButtonContextMenuCoordinator.showMenu(anchorRectProvider, activity);
+        mGlicButtonContextMenuCoordinator.showMenu(
+                anchorRectProvider, activity, mCachedTabWidthSupplier.get());
     }
 
     /**
@@ -6064,6 +5979,14 @@ public class StripLayoutHelper
             if (view.isKeyboardFocused()) return (StripLayoutView) view;
         }
         return null;
+    }
+
+    private float calculateTabFaviconOffsetX(StripLayoutTab stripTab) {
+        if (!stripTab.getIsPinned()) {
+            return 0.f;
+        }
+        return ((getCachedTabWidth(true) - stripTab.getFaviconSize()) / 2.f
+                - stripTab.getFaviconPadding());
     }
 
     void startDragAndDropTabForTesting(StripLayoutTab clickedTab, PointF dragStartPointF) {

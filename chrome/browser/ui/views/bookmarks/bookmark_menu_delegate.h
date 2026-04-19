@@ -131,6 +131,11 @@ class BookmarkMenuDelegate : public BookmarkMergedSurfaceServiceObserver,
                        int id,
                        const gfx::Point& p,
                        ui::mojom::MenuSourceType source_type);
+  void RunContextMenuAt(std::vector<int64_t> node_ids,
+                        const gfx::Point& p,
+                        ui::mojom::MenuSourceType source_type,
+                        bool close_on_remove,
+                        bool can_paste);
   bool CanDrag(views::MenuItemView* menu);
   void WriteDragData(views::MenuItemView* sender, ui::OSExchangeData* data);
   int GetDragOperations(views::MenuItemView* sender);
@@ -308,17 +313,6 @@ class BookmarkMenuDelegate : public BookmarkMergedSurfaceServiceObserver,
   views::MenuItemView* UpdateOtherNodeSeparator();
   void BuildOtherNodeMenuHeader(views::MenuItemView* menu);
 
-  // For bookmark folders that are direct children of the bookmarks bar,
-  // we may add items at the start to open all (top level) URLs. These
-  // functions help with the management of those items.
-  void InsertOpenAllCommandItems(views::MenuItemView* menu,
-                                 const BookmarkParentFolder& folder,
-                                 int open_count);
-  void MaybeAppendOpenAllCommandItems(views::MenuItemView* menu,
-                                      const BookmarkParentFolder& folder);
-  void UpdateOpenAllCommands(views::MenuItemView* menu,
-                             const BookmarkParentFolder& folder);
-
   const raw_ptr<Browser> browser_;
   raw_ptr<Profile> profile_;
 
@@ -383,6 +377,8 @@ class BookmarkMenuDelegate : public BookmarkMergedSurfaceServiceObserver,
   base::ScopedObservation<BookmarkMergedSurfaceService,
                           BookmarkMergedSurfaceServiceObserver>
       bookmark_merged_service_observation_{this};
+
+  base::WeakPtrFactory<BookmarkMenuDelegate> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_MENU_DELEGATE_H_

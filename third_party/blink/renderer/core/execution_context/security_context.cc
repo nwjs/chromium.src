@@ -38,8 +38,8 @@
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
+#include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/frame/ad_tracker.h"
 #include "third_party/blink/renderer/core/frame/intervention.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
@@ -243,9 +243,9 @@ SecurityContext::FeatureStatus SecurityContext::IsFeatureEnabled(
   String reporting_endpoint;
   if (!permissions_policy_result) {
     reporting_endpoint =
-        String::FromUTF8(permissions_policy_->GetEndpointForFeature(feature));
+        String::FromUtf8(permissions_policy_->GetEndpointForFeature(feature));
   } else if (!report_only_permissions_policy_result) {
-    reporting_endpoint = String::FromUTF8(
+    reporting_endpoint = String::FromUtf8(
         report_only_permissions_policy_->GetEndpointForFeature(feature));
   }
 

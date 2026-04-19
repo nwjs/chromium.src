@@ -7,6 +7,8 @@
 
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
 
+@class CobrowseContext;
+
 // Coordinator for the "AI Mode" flow.
 @interface AssistantAIMCoordinator : ChromeCoordinator
 

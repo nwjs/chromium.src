@@ -5,6 +5,7 @@
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 #include "base/functional/callback_helpers.h"
@@ -15,6 +16,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/version_info/version_info.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
@@ -39,7 +41,8 @@ BASE_FEATURE(kOnDeviceModelGpuAudioInput, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Minimum VRAM required for audio input support (6GB).
 const base::FeatureParam<int> kOnDeviceModelAudioInputVramMin{
-    &kOnDeviceModelGpuAudioInput, "on_device_model_audio_input_vram_min", 6144};
+    &kOnDeviceModelGpuAudioInput, "on_device_model_audio_input_vram_min",
+    kOnDeviceModelAudioVramMinMb};
 
 // Commandline switch to force a particular performance class.
 const char kOverridePerformanceClassSwitch[] =
@@ -105,7 +108,7 @@ OnDeviceModelPerformanceClass ConvertToOnDeviceModelPerformanceClass(
   }
 }
 
-std::string SyntheticTrialGroupForPerformanceClass(
+std::string_view SyntheticTrialGroupForPerformanceClass(
     OnDeviceModelPerformanceClass performance_class) {
   switch (performance_class) {
     case OnDeviceModelPerformanceClass::kUnknown:
@@ -131,7 +134,7 @@ std::string SyntheticTrialGroupForPerformanceClass(
   }
 }
 
-std::string SyntheticTrialGroupForPerformanceHint(
+std::string_view SyntheticTrialGroupForPerformanceHint(
     proto::OnDeviceModelPerformanceHint performance_hint) {
   switch (performance_hint) {
     case proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_UNSPECIFIED:

@@ -11,10 +11,12 @@
 #include <string>
 #include <vector>
 
+#include "base/check.h"
 #include "base/containers/flat_map.h"
 #include "base/enterprise_util.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/rand_util.h"
 #include "base/sequence_checker.h"
@@ -28,6 +30,7 @@
 #include "chrome/updater/constants.h"
 #include "chrome/updater/crx_downloader_factory.h"
 #include "chrome/updater/external_constants.h"
+#include "chrome/updater/get_updater_scope.h"
 #include "chrome/updater/net/network.h"
 #include "chrome/updater/out_of_process_patcher.h"
 #include "chrome/updater/out_of_process_unzipper.h"

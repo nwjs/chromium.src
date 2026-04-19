@@ -46,7 +46,6 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
 #include "chrome/browser/client_hints/client_hints_factory.h"
@@ -66,8 +65,8 @@
 #include "chrome/browser/notifications/platform_notification_service_factory.h"
 #include "chrome/browser/notifications/platform_notification_service_impl.h"
 #include "chrome/browser/origin_trials/origin_trials_factory.h"
-#include "chrome/browser/password_manager/account_password_store_factory.h"
-#include "chrome/browser/password_manager/profile_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/permissions/permission_manager_factory.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -206,6 +205,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/secure_channel/secure_channel_client_provider.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
@@ -218,7 +218,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/profile_key_startup_accessor.h"
-#include "chrome/browser/password_manager/password_manager_settings_service_factory.h"
+#include "chrome/browser/password_manager/factories/password_manager_settings_service_factory.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #else
 #include "chrome/browser/accessibility/ax_main_node_annotator_controller_factory.h"
@@ -261,6 +261,11 @@
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #endif
+
+#if BUILDFLAG(IS_LINUX)
+#include "chrome/browser/gapis/gapis_service_factory.h"
+#include "components/gapis/gapis_service.h"
+#endif  // BUILDFLAG(IS_LINUX)
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -521,9 +526,8 @@ ProfileImpl::ProfileImpl(
         std::move(shared_url_loader_factory), path_,
         base::DoNothing() /* initialization_callback */);
 
-    auto* account_manager = g_browser_process->platform_part()
-                                ->GetAccountManagerFactory()
-                                ->GetAccountManager(path_.value());
+    auto* account_manager =
+        ash::AccountManagerFactory::Get()->GetAccountManager(path_.value());
     account_manager->SetPrefService(GetPrefs());
   }
 #endif
@@ -785,6 +789,14 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
     new BookmarkModelLoadedObserver(this, model);
   }
 #endif
+
+#if BUILDFLAG(IS_LINUX)
+  // Bootstrap and initialize the Gapis service.
+  if (gapis::GapisService* gapis_service =
+          GapisServiceFactory::GetForProfile(this)) {
+    gapis_service->FetchAppTokenIfNeeded();
+  }
+#endif  // BUILDFLAG(IS_LINUX)
 
   // The ad service might not be available for some irregular profiles, like the
   // System Profile.
@@ -1539,7 +1551,9 @@ void ProfileImpl::OnLogin() {
 }
 
 void ProfileImpl::InitChromeOSPreferences() {
-  chromeos_preferences_ = std::make_unique<ash::Preferences>();
+  chromeos_preferences_ = std::make_unique<ash::Preferences>(
+      g_browser_process->local_state(),
+      g_browser_process->GetFeatures()->application_locale_storage());
   chromeos_preferences_->Init(
       this, ash::ProfileHelper::Get()->GetUserByProfile(this));
 }
@@ -1568,7 +1582,7 @@ bool ProfileImpl::IsSignedIn() {
       IdentityManagerFactory::GetForProfile(this);
   // TODO(crbug.com/348368545): Switch to ConsentLevel::kSignin on ChromeOS.
   signin::ConsentLevel consent_level =
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
+      syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
           ? signin::ConsentLevel::kSignin
           : signin::ConsentLevel::kSync;
   return identity_manager && identity_manager->HasPrimaryAccount(consent_level);

@@ -34,6 +34,10 @@ class CORE_EXPORT HTMLBaseElement final : public HTMLElement {
  public:
   explicit HTMLBaseElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLBaseElement;
+  }
+
   String href() const;
   void setHref(const AtomicString&);
 

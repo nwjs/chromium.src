@@ -6,6 +6,7 @@
 #define COMPONENTS_ACCESSIBILITY_ANNOTATOR_CONTENT_CONTENT_ANNOTATOR_CONTENT_ANNOTATOR_SERVICE_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/containers/lru_cache.h"
@@ -35,6 +36,7 @@ struct LanguageDetectionDetails;
 namespace accessibility_annotator {
 
 class ContentClassifier;
+class ContentAnnotationValidator;
 
 class ContentAnnotatorService
     : public KeyedService,
@@ -104,7 +106,8 @@ class ContentAnnotatorService
       AccessibilityAnnotatorBackend& accessibility_annotator_backend,
       passage_embeddings::Embedder* embedder,
       passage_embeddings::EmbedderMetadataProvider* embedder_metadata_provider,
-      std::unique_ptr<ContentClassifier> content_classifier);
+      std::unique_ptr<ContentClassifier> content_classifier,
+      std::unique_ptr<ContentAnnotationValidator> validator);
 
  private:
   using CacheIterator =
@@ -121,11 +124,16 @@ class ContentAnnotatorService
   // Generates annotations for the given URL based on the provided
   // `page_context`.
   void GenerateAnnotations(optimization_guide::proto::PageContext page_context,
-                           const GURL& url);
+                           const GURL& url,
+                           std::optional<int> tab_id,
+                           base::DictValue classifier_results);
 
   // Handles the result of the model execution from `GenerateAnnotations`.
   void HandleModelExecutionResult(
       const GURL& url,
+      std::optional<int> tab_id,
+      std::string page_title,
+      base::DictValue classifier_results,
       optimization_guide::OptimizationGuideModelExecutionResult result,
       std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry);
 
@@ -173,6 +181,7 @@ class ContentAnnotatorService
   SEQUENCE_CHECKER(sequence_checker_);
 
   std::unique_ptr<ContentClassifier> content_classifier_;
+  std::unique_ptr<ContentAnnotationValidator> validator_;
 
   base::WeakPtrFactory<ContentAnnotatorService> weak_ptr_factory_{this};
 };

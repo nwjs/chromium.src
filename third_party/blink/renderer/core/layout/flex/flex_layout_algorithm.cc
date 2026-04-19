@@ -28,7 +28,6 @@
 #include "third_party/blink/renderer/core/layout/layout_input_node.h"
 #include "third_party/blink/renderer/core/layout/length_utils.h"
 #include "third_party/blink/renderer/core/layout/logical_box_fragment.h"
-#include "third_party/blink/renderer/core/layout/logical_fragment.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/space_utils.h"
 #include "third_party/blink/renderer/core/layout/table/table_node.h"
@@ -1075,8 +1074,7 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
         // being greater than the specified-size.
         //
         // We'll never shrink a flex-item under the conditions specified below.
-        if (RuntimeEnabledFeatures::LayoutFlexCacheFixEnabled() &&
-            min_length_in_main_axis.IsAuto() &&
+        if (min_length_in_main_axis.IsAuto() &&
             specified_size_suggestion <= base_border_size) {
           // If flex-shrink is zero we can't shrink.
           if (flex_shrink == 0.f) {
@@ -2588,7 +2586,8 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
       gap_accumulator->BuildGapsForCurrentItem(
           (*flex_lines)[flex_line_idx], flex_line_idx, offset,
           is_first_item_in_line, is_last_item_in_line, is_last_line,
-          line_cross_start, line_cross_end, container_main_end);
+          line_cross_start, line_cross_end, container_main_end,
+          /*in_fragmentation=*/true);
 
       if (!is_column_ && is_last_item_in_line &&
           has_inflow_child_break_inside_line[flex_line_idx] && !is_last_line) {
@@ -2800,6 +2799,7 @@ FlexLayoutAlgorithm::ComputeMinMaxSizeOfMultilineColumnContainer() {
 }
 
 MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer() {
+  DCHECK(!is_column_);
   MinMaxSizes container_sizes;
   bool depends_on_block_constraints = false;
 
@@ -2918,25 +2918,26 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizes(
           Node(), BorderScrollbarPadding()))
     return *result;
 
-  if (is_column_ && is_multi_line_) {
-    return ComputeMinMaxSizeOfMultilineColumnContainer();
-  }
-
-  if (RuntimeEnabledFeatures::LayoutFlexNewRowAlgorithmEnabled() &&
-      !is_column_) {
+  if (!is_column_) {
     return ComputeMinMaxSizeOfRowContainer();
   }
 
+  if (is_multi_line_) {
+    return ComputeMinMaxSizeOfMultilineColumnContainer();
+  }
+
+  // Calculate for non-wrappable column items. Although the
+  // ComputeMinMaxSizeOfMultilineColumnContainer() machinery would be fully
+  // capable of handling this scenario as well, we have a fast-path for
+  // performance reasons. See crrev.com/c/7661041
   MinMaxSizes sizes;
   bool depends_on_block_constraints = false;
 
-  int number_of_items = 0;
   FlexChildIterator iterator(Node());
   for (BlockNode child = iterator.NextChild(); child;
        child = iterator.NextChild()) {
     if (child.IsOutOfFlowPositioned())
       continue;
-    number_of_items++;
 
     const ConstraintSpace space = BuildSpaceForIntrinsicInlineSize(
         child, ResolvedAlignSelf(child.Style()));
@@ -2947,24 +2948,8 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizes(
     child_result.sizes += child_margins.InlineSum();
 
     depends_on_block_constraints |= child_result.depends_on_block_constraints;
-    if (is_column_) {
-      sizes.min_size = std::max(sizes.min_size, child_result.sizes.min_size);
-      sizes.max_size = std::max(sizes.max_size, child_result.sizes.max_size);
-    } else {
-      sizes.max_size += child_result.sizes.max_size;
-      if (is_multi_line_) {
-        sizes.min_size = std::max(sizes.min_size, child_result.sizes.min_size);
-      } else {
-        sizes.min_size += child_result.sizes.min_size;
-      }
-    }
-  }
-  if (!is_column_ && number_of_items > 0) {
-    LayoutUnit gap_inline_size = (number_of_items - 1) * gap_between_items_;
-    sizes.max_size += gap_inline_size;
-    if (!is_multi_line_) {
-      sizes.min_size += gap_inline_size;
-    }
+    sizes.min_size = std::max(sizes.min_size, child_result.sizes.min_size);
+    sizes.max_size = std::max(sizes.max_size, child_result.sizes.max_size);
   }
   sizes.max_size = std::max(sizes.max_size, sizes.min_size);
 
@@ -3143,8 +3128,10 @@ const LayoutResult* FlexLayoutAlgorithm::RelayoutWithNewRowSizes() {
 
   LayoutAlgorithmParams params(Node(),
                                container_builder_.InitialFragmentGeometry(),
-                               GetConstraintSpace(), GetBreakToken(),
-                               early_break_, additional_early_breaks_);
+                               GetConstraintSpace());
+  params.break_token = GetBreakToken();
+  params.early_break = early_break_;
+  params.additional_early_breaks = additional_early_breaks_;
   FlexLayoutAlgorithm algorithm_with_row_cross_sizes(params,
                                                      &row_cross_size_updates_);
   auto& new_builder = algorithm_with_row_cross_sizes.container_builder_;

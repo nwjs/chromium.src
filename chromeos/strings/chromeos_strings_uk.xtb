@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Введіть запит</translation>
 <translation id="115705039208660697">ананаси</translation>
 <translation id="1164939766849482256">Заставка "Від світанку до заходу сонця"</translation>
-<translation id="1167755866710282443">Відкрийте меню, щоб налаштувати клавіші. Щоб перемістити меню, перетягніть його.</translation>
 <translation id="1171349345463658120">піщана лагуна</translation>
 <translation id="1174073918202301297">Ярлик додано</translation>
 <translation id="11743817593307477">За допомогою клавіш зі стрілками перемістіть цей елемент керування до потрібної дії в грі. Щоб розмістити елемент керування, натисніть клавішу Enter. Щоб скасувати, натисніть клавішу Escape.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Замінити файл</translation>
 <translation id="2006864819935886708">Підключення</translation>
 <translation id="2008685064673031089">Пошук Prime</translation>
-<translation id="2011174342667534258">Версія пакета SDK:</translation>
 <translation id="2016697457005847575">Виконайте дії для вирішення проблеми</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">столові прибори</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Панель керування для опції "Прив’язка клавіш"</translation>
 <translation id="3217462202230355157">Перевірте, чи підключено мікрофон, або перезапустіть пристрій <ph name="DEVICE_TYPE" /></translation>
 <translation id="3226405216343213872">Пошук сканерів</translation>
-<translation id="3226657629376379887">Меню дій для макета</translation>
 <translation id="3227186760713762082">Поділіть значення "<ph name="CATEGORY_TEXT" />" на <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">цифрове мистецтво</translation>
 <translation id="3246869037381808805">Завдання друку, старіші за 1 день, буде вилучено</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Напрямок ключа</translation>
 <translation id="3294437725009624529">Гість</translation>
 <translation id="3303855915957856445">Немає результатів</translation>
-<translation id="3305294846493618482">більше</translation>
 <translation id="3310640316857623290">Затримка DNS значно довша, ніж дозволено</translation>
 <translation id="3316495615885967552">Модель для створення підсумку й назви завантажено</translation>
 <translation id="3321030238473337787">Швидкість відтворення</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Сталася помилка. Повторіть спробу.</translation>
 <translation id="357889014807611375">Wi-Fi із тарифікацією трафіку</translation>
 <translation id="3583278742022654445">Низький рівень сигналу. Підійдіть ближче до джерела сигналу Wi-Fi.</translation>
+<translation id="3586931643579894722">Сховати докладні дані</translation>
 <translation id="3588034708467091142">Переконайтеся, що пристрій підключено до Інтернету, і повторіть спробу.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> – зручна назва для додатка <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Акумулятор заряджено</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Перемотати назад на 10 с</translation>
 <translation id="4128271910628504223">Введіть запит, наприклад "намалюй туманний ліс"</translation>
 <translation id="4130035430755296270">Продовжуйте наводити курсор на варіанти макета</translation>
-<translation id="4130750466177569591">Прийняти</translation>
 <translation id="4131410914670010031">Чорно-білий</translation>
 <translation id="4137700675046373159">у суботу</translation>
 <translation id="4139326893730851150">Оновлення мікропрограми</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Tab</translation>
 <translation id="5612205513582918357">Додаток Інструменти для уроків показує ваш екран на дисплеї <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Ви вийшли з облікового запису</translation>
-<translation id="5620281292257375798">Лише для внутрішнього використання</translation>
 <translation id="5628106863521633649">Доступні мови</translation>
 <translation id="5630438231335788050">баухаус</translation>
 <translation id="5631759159893697722">автореферат</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">видалити перед курсором</translation>
 <translation id="6137614725462089991">кіберпанк</translation>
 <translation id="6137767437444130246">Сертифікат користувача</translation>
+<translation id="6140948187512243695">Показати докладні дані</translation>
 <translation id="6146993107019042706">Щоб завершити, введіть новий пароль</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Не вдається під'єднати пристрій до Інтернету</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Цим пристроєм <ph name="DEVICE_TYPE" /> керує <ph name="MANAGER" />. Адміністратори можуть віддалено налаштовувати його.</translation>
 <translation id="7180611975245234373">Оновити</translation>
 <translation id="7180865173735832675">Налаштувати</translation>
-<translation id="7184043045742675738">Щоб налаштувати кнопку, натисніть будь-яку клавішу. Змініть положення клавіші за допомогою миші або стрілок.</translation>
 <translation id="7187669805838282391">у середу</translation>
 <translation id="7205318498545665455">Виберіть мікрофон</translation>
-<translation id="7206979415662233817">Умови використання</translation>
 <translation id="7210635925306941239">ціанового</translation>
 <translation id="7212547870105584639">Керуйте налаштуваннями APN мережі: за допомогою ідентифікаторів APN установлюється зв’язок між мобільною мережею і Інтернетом. <ph name="BEGIN_LINK_LEARN_MORE" />Докладніше<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Оновлення мікропрограми для зовнішніх пристроїв</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">зеленого й ціанового</translation>
 <translation id="7328475450575141167">стреліція</translation>
-<translation id="7331297744262591636">Застосовувати цю функцію можуть лише особи, які досягли 18-річного віку й погодилися, що користування шпалерами від ШІ регулюється <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Загальними положеннями й умовами Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> і <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Додатковими умовами використання генеративного штучного інтелекту<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          За допомогою ШІ можна створювати шпалери лише для особистого некомерційного використання. Коли ви запитуєте генерування шпалер, текст надсилається на сервери ШІ від Google, як описано в <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Політиці конфіденційності Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Докладніше<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />. Щоб переглянути результат у Пошуку Google, натисніть клавішу пошуку та пробіл.</translation>
 <translation id="7343649194310845056">Мережеві пристрої</translation>
 <translation id="7344788170842919262">землистих</translation>
 <translation id="7346768383111016081">Виберіть клавішу для дії, щоб грати за допомогою клавіатури</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">Налаштування введення</translation>
 <translation id="7595982850646262331">Ще <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">Адміністратор <ph name="MANAGER" /> налаштував, коли можна використовувати цей пристрій <ph name="DEVICE_TYPE" />.</translation>
-<translation id="7613724632293948900">Змініть положення за допомогою клавіш миші або стрілок.</translation>
 <translation id="7618216277886673749">Вибрати таку мову: <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Нейтральні кольори</translation>
 <translation id="7620771111601174153">Дізнатися більше в Довідковому центрі</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">Використовуйте ШІ від Google, щоб бути продуктивнішими</translation>
 <translation id="8200772114523450471">Відновити</translation>
 <translation id="8206859287963243715">Мобільний</translation>
+<translation id="8208043093301544621">Головна</translation>
 <translation id="8208861521865154048">Бонуси</translation>
 <translation id="8226628635270268143">Вибрати улюблені фотографії й альбоми</translation>
 <translation id="8227119283605456246">Вкласти файл</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Використати це відео</translation>
-<translation id="9087578468327036362">Повідомити про проблеми із запитом</translation>
 <translation id="9088306295921699330">Використовується</translation>
 <translation id="9088994563996376283">Спростити</translation>
 <translation id="9095775724867566971">PluginVM</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">Фонове зображення, вибране для камери</translation>
 <translation id="9211490828691860325">Усі робочі столи</translation>
 <translation id="9218016617214286986">Показати відомі APN</translation>
-<translation id="932327136139879170">Домашня сторінка</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Надіслати відгук</translation>
 <translation id="950520315903467048">Відсутня клавіша для такої дії: <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

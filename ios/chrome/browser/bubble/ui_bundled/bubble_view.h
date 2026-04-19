@@ -18,8 +18,6 @@ typedef NS_ENUM(NSInteger, BubblePageControlPage);
 
 // User tapped on the close button.
 - (void)didTapCloseButton;
-// User tapped on the snooze button.
-- (void)didTapSnoozeButton;
 // User tapped on the next button.
 - (void)didTapNextButton;
 
@@ -36,7 +34,6 @@ typedef NS_ENUM(NSInteger, BubblePageControlPage);
                    alignment:(BubbleAlignment)alignment
             showsCloseButton:(BOOL)shouldShowCloseButton
                        title:(NSString*)titleString
-           showsSnoozeButton:(BOOL)shouldShowSnoozeButton
              showsNextButton:(BOOL)showsNextButton
                         page:(BubblePageControlPage)page
                textAlignment:(NSTextAlignment)textAlignment
@@ -71,6 +68,10 @@ typedef NS_ENUM(NSInteger, BubblePageControlPage);
 // then `alignmentOffset` is ignored. `alignmentOffset` changes the minimum size
 // of the bubble, thus might change the value of `sizeThatFits`.
 @property(nonatomic) CGFloat alignmentOffset;
+
+// Sets the maximum content size category for the bubble view. If set, the
+// bubble view will not scale its text beyond this category.
+@property(nonatomic, copy) UIContentSizeCategory maximumContentSizeCategory;
 
 @end
 

@@ -229,7 +229,7 @@ void EventHandlerTest::SetUp() {
 
 void EventHandlerTest::SetHtmlInnerHTML(const char* html_content) {
   GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-      String::FromUTF8(html_content));
+      String::FromUtf8(html_content));
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -1188,7 +1188,7 @@ TEST_F(EventHandlerTest, MisspellingContextMenuEvent) {
   ASSERT_TRUE(Selection().IsHandleVisible());
 
   GetDocument().GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
-      nullptr, kMenuSourceTouchHandle);
+      nullptr, ui::mojom::blink::MenuSourceType::kTouchHandle);
 
   ASSERT_TRUE(Selection().GetSelectionInDOMTree().IsCaret());
   ASSERT_TRUE(Selection().IsHandleVisible());
@@ -1713,7 +1713,7 @@ class EventHandlerLatencyTest : public PageTestBase {
 
   void SetHtmlInnerHTML(const char* html_content) {
     GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-        String::FromUTF8(html_content));
+        String::FromUtf8(html_content));
     UpdateAllLifecyclePhasesForTest();
   }
 
@@ -3564,7 +3564,7 @@ TEST_F(EventHandlerSimTest, DiscardEventsToRecentlyMovedIframe) {
   EXPECT_NE(event_result, WebInputEventResult::kHandledSuppressed);
 
   Element* iframe =
-      GetDocument().getElementById(AtomicString::FromUTF8("iframe"));
+      GetDocument().getElementById(AtomicString::FromUtf8("iframe"));
   ASSERT_TRUE(iframe);
 
   // Move iframe, but within the threshold for discarding. Events should not be
@@ -3670,10 +3670,11 @@ TEST_F(EventHandlerSimTest, ValidClickPointerIdForUnseenPointerEvent) {
 TEST_F(EventHandlerSimTest, GestureTapHoverState) {
   ResizeView(gfx::Size(800, 600));
 
-  // With this feature enabled, RecomputeMouseHoverState() fires synthetic
-  // mouse events for inactive pages. If the feature is disabled, we need to
-  // focus the page to avoid the early exit in RecomputeMouseHoverState().
-  // See crbug.com/385474535 for more details.
+  // With this feature enabled, RecomputeMouseHoverStateIfNeeded() fires
+  // synthetic mouse events for inactive pages. If the feature is disabled, we
+  // need to focus the page to avoid the early exit in
+  // RecomputeMouseHoverStateIfNeeded(). See crbug.com/385474535 for more
+  // details.
   if (!RuntimeEnabledFeatures::SyntheticMouseHoverOverInactivePageEnabled()) {
     GetPage().SetFocused(true);
   }
@@ -3700,7 +3701,7 @@ TEST_F(EventHandlerSimTest, GestureTapHoverState) {
 
   auto ColorOf = [](const LayoutObject* lo) {
     const auto& bg_color_prop = GetCSSPropertyBackgroundColor();
-    Color color = lo->Style()->VisitedDependentColor(bg_color_prop);
+    Color color = lo->StyleRef().VisitedDependentColor(bg_color_prop);
     return color.SerializeAsCSSColor();
   };
   String rgb_white = "rgb(255, 255, 255)";
@@ -3726,11 +3727,9 @@ TEST_F(EventHandlerSimTest, GestureTapHoverState) {
 }
 
 // Tests LocalFrameFromTargetNode for HTMLPlugInElement (object tag).
-// Verifies that when DragAndDropPluginElementSupport is enabled, the function
-// returns a non-null LocalFrame from an object element.
+// Verifies that the function returns a non-null LocalFrame from an object
+// element.
 TEST_F(EventHandlerSimTest, LocalFrameFromPluginElementForTesting) {
-  ScopedDragAndDropPluginElementSupportForTest feature_scope(true);
-
   WebView().MainFrameViewWidget()->Resize(gfx::Size(400, 400));
   SimRequest main_resource("https://example.com/test.html", "text/html");
   SimRequest object_resource("https://example.com/object.html", "text/html");
@@ -3758,8 +3757,8 @@ TEST_F(EventHandlerSimTest, LocalFrameFromPluginElementForTesting) {
                            ->GetEventHandler()
                            .LocalFrameFromTargetNodeForTesting(target);
 
-  // With DragAndDropPluginElementSupport enabled, LocalFrameFromTargetNode
-  // should return a non-null LocalFrame for object elements
+  // LocalFrameFromTargetNode should return a non-null LocalFrame for object
+  // elements
   ASSERT_NE(result, nullptr)
       << "LocalFrameFromTargetNode should return a LocalFrame for "
       << "object elements";

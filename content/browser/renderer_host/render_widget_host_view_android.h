@@ -10,6 +10,7 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 
 #include "base/android/jni_android.h"
 #include "base/callback_list.h"
@@ -38,8 +39,8 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/render_frame_host.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/blink/public/common/page/content_to_visible_time_request.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-forward.h"
-#include "third_party/blink/public/mojom/widget/record_content_to_visible_time_request.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/android/delegated_frame_host_android.h"
 #include "ui/android/view_android.h"
@@ -200,6 +201,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   uint32_t GetCaptureSequenceNumber() const override;
   int GetMouseWheelMinimumGranularity() const override;
   void UpdateCursor(const ui::Cursor& cursor) override;
+  void DisplayCursor(const ui::Cursor& cursor) override;
   input::CursorManager* GetCursorManager() override;
   void SetIsLoading(bool is_loading) override;
   void FocusedNodeChanged(bool is_editable_node,
@@ -257,8 +259,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       gfx::PointF* transformed_point) override;
   bool IsTouchSequencePotentiallyActiveOnViz() override;
   void RequestInputBackForDragAndDrop(
+      WeakDocumentPtr source_document,
       blink::mojom::DragDataPtr drag_data,
-      const url::Origin& source_origin,
       blink::DragOperationsMask drag_operations_mask,
       SkBitmap bitmap,
       gfx::Vector2d cursor_offset_in_dip,
@@ -311,7 +313,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void OnAttachCompositor() override;
   void OnDetachCompositor() override;
   void OnAnimate(base::TimeTicks begin_frame_time) override;
-  void OnUnfoldStarted(base::TimeTicks unfold_begin_time) override;
   void OnActivityStopped() override;
   void OnActivityStarted() override;
 
@@ -513,11 +514,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void OverrideDisplayFeatureForEmulation(
       const DisplayFeature* display_feature) override;
   void NotifyHostAndDelegateOnWasShown(
-      blink::mojom::RecordContentToVisibleTimeRequestPtr visible_time_request)
-      final;
+      std::optional<blink::RecordContentToVisibleTimeRequest>
+          visible_time_request) final;
   void RequestSuccessfulPresentationTimeFromHostOrDelegate(
-      blink::mojom::RecordContentToVisibleTimeRequestPtr visible_time_request)
-      final;
+      blink::RecordContentToVisibleTimeRequest visible_time_request) final;
   void CancelSuccessfulPresentationTimeRequestForHostAndDelegate() final;
   void EnterFullscreenMode(
       const blink::mojom::FullscreenOptions& options) override;

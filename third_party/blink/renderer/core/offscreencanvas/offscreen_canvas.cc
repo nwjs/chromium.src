@@ -12,6 +12,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_element_elementimage.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/offscreen_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -20,11 +21,13 @@
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/geometry/dom_matrix.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_async_blob_creator.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_factory.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_resource_tracker.h"
+#include "third_party/blink/renderer/core/html/canvas/element_image.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/canvas/ukm_parameters.h"
 #include "third_party/blink/renderer/core/html/canvas/unique_font_selector.h"
@@ -37,6 +40,7 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -152,7 +156,10 @@ void OffscreenCanvas::SetSize(gfx::Size size) {
   if (size == Size()) {
     if (context_ && context_->IsRenderingContext2D()) {
       context_->Reset();
+      dirty_rect_for_commit_ = SkIRect::MakeWH(Size().width(), Size().height());
       origin_clean_ = true;
+      // We need to trigger the draw, because we did reset the context.
+      context_->DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
     }
     return;
   }
@@ -172,8 +179,11 @@ void OffscreenCanvas::SetSize(gfx::Size size) {
     } else if (context_->IsRenderingContext2D() ||
                context_->IsImageBitmapRenderingContext()) {
       context_->Reset();
-      origin_clean_ = true;
+      if (context_->IsRenderingContext2D()) {
+        origin_clean_ = true;
+      }
     }
+    dirty_rect_for_commit_ = SkIRect::MakeWH(Size().width(), Size().height());
     context_->DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
   }
 }
@@ -282,6 +292,32 @@ ScriptPromise<ImageBitmap> OffscreenCanvas::CreateImageBitmap(
           ? MakeGarbageCollected<ImageBitmap>(this, crop_rect, options)
           : nullptr,
       options, exception_state);
+}
+
+DOMMatrix* OffscreenCanvas::getElementTransform(
+    const V8UnionElementOrElementImage* element_or_image,
+    DOMMatrix* draw_transform,
+    ExceptionState& exception_state) {
+  if (element_or_image->IsElement()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "Elements cannot be drawn into an OffscreenCanvas.");
+    return nullptr;
+  }
+
+  if (element_or_image->IsElementImage()) {
+    const auto& paint_record =
+        element_or_image->GetAsElementImage()->PaintRecord();
+    if (!paint_record) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                        "The ElementImage has been closed.");
+      return nullptr;
+    }
+    return MakeGarbageCollected<DOMMatrix>(GetElementTransform(
+        paint_record->paint_state, Size(), draw_transform->Matrix()));
+  }
+
+  return DOMMatrix::Create();
 }
 
 ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
@@ -396,6 +432,7 @@ CanvasRenderingContext* OffscreenCanvas::GetCanvasRenderingContext(
     }
 
     context_ = factory->Create(execution_context, this, recomputed_attributes);
+    dirty_rect_for_commit_.setEmpty();
     if (context_) {
       context_->RecordUKMCanvasRenderingAPI();
       context_->RecordUMACanvasRenderingAPI();
@@ -478,6 +515,8 @@ void OffscreenCanvas::DidDraw(const SkIRect& rect) {
   if (rect.isEmpty())
     return;
 
+  dirty_rect_for_commit_.join(rect);
+
   if (HasPlaceholderCanvas()) {
     needs_push_frame_ = true;
     if (!inside_worker_raf_)
@@ -498,12 +537,15 @@ bool OffscreenCanvas::PushFrameIfNeeded() {
   return false;
 }
 
-bool OffscreenCanvas::PushFrame(scoped_refptr<CanvasResource>&& canvas_resource,
-                                const SkIRect& damage_rect) {
+bool OffscreenCanvas::PushFrame(
+    scoped_refptr<CanvasResource>&& canvas_resource) {
   TRACE_EVENT0("blink", "OffscreenCanvas::PushFrame");
   DCHECK(needs_push_frame_);
   needs_push_frame_ = false;
-  current_frame_damage_rect_.join(damage_rect);
+
+  current_frame_damage_rect_.join(dirty_rect_for_commit_);
+  dirty_rect_for_commit_.setEmpty();
+
   if (current_frame_damage_rect_.isEmpty() || !canvas_resource)
     return false;
   canvas_resource->SetOriginClean(OriginClean());
@@ -515,10 +557,8 @@ bool OffscreenCanvas::PushFrame(scoped_refptr<CanvasResource>&& canvas_resource,
 }
 
 bool OffscreenCanvas::ShouldAccelerate2dContext() const {
-  base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper =
-      SharedGpuContext::ContextProviderWrapper();
-  return context_provider_wrapper &&
-         context_provider_wrapper->Utils()->Accelerated2DCanvasFeatureEnabled();
+  return Accelerated2DCanvasFeatureEnabled(
+      SharedGpuContext::ContextProviderWrapper().get());
 }
 
 UkmParameters OffscreenCanvas::GetUkmParameters() {

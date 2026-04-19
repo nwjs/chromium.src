@@ -8,6 +8,10 @@
 #include <utility>
 
 #include "base/run_loop.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/webui/theme_colors_source_manager.h"
 #include "chrome/browser/ui/webui/theme_colors_source_manager_factory.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
@@ -28,6 +32,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/loader/local_resource_loader_config.mojom.h"
 #include "ui/color/color_provider.h"
+#include "ui/gfx/geometry/rect_f.h"
 
 namespace {
 
@@ -61,10 +66,10 @@ class ToolbarUIServiceConnectionManager {
   bool is_bound() { return service_remote_.is_bound(); }
   bool is_connected() { return service_remote_.is_connected(); }
 
-  MockReloadButtonPage& mock_observer() { return mock_observer_; }
+  MockToolbarUIObserver& mock_observer() { return mock_observer_; }
 
  private:
-  testing::StrictMock<MockReloadButtonPage> mock_observer_;
+  testing::StrictMock<MockToolbarUIObserver> mock_observer_;
   mojo::Remote<toolbar_ui_api::mojom::ToolbarUIService> service_remote_;
 };
 
@@ -101,16 +106,23 @@ class BrowserControlsDelegate
   void PermitLaunchUrl() override {}
 };
 
-class ToolbarUIDelegate
+class MockToolbarUIDelegate
     : public toolbar_ui_api::ToolbarUIService::ToolbarUIServiceDelegate {
  public:
-  ToolbarUIDelegate() = default;
-  ~ToolbarUIDelegate() override = default;
+  MockToolbarUIDelegate() = default;
+  ~MockToolbarUIDelegate() override = default;
 
-  void HandleContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,
-                         gfx::Point viewport_coordinate_css_pixels,
-                         ui::mojom::MenuSourceType source) override {}
-  void OnPageInitialized() override {}
+  MOCK_METHOD(void,
+              HandleContextMenu,
+              (toolbar_ui_api::mojom::ContextMenuType menu_type,
+               const gfx::RectF& bounds,
+               ui::mojom::MenuSourceType source),
+              (override));
+  MOCK_METHOD(void, OnPageInitialized, (), (override));
+  MOCK_METHOD(void,
+              InvokePinnedToolbarAction,
+              (toolbar_ui_api::mojom::PinnedToolbarAction action_id),
+              (override));
 };
 
 // Test fixture for WebUIToolbarUI. These tests test the connectivity between
@@ -124,7 +136,11 @@ class WebUIToolbarUIBrowserTest : public InProcessBrowserTest,
   WebUIToolbarUIBrowserTest() {
     feature_list_.InitWithFeatures(
         {features::kInitialWebUI, features::kWebUIReloadButton,
-         features::kWebUIInProcessResourceLoadingV2},
+         features::kWebUIInProcessResourceLoadingV2,
+         features::kWebUIPinnedToolbarActions,
+         // WebUIPinnedToolbarActions does not support toolbar tab search
+         // button. Requires tab strip tab search button.
+         tabs::kHorizontalTabStripComboButton},
         {});
   }
   ~WebUIToolbarUIBrowserTest() override = default;
@@ -165,17 +181,39 @@ class WebUIToolbarUIBrowserTest : public InProcessBrowserTest,
         base::BindRepeating(
             [&] { return CreateValidNavigationControlsState(); }));
   }
+  CommandUpdater* GetCommandUpdater() override {
+    return reinterpret_cast<CommandUpdater*>(
+        webui::GetBrowserWindowInterface(web_ui()->GetWebContents())
+            ->GetFeatures()
+            .browser_command_controller());
+  }
 
   content::TestWebUI* web_ui() { return web_ui_.get(); }
   WebUIToolbarUI* ui() { return ui_.get(); }
+  MockToolbarUIDelegate& toolbar_ui_delegate() { return toolbar_ui_delegate_; }
 
  private:
   base::test::ScopedFeatureList feature_list_;
   BrowserControlsDelegate browser_controls_delegate_;
-  ToolbarUIDelegate toolbar_ui_delegate_;
+  testing::NiceMock<MockToolbarUIDelegate> toolbar_ui_delegate_;
   std::unique_ptr<content::TestWebUI> web_ui_;
   std::unique_ptr<WebUIToolbarUI> ui_;
 };
+
+// Tests that calling InvokePinnedToolbarAction from Mojo calls the delegate.
+IN_PROC_BROWSER_TEST_F(WebUIToolbarUIBrowserTest, InvokePinnedToolbarAction) {
+  mojo::Remote<toolbar_ui_api::mojom::ToolbarUIService> service_remote;
+  ui()->BindInterface(service_remote.BindNewPipeAndPassReceiver());
+
+  EXPECT_CALL(toolbar_ui_delegate(),
+              InvokePinnedToolbarAction(
+                  toolbar_ui_api::mojom::PinnedToolbarAction::kPrint))
+      .Times(1);
+
+  service_remote->InvokePinnedToolbarAction(
+      toolbar_ui_api::mojom::PinnedToolbarAction::kPrint);
+  service_remote.FlushForTesting();
+}
 
 // Tests that OnNavigationControlsStateChanged calls the browser controls
 // observer with the correct parameters.
@@ -231,26 +269,34 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarUIBrowserTest, CreateToolbarUIService) {
   EXPECT_TRUE(connection.is_connected());
 }
 
-// Tests that Service creation handles a null CommandUpdater gracefully.
-IN_PROC_BROWSER_TEST_F(WebUIToolbarUIBrowserTest,
-                       CreateService_NullCommandUpdater) {
-  TestingProfile test_profile;
-  // Simulate a null browser window interface for a web content to simulate
-  // browser shutdown conditions. For this edge case, we expect the service to
-  // gracefully abort the bind attempt.
-  content::WebContents::CreateParams create_params(&test_profile);
-  auto dummy_content = content::WebContents::Create(create_params);
-  webui::SetBrowserWindowInterface(dummy_content.get(), nullptr);
+// Tests that out of order Init,Bind will not cause issues. This can happen
+// because navigation owns the WebUI toolbar before it hands it over to views.
+// A corner case could occur if the browser starts shutting down, at which
+// point the WebUI controller enters a bad state while JS is starting up. When
+// JS attempts to connect to WebUI toolbar services, this will cause a crash.
+//
+// Since this is difficult to synthesize in test, we simply test an out of
+// order init. That is, we attempt to establish a connection to the controller
+// before the controller has been initialized.
+IN_PROC_BROWSER_TEST_F(WebUIToolbarUIBrowserTest, CreateService_DelayedInit) {
+  auto web_ui = std::make_unique<content::TestWebUI>();
+  web_ui->set_web_contents(chrome_test_utils::GetActiveWebContents(this));
+  auto ui = std::make_unique<WebUIToolbarUI>(web_ui.get());
 
-  web_ui()->set_web_contents(dummy_content.get());
+  BrowserControlsServiceConnectionManager connection(ui.get());
 
-  BrowserControlsServiceConnectionManager connection(ui());
-  // This line is necessary, because there is a defect in mojo's is_connected()
-  // which erroneously return true without this, even if the remote is not
-  // actually connected.
-  connection.FlushForTesting();
+  // When the controller is not connected, one end of the pipe is left open.
+  // Mojo has a bug where this is considered connected on the client side.
+  EXPECT_TRUE(connection.is_connected());
 
-  EXPECT_FALSE(connection.is_connected());
+  // Bonus check, we can actually support delayed Init. Note that our WebUI
+  // does not require this. Once we initialize, the connection should be
+  // complete the connection.
+  ui->Init(this);
+
+  // This only checks that the connection remains connected. A more meaningful
+  // test would ensure that the service actually responds to requests.
+  EXPECT_TRUE(connection.is_connected());
 }
 
 // Tests that PopulateLocalResourceLoaderConfig provides the theme source.

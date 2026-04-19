@@ -173,13 +173,14 @@ bool HTMLMenuItemElement::setChecked(bool checked) {
   DCHECK(nearest_ancestor_field_set_);
   const AtomicString& checkable_keyword =
       nearest_ancestor_field_set_->FastGetAttribute(html_names::kCheckableAttr);
-  if (is_checked_ &&
-      EqualIgnoringAsciiCase(checkable_keyword, keywords::kSingle)) {
-    nearest_ancestor_field_set_->UpdateMenuItemCheckableExclusivity(this);
+  if (EqualIgnoringAsciiCase(checkable_keyword, keywords::kSingle)) {
+    if (is_checked_) {
+      nearest_ancestor_field_set_->UpdateMenuItemCheckableExclusivity(this);
+    }
     // Exclusive checkbox - close the containing menulist after changing.
     return true;
   } else {
-    // Nop-exclusive checkbox - don't close the containing menulist, so that
+    // Non-exclusive checkbox - don't close the containing menulist, so that
     // multiple values can be chosen.
     return false;
   }
@@ -506,6 +507,10 @@ HTMLMenuOwnerElement* HTMLMenuItemElement::OwningMenuElement() const {
 void HTMLMenuItemElement::ResetAncestorElementCache() {
   owning_menu_element_ = nullptr;
   nearest_ancestor_field_set_ = nullptr;
+  // TODO(https://crbug.com/406566432): Should this be stricter about the
+  // content model?
+  // TODO(https://crbug.com/406566432): Should this consider flat tree
+  // ancestors?
   for (Node& ancestor : NodeTraversal::AncestorsOf(*this)) {
     if (auto* owning_menu = DynamicTo<HTMLMenuOwnerElement>(ancestor)) {
       owning_menu_element_ = owning_menu;
@@ -544,6 +549,10 @@ void HTMLMenuItemElement::RemovedFrom(ContainerNode& insertion_point) {
   // Run various ancestor/state resets.
   ResetAncestorElementCache();
   return;
+}
+
+bool HTMLMenuItemElement::ShouldHaveExpandIcon() const {
+  return HasOwnerMenuList() && GetInvokedSubmenu();
 }
 
 }  // namespace blink

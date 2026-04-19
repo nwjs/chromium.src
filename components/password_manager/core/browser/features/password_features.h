@@ -18,18 +18,25 @@ namespace password_manager::features {
 
 #if !BUILDFLAG(IS_IOS)
 BASE_DECLARE_FEATURE(kActorLogin);
-// Enables FedCM support for Actor Login.
-BASE_DECLARE_FEATURE(kActorLoginFederatedLoginSupport);
+// Killswitch for the conflicting permission cleanup. Conflicting permissions
+// are the ones granted for 2 different accounts on the same website.
+BASE_DECLARE_FEATURE(kActorLoginConflictingPermissionCleanup);
+// Enables a click using the actor framework for federated logins without
+// heuristics.
+BASE_DECLARE_FEATURE(kActorLoginFederatedClickFromActor);
 // Enables Actor Login form finding with async check
 BASE_DECLARE_FEATURE(kActorLoginFieldVisibilityCheck);
-// Ensures that `GetCredentials` differentiates between no saved credentials
-// and no signin form found on the page.
-BASE_DECLARE_FEATURE(kActorLoginGetCredentialsNoLoginForm);
 BASE_DECLARE_FEATURE(kActorLoginLocalClassificationModel);
 // Enables the usage of temporary permissions across affiliated origins for
 // Actor Login.
 BASE_DECLARE_FEATURE(kActorLoginPermissionsUseStrongAffiliations);
 BASE_DECLARE_FEATURE(kActorLoginReauthTaskRefocus);
+#endif  // !BUILDFLAG(IS_IOS)
+
+// Enables syncing password permissions.
+BASE_DECLARE_FEATURE(kActorLoginSyncsPasswordPermissions);
+
+#if !BUILDFLAG(IS_IOS)
 // Enables logging quality for actor login.
 BASE_DECLARE_FEATURE(kActorLoginQualityLogs);
 // Enables finding and filling forms in same-site iframes for actor login.
@@ -57,6 +64,10 @@ BASE_DECLARE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender);
 // goal is to have a go to place to understand how users are perceiving autofill
 // across quarters.
 BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
+
+// Waits for the page to reach stability before triggering any password change
+// actions.
+BASE_DECLARE_FEATURE(kAwaitPageStabilityForPasswordChange);
 
 // Undoes the effect of WebAuthnUsePasskeyFromAnotherDeviceInContextMenu by
 // adding the hybrid item back into the dropdown. It also adds the entry point
@@ -148,10 +159,6 @@ BASE_DECLARE_FEATURE(kOtpPhishGuard);
 // Populate the `date_last_filled` timestamp for passwords.
 BASE_DECLARE_FEATURE(kPasswordDateLastFilled);
 
-// When enabled, the callback in `OnButtonClicked` will be invoked immediately
-// with the result.
-BASE_DECLARE_FEATURE(kPasswordChangeImmediateSubmission);
-
 // Enables running the clientside form classifier to parse password forms.
 BASE_DECLARE_FEATURE(kPasswordFormClientsideClassifier);
 
@@ -186,7 +193,8 @@ BASE_DECLARE_FEATURE(kProactivelyDownloadModelForPasswordChange);
 BASE_DECLARE_FEATURE(kReduceRequirementsForPasswordChange);
 
 // Triggers password change glow invoking Glic from settings.
-BASE_DECLARE_FEATURE(kPasswordCheckup);
+// This flag is only for the prototype version.
+BASE_DECLARE_FEATURE(kPasswordCheckupPrototype);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables "Needs access to keychain, restart chrome" bubble and banner.

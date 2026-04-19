@@ -699,6 +699,73 @@ class ClientSideDetectionHostIncognitoTest
       : ClientSideDetectionHostTestBase(true /*is_incognito*/) {}
 };
 
+struct ClientSideDetectionHostOnlyESBTestParams {
+  bool is_esb_enabled;
+  bool is_feature_enabled;
+};
+
+class ClientSideDetectionHostOnlyESBTest
+    : public ClientSideDetectionHostTestBase,
+      public testing::WithParamInterface<
+          ClientSideDetectionHostOnlyESBTestParams> {
+ public:
+  ClientSideDetectionHostOnlyESBTest()
+      : ClientSideDetectionHostTestBase(false /*is_incognito*/) {}
+
+  void SetUp() override {
+    ClientSideDetectionHostTestBase::SetUp();
+    SetEnhancedProtectionPrefForTests(profile()->GetPrefs(),
+                                      GetParam().is_esb_enabled);
+    if (GetParam().is_feature_enabled) {
+      feature_list_.InitAndEnableFeature(
+          kClientSideDetectionOnlyESBClassification);
+    } else {
+      feature_list_.InitAndDisableFeature(
+          kClientSideDetectionOnlyESBClassification);
+    }
+  }
+};
+
+TEST_P(ClientSideDetectionHostOnlyESBTest,
+       TestPreClassificationCheckOnlyESBClassification) {
+  if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
+    GTEST_SKIP();
+  }
+
+  GURL url("http://host.com/");
+  database_manager_->SetAllowlistLookupDetailsForUrl(url, false);
+
+  if (GetParam().is_feature_enabled && !GetParam().is_esb_enabled) {
+    // Should NOT trigger any classification.
+    EXPECT_CALL(*csd_service_, IsPrivateIPAddress(_)).Times(0);
+    EXPECT_CALL(*database_manager_.get(), CheckCsdAllowlistUrl(url, _))
+        .Times(0);
+    NavigateAndCommit(url);
+    base::RunLoop().RunUntilIdle();
+    fake_phishing_detector_.CheckMessage(nullptr);
+  } else {
+    // Should trigger classification.
+    ExpectPreClassificationChecks(url, &kFalse, &kFalse, &kFalse, &kFalse,
+                                  &kFalse);
+    NavigateAndCommit(url);
+    WaitAndCheckPreClassificationChecks();
+    fake_phishing_detector_.CheckMessage(&url);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ClientSideDetectionHostOnlyESBTest,
+    testing::Values(
+        ClientSideDetectionHostOnlyESBTestParams{/*is_esb_enabled=*/false,
+                                                 /*is_feature_enabled=*/false},
+        ClientSideDetectionHostOnlyESBTestParams{/*is_esb_enabled=*/false,
+                                                 /*is_feature_enabled=*/true},
+        ClientSideDetectionHostOnlyESBTestParams{/*is_esb_enabled=*/true,
+                                                 /*is_feature_enabled=*/false},
+        ClientSideDetectionHostOnlyESBTestParams{/*is_esb_enabled=*/true,
+                                                 /*is_feature_enabled=*/true}));
+
 TEST_F(ClientSideDetectionHostTest, PhishingDetectionDoneInvalidVerdict) {
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
     GTEST_SKIP();
@@ -1231,9 +1298,6 @@ TEST_F(ClientSideDetectionHostTest, TestPreClassificationCheckPass) {
       "SBClientPhishing.PreClassificationCheckResult.TriggerModel",
       PreClassificationCheckResult::CLASSIFY, 1);
   histogram_tester.ExpectBucketCount(
-      "SBClientPhishing.OnDeviceModelSessionAliveOnNewPreclassification", false,
-      1);
-  histogram_tester.ExpectBucketCount(
       "SBClientPhishing.IntelligentScanOngoingOnNewPreclassification", false,
       1);
 }
@@ -1264,9 +1328,6 @@ TEST_F(ClientSideDetectionHostTest,
   histogram_tester.ExpectBucketCount(
       "SBClientPhishing.PreClassificationCheckResult.TriggerModel",
       PreClassificationCheckResult::CLASSIFY, 1);
-  histogram_tester.ExpectBucketCount(
-      "SBClientPhishing.OnDeviceModelSessionAliveOnNewPreclassification", false,
-      1);
   histogram_tester.ExpectBucketCount(
       "SBClientPhishing.IntelligentScanOngoingOnNewPreclassification", false,
       1);
@@ -4097,14 +4158,7 @@ class ClientSideDetectionHostScamDetectionTest
         expected_request_type, 1);
     if (is_intelligent_scan_available) {
       histogram_tester_.ExpectUniqueSample(
-          "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime",
-          is_intelligent_scan_available.value(), 1);
-      histogram_tester_.ExpectUniqueSample(
           "SBClientPhishing.IsIntelligentScanAvailableAtInquiryTime",
-          is_intelligent_scan_available.value(), 1);
-      histogram_tester_.ExpectUniqueSample(
-          "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime." +
-              GetRequestTypeName(expected_request_type),
           is_intelligent_scan_available.value(), 1);
       histogram_tester_.ExpectUniqueSample(
           "SBClientPhishing.IsIntelligentScanAvailableAtInquiryTime." +
@@ -4112,13 +4166,7 @@ class ClientSideDetectionHostScamDetectionTest
           is_intelligent_scan_available.value(), 1);
     } else {
       histogram_tester_.ExpectTotalCount(
-          "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime", 0);
-      histogram_tester_.ExpectTotalCount(
           "SBClientPhishing.IsIntelligentScanAvailableAtInquiryTime", 0);
-      histogram_tester_.ExpectTotalCount(
-          "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime." +
-              GetRequestTypeName(expected_request_type),
-          0);
       histogram_tester_.ExpectTotalCount(
           "SBClientPhishing.IsIntelligentScanAvailableAtInquiryTime." +
               GetRequestTypeName(expected_request_type),
@@ -4126,15 +4174,10 @@ class ClientSideDetectionHostScamDetectionTest
     }
     if (model_has_successful_response.has_value()) {
       histogram_tester_.ExpectUniqueSample(
-          "SBClientPhishing.OnDeviceModelHasSuccessfulResponse",
-          model_has_successful_response.value(), 1);
-      histogram_tester_.ExpectUniqueSample(
           "SBClientPhishing.IntelligentScanHasSuccessfulResponse." +
               GetRequestTypeName(expected_request_type),
           model_has_successful_response.value(), 1);
     } else {
-      histogram_tester_.ExpectTotalCount(
-          "SBClientPhishing.OnDeviceModelHasSuccessfulResponse", 0);
       histogram_tester_.ExpectTotalCount(
           "SBClientPhishing.IntelligentScanHasSuccessfulResponse." +
               GetRequestTypeName(expected_request_type),

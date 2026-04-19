@@ -19,8 +19,8 @@ dependency has its own dependencies *and* it can be built on its own (without
 Chromium), you can check its dependencies into its third_party. For example,
 Dawn is a project that is developed independently of Chromium, and
 it has a dependency on GLFW (which Chromium does not have). Dawn
-can check that dependency into its `//third_party/glfw`, and in a Chromium
-checkout, that will show up at `//third_party/dawn/third_party/glfw`.
+can check that dependency into its `//third_party/glfw3/src`, and in a Chromium
+checkout, that will show up at `//third_party/dawn/third_party/glfw3/src`.
 That is okay, but it'd be better if we could add GLFW to a Chromium
 checkout (in chromium/src's `third_party/glfw`) and configure Dawn
 to use that location when it is being built as part of Chromium.
@@ -308,6 +308,10 @@ Updated automatically by a service e.g. Skia Autoroller, Copybara.
 
 No exception required.
 
+Please refer to
+[docs/managing-third-party](https://chromium.googlesource.com/chromium/src/+/main/docs/managing-third-party/)
+for automation options and usage guide.
+
 ### Manual
 
 Updated manually by OWNERS e.g., using `roll_deps`.
@@ -333,10 +337,22 @@ has diverged from the upstream, and is no longer updatable.
 > coverage is optimal.
 ### Autoroll Exceptions
 
-If a dependency can't be autorolled, it needs an exception. OWNERS
-should file a bug using the template in
-[`Chromium > ThirdParty > Autoroll Exceptions`](https://issues.chromium.org/issues/new?component=1801247&template=2135097).
-This component has auto-assignment and will help you track the exception.
+You can request your dependency to be exempted from autorolling. You MUST
+demonstrate a strong technical need for doing so.
+
+For example, the following justifications ARE NOT sufficient for granting an
+exemption:
+
+* The dependency is test-only
+* The dependency isn't shipped
+
+The exemption is evaluated on a case-by-case basis by Chrome ATLs and Chrome's
+third-party supply chain security team.
+
+To request an exemption, file a bug in
+[Chromium > ThirdParty > Autoroll Exceptions](https://issues.chromium.org/issues/new?component=1801247&template=2135097)
+and explain your reasons.
+
 
 ### Transitive Dependencies
 If a child dependency is rolled with a parent, it should specify an

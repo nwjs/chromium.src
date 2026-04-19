@@ -10,6 +10,7 @@ import android.content.Context;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ContextUtils;
@@ -26,21 +27,27 @@ import org.chromium.ui.base.WindowAndroid;
 @JNINamespace("web_contents_delegate_android")
 @NullMarked
 public class ColorPickerBridge {
-    private final long mNativeDialog;
+    private long mNativeColorPicker;
     private final ColorPickerCoordinator mColorPickerCoordinator;
 
     @CalledByNative
-    static @Nullable ColorPickerBridge create(long nativeDialog, WindowAndroid windowAndroid) {
+    static @Nullable ColorPickerBridge create(
+            long nativeColorPicker, @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid) {
         if (windowAndroid == null) return null;
         Context context = windowAndroid.getContext().get();
         if (ContextUtils.activityFromContext(context) == null) return null;
         assumeNonNull(context);
-        return new ColorPickerBridge(nativeDialog, context);
+        return new ColorPickerBridge(nativeColorPicker, context);
     }
 
-    private ColorPickerBridge(long nativeDialog, Context context) {
-        mNativeDialog = nativeDialog;
+    private ColorPickerBridge(long nativeColorPicker, Context context) {
+        mNativeColorPicker = nativeColorPicker;
         mColorPickerCoordinator = ColorPickerCoordinator.create(context, this::onDialogDismissed);
+    }
+
+    @CalledByNative
+    private void detach() {
+        mNativeColorPicker = 0;
     }
 
     @CalledByNative
@@ -54,14 +61,16 @@ public class ColorPickerBridge {
     }
 
     @CalledByNative
-    void addColorSuggestion(int color, String label) {
+    void addColorSuggestion(int color, @JniType("std::string") String label) {
         if (mColorPickerCoordinator != null) {
             mColorPickerCoordinator.addColorSuggestion(color, label);
         }
     }
 
     void onDialogDismissed(int newColor) {
-        ColorPickerBridgeJni.get().onColorChosen(mNativeDialog, newColor);
+        if (mNativeColorPicker != 0) {
+            ColorPickerBridgeJni.get().onColorChosen(mNativeColorPicker, newColor);
+        }
     }
 
     @NativeMethods

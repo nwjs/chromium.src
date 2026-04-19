@@ -37,7 +37,6 @@ import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
 import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider;
-import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.services.BadgeConfig;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -45,7 +44,6 @@ import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninManager.SignInStateObserver;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
-import org.chromium.chrome.browser.sync.TrustedVaultClient;
 import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.SignOutCoordinator;
@@ -65,6 +63,7 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserActionableError;
+import org.chromium.components.trusted_vault.TrustedVaultClient;
 import org.chromium.components.trusted_vault.TrustedVaultUserActionTriggerForUMA;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.UiUtils;
@@ -195,7 +194,7 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
         }
 
         DisplayableProfileData profileData =
-                mProfileDataCache.getProfileDataOrDefault(mSignedInCoreAccountInfo.getEmail());
+                mProfileDataCache.getById(mSignedInCoreAccountInfo.getId());
         mPageTitle.set(
                 assumeNonNull(
                         SyncSettingsUtils.getDisplayableFullNameOrEmailWithPreference(
@@ -254,7 +253,6 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
                                 getActivity().getSupportFragmentManager(),
                                 ((ModalDialogManagerHolder) getActivity()).getModalDialogManager(),
                                 assertNonNull(assumeNonNull(mSnackbarManagerSupplier).get()),
-                                SigninAndHistorySyncActivityLauncherImpl.get(),
                                 SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
                                 /* showConfirmDialog= */ false,
                                 CallbackUtils.emptyRunnable());
@@ -327,8 +325,7 @@ public class AccountManagementFragment extends ChromeBaseSettingsFragment
         Preference accountPreference = new Preference(getStyledContext());
         accountPreference.setLayoutResource(R.layout.account_management_account_row);
 
-        DisplayableProfileData profileData =
-                mProfileDataCache.getProfileDataOrDefault(coreAccountInfo.getEmail());
+        DisplayableProfileData profileData = mProfileDataCache.getById(coreAccountInfo.getId());
         accountPreference.setTitle(
                 SyncSettingsUtils.getDisplayableFullNameOrEmailWithPreference(
                         profileData, getContext(), SyncSettingsUtils.TitlePreference.EMAIL));

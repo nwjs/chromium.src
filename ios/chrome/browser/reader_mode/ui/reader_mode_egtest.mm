@@ -111,7 +111,7 @@ id<GREYMatcher> VisibleContextMenuItem(int message_id) {
 
 // Returns the Contextual Panel's entrypoint view GREY matcher.
 id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
-  // TODO(crbug.com/457880049): Clean up when feature is enabled by default.
+  // TODO(crbug.com/494235953): Clean up when feature is enabled by default.
   if ([ChromeEarlGrey isAskGeminiChipEnabled] ||
       [ChromeEarlGrey isProactiveSuggestionsFrameworkEnabled]) {
     return grey_allOf(
@@ -172,7 +172,7 @@ id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
 
   config.iph_feature_enabled =
       feature_engagement::kIPHiOSReaderModeLargeOmniboxEntrypointFeature.name;
-  config.features_enabled_and_params.push_back({kEnableReaderModeInUS, {}});
+  config.features_enabled.push_back(kEnableReaderModeInUS);
 
   if ([self isRunningTest:@selector(testTurnOnReaderModeViaPageActionMenu)] ||
       [self isRunningTest:@selector(testReaderModeChipShowsAIHubIfAvailable)] ||
@@ -184,31 +184,28 @@ id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
             (FLAKY_testSampleContextualChipVisibleInReaderMode)] ||
 #endif
       [self isRunningTest:@selector(testReaderModeChipHiddenInReaderMode)]) {
-    config.features_enabled_and_params.push_back({kPageActionMenu, {}});
-    config.features_enabled_and_params.push_back(
-        {kProactiveSuggestionsFramework, {}});
+    config.features_enabled.push_back(kPageActionMenu);
+    config.features_enabled.push_back(kProactiveSuggestionsFramework);
   } else {
     // Force an app restart before any tests that require the Gemini kill
     // switch. This is required to ensure that
-    // BWGServiceFactory::BuildBwgService is re-evaluated for the new flag
+    // GeminiServiceFactory::BuildGeminiService is re-evaluated for the new flag
     // configuration, otherwise a cached BWGService instance may be used.
     config.relaunch_policy = ForceRelaunchByCleanShutdown;
     config.features_disabled.push_back(kPageActionMenu);
-    config.features_enabled_and_params.push_back({kGeminiKillSwitch, {}});
+    config.features_enabled.push_back(kGeminiKillSwitch);
   }
   if ([self isRunningTest:@selector(testOmniboxEntryPointDisabled)]) {
     config.features_disabled.push_back(kEnableReaderModeOmniboxEntryPointInUS);
   } else {
-    config.features_enabled_and_params.push_back(
-        {kEnableReaderModeOmniboxEntryPointInUS, {}});
+    config.features_enabled.push_back(kEnableReaderModeOmniboxEntryPointInUS);
   }
 
   if ([self isRunningTest:@selector(testReaderModeContentSettingsOldToggle)]) {
     config.features_disabled.push_back(kEnableContentSettingsOptionForLinks);
   }
   if ([self isRunningTest:@selector(testReaderModeContentSettingsNewOptions)]) {
-    config.features_enabled_and_params.push_back(
-        {kEnableContentSettingsOptionForLinks, {}});
+    config.features_enabled.push_back(kEnableContentSettingsOptionForLinks);
   }
 
   if ([self isRunningTest:@selector(testReaderModeDistillationTimeout)]) {
@@ -224,9 +221,8 @@ id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
             (FLAKY_testSampleContextualChipVisibleInReaderMode)]
 #endif
   ) {
-    config.features_enabled_and_params.push_back(
-        {kProactiveSuggestionsFramework, {}});
-    config.features_enabled_and_params.push_back({kAskGeminiChip, {}});
+    config.features_enabled.push_back(kProactiveSuggestionsFramework);
+    config.features_enabled.push_back(kAskGeminiChip);
   }
 #if TARGET_OS_SIMULATOR
   if ([self isRunningTest:@selector
@@ -246,8 +242,7 @@ id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
   if ([self isRunningTest:@selector
             (FLAKY_testSampleContextualChipVisibleInReaderMode)]) {
 #endif
-    config.features_enabled_and_params.push_back(
-        {kContextualPanelForceShowEntrypoint, {}});
+    config.features_enabled.push_back(kContextualPanelForceShowEntrypoint);
   }
   return config;
 }
@@ -1455,6 +1450,21 @@ id<GREYMatcher> ContextualPanelEntrypointImageViewMatcher() {
 
   [ChromeTestCase removeAnyOpenMenusAndInfoBars];
   [self assertReaderModePageIsVisible];
+}
+
+// Tests that the escape key can be used to exit Reader mode.
+- (void)testReaderModeEscapeKey {
+  const GURL readerModeURL = self.testServer->GetURL("/article.html");
+  [ChromeEarlGrey loadURL:readerModeURL];
+
+  // Open Reader Mode UI.
+  GREYAssertTrue(
+      [ChromeEarlGrey showReaderModeAndWaitUntilReaderModeWebStateIsReady],
+      @"Reader mode content could not be loaded");
+  [self assertReaderModePageIsVisible];
+
+  [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"escape" flags:0];
+  [self assertReaderModePageIsHidden];
 }
 
 @end

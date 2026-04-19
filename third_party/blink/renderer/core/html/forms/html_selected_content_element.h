@@ -17,6 +17,10 @@ class HTMLSelectedContentElement : public HTMLElement {
  public:
   explicit HTMLSelectedContentElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLSelectedContentElement;
+  }
+
   // TODO(crbug.com/357649033): Make this clone all selected options, not just
   // one, for <select multiple>
   void CloneContentsFromOptionElement(const HTMLOptionElement* option);

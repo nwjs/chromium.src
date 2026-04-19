@@ -176,7 +176,7 @@ BASE_FEATURE(kBackForwardCacheDWCOnJavaScriptExecution,
 // This is a kill switch for pausing microtask while the page is in the BFCache.
 // Remove by m148 if things go well.
 BASE_FEATURE(kBackForwardCachePauseMicrotasks,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable background resource fetch in Blink. See https://crbug.com/1379780 for
 // more details.
@@ -393,6 +393,8 @@ BASE_FEATURE(kCanvas2DHibernationNoSmallCanvas,
 BASE_FEATURE(kCanvas2DHibernationReleaseTransferMemory,
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCapStringBuilderLengthTo1GiB, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Whether to capture the source location of JavaScript execution, which is one
 // of the renderer eviction reasons for Back/Forward Cache.
 BASE_FEATURE(kCaptureJSExecutionLocation, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -420,11 +422,14 @@ BASE_FEATURE(kClientHintsViewportWidth_DEPRECATED,
 
 BASE_FEATURE(kCompositedAnimationsForceMainFrames,
              base::FEATURE_ENABLED_BY_DEFAULT);
+// TODO(paint-dev): crbug.com/470127855#comment32. Enabling this parameter
+// causes a significant regression in power consumption. We need to make the
+// behavior more selective before re-enabling it.
 BASE_FEATURE_PARAM(bool,
                    kForceMainFramesForIntersectionObserver,
                    &kCompositedAnimationsForceMainFrames,
                    "intersection-observer",
-                   true);
+                   false);
 BASE_FEATURE_PARAM(bool,
                    kForceMainFramesForAnchorTransform,
                    &kCompositedAnimationsForceMainFrames,
@@ -482,6 +487,8 @@ BASE_FEATURE(kCreateImageBitmapOrientationNone,
 // Blob URL in the generated Import Map.
 BASE_FEATURE(kDeclarativeCSSModulesUseDataURI,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDeferRendererTasksAfterInput, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -960,6 +967,10 @@ BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
 // small screens. This feature is for disabling these heuristics.
 BASE_FEATURE(kForceOffTextAutosizing, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kForceSkcmsICCParsing, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kForceSkExifCppParsing, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Automatically convert light-themed pages to use a Blink-generated dark theme
 BASE_FEATURE(kForceWebContentsDarkMode,
              "WebContentsForceDark",
@@ -1031,6 +1042,8 @@ BASE_FEATURE(kIgnoreInputWhileHidden,
 
 BASE_FEATURE(kImageLoadingPrioritizationFix, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kImageReplacement, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kInitialWebUIWithoutExtensions, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -1042,6 +1055,19 @@ constexpr base::FeatureParam<int>
         &features::kIndexedDBCompressValuesWithSnappy,
         /*name=*/"compression-threshold",
         /*default_value=*/-1};
+
+BASE_FEATURE(kInlineScriptCache, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(size_t,
+                   kInlineScriptCacheMinScriptLength,
+                   &kInlineScriptCache,
+                   "min_script_length",
+                   1024);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kInlineScriptCacheTimeout,
+                   &kInlineScriptCache,
+                   "timeout",
+                   base::Milliseconds(100));
 
 BASE_FEATURE(kInputPredictorTypeChoice, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1575,27 +1601,13 @@ BASE_FEATURE(kLoadingTasksUnfreezable, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLogUnexpectedIPCPostedToBackForwardCachedDocuments,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Allow low latency canvas 2D to be in overlay (generally meaning scanned out
-// directly to display), even if regular canvas are not in overlay
-// (Canvas2DImageChromium is disabled).
-BASE_FEATURE(kLowLatencyCanvas2dImageChromium,
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-);
-
-// Allow low latency WebGL to be in overlay (generally meaning scanned out
-// directly to display), even if regular canvas are not in overlay
-// (WebGLImageChromium is disabled).
-BASE_FEATURE(kLowLatencyWebGLImageChromium,
 #if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
+// Allow low latency canvas (both 2D and WebGL) to be in overlay (generally
+// meaning scanned out directly to display), even if regular canvases are not
+// in overlay.
+BASE_FEATURE(kLowLatencyUsageSupportedForCanvas,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-);
 
 BASE_FEATURE(kLowPriorityAsyncScriptExecution,
 // TODO(crbug/429069717): Fix the high power consumption on ChromeOS.
@@ -2182,6 +2194,8 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "max_resample_time",
                    base::Milliseconds(20));
 
+BASE_FEATURE(kResampleScrollEventsForFling, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kRestrictLinkHeaderOnSubresource,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -2627,12 +2641,12 @@ BASE_FEATURE(kWebAppEnableScopeExtensionsBySite,
 // Note that for Isolated Web Apps it is not possible to capture link
 // navigations without scope extensions.
 BASE_FEATURE(kWebAppEnableScopeExtensionsForIsolatedWebApps,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls parsing and usage of localized fields in web app manifests.
 // See spec for more information:
 // https://www.w3.org/TR/appmanifest/#x_localized-members
-BASE_FEATURE(kWebAppManifestLocalization, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebAppManifestLocalization, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls parsing of the "lock_screen" dictionary field and its "start_url"
 // entry in web app manifests.  See explainer for more information:
@@ -2643,11 +2657,6 @@ BASE_FEATURE(kWebAppManifestLockScreen, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables web apps to be migrated from one manifest id to another.
 BASE_FEATURE(kWebAppMigrationApi, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Allow denormals in AudioWorklet and ScriptProcessorNode, to enable strict
-// JavaScript denormal compliance.  See https://crbug.com/382005099.
-BASE_FEATURE(kWebAudioAllowDenormalInProcessing,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use deferred pull status update instead of updating the status directly
 // on audio thread. See https://crbug.com/40249972.
@@ -2733,6 +2742,27 @@ bool DisplayWarningDeprecateURNIframesUseFencedFrames() {
 
 bool IsFencedFramesEnabled() {
   return base::FeatureList::IsEnabled(blink::features::kFencedFrames);
+}
+
+// Purge on renderer backgrounding is disabled on Android. On mobile Android,
+// it's redundant with the purge that occurs on page freezing (unlike on
+// desktop, freezing is applied to most background pages on mobile Android). A
+// field trial confirmed that an additional purge is not necessary. See
+// https://bugs.chromium.org/p/chromium/issues/detail?id=1335069#c3.
+bool IsMemoryPurgeOnBackgroundingEnabled() {
+  return
+#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
+      false
+#else
+      true
+#endif
+      ;
+}
+
+bool IsInlineScriptCacheEnabled() {
+  // Inline script cache is built on top of PersistentCodeCache.
+  return base::FeatureList::IsEnabled(kInlineScriptCache) &&
+         IsPersistentCacheForCodeCacheEnabled();
 }
 
 bool IsParkableStringsToDiskEnabled() {

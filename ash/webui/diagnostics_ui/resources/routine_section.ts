@@ -15,6 +15,7 @@ import '/strings.m.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
+import {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
 import {IronA11yAnnouncer} from 'chrome://resources/polymer/v3_0/iron-a11y-announcer/iron-a11y-announcer.js';
 import type {IronCollapseElement} from 'chrome://resources/polymer/v3_0/iron-collapse/iron-collapse.js';
 import type {PolymerElementProperties} from 'chrome://resources/polymer/v3_0/polymer/interfaces.js';
@@ -37,6 +38,7 @@ export type Routines = RoutineGroup[]|RoutineType[];
 export interface RoutineSectionElement {
   $: {
     collapse: IronCollapseElement,
+    detailsCollapse: IronCollapseElement,
   };
 }
 
@@ -121,6 +123,16 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
         value: null,
       },
 
+      detailMessagesHTML: {
+        type: Array,
+        value: () => [],
+      },
+
+      detailsOpened: {
+        type: Boolean,
+        value: false,
+      },
+
       runTestsButtonText: {
         type: String,
         value: '',
@@ -181,6 +193,16 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
         reflectToAttribute: true,
       },
 
+      hideReportButton: {
+        type: Boolean,
+        value: false,
+      },
+
+      showRoutineDetails: {
+        type: Boolean,
+        value: false,
+      },
+
       opened: {
         type: Boolean,
         value: false,
@@ -209,6 +231,8 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
   isPowerRoutine: boolean;
   isActive: boolean;
   hideRoutineStatus: boolean;
+  hideReportButton: boolean;
+  showRoutineDetails: boolean;
   opened: boolean;
   hideVerticalLines: boolean;
   usingRoutineGroups: boolean;
@@ -218,12 +242,15 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
   private routineStartTimeMs: number;
   private executionStatus: ExecutionProgress;
   private powerRoutineResult: PowerRoutineResult;
+  private detailMessagesHTML: TrustedHTML[];
+  private detailsOpened: boolean;
   private badgeType: BadgeType;
   private badgeText: string;
   private statusText: string;
   private isLoggedIn: boolean;
   private bannerMessage: string;
   private initialButtonText: string;
+  private lastRoutineDetails: string|null = null;
   private executor: RoutineListExecutor|null = null;
   private failedTest: RoutineType|null = null;
   private hasTestFailure: boolean = false;
@@ -295,6 +322,10 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
     }
     this.testSuiteStatus = TestSuiteStatus.RUNNING;
     this.failedTest = null;
+    this.detailMessagesHTML = [];
+    this.detailsOpened = false;
+    this.$.detailsCollapse.hide();
+    this.lastRoutineDetails = null;
 
     this.systemRoutineController = getSystemRoutineController();
     const resultListElem = this.getResultListElem();
@@ -388,6 +419,10 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
       this.powerRoutineResult = status.result.powerResult;
     }
 
+    if (status.progress === ExecutionProgress.COMPLETED) {
+      this.lastRoutineDetails = status.details;
+    }
+
     if (status.result &&
         getSimpleResult(status.result) === StandardRoutineResult.kTestFailed &&
         !this.failedTest) {
@@ -429,6 +464,24 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
     this.$.collapse.toggle();
   }
 
+  private onToggleDetailsClicked(): void {
+    this.$.detailsCollapse.toggle();
+  }
+
+  protected isDetailsButtonHidden(): boolean {
+    return !this.showRoutineDetails || !this.detailMessagesHTML ||
+        this.detailMessagesHTML.length === 0;
+  }
+
+  protected hasDetailMessages(): boolean {
+    return this.detailMessagesHTML && this.detailMessagesHTML.length > 0;
+  }
+
+  protected getDetailsToggleButtonText(detailsOpened: boolean): string {
+    return loadTimeData.getString(
+        detailsOpened ? 'hideTestDetailsText' : 'seeTestDetailsText');
+  }
+
   protected onLearnMoreClicked(): void {
     const baseSupportUrl =
         'https://support.google.com/chromebook?p=diagnostics_';
@@ -437,8 +490,8 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
     window.open(baseSupportUrl + this.learnMoreLinkSection);
   }
 
-  protected isResultButtonHidden(): boolean {
-    return this.shouldHideReportList() ||
+  protected isReportButtonHidden(): boolean {
+    return this.hideReportButton || this.shouldHideReportList() ||
         this.executionStatus === ExecutionProgress.NOT_STARTED;
   }
 
@@ -500,6 +553,7 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
         this.setBadgeAndStatusText(
             BadgeType.STOPPED,
             loadTimeData.getStringF('testCancelledText', this.currentTestName));
+        this.populateDetailMessagesHTML();
         return;
       case ExecutionProgress.COMPLETED:
         const isPowerRoutine = this.isPowerRoutine || this.powerRoutineResult;
@@ -512,6 +566,7 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
               isPowerRoutine ? this.getPowerRoutineString() :
                                loadTimeData.getString('testSuccess'));
         }
+        this.populateDetailMessagesHTML();
         return;
     }
     assertNotReached();
@@ -537,6 +592,17 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
       badgeType: badgeType,
       statusText: statusText,
     });
+  }
+
+  private populateDetailMessagesHTML(): void {
+    this.detailMessagesHTML = [];
+    if (!this.lastRoutineDetails) {
+      return;
+    }
+    this.detailMessagesHTML =
+        this.lastRoutineDetails.split('\n\n')
+            .filter(block => block.length > 0)
+            .map(block => sanitizeInnerHtml(block.replace(/\n/g, '<br>')));
   }
 
   protected isTestRunning(): boolean {
@@ -585,6 +651,10 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
     this.currentTestName = '';
     this.executionStatus = ExecutionProgress.NOT_STARTED;
     this.$.collapse.hide();
+    this.detailMessagesHTML = [];
+    this.detailsOpened = false;
+    this.$.detailsCollapse.hide();
+    this.lastRoutineDetails = null;
     this.ignoreRoutineStatusUpdates = false;
   }
 

@@ -3803,77 +3803,6 @@ TEST_F(NavigationControllerTest, ClearHistoryList) {
   EXPECT_EQ(url4, controller.GetVisibleEntry()->GetURL());
 }
 
-// Tests that if a stale navigation comes back from the renderer, it is properly
-// resurrected.
-TEST_F(NavigationControllerTest, StaleNavigationsResurrected) {
-  if (ShouldQueueNavigationsWhenPendingCommitRFHExists()) {
-    GTEST_SKIP() << "When navigation queueing is enabled, there will be no "
-                    "stale navigations, as newer navigations will wait for "
-                    "pending commit navigations to finish";
-  }
-
-  NavigationControllerImpl& controller = controller_impl();
-  // When back/forward cache is enabled, the ReadyToCommit() call for the
-  // forward navigation to B will commit the navigation immediately, making the
-  // navigation to page C not prune the entry to B. Disable back/forward cache
-  // to ensure that it doesn't get preserved in the cache.
-  DisableBackForwardCacheForTesting(RenderViewHostTestHarness::web_contents(),
-                                    BackForwardCache::TEST_REQUIRES_NO_CACHING);
-  // Start on page A.
-  const GURL url_a("http://foo.com/a");
-  NavigationSimulator::NavigateAndCommitFromDocument(url_a, main_test_rfh());
-  EXPECT_EQ(1U, navigation_entry_committed_counter_);
-  navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(1, controller.GetEntryCount());
-  EXPECT_EQ(0, controller.GetCurrentEntryIndex());
-
-  // Go to page B.
-  const GURL url_b("http://foo.com/b");
-  NavigationSimulator::NavigateAndCommitFromDocument(url_b, main_test_rfh());
-  EXPECT_EQ(1U, navigation_entry_committed_counter_);
-  navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(2, controller.GetEntryCount());
-  EXPECT_EQ(1, controller.GetCurrentEntryIndex());
-  int b_entry_id = controller.GetLastCommittedEntry()->GetUniqueID();
-
-  // Back to page A.
-  NavigationSimulator::GoBack(contents());
-  EXPECT_EQ(1U, navigation_entry_committed_counter_);
-  navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(2, controller.GetEntryCount());
-  EXPECT_EQ(0, controller.GetCurrentEntryIndex());
-
-  // Start going forward to page B.
-  auto forward_navigation = NavigationSimulator::CreateHistoryNavigation(
-      1, contents(), false /* is_renderer_initiated */);
-  forward_navigation->ReadyToCommit();
-
-  // But the renderer unilaterally navigates to page C, pruning B.
-  const GURL url_c("http://foo.com/c");
-  NavigationSimulator::NavigateAndCommitFromDocument(url_c, main_test_rfh());
-  EXPECT_EQ(1U, navigation_entry_committed_counter_);
-  navigation_entry_committed_counter_ = 0;
-  EXPECT_EQ(2, controller.GetEntryCount());
-  EXPECT_EQ(1, controller.GetCurrentEntryIndex());
-  int c_entry_id = controller.GetLastCommittedEntry()->GetUniqueID();
-  EXPECT_NE(c_entry_id, b_entry_id);
-
-  // And then the navigation to B gets committed.
-  forward_navigation->Commit();
-  EXPECT_EQ(1U, navigation_entry_committed_counter_);
-  navigation_entry_committed_counter_ = 0;
-
-  // Even though we were doing a history navigation, because the entry was
-  // pruned it will end up as a *new* entry at the end of the entry list. This
-  // means that occasionally a navigation conflict will end up with one entry
-  // bubbling to the end of the entry list, but that's the least-bad option.
-  EXPECT_EQ(3, controller.GetEntryCount());
-  EXPECT_EQ(2, controller.GetCurrentEntryIndex());
-  EXPECT_EQ(url_a, controller.GetEntryAtIndex(0)->GetURL());
-  EXPECT_EQ(url_c, controller.GetEntryAtIndex(1)->GetURL());
-  EXPECT_EQ(url_b, controller.GetEntryAtIndex(2)->GetURL());
-}
-
 // Tests that successive navigations with intermittent duplicate navigations
 // are correctly marked as reload in the navigation controller.
 // We test the cases where in a navigation is pending/committed before the new
@@ -4508,6 +4437,61 @@ TEST_F(NavigationControllerFencedFrameTest, NoURLRewriteForFencedFrames) {
 
   // Clean up the handler.
   BrowserURLHandlerImpl::GetInstance()->RemoveHandlerForTesting(&URLRewriter);
+}
+
+TEST_F(NavigationControllerTest, NavigationApiHistoryEntries_OpaqueOrigin) {
+  NavigationControllerImpl& controller = controller_impl();
+
+  // 1. Navigate main frame to a.com.
+  const GURL url_a("http://a.com");
+  NavigationSimulator::NavigateAndCommitFromDocument(url_a, main_test_rfh());
+  EXPECT_EQ(1U, navigation_entry_committed_counter_);
+  navigation_entry_committed_counter_ = 0;
+
+  // 2. Append a child frame and navigate it to a.com/subframe1.
+  // This updates the current entry (Entry 1).
+  const GURL subframe_url1("http://a.com/subframe1");
+  TestRenderFrameHost* subframe = static_cast<TestRenderFrameHost*>(
+      main_test_rfh()->AppendChild("subframe"));
+  subframe = static_cast<TestRenderFrameHost*>(
+      NavigationSimulator::NavigateAndCommitFromDocument(subframe_url1,
+                                                         subframe));
+  EXPECT_EQ(1U, navigation_entry_changed_counter_);
+  navigation_entry_changed_counter_ = 0;
+
+  // 3. Navigate the child frame to a.com/subframe2.
+  // This creates a new entry (Entry 2).
+  const GURL subframe_url2("http://a.com/subframe2");
+  subframe = static_cast<TestRenderFrameHost*>(
+      NavigationSimulator::NavigateAndCommitFromDocument(subframe_url2,
+                                                         subframe));
+  EXPECT_EQ(1U, navigation_entry_committed_counter_);
+  navigation_entry_committed_counter_ = 0;
+  EXPECT_EQ(2, controller.GetEntryCount());
+
+  // 4. Navigate the child frame to the same URL but with an opaque origin
+  // (sandboxed).
+  blink::FramePolicy sandbox_policy;
+  sandbox_policy.sandbox_flags = network::mojom::WebSandboxFlags::kOrigin;
+  subframe->frame_tree_node()->SetPendingFramePolicy(sandbox_policy);
+
+  subframe = static_cast<TestRenderFrameHost*>(
+      NavigationSimulator::NavigateAndCommitFromDocument(subframe_url2,
+                                                         subframe));
+  EXPECT_EQ(1U, navigation_entry_changed_counter_);
+  navigation_entry_changed_counter_ = 0;
+  navigation_entry_committed_counter_ = 0;
+
+  // 5. Call GetNavigationApiHistoryEntryVectors for the child frame.
+  blink::mojom::NavigationApiHistoryEntryArraysPtr arrays =
+      controller.GetNavigationApiHistoryEntryVectors(
+          subframe->frame_tree_node(), nullptr);
+
+  // The returned arrays should be empty because the current origin is opaque,
+  // preventing it from matching any same-origin entries (even though the URL
+  // looks same-origin).
+  EXPECT_TRUE(arrays->back_entries.empty());
+  EXPECT_TRUE(arrays->forward_entries.empty());
 }
 
 }  // namespace content

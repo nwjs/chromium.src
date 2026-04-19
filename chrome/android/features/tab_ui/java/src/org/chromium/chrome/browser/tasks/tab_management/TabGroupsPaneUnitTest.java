@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -16,6 +17,8 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import android.view.View;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -39,7 +42,6 @@ import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServi
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.hub.FullButtonData;
 import org.chromium.chrome.browser.hub.LoadHint;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -53,6 +55,7 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.ui.actions.button.FullButtonData;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
@@ -211,14 +214,20 @@ public class TabGroupsPaneUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":show_bottom_bar_on_gts/true")
+    public void testNewTabGroupButton_BottomBarEnabled() {
+        assertNull(mTabGroupsPane.getActionButtonDataSupplier().get());
+    }
+
+    @Test
     public void testNewTabGroupButton() {
         when(mTabCreator.createNewTab(any(), anyInt(), any())).thenReturn(mTab);
         FullButtonData actionButtonData = mTabGroupsPane.getActionButtonDataSupplier().get();
         assertNotNull(actionButtonData);
 
-        Runnable onPressRunnable = actionButtonData.getOnPressRunnable();
-        assertNotNull(onPressRunnable);
-        onPressRunnable.run();
+        assertTrue(actionButtonData.canPress());
+        View mockView = mock(View.class);
+        actionButtonData.onPress(mockView);
 
         verify(mTabCreator).createNewTab(any(), anyInt(), any());
         verify(mTabGroupModelFilter).createSingleTabGroup(mTab);

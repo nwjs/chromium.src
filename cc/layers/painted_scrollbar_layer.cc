@@ -59,13 +59,10 @@ bool PaintedScrollbarLayer::OpacityCanAnimateOnImplThread() const {
   return is_overlay_;
 }
 
-void PaintedScrollbarLayer::PushDirtyPropertiesTo(
-    LayerImpl* layer,
-    uint8_t dirty_flag,
-    const CommitState& commit_state,
-    const ThreadUnsafeCommitState& unsafe_state) {
-  ScrollbarLayerBase::PushDirtyPropertiesTo(layer, dirty_flag, commit_state,
-                                            unsafe_state);
+void PaintedScrollbarLayer::PushDirtyPropertiesTo(LayerImpl* layer,
+                                                  uint8_t dirty_flag,
+                                                  CommitState& commit_state) {
+  ScrollbarLayerBase::PushDirtyPropertiesTo(layer, dirty_flag, commit_state);
 
   if (dirty_flag & kChangedGeneralProperty) {
     PaintedScrollbarLayerImpl* scrollbar_layer =

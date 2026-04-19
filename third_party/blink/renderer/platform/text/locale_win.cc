@@ -114,10 +114,7 @@ unsigned GetFirstDayOfWeek(LCID lcid, bool defaults_for_locale) {
 }
 
 String ExtractLanguageCode(const String& locale) {
-  wtf_size_t dash_position = locale.find('-');
-  if (dash_position == kNotFound)
-    return locale;
-  return locale.Left(dash_position);
+  return locale.substr(0, locale.find('-'));
 }
 
 LCID LCIDFromLocaleInternal(LCID user_default_lcid,
@@ -271,7 +268,7 @@ void CommitLiteralToken(StringBuilder& literal_buffer,
                         StringBuilder& converted) {
   if (literal_buffer.length() <= 0)
     return;
-  DateTimeFormat::QuoteAndappend(literal_buffer.ToString(), converted);
+  DateTimeFormat::QuoteAndAppend(StringView(literal_buffer), converted);
   literal_buffer.Clear();
 }
 
@@ -323,7 +320,7 @@ String ConvertWindowsDateTimeFormat(const String& format) {
       } else {
         last_quote_can_be_literal = true;
       }
-    } else if (IsASCIIAlpha(ch)) {
+    } else if (IsAsciiAlpha(ch)) {
       CommitLiteralToken(literal_buffer, converted);
       wtf_size_t symbol_start = i;
       wtf_size_t count = CountContinuousLetters(format, i);
@@ -578,7 +575,7 @@ void LocaleWin::InitializeLocaleData() {
   } else {
     DCHECK_GE(digits.length(), 10u);
     for (wtf_size_t i = 0; i < 10; ++i) {
-      symbols.push_back(digits.Substring(i, 1));
+      symbols.push_back(digits.substr(i, 1));
     }
   }
   DCHECK_EQ(symbols.size(), kDecimalSeparatorIndex);

@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_AUTOFILL_ACTOR_ACTOR_KEY_METRICS_RECORDER_H_
 #define CHROME_BROWSER_AUTOFILL_ACTOR_ACTOR_KEY_METRICS_RECORDER_H_
 
+#include <optional>
+
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ref.h"
@@ -29,7 +31,8 @@ class ActorKeyMetricsRecorder : public AutofillManager::Observer {
   ActorKeyMetricsRecorder& operator=(const ActorKeyMetricsRecorder&) = delete;
   ~ActorKeyMetricsRecorder() override;
 
-  // Adds `form_id` to the list of forms that are currently being filled by the actor.
+  // Adds `form_id` to the list of forms that are currently being filled by the
+  // actor.
   void RecordFormToFill(FormGlobalId form_id);
 
   // Tracks that suggestions were generated for `products` on a form.
@@ -50,10 +53,9 @@ class ActorKeyMetricsRecorder : public AutofillManager::Observer {
       const FillingPayload& filling_payload) override;
 
  private:
-  // Records the key metrics for a `form_structure` if they haven't been
+  // Records the key metrics for a `form` if they haven't been
   // recorded yet.
-  void RecordKeyMetrics(AutofillManager& manager,
-                        const FormStructure& form_structure);
+  void RecordKeyMetrics(AutofillManager& manager, const FormStructure& form);
 
   // Tracks the state of a specific filling product (e.g. Address or Credit
   // Card) for the purpose of metrics recording.
@@ -77,19 +79,30 @@ class ActorKeyMetricsRecorder : public AutofillManager::Observer {
         actor_filled_fields;
   };
 
-  // Records the "FillingAssistance" metric for a `form_structure`.
-  void RecordFillingAssistance(const FormStructure& form_structure,
-                               const ProductState& state,
-                               std::string_view product_str);
-  void RecordFillingCorrectness(const FormStructure& form_structure,
-                                const ProductState& state,
-                                std::string_view product_str);
-  void RecordFillingReadiness(const FormStructure& form_structure,
+  // Records the "FillingAssistance" metric for a `form`.
+  void RecordFillingAssistance(const FormStructure& form,
+                               FillingProduct product);
+  void RecordFillingCorrectness(const FormStructure& form,
                               const ProductState& state,
-                              std::string_view product_str);
-  void RecordPerfectFillingMetric(const FormStructure& form_structure,
-                                  const ProductState& state,
-                                  std::string_view product_str);
+                                FillingProduct product);
+  void RecordFillingReadiness(const FormStructure& form,
+                              const ProductState& state,
+                              FillingProduct product);
+  void RecordPerfectFillingMetric(const FormStructure& form,
+                                  FillingProduct product);
+  void RecordEditedAutofilledFieldAtSubmission(const FormStructure& form);
+
+  // Returns true if the actor filled at least one field of `product` in `form`.
+  bool HasFilledFieldOfProduct(const FormStructure& form,
+                               FillingProduct product) const;
+
+  // Returns true if the field with `field_id` in `form` was filled by
+  // actor with a specific `product` (if provided), or with any product
+  // otherwise.
+  bool WasFieldFilledByActor(
+      const FormStructure& form,
+      FieldGlobalId field_id,
+      std::optional<FillingProduct> product = std::nullopt) const;
 
   std::array<ProductState, std::to_underlying(FillingProduct::kMaxValue) + 1>
       states_;

@@ -14,13 +14,13 @@
 namespace safe_browsing {
 // Features list
 //
-// These options group the lines into blocks without newlines, then
-// sorts by the name of the BASE_DECLARE_FEATURE in each block. It's
-// recommended to keep all FeatureParams for a given Feature in the same
-// block as as the Feature declaration.
+// These options group together non-empty lines, then sorts by the name
+// of the feature in each block. It's recommended to keep all
+// FeatureParams for a given Feature in the same group as as the Feature
+// declaration.
 //
 // clang-format off
-// keep-sorted start allow_yaml_lists=yes sticky_prefixes=[""] group_prefixes=["#if", "#else", "#endif", "extern const base::FeatureParam", "//", "BASE_DECLARE_FEATURE", "BASE_DECLARE_FEATURE_PARAM"] by_regex=["BASE_DECLARE_FEATURE\\(.*\\);"] skip_lines=2
+// keep-sorted start group_end_regex=^$ allow_yaml_lists=yes by_regex=["BASE_DECLARE_FEATURE\\(.*\\);"] skip_lines=2 newline_separated=true sticky_comments=false
 // clang-format on
 
 // Controls various parameters related to occasionally collecting ad samples,
@@ -129,6 +129,9 @@ extern const base::FeatureParam<double> kCsdClassificationDelay;
 // Instead of starting model download on startup, do it lazily during inference.
 BASE_DECLARE_FEATURE(kClientSideDetectionOnDeviceModelLazyDownloadAndroid);
 #endif
+
+// Deprecation of page load triggers for SSB users.
+BASE_DECLARE_FEATURE(kClientSideDetectionOnlyESBClassification);
 
 // Killswitch for force request redirect chain check.
 BASE_DECLARE_FEATURE(kClientSideDetectionRedirectChainKillswitch);
@@ -239,6 +242,10 @@ BASE_DECLARE_FEATURE(kExtendedReportingRemovePrefDependency);
 // sent by the server.
 BASE_DECLARE_FEATURE(kExtensionTelemetryConfiguration);
 
+// Reduces the extension telemetry service's enterprise telemetry reporting
+// interval to 30 seconds.
+BASE_DECLARE_FEATURE(kExtensionTelemetryEnterpriseShortReportingInterval);
+
 // Enables the search hijacking signal in extension telemetry.
 BASE_DECLARE_FEATURE(kExtensionTelemetrySearchHijackingSignal);
 // The default interval between heuristic checks.
@@ -251,12 +258,6 @@ extern const base::FeatureParam<int>
 
 // Enables reporting of external app redirects
 BASE_DECLARE_FEATURE(kExternalAppRedirectTelemetry);
-
-// When this flag is enabled, and when the configured secure_dns_mode is
-// AUTOMATIC, the DoH fallback setting
-// (dns_over_https.automatic_mode_fallback_to_doh) should be forced to be
-// interpreted as true.
-BASE_DECLARE_FEATURE(kForceSecureDnsDohFallback);
 
 // Enables querying server-side Gemini model for scam detection.
 BASE_DECLARE_FEATURE(kGeminiAntiscamProtectionForMetricsCollection);
@@ -292,6 +293,12 @@ extern const base::FeatureParam<std::string> kHashPrefixRealTimeLookupsRelayUrl;
 // key that will be used to encrypt the lookup requests.
 extern const base::FeatureParam<std::string>
     kHashPrefixRealTimeLookupsKeyFetchUrl;
+// This parameter controls the header used to request a given HPKE key type.
+extern const base::FeatureParam<std::string>
+    kHashPrefixRealTimeLookupsKeyFetchKeyTypeHeader;
+// This parameter allows adding a custom header to the HPKE key fetch request.
+extern const base::FeatureParam<std::string>
+    kHashPrefixRealTimeLookupsKeyFetchCustomHeader;
 
 // Send sample hash-prefix real-time lookups for real-time lookups to catch
 // "false positives" where real-time lookup says safe but hash-prefix lookup

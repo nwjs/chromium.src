@@ -935,6 +935,11 @@
     "padding",
     "padding-box",
 
+    // background-clip: border-area (CSS Backgrounds Level 4)
+    // NOTE: This must be outside the kBorder..kPaddingBox range used by
+    // ConsumePrefixedBackgroundBox's ConsumeIdentRange.
+    "border-area",
+
     // CSS 3 SHAPES
     "margin-box",
 
@@ -981,6 +986,7 @@
     //
     "running",
     "paused",
+    "stopped",
 
     //
     // transform-style
@@ -1139,6 +1145,7 @@
     //optimizespeed
     "optimizequality",
     "pixelated",
+    "crisp-edges",
     "-webkit-optimize-contrast",
 
     // image-orientation
@@ -1313,14 +1320,17 @@
     // intersection
     // normal
 
+    // rule-inset
+    "overlap-join",
+
     // column-rule-visibility-items
-    // auto
+    // normal
     // all
     "around",
     "between",
 
     // row-rule-visibility-items
-    // auto
+    // normal
     // all
     // around
     // between
@@ -1451,6 +1461,7 @@
     "with",
 
     // @font-face src
+    "avar2",
     "format",
     "collection",
     "embedded-opentype",
@@ -1883,6 +1894,7 @@
     // @view-transition navigation
     // auto
     // none
+    "preview",
 
     // view-transition-capture-mode
     "layered",
@@ -1914,10 +1926,6 @@
     "x-end",
     "span-x-start",
     "span-x-end",
-    "x-self-start",
-    "x-self-end",
-    "span-x-self-start",
-    "span-x-self-end",
     "self-x-start",
     "self-x-end",
     "span-self-x-start",
@@ -1931,10 +1939,6 @@
     "y-end",
     "span-y-start",
     "span-y-end",
-    "y-self-start",
-    "y-self-end",
-    "span-y-self-start",
-    "span-y-self-end",
     "self-y-start",
     "self-y-end",
     "span-self-y-start",

@@ -257,22 +257,21 @@ bool QuicHttpStream::IsResponseBodyComplete() const {
 }
 
 bool QuicHttpStream::IsConnectionReused() const {
-  // TODO(rch): do something smarter here.
-  return stream_ && stream_->id() > 1;
+  return stream_ && !stream_->IsFirstStream();
 }
 
-int64_t QuicHttpStream::GetTotalReceivedBytes() const {
+base::ByteSize QuicHttpStream::GetTotalReceivedBytes() const {
   if (stream_) {
     DCHECK_LE(stream_->NumBytesConsumed(), stream_->stream_bytes_read());
     // Only count the uniquely received bytes.
-    return stream_->NumBytesConsumed();
+    return base::ByteSize(stream_->NumBytesConsumed());
   }
   return closed_stream_received_bytes_;
 }
 
-int64_t QuicHttpStream::GetTotalSentBytes() const {
+base::ByteSize QuicHttpStream::GetTotalSentBytes() const {
   if (stream_) {
-    return stream_->stream_bytes_written();
+    return base::ByteSize(stream_->stream_bytes_written());
   }
   return closed_stream_sent_bytes_;
 }
@@ -681,8 +680,8 @@ void QuicHttpStream::ResetStream() {
 
   DCHECK_LE(stream_->NumBytesConsumed(), stream_->stream_bytes_read());
   // Only count the uniquely received bytes.
-  closed_stream_received_bytes_ = stream_->NumBytesConsumed();
-  closed_stream_sent_bytes_ = stream_->stream_bytes_written();
+  closed_stream_received_bytes_ = base::ByteSize(stream_->NumBytesConsumed());
+  closed_stream_sent_bytes_ = base::ByteSize(stream_->stream_bytes_written());
   closed_is_first_stream_ = stream_->IsFirstStream();
   connection_error_ = stream_->connection_error();
   stream_error_ = stream_->stream_error();
@@ -746,6 +745,16 @@ void QuicHttpStream::SetRequestIdempotency(Idempotency idempotency) {
     return;
   }
   stream_->SetRequestIdempotency(idempotency);
+}
+
+void QuicHttpStream::PopulateLoadTimingInternalInfo(
+    LoadTimingInternalInfo* load_timing_internal_info) const {
+  if (stream_) {
+    load_timing_internal_info->max_stream_limit_pending_delay =
+        stream_->max_stream_limit_pending_delay();
+  }
+  load_timing_internal_info->resolution_details =
+      quic_session()->GetResolutionDetails();
 }
 
 }  // namespace net

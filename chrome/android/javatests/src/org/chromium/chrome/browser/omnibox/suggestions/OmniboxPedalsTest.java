@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions;
 
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.action.ViewActions.pressKey;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -38,6 +36,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.ImportantFormFactors;
@@ -289,14 +288,15 @@ public class OmniboxPedalsTest {
 
     @Test
     @MediumTest
+    @DisabledTest // Flaky: crbug.com/495701957
     public void testPedalsStartedOnTabEnterKeyStroke() throws Exception {
         setSuggestions(createPedalSuggestion(OmniboxPedalId.MANAGE_CHROME_ACCESSIBILITY));
 
-        onView(withId(R.id.url_bar)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
-        onView(withId(R.id.url_bar)).perform(pressKey(KeyEvent.KEYCODE_TAB));
+        mOmniboxUtils.sendKey(KeyEvent.KEYCODE_DPAD_DOWN);
+        mOmniboxUtils.sendKey(KeyEvent.KEYCODE_TAB);
         clickOnPedalToSettings(
                 () -> {
-                    onView(withId(R.id.url_bar)).perform(pressKey(KeyEvent.KEYCODE_ENTER));
+                    mOmniboxUtils.sendKey(KeyEvent.KEYCODE_ENTER);
                 },
                 AccessibilitySettings.class);
     }

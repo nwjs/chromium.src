@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window_theme_observer.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
@@ -152,6 +153,12 @@ WebUIBrowserWindow::WebUIBrowserWindow(Browser* browser) : browser_(browser) {
       widget_->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
           &WebUIBrowserWindow::PaintAsActiveChanged, base::Unretained(this)));
 
+  if (auto* theme_observer = BrowserWindowThemeObserver::From(browser_.get())) {
+    theme_changed_subscription_ =
+        theme_observer->RegisterThemeChangedCallback(base::BindRepeating(
+            &WebUIBrowserWindow::UserChangedTheme, base::Unretained(this)));
+  }
+
   LoadAccelerators();
 }
 
@@ -248,8 +255,7 @@ void WebUIBrowserWindow::Hide() {
 }
 
 bool WebUIBrowserWindow::IsVisible() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  return widget_->IsVisible();
 }
 
 void WebUIBrowserWindow::SetBounds(const gfx::Rect& bounds) {
@@ -672,11 +678,23 @@ void WebUIBrowserWindow::OnActiveTabChanged(content::WebContents* old_contents,
   // This is a no-op if it's already set to |this|.
   new_contents->SetColorProviderSource(this);
 
+  // Unlike BrowserView, WebUIBrowserWindow does not use native views that
+  // automatically propagate visibility to WebContents. Explicitly update
+  // visibility here so that the old tab is hidden and the new tab reflects
+  // the window's current visibility state. Features like prerendering rely
+  // on this timing of visibility updates.
+  if (old_contents) {
+    old_contents->UpdateWebContentsVisibility(content::Visibility::HIDDEN);
+  }
+  if (IsVisible()) {
+    new_contents->UpdateWebContentsVisibility(content::Visibility::VISIBLE);
+  } else {
+    new_contents->UpdateWebContentsVisibility(content::Visibility::HIDDEN);
+  }
+
   // State of extensions depends on what's active --- e.g. some may be disabled
   // on some URLs.
   extensions_container_->NotifyOfAllActions();
-
-  NOTIMPLEMENTED_LOG_ONCE();
 }
 
 void WebUIBrowserWindow::OnTabDetached(content::WebContents* contents,
@@ -1091,8 +1109,7 @@ void WebUIBrowserWindow::ShowCaretBrowsingDialog() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-void WebUIBrowserWindow::CreateTabSearchBubble(
-    tab_search::mojom::TabSearchSection section) {
+void WebUIBrowserWindow::CreateTabSearchBubble() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 

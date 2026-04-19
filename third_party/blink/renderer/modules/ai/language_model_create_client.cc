@@ -270,7 +270,7 @@ void LanguageModelCreateClient::Create(
   Availability availability = ConvertModelAvailabilityCheckResult(result);
   if (availability == Availability::kUnavailable) {
     GetResolver()->RejectWithDOMException(
-        DOMExceptionCode::kNotAllowedError,
+        DOMExceptionCode::kNotSupportedError,
         ConvertModelAvailabilityCheckResultToDebugString(result));
     return;
   }
@@ -403,7 +403,6 @@ void LanguageModelCreateClient::Create(
     return;
   }
 
-  // TODO(crbug.com/419583879): Add better test coverage for initialPrompts.
   for (const auto& message : options_->initialPrompts()) {
     if (message->role() == V8LanguageModelMessageRole::Enum::kSystem &&
         message != options_->initialPrompts().front()) {

@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/clock.h"
 #include "chrome/browser/web_applications/jobs/finalize_install_job.h"
 #include "chrome/browser/web_applications/locks/lock.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
@@ -28,7 +29,9 @@
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_translation_manager.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
+#include "components/sync/base/time.h"
 #include "components/webapps/browser/install_result_code.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "content/public/browser/browser_thread.h"
@@ -136,6 +139,35 @@ void FinalizeUpdateJob::OnOriginAssociationValidatedForUpdate(
   web_app->SetValidatedScopeExtensions(validated_scope_extensions);
   web_app->SetValidatedMigrationSources(
       validated_origin_associations.migration_sources);
+
+  // When testing, the database state is compared with the in-memory registry,
+  // and because proto time has less granularity, this comparison fails unless
+  // we pre-downgrade to proto time and back before saving in our database.
+  const base::Time now_time = syncer::ProtoTimeToTime(
+      syncer::TimeToProtoTime(provider_->clock().Now()));
+  web_app->SetOriginAssociationLastValidationCheckTime(now_time);
+
+  // Filter out shortcuts that are not in the scope or extended scope.
+  // Note: This must be called after the scope and validated scope extensions
+  // are set.
+  std::vector<WebAppShortcutsMenuItemInfo> valid_shortcuts;
+  std::vector<IconBitmaps> valid_shortcut_icon_bitmaps;
+  WebAppScope effective_scope = web_app->GetScope();
+  for (size_t i = 0; i < web_app_info_.shortcuts_menu_item_infos.size(); ++i) {
+    const auto& shortcut = web_app_info_.shortcuts_menu_item_infos[i];
+    if (effective_scope.IsInScope(shortcut.url)) {
+      valid_shortcuts.push_back(shortcut);
+      if (i < web_app_info_.shortcuts_menu_icon_bitmaps.size()) {
+        valid_shortcut_icon_bitmaps.push_back(
+            std::move(web_app_info_.shortcuts_menu_icon_bitmaps[i]));
+      }
+    }
+  }
+  web_app_info_.shortcuts_menu_item_infos = std::move(valid_shortcuts);
+  web_app_info_.shortcuts_menu_icon_bitmaps =
+      std::move(valid_shortcut_icon_bitmaps);
+  CHECK_EQ(web_app_info_.shortcuts_menu_item_infos.size(),
+           web_app_info_.shortcuts_menu_icon_bitmaps.size());
 
   // Prepare copy-on-write to update existing app.
   // This is not reached unless the data obtained from the manifest

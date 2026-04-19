@@ -89,12 +89,10 @@ std::unique_ptr<LayerImpl> HeadsUpDisplayLayer::CreateLayerImpl(
                                          paused_debugger_message_);
 }
 
-void HeadsUpDisplayLayer::PushDirtyPropertiesTo(
-    LayerImpl* layer,
-    uint8_t dirty_flag,
-    const CommitState& commit_state,
-    const ThreadUnsafeCommitState& unsafe_state) {
-  Layer::PushDirtyPropertiesTo(layer, dirty_flag, commit_state, unsafe_state);
+void HeadsUpDisplayLayer::PushDirtyPropertiesTo(LayerImpl* layer,
+                                                uint8_t dirty_flag,
+                                                CommitState& commit_state) {
+  Layer::PushDirtyPropertiesTo(layer, dirty_flag, commit_state);
 
   if (dirty_flag & kChangedGeneralProperty) {
     TRACE_EVENT0("cc", "HeadsUpDisplayLayer::PushPropertiesTo");

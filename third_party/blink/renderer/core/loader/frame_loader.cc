@@ -197,16 +197,21 @@ ResourceRequest FrameLoader::ResourceRequestForReload(
 
   // ClientRedirectPolicy is an indication that this load was triggered by some
   // direct interaction with the page. If this reload is not a client redirect,
-  // we should reuse the referrer from the original load of the current
-  // document. If this reload is a client redirect (e.g., location.reload()), it
-  // was initiated by something in the current document and should therefore
-  // show the current document's url as the referrer.
+  // we should reuse the referrer and (if applicable) `Origin` header from the
+  // original load of the current document. If this reload is a client redirect
+  // (e.g., location.reload()), it was initiated by something in the current
+  // document and should therefore show the current document's url as the
+  // referrer, and, when applicable (i.e., non-HEAD or -GET request), use its
+  // current origin as the `Origin` header.
   if (client_redirect_policy == ClientRedirectPolicy::kClientRedirect) {
     LocalDOMWindow* window = frame_->DomWindow();
     Referrer referrer = SecurityPolicy::GenerateReferrer(
         window->GetReferrerPolicy(), window->Url(), window->OutgoingReferrer());
     request.SetReferrerString(referrer.referrer);
     request.SetReferrerPolicy(referrer.referrer_policy);
+    request.ClearHTTPOrigin();
+    request.SetHTTPOriginToMatchReferrerPolicyIfNeeded(
+        window->GetSecurityOrigin());
   }
 
   request.SetSkipServiceWorker(frame_load_type ==
@@ -1670,9 +1675,11 @@ void FrameLoader::ProcessFragment(const KURL& url,
 
 bool FrameLoader::ShouldClose(
     bool is_reload,
+    bool force_to_proceed,
     base::TimeTicks& out_before_unload_dialog_opened_time,
     base::TimeTicks& out_before_unload_dialog_closed_time) {
-  TRACE_EVENT1("loading", "FrameLoader::ShouldClose", "is_reload", is_reload);
+  TRACE_EVENT("loading", "FrameLoader::ShouldClose", "is_reload", is_reload,
+              "force_to_proceed", force_to_proceed);
   const base::TimeTicks before_unload_events_start = base::TimeTicks::Now();
 
   Page* page = frame_->GetPage();
@@ -1698,8 +1705,8 @@ bool FrameLoader::ShouldClose(
     IgnoreOpensDuringUnloadCountIncrementer ignore_opens_during_unload(
         frame_->GetDocument());
     if (!frame_->GetDocument()->DispatchBeforeUnloadEvent(
-            &page->GetChromeClient(), is_reload, did_allow_navigation,
-            out_before_unload_dialog_opened_time,
+            &page->GetChromeClient(), is_reload, force_to_proceed,
+            did_allow_navigation, out_before_unload_dialog_opened_time,
             out_before_unload_dialog_closed_time)) {
       frame_->DomWindow()->navigation()->InformAboutCanceledNavigation();
       return false;
@@ -1724,8 +1731,8 @@ bool FrameLoader::ShouldClose(
           ignore_opens_during_unload_descendant(
               descendant_frame->GetDocument());
       if (!descendant_frame->GetDocument()->DispatchBeforeUnloadEvent(
-              &page->GetChromeClient(), is_reload, did_allow_navigation,
-              out_before_unload_dialog_opened_time,
+              &page->GetChromeClient(), is_reload, force_to_proceed,
+              did_allow_navigation, out_before_unload_dialog_opened_time,
               out_before_unload_dialog_closed_time)) {
         frame_->DomWindow()->navigation()->InformAboutCanceledNavigation();
         return false;

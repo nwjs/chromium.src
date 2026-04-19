@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/flat_set.h"
+#include "base/containers/flat_map.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -80,6 +80,8 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
       const syncer::EntityData& entity_data) const override;
   std::string GetStorageKey(
       const syncer::EntityData& entity_data) const override;
+  sync_pb::EntitySpecifics TrimAllSupportedFieldsFromRemoteSpecifics(
+      const sync_pb::EntitySpecifics& entity_specifics) const override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
                                    delete_metadata_change_list) override;
@@ -92,7 +94,8 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
       const GURL& url,
       const std::string& title,
       const std::string& target_device_cache_guid,
-      const PageContext& context) override;
+      const PageContext& context,
+      NavigationHistory navigation_history) override;
   void DeleteEntry(const std::string& guid) override;
   void DismissEntry(const std::string& guid) override;
   void MarkEntryOpened(const std::string& guid) override;
@@ -173,10 +176,11 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   SendTabToSelfEntries entries_;
 
   // Stores guids of entries that have been opened from a layer other than
-  // SendTabToSelfModel. Once the bridge receives the respective entries, they
-  // will be marked opened. Entries are in-memory only and will be lost on
-  // browser restart.
-  base::flat_set<std::string> unknown_opened_entries_;
+  // SendTabToSelfModel, along with the time the open was requested. Once
+  // the bridge receives the respective entries, they will be marked opened
+  // using the stored timestamp. Entries are in-memory only and will be lost
+  // on browser restart.
+  base::flat_map<std::string, base::Time> unknown_opened_entries_;
 
   // |clock_| isn't owned.
   const raw_ptr<const base::Clock> clock_;

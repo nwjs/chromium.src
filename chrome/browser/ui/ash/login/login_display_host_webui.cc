@@ -80,7 +80,6 @@
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/audio/public/cpp/sounds/sounds_manager.h"
 #include "chromeos/ash/components/audio/sounds.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -184,17 +183,19 @@ bool HasManagedDeviceSettings() {
 
 // Even if oobe is complete we may still want to show it, for example, if there
 // are no users registered then the user may want to enterprise enroll.
-bool IsOobeComplete() {
+bool IsOobeComplete(const PrefService& local_state) {
   // Oobe is completed and we have a user or we are enterprise enrolled.
-  return StartupUtils::IsOobeCompleted() &&
+  return StartupUtils::IsOobeCompleted(local_state) &&
          ((!user_manager::UserManager::Get()->GetPersistedUsers().empty() &&
            !HasManagedDeviceSettings()) ||
           ash::InstallAttributes::Get()->IsEnterpriseManaged());
 }
 
 // Returns true if signin (not oobe) should be displayed.
-bool ShouldShowSigninScreen(OobeScreenId first_screen) {
-  return (first_screen == ash::OOBE_SCREEN_UNKNOWN && IsOobeComplete());
+bool ShouldShowSigninScreen(const PrefService& local_state,
+                            OobeScreenId first_screen) {
+  return (first_screen == ash::OOBE_SCREEN_UNKNOWN &&
+          IsOobeComplete(local_state));
 }
 
 void MaybeShowDeviceDisabledScreen() {
@@ -269,6 +270,8 @@ void ShowLoginWizardFinish(
   PrefService* local_state = g_browser_process->local_state();
   ApplicationLocaleStorage* application_locale_storage =
       g_browser_process->GetFeatures()->application_locale_storage();
+  scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory =
+      g_browser_process->shared_url_loader_factory();
   policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash =
       g_browser_process->platform_part()->browser_policy_connector_ash();
 
@@ -281,7 +284,7 @@ void ShowLoginWizardFinish(
   }
 
   std::unique_ptr<TimeboundUserContextHolder> user_context;
-  if (ShouldShowSigninScreen(first_screen)) {
+  if (ShouldShowSigninScreen(CHECK_DEREF(local_state), first_screen)) {
     if (ShouldPreserveUserContext()) {
       // Move the user context to the local variable before it's destroyed.
       WizardContext* wizard_context =
@@ -302,21 +305,22 @@ void ShowLoginWizardFinish(
   if (LoginDisplayHost::default_host()) {
     // Tests may have already allocated an instance for us to use.
     display_host = LoginDisplayHost::default_host();
-  } else if (ShouldShowSigninScreen(first_screen)) {
+  } else if (ShouldShowSigninScreen(CHECK_DEREF(local_state), first_screen)) {
     display_host = new LoginDisplayHostMojo(
-        local_state, application_locale_storage, browser_policy_connector_ash,
-        DisplayedScreen::SIGN_IN_SCREEN,
+        local_state, application_locale_storage, shared_url_loader_factory,
+        browser_policy_connector_ash, DisplayedScreen::SIGN_IN_SCREEN,
         /*update_geolocation_usage_allowed=*/true);
   } else if (first_screen == ArcVmDataMigrationScreenView::kScreenId) {
     display_host = new LoginDisplayHostMojo(
-        local_state, application_locale_storage, browser_policy_connector_ash,
-        DisplayedScreen::SIGN_IN_SCREEN,
+        local_state, application_locale_storage, shared_url_loader_factory,
+        browser_policy_connector_ash, DisplayedScreen::SIGN_IN_SCREEN,
         /*update_geolocation_usage_allowed=*/true);
     DCHECK(session_manager::SessionManager::Get());
     session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
   } else {
     display_host = new LoginDisplayHostWebUI(
-        local_state, application_locale_storage, browser_policy_connector_ash);
+        local_state, application_locale_storage, shared_url_loader_factory,
+        browser_policy_connector_ash);
   }
 
   if (features::IsOobeAddUserDuringEnrollmentEnabled() && user_context) {
@@ -333,7 +337,7 @@ void ShowLoginWizardFinish(
   }
 
   // TODO(crbug.com/1105387): Part of initial screen logic.
-  if (ShouldShowSigninScreen(first_screen)) {
+  if (ShouldShowSigninScreen(CHECK_DEREF(local_state), first_screen)) {
     display_host->StartSignInScreen();
   } else {
     display_host->StartWizard(first_screen);
@@ -515,12 +519,15 @@ class LoginDisplayHostWebUI::KeyboardDrivenOobeKeyHandler
 LoginDisplayHostWebUI::LoginDisplayHostWebUI(
     PrefService* local_state,
     ApplicationLocaleStorage* application_locale_storage,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
     policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash)
     : LoginDisplayHostCommon(local_state,
                              application_locale_storage,
+                             std::move(shared_url_loader_factory),
                              browser_policy_connector_ash,
                              /*update_geolocation_usage_allowed=*/true),
-      oobe_startup_sound_played_(StartupUtils::IsOobeCompleted()) {
+      oobe_startup_sound_played_(
+          StartupUtils::IsOobeCompleted(local_state_.get())) {
   session_manager_client_observation_.Observe(SessionManagerClient::Get());
   CrasAudioHandler::Get()->AddAudioObserver(this);
 
@@ -532,7 +539,7 @@ LoginDisplayHostWebUI::LoginDisplayHostWebUI(
 
   audio::SoundsManager* manager = audio::SoundsManager::Get();
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-  manager->Initialize(static_cast<int>(Sound::kStartup),
+  manager->Initialize(std::to_underlying(Sound::kStartup),
                       bundle.GetRawDataResource(IDR_SOUND_STARTUP_WAV),
                       media::AudioCodec::kPCM);
 }
@@ -608,7 +615,7 @@ void LoginDisplayHostWebUI::OnOobeConfigurationChanged() {
 }
 
 void LoginDisplayHostWebUI::StartWizard(OobeScreenId first_screen) {
-  if (!StartupUtils::IsOobeCompleted()) {
+  if (!StartupUtils::IsOobeCompleted(local_state_.get())) {
     // If `prefs::kOobeStartTime` is not yet stored, then this is the first
     // time OOBE has started.
     if (local_state_->GetTime(prefs::kOobeStartTime).is_null()) {
@@ -653,7 +660,9 @@ void LoginDisplayHostWebUI::StartWizard(OobeScreenId first_screen) {
     // TODO(crbug.com/404133029): Avoid using g_browser_process.
     wizard_controller_ = std::make_unique<WizardController>(
         &local_state_.get(), &application_locale_storage_.get(),
-        g_browser_process->shared_url_loader_factory(), GetWizardContext());
+        g_browser_process->shared_url_loader_factory(),
+        g_browser_process->platform_part()->component_manager_ash(),
+        GetWizardContext());
     NotifyWizardCreated();
     wizard_controller_->Init(first_screen);
   }
@@ -723,7 +732,9 @@ void LoginDisplayHostWebUI::OnStartAppLaunch() {
     // TODO(crbug.com/404133029): Avoid using g_browser_process.
     wizard_controller_ = std::make_unique<WizardController>(
         &local_state_.get(), &application_locale_storage_.get(),
-        g_browser_process->shared_url_loader_factory(), GetWizardContext());
+        g_browser_process->shared_url_loader_factory(),
+        g_browser_process->platform_part()->component_manager_ash(),
+        GetWizardContext());
     NotifyWizardCreated();
   }
 }
@@ -1084,7 +1095,8 @@ void LoginDisplayHostWebUI::OnLoginPromptVisible() {
 
 void LoginDisplayHostWebUI::CreateExistingUserController() {
   existing_user_controller_ = std::make_unique<ExistingUserController>(
-      &local_state_.get(), &application_locale_storage_.get());
+      &local_state_.get(), &application_locale_storage_.get(),
+      shared_url_loader_factory_);
 }
 
 void LoginDisplayHostWebUI::ShowGaiaDialog(const AccountId& prefilled_account) {
@@ -1230,6 +1242,8 @@ void ShowLoginWizard(OobeScreenId first_screen) {
   PrefService& local_state = CHECK_DEREF(g_browser_process->local_state());
   ApplicationLocaleStorage* application_locale_storage =
       g_browser_process->GetFeatures()->application_locale_storage();
+  scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory =
+      g_browser_process->shared_url_loader_factory();
   policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash =
       g_browser_process->platform_part()->browser_policy_connector_ash();
 
@@ -1250,7 +1264,7 @@ void ShowLoginWizard(OobeScreenId first_screen) {
           switches::kNaturalScrollDefault));
 
   auto session_state = session_manager::SessionState::OOBE;
-  if (IsOobeComplete()) {
+  if (IsOobeComplete(local_state)) {
     session_state = session_manager::SessionState::LOGIN_PRIMARY;
   }
   session_manager::SessionManager::Get()->SetSessionState(session_state);
@@ -1267,7 +1281,8 @@ void ShowLoginWizard(OobeScreenId first_screen) {
       first_screen == ash::OOBE_SCREEN_UNKNOWN) {
     // Manages its own lifetime. See ShutdownDisplayHost().
     auto* display_host = new LoginDisplayHostWebUI(
-        &local_state, application_locale_storage, browser_policy_connector_ash);
+        &local_state, application_locale_storage, shared_url_loader_factory,
+        browser_policy_connector_ash);
     // Shows networks screen instead of enrollment screen to resume the
     // interrupted auto start enrollment flow because enrollment screen does
     // not handle flaky network. See http://crbug.com/332572
@@ -1280,7 +1295,7 @@ void ShowLoginWizard(OobeScreenId first_screen) {
     return;
   }
 
-  if (StartupUtils::IsEulaAccepted()) {
+  if (StartupUtils::IsEulaAccepted(local_state)) {
     DelayNetworkCall(ServicesCustomizationDocument::GetInstance()
                          ->EnsureCustomizationAppliedClosure());
 
@@ -1294,7 +1309,7 @@ void ShowLoginWizard(OobeScreenId first_screen) {
   language::ConvertToActualUILocale(&current_locale);
   VLOG(1) << "Current locale: " << current_locale;
 
-  if (ShouldShowSigninScreen(first_screen)) {
+  if (ShouldShowSigninScreen(local_state, first_screen)) {
     std::string switch_locale = GetManagedLoginScreenLocale();
     if (switch_locale == current_locale) {
       switch_locale.clear();
@@ -1341,7 +1356,7 @@ void ShowLoginWizard(OobeScreenId first_screen) {
   // Don't need to schedule pref save because setting initial local
   // will enforce preference saving.
   local_state.SetString(language::prefs::kApplicationLocale, locale);
-  StartupUtils::SetInitialLocale(locale);
+  StartupUtils::SetInitialLocale(local_state, locale);
 
   TriggerShowLoginWizardFinish(locale, std::move(data),
                                /*login_input_methods_only=*/false);

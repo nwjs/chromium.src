@@ -16,19 +16,24 @@ version = "0.1.0"
 [workspace]
 
 [dependencies]
+ahash = "0.8.12" #TODO(crbug.com/496920769): Remove once libafl is added as a dependency.
+aho-corasick = "1.1.4" #TODO(crbug.com/496920769): Remove once libafl is added as a dependency.
 antlr4rust = "0.5.2"
 anyhow = "1.0.98"
+arbitrary-int = "2.1.1" #TODO(crbug.com/496920769): Remove once libafl is added as a dependency.
+backtrace = "0.3.76" #TODO(crbug.com/496920769): Remove once libafl is added as a dependency.
 base64 = "0.22"
+bincode = "2.0.1" #TODO(crbug.com/496920769): Remove once libafl is added as a dependency.
 bitflags = "2"
 bytes = "1"
 chrono = "0.4.43"
 cxx = "1"
 fend-core = "1"
-font-types = "0.11"
+font-types = "0.11.1"
 hex = "0.4"
 hmac-sha256 = "1.1.12"
 indexmap = "2.12.1"
-itertools = "0.11.0"
+itertools = "0.14.0"
 lazy_static = "1"
 libc = "0.2"
 minijinja = "2.14.0"
@@ -39,14 +44,13 @@ proc-macro2 = "1"
 prost = "0.14.1"
 qr_code = "2"
 quote = "1"
-read-fonts = "0.37.0"
+read-fonts = "0.38.0"
 rustc-demangle-capi = "0.1"
 serde = "1.0.219"
 serde_json = "1.0.149"
-skrifa = "0.40.0"
+skrifa = "0.41.0"
 small_ctor = "0.1"
 static_assertions = "1"
-strum = "0.27.2"
 xml = "1.2.0"
 
 [dependencies.bytemuck]
@@ -66,31 +70,31 @@ version = "1"
 artifact = "bin"
 
 [dependencies.icu_casemap]
-version = "2.1.1"
+version = "2.2.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_experimental]
-version = "0.4.0"
+version = "0.5.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_locale_core]
-version = "2.1.1"
+version = "2.2.0"
 default-features = false
 
 [dependencies.icu_normalizer]
-version = "2.1.1"
+version = "2.2.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_properties]
-version = "2.1.1"
+version = "2.2.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_provider]
-version = "2.1.1"
+version = "2.2.0"
 default-features = false
 
 [dependencies.image]
@@ -99,7 +103,7 @@ default-features = false
 features = ["bmp"]
 
 [dependencies.jxl]
-version = "0.3.0"
+version = "0.4.2"
 features = ["all-simd"]
 
 [dependencies.llguidance]
@@ -113,6 +117,10 @@ version = "0.4"
 # when debug asserts are off, which is when DCHECK_IS_ON() is false.
 features = ["std", "release_max_level_info"]
 
+[dependencies.moxcms]
+version = "0.8.1"
+default-features = false
+
 # Temporarily inform our cargo tooling that we care about
 # the new version of serde_json_lenient. We are in the midst
 # of CLs that move from the older to the newer.
@@ -120,6 +128,10 @@ features = ["std", "release_max_level_info"]
 package = "serde_json_lenient"
 version = "0.2"
 features = ["unbounded_depth", "float_roundtrip"]
+
+[dependencies.strum]
+version = "0.28.0"
+features = ["derive"]
 
 # Tweak required to transitive dependency to avoids some use of unsafe,
 # at the cost of requiring the nightly compiler.
@@ -145,16 +157,16 @@ version = "2"
 features = ["full"]
 
 [dependencies.temporal_capi]
-version = "0.2"
+version = "0.2.3"
 features = ["zoneinfo64"]
 
 [dependencies.temporal_rs]
-version = "0.2"
+version = "0.2.3"
 default-features = false
 # This is necessary to enable a spec-compliance quirk
 features = ["float64_representable_durations"]
 
 [dependencies.zip]
-version = "7.1.0"
+version = "8.2.0"
 default-features = false
 features = ["deflate-flate2"]

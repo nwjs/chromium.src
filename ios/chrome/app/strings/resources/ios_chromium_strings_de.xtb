@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="de">
 <translation id="1000436330784933699">Du kannst Lens hier öffnen.</translation>
+<translation id="1005291068154454184">Video im Vollbildmodus, in dem gezeigt wird, wie du Chromium als Standardbrowser festlegst</translation>
 <translation id="1042296835509784301">Dadurch wird der Passwortmanager in Chromium geöffnet.</translation>
 <translation id="1047130070405668746">Wähle Chromium aus</translation>
 <translation id="1091252999271033193">Das bedeutet, dass Chromium immer die mobile Website anfordert.</translation>
@@ -69,9 +70,6 @@ Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelös
 <translation id="2313870531055795960">Prüft URLs anhand einer Liste unsicherer Websites, die in Chromium gespeichert ist. Wenn eine Website versucht, dein Passwort zu stehlen, oder wenn du eine schädliche Datei herunterlädst, kann Chromium auch URLs, einschließlich Teile von Seiteninhalten, an Safe Browsing senden.</translation>
 <translation id="2314220608288760290">In Chromium werden YouTube-Inkognitolinks automatisch im Inkognitomodus geöffnet.</translation>
 <translation id="231828342043114302">Melde dich in Chromium an, um personalisierte Inhalte zu erhalten, die auf deinen Interessen basieren.</translation>
-<translation id="2326738825692478496">Einige deiner Chromium-Daten wurden noch nicht in deinem Google-Konto gespeichert.
-
-Warte einige Minuten, bevor du dich abmeldest. Wenn du dich jetzt abmeldest, werden diese Daten gelöscht.</translation>
 <translation id="2334943301233020675">Die folgenden Passkeys wurden nicht in den Passwortmanager importiert, da sie die Anforderungen nicht erfüllen.</translation>
 <translation id="2337722506862731008">Chromium teilen</translation>
 <translation id="2340423701577464731">Leselisteneintrag zu Chromium hinzufügen</translation>
@@ -102,7 +100,6 @@ Warte einige Minuten, bevor du dich abmeldest. Wenn du dich jetzt abmeldest, wer
 Weitere Einstellungen, bei denen Daten zur Verbesserung von Chromium verwendet werden, findest du in den <ph name="BEGIN_LINK" />Google-Diensten<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Sprachsuche in Chromium.</translation>
 <translation id="2843571538056574338">Chromium für die Funktion „Autofill“ verwenden</translation>
-<translation id="2899085719655668655">Videoanleitung zur Bild-im-Bild-Funktion, in der gezeigt wird, wie Chromium als Standardbrowser festgelegt wird</translation>
 <translation id="2918709798697875261">Deine Organisation verlangt, dass du aus Chromium abgemeldet bleibst.</translation>
 <translation id="2942241131342758843">Standardmäßig Chromium verwenden, um Links zu öffnen, über Widgets zu suchen und Passwörter in anderen Apps automatisch ausfüllen zu lassen</translation>
 <translation id="2977470724722393594">Chromium ist auf dem neuesten Stand</translation>

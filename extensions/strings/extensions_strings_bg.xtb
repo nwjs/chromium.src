@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">Неизвестен продукт <ph name="PRODUCT_ID" /> от доставчик <ph name="VENDOR_ID" /> (сериен номер <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Замяната на crx файла не бе успешна. Проверете дали не се използва.</translation>
 <translation id="3163201441334626963">Неизвестен продукт <ph name="PRODUCT_ID" /> от доставчик <ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">Достъпът до това разширение е блокиран от организацията ви.</translation>
 <translation id="3242289508736283383">Приложенията с атрибут kiosk_only в манифеста трябва да бъдат инсталирани в павилионния режим на Chrome OS</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (сериен номер <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> от доставчик <ph name="VENDOR_ID" /> (сериен номер <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">Приложението „<ph name="TO_INSTALL_APP_NAME" />“ не можа да бъде добавено поради несъвместимост с/ъс „<ph name="INSTALLED_APP_NAME" />“.</translation>
 <translation id="388442998277590542">Страницата за опции „<ph name="OPTIONS_PAGE" />“ не можа да се зареди.</translation>
 <translation id="3984413272403535372">Грешка при подписването на разширението.</translation>
+<translation id="4094452115117798451">Достъпът до тази категория разширения е блокиран от организацията ви.</translation>
 <translation id="4233778200880751280">Страницата с информация <ph name="ABOUT_PAGE" /> не можа да се зареди.</translation>
 <translation id="424963718355121712">Приложенията трябва да се показват от хоста, който засягат</translation>
 <translation id="4306119971288449206">Приложенията трябва да се показват с тип съдържание „<ph name="CONTENT_TYPE" />“</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">Неизвестен продукт <ph name="PRODUCT_ID" /> от <ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">Файлът на манифеста е невалиден</translation>
 <translation id="7217838517480956708">Администраторът на тази машина изисква разширението <ph name="EXTENSION_NAME" /> да е инсталирано. То не може да бъде премахнато или променено.</translation>
+<translation id="7287143125007575591">Достъпът е отказан.</translation>
 <translation id="7612608473764576263">Въведената стойност за частния ключ трябва да е във валиден формат (RSA ключ, кодиран в PEM, във формат PKCS#8).</translation>
 <translation id="765293928828334535">Приложенията, разширенията и потребителските скриптове не могат да бъдат добавяни от този уебсайт</translation>
 <translation id="7876803335449432072">Файлът <ph name="RELATIVE_PATH" /> за скрипта за съдържание не се зареди. Стиловите листове за скрипта за съдържание могат да се зареждат само от поддържани файлове (например .css) за стилови листове.</translation>

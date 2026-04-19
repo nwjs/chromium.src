@@ -42,6 +42,7 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/client/buffer_tracker.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/gles2_cmd_helper.h"
 #include "gpu/command_buffer/client/gpu_control.h"
 #include "gpu/command_buffer/client/program_info_manager.h"
@@ -56,9 +57,12 @@
 #include "gpu/command_buffer/common/id_allocator.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/sync_token.h"
+#include "third_party/skia/include/core/SkAlphaType.h"
+#include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/size.h"
 #include "ui/gl/gpu_preference.h"
 
 #if defined(GPU_CLIENT_DEBUG)
@@ -106,7 +110,47 @@
 namespace gpu {
 namespace gles2 {
 
+BASE_FEATURE(kGLES2CopySIToTextureAlwaysTexAndBind,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace {
+
+#if !BUILDFLAG(IS_ANDROID)
+// Valid gl texture internal format that can try to use direct uploading path.
+bool ValidFormatForDirectUploading(GLenum format, uint32_t type) {
+  switch (format) {
+    case GL_RGBA:
+      return type == GL_UNSIGNED_BYTE || type == GL_UNSIGNED_SHORT_4_4_4_4;
+    case GL_RGB:
+      return type == GL_UNSIGNED_BYTE || type == GL_UNSIGNED_SHORT_5_6_5;
+    // WebGL2 supported sized formats
+    case GL_RGBA8:
+    case GL_RGB565:
+    case GL_RGBA16F:
+    case GL_RGB8:
+    case GL_RGB10_A2:
+    case GL_RGBA4:
+      // TODO(crbug.com/356649879): RasterContextProvider never has ES3 context.
+      // Use the correct WebGL major version here.
+      return false;
+    default:
+      return false;
+  }
+}
+#endif
+
+void BindAndTexImage2D(gpu::gles2::GLES2Interface* gl,
+                       unsigned int target,
+                       unsigned int texture,
+                       unsigned int internal_format,
+                       unsigned int format,
+                       unsigned int type,
+                       int level,
+                       const gfx::Size& size) {
+  gl->BindTexture(target, texture);
+  gl->TexImage2D(target, level, internal_format, size.width(), size.height(), 0,
+                 format, type, nullptr);
+}
 
 void CopyRectToBuffer(const void* pixels,
                       uint32_t height,
@@ -152,6 +196,56 @@ void UpdateProgramInfo(base::span<const uint8_t>& data,
       reinterpret_cast<const int8_t*>(return_program_info->deserialized_buffer),
       data.size() - sizeof(cmds::GLES2ReturnProgramInfo)));
   manager->UpdateProgramInfo(program, info, type);
+}
+
+bool CanCopySharedImageToGLTextureViaTextureCopy(
+    ClientSharedImage* shared_image) {
+  const bool si_format_has_single_texture =
+      shared_image->format().is_single_plane() ||
+      shared_image->format().PrefersExternalSampler();
+  const bool si_usable_by_gles2_interface =
+      shared_image->GetTextureTarget() != 0;
+
+  // Copying the shared image to the destination texture via a direct
+  // texture-to-texture copy requires being able to obtain a client-side GL
+  // texture for the shared image, which in turn requires that the shared image
+  // be either single-plane or use external sampler and that it be usable by GL.
+  return si_format_has_single_texture && si_usable_by_gles2_interface;
+}
+
+bool CanCopySharedImageToGLTextureViaSkia(bool is_opaque,
+                                          uint32_t shared_image_target,
+                                          uint32_t dst_target,
+                                          uint32_t dst_internal_format,
+                                          uint32_t dst_type,
+                                          int32_t dst_level,
+                                          SkAlphaType dst_alpha_type) {
+  // NOTE: CopySharedImageToGLTextureINTERNAL() is implemented only in the
+  // passthrough command decoder, which is not yet fully rolled out on Android.
+  // Hence, disable this codepath on Android.
+  // TODO(crbug.com/40075313): Enable on Android once the passthrough command
+  // decoder is used universally there.
+#if BUILDFLAG(IS_ANDROID)
+  return false;
+#else
+  bool si_usable_by_gles2_interface = shared_image_target != 0;
+  // Since skia always produces premultiply alpha outputs, trying direct
+  // uploading path when the source is opaque or premultiply alpha been
+  // requested.
+  // TODO(crbug.com/40159723): Figure out whether premultiply options here are
+  // accurate.
+  // TODO(crbug.com/492116792): Remove the `is_opaque` param by querying the
+  // SharedImage's format directly after verifying that this doesn't change
+  // behavior for any existing callers.
+  bool is_premul = is_opaque || dst_alpha_type == kPremul_SkAlphaType;
+  bool supports_one_copy_format = ValidFormatForDirectUploading(
+      static_cast<GLenum>(dst_internal_format), dst_type);
+  // dst texture mipLevel must be 0.
+  // TODO(crbug.com/40141173): Support more texture target, e.g.
+  // 2d array, 3d etc.
+  return si_usable_by_gles2_interface && dst_level == 0 && is_premul &&
+         dst_target == GL_TEXTURE_2D && supports_one_copy_format;
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 }  // anonymous namespace
@@ -374,6 +468,126 @@ GLboolean GLES2Implementation::DidGpuSwitch(gl::GpuPreference* active_gpu) {
   GLboolean result = gpu_switched_ ? GL_TRUE : GL_FALSE;
   gpu_switched_ = false;
   return result;
+}
+
+bool GLES2Implementation::CanCopySharedImageDirectlyToGLTexture(
+    bool is_opaque,
+    ClientSharedImage* shared_image,
+    uint32_t dst_target,
+    uint32_t dst_internal_format,
+    uint32_t dst_type,
+    int32_t dst_level,
+    SkAlphaType dst_alpha_type) {
+  return CanCopySharedImageToGLTextureViaTextureCopy(shared_image) ||
+         CanCopySharedImageToGLTextureViaSkia(
+             is_opaque, shared_image->GetTextureTarget(), dst_target,
+             dst_internal_format, dst_type, dst_level, dst_alpha_type);
+}
+
+gpu::SyncToken GLES2Implementation::CopySharedImageToGLTextureViaTextureCopy(
+    const gfx::Rect& src_rect,
+    ClientSharedImage* source_shared_image,
+    const gpu::SyncToken& source_sync_token,
+    uint32_t dst_target,
+    uint32_t dst_texture,
+    uint32_t dst_internal_format,
+    uint32_t dst_format,
+    uint32_t dst_type,
+    int32_t dst_level,
+    SkAlphaType dst_alpha_type,
+    GrSurfaceOrigin dst_origin) {
+  auto si_texture = source_shared_image->CreateGLTexture(this);
+  auto scoped_si_access =
+      si_texture->BeginAccess(source_sync_token, /*readonly=*/true);
+
+  const bool do_premultiply_alpha =
+      dst_alpha_type == kPremul_SkAlphaType &&
+      source_shared_image->alpha_type() == kUnpremul_SkAlphaType;
+  const bool do_unpremultiply_alpha =
+      dst_alpha_type == kUnpremul_SkAlphaType &&
+      source_shared_image->alpha_type() == kPremul_SkAlphaType;
+
+  const bool do_flip_y = source_shared_image->surface_origin() != dst_origin;
+  if (base::FeatureList::IsEnabled(kGLES2CopySIToTextureAlwaysTexAndBind) ||
+      src_rect != gfx::Rect(source_shared_image->size())) {
+    // Must reallocate the destination texture and copy only a sub-portion.
+
+    // There should always be enough data in the source texture to
+    // cover this copy.
+    GPU_CLIENT_DCHECK(src_rect.width() <= source_shared_image->size().width());
+    GPU_CLIENT_DCHECK(src_rect.height() <=
+                      source_shared_image->size().height());
+
+    BindAndTexImage2D(this, dst_target, dst_texture, dst_internal_format,
+                      dst_format, dst_type, dst_level, src_rect.size());
+    // TODO(crbug.com/378688985): `src_rect` is always in top-left
+    // coordinate space, but CopySubTextureCHROMIUM requires it to be in texture
+    // space, so this is incorrect if `source_shared_image` origin is bottom
+    // left.
+    CopySubTextureCHROMIUM(
+        scoped_si_access->texture_id(), 0, dst_target, dst_texture, dst_level,
+        0, 0, src_rect.x(), src_rect.y(), src_rect.width(), src_rect.height(),
+        do_flip_y, do_premultiply_alpha, do_unpremultiply_alpha);
+
+  } else {
+    CopyTextureCHROMIUM(scoped_si_access->texture_id(), 0, dst_target,
+                        dst_texture, dst_level, dst_internal_format, dst_type,
+                        do_flip_y, do_premultiply_alpha,
+                        do_unpremultiply_alpha);
+  }
+  return gpu::SharedImageTexture::ScopedAccess::EndAccess(
+      std::move(scoped_si_access));
+}
+
+std::unique_ptr<gpu::RasterScopedAccess>
+GLES2Implementation::CopySharedImageDirectlyToGLTexture(
+    const gfx::Rect& src_rect,
+    ClientSharedImage* source_shared_image,
+    const gpu::SyncToken& source_sync_token,
+    bool is_opaque,
+    uint32_t dst_target,
+    uint32_t dst_texture,
+    uint32_t dst_internal_format,
+    uint32_t dst_format,
+    uint32_t dst_type,
+    int32_t dst_level,
+    SkAlphaType dst_alpha_type,
+    GrSurfaceOrigin dst_origin) {
+  std::unique_ptr<gpu::RasterScopedAccess> destination_access;
+  if (CanCopySharedImageToGLTextureViaTextureCopy(source_shared_image)) {
+    CopySharedImageToGLTextureViaTextureCopy(
+        src_rect, source_shared_image, source_sync_token, dst_target,
+        dst_texture, dst_internal_format, dst_format, dst_type, dst_level,
+        dst_alpha_type, dst_origin);
+    ShallowFlushCHROMIUM();
+  } else {
+    CHECK(CanCopySharedImageToGLTextureViaSkia(
+        is_opaque, source_shared_image->GetTextureTarget(), dst_target,
+        dst_internal_format, dst_type, dst_level, dst_alpha_type));
+    // Do a service-side copy from the SharedImage to the destination texture
+    // via Skia wrapping the destination texture in an SkSurface. Note that
+    // this relies on the service-side GL implementation using a Ganesh/GL
+    // context. Currently this assumption is satisfied as the passthrough
+    // decoder always uses a Ganesh/GL context.
+    // TODO(crbug.com/40064510): Eliminate this reliance to enable one-copy
+    // upload to work for Graphite *without* depending on being able to create a
+    // Ganesh/GL context.
+
+    // Trigger resource allocation for dst texture to back SkSurface.
+    BindAndTexImage2D(this, dst_target, dst_texture, dst_internal_format,
+                      dst_format, dst_type,
+                      /*level=*/0, src_rect.size());
+
+    destination_access = source_shared_image->BeginGLAccessForCopySharedImage(
+        this, source_sync_token, /*readonly=*/true);
+
+    const bool is_dst_origin_top_left = dst_origin == kTopLeft_GrSurfaceOrigin;
+    CopySharedImageToTextureINTERNAL(
+        dst_texture, dst_target, dst_internal_format, dst_type, src_rect.x(),
+        src_rect.y(), src_rect.width(), src_rect.height(),
+        is_dst_origin_top_left, source_shared_image->mailbox().name);
+  }
+  return destination_access;
 }
 
 void GLES2Implementation::SendErrorMessage(std::string message, int32_t id) {
@@ -5444,8 +5658,19 @@ void GLES2Implementation::RemoveMappedBufferRangeById(GLuint buffer) {
     auto iter = mapped_buffer_range_map_.find(buffer);
     if (iter != mapped_buffer_range_map_.end() &&
         !iter->second.shm_memory.empty()) {
-      mapped_memory_->FreePendingToken(iter->second.shm_memory.data(),
-                                       helper_->InsertToken());
+      if (iter->second.shm_id != 0) {
+        // This was a normal transfer buffer allocation.
+        mapped_memory_->FreePendingToken(iter->second.shm_memory.data(),
+                                         helper_->InsertToken());
+      } else {
+        // This was a shadow copy for readback. It's owned by the
+        // readback_buffer_shadow_tracker_, so we just need to unmap it.
+        auto* shadow_buffer =
+            readback_buffer_shadow_tracker_->GetBuffer(iter->first);
+        if (shadow_buffer) {
+          shadow_buffer->UnmapReadbackShm();
+        }
+      }
       mapped_buffer_range_map_.erase(iter);
     }
   }
@@ -5454,8 +5679,19 @@ void GLES2Implementation::RemoveMappedBufferRangeById(GLuint buffer) {
 void GLES2Implementation::ClearMappedBufferRangeMap() {
   for (auto& buffer_range : mapped_buffer_range_map_) {
     if (!buffer_range.second.shm_memory.empty()) {
-      mapped_memory_->FreePendingToken(buffer_range.second.shm_memory.data(),
-                                       helper_->InsertToken());
+      if (buffer_range.second.shm_id != 0) {
+        // This was a normal transfer buffer allocation.
+        mapped_memory_->FreePendingToken(buffer_range.second.shm_memory.data(),
+                                         helper_->InsertToken());
+      } else {
+        // This was a shadow copy for readback. It's owned by the
+        // readback_buffer_shadow_tracker_, so we just need to unmap it.
+        auto* shadow_buffer =
+            readback_buffer_shadow_tracker_->GetBuffer(buffer_range.first);
+        if (shadow_buffer) {
+          shadow_buffer->UnmapReadbackShm();
+        }
+      }
     }
   }
   mapped_buffer_range_map_.clear();
@@ -6041,10 +6277,13 @@ void GLES2Implementation::AllocateShadowCopiesForReadback() {
     if (!buffer) {
       continue;
     }
-    int32_t shm_id = 0;
+    int32_t shm_id = -1;
     uint32_t shm_offset = 0;
     bool already_allocated = false;
     uint32_t size = buffer->Alloc(&shm_id, &shm_offset, &already_allocated);
+    if (shm_id == -1) {
+      continue;
+    }
     if (already_allocated) {
       SendErrorMessage(
           "performance warning: READ-usage buffer was written, then "

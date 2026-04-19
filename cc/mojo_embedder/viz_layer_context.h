@@ -43,12 +43,13 @@ class CC_MOJO_EMBEDDER_EXPORT VizLayerContext
 
   // LayerContext:
   void SetVisible(bool visible) override;
+  void SetTargetLocalSurfaceId(
+      const viz::LocalSurfaceId& target_local_surface_id) override;
   base::TimeTicks UpdateDisplayTreeFrom(
       LayerTreeImpl& tree,
       viz::ClientResourceProvider& resource_provider,
       gpu::SharedImageInterface* shared_image_interface,
       const gfx::Rect& viewport_damage_rect,
-      const viz::LocalSurfaceId& target_local_surface_id,
       bool frame_has_damage,
       std::vector<ui::LatencyInfo> latency_info) override;
   void UpdateDisplayTile(PictureLayerImpl& layer,
@@ -92,7 +93,7 @@ class CC_MOJO_EMBEDDER_EXPORT VizLayerContext
   // to handle context loss and recreation of the layer context.
   bool needs_full_sync_ = true;
 
-  PropertyTrees last_committed_property_trees_{*host_impl_};
+  PropertyTrees last_committed_property_trees_;
 
   base::WeakPtrFactory<VizLayerContext> weak_factory_{this};
 };

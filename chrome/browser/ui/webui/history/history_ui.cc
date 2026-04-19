@@ -27,6 +27,7 @@
 #include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -59,6 +60,7 @@
 #include "components/page_image_service/image_service.h"
 #include "components/page_image_service/image_service_handler.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/session_types.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -77,9 +79,8 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUIHistoryHost);
 
-  source->AddBoolean(
-      "replaceSyncPromosWithSignInPromos",
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  source->AddBoolean("replaceSyncPromosWithSignInPromos",
+                     syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
 
 #if !BUILDFLAG(IS_CHROMEOS)
   source->AddBoolean("unoPhase2FollowUp",
@@ -254,12 +255,6 @@ HistoryUI::HistoryUI(content::WebUI* web_ui)
   web_ui->AddMessageHandler(std::make_unique<webui::NavigationHandler>());
   web_ui->AddMessageHandler(std::make_unique<MetricsHandler>());
 
-  auto foreign_session_handler =
-      std::make_unique<browser_sync::ForeignSessionHandler>();
-  browser_sync::ForeignSessionHandler* foreign_session_handler_ptr =
-      foreign_session_handler.get();
-  web_ui->AddMessageHandler(std::move(foreign_session_handler));
-  foreign_session_handler_ptr->InitializeForeignSessions();
   web_ui->AddMessageHandler(
       std::make_unique<HistoryLoginHandler>(base::BindRepeating(
           &HistoryUI::UpdateDataSource, base::Unretained(this))));
@@ -291,6 +286,28 @@ void HistoryUI::BindInterface(
   browsing_history_handler_ = std::make_unique<BrowsingHistoryHandler>(
       std::move(pending_page_handler), Profile::FromWebUI(web_ui()),
       web_ui()->GetWebContents());
+}
+
+void HistoryUI::BindInterface(
+    mojo::PendingReceiver<history::mojom::ForeignSessionPageHandler>
+        pending_page_handler) {
+  foreign_session_handler_ =
+      std::make_unique<browser_sync::ForeignSessionHandler>(
+          std::move(pending_page_handler), Profile::FromWebUI(web_ui()),
+          web_ui()->GetWebContents(),
+          base::BindRepeating([](content::WebContents* source_web_contents,
+                                 const ::sessions::SessionTab& tab,
+                                 WindowOpenDisposition disposition) {
+            SessionRestore::RestoreForeignSessionTab(source_web_contents, tab,
+                                                     disposition);
+          }),
+          base::BindRepeating(
+              [](Profile* profile,
+                 const std::vector<const ::sessions::SessionWindow*>& windows) {
+                SessionRestore::RestoreForeignSessionWindows(
+                    profile, windows.begin(), windows.end(), base::DoNothing());
+              }),
+          /*side_panel_ui=*/nullptr);
 }
 
 void HistoryUI::BindInterface(

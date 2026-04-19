@@ -56,6 +56,7 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kCredentialManagerGetPublicKeyCredential,
           WebFeature::kCredentialManagerMakePublicKeyCredentialSuccess,
           WebFeature::kCredentialManagerGetPublicKeyCredentialSuccess,
+          WebFeature::kWebAuthenticationCspDisallowsRpId,
           WebFeature::kTextToSpeech_Speak,
           WebFeature::kTextToSpeech_SpeakDisallowedByAutoplay,
           WebFeature::kCSSEnvironmentVariable_SafeAreaInsetTop,
@@ -113,6 +114,10 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kLazyLoadFrameLoadingAttributeEager,
           WebFeature::kLazyLoadImageLoadingAttributeLazy,
           WebFeature::kLazyLoadImageLoadingAttributeEager,
+          WebFeature::kLazyLoadVideoLoadingAttributeLazy,
+          WebFeature::kLazyLoadVideoLoadingAttributeEager,
+          WebFeature::kLazyLoadAudioLoadingAttributeLazy,
+          WebFeature::kLazyLoadAudioLoadingAttributeEager,
           WebFeature::kWebOTP,
           WebFeature::kBaseWithCrossOriginHref,
           WebFeature::kWakeLockAcquireScreenLock,
@@ -465,6 +470,14 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kWebRTCLocalNetworkAccessPublicToLoopback,
           WebFeature::kWebRTCLocalNetworkAccessLocalToLoopback,
           WebFeature::kWebSocketStreamConstructor,
+          WebFeature::kHistoryGoBackWouldSkipAd,
+          WebFeature::kHistoryGoForwardWouldSkipAd,
+          WebFeature::kHistoryGoBackWouldNotSkipAdDueToSameOriginExclusion,
+          WebFeature::kHistoryGoForwardWouldNotSkipAdDueToSameOriginExclusion,
+          WebFeature::kSvgFilterPaintedOnLocalFrame,
+          WebFeature::kSvgFilterPaintedOnRemoteFrame,
+          WebFeature::kSvgFilterPaintedOnWebPlugin,
+          WebFeature::kSameDocumentCrossOriginInitiator,
           // NOTE: before adding new use counters here, verify in UMA that
           // their emissions are very rare, e.g. <1% of page loads.
       }));

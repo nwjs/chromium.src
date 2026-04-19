@@ -46,7 +46,6 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
@@ -57,6 +56,7 @@ import org.chromium.chrome.browser.back_press.BackPressHelper.OnKeyDownHandler;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicHelper;
 import org.chromium.chrome.browser.init.ActivityLifecycleDispatcherImpl;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -78,6 +78,7 @@ import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.PreferenceUpdateObserver;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.ToolbarUtils;
 import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
@@ -98,7 +99,9 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -131,6 +134,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     // Key used to store activity start time in the Bundle to have it survive activity re-creation.
     private static final String KEY_START_TIME = "start_time";
 
+    private static final String KEY_INITIAL_BREADCRUMB_PATH = "initial_breadcrumb_path";
+
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public static final String EXTRA_SHOW_FRAGMENT = "show_fragment";
 
@@ -151,8 +156,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     private Profile mProfile;
     private ScrimManager mScrimManager;
     private ManagedBottomSheetController mManagedBottomSheetController;
-    private final SettableMonotonicObservableSupplier<WindowAndroid> mWindowAndroidSupplier =
-            ObservableSuppliers.createMonotonic();
+    private final OneshotSupplierImpl<WindowAndroid> mWindowAndroidSupplier =
+            new OneshotSupplierImpl<>();
 
     private final OneshotSupplierImpl<BottomSheetController> mBottomSheetControllerSupplier =
             new OneshotSupplierImpl<>();
@@ -212,6 +217,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     private @Nullable AppHeaderCoordinator mAppHeaderCoordinator;
 
+    private @Nullable List<SettingsIndexData.Entry> mInitialBreadcrumbPath;
+
     @SuppressLint("InlinedApi")
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -226,6 +233,35 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         // recreate a fragment, and a fragment might depend on the native library.
         ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
         mProfile = ProfileManager.getLastUsedRegularProfile();
+
+        if (savedInstanceState == null && isMultiColumnSettingEnabled()) {
+            String fragmentName = getIntent().getStringExtra(EXTRA_SHOW_FRAGMENT);
+
+            if (fragmentName != null) {
+                SettingsIndexData indexData =
+                        SettingsSearchCoordinator.ensureIndexBuilt(this, assertNonNull(mProfile));
+
+                List<SettingsIndexData.Entry> path =
+                        indexData.getBreadcrumbEntries(
+                                fragmentName,
+                                getIntent().getBundleExtra(EXTRA_SHOW_FRAGMENT_ARGUMENTS));
+
+                if (path != null && path.size() > 1) {
+                    mInitialBreadcrumbPath = path;
+                }
+            }
+        } else if (savedInstanceState != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                mInitialBreadcrumbPath =
+                        savedInstanceState.getParcelableArrayList(
+                                KEY_INITIAL_BREADCRUMB_PATH, SettingsIndexData.Entry.class);
+            } else {
+                @SuppressWarnings("deprecation")
+                ArrayList<SettingsIndexData.Entry> legacyList =
+                        savedInstanceState.getParcelableArrayList(KEY_INITIAL_BREADCRUMB_PATH);
+                mInitialBreadcrumbPath = legacyList;
+            }
+        }
 
         // Register fragment lifecycle callbacks before calling super.onCreate() because it may
         // create fragments if there is a saved instance state.
@@ -320,6 +356,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 // TODO(crbug.com/404074032): Implement them back.
                 var transaction = fragmentManager.beginTransaction();
                 mMultiColumnSettings = new MultiColumnSettings();
+                mMultiColumnSettings.setProfile(assertNonNull(mProfile));
                 mMultiColumnSettings.setPendingFragmentIntent(getIntent());
                 transaction.replace(R.id.content, mMultiColumnSettings, MULTI_COLUMN_FRAGMENT_TAG);
                 transaction.commit();
@@ -532,7 +569,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         titleContainer.getContext(),
                         titleContainer,
                         this::setTitle,
-                        this::onTitleTapped);
+                        this::onTitleTapped,
+                        mInitialBreadcrumbPath);
         mMultiColumnSettings.addObserver(mMultiColumnTitleUpdater);
     }
 
@@ -739,7 +777,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         mManagedBottomSheetController =
                 BottomSheetControllerFactory.createBottomSheetController(
                         () -> mScrimManager,
-                        CallbackUtils.emptyCallback(),
                         getWindow(),
                         KeyboardVisibilityDelegate.getInstance(),
                         () -> sheetContainer,
@@ -772,6 +809,12 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
         initBackPressHandler();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        GlicHelper.maybeShowGlicTaskInProgressSnackbar(this, mProfile, this);
     }
 
     @Override
@@ -897,6 +940,10 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     @Override
     protected void onDestroy() {
         mScrimManager.destroy();
+        SnackbarManager snackbarManager = mSnackbarManagerSupplier.get();
+        if (snackbarManager != null) {
+            snackbarManager.destroy();
+        }
         if (mMultiColumnTitleUpdater != null) {
             assert mMultiColumnSettings != null;
             mMultiColumnSettings.removeObserver(mMultiColumnTitleUpdater);
@@ -912,7 +959,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         }
 
         WindowAndroid windowAndroid = mWindowAndroidSupplier.get();
-        mWindowAndroidSupplier.destroy();
         if (windowAndroid != null) {
             windowAndroid.destroy();
         }
@@ -1217,6 +1263,11 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             outState.putLong(KEY_START_TIME, mStartTime);
             mStartTimeSaved = true;
         }
+
+        if (mInitialBreadcrumbPath != null) {
+            outState.putParcelableArrayList(
+                    KEY_INITIAL_BREADCRUMB_PATH, new ArrayList<>(mInitialBreadcrumbPath));
+        }
     }
 
     private class TitleUpdater extends FragmentManager.FragmentLifecycleCallbacks {
@@ -1317,5 +1368,9 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (isInMultiWindowMode() && !isTopResumedActivity) {
             DefaultBrowserInfo.resetDefaultInfoTask();
         }
+    }
+
+    public @Nullable SettingsSearchCoordinator getSearchCoordinatorForTesting() {
+        return mSearchCoordinator;
     }
 }

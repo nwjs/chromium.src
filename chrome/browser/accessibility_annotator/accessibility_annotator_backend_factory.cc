@@ -5,15 +5,16 @@
 #include "chrome/browser/accessibility_annotator/accessibility_annotator_backend_factory.h"
 
 #include "base/files/file_path.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/data_type_store_service_factory.h"
-#include "chrome/common/channel_info.h"
 #include "components/accessibility_annotator/core/accessibility_annotator_features.h"
-#include "components/accessibility_annotator/core/storage/accessibility_annotator_backend.h"
+#include "components/accessibility_annotator/core/storage/accessibility_annotator_backend_impl.h"
+#include "components/history/core/browser/history_service.h"
 #include "components/sync/model/data_type_store_service.h"
 
 constexpr base::FilePath::CharType kAccessibilityAnnotatorDatabaseFileName[] =
-    FILE_PATH_LITERAL("AccessibilityAnnotatorDatabase");
+    FILE_PATH_LITERAL("AccessibilityAnnotatorDB");
 
 // static
 accessibility_annotator::AccessibilityAnnotatorBackend*
@@ -34,6 +35,7 @@ AccessibilityAnnotatorBackendFactory::AccessibilityAnnotatorBackendFactory()
           "AccessibilityAnnotatorBackend",
           ProfileSelections::BuildRedirectedInIncognito()) {
   DependsOn(DataTypeStoreServiceFactory::GetInstance());
+  DependsOn(HistoryServiceFactory::GetInstance());
 }
 
 AccessibilityAnnotatorBackendFactory::~AccessibilityAnnotatorBackendFactory() =
@@ -42,20 +44,22 @@ AccessibilityAnnotatorBackendFactory::~AccessibilityAnnotatorBackendFactory() =
 std::unique_ptr<KeyedService>
 AccessibilityAnnotatorBackendFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
-  // TODO(crbug.com/486856790): Also check the kAccessibilityAnnotator feature
-  // once setup.
+  // The backend is shared between the content annotator and the accessibility
+  // annotator services. Disable if BOTH features are disabled.
   if (!base::FeatureList::IsEnabled(
-          accessibility_annotator::kContentAnnotator)) {
+          accessibility_annotator::features::kContentAnnotator) &&
+      !base::FeatureList::IsEnabled(
+          accessibility_annotator::features::kAccessibilityAnnotator)) {
     return nullptr;
   }
 
   Profile* profile = Profile::FromBrowserContext(context);
-  auto backend =
-      std::make_unique<accessibility_annotator::AccessibilityAnnotatorBackend>(
-          chrome::GetChannel(),
-          DataTypeStoreServiceFactory::GetForProfile(profile)
-              ->GetStoreFactory(),
-          profile->GetPath().Append(kAccessibilityAnnotatorDatabaseFileName));
+  auto backend = std::make_unique<
+      accessibility_annotator::AccessibilityAnnotatorBackendImpl>(
+      HistoryServiceFactory::GetForProfile(profile,
+                                           ServiceAccessType::EXPLICIT_ACCESS),
+      DataTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory(),
+      profile->GetPath().Append(kAccessibilityAnnotatorDatabaseFileName));
   backend->Init();
   return backend;
 }

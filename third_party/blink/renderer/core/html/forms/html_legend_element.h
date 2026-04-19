@@ -34,6 +34,10 @@ class HTMLLegendElement final : public HTMLElement {
  public:
   explicit HTMLLegendElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLLegendElement;
+  }
+
   HTMLElement* formForBinding() const override;
 
  private:

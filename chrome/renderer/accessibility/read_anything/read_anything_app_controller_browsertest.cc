@@ -150,6 +150,7 @@ class MockReadAnythingUntrustedPageHandler
               OnDistillationStateChanged,
               (read_anything::mojom::ReadAnythingDistillationState new_state),
               (override));
+  MOCK_METHOD(void, OnSpeechEngineStalled, (), (override));
 
   mojo::PendingRemote<read_anything::mojom::UntrustedPageHandler>
   BindNewPipeAndPassRemote() {
@@ -209,6 +210,15 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
                                          false);
     controller().OnAXTreeDistilled(tree_id_, {});
     Mock::VerifyAndClearExpectations(distiller_);
+  }
+
+  void TearDown() override {
+    // `controller_` owns `distiller_` and RenderFrame (indirectly) owns
+    // `controller_`: it is a garbage-collected object owned by Oilpan and its
+    // lifetime is tied to the RenderFrame's lifetime.
+    controller_ = nullptr;
+    distiller_ = nullptr;
+    ChromeRenderViewTest::TearDown();
   }
 
   ReadAnythingAppController& controller() { return *controller_; }
@@ -382,13 +392,13 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
   static constexpr ui::AXNodeID kId5 = 100;
 
   ui::AXTreeID tree_id_;
-  raw_ptr<MockAXTreeDistiller, DanglingUntriaged> distiller_ = nullptr;
+  raw_ptr<MockAXTreeDistiller> distiller_ = nullptr;
   testing::StrictMock<MockReadAnythingUntrustedPageHandler> page_handler_;
   base::test::ScopedFeatureList scoped_feature_list_;
 
   // ReadAnythingAppController constructor and destructor are protected so
   // it's not accessible by std::make_unique.
-  raw_ptr<ReadAnythingAppController, DanglingUntriaged> controller_ = nullptr;
+  raw_ptr<ReadAnythingAppController> controller_ = nullptr;
 };
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -3113,6 +3123,28 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_CALL(page_handler_, OnImageDataRequested).Times(0);
 }
 
+TEST_F(ReadAnythingAppControllerTest,
+       OnStringAttributeChanged_ReadabilityFlagEnabled_DoesNothing) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({features::kReadAnythingImagesViaAlgorithm,
+                                 features::kReadAnythingWithReadability},
+                                {});
+
+  // Create an image node with a placeholder "data:" URL, mimicking a
+  // lazy-loaded image.
+  static constexpr ui::AXNodeID kImageNodeId = 2;
+  std::string placeholder_src = "data:image/svg+xml,...";
+  ui::AXNodeData image_node = test::ImageNode(kImageNodeId, placeholder_src);
+  SendUpdateAndDistillNodes({std::move(image_node)});
+
+  // Now update with the actual image url.
+  std::string final_src = "https://example.com/real_image.png";
+  ui::AXNodeData updated_image_node = test::ImageNode(kImageNodeId, final_src);
+  SendUpdateAndDistillNodes({std::move(updated_image_node)});
+
+  EXPECT_CALL(page_handler_, OnImageDataRequested).Times(0);
+}
+
 TEST_F(ReadAnythingAppControllerTest, UpdateWordsSeen_ReplacesWordsSeen) {
   controller().UpdateWordsSeen(123);
   EXPECT_EQ(123, model().words_seen());
@@ -4927,7 +4959,7 @@ class ReadAnythingAppControllerReadabilityTest
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
         {features::kReadAnythingWithReadability,
-         features::kReadAnythingReadAloudTSTextSegmentation},
+         features::kReadAnythingWithReadabilityAllowLinks},
         {});
 
     ChromeRenderViewTest::SetUp();
@@ -5097,4 +5129,74 @@ TEST_F(ReadAnythingAppControllerReadabilityTest,
 
   // Distillation state check should be skipped for Screen2x.
   EXPECT_FALSE(controller().IsUpdateProcessingPaused());
+}
+
+TEST_F(ReadAnythingAppControllerReadabilityTest,
+       AccessibilityUpdatesApplied_WhenReadabilityIsActive) {
+  // Set conditions to process the AX Tree
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationInProgress))
+      .Times(1);
+  controller().SetDistillationState(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationInProgress);
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  // Create AXTree updates
+  static constexpr ui::AXNodeID kTargetNodeId = 300;
+  ui::AXNodeData new_node = test::TextNode(kTargetNodeId, u"Child Node");
+  root.child_ids = {kTargetNodeId};
+  update.nodes = {std::move(root), std::move(new_node)};
+
+  // Validate that the new node doesn't exist before the update
+  ASSERT_EQ(model().GetAXNode(kTargetNodeId), nullptr);
+
+  // Validate that updates are applied
+  AccessibilityEventReceived({std::move(update)});
+  ui::AXNode* applied_node = model().GetAXNode(kTargetNodeId);
+  ASSERT_NE(applied_node, nullptr);
+  EXPECT_EQ(controller().GetTextContent(kTargetNodeId), u"Child Node");
+}
+
+TEST_F(ReadAnythingAppControllerReadabilityTest,
+       AccessibilityUpdatesApplied_WhenReadabilityContentIsShown) {
+  // Set conditions to process the AX Tree
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationWithContent))
+      .Times(1);
+  controller().SetDistillationState(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationWithContent);
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root;
+  root.id = 1;
+
+  // Create AXTree updates
+  static constexpr ui::AXNodeID kTargetNodeId = 300;
+  ui::AXNodeData new_node = test::TextNode(kTargetNodeId, u"Child Node");
+  root.child_ids = {kTargetNodeId};
+  update.nodes = {std::move(root), std::move(new_node)};
+
+  // Validate that the new node doesn't exist before the update
+  ASSERT_EQ(model().GetAXNode(kTargetNodeId), nullptr);
+
+  // Validate that updates are applied
+  AccessibilityEventReceived({std::move(update)});
+  ui::AXNode* applied_node = model().GetAXNode(kTargetNodeId);
+  ASSERT_NE(applied_node, nullptr);
+  EXPECT_EQ(controller().GetTextContent(kTargetNodeId), u"Child Node");
 }

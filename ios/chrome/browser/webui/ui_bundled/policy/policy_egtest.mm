@@ -9,13 +9,14 @@
 #import "base/strings/strcat.h"
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
-#import "base/strings/utf_string_conversions.cc"
+#import "base/strings/utf_string_conversions.h"
 #import "base/system/sys_info.h"
 #import "base/test/ios/wait_util.h"
 #import "base/version_info/version_info.h"
 #import "components/enterprise/browser/enterprise_switches.h"
 #import "components/grit/policy_resources.h"
 #import "components/grit/policy_resources_map.h"
+#import "components/policy/core/common/features.h"
 #import "components/policy/test_support/embedded_policy_test_server.h"
 #import "components/strings/grit/components_branded_strings.h"
 #import "components/strings/grit/components_strings.h"
@@ -156,11 +157,19 @@ id<GREYMatcher> DownloadButton() {
 
 }  // namespace
 
-// Test case for chrome://policy WebUI pages.
-@interface PolicyUITestCase : ChromeTestCase
+// Base test case for chrome://policy WebUI pages.
+@interface PolicyUITestCaseBase : ChromeTestCase
 @end
 
-@implementation PolicyUITestCase
+@implementation PolicyUITestCaseBase
+
+// Prevents this base class from being executed directly by the XCTest runner.
+- (void)invokeTest {
+  if ([self isMemberOfClass:[PolicyUITestCaseBase class]]) {
+    return;
+  }
+  [super invokeTest];
+}
 
 - (void)setUp {
   [super setUp];
@@ -238,7 +247,7 @@ id<GREYMatcher> DownloadButton() {
 - (void)testPolicyPageManagedWithCBCM {
   // Fake browser enrollment with an enrollment token that will start chrome
   // browser cloud management without making network calls.
-  AppLaunchConfiguration config;
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.additional_args.push_back(
       base::StrCat({"--", switches::kEnableChromeBrowserCloudManagement}));
   config.additional_args.push_back("-com.apple.configuration.managed");
@@ -273,6 +282,18 @@ id<GREYMatcher> DownloadButton() {
   expected_policies.push_back(
       PopulateExpectedPolicy("IncognitoModeAvailability", "1"));
   VerifyPolicies(expected_policies);
+}
+
+// Tests that the "Chrome Policies" table is visible on the page.
+- (void)testChromePoliciesTableIsVisible {
+  [ChromeEarlGrey loadURL:GURL(kChromeUIPolicyURL)];
+  [ChromeEarlGrey waitForWebStateContainingText:"Chrome Policies"];
+}
+
+// Tests that the "Policy Precedence" table is visible on the page.
+- (void)testPolicyPrecedenceTableIsVisible {
+  [ChromeEarlGrey loadURL:GURL(kChromeUIPolicyURL)];
+  [ChromeEarlGrey waitForWebStateContainingText:"Policy Precedence"];
 }
 
 // Tests that the "View Logs" button successfully redirects to
@@ -318,6 +339,77 @@ id<GREYMatcher> DownloadButton() {
 // -----------------------------------------------------------------------------
 // Tests for chrome://policy/test
 // -----------------------------------------------------------------------------
-// TODO(crbug.com/346527212: Test chrome://policy/test buttons.
+// TODO(crbug.com/346527212): Test chrome://policy/test buttons.
+
+@end
+
+// -----------------------------------------------------------------------------
+// Parameterized test cases
+// -----------------------------------------------------------------------------
+
+// MACRO to force Xcode's Test Navigator to see the inherited tests.
+#define MULTIPLEX_TESTS                         \
+  -(void)testPolicyPageLoadsCorrectly {         \
+    [super testPolicyPageLoadsCorrectly];       \
+  }                                             \
+  -(void)testPolicyLogsPageLoadsCorrectly {     \
+    [super testPolicyLogsPageLoadsCorrectly];   \
+  }                                             \
+  -(void)testPolicyTestPageLoadsCorrectly {     \
+    [super testPolicyTestPageLoadsCorrectly];   \
+  }                                             \
+  -(void)testPolicyPageUnmanaged {              \
+    [super testPolicyPageUnmanaged];            \
+  }                                             \
+  -(void)testPolicyPageManagedWithCBCM {        \
+    [super testPolicyPageManagedWithCBCM];      \
+  }                                             \
+  -(void)testPoliciesShowOnPage {               \
+    [super testPoliciesShowOnPage];             \
+  }                                             \
+  -(void)testChromePoliciesTableIsVisible {     \
+    [super testChromePoliciesTableIsVisible];   \
+  }                                             \
+  -(void)testPolicyPrecedenceTableIsVisible {   \
+    [super testPolicyPrecedenceTableIsVisible]; \
+  }                                             \
+  -(void)testViewLogsRedirectsToLogsPage {      \
+    [super testViewLogsRedirectsToLogsPage];    \
+  }                                             \
+  -(void)testExportLogsToJson {                 \
+    [super testExportLogsToJson];               \
+  }                                             \
+  -(void)testVersionInformationIsCorrect {      \
+    [super testVersionInformationIsCorrect];    \
+  }
+
+@interface PolicyUIMojoDisabledTestCase : PolicyUITestCaseBase
+@end
+
+@implementation PolicyUIMojoDisabledTestCase
+
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  config.features_disabled.push_back(
+      policy::features::kPolicyPageMojoMigration);
+  return config;
+}
+
+MULTIPLEX_TESTS
+
+@end
+
+@interface PolicyUIMojoEnabledTestCase : PolicyUITestCaseBase
+@end
+
+@implementation PolicyUIMojoEnabledTestCase
+
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  config.features_enabled.push_back(policy::features::kPolicyPageMojoMigration);
+  return config;
+}
+
+MULTIPLEX_TESTS
 
 @end

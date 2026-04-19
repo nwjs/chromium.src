@@ -2,22 +2,42 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-//! TODO: Module docs (link to interface.rs?)
+//! This module defines the [`Remote`] and [`PendingRemote`] types, which
+//! represent the caller side of a Mojo interface. Each `Remote` or
+//! `PendingRemote` is associated with exactly one `Receiver` or
+//! `PendingReceiver` elsewhere in the program. A `PendingRemote` does
+//! nothing until bound to a sequence to create a `Remote<dyn SomeInterface>`.
+//!
+//! A `Remote<dyn SomeInterface>` sends messages to the corresponding
+//! `Receiver` and schedules response callbacks on its bound sequence.
+//!
+//! The standard way to obtain a `Remote` is to first create a pipe via
+//! [`PendingRemote::new_pipe`], then bind the `PendingRemote` to a sequence
+//! by calling [`PendingRemote::bind`]. `PendingRemote`s can also be obtained
+//! by manually wrapping a
+//! [`MessageEndpoint`](system::message_pipe::MessageEndpoint).
+//!
+//! Messages can be sent immediately after binding, even before the
+//! corresponding `Receiver` is bound. Response callbacks are processed
+//! asynchronously on the bound sequence.
+//!
+//! For a more detailed explanation, see the documentation for the
+//! [`interface`] module.
 
 chromium::import! {
   "//mojo/public/rust/system";
-  "//mojo/public/rust/sequences";
+  "//base:sequenced_task_runner";
 }
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
-// FOR_RELEASE: Replace some/all Arc/Mutexes with the sequenced equivalents,
-// where appropriate (maybe all of them?).
+// TODO(crbug.com/470438844): Replace some/all Arc/Mutexes with the sequenced
+// equivalents, where appropriate (maybe all of them?).
 // TODO(crbug.com/477584253): Replace std::sync with std::nonpoison once
 // it's stabilized, if any uses remain.
 use std::sync::{Arc, Mutex};
 
-use sequences::SequencedTaskRunnerHandle;
+use sequenced_task_runner::SequencedTaskRunnerHandle;
 use system::message::RawMojoMessage;
 use system::message_pipe::MessageEndpoint;
 
@@ -183,10 +203,7 @@ where
             message_handler,
             disconnect_handler,
         )
-        .expect("FOR_RELEASE: Figure out how to handle errors here");
-        // FOR_RELEASE: We should clear out any existing messages in the endpoint
-        // in case it's being re-used, so the new remote doesn't see responses to
-        // the previous remote's messages.
+        .expect("System ran out of resources to create new mojo objects.");
 
         Self {
             pending_responses,
@@ -200,7 +217,14 @@ where
     /// a `PendingRemote` which can be rebound later.
     ///
     /// If the remote has responses pending, they will be silently ignored.
-    pub fn unbind(self) -> PendingRemote<T> {
+    // This function is included for completeness, but is not `pub` because this
+    // is a tricky operation. We need to be careful about unbinding a remote that
+    // has responses pending, in case it gets re-bound. We need to either ensure
+    // that there are no pending responses, or that we can distinguish "old"
+    // responses from new ones. In either case, we'll defer that problem until
+    // someone has a use for this function.
+    #[allow(unused)]
+    fn unbind(self) -> PendingRemote<T> {
         PendingRemote::new(self.endpoint_watcher.into_endpoint())
     }
 
@@ -210,10 +234,8 @@ where
     //
     // This function is public because we need to call it from
     // generated code, but doc(hidden) because users shouldn't call it
-    // directly. Instead, they should call one of the interface-specific traits
-    // methods(e.g. `remote.Add(...)`, which will call this under-the-hood).
-    // FOR_RELEASE: Can this just be &self? (depends on the final interface for
-    // message pipes)
+    // directly. Instead, they should call one of the interface-specific trait
+    // methods (e.g. `remote.Add(...)`, which will call this under-the-hood).
     #[doc(hidden)]
     pub fn send_message_internal(
         &mut self,

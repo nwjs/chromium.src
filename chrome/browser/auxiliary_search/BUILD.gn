@@ -19,6 +19,7 @@ source_set("auxiliary_search") {
   ]
   public_deps = [
     "//base",
+    "//chrome/browser/ntp_tiles",
     "//chrome/browser/profiles:profile",
     "//components/keyed_service/core",
     "//components/ntp_tiles",
@@ -45,6 +46,7 @@ source_set("impl") {
     "//chrome/browser/flags:flags_android",
     "//chrome/browser/page_content_annotations",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/visited_url_ranking",
     "//components/ntp_tiles",
     "//components/visited_url_ranking/public",
     "//url",

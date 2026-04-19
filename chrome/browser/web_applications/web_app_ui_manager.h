@@ -8,7 +8,6 @@
 #include <memory>
 #include <vector>
 
-#include "base/auto_reset.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -16,7 +15,6 @@
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
-#include "chrome/browser/web_applications/web_app_callback_app_identity.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
@@ -62,13 +60,6 @@ using WebAppLaunchAcceptanceCallback =
     base::OnceCallback<void(bool allowed, bool remember_user_choice)>;
 using FirstRunServiceCompletedCallback = base::OnceCallback<void(bool success)>;
 
-// Overrides the app identity update dialog's behavior for testing, allowing the
-// test to auto-accept or auto-skip the dialog.
-base::AutoReset<std::optional<AppIdentityUpdate>>
-SetIdentityUpdateDialogActionForTesting(
-    std::optional<AppIdentityUpdate> auto_accept_action);
-
-std::optional<AppIdentityUpdate> GetIdentityUpdateDialogActionForTesting();
 
 class WebAppUiManagerObserver : public base::CheckedObserver {
  public:
@@ -106,6 +97,14 @@ enum class LaunchWebAppWindowSetting {
 // A chrome/browser/ representation of the chrome/browser/ui/ UI manager to
 // perform Web App UI operations or listen to Web App UI events, including
 // events from WebAppTabHelpers.
+//
+// All methods / operations on this class are ideally impotent, where all
+// information for the operation is passed as arguments, and the operation
+// doesn't do any state changes to the WebApp system. When the operation is
+// done, the results are returned directly or returned by calling a callback
+// argument. This ensures that state changing complexity all lives in the WebApp
+// system internals, and also allows unit tests to test those operations easy
+// while this subsystem is faked using the FakeWebAppUiManager.
 class WebAppUiManager {
  public:
   using ShowIntentPickerBubbleCallback = base::OnceCallback<void(bool)>;
@@ -196,16 +195,6 @@ class WebAppUiManager {
       const webapps::AppId& app_id,
       WebAppLaunchAcceptanceCallback launch_callback) = 0;
 
-  virtual void ShowWebAppIdentityUpdateDialog(
-      const std::string& app_id,
-      bool title_change,
-      bool icon_change,
-      const std::u16string& old_title,
-      const std::u16string& new_title,
-      const SkBitmap& old_icon,
-      const SkBitmap& new_icon,
-      content::WebContents* web_contents,
-      AppIdentityDialogCallback callback) = 0;
 
   // Shows the dialog for installing sub-apps.
   virtual void ShowSubAppsInstallDialog(
@@ -342,7 +331,8 @@ class WebAppUiManager {
 
   // Creates the WebAppBlockedUpdateInfoBar in a Web App window.
   virtual void MaybeCreateWebAppBlockedMigrationInfoBar(
-      content::WebContents* web_contents) = 0;
+      content::WebContents* web_contents,
+      base::OnceClosure on_dismiss_callback) = 0;
 
   // Removes the WebAppBlockedUpdateInfoBar from a Web App window if it exists.
   virtual void MaybeRemoveWebAppBlockedMigrationInfoBar(

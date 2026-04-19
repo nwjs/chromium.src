@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "base/compiler_specific.h"
 #include "base/notreached.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/decimal.h"
@@ -88,9 +89,10 @@ void WriteIndent(int depth, StringBuilder* output) {
 
 }  // anonymous namespace
 
-void EscapeStringForJSON(const String& str, StringBuilder* dst) {
+void EscapeStringForJSON(const StringView& str, StringBuilder* dst) {
   for (unsigned i = 0; i < str.length(); ++i) {
-    UChar c = str[i];
+    // SAFETY: length check above.
+    UChar c = UNSAFE_BUFFERS(str[i]);
     if (!EscapeChar(c, dst)) {
       if (c < 32 || c == '<' || c == '>') {
         // 1. Escaping <, > to prevent script execution.
@@ -102,16 +104,16 @@ void EscapeStringForJSON(const String& str, StringBuilder* dst) {
   }
 }
 
-void DoubleQuoteStringForJSON(const String& str, StringBuilder* dst) {
+void DoubleQuoteStringForJSON(const StringView& str, StringBuilder* dst) {
   dst->Append('"');
   EscapeStringForJSON(str, dst);
   dst->Append('"');
 }
 
-String JSONValue::QuoteString(const String& input) {
+String JSONValue::QuoteString(const StringView& input) {
   StringBuilder builder;
   DoubleQuoteStringForJSON(input, &builder);
-  return builder.ToString();
+  return builder.ReleaseString();
 }
 
 bool JSONValue::AsBoolean(bool*) const {

@@ -205,10 +205,10 @@ class CORE_EXPORT StyleResolverState {
   // If the input CSSValue is a CSSLightDarkValuePair, return the light or dark
   // CSSValue based on the UsedColorScheme. For all other values, just return a
   // reference to the passed value.
-  const CSSValue& ResolveLightDarkPair(const CSSValue&);
+  const CSSValue& ResolveLightDarkPair(const CSSValue&) const;
 
-  // If the input CSSValue is a CSSGradientValue, or a value that nests
-  // CSSGradientValues, resolve its "calc" functions.
+  // Resolve image values that depend on style state, including light-dark()
+  // selection and calc() inside nested gradients.
   const CSSValue& ResolveGradients(const CSSValue&) const;
   CSSValue& ResolveGradients(CSSValue&) const;
 

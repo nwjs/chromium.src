@@ -30,11 +30,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.hub.DelegateButtonData;
 import org.chromium.chrome.browser.hub.PaneHubController;
 import org.chromium.chrome.browser.hub.PaneId;
-import org.chromium.chrome.browser.hub.ResourceButtonData;
-import org.chromium.chrome.browser.hub.TabSwitcherDrawableButtonData;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -51,6 +48,9 @@ import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.archived_tabs_auto_delete_promo.ArchivedTabsAutoDeletePromoManager;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
+import org.chromium.chrome.browser.ui.actions.button.DelegateButtonData;
+import org.chromium.chrome.browser.ui.actions.button.ResourceButtonData;
+import org.chromium.chrome.browser.ui.actions.button.TabSwitcherDrawableButtonData;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.user_education.IphCommand;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
@@ -165,14 +165,13 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
         onDrawableStateChanged();
 
         mNewTabButtonDataSupplier.set(
-                new DelegateButtonData(
-                        new ResourceButtonData(
-                                R.string.button_new_tab,
-                                R.string.button_new_tab,
-                                R.drawable.new_tab_icon),
-                        () -> {
-                            newTabButtonClickListener.onClick(null);
-                        }));
+                new DelegateButtonData.Builder(
+                                new ResourceButtonData(
+                                        R.string.button_new_tab,
+                                        R.string.button_new_tab,
+                                        R.drawable.new_tab_icon))
+                        .setOnPress(newTabButtonClickListener::onClick)
+                        .build());
 
         profileProviderSupplier.onAvailable(this::onProfileProviderAvailable);
         mIsVisibleSupplier.addSyncObserverAndPostIfNonNull(mVisibilityObserver);

@@ -547,8 +547,10 @@ enum FieldType {
   FLIGHT_RESERVATION_FLIGHT_NUMBER = 198,
   FLIGHT_RESERVATION_CONFIRMATION_CODE = 199,
   FLIGHT_RESERVATION_TICKET_NUMBER = 200,
-  FLIGHT_RESERVATION_DEPARTURE_AIRPORT = 204,
-  FLIGHT_RESERVATION_ARRIVAL_AIRPORT = 205,
+  // The following two types were never predicted by the Autofill server.
+  // The numeric values may therefore be recycled:
+  // FLIGHT_RESERVATION_DEPARTURE_AIRPORT = 204,
+  // FLIGHT_RESERVATION_ARRIVAL_AIRPORT = 205,
   FLIGHT_RESERVATION_DEPARTURE_DATE = 206,
 
   // Combination of types ADDRESS_HOME_ZIP and ADDRESS_HOME_CITY.
@@ -561,10 +563,22 @@ enum FieldType {
   ORDER_ID = 208,
   ORDER_DATE = 209,
   ORDER_MERCHANT_NAME = 210,
-  ORDER_MERCHANT_DOMAIN = 211,
-  ORDER_PRODUCT_NAMES = 212,
-  ORDER_ACCOUNT = 213,
-  ORDER_GRAND_TOTAL = 214,
+  // The following two types were never predicted by the Autofill server.
+  // The numeric values may therefore be recycled:
+  // ORDER_MERCHANT_DOMAIN = 211,
+  // ORDER_PRODUCT_NAMES = 212,
+  // ORDER_ACCOUNT = 213,
+  // ORDER_GRAND_TOTAL = 214,
+
+  // Types corresponding to the "Shipment" entity from
+  // components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
+  // Only SHIPMENT_TRACKING_NUMBER is filled and the other numeric values may be
+  // recycled:
+  // SHIPMENT_ASSOCIATED_ORDER_ID = 215,
+  // SHIPMENT_CARRIER_NAME = 216,
+  // SHIPMENT_CARRIER_DOMAIN = 217,
+  SHIPMENT_TRACKING_NUMBER = 218,
+  // SHIPMENT_DELIVERY_ADDRESS = 219,
 
   // No new types can be added without a corresponding change to the Autofill
   // server.
@@ -576,7 +590,7 @@ enum FieldType {
   // If the newly added type is a storable type of AutofillProfile, update
   // AutofillProfile.StorableTypes in
   // tools/metrics/histograms/metadata/autofill/histograms.xml.
-  MAX_VALID_FIELD_TYPE = 215,
+  MAX_VALID_FIELD_TYPE = 220,
 };
 // LINT.ThenChange(//chrome/common/extensions/api/autofill_private.idl)
 
@@ -600,33 +614,33 @@ enum class FieldTypeGroup {
   kMaxValue = kOneTimePassword,
 };
 
-constexpr FieldType ToSafeFieldType(std::underlying_type_t<FieldType> raw_value,
-                                    FieldType fallback_value);
+// Returns `raw_value` if it is a known FieldType constant.
+//
+// Validating FieldTypes in server responses is particularly important because
+// old clients may know fewer values than the server does.
+constexpr std::optional<FieldType> ToSafeFieldType(
+    std::underlying_type_t<FieldType> raw_value);
 
-constexpr HtmlFieldType ToSafeHtmlFieldType(
-    std::underlying_type_t<HtmlFieldType> raw_value,
-    HtmlFieldType fallback_value);
+// Returns `raw_value` if it is a known HtmlFieldType constant.
+// This is equivalent to mojom::IsKnownEnumValue() but it is `constexpr`.
+constexpr std::optional<HtmlFieldType> ToSafeHtmlFieldType(
+    std::underlying_type_t<HtmlFieldType> raw_value);
 
 template <>
 struct DenseSetTraits<FieldType>
     : EnumDenseSetTraits<FieldType, NO_SERVER_DATA, MAX_VALID_FIELD_TYPE> {
   static constexpr bool is_valid(FieldType x) {
-    return x == NO_SERVER_DATA ||
-           ToSafeFieldType(std::to_underlying(x), NO_SERVER_DATA) !=
-               NO_SERVER_DATA;
+    return ToSafeFieldType(std::to_underlying(x)).has_value();
   }
 };
 
 template <>
 struct DenseSetTraits<HtmlFieldType>
     : EnumDenseSetTraits<HtmlFieldType,
-                         HtmlFieldType(0),
+                         HtmlFieldType::kMinValue,
                          HtmlFieldType::kMaxValue> {
   static constexpr bool is_valid(HtmlFieldType x) {
-    return x == HtmlFieldType::kUnrecognized ||
-           ToSafeHtmlFieldType(std::to_underlying(x),
-                               HtmlFieldType::kUnrecognized) !=
-               HtmlFieldType::kUnrecognized;
+    return ToSafeHtmlFieldType(std::to_underlying(x)).has_value();
   }
 };
 
@@ -671,11 +685,11 @@ FieldTypeGroup GroupTypeOfHtmlFieldType(HtmlFieldType field_type);
 // Not all HtmlFieldTypes have a corresponding FieldType.
 FieldType HtmlFieldTypeToBestCorrespondingFieldType(HtmlFieldType field_type);
 
-// Returns |raw_value| if it corresponds to a non-deprecated enumeration
+// Returns `raw_value` if it corresponds to a non-deprecated enumeration
 // constant of FieldType other than MAX_VALID_FIELD_TYPE. Otherwise, returns
-// |fallback_value|.
-constexpr FieldType ToSafeFieldType(std::underlying_type_t<FieldType> raw_value,
-                                    FieldType fallback_value) {
+// std::nullopt.
+constexpr std::optional<FieldType> ToSafeFieldType(
+    std::underlying_type_t<FieldType> raw_value) {
   auto is_invalid = [](std::underlying_type_t<FieldType> t) {
     return t < NO_SERVER_DATA || t >= MAX_VALID_FIELD_TYPE ||
            // Work phone numbers (values [15,19]) are deprecated.
@@ -711,15 +725,21 @@ constexpr FieldType ToSafeFieldType(std::underlying_type_t<FieldType> raw_value,
            (187 <= t && t <= 188) ||
            // Types for date of birth and gender are not used yet, but will
            // likely be added in the future.
-           (196 <= t && t <= 197);
+           (196 <= t && t <= 197) ||
+           // Unused Forms AI types: These types were never predicted by the
+           // Autofill server and never used. They may be recycled in the
+           // future.
+           (204 <= t && t <= 205) || (211 <= t && t <= 214) ||
+           (215 <= t && t <= 217) || t == 219;
   };
-  return is_invalid(raw_value) ? fallback_value
-                               : static_cast<FieldType>(raw_value);  // nocheck
+  if (is_invalid(raw_value)) {
+    return std::nullopt;
+  }
+  return static_cast<FieldType>(raw_value);  // nocheck
 }
 
-constexpr HtmlFieldType ToSafeHtmlFieldType(
-    std::underlying_type_t<HtmlFieldType> raw_value,
-    HtmlFieldType fallback_value) {
+constexpr std::optional<HtmlFieldType> ToSafeHtmlFieldType(
+    std::underlying_type_t<HtmlFieldType> raw_value) {
   auto is_invalid = [](std::underlying_type_t<HtmlFieldType> t) {
     return t < std::to_underlying(HtmlFieldType::kMinValue) ||
            t > std::to_underlying(HtmlFieldType::kMaxValue) ||
@@ -728,8 +748,10 @@ constexpr HtmlFieldType ToSafeHtmlFieldType(
            // UPI is deprecated.
            t == 46;
   };
-  return is_invalid(raw_value) ? fallback_value
-                               : static_cast<HtmlFieldType>(raw_value);
+  if (is_invalid(raw_value)) {
+    return std::nullopt;
+  }
+  return static_cast<HtmlFieldType>(raw_value);  // nocheck
 }
 
 constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
@@ -853,16 +875,11 @@ constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
     case FLIGHT_RESERVATION_FLIGHT_NUMBER:
     case FLIGHT_RESERVATION_TICKET_NUMBER:
     case FLIGHT_RESERVATION_CONFIRMATION_CODE:
-    case FLIGHT_RESERVATION_DEPARTURE_AIRPORT:
-    case FLIGHT_RESERVATION_ARRIVAL_AIRPORT:
     case FLIGHT_RESERVATION_DEPARTURE_DATE:
     case ORDER_ID:
     case ORDER_DATE:
     case ORDER_MERCHANT_NAME:
-    case ORDER_MERCHANT_DOMAIN:
-    case ORDER_PRODUCT_NAMES:
-    case ORDER_ACCOUNT:
-    case ORDER_GRAND_TOTAL:
+    case SHIPMENT_TRACKING_NUMBER:
       return FieldTypeGroup::kAutofillAi;
 
     case PASSWORD:

@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_scheduler_impl.h"
 
+#include <utility>
+
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/back_forward_cache_utils.h"
@@ -53,13 +55,13 @@ WorkerSchedulerImpl::WorkerSchedulerImpl(
           &tracing_controller_,
           perfetto::NamedTrack::ThreadScoped("WorkerThread", this),
           thread_scheduler_) {
-  task_runners_.emplace(throttleable_task_queue_,
-                        throttleable_task_queue_->CreateQueueEnabledVoter());
-  task_runners_.emplace(pausable_task_queue_,
-                        pausable_task_queue_->CreateQueueEnabledVoter());
-  task_runners_.emplace(pausable_non_vt_task_queue_,
-                        pausable_non_vt_task_queue_->CreateQueueEnabledVoter());
-  task_runners_.emplace(unpausable_task_queue_, nullptr);
+  task_runners_.insert(throttleable_task_queue_,
+                       throttleable_task_queue_->CreateQueueEnabledVoter());
+  task_runners_.insert(pausable_task_queue_,
+                       pausable_task_queue_->CreateQueueEnabledVoter());
+  task_runners_.insert(pausable_non_vt_task_queue_,
+                       pausable_non_vt_task_queue_->CreateQueueEnabledVoter());
+  task_runners_.insert(unpausable_task_queue_, nullptr);
 
   thread_scheduler_->RegisterWorkerScheduler(this);
 
@@ -95,8 +97,8 @@ void WorkerSchedulerImpl::PauseImpl() {
   paused_count_++;
   if (paused_count_ == 1) {
     for (const auto& pair : task_runners_) {
-      if (pair.second) {
-        pair.second->SetVoteToEnable(false);
+      if (pair.value) {
+        pair.value->SetVoteToEnable(false);
       }
     }
   }
@@ -107,8 +109,8 @@ void WorkerSchedulerImpl::ResumeImpl() {
   paused_count_--;
   if (paused_count_ == 0 && !is_disposed_) {
     for (const auto& pair : task_runners_) {
-      if (pair.second) {
-        pair.second->SetVoteToEnable(true);
+      if (pair.value) {
+        pair.value->SetVoteToEnable(true);
       }
     }
   }
@@ -143,7 +145,7 @@ void WorkerSchedulerImpl::Dispose() {
   thread_scheduler_->UnregisterWorkerScheduler(this);
 
   for (const auto& pair : task_runners_) {
-    pair.first->ShutdownTaskQueue();
+    pair.key->ShutdownTaskQueue();
   }
 
   task_runners_.clear();
@@ -258,16 +260,29 @@ scoped_refptr<base::SingleThreadTaskRunner> WorkerSchedulerImpl::GetTaskRunner(
 
 void WorkerSchedulerImpl::OnLifecycleStateChanged(
     SchedulingLifecycleState lifecycle_state) {
-  if (lifecycle_state_ == lifecycle_state)
+  if (lifecycle_state_ == lifecycle_state) {
     return;
-  lifecycle_state_ = lifecycle_state;
+  }
+  SchedulingLifecycleState previous_state =
+      std::exchange(lifecycle_state_, lifecycle_state);
   thread_scheduler_->OnLifecycleStateChanged(lifecycle_state);
 
+  // The worker can be closed while a lifecycle-changing task is pending.
+  // Ignore the lifecycle state change in that case. (See also
+  // crbug.com/493222148.)
+  if (is_disposed_) {
+    return;
+  }
+
+  // TODO(crbug.com/40545662): Worker throttling doesn't match main thread
+  // throttling for initial visibility change, intensive throttling, timer
+  // nesting level properties, and web scheduling queues. These need to be
+  // considered if this feature is ever revived.
   if (thread_scheduler_->cpu_time_budget_pool() ||
       thread_scheduler_->wake_up_budget_pool()) {
     if (lifecycle_state_ == SchedulingLifecycleState::kThrottled) {
       throttleable_task_queue_->IncreaseThrottleRefCount();
-    } else {
+    } else if (previous_state == SchedulingLifecycleState::kThrottled) {
       throttleable_task_queue_->DecreaseThrottleRefCount();
     }
   }
@@ -352,8 +367,9 @@ WorkerSchedulerImpl::CreateWebSchedulingTaskQueue(
           NonMainThreadTaskQueue::QueueCreationParams()
               .SetWebSchedulingQueueType(queue_type)
               .SetWebSchedulingPriority(priority));
+  task_runners_.insert(task_queue, task_queue->CreateQueueEnabledVoter());
   return std::make_unique<NonMainThreadWebSchedulingTaskQueueImpl>(
-      std::move(task_queue));
+      GetWeakPtr(), std::move(task_queue));
 }
 
 scoped_refptr<base::SingleThreadTaskRunner>
@@ -389,6 +405,17 @@ void WorkerSchedulerImpl::UnpauseVirtualTime() {
     DCHECK(queue->GetTaskQueue()->HasActiveFence());
     queue->GetTaskQueue()->RemoveFence();
   }
+}
+
+void WorkerSchedulerImpl::OnWebSchedulingTaskQueueDestroyed(
+    NonMainThreadTaskQueue* queue) {
+  // `task_runners_` is cleared on disposal.
+  if (is_disposed_) {
+    return;
+  }
+  auto it = task_runners_.find(queue);
+  CHECK(it != task_runners_.end());
+  task_runners_.erase(it);
 }
 
 }  // namespace scheduler

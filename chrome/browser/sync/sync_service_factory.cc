@@ -14,8 +14,8 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "chrome/browser/accessibility_annotator/accessibility_annotator_backend_factory.h"
+#include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
-#include "chrome/browser/autofill/account_setting_service_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -27,10 +27,10 @@
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
-#include "chrome/browser/password_manager/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/password_receiver_service_factory.h"
 #include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
-#include "chrome/browser/password_manager/password_receiver_service_factory.h"
-#include "chrome/browser/password_manager/profile_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/plus_addresses/plus_address_setting_service_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -193,7 +193,7 @@ syncer::DataTypeController::TypeVector CreateCommonControllers(
   builder.SetAccessibilityAnnotatorBackend(
       AccessibilityAnnotatorBackendFactory::GetForProfile(profile));
   builder.SetAccountSettingService(
-      autofill::AccountSettingServiceFactory::GetForBrowserContext(profile));
+      AccountSettingServiceFactory::GetForBrowserContext(profile));
   // A callback is needed here because `autofill::PersonalDataManagerFactory`
   // already depends on `SyncServiceFactory`.
   builder.SetAddressDataManagerGetter(
@@ -527,7 +527,7 @@ SyncServiceFactory::SyncServiceFactory()
   // actually plumbed in ChromeSyncClient, which this factory constructs.
   DependsOn(AboutSigninInternalsFactory::GetInstance());
   DependsOn(AccessibilityAnnotatorBackendFactory::GetInstance());
-  DependsOn(autofill::AccountSettingServiceFactory::GetInstance());
+  DependsOn(AccountSettingServiceFactory::GetInstance());
   DependsOn(AccountBookmarkSyncServiceFactory::GetInstance());
   DependsOn(AccountPasswordStoreFactory::GetInstance());
   DependsOn(AimEligibilityServiceFactory::GetInstance());

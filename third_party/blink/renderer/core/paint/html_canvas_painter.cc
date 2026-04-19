@@ -23,8 +23,10 @@ InterpolationQuality InterpolationQualityForCanvas(const ComputedStyle& style) {
   if (style.ImageRendering() == EImageRendering::kWebkitOptimizeContrast)
     return kInterpolationLow;
 
-  if (style.ImageRendering() == EImageRendering::kPixelated)
+  if (style.ImageRendering() == EImageRendering::kPixelated ||
+      style.ImageRendering() == EImageRendering::kCrispEdges) {
     return kInterpolationNone;
+  }
 
   return CanvasDefaultInterpolationQuality;
 }
@@ -43,8 +45,6 @@ void HTMLCanvasPainter::PaintReplaced(const PaintInfo& paint_info,
     PaintTiming::From(layout_html_canvas_.GetDocument())
         .MarkFirstContentfulPaint();
   }
-
-  canvas->TakeGridScaleFactorSnapshot();
 
   if (auto* layer = canvas->ContentsCcLayer()) {
     // TODO(crbug.com/705019): For a texture layer canvas, setting the layer

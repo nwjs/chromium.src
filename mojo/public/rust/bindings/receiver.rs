@@ -2,21 +2,44 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-//! TODO: Module docs (link to interface.rs?)
+//! This module defines the [`Receiver`] and [`PendingReceiver`] types, which
+//! represent the implementation side of a Mojo interface. Each `Receiver` or
+//! `PendingReceiver` is associated with exactly one `Remote` or
+//! `PendingRemote` elsewhere in the program. A `PendingReceiver` does nothing
+//! until bound to a sequence and provided with a _state object_ to create a
+//! `Receiver<StateTy>`.
+//!
+//! A `Receiver<StateTy>` listens for incoming messages from the corresponding
+//! [`Remote`](super::remote::Remote); whenever it receives one, it calls the
+//! corresponding methods on its state object.
+//!
+//! The standard way to obtain a `Receiver` is to first create a pipe via
+//! [`PendingRemote::new_pipe`](super::remote::PendingRemote::new_pipe), then
+//! bind the `PendingReceiver` to a sequence and a state object by calling
+//! [`PendingReceiver::bind`]. `PendingReceiver`s can also be obtained by
+//! manually wrapping a
+//! [`MessageEndpoint`](system::message_pipe::MessageEndpoint).
+//!
+//! Incoming messages are processed asynchronously on the bound sequence.
+//! Messages received while the receiver is still pending are queued and
+//! processed immediately upon binding.
+//!
+//! For a more detailed explanation, see the documentation for the
+//! [`interface`] module.
 
 chromium::import! {
   "//mojo/public/rust/system";
-  "//mojo/public/rust/sequences";
+  "//base:sequenced_task_runner";
 }
 
 use std::marker::PhantomData;
-// FOR_RELEASE: Replace some/all Arc/Mutexes with the sequenced equivalents,
-// where appropriate (maybe all of them?).
+// TODO(crbug.com/470438844): Replace some/all Arc/Mutexes with the
+// sequenced equivalents, where appropriate (maybe all of them?).
 // TODO(crbug.com/477584253): Replace std::sync with std::nonpoison once
 // it's stabilized, if any uses remain.
 use std::sync::{Arc, Mutex, Weak};
 
-use sequences::SequencedTaskRunnerHandle;
+use sequenced_task_runner::SequencedTaskRunnerHandle;
 use system::message::RawMojoMessage;
 use system::message_pipe::MessageEndpoint;
 
@@ -41,11 +64,8 @@ use crate::message_pipe_watcher::{MessagePipeWatcher, ResponseSender};
 /// Note that a `PendingReceiver` can receive messages, but they will not be
 /// processed until it is bound. Once bound, the newly-created `Receiver`
 /// will immediately schedule processing of all pending messages.
-// FOR_RELEASE: Naming question (should we put in a T for
-// searchability/consistency?)
 pub struct Receiver<StateTy: MojomInterface> {
     endpoint_watcher: MessagePipeWatcher,
-    // FOR_RELEASE: Replace these with their sequenced equivalents
     state: Arc<Mutex<StateTy>>,
 }
 
@@ -82,7 +102,7 @@ where
     /// for creating a new `Receiver` from an endpoint received via mojo or FFI.
     ///
     /// Note that the caller is responsible for ensuring that `Self` has the
-    /// same instantiation of `T` as the other endpoint, or else incoming
+    /// right instantiation of `T` as the other endpoint, or else incoming
     /// messages will be incomprehensible.
     pub fn new(endpoint: MessageEndpoint) -> Self {
         Self { endpoint, _phantom: PhantomData }
@@ -205,24 +225,20 @@ where
 
         let endpoint_watcher =
             MessagePipeWatcher::new_with_runner(endpoint, runner, handler, disconnect_handler)
-                .expect("FOR_RELEASE: Figure out how to handle errors here");
+                .expect("System ran out of resources to create new mojo objects.");
 
         Self { endpoint_watcher, state }
     }
 
-    // FOR_RELEASE: Provide a mutex-y function so the holder of this `Receiver` can
-    // examine the state while it's in use? Might be risky if they can misuse the
-    // lock though.
-
     /// Unbind the remote, returning the contained state object and a
     /// `PendingRemote` which can be re-bound later.
-    // FOR_RELEASE: Figure out/document the implications for any already-posted
-    // tasks
     // This function is not `pub` because it's a dangerous operation, so we're
-    // restricting access until someone has a use-case.
+    // restricting access until someone has a use-case. It's mostly included here
+    // for completeness. Before making it usable, we need to figure out the
+    // implications of unbinding, e.g. for already-posted tasks, when we can
+    // safely unwrap Arcs, etc.
     #[allow(unused)]
     fn unbind(self) -> (PendingReceiver<StateTy::DynTy>, StateTy) {
-        // FOR_RELEASE: Figure out when it's safe to unwrap
         let state = Arc::into_inner(self.state).unwrap().into_inner().unwrap();
         let endpoint = self.endpoint_watcher.into_endpoint();
         (PendingReceiver::new(endpoint), state)

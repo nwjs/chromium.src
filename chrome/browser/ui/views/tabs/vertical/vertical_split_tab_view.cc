@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
+#include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_animating_layout_manager.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_node.h"
@@ -42,6 +43,16 @@ VerticalSplitTabView::VerticalSplitTabView(TabCollectionNode* collection_node)
   node_destroyed_subscription_ =
       collection_node_->RegisterWillDestroyCallback(base::BindOnce(
           &VerticalSplitTabView::ResetCollectionNode, base::Unretained(this)));
+
+  CHECK(collection_node_->GetController());
+  auto* state_controller =
+      collection_node_->GetController()->GetStateController();
+  CHECK(state_controller);
+  OnCollapseStateChanged(state_controller->GetCollapseState());
+  collapsed_state_changed_subscription_ =
+      state_controller->RegisterOnCollapseChanged(
+          base::BindRepeating(&VerticalSplitTabView::OnCollapseStateChanged,
+                              base::Unretained(this)));
 
   // Ensures this view gets mouse events as well its children.
   SetNotifyEnterExitOnChild(true);
@@ -124,13 +135,14 @@ views::ProposedLayout VerticalSplitTabView::CalculateProposedLayout(
           : 0;
 
   // Layout children in order. Children will have their preferred height and
-  // fill available width. If unbounded or both children fit on one row they
-  // will share it, otherwise they will be stacked vertically.
+  // fill available width. If unbounded or uncollapsed and both children fit on
+  // one row they will share it, otherwise they will be stacked vertically.
   if (!size_bounds.width().is_bounded() ||
-      size_bounds.width().value() >=
-          static_cast<int>(
-              GetLayoutConstant(LayoutConstant::kVerticalTabMinWidth) *
-              children.size())) {
+      (!collapsed_ &&
+       size_bounds.width().value() >=
+           static_cast<int>(
+               GetLayoutConstant(LayoutConstant::kVerticalTabMinWidth) *
+               children.size()))) {
     int x = 0;
     for (auto* child : children) {
       gfx::Rect bounds = gfx::Rect(child->GetPreferredSize());
@@ -203,6 +215,16 @@ double VerticalSplitTabView::GetHoverAnimationValue() const {
 }
 
 void VerticalSplitTabView::ResetCollectionNode() {
+  CHECK(collection_node_);
+  TabHoverCardController* hover_card_controller =
+      collection_node_->GetController()->GetHoverCardController();
+  if (hover_card_controller) {
+    hover_card_controller->UpdateHoverCard(
+        nullptr, TabSlotController::HoverCardUpdateType::kTabRemoved);
+  }
+
+  node_destroyed_subscription_ = {};
+  collapsed_state_changed_subscription_ = {};
   collection_node_ = nullptr;
 }
 
@@ -255,6 +277,11 @@ void VerticalSplitTabView::UpdateHovered(bool hovered) {
   }
 
   SchedulePaint();
+}
+
+void VerticalSplitTabView::OnCollapseStateChanged(
+    tabs::VerticalTabStripCollapseState state) {
+  collapsed_ = state == tabs::VerticalTabStripCollapseState::kCollapsed;
 }
 
 std::unique_ptr<views::View>

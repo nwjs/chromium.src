@@ -14,9 +14,9 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/omnibox/browser/autocomplete_classifier.h"
 #import "components/omnibox/browser/autocomplete_controller.h"
-#import "components/omnibox/browser/omnibox_client.h"
 #import "components/omnibox/browser/omnibox_text_util.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_client_ios.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller_delegate.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_model.h"
 #import "ios/chrome/browser/omnibox/model/suggestions/autocomplete_suggestion.h"
@@ -38,7 +38,7 @@ const char kOmniboxFocusResultedInNavigation[] =
 
 @implementation OmniboxTextController {
   /// Client of the omnibox.
-  raw_ptr<OmniboxClient, DanglingUntriaged> _omniboxClient;
+  raw_ptr<OmniboxClientIOS, DanglingUntriaged> _omniboxClient;
   /// Whether the popup was scrolled during this omnibox interaction.
   BOOL _suggestionsListScrolled;
   /// The omnbibox text model, holding the text state.
@@ -55,7 +55,7 @@ const char kOmniboxFocusResultedInNavigation[] =
   NSRange _oldSelection;
 }
 
-- (instancetype)initWithOmniboxClient:(OmniboxClient*)omniboxClient
+- (instancetype)initWithOmniboxClient:(OmniboxClientIOS*)omniboxClient
                      omniboxTextModel:(OmniboxTextModel*)omniboxTextModel
                   presentationContext:
                       (OmniboxPresentationContext)presentationContext {
@@ -166,7 +166,7 @@ const char kOmniboxFocusResultedInNavigation[] =
 
   // The controller looks at the current pre-edit state, so the call to
   // OnKillFocus() must come after exiting pre-edit.
-  [self.focusDelegate omniboxDidResignFirstResponder];
+  [self.focusDelegate omniboxDidEndEditing];
 
   // Composebox is destroyed on endEditing, skip revert to avoid resizing on
   // revert.
@@ -332,6 +332,16 @@ const char kOmniboxFocusResultedInNavigation[] =
   const AutocompleteMatch& current_match =
       _omniboxTextModel->user_input_in_progress ? [self currentMatch:nullptr]
                                                 : AutocompleteMatch();
+
+  // NOTE: Suggestions are currently disabled for Cobrowse. If they are
+  // requested in the future, remove this conditional branch.
+  if (_presentationContext == OmniboxPresentationContext::kCobrowse) {
+    const AutocompleteResult result;
+    _omniboxClient->OnTextChanged(
+        current_match, _omniboxTextModel->user_input_in_progress,
+        _omniboxTextModel->user_text, result, _omniboxTextModel->HasFocus());
+    return;
+  }
 
   if (const AutocompleteResult* result =
           [self.omniboxAutocompleteController autocompleteResult]) {
@@ -517,8 +527,10 @@ const char kOmniboxFocusResultedInNavigation[] =
 
   if (_omniboxTextModel) {
     _omniboxTextModel->OnSetFocus();
-
-    if (_presentationContext == OmniboxPresentationContext::kLensOverlay) {
+    if (_presentationContext == OmniboxPresentationContext::kCobrowse) {
+      [self startAutocompletePreventingInline:YES];
+    } else if (_presentationContext ==
+               OmniboxPresentationContext::kLensOverlay) {
       if (textInput.userText.length) {
         [self setUserText:textInput.userText.cr_UTF16String];
         [self startAutocompletePreventingInline:YES];
@@ -553,6 +565,7 @@ const char kOmniboxFocusResultedInNavigation[] =
   // omnibox only display search terms.
   if (!popupOpenBeforeEdit &&
       _presentationContext != OmniboxPresentationContext::kLensOverlay &&
+      _presentationContext != OmniboxPresentationContext::kCobrowse &&
       !userInputInProgress) {
     [textInput enterPreEditState];
   }
@@ -560,9 +573,14 @@ const char kOmniboxFocusResultedInNavigation[] =
   // `location_bar_` is only forwarding the call to the BVC. This should only
   // happen when the omnibox is being focused and it starts showing the popup;
   // if the popup was already open, no need to call this.
-  if (!popupOpenBeforeEdit) {
+  if (!popupOpenBeforeEdit ||
+      _presentationContext == OmniboxPresentationContext::kCobrowse) {
     [self.focusDelegate omniboxDidBecomeFirstResponder];
   }
+}
+
+- (void)onDidEndEditing {
+  [self.focusDelegate omniboxDidResignFirstResponder];
 }
 
 - (BOOL)shouldChangeCharactersInRange:(NSRange)range
@@ -724,7 +742,10 @@ const char kOmniboxFocusResultedInNavigation[] =
       _omniboxAutocompleteController.hasSuggestions
           ? std::optional<AutocompleteMatch>([self currentMatch:nullptr])
           : std::nullopt,
-      _omniboxClient, &URL, &writeURL);
+      _omniboxClient->GetNavigationEntryURL(),
+      _omniboxClient->GetAutocompleteClassifier(),
+      _omniboxClient->GetPageClassification(/*is_prefetch=*/false),
+      _omniboxClient->GetContextualTasksInnerFrameURL(), &URL, &writeURL);
 
   // Create the pasteboard item manually because the pasteboard expects a single
   // item with multiple representations.  This is expressed as a single

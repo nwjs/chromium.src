@@ -22,12 +22,12 @@
 <translation id="1036348656032585052">Deaktiv edin</translation>
 <translation id="1036436692654972538">Cihazınızda yadda saxlayır</translation>
 <translation id="1036881361735705143">Zərf C4</translation>
+<translation id="1038168778161626396">Sadəcə olaraq kodlandırın</translation>
 <translation id="1038842779957582377">bilinməyən ad</translation>
 <translation id="1041998700806130099">İş vərəqi mesajı</translation>
 <translation id="1044897699341250361">Mənası nədir</translation>
 <translation id="1046350918013988591">Kuponlar və Endirim Təklifləri</translation>
 <translation id="1050038467049342496">Digər tətbiqləri bağlayın</translation>
-<translation id="1053959602163383901"><ph name="PROVIDER_ORIGIN" /> istifadə edən saytlarda doğrulayıcı cihaz ilə doğrulamağı seçmisiniz. Bu provayder ödəniş metodunuz haqqında məlumat saxlamış ola bilər, onu <ph name="LINK_TEXT" /> ünvanında tapa bilərsiniz.</translation>
 <translation id="1055184225775184556">Əlavəni geri qaytarın</translation>
 <translation id="1056898198331236512">Xəbərdarlıq</translation>
 <translation id="1058344460600311577"><ph name="PLAY_CHROME_DINO_GAME_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab düyməsi, sonra Enter düyməsinə basaraq Chrome'da Dinozavr Qaçış oyununu oynayın</translation>
@@ -44,6 +44,7 @@
 <translation id="1068672505746868501">Heç vaxt <ph name="SOURCE_LANGUAGE" /> dilində olan səhifələri tərcümə etməyin</translation>
 <translation id="1070333806075222467">Metal (parlaq)</translation>
 <translation id="1070901266639972381">Gecə</translation>
+<translation id="1071917609930274619">Data Şifrələnməsi</translation>
 <translation id="1073690811593784042">Şüşə (rəngli)</translation>
 <translation id="1074287282535157335">4 dəfəyə və ya aylıq ödəyin (uyğunluqdan asılıdır)</translation>
 <translation id="1074497978438210769">Təhlükəsiz deyil</translation>
@@ -85,6 +86,7 @@
 <translation id="1138458427267715730">Veb-saytlarda qiymət düşəndə bildiriş alın</translation>
 <translation id="1142713751288681188">Kağız növü</translation>
 <translation id="1142965388643537393">Səyahət məlumatları</translation>
+<translation id="1143142264369994168">Sertifikat İmzaçısı</translation>
 <translation id="1144136880160289237">Hələ aktiv mövzu yoxdur</translation>
 <translation id="1149617035358809955">ödəniş məlumatını doldurmaq üçün kimliyi doğrulamağa çalışır</translation>
 <translation id="1150565364351027703">Gün eynəyi</translation>
@@ -137,6 +139,7 @@
 <translation id="1215738931000958575">Parolları, giriş açarlarını, ünvanları, ödəniş metodlarını və digər məlumatları avtomatik doldurmaq üçün Google Hesabınızda yadda saxlanılmış məlumatlardan istifadə edin</translation>
 <translation id="1219129156119358924">Sistem Təhlükəsizliyi</translation>
 <translation id="1219134100826635117">Administrator bu əməliyyatı bloklayıb</translation>
+<translation id="1221024147024329929">PKCS #1 MD2 With RSA Şifrləmə</translation>
 <translation id="1222060260947439312">Sağ Qab</translation>
 <translation id="1224330468394120478">A3x6</translation>
 <translation id="1225240795350945817">Kart nömrəsi:</translation>
@@ -368,6 +371,7 @@
 <translation id="1567405528131216114"><ph name="TOPIC" /> əlavə edin</translation>
 <translation id="1569487616857761740">Bitmə vaxtını daxil edin</translation>
 <translation id="1569694109004336106">Google Chrome parolları doldurmaq üçün Windows Hello'nu aktiv etməyə çalışır.</translation>
+<translation id="1569905000953679183">Artırma quraşdırma siyasətinin əldə edilməsi</translation>
 <translation id="1572765991610098222"><ph name="WIDTH" /> x <ph name="HEIGHT" /> düym</translation>
 <translation id="1574714699824202614">Ödəniş metodunun doğrulanması</translation>
 <translation id="1576277203042721907">Şoppinq üzrə statistik məlumat</translation>
@@ -411,8 +415,10 @@
 <translation id="1639239467298939599">Yüklənir</translation>
 <translation id="1640180200866533862">İstifadəçi siyasəti</translation>
 <translation id="1640244768702815859"><ph name="BEGIN_LINK" />Saytın əsas səhifəsini ziyarət etməyə<ph name="END_LINK" /> calışın.</translation>
+<translation id="1640283014264083726">PKCS #1 MD4 RSA Şifrələmə ilə</translation>
 <translation id="1641962500621836664">Kamera faylı yadda saxlanılır</translation>
 <translation id="1641976391427233992">Çıxışı bu vaxta qədər gecikdirin:</translation>
+<translation id="1643072738649235303">X9.62 ECDSA SHA-1 ilə imza</translation>
 <translation id="1643651787397909318">Chrome təhlükəsizlik yoxlanışına keçin düyməsi. Aktivləşdirərək ayarlarda Chrome təhlükəsizlik yoxlanışı səhifəsinə daxil olun</translation>
 <translation id="1644574205037202324">Tarixçə</translation>
 <translation id="1645004815457365098">Naməlum mənbə</translation>
@@ -609,6 +615,7 @@
 <translation id="1960664692890490165">Chrome-da alış-veriş edərkən seçim olaraq kartsız ödəniş metodlarına baxın</translation>
 <translation id="196146181975453736">Daha tez ödəmək üçün birdəfəlik təhlükəsizlik yoxlamasını tamamlayın</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> Əlfəcinləri</translation>
+<translation id="1966259577349514951">İndi ödəyin</translation>
 <translation id="1973335181906896915">Serializasiya xətası</translation>
 <translation id="1973785048533660168">Kargüzarlıq və inzibati işlər</translation>
 <translation id="1974060860693918893">Qabaqcıl</translation>
@@ -657,7 +664,6 @@
 <translation id="2059202684901022309">22 x 34 düym</translation>
 <translation id="2064568741209980952">Kredit və borc</translation>
 <translation id="2064691555167957331">{COUNT,plural, =1{1 təklif}other{# təklif}}</translation>
-<translation id="2066915425250589881">silinməsini tələb edin</translation>
 <translation id="2066969741541525119">Qarşıdakı sayt təşkilatınız tərəfindən bloklanıb</translation>
 <translation id="2069913043427250781">Nəqliyyat və Yol Təhlükəsizliyi</translation>
 <translation id="2071156619270205202">Bu kart virtual kart nömrəsi üçün uyğun deyil.</translation>
@@ -694,6 +700,7 @@
 <translation id="2108755909498034140">Kompüteri yenidən başladın</translation>
 <translation id="2109845311767915560">Tab qrupu paylaşıldı</translation>
 <translation id="2111166930115883695">Oxutmaq üçün boşluq düyməsini basın</translation>
+<translation id="2113921862428609753">İcazə Məlumatı Girişi</translation>
 <translation id="2113977810652731515">Kart</translation>
 <translation id="2114841414352855701"><ph name="POLICY_NAME" /> tərəfindən əvəzləndiyi üçün iqnor edin.</translation>
 <translation id="2118132148597630479">Zərf C5</translation>
@@ -753,8 +760,11 @@
 <translation id="2184405333245229118">{COUNT,plural, =1{1 ünvan}other{# ünvan}}</translation>
 <translation id="2188375229972301266">Aşağıdan çoxsaylı deşik açın</translation>
 <translation id="218940509700321686">Vergüllə ayrılmış dəyərlər</translation>
+<translation id="2190094353033916816">Bu siyasətin cihaz və istifadəçi səviyyələrində tətbiq edilən fərqli dəyərləri var. Siyasət nəzərdə tutulduğu kimi işləyir.</translation>
+<translation id="219061769324072544">Kredit,Kart,Debet</translation>
 <translation id="2191980191135734720">Növbəti addımda tipik olaraq barmaq izinizdən istifadə etməklə ekran kilidini açın. Həmçinin bu üsulla da edə bilərsiniz: <ph name="LINK_TEXT" />.</translation>
 <translation id="2194856509914051091">Nəzərə alınmalı amillər</translation>
+<translation id="2195729137168608510">E-poçt Müdafiəsi</translation>
 <translation id="2198183835992354675">Məlum səyahətçi nömrəsi</translation>
 <translation id="2198215508485017216">Gözlənilməz xəta oldu. <ph name="BEGIN_LINK" />Disk yükləmələri haqqında ətraflı məlumat<ph name="END_LINK" /></translation>
 <translation id="2200678913752027654">Baş barmaq aşağı düyməsi, bu təklifi niyə bəyənmədiyinizə dair ətraflı rəy göndərmək üçün Enter üzərinə basaraq formanı açın</translation>
@@ -906,6 +916,7 @@
 <translation id="2400600116338235695">Saytlar ardıcıl portlara qoşulmaq üçün icazə istəyə bilər</translation>
 <translation id="2403474027143565107">Dəqiq</translation>
 <translation id="240450251994300576">İkinci Dərəcəli Başlıq Loqosu</translation>
+<translation id="2404715426538856682">Kredit və debet kartları · IBAN-lar · Loyallıq kartları</translation>
 <translation id="2404884497378469141">Faylları yenidən kopyalayın</translation>
 <translation id="2413155254802890957">Köhnə</translation>
 <translation id="2413528052993050574">Bu server <ph name="DOMAIN" /> domenini təsdiqləyə bilmir; təhlükəsizlik sertifikatı ləğv edilə bilər. Buna yanlış konfiqurasiya və ya hücumçu tərəfindən bağlantının ələ keçirilməsi səbəb ola bilər.</translation>
@@ -972,7 +983,6 @@
 <translation id="2512413427717747692">"Chrome'u defolt brauzer kimi ayarlayın" düyməsi, Enter düyməsinə basaraq iOS ayarlarında Chrome'u sistemin defolt brauzeri kimi ayarlayın</translation>
 <translation id="2514548229949738417">Ev və bağ</translation>
 <translation id="2515629240566999685">Ərazinizdəki siqnal yoxlanılır</translation>
-<translation id="2515761554693942801"><ph name="PROVIDER_ORIGIN" /> istifadə edən saytlarda Touch ID ilə doğrulamağı seçmisiniz. Bu provayder ödəniş metodunuz haqqında məlumat saxlamış ola bilər, onu <ph name="LINK_TEXT" /> ünvanında tapa bilərsiniz.</translation>
 <translation id="2518584823165598232">Bu kart əlçatan deyil. Kart provayderinizlə əlaqə saxlayın.</translation>
 <translation id="2521385132275182522">Aşağı sağdan ştapel vurun</translation>
 <translation id="2521736961081452453">Forma yaradın</translation>
@@ -1071,6 +1081,7 @@
 <translation id="2673968385134502798">Oyunlar</translation>
 <translation id="2674170444375937751">Siz tarixi bu pages silmək üçün əminsinizmi?</translation>
 <translation id="2674524144218093528">Ev boyama və tamamlama</translation>
+<translation id="2675716371350192683">Kontentiniz Sİ-ni təkmilləşdirmək üçün istifadə edilməyəcək. Təşkilatınız bu ayarları istənilən vaxt dəyişə bilər.</translation>
 <translation id="26774279487328902"><ph name="GROUP_COUNT" /> tab qrupu artıq əlçatan deyil</translation>
 <translation id="2677748264148917807">Tərk edin</translation>
 <translation id="2679216653373462289">Hərəkət və işıq sensorlarından istifadə edin</translation>
@@ -1086,6 +1097,7 @@
 <translation id="2696385693639654606">Chrome Enterprise Core buluddan brauzer siyasətlərini, tətbiqləri və artırmaları idarə etməyə imkan verir</translation>
 <translation id="2697248912349197812">Soruşun: <ph name="KEYWORD_SHORT_NAME" /></translation>
 <translation id="2699273987028089219">Altmenyu əlçatandır, <ph name="SHORTCUT" /> ilə əlavə seçimlərə keçin.</translation>
+<translation id="2700335762333112350">Sonra ödəyin</translation>
 <translation id="2701514975700770343">Üzü aşağı</translation>
 <translation id="2702592986366989640">Aşağı qiymət seçimi</translation>
 <translation id="2702801445560668637">Siyahı oxunur</translation>
@@ -1162,6 +1174,7 @@
 <translation id="2837891525090413132">Klaviaturanı kilidləmək və istifadə etmək istəyə bilər</translation>
 <translation id="2839032553903800133">Bildirişlər blok edilib</translation>
 <translation id="2839501879576190149">İrəlidə saxta sayt</translation>
+<translation id="2840680829170913626">Bu seçimləri təklif etmək üçün ödəniş səhifəsindəki kontent Google ilə paylaşılır. Ödəniş planları uyğunluqdan asılıdır. Avtodoldurmada "Sonra ödəyin" seçimlərini gizlətmək üçün <ph name="IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT" /> ünvanına keçin.</translation>
 <translation id="2843623755398178332">Paylaşılan tab sürüşdürülüb zumlansın?</translation>
 <translation id="2851291081585704741">Oflaynsınız</translation>
 <translation id="2854163610915391726">Google Hesabında yadda saxladığınız Chrome məlumatlarını idarə edin</translation>
@@ -1352,6 +1365,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3134859781443140237">Lokal şəbəkə</translation>
 <translation id="3137283076021007034"><ph name="KEYWORD" /> - Axtarın <ph name="KEYWORD_SHORT_NAME" /></translation>
 <translation id="3137507986424712703">{COUNT,plural, =0{Yoxdur}=1{1 hesab üçün giriş datası}other{# hesabla üçün giriş datası}}</translation>
+<translation id="3139503241401248626">Bu ayarları aktivləşdirmək və Google Hesabınızdakı məlumatlarından istifadə etmək üçün avtodoldurma xidmətləri ayarlarına daxil olun.</translation>
 <translation id="3140646734028448730">Biznes xidmətləri</translation>
 <translation id="3141093262818886744">Hər halda açın</translation>
 <translation id="3141337053413339205">Bu taba keçin.</translation>
@@ -1372,6 +1386,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3162070126914310576">Təşkilat qrupunuz ilkin qeydiyyat limitinə çatdığı üçün hazırda bu cihazı qeydiyyatdan keçirmək mümkün deyil. Kömək üçün administrator ilə əlaqə saxlayın.</translation>
 <translation id="3162559335345991374">İstifadə etdiyiniz Wi-Fi login səhifəsinə daxil olmağınızı tələb edə bilər.</translation>
 <translation id="316638481603975524">Veb-tətbiqləri quraşdırmağı istəyə bilər</translation>
+<translation id="3166788340998560642">Növbəti dəfə istifadə etdiyiniz zaman Chrome onu <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" /> bölməsində yadda saxlamağı təklif edəcək</translation>
 <translation id="3168744840365648658">Radio təchizatı</translation>
 <translation id="3168938241115725594">Klassik Avtomobillər</translation>
 <translation id="3169472444629675720">Discover</translation>
@@ -1410,6 +1425,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3220264767789936523">Rəsmi geyim</translation>
 <translation id="3223287115535306850">Tətbiq başlama göstəricisi</translation>
 <translation id="3223425961342298674">Məkana icazə verilmir</translation>
+<translation id="3225319735946384299">Kodu İmzalaması</translation>
 <translation id="3225919329040284222">Serverin təqdim etdiyi sertifikat daxili gözləntilərə uyğun deyil.</translation>
 <translation id="3226128629678568754">Səhifənin yüklənilməsi üçün tələb olunan datanın yenidən göndərilməsi üçün yenidən yükləmə düyməsini basın.</translation>
 <translation id="3226387218769101247">Miniatürlər</translation>
@@ -1424,8 +1440,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3237427677128462778">Google Pulqabıda yadda saxlamaq olmadı</translation>
 <translation id="3238395604961564389">Keçidi Anonim Pəncərədə açın</translation>
 <translation id="3240683217920639535"><ph name="MANAGE_CHROME_THEMES_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab düyməsi, sonra Enter düyməsinə basaraq brauzerinizin görünüşünü fərdiləşdirin</translation>
-<translation id="3240791268468473923">"Təhlükəsiz ödəniş giriş məlumatları uyğun gəlmir" giriş məlumatları səhifəsi açılıb</translation>
-<translation id="324180406144491771">“<ph name="HOST_NAME" />” keçidləri bloklanıb</translation>
 <translation id="3243650379537999343">Çəkin</translation>
 <translation id="3248329428895535435">Bu saytda göstərməyin</translation>
 <translation id="3249102948665905108"><ph name="CLOUD_PROVIDER" /> üzrə fayl yükləməsi xəta ilə tamamlandı</translation>
@@ -1451,7 +1465,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3282085321714087552">Təşkilatınız <ph name="ENROLLMENT_DOMAIN" /> aşağıdakı veb saytlara ayarlar və ya siyasətlər kimi bəzi məlumatlar göndərib.</translation>
 <translation id="3286372614333682499">portret</translation>
 <translation id="3287510313208355388">Onlayn olarkən endirin</translation>
-<translation id="3288238092761586174"><ph name="URL" /> ödənişinizi doğrulamaq üçün əlavə addımlar atmalı ola bilər</translation>
 <translation id="3289578402369490638">Vebdə digər mağazalardan</translation>
 <translation id="3293642807462928945"><ph name="POLICY_NAME" /> siyasəti haqqında ətraflı məlumat əldə edin</translation>
 <translation id="3295444047715739395">Parollarınıza Chrome ayarlarında baxın və idarə edin</translation>
@@ -1501,7 +1514,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3378612801784846695">Mövzular son brauzer tarixçənizə əsaslanır. Saytlar kimliyinizi qorumaqla fərdiləşdirilmiş reklamlar göstərmək üçün onlardan istifadə edir</translation>
 <translation id="3380365263193509176">Naməlum xəta</translation>
 <translation id="3380864720620200369">Klient ID:</translation>
-<translation id="3381668585148405088">Alışınızı doğrulayın</translation>
 <translation id="3383566085871012386">Cari öncəlik sırası</translation>
 <translation id="3383713837163550889">Lokal fayllarınız 1 dəqiqə sonra silinəcək</translation>
 <translation id="3384522979010096022">Təşkilat bu sayta baxmağınıza icazə vermir</translation>
@@ -1517,12 +1529,12 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3409896703495473338">Təhlükəsizlik ayarlarını idarə edin</translation>
 <translation id="3410151451624226773">Google Parol Menecerində idarə edin</translation>
 <translation id="3411091017011773343"><ph name="HOURS" /> saat sonra yükləyin</translation>
-<translation id="341134412449102894">Məlumatlarınız <ph name="ACCOUNT" /> üçün burada saxlanılır: <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" /></translation>
 <translation id="3413466783792948876">İctimai şəbəkə istifadə edirsinizsə, bu sayta daha sonra daxil olmaq ən təhlükəsiz seçimdir. Ev və ya iş Wi-Fi-ı kimi etibarlı şəbəkədə risk daha azdır.</translation>
 <translation id="3414275587143250384">Paylanmış və Bulud Hesablaması</translation>
 <translation id="3414952576877147120">Ölçü:</translation>
 <translation id="341513675006332771">"Chrome Dinozavr oynayın" düyməsi, aktivləşdirərək Chrome-da Dino Run oynayın</translation>
 <translation id="3415471717466570460">Axtarışlar, ən yaxşı uyğunluqlar və onların səhifə kontenti Google-a göndərilir. İnsan redaktorlar bu funksiyanı təkmilləşdirmək üçün onlara baxa bilər. Bu, təcrübi funksiyadır və həmişə dəqiq olmaya bilər.</translation>
+<translation id="3421387094817716717">Oval Əyrisi İctimai Açarı</translation>
 <translation id="3422248202833853650">Yaddaşı boşaltmaq üçün digər proqramlardan çıxın.</translation>
 <translation id="3422472998109090673"><ph name="HOST_NAME" /> hal-hazırda əlçatmazdır.</translation>
 <translation id="3422794267539320056">Oynamaq üçün dinozavra toxunun və ya boşluq düyməsinə basın</translation>
@@ -1599,6 +1611,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3541016556608204104">Chrome Enterprise Connectors haqqında daha ətraflı</translation>
 <translation id="3542628208405253498">Kart şəkli</translation>
 <translation id="3542768452570884558">Keçidi Yeni Pəncərədə açın</translation>
+<translation id="3543597750097719865">X9.62 ECDSA SHA-512 ilə imza</translation>
 <translation id="3543935938072367282">Avto-doldurma ilə sürətlə ödəyin</translation>
 <translation id="3547442767634383572">İş profili icmalı</translation>
 <translation id="3547746132308051926">20 x 24 düym</translation>
@@ -1748,6 +1761,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3744899669254331632">Sayt güvənsiz kredensiallar göndərdiyi üçün <ph name="SITE" /> ünvanına girə bilməzsiniz.</translation>
 <translation id="3745599309295009257">Mətn, yazdığınız səhifənin kontent və URL-i Google-a göndəriləcək, insanlar tərəfindən nəzərdən keçiriləcək və bu funksiyanı təkmilləşdirmək üçün istifadə ediləcək. Şəxsi məlumat (tibbi və ya maliyyə detalları kimi) daxil etməyin. Şəxsi və ya həssas məlumat olan saytlarda bu alətdən istifadə etməyin.</translation>
 <translation id="3748009735914587286">Metal (çox parlaq)</translation>
+<translation id="3748647055058832337">Bu satıcı üçün əlçatan deyil</translation>
 <translation id="3749600200023337912">Yadda saxladığınız avtomatik ödəniş metodu bu ödəniş üçün istifadə edilə bilər. Chrome-da e-pulqabıları və ya ödəniş tətbiqini söndürmək üçün <ph name="BEGIN_LINK1" />ödəniş ayarlarına<ph name="END_LINK1" /> keçin</translation>
 <translation id="3752181611900535304">Ünvan hesabda yadda saxlanılsın?</translation>
 <translation id="3752543821772132562"><ph name="POLICY_NAME" /> ayarlanmadığına görə nəzərə alınmayıb.</translation>
@@ -1793,6 +1807,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="3815434930383843058">8 x 12 düym</translation>
 <translation id="3816482573645936981">Dəyər (əvəz edilib)</translation>
 <translation id="3817524650114746564">Kompüterin proksi ayarlarına keçin</translation>
+<translation id="3820749202859700794">SECG oval əyrisi secp521r1 (aka NIST P-521)</translation>
 <translation id="382115839591654906"><ph name="CARD_NAME" /> üçün CVC</translation>
 <translation id="3822492359574576064">Maus kilidi və istifadəsi</translation>
 <translation id="3823019343150397277">IBAN</translation>
@@ -2083,6 +2098,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="4265635050210404830">Loyallıq kartlarınız</translation>
 <translation id="4265872034478892965">Administrator tərəfindən icazə verildi</translation>
 <translation id="4267590181863312380">Digər cihazlarınızdakı tarixçələrə giriş əldə etmək üçün hesabınıza daxil olun və tarixçəni sinxronlaşdırın. Həmçinin bütün cihazlarınızda parollarınızı və daha çoxunu əldə edəcəksiniz. Ayarlarda sinxronlaşdırmanı istənilən vaxt dayandıra bilərsiniz. Google tarixçənizə əsasən Axtarış və digər xidmətləri fərdiləşdirə bilər.</translation>
+<translation id="4268025649754414643">Kodlaşdırma Açarı</translation>
 <translation id="4269029136757623689">Məişət sərinkeşləri</translation>
 <translation id="4269264543938335308">Çimərlik geyimi</translation>
 <translation id="4269599248168651462">Server sertifikatı unikal olmayan ada təyin edilib.</translation>
@@ -2140,11 +2156,13 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="4332872603299969513">Uşaq ədəbiyyatı</translation>
 <translation id="4333295216031073611">Alış-veriş siyahısı</translation>
 <translation id="4333561522337981382">Bütün displeylərinizdə pəncərələri idarə edin</translation>
+<translation id="4333854382783149454">PKCS #1 SHA-1 Şifrələmə ilə</translation>
 <translation id="4336913590841287350">Bu siyasət iOS-da istifadəçi siyasəti kimi dəstəklənmir.</translation>
 <translation id="4340575312453649552">Bu reklam cihazınız üçün həddindən çox mənbədən istifadə etdiyinə görə Chrome onu sildi.</translation>
 <translation id="4340810192899866471">JSON-dan import edin</translation>
 <translation id="4340982228985273705">Bu kompüter korporativ idarə edilmir, ona görə də siyasət yalnız Chrome Veb Mağazasında saxlanılan artırmaları quraşdıra bilər. Chrome Veb Mağaza güncəlləmə linki: "<ph name="CWS_UPDATE_URL" />".</translation>
 <translation id="4342742994656318294">Tema Parkları</translation>
+<translation id="4346670990181948854">Səyahət məlumatı · Nəqliyyat vasitələri</translation>
 <translation id="4348834659292907206"><ph name="SITE" /> saytına bağlantı güvənli deyil</translation>
 <translation id="4349365535725594680">Məxfi kontenti paylaşmaq olmur</translation>
 <translation id="4349810866125026513">İstənilən halda yükləyin</translation>
@@ -2183,6 +2201,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="4414515549596849729">kukilər və sayt datası</translation>
 <translation id="4415156962929755728">Plastik (yarıparlaq)</translation>
 <translation id="4415426530740016218">Götürmə Ünvanı</translation>
+<translation id="4415748029120993980">SECG oval əyrisi secp384r1 (aka NIST P-384)</translation>
 <translation id="4419287616181386201">Parollar onların idarəetmə ayarlarında silinə bilər</translation>
 <translation id="4424024547088906515">Bu server <ph name="DOMAIN" /> domenini təsdiqləyə bilmədi; onun təhlükəsizlik sertifikatı Chrome tərəfindən doğrulanmayıb. Buna səbəb yanlış konfiqurasiya və ya hücumçü tərəfindən bağlantınızın ələ keçirilməsi ola bilər.</translation>
 <translation id="4425750422187370446">Atletik geyim</translation>
@@ -2206,6 +2225,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="4454620051637646665">Banneri bağlayın</translation>
 <translation id="4456937135469235202">Macəra səyahəti</translation>
 <translation id="4458013283022578512">Sual daxil edin</translation>
+<translation id="4458516738555515761">Siyasətin əldə edilməsi</translation>
 <translation id="4464826014807964867">Təşkilatınızın məlumatları olan veb saytlar</translation>
 <translation id="4466576951214254884">Tələbə Kreditləri və Kollec Maliyyələşdirməsi</translation>
 <translation id="4467821340016922962">Tam ekrandan çıxmaq və endirməyə baxmaq üçün |<ph name="ACCELERATOR" />| düyməsinə basın.</translation>
@@ -2273,6 +2293,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="4594403342090139922">&amp;Silinməni ləğv edin</translation>
 <translation id="4598556348158889687">Yaddaş idarəetməsi</translation>
 <translation id="459914240367517409">Veb Dizayn və İnkişaf</translation>
+<translation id="4599572944836204718">Kart yadda saxlanıldıqda Google Pay ilə daha sürətli ödəyin. Kartın təfərrüatları Google Pulqabıda şifrələnir.</translation>
 <translation id="4602465984861132303">Boulinq</translation>
 <translation id="4603727370377253901">Uçuş rezervasiyaları</translation>
 <translation id="4607608436550361748">Chrome ipucularına baxın</translation>
@@ -2387,6 +2408,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="477945296921629067">{NUM_POPUPS,plural, =1{Popap bloklandı}other{# popap bloklandı}}</translation>
 <translation id="4780320432697076749">Foto Proqramları</translation>
 <translation id="4780366598804516005">Poçt qutusu 1</translation>
+<translation id="4785273477715803444">Loqları filtrləyin</translation>
 <translation id="4785376858512657294">Google Hesabını idarə edin</translation>
 <translation id="4785689107224900852">Bu taba keçin</translation>
 <translation id="4785998536350006000">"<ph name="SEARCH_QUERY" />" axtarılır</translation>
@@ -2562,12 +2584,12 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5051254010007014901"><ph name="TOOLBELT_PRECEDING_MATCH_TEXT" />, Bu axtarış təklifindən sonra əlçatan olan daha çox axtarış qısayolu üçün tab düyməsinə basın</translation>
 <translation id="5052488928733955073">Məlumatlarınızı doldurarkən xəta baş verdi. Bağlantınızı yoxlayın.</translation>
 <translation id="5052517576853118371">Aktiv mövzular</translation>
+<translation id="5053116470141135293">Faktiki məlumatlarınızı qorumaq üçün bu kartla ödəniş edərkən virtual kart nömrəsi doldurulacaq. Google Pulqabıda idarə edin. <ph name="IDS_AUTOFILL_VIRTUAL_CARD_ENROLLMENT_LEARN_MORE_LINK_LABEL" /></translation>
 <translation id="5056425809654826431">{NUM_FILES,plural, =1{Yaxınlıqda Paylaşım ilə bu faylı göndərmək üçün cihazınızda (<ph name="DISK_SPACE_SIZE" />) yer boşaldın}other{Yaxınlıqda Paylaşım ilə bu faylları göndərmək üçün cihazınızda (<ph name="DISK_SPACE_SIZE" />) yer boşaldın}}</translation>
 <translation id="5056587122125565772">Şəkil yaradın</translation>
 <translation id="505757197798929356">Açma səbəbini bildirin (tələb edilir)</translation>
 <translation id="5058282932481719070">ayarlarda təkmilləşdirilmiş avto-doldurma haqqında ətraflı məlumat</translation>
 <translation id="5060419232449737386">Altyazı ayarları</translation>
-<translation id="5060483733937416656"><ph name="PROVIDER_ORIGIN" /> istifadə edən saytlarda Windows Hello ilə doğrulamağı seçmisiniz. Bu provayder ödəniş metodunuz haqqında məlumat saxlamış ola bilər, onu <ph name="LINK_TEXT" /> ünvanında tapa bilərsiniz.</translation>
 <translation id="5061227663725596739"><ph name="LOOKALIKE_DOMAIN" /> nəzərdə tuturdunuz?</translation>
 <translation id="5066056036849835175">Çap tarixçəsi</translation>
 <translation id="5068524481479508725">A10</translation>
@@ -2580,6 +2602,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5087286274860437796">Server sertifikatı hazırda etibarlı deyil.</translation>
 <translation id="5087580092889165836">Kart əlavə edin</translation>
 <translation id="5088142053160410913">Operatora mesaj</translation>
+<translation id="5088534251099454936">PKCS #1 SHA-512 Şifrələmə ilə</translation>
 <translation id="5089810972385038852">Dövlət</translation>
 <translation id="5093232627742069661">Z-qatlama</translation>
 <translation id="5093417502834168387">Daxil olmaqda çətinlik çəkirsiniz? Başqa yolu sınayın</translation>
@@ -2650,6 +2673,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5190835502935405962">Əlfəcinlər Paneli</translation>
 <translation id="5191315092027169558">Profiliniz <ph name="DOMAIN" /> tərəfindən idarə olunur</translation>
 <translation id="51918995459521422"><ph name="ORIGIN" /> bir neçə faylı endirmək istəyir</translation>
+<translation id="519528950056409240">Pulqabının datanı paylaşmasına icazə verin</translation>
 <translation id="5199121357983849992">ID kartı yadda saxlanılsın?</translation>
 <translation id="5200063972779787617">Ünvanı hesabda yadda saxlayın</translation>
 <translation id="5201306358585911203">Bu səhifə daxilində yerləşdirilmiş səhifə deyir:</translation>
@@ -2751,6 +2775,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5348330584842140856">Bu fayl artıq mövcud olmadığı üçün köçürülmədi.</translation>
 <translation id="5349543692327946794">Etiket (mürəkkəbli)</translation>
 <translation id="5351548097010183514">Tikinti material və ləvazimatları</translation>
+<translation id="5352033265844765294">Zaman Möhürləməsi</translation>
 <translation id="5354143049423063163">Hedge Fondlar</translation>
 <translation id="5355557959165512791">Hazırda <ph name="SITE" /> saytına daxil olmaq mümkün deyil, çünki onun sertifikatı silinib. Şəbəkə xətaları və hücumları adətən müvəqqəti olur, beləliklə, səhifə yəqin ki daha sonra işləyəcək.</translation>
 <translation id="5359752295193133096">Daha sürətli və fərdiləşdirilmiş cavablar üçün defolt olaraq müvafiq açıq tabları paylaşın.</translation>
@@ -2804,6 +2829,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5426179911063097041"><ph name="SITE" /> Sizə bildiriş göndərmək istəyir</translation>
 <translation id="5431318178759467895">Rəng</translation>
 <translation id="5433756542371550806">Əmr sətri variasiyaları</translation>
+<translation id="5434065355175441495">PKCS #1 RSA Şifrələmə</translation>
 <translation id="5434798570900738152">Chromium <ph name="BEGIN_EMPHASIS" />yadda saxlamayacaq<ph name="END_EMPHASIS" />:
           <ph name="BEGIN_LIST" />
             <ph name="LIST_ITEM" />Brauzer tarixçəsi
@@ -2853,6 +2879,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5499229993630251170">Bu mövzu davam etdirilsin?</translation>
 <translation id="550365051221576010">Bütün məlumatların doldurulması</translation>
 <translation id="5506286895894263601">Siyahıda etibarlı qısayol yoxdur.</translation>
+<translation id="5507756662695126555">İmtinasızlıq</translation>
 <translation id="5508443345185481044">Kameralar və Kamkorderlər</translation>
 <translation id="5509762909502811065">B0</translation>
 <translation id="5509780412636533143">İdarə olunan əlfəcinlər</translation>
@@ -2926,6 +2953,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5596627076506792578">Əlavə seçimlər</translation>
 <translation id="5596939519753369075">2 x 3,5 düym</translation>
 <translation id="5597254438174353289">Mavi 3</translation>
+<translation id="5600044805561809264">Axtarış etdiyiniz zaman paylaşdığınız tablar haqqında asanlıqla suallar verə bilərsiniz.</translation>
 <translation id="5603469469737324249"><ph name="ISSUER_1_NAME" /> və ya <ph name="ISSUER_2_NAME" /></translation>
 <translation id="560412284261940334">İdarəetmə dəstəklənmir</translation>
 <translation id="5605249000617390290">Qiymət izlənməsi haqqında ətraflı</translation>
@@ -2935,6 +2963,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5611398002774823980">Hesabda yadda saxlayın</translation>
 <translation id="561165882404867731">Bu səhifəni Google Tərcümə ilə tərcümə edin</translation>
 <translation id="5612720917913232150"><ph name="URL" /> kompüterinizin məkanından istifadə etmək istəyir</translation>
+<translation id="5614190747811328134">İstifadəçi bildirişi</translation>
 <translation id="5614520971155863709">Kart Oyunları</translation>
 <translation id="5617949217645503996"><ph name="HOST_NAME" /> bir çox dəfə sizə istiqamətləndirilib.</translation>
 <translation id="5619721953841297650">Hazır ayar</translation>
@@ -2950,6 +2979,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5640474731385449758">"<ph name="EXTENSION_NAME" />" artırması <ph name="PROTOCOL" /> keçidlərini <ph name="ORIGIN" /> tətbiqində <ph name="HANDLER_HOSTNAME" /> vasitəsilə açmaq istəyir</translation>
 <translation id="5642362243427711530"><ph name="FIRST_STRING" />. <ph name="SECOND_STRING" /></translation>
 <translation id="5642411781689336699">Stereo sistem və hissələri</translation>
+<translation id="5642508497713047">CRL İmzalayıcısı</translation>
 <translation id="5644090287519800334">Şəklin 1-ci tərəfinin X oxu üzrə yerdəyişməsi</translation>
 <translation id="5644128326840674462">Tanıtım banneri</translation>
 <translation id="5645132789250840550">Plastik (yarıparlaq)</translation>
@@ -2980,7 +3010,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5689516760719285838">Məkan</translation>
 <translation id="569000877158168851">DnsOverHttpsTemplates dəyəri uyğun deyil və DnsOverHttpsMode siyasəti <ph name="SECURE_DNS_MODE_AUTOMATIC" /> və ya <ph name="SECURE_DNS_MODE_SECURE" /> kimi ayarlanana qədər istifadə edilməyəcək.</translation>
 <translation id="5691848789297492617">Kartın yadda saxlanması tam hündürlükdə açıldı.</translation>
-<translation id="5695542892312572833">Doğrulamaq və alışı tamamlamaq üçün Windows Hello istifadə edilsin?</translation>
 <translation id="5699628521141772782">Süd məhsulları və yumurta</translation>
 <translation id="5701381305118179107">Mərkəzi edin</translation>
 <translation id="5707154300732650394">Baxışı davam etdirin</translation>
@@ -3018,7 +3047,9 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5752519522101347518">Bank doğrulama veb-saytı yüklənir</translation>
 <translation id="5753570386948603678">Tarixçədən silin</translation>
 <translation id="5759751709240058861">Kameranızın istifadəsi və hərəkət etdirilməsi</translation>
+<translation id="5762131895127128324">Sürücülük vəsiqələri · Şəxsiyyət vəsiqələri · Pasportlar</translation>
 <translation id="5763042198335101085">Düzgün e-poçt ünvanı daxil edin</translation>
+<translation id="5763338081255973061">{DAYS,plural, =0{Bu gün aktivdir}=1{1 gün əvvəl aktiv olub}other{# gün əvvəl aktiv olub}}</translation>
 <translation id="5764725887548570807">Yanlış mənşə formatı.</translation>
 <translation id="5764920692828389743"><ph name="EMAIL_ADDRESS" /> ünvanına göndərin</translation>
 <translation id="5765072501007116331">Çatdırılma üsulları və tələblərinə baxın, ünvan seçin</translation>
@@ -3032,6 +3063,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5783922175933467571"><ph name="TAB_GROUP_DISPLAY_NAME" /> linkinin müddəti 48 saata bitir</translation>
 <translation id="5784606427469807560">Kartı təsdiq edərkən problem oldu. Internet bağlantınızı yoxlayın və yenidən cəhd edin.</translation>
 <translation id="5785756445106461925">Bundan əlavə, bu səhifəyə təhlükəsiz olmayan başqa resurslar daxildir. Bu resurslar keçid zamanı başqaları tərəfindən görüntülən bilər və hücumçu tərəfindən səhifə görünüşünün dəyişdirilməsi üçün modifikasiya edilə bilər.</translation>
+<translation id="5787146423283493983">Açar Anlaşması</translation>
 <translation id="5793317771769868848">Bu ödəniş metodu bu cihazdan silinəcək</translation>
 <translation id="5794065675298686371">Qiymət izləmə bildirişlərini yandırın</translation>
 <translation id="5800727402210090597">Mobil telefon təmir və xidmətləri</translation>
@@ -3097,6 +3129,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5910140988253729859">Avtodoldurmanı ləğv edin</translation>
 <translation id="5911020115933784199">Tədbir və elanlar</translation>
 <translation id="5911110632211230665">Açma bloklanıb</translation>
+<translation id="5912796581727968237">Google Pulqabını açın</translation>
 <translation id="5914465277418006379"><ph name="MEMBER_FIRST_NAME" /> bu tabı əlavə etdi</translation>
 <translation id="5915189366813702112">Çevik İş Mühiti</translation>
 <translation id="59174027418879706">Aktiv edilib</translation>
@@ -3111,6 +3144,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="5924510104057992926">Açmazdan əvvəl nəzərdən keçirilməlidir</translation>
 <translation id="5924782825030413055">Son razılıq güncəlləməsinin mənbəyi:</translation>
 <translation id="5925040402342933574">Optik disk (yarıparlaq)</translation>
+<translation id="5925147183566400388">Sertifikatlaşdırma Praktikası Bəyanat Göstəricisi</translation>
 <translation id="5926982310317673627">İdman zalı və sağlamlıq klubları</translation>
 <translation id="5927279462592128805">Microsoft Word</translation>
 <translation id="5930147475897662863">"Yazmağa kömək et" funksiyasından istifadə üçün bu ayarı aktiv edin</translation>
@@ -3187,6 +3221,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6042308850641462728">Daha çox</translation>
 <translation id="6043357981274314628">Hazırdır!</translation>
 <translation id="6045164183059402045">Tətbiq şablonu</translation>
+<translation id="6046026831939367176"><ph name="URL" /> təxmini məkandan istifadə etmək istəyir</translation>
 <translation id="6046892054959167494"><ph name="SEARCH_AGGREGATOR_SHORT_NAME" /> axtarışı və ya sorğusu üçün <ph name="SEARCH_AGGREGATOR_KEYWORD" /> daxil edin</translation>
 <translation id="6047927260846328439">Bu kontent Sizi proqram təminatı quraşdırmaq və ya şəxsi məlumatı aşkar etmək üçün aldatmağa cəhd edə bilər. <ph name="BEGIN_LINK" />Hər bir halda göstərin<ph name="END_LINK" /></translation>
 <translation id="6049056807983403918">Zərf B4</translation>
@@ -3198,7 +3233,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="605237284704429106">IBAN daxil edilir</translation>
 <translation id="6053584886670442526">Yadda saxlanmış ünvanları Google məhsullarında istifadə edə bilərsiniz. Bu ünvan Google Hesabında (<ph name="ACCOUNT" />) yadda saxlanıb.</translation>
 <translation id="6053735090575989697">Məxfilik Siyasətimizdə Google'un datanızı necə qoruduğu haqqında ətraflı məlumat əldə edin.</translation>
-<translation id="6055888660316801977">"Təhlükəsiz ödəniş giriş məlumatları uyğun gəlmir" giriş məlumatları səhifəsi</translation>
+<translation id="6055392876709372977">PKCS #1 SHA-256 With RSA Şifrələnmə</translation>
 <translation id="6055982527635883756">Zərf (arxiv)</translation>
 <translation id="6057177372083677067">Onlayn Video</translation>
 <translation id="6058646026409894363">Mülki Mühəndislik</translation>
@@ -3253,6 +3288,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6131824478727057281">məkan</translation>
 <translation id="6133320744616005677">İcazəni davam etdirin</translation>
 <translation id="6133984428121856852">Fayl artırması boşdur və ya səhvdir.</translation>
+<translation id="6138680304137685902">X9.62 ECDSA SHA-384 ilə imza</translation>
 <translation id="6139975341602920272">17 x 22 düym</translation>
 <translation id="6143097244789397208">Artırılmış və Virtual Reallıq</translation>
 <translation id="614327212146763975">Hərəkət və işıq sensorlarına icazə verilib</translation>
@@ -3275,7 +3311,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6167577165590485365">Son əldə etmə cəhdi:</translation>
 <translation id="6171968084616623939">"<ph name="PROXY_INVALID_SCHEME_HOST_PORT" />" düzgün dəyər deyil.</translation>
 <translation id="617256461084925519">Google Chrome ödəniş məlumatlarını doldurmaq üçün kimliyinizi yoxlayır.</translation>
-<translation id="6173208311907792313">Windows Hello ilə alışı tamamlayın</translation>
 <translation id="6175423614837252320">Foto Google Diskdə yadda saxlanıldı</translation>
 <translation id="6176387967264100435">Bu qiymət yüksəkdir</translation>
 <translation id="6177128806592000436">Bu sayta olan bağlantınız güvənli deyil</translation>
@@ -3320,9 +3355,11 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6246316216123107851"><ph name="NUM_DAYS" /> gün əvvəl</translation>
 <translation id="6246382863801034910">Nəqliyyat vasitəsi</translation>
 <translation id="6246868321321344665">Təşkilat həm iş, həm də şəxsi profillərdə parollar və tarixçə kimi baxış datasını görə bilər</translation>
+<translation id="6248988683584659830">Axtarış ayarları</translation>
 <translation id="6250932670816326647">Hamam və Bədən Məhsulları</translation>
 <translation id="6251906504834538140">{0,plural, =1{Faylın köçürülməsi bloklandı}other{<ph name="FILE_COUNT" /> faylın köçürülməsi bloklandı}}</translation>
 <translation id="6252613631861574218"><ph name="MANAGE_CHROME_DOWNLOADS_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab düyməsi, sonra Enter düyməsinə basaraq Chrome'da endirdiyiniz faylları idarə edin</translation>
+<translation id="6253380015872250643">Kartı Google Pulqabıda yadda saxlayın</translation>
 <translation id="6254436959401408446">Bu səhifəni açmaq üçün kifayət qədər yaddaş yoxdur</translation>
 <translation id="625463612687472648">İcazəni dayandırın</translation>
 <translation id="6259156558325130047">&amp;Təkrar sıralamanı yenidən edin</translation>
@@ -3366,6 +3403,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6326947323444967009">iOS ayarlarında Chrome'u sistemin defolt brauzeri kimi ayarlayın</translation>
 <translation id="6327065120806001832">lokal şəbəkə girişi</translation>
 <translation id="6328639280570009161">Şəbəkə proqnozunu deaktiv etməyə çalışın</translation>
+<translation id="6329742260390895689">Məlumatı avtomatik doldurmaq üçün Pulqabı ayarlarında "Google-da giriş keçidlərindən istifadə edin" seçimini aktiv edin</translation>
 <translation id="6329815962353376655">&lt;Sual daxil edin&gt;</translation>
 <translation id="6331597954316706229">Ən fərdiləşdirilmiş cavablar üçün bütün mövzuların müvafiq açıq tablarınıza istinad etməsinə icazə verin.</translation>
 <translation id="633348045801643466">Ödəmə zamanı <ph name="PAY_LATER_OPTIONS_HELP_LINK_BEGIN" />sonradan ödəniş<ph name="PAY_LATER_OPTIONS_HELP_LINK_END" /> seçimlərini göstərin</translation>
@@ -3384,6 +3422,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6349101878882523185"><ph name="APP_NAME" /> tətbiqini quraşdırın</translation>
 <translation id="6351658970066645919">Baxış datasını silin</translation>
 <translation id="6353505687280762741">{COUNT,plural, =0{Heç biri}=1{1 parol (<ph name="DOMAIN_LIST" /> üçün sinxronizasiya edilib)}=2{2 parol (<ph name="DOMAIN_LIST" />üçün sinxronizasiya edilib)}other{# parol (<ph name="DOMAIN_LIST" />üçün sinxronizasiya edilib)}}</translation>
+<translation id="6354918092619878358">SECG oval əyrisi secp256r1 (aka ANSI X9.62 prime256v1, NIST P-256)</translation>
 <translation id="6355392890578844978">Bu brauzer şirkət və ya başqa təşkilat tərəfindən idarə edilmir. Bu cihazdakı fəaliyyət Chromium'dan kənarda idarə edilə bilər. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
 <translation id="6357546827188504216">"<ph name="GROUP_TITLE_1" />" və "<ph name="GROUP_TITLE_2" />" tab qrupları artıq əlçatan deyil</translation>
 <translation id="6358088212770985041">ödəniş metodlarını redaktə etməyə çalışır</translation>
@@ -3415,7 +3454,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6390200185239044127">Yarımçıq Z-qatlama</translation>
 <translation id="6390533465682072118">Bərpa</translation>
 <translation id="639068771471208680">Çoxhissəli forma</translation>
-<translation id="6391700400718590966">"Təhlükəsiz ödəniş giriş məlumatları uyğun gəlmir" giriş məlumatları səhifəsi bağlanıb</translation>
 <translation id="6391911601916058725">Müvafiq açıq tablar həmişə paylaşılsın?</translation>
 <translation id="6392799395081100092">Kağız (perqament)</translation>
 <translation id="6393156038355142111">Güclü parol təklif edin</translation>
@@ -3453,6 +3491,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6436994298828707228">Lokal şəbəkədəki cihaz və ya serverlərə qoşulmaq məqsədilə ictimai səhifə tərəfindən başladıldığı üçün bağlantı bloklanıb.</translation>
 <translation id="6437647869369934905">Google Çertyoj</translation>
 <translation id="643917412048333145">Geyimlər</translation>
+<translation id="6440450906295708112">Variantlar mənbəyi</translation>
 <translation id="6440503408713884761">İqnor edilənlər</translation>
 <translation id="6443406338865242315">Quraşdırdığınız artırmalar və qoşmalar</translation>
 <translation id="6444329331928531170">Təqaüd və Pensiya</translation>
@@ -3495,6 +3534,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6502510275417601303">Yeni ödəniş ayarı haqqında xəbərdarlıq bağlanıb</translation>
 <translation id="6502991525169604759">Dəyişikliklər olmadan</translation>
 <translation id="6505072878288254563">Tərcümə olunur</translation>
+<translation id="6506374932220792071">X9.62 ECDSA SHA-256 ilə imza</translation>
 <translation id="6506936645890046535">Kukilərə daxil olmağı istəyə bilər</translation>
 <translation id="6506959208958864820">Zərf</translation>
 <translation id="6507117483253822672">Vebdə əminliklə yazın</translation>
@@ -3532,7 +3572,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6567832540451970450">Administratorunuz bu sayt üçün <ph name="PERMISSION" /> icazəsi verir</translation>
 <translation id="6568793038316600992">"Ödəniş metodlarını idarə edin" düyməsi, aktivləşdirərək Chrome ayarlarında ödəniş və kredit kartı məlumatlarını idarə edin</translation>
 <translation id="6569060085658103619">Artırma səhifəsinə baxırsınız</translation>
-<translation id="6571992525120410251"><ph name="ENGINE_NAME" /> axtarış mühərrikindən istədiyinizi soruşun</translation>
 <translation id="6573200754375280815">Sağdan qoşa deşik açın</translation>
 <translation id="6573973523249076555">Google Chrome <ph name="APP_NAME" /> tətbiqində həssas məlumatlarınızı doldurmağa çalışır.</translation>
 <translation id="6575408526598156416">Hesabda yadda saxlayın</translation>
@@ -3612,7 +3651,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6698097747703777657">Kod əldə etmədiniz? <ph name="BEGIN_LINK" />Yeni kod əldə edin<ph name="END_LINK" /></translation>
 <translation id="6698381487523150993">Yaradılıb:</translation>
 <translation id="6698769547327354196">Chrome-da Pix-i söndürmək üçün <ph name="BEGIN_LINK1" />ödəniş ayarlarına<ph name="END_LINK1" /> keçin</translation>
-<translation id="669903922988126943">Məlumatlarınızı yadda saxlayın və Google məhsullarında formaları doldurmaq kimi işləri daha tez yerinə yetirin. <ph name="ACCOUNT" /> hesabı üçün <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" /> tətbiqində <ph name="MANAGE_INFO_LINK" /> bilərsiniz.</translation>
 <translation id="67007264085648978">Vaxt sürüşdürücüsü</translation>
 <translation id="6702851555558236418">Audio və Musiqi Proqramları</translation>
 <translation id="6702919718839027939">Təqdim edin</translation>
@@ -3636,7 +3674,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="6727094998759448074">SRA4</translation>
 <translation id="6732087373923685049">kamera</translation>
 <translation id="6734506549556896534">Simulasiya Oyunları</translation>
-<translation id="6735589846038045679">Ödəniş planları uyğunluqdan asılıdır. <ph name="BEGIN_BOLD" />Bu seçimləri təklif etmək üçün ödəniş səhifəsindəki kontent Google ilə paylaşılır.<ph name="END_BOLD" /> Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəniş ayarlarına<ph name="END_LINK" /> keçin</translation>
 <translation id="6737708609449480586">Bişmiş məhsullar</translation>
 <translation id="6738516213925468394">Data <ph name="TIME" /> tarixində <ph name="BEGIN_LINK" />sinxronizasiya parolu<ph name="END_LINK" /> ilə şifrələnib. Sinxronizasiyanı başlatmaq üçün klikləyin.</translation>
 <translation id="6740851646645036700">Yazı köməyi limitinə çatdınız. Sonra cəhd edin.</translation>
@@ -3806,6 +3843,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7003278537452757231">Kilim və xalçalar</translation>
 <translation id="7003322000677139268">Ehtiyat Hissələri və Aksesuarlar</translation>
 <translation id="7004499039102548441">Son Tablar</translation>
+<translation id="7004562620237466965">Yalnız oxumaq</translation>
 <translation id="700483187606163535">Məlumatlarınız <ph name="ACCOUNT" /> üçün burada saxlanılır: <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" />. Formaları daha sürətli doldurmaq üçün onu Google məhsullarında istifadə edə bilərsiniz.</translation>
 <translation id="7006930604109697472">İstənilən halda göndərin</translation>
 <translation id="7009364359744329733">Bu kart hazırda əlçatan deyil. Sonra yenidən cəhd edin.</translation>
@@ -3838,6 +3876,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7057567173736333354">Şəkli təsvir edin</translation>
 <translation id="7058163556978339998"><ph name="BROWSER" /> təsdiq edir ki, <ph name="ISSUER" /> bu veb saytın sertifikatını təmin edib.</translation>
 <translation id="7058774143982824355">CSV Parol Təhlil Xidməti</translation>
+<translation id="7059913660448028407">Hazırda əlçatan deyil</translation>
 <translation id="7062344833049251424">Növbəti dəfə daha sürətli ödəniş etmək üçün kart və ödəmə ünvanını Google Pulqabıda yadda saxlayın</translation>
 <translation id="706295145388601875">Chrome ayarlarında ünvanlar əlavə edin və idarə edin</translation>
 <translation id="7063157783216323487">Yaşıl 2</translation>
@@ -3848,6 +3887,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7070144569727915108">sistem ayarları</translation>
 <translation id="70705239631109039">Bağlantınız tam təhlükəsiz deyil</translation>
 <translation id="7075452647191940183">Sorğu çox uzundur</translation>
+<translation id="7075513071073410194">PKCS #1 MD5 RSA Şifrələmə ilə</translation>
 <translation id="7075896597860500885">Bu saytdan kopyalamaq tövsiyə edilmir</translation>
 <translation id="7078665357168027058">RA3</translation>
 <translation id="7079699498125013497">\u0020\u2022\u0020</translation>
@@ -3938,11 +3978,11 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7210993021468939304">Konteyner nəzdində Linux fəaliyyəti. Konteyner nəzdində Linux tətbiqləri quraşdırmaq, icra etmək mümkündür</translation>
 <translation id="721197778055552897">Bu problem haqqında <ph name="BEGIN_LINK" />ətraflı məlumat alın<ph name="END_LINK" />.</translation>
 <translation id="7213191991901907140">Təcrübəniz haqqında məlumat verin</translation>
-<translation id="7217745192097460130">Doğrulamaq və alışı tamamlamaq üçün Touch ID istifadə edilsin?</translation>
 <translation id="7219179957768738017">Bağlantı <ph name="SSL_VERSION" /> istifadə edir.</translation>
 <translation id="7220786058474068424">Prosesdən keçirilir...</translation>
 <translation id="7221855153210829124">Bildirişləri göstərin</translation>
 <translation id="722454870747268814">Yeni Incognito tabı</translation>
+<translation id="7225676267118764980">Avtodoldurma təminatçısını və digər ayarları dəyişin</translation>
 <translation id="7226892411756387078">Tam mətn</translation>
 <translation id="7227293336683593977">Qiymət tarixçəsi</translation>
 <translation id="7228306718910595403">Aİ Kvalifikasiya Statusu</translation>
@@ -4116,6 +4156,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7471007961486718967">Ötürmə səbəbini bildirin (tələb edilir)</translation>
 <translation id="7473033553872550521">Həmçinin sayt sahibi ilə əlaqə saxlaya və HTTPS-ə təkmilləşdirməyi təklif edə bilərsiniz. <ph name="LEARN_MORE" /></translation>
 <translation id="7473891865547856676">Yox, sağ olun</translation>
+<translation id="7475618719385705713">Bu səhifə bloklanıb</translation>
 <translation id="7481312909269577407">İrəli</translation>
 <translation id="7481603210197454575">Zərf İtalyan</translation>
 <translation id="7482823403440483089">Təkmilləşdirilmiş avto-doldurma</translation>
@@ -4137,6 +4178,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7508255263130623398">Qaytarılmış qaydalar cihaz İD'si boşdur və ya cari cihaz İD'si ilə üst-üstə düşmür</translation>
 <translation id="7508577201115425418">Sənəd və çap xidmətləri</translation>
 <translation id="7510269639068718544">Pişiklər</translation>
+<translation id="7511707705708508147">Valyuta dəstəklənmir</translation>
 <translation id="7511955381719512146">İşlətdiyiniz Wi-Fi <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> linkinə daxil olmağı tələb edə bilər.</translation>
 <translation id="7512685745044087310">Bu siyasət "Doğru" olaraq ayarlana və məcburi ola bilməz, buna görə "tövsiyə olunan" kimi dəyişdirilib.</translation>
 <translation id="7514365320538308">Endirmə</translation>
@@ -4213,6 +4255,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7615932826417658001">Kimlik sənədi əlavə edin</translation>
 <translation id="7616390733770379387">Təsadüfi ardıcıllıqla göstərilir.</translation>
 <translation id="7616645509853975347">Administratorunuz brauzerinizdə Chrome Enterprise Connectors funksiyasını aktivləşdirib. Bu birləşdiricilərin verilənlərinizdən bəzilərinə giriş imkanı var.</translation>
+<translation id="7616747402308801775">Google xidmətlərində istifadə edə bilməyiniz üçün bu kart Google Pulqabıda yadda saxlanılır</translation>
 <translation id="7617825962482469577">Zərf C7/C6</translation>
 <translation id="7618270539713451657">Döyüş İncəsənəti</translation>
 <translation id="7619838219691048931">Son vərəq</translation>
@@ -4374,6 +4417,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7862306158978555061">həssas məlumatı göstərin</translation>
 <translation id="7865448901209910068">Ən yüksək sürət</translation>
 <translation id="7865482168955081228">"İndi al, sonra ödə" xəta ekranı bağlanıb.</translation>
+<translation id="7869655448736341731">İstənilən</translation>
 <translation id="7870207318911766769">Bu seçimləri təklif etmək üçün ödəniş səhifəsindəki kontent Google ilə paylaşılır.</translation>
 <translation id="7870281855125116701">Endirim tapıldı</translation>
 <translation id="7871445724586827387">Google Hesabı parolunuzu dəyişin</translation>
@@ -4442,6 +4486,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="7967636097426665267">Kommunikasiya avadanlığı</translation>
 <translation id="79682505114836835">"<ph name="VALUE" />" dəyəri yanlış altılıq rəngdir.</translation>
 <translation id="7968982339740310781">Detallara baxın</translation>
+<translation id="7972714317346275248">PKCS #1 SHA-384 RSA Şifrələmə ilə</translation>
 <translation id="7976053965094442846">Hissə-hissə ödəmə üçün əlçatan olan "İndi al, sonra ödə" emitentləri. Klaviatura gizlədilib.</translation>
 <translation id="7976214039405368314">Həddən çox sorğu var</translation>
 <translation id="7977538094055660992">Çıxış cihazı</translation>
@@ -4533,6 +4578,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8120720167840853945">Bu siyasət digər siyasətlərin defolt rəftarına nəzarət etmir.</translation>
 <translation id="8127301229239896662">"<ph name="SOFTWARE_NAME" />" kompüter və ya şəbəkənizdə düzgün quraşdırılmayıb. IT administratorunuzdan bu problemi həll etməyi tələb edin.</translation>
 <translation id="8130113808541743942">Bura köçürün...</translation>
+<translation id="813024282736408069">Avtodoldurma üçün virtual kartı aktiv edin</translation>
 <translation id="8131740175452115882">Təsdiq edin</translation>
 <translation id="8133495915926741232">Reklamları fərdiləşdirmək üçün istifadə olunacaq geniş mövzu kateqoriyalarını seçin. Daha geniş kateqoriyanın deaktiv edilməsi əlaqədar mövzuları da bloklayacaq. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
 <translation id="8134058435519644366">İşə qəbul və iş heyəti</translation>
@@ -4558,6 +4604,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8175796834047840627">Daxil olduğunuza görə Chrome kartları Google Hesabında yadda saxlamağı təklif edir. Bunu ayarlarda dəyişə bilərsiniz.</translation>
 <translation id="8176440868214972690">Bu cihazın administratoru aşağıdakı veb saytlara ayarlar və ya siyasətlər kimi bəzi məlumatlar göndərib.</translation>
 <translation id="817820454357658398">Qadınlar üçün gigiyena məhsulları</translation>
+<translation id="8182470873445638343"><ph name="BEGIN_BOLD" />Bu seçimləri təklif etmək üçün ödəniş səhifəsindəki kontent Google ilə paylaşılır.<ph name="END_BOLD" /> Ödəniş planları uyğunluqdan asılıdır. Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəniş ayarlarına<ph name="END_LINK" /> keçin</translation>
 <translation id="818254048113802060">{0,plural, =1{Kontentə görə <ph name="FILE_NAME" /> bloklandı}other{Kontentə görə <ph name="FILE_COUNT" /> fayl bloklandı}}</translation>
 <translation id="8183800802493617952">Ailəyönümlü oyun və fəaliyyətlər</translation>
 <translation id="8184538546369750125">Qlobal defoltdan istifadə edin (İcazə verin)</translation>
@@ -4631,6 +4678,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8281886186245836920">Keçin</translation>
 <translation id="8282292167096638950">Sürücülük vəsiqəsini silin</translation>
 <translation id="8282409409360764263">Həyətə qulluq</translation>
+<translation id="828282277746732142">IBAN-ı Google Pulqabıda yadda saxlayın</translation>
 <translation id="8282947398454257691">Unikal cihaz identifikatorunuzu tanıyın</translation>
 <translation id="8284769179630993263">Chrome ayarlarında Təhlükəsiz Baxış və daha çoxunu idarə edin</translation>
 <translation id="828558778104922222">Naməlum xəta səbəbindən foto itdi</translation>
@@ -4664,7 +4712,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8332188693563227489"><ph name="HOST_NAME" /> hostuna giriş rədd edildi</translation>
 <translation id="833262891116910667">Vurğulama</translation>
 <translation id="8339163506404995330"><ph name="LANGUAGE" /> dilində olan səhifələr tərcümə edilməyəcək</translation>
-<translation id="8339275256517065202">Sensor ID ilə alışı tamamlayın</translation>
 <translation id="833935588477667012"><ph name="FIELD_LABEL" />, tələb olunur</translation>
 <translation id="8339463238135163999"><ph name="DESCRIPTION" /><ph name="SEPARATOR" /><ph name="TIMESTMAP" /></translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
@@ -4891,7 +4938,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8726549941689275341">Səhifə ölçüsü:</translation>
 <translation id="8730621377337864115">Tamamdır</translation>
 <translation id="8731268612289859741">Təhlükəsizlik kodu</translation>
-<translation id="8731917264694569036">Cihaz ilə alışı tamamlayın</translation>
 <translation id="8733345475331865475">Avto Sığorta</translation>
 <translation id="8733764070897080460">Saytlarla paylaşılmasını istəmədiyiniz mövzuları bloklaya bilərsiniz. Chrome həmçinin 4 həftədən köhnə mövzularınızı avtomatik silir. Ətraflı məlumat</translation>
 <translation id="8734529307927223492"><ph name="DEVICE_TYPE" /> cihazınız <ph name="MANAGER" /> tərəfindən idarə edilir</translation>
@@ -4985,6 +5031,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8870700989640064057">Məxfi fayl çap edilsin?</translation>
 <translation id="8871485335898060555">Əntiq Əşyalar və Kolleksiyalar</translation>
 <translation id="8871553383647848643">Brauzerinizin görünüşünü fərdiləşdirin</translation>
+<translation id="887350038812854047">Bu siyasət maşın və istifadəçi səviyyələrində tətbiq edilən eyni dəyərə malikdir. Siyasət nəzərdə tutulduğu kimi işləyir.</translation>
 <translation id="8874790741333031443">Üçüncü tərəf kukilərinə müvəqqəti icazə verin. Axtarış zamanı qoruma az olsa da, funksiyaların gözlənilən kimi işləmə ehtimalı yüksəkdir.</translation>
 <translation id="8874824191258364635">Düzgün kart nömrəsi daxil edin</translation>
 <translation id="8877780815363510165">Balıqçılıq</translation>
@@ -4995,6 +5042,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="8891031436559779793">Hər hansı saytda qiymət enərsə, sizə xəbər veriləcək.</translation>
 <translation id="8891727572606052622">Yanlış proksi rejimi.</translation>
 <translation id="8894794286471754040">Əvvəlcə uzun kənar</translation>
+<translation id="8895334001368918465">Chrome-da başqa avtodoldurma xidmətindən istifadə etmək üçün onu Android ayarlarında və burada aktiv edin</translation>
 <translation id="8897221284075091877">Bu kontenti istəmək üçün Google Hesabınız ilə davam edin</translation>
 <translation id="8897428486789851669">Üzgüçülük</translation>
 <translation id="8898854704577986668">Tarixçəni yan paneldə göstərin</translation>
@@ -5126,7 +5174,6 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="9114581008513152754">Bu brauzer şirkət və ya başqa təşkilat tərəfindən idarə edilmir. Bu cihazdakı fəaliyyət Chrome'dan kənarda idarə edilə bilər. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
 <translation id="9118692854637641831"><ph name="HISTORY_CLUSTERS_SEARCH_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab düyməsi, sonra Enter düyməsinə basaraq baxışa davam edin və Chrome tarixçəsində əlaqəli fəaliyyəti görün</translation>
 <translation id="9119042192571987207">Yüklənib</translation>
-<translation id="9119308212838450857"><ph name="PROVIDER_ORIGIN" /> kimliyinizi doğrulamaq istəyir</translation>
 <translation id="9119764377203471454">Qoşma əlavə etmək olmur</translation>
 <translation id="9120593907434185157">Ünvanı yadda saxlayın</translation>
 <translation id="912327514020027767">Ətəklər</translation>
@@ -5141,6 +5188,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="9140198744651252040">Chrome brauzeri parolları avtomatik doldurmaq üçün barmaq izindən istifadə etmək istəyir</translation>
 <translation id="9141013498910525015">Ünvanları idarə edin</translation>
 <translation id="9141435142213469335">Ünvanı əlavə məlumatla yadda saxlayın</translation>
+<translation id="9141510259469546089">Minimum alış <ph name="CHECKOUT_AMOUNT_MINIMUM" /></translation>
 <translation id="9141672681283222114">Bu dəfə AR icazəsi verildi</translation>
 <translation id="9143898823728499852"><ph name="CARD_ISSUER_NAME" /> hesabınız Google Pay ilə əlaqələndirildiyinə görə bu kartı avtomatik doldura bilərsiniz</translation>
 <translation id="9144951720726881238">Bitmə tarixi:</translation>
@@ -5214,6 +5262,7 @@ Sonra ödəmə seçimlərini gizlətmək üçün <ph name="BEGIN_LINK" />ödəni
 <translation id="937885410143139026">Data admin konsoluna göndərildi</translation>
 <translation id="939736085109172342">Yeni qovluq</translation>
 <translation id="940524522703752213"><ph name="CLOUD_PROVIDER" /> üzrə fayl yüklənməsi <ph name="MINUTES" /> dəqiqə sonra başlayacaq</translation>
+<translation id="943185096918807504">Maksimum alış <ph name="CHECKOUT_AMOUNT_MAXIMUM" /></translation>
 <translation id="944578681290094302">Kassada kartlarınız üçün əlçatan olan mükafat və imtiyazları göstərin. <ph name="CARD_BENEFIT_HELP_LINK_BEGIN" />Kart imtiyazları haqqında ətraflı məlumat<ph name="CARD_BENEFIT_HELP_LINK_END" /></translation>
 <translation id="945673208656386843">Bu cihazda yadda saxlanıldıqda Chromium-da edilən satınalmalar üçün bu kartı avtomatik doldurun</translation>
 <translation id="947370374845726940"><ph name="CREATE_GOOGLE_SITE_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab düyməsi, sonra Enter düyməsinə basaraq Google Sayt'da cəld yeni sayt yaradın</translation>

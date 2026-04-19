@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/safety_hub/safety_hub_result.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_service.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_util.h"
+#include "chrome/browser/ui/safety_hub/unused_site_permissions_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -116,9 +117,7 @@ PermissionsData::PermissionsData(const PermissionsData& other)
     : primary_pattern(other.primary_pattern),
       permission_types(other.permission_types),
       constraints(other.constraints.Clone()),
-      revocation_type(other.revocation_type) {
-  chooser_permissions_data = other.chooser_permissions_data.Clone();
-}
+      revocation_type(other.revocation_type) {}
 
 void RevokedPermissionsService::TabHelper::PrimaryPageChanged(
     content::Page& page) {
@@ -348,8 +347,12 @@ void RevokedPermissionsService::OnPageVisited(const url::Origin& origin) {
 
 base::OnceCallback<std::unique_ptr<SafetyHubResult>()>
 RevokedPermissionsService::GetBackgroundTask() {
+  bool revocation_backfill_completed =
+      pref_change_registrar_->prefs()->GetBoolean(
+          safety_hub_prefs::kUnusedSitePermissionsRevocationBackfillCompleted);
   return base::BindOnce(&UnusedSitePermissionsManager::UpdateOnBackgroundThread,
-                        clock_, base::WrapRefCounted(hcsm()));
+                        clock_, base::WrapRefCounted(hcsm()),
+                        revocation_backfill_completed);
 }
 
 std::unique_ptr<SafetyHubResult> RevokedPermissionsService::UpdateOnUIThread(
@@ -399,13 +402,6 @@ RevokedPermissionsService::GetRevokedPermissions() {
         revoked_permissions.metadata.lifetime());
     permissions_data.constraints.set_lifetime(
         revoked_permissions.metadata.lifetime());
-
-    auto* chooser_permissions_data_dict = stored_value.GetDict().FindDict(
-        permissions::kRevokedChooserPermissionsKey);
-    if (chooser_permissions_data_dict) {
-      permissions_data.chooser_permissions_data =
-          chooser_permissions_data_dict->Clone();
-    }
 
     // If the origin has a revoked notification, add `NOTIFICATIONS` to
     // the list of revoked permissions.
@@ -546,7 +542,6 @@ void RevokedPermissionsService::RestoreDeletedRevokedPermissionsList(
       unused_site_permissions_manager_
           ->StorePermissionInUnusedSitePermissionSetting(
               permissions_data.permission_types,
-              permissions_data.chooser_permissions_data,
               permissions_data.constraints.Clone(),
               permissions_data.primary_pattern,
               ContentSettingsPattern::Wildcard());
@@ -584,6 +579,12 @@ std::vector<ContentSettingEntry>
 RevokedPermissionsService::GetTrackedUnusedPermissionsForTesting() {
   return unused_site_permissions_manager_
       ->GetTrackedUnusedPermissionsForTesting();  // IN-TEST
+}
+
+UnusedSitePermissionsManager::UntimestampedPermissionList
+RevokedPermissionsService::GetUntimestampedPermissionsForTesting() {
+  return unused_site_permissions_manager_
+      ->GetUntimestampedPermissionsForTesting();  // IN-TEST
 }
 
 void RevokedPermissionsService::SetClockForTesting(base::Clock* clock) {

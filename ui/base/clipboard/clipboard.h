@@ -18,8 +18,10 @@
 
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/process/process.h"
 #include "base/synchronization/lock.h"
@@ -32,6 +34,7 @@
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/clipboard/clipboard_sequence_number_token.h"
+#include "ui/base/clipboard/clipboard_url_info.h"
 #include "ui/base/clipboard/file_info.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 
@@ -65,8 +68,7 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
       base::OnceCallback<void(std::u16string result)>;
   using ReadFilenamesCallback =
       base::OnceCallback<void(std::vector<ui::FileInfo> result)>;
-  using ReadBookmarkCallback =
-      base::OnceCallback<void(std::u16string title, GURL url)>;
+  using ReadUrlCallback = base::OnceCallback<void(ClipboardUrlInfo url_info)>;
   using ReadDataCallback = base::OnceCallback<void(std::string result)>;
   using ExtractCustomPlatformNamesCallback =
       base::OnceCallback<void(std::map<std::string, std::string>)>;
@@ -177,11 +179,11 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
       const std::optional<DataTransferEndpoint>& data_dst,
       GetStandardFormatsCallback callback) const = 0;
 
-  // Tests whether the clipboard contains a certain format.
-  virtual bool IsFormatAvailable(
-      const ClipboardFormatType& format,
+  virtual void GetAllAvailableFormats(
       ClipboardBuffer buffer,
-      const DataTransferEndpoint* data_dst) const = 0;
+      const std::optional<DataTransferEndpoint>& data_dst,
+      base::OnceCallback<void(base::flat_set<ClipboardFormatType>)> callback)
+      const = 0;
 
   // Returns whether the clipboard has data that is marked by its originator as
   // confidential. This is available for opt-in checking by the user of this API
@@ -247,11 +249,11 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
       const std::optional<DataTransferEndpoint>& data_dst,
       ReadFilenamesCallback callback) const = 0;
 
-  // Reads a bookmark from the clipboard, if available.
-  // `title` and `url` will both be empty if the clipboard does not contain a
-  // bookmark.
-  virtual void ReadBookmark(const std::optional<DataTransferEndpoint>& data_dst,
-                            ReadBookmarkCallback callback) const = 0;
+  // Reads a URL from the clipboard, if available.
+  // If the clipboard does not contain a URL, `url_info.title` will be empty and
+  // `url_info.url` will be invalid.
+  virtual void ReadURL(const std::optional<DataTransferEndpoint>& data_dst,
+                       ReadUrlCallback callback) const = 0;
 
   // Reads data from the clipboard with the given format type. Stores result
   // as a byte vector.
@@ -311,9 +313,8 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
   struct RtfData {
     std::string data;
   };
-  struct BookmarkData {
-    std::string title;
-    std::string url;
+  struct UrlData {
+    ClipboardUrlInfo url_info;
   };
   struct TextData {
     std::string data;
@@ -363,7 +364,7 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
   using Data = std::variant<BitmapData,
                             HtmlData,
                             RtfData,
-                            BookmarkData,
+                            UrlData,
                             TextData,
                             WebkitData,
                             SvgData,
@@ -428,7 +429,7 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
 
   virtual void WriteFilenames(std::vector<ui::FileInfo> filenames) = 0;
 
-  virtual void WriteBookmark(std::string_view title, std::string_view url) = 0;
+  virtual void WriteURL(const ClipboardUrlInfo& url_info) = 0;
 
   virtual void WriteWebSmartPaste() = 0;
 
@@ -475,6 +476,8 @@ class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
   static base::Lock& ClipboardMapLock();
 
   base::ObserverList<ClipboardWriteObserver> write_observers_;
+
+  base::WeakPtrFactory<Clipboard> weak_ptr_factory_{this};
 };
 
 }  // namespace ui

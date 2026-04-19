@@ -18,7 +18,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/variations/service/variations_service.h"
 #import "components/variations/service/variations_service_utils.h"
-#import "ios/chrome/browser/intelligence/actuation/actuation_util.h"
+#import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 
@@ -65,22 +65,35 @@ bool IsPageActionMenuEnabled() {
   return base::FeatureList::IsEnabled(kPageActionMenu);
 }
 
-BASE_FEATURE(kProactiveSuggestionsFramework, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPageActionMenuAuthFlow, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPageActionMenuAuthFlowEnabled() {
+  return IsPageActionMenuEnabled() &&
+
+         base::FeatureList::IsEnabled(kPageActionMenuAuthFlow);
+}
+
+BASE_FEATURE(kProactiveSuggestionsFramework, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsProactiveSuggestionsFrameworkEnabled() {
-  return IsPageActionMenuEnabled() &&
-         base::FeatureList::IsEnabled(kProactiveSuggestionsFramework);
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kProactiveSuggestionsFramework);
 }
 
 const char kProactiveSuggestionsFrameworkPopupBlocker[] = "PopupBlocker";
 
 bool IsProactiveSuggestionsFrameworkPopupBlockerEnabled() {
+  if (!IsProactiveSuggestionsFrameworkEnabled()) {
+    return false;
+  }
   return base::GetFieldTrialParamByFeatureAsBool(
       kProactiveSuggestionsFramework,
       kProactiveSuggestionsFrameworkPopupBlocker, false);
 }
 
-BASE_FEATURE(kAskGeminiChip, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAskGeminiChip, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kAskGeminiChipIgnoreCriteria[] = "AskGeminiChipIgnoreCriteria";
 
@@ -93,10 +106,16 @@ const char kAskGeminiChipAllowNonconsentedUsers[] =
     "AskGeminiChipAllowNonconsentedUsers";
 
 bool IsAskGeminiChipEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kAskGeminiChip);
 }
 
 bool IsAskGeminiChipIgnoreCriteria() {
+  if (!IsAskGeminiChipEnabled()) {
+    return false;
+  }
   if (base::GetFieldTrialParamByFeatureAsBool(
           kAskGeminiChip, kAskGeminiChipPrepopulateAndIgnoreCriteria, false)) {
     return true;
@@ -106,6 +125,9 @@ bool IsAskGeminiChipIgnoreCriteria() {
 }
 
 bool IsAskGeminiChipPrepopulateFloatyEnabled() {
+  if (!IsAskGeminiChipEnabled()) {
+    return false;
+  }
   if (base::GetFieldTrialParamByFeatureAsBool(
           kAskGeminiChip, kAskGeminiChipPrepopulateAndIgnoreCriteria, false)) {
     return true;
@@ -115,6 +137,9 @@ bool IsAskGeminiChipPrepopulateFloatyEnabled() {
 }
 
 bool IsAskGeminiChipAllowNonconsentedUsersEnabled() {
+  if (!IsAskGeminiChipEnabled()) {
+    return false;
+  }
   return base::GetFieldTrialParamByFeatureAsBool(
       kAskGeminiChip, kAskGeminiChipAllowNonconsentedUsers, false);
 }
@@ -171,6 +196,9 @@ BWGPromoConsentVariations BWGPromoConsentVariationsParam() {
 }
 
 bool ShouldForceBWGPromo() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return BWGPromoConsentVariationsParam() ==
          BWGPromoConsentVariations::kForceFRE;
 }
@@ -191,6 +219,10 @@ BASE_FEATURE_PARAM(int,
                    0);
 
 PositionForExplainGeminiEditMenu ExplainGeminiEditMenuPosition() {
+  if (!IsPageActionMenuEnabled()) {
+    return PositionForExplainGeminiEditMenu::kDisabled;
+  }
+
   int param = kExplainGeminiEditMenuFeatureParam.Get();
   if (param == 1) {
     return PositionForExplainGeminiEditMenu::kAfterEdit;
@@ -203,11 +235,13 @@ PositionForExplainGeminiEditMenu ExplainGeminiEditMenuPosition() {
 
 BASE_FEATURE(kExplainGeminiEditMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBWGPreciseLocation, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGeminiPreciseLocation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsBWGPreciseLocationEnabled() {
-  CHECK(IsPageActionMenuEnabled());
-  return base::FeatureList::IsEnabled(kBWGPreciseLocation);
+bool IsGeminiPreciseLocationEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kGeminiPreciseLocation);
 }
 
 BASE_FEATURE(kAIHubNewBadge, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -328,6 +362,9 @@ bool IsGeminiNavigationPromoEnabled() {
 BASE_FEATURE(kZeroStateSuggestions, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsZeroStateSuggestionsEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kZeroStateSuggestions);
 }
 
@@ -337,31 +374,19 @@ const char kZeroStateSuggestionsPlacementAskGemini[] =
     "ZeroStateSuggestionsPlacementAskGemini";
 
 bool IsZeroStateSuggestionsAIHubEnabled() {
+  if (!IsZeroStateSuggestionsEnabled()) {
+    return false;
+  }
   return base::GetFieldTrialParamByFeatureAsBool(
       kZeroStateSuggestions, kZeroStateSuggestionsPlacementAIHub, false);
 }
 
 bool IsZeroStateSuggestionsAskGeminiEnabled() {
+  if (!IsZeroStateSuggestionsEnabled()) {
+    return false;
+  }
   return base::GetFieldTrialParamByFeatureAsBool(
       kZeroStateSuggestions, kZeroStateSuggestionsPlacementAskGemini, false);
-}
-
-BASE_FEATURE(kGeminiFullChatHistory, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsGeminiFullChatHistoryEnabled() {
-  return base::FeatureList::IsEnabled(kGeminiFullChatHistory);
-}
-
-BASE_FEATURE(kGeminiLoadingStateRedesign, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsGeminiLoadingStateRedesignEnabled() {
-  return base::FeatureList::IsEnabled(kGeminiLoadingStateRedesign);
-}
-
-BASE_FEATURE(kGeminiLatencyImprovement, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsGeminiLatencyImprovementEnabled() {
-  return base::FeatureList::IsEnabled(kGeminiLatencyImprovement);
 }
 
 BASE_FEATURE(kPageContextExtractorRefactored, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -373,19 +398,25 @@ bool IsPageContextExtractorRefactoredEnabled() {
 BASE_FEATURE(kGeminiRefactoredFRE, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGeminiRefactoredFREEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiRefactoredFRE);
 }
 
 BASE_FEATURE(kGeminiUpdatedEligibility, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiUpdatedEligibilityEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiUpdatedEligibility);
 }
 
 BASE_FEATURE(kGeminiImageRemixTool, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiImageRemixToolEnabled() {
-  if (!IsGeminiRefactoredFREEnabled()) {
+  if (!IsPageActionMenuEnabled() || !IsGeminiRefactoredFREEnabled()) {
     return false;
   }
   return base::FeatureList::IsEnabled(kGeminiImageRemixTool);
@@ -434,23 +465,27 @@ bool IsGeminiImageRemixToolRemovePageContextEnabled() {
 BASE_FEATURE(kGeminiEligibilityAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiEligibilityAblationEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiEligibilityAblation);
 }
 
 BASE_FEATURE(kGeminiLive, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiLiveEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiLive);
 }
 
-BASE_FEATURE(kGeminiPersonalization, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsGeminiPersonalizationEnabled() {
-  return base::FeatureList::IsEnabled(kGeminiPersonalization);
-}
 BASE_FEATURE(kGeminiCopresence, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiCopresenceEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiCopresence);
 }
 
@@ -466,9 +501,22 @@ double GetGeminiCopresenceResponseReadyInterval() {
       kGeminiCopresenceResponseReadyIntervalDefault);
 }
 
+const char kGeminiCopresenceSRPCheck[] = "GeminiCopresenceSRPCheck";
+
+bool IsGeminiCopresenceSRPCheckEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kGeminiCopresence, kGeminiCopresenceSRPCheck, /*default_value=*/true);
+}
+
 BASE_FEATURE(kGeminiChatPersistence, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiChatPersistenceEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiChatPersistence);
 }
 
@@ -499,34 +547,40 @@ BASE_FEATURE(kGeminiResponseViewDynamicResizing,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiResponseViewDynamicResizingEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiResponseViewDynamicResizing);
 }
 
-BASE_FEATURE(kGeminiDynamicSettings, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGeminiDynamicSettings, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGeminiDynamicSettingsEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiDynamicSettings);
 }
 
-BASE_FEATURE(kActuationTools, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kActorTools, base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsActuationEnabled() {
-  return base::FeatureList::IsEnabled(kActuationTools);
+bool IsActorEnabled() {
+  return base::FeatureList::IsEnabled(kActorTools);
 }
 
 bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool) {
-  if (!IsActuationEnabled()) {
+  if (!IsActorEnabled()) {
     return true;
   }
 
-  std::optional<std::string> tool_name = ActuationActionCaseToToolName(tool);
+  std::optional<std::string> tool_name = actor::ActorActionCaseToToolName(tool);
   if (!tool_name) {
     // Don't support tools that aren't in the proto.
     return true;
   }
 
   std::string disabled_tools =
-      base::GetFieldTrialParamValueByFeature(kActuationTools, "DisabledTools");
+      base::GetFieldTrialParamValueByFeature(kActorTools, "DisabledTools");
   if (disabled_tools.empty()) {
     return false;
   }
@@ -600,19 +654,26 @@ PageActionMenuIconVariations GetPageActionMenuIcon() {
 BASE_FEATURE(kGeminiBackendMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiBackendMigrationEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiBackendMigration);
 }
 
 BASE_FEATURE(kGeminiActor, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiActorEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiActor);
 }
 
 BASE_FEATURE(kGeminiRichAPCExtraction, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiRichAPCExtractionEnabled() {
-  if (!IsPageContextExtractorRefactoredEnabled()) {
+  if (!IsPageActionMenuEnabled() ||
+      !IsPageContextExtractorRefactoredEnabled()) {
     return false;
   }
 
@@ -622,23 +683,54 @@ bool IsGeminiRichAPCExtractionEnabled() {
 BASE_FEATURE(kGeminiFloatyAllPages, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiFloatyAllPagesEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiFloatyAllPages);
 }
 
 BASE_FEATURE(kGeminiMapsRichUI, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiMapsRichUIEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiMapsRichUI);
 }
 
 BASE_FEATURE(kGeminiUnaryMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiUnaryMigrationEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiUnaryMigration);
 }
 
 BASE_FEATURE(kGeminiBinaryMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGeminiBinaryMigrationEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
   return base::FeatureList::IsEnabled(kGeminiBinaryMigration);
+}
+
+BASE_FEATURE(kPersistTabContextRichExtraction,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPersistTabContextRichExtractionEnabled() {
+  return base::FeatureList::IsEnabled(kPersistTabContextRichExtraction);
+}
+
+BASE_FEATURE(kPageContextIPCOptimization, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPageContextIPCOptimizationEnabled() {
+  return base::FeatureList::IsEnabled(kPageContextIPCOptimization);
+}
+
+BASE_FEATURE(kGeminiClientMigration, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiClientMigrationEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiClientMigration);
 }

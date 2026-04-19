@@ -61,6 +61,17 @@ bool FormDataAndroid::GetSimilarFieldIndex(const FormFieldData& field,
   return false;
 }
 
+bool FormDataAndroid::GetFieldByGlobalId(const FormFieldData& field,
+                                         size_t* index) {
+  for (size_t i = 0; i < form_.fields().size(); ++i) {
+    if (fields_[i]->global_id() == field.global_id()) {
+      *index = i;
+      return true;
+    }
+  }
+  return false;
+}
+
 bool FormDataAndroid::SimilarFieldsAs(const FormData& form) const {
   if (fields_.size() != form.fields().size()) {
     return false;
@@ -99,7 +110,7 @@ void FormDataAndroid::UpdateFieldTypes(const FormStructure& form_structure) {
       std::vector<FieldType> server_predictions;
       for (const auto& prediction : autofill_field->server_predictions()) {
         server_predictions.emplace_back(
-            ToSafeFieldType(prediction.type(), NO_SERVER_DATA));
+            ToSafeFieldType(prediction.type()).value_or(NO_SERVER_DATA));
       }
       std::string_view overall_type = [&] {
         if (HtmlFieldType html_field_type = autofill_field->html_type();

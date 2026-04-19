@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {PrintPreviewDestinationDialogElement} from 'chrome://print/print_preview.js';
+import type {PrintPreviewDestinationDialogElement, PrintPreviewDestinationListItemElement} from 'chrome://print/print_preview.js';
 import {NativeLayerImpl, State} from 'chrome://print/print_preview.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
-import {eventToPromise} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {NativeLayerStub} from './native_layer_stub.js';
-import {setupTestListenerElement} from './print_preview_test_utils.js';
+import {setupTestListenerElement} from './test_listener.js';
 
 suite('DestinationDialogInteractiveTest', function() {
   let dialog: PrintPreviewDestinationDialogElement;
@@ -20,7 +20,7 @@ suite('DestinationDialogInteractiveTest', function() {
     setupTestListenerElement();
   });
 
-  setup(function() {
+  setup(() => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
     // Create destinations.
@@ -29,7 +29,9 @@ suite('DestinationDialogInteractiveTest', function() {
 
     const model = document.createElement('print-preview-model');
     document.body.appendChild(model);
+  });
 
+  async function createDialog(defaultId: string = 'FooDevice') {
     // Create destination settings, so  that the user manager is created.
     const destinationSettings =
         document.createElement('print-preview-destination-settings');
@@ -39,17 +41,17 @@ suite('DestinationDialogInteractiveTest', function() {
 
     // Initialize
     destinationSettings.init(
-        'FooDevice' /* printerName */, false /* pdfPrinterDisabled */,
+        defaultId /* printerName */, false /* pdfPrinterDisabled */,
         '' /* serializedDefaultDestinationSelectionRulesStr */);
-    return nativeLayer.whenCalled('getPrinterCapabilities').then(() => {
-      // Retrieve a reference to dialog
-      dialog = destinationSettings.$.destinationDialog.get();
-    });
-  });
+    await nativeLayer.whenCalled('getPrinterCapabilities');
+    // Retrieve a reference to dialog
+    dialog = destinationSettings.$.destinationDialog.get();
+  }
 
   // Tests that the search input text field is automatically focused when the
   // dialog is shown.
-  test('FocusSearchBox', function() {
+  test('FocusSearchBox', async () => {
+    await createDialog();
     const searchInput = dialog.$.searchBox.getSearchInput();
     assertTrue(!!searchInput);
     const whenFocusDone = eventToPromise('focus', searchInput);
@@ -60,50 +62,101 @@ suite('DestinationDialogInteractiveTest', function() {
 
   // Tests that pressing the escape key while the search box is focused
   // closes the dialog if and only if the query is empty.
-  test('EscapeSearchBox', function() {
+  test('EscapeSearchBox', async () => {
+    await createDialog();
     const searchBox = dialog.$.searchBox;
     const searchInput = searchBox.getSearchInput();
     assertTrue(!!searchInput);
     const whenFocusDone = eventToPromise('focus', searchInput);
     dialog.destinationStore!.startLoadAllDestinations();
     dialog.show();
-    return whenFocusDone
-        .then(() => {
-          assertTrue(dialog.$.dialog.open);
+    await whenFocusDone;
+    assertTrue(dialog.$.dialog.open);
 
-          // Put something in the search box.
-          const whenSearchChanged = eventToPromise('search-changed', searchBox);
-          searchBox.setValue('query');
-          return whenSearchChanged;
-        })
-        .then(() => {
-          assertEquals('query', searchInput.value);
+    // Put something in the search box.
+    const whenSearchChanged = eventToPromise('search-changed', searchBox);
+    searchBox.setValue('query');
+    await whenSearchChanged;
+    assertEquals('query', searchInput.value);
 
-          // Simulate escape
-          const whenKeyDown = eventToPromise('keydown', dialog);
-          keyDownOn(searchInput, 19, [], 'Escape');
-          return whenKeyDown;
-        })
-        .then(() => {
-          // Dialog should still be open.
-          assertTrue(dialog.$.dialog.open);
+    // Simulate escape
+    const whenKeyDown = eventToPromise('keydown', dialog);
+    keyDownOn(searchInput, 19, [], 'Escape');
+    await whenKeyDown;
+    // Dialog should still be open.
+    assertTrue(dialog.$.dialog.open);
 
-          // Clear the search box.
-          const whenSearchChanged = eventToPromise('search-changed', searchBox);
-          searchBox.setValue('');
-          return whenSearchChanged;
-        })
-        .then(() => {
-          assertEquals('', searchInput.value);
+    // Clear the search box.
+    const whenSearchChanged2 = eventToPromise('search-changed', searchBox);
+    searchBox.setValue('');
+    await whenSearchChanged2;
+    assertEquals('', searchInput.value);
 
-          // Simulate escape
-          const whenKeyDown = eventToPromise('keydown', dialog);
-          keyDownOn(searchInput, 19, [], 'Escape');
-          return whenKeyDown;
-        })
-        .then(() => {
-          // Dialog is closed.
-          assertFalse(dialog.$.dialog.open);
-        });
+    // Simulate escape
+    const whenKeyDown2 = eventToPromise('keydown', dialog);
+    keyDownOn(searchInput, 19, [], 'Escape');
+    await whenKeyDown2;
+    // Dialog is closed.
+    assertFalse(dialog.$.dialog.open);
+  });
+
+  test('SearchDestinationsKorean', async () => {
+    const koreanNameDestinations = [
+      {
+        deviceName: 'id1',
+        printerName: '한국',
+        printerDescription: '한국',
+        printerOptions: {location: '대구'},
+      },
+      {
+        deviceName: 'id2',
+        printerName: '김밥',
+        printerDescription: '한국',
+        printerOptions: {location: '서울'},
+      },
+    ];
+    nativeLayer.setLocalDestinations(koreanNameDestinations);
+    await createDialog('id1');
+
+    const searchBox = dialog.$.searchBox;
+    const searchInput = searchBox.getSearchInput();
+    assertTrue(!!searchInput);
+    const whenFocusDone = eventToPromise('focus', searchInput);
+    dialog.destinationStore!.startLoadAllDestinations();
+    dialog.show();
+    await whenFocusDone;
+    assertTrue(dialog.$.dialog.open);
+
+    async function queryPrinters(query: string):
+        Promise<NodeListOf<PrintPreviewDestinationListItemElement>> {
+      const whenSearchChanged = eventToPromise('search-changed', searchBox);
+      searchBox.setValue(query);
+      await whenSearchChanged;
+      await microtasksFinished();
+      return dialog.$.printList.shadowRoot.querySelectorAll(
+          'print-preview-destination-list-item');
+    }
+
+    // Search for the name of the second printer.
+    let listItems = await queryPrinters(koreanNameDestinations[1]!.printerName);
+    assertEquals(1, listItems.length);
+    assertEquals('id2', listItems[0]!.destination!.id);
+
+    // Search for the location of the first printer.
+    listItems =
+        await queryPrinters(koreanNameDestinations[0]!.printerOptions.location);
+    assertEquals(1, listItems.length);
+    assertEquals('id1', listItems[0]!.destination!.id);
+
+    // Search for the description, which is the same for both printers.
+    listItems =
+        await queryPrinters(koreanNameDestinations[0]!.printerDescription);
+    assertEquals(2, listItems.length);
+    assertEquals('id1', listItems[0]!.destination!.id);
+    assertEquals('id2', listItems[1]!.destination!.id);
+
+    // Search for something that doesn't match either printer.
+    listItems = await queryPrinters('한강;');
+    assertEquals(0, listItems.length);
   });
 });

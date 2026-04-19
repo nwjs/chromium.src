@@ -29,6 +29,7 @@
 
 #include <memory>
 
+#include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
@@ -140,13 +141,14 @@ inline void CSSPreloadScanner::Tokenize(UChar c,
         state_ = kComment;
       break;
     case kRuleStart:
-      if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+      if (IsAsciiAlpha(c)) {
         rule_.Clear();
         rule_value_.Clear();
         rule_.Append(c);
         state_ = kRule;
-      } else
+      } else {
         state_ = kInitial;
+      }
       break;
     case kRule:
       if (IsHTMLSpace<UChar>(c))
@@ -277,7 +279,7 @@ static String ParseCSSStringOrURL(const String& string) {
     reduced_length -= 2;
   }
 
-  return string.Substring(offset, reduced_length);
+  return string.substr(offset, reduced_length);
 }
 
 bool CSSPreloadScanner::CanPreloadImportRule() const {
@@ -294,8 +296,10 @@ bool CSSPreloadScanner::CanPreloadImportRule() const {
   // Import into a named layer
   if (maybe_layer_value_.length() >= 8) {
     StringView view(maybe_layer_value_);
+    // SAFETY: length greater than or equal to eight above implies last
+    // element is valid.
     return EqualIgnoringAsciiCase(StringView(view, 0, 6), "layer(") &&
-           view[view.length() - 1] == ')';
+           UNSAFE_BUFFERS(view[view.length() - 1]) == ')';
   }
   return false;
 }

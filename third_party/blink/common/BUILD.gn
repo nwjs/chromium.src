@@ -239,9 +239,12 @@ source_set("common") {
     "origin_trials/trial_token_validator.cc",
     "page/color_provider_color_maps_mojom_traits.cc",
     "page/content_to_visible_time_reporter.cc",
+    "page/content_to_visible_time_request.cc",
+    "page/content_to_visible_time_request_mojom_traits.cc",
     "page/drag_mojom_traits.cc",
     "page/drag_operation.cc",
     "page/page_zoom.cc",
+    "page/source_effect_allowed_mojom_util.cc",
     "page_state/page_state.cc",
     "page_state/page_state_serialization.cc",
     "peerconnection/webrtc_ip_handling_policy.cc",
@@ -350,10 +353,6 @@ source_set("common") {
   if (is_chromeos || is_android || is_win || is_castos || is_fuchsia) {
     defines = [ "ENABLE_PROTECTED_MEDIA_IDENTIFIER_PERMISSION" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 test("blink_common_unittests") {
@@ -427,6 +426,7 @@ source_set("common_unittests_sources") {
     "origin_trials/trial_token_unittest.cc",
     "origin_trials/trial_token_validator_unittest.cc",
     "page/content_to_visible_time_reporter_unittest.cc",
+    "page/content_to_visible_time_request_unittest.cc",
     "page_state/page_state_serialization_unittest.cc",
     "peerconnection/webrtc_ip_handling_policy_unittest.cc",
     "permissions_policy/document_policy_unittest.cc",

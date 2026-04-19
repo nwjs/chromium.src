@@ -508,6 +508,7 @@ mojom("mojom_attribution") {
 mojom("mojom_connection_allowlist") {
   generate_java = true
   sources = [ "connection_allowlist.mojom" ]
+  public_deps = [ "//url/mojom:url_mojom_gurl" ]
   if (!is_ios) {
     export_class_attribute_blink = "BLINK_PLATFORM_EXPORT"
     export_define_blink = "BLINK_PLATFORM_IMPLEMENTATION=1"
@@ -1837,6 +1838,7 @@ mojom("mojom") {
 
   public_deps = [
     ":cookies_mojom",
+    ":mojom_connection_allowlist",
     ":mojom_cors_origin_pattern",
     ":mojom_first_party_sets",
     ":mojom_host_resolver",

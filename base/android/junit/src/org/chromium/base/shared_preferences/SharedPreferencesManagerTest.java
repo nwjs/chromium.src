@@ -17,10 +17,12 @@ import android.content.SharedPreferences;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
@@ -33,6 +35,7 @@ import java.util.Set;
 /** Unit tests for {@link SharedPreferencesManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class SharedPreferencesManagerTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private PreferenceKeyChecker mChecker;
 
     private static final KeyPrefix TEST_PREFIX = new KeyPrefix("TestPrefix.*");
@@ -44,7 +47,6 @@ public class SharedPreferencesManagerTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         mSubject = new SharedPreferencesManager(mChecker);
     }
 
@@ -426,6 +428,30 @@ public class SharedPreferencesManagerTest {
 
     @Test
     @SmallTest
+    public void testSetStringsWithPrefix() {
+        // Write some values.
+        mSubject.writeString(PREFIXED_KEY_1, "first");
+        mSubject.writeString(PREFIXED_KEY_2, "second");
+        mSubject.writeString(PREFIXED_KEY_3, "third");
+        mSubject.writeString("OtherKey", "fourth");
+
+        // Set values with prefix.
+        mSubject.setStringsWithPrefix(TEST_PREFIX, "fifth");
+
+        // Verify values written are read with readStringsWithPrefix().
+        Map<String, String> result = mSubject.readStringsWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+
+        assertEquals("fifth", result.get(PREFIXED_KEY_1));
+        assertEquals("fifth", result.get(PREFIXED_KEY_2));
+        assertEquals("fifth", result.get(PREFIXED_KEY_3));
+
+        // Verify that the other key is unchanged.
+        assertEquals("fourth", mSubject.readString("OtherKey", ""));
+    }
+
+    @Test
+    @SmallTest
     public void testReadStringsWithPrefix() {
         // Write some values.
         mSubject.writeString(PREFIXED_KEY_1, "first");
@@ -440,6 +466,29 @@ public class SharedPreferencesManagerTest {
         assertEquals("first", result.get(PREFIXED_KEY_1));
         assertEquals("second", result.get(PREFIXED_KEY_2));
         assertEquals("third", result.get(PREFIXED_KEY_3));
+    }
+
+    @Test
+    @SmallTest
+    public void testSetIntsWithPrefix() {
+        // Write some values.
+        mSubject.writeInt(PREFIXED_KEY_1, 1);
+        mSubject.writeInt(PREFIXED_KEY_2, 2);
+        mSubject.writeInt(PREFIXED_KEY_3, 3);
+        mSubject.writeInt("OtherKey", 4);
+
+        // Set values with prefix.
+        mSubject.setIntsWithPrefix(TEST_PREFIX, 5);
+
+        // Verify values written are read with readIntsWithPrefix().
+        Map<String, Integer> result = mSubject.readIntsWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+        assertEquals(5, result.get(PREFIXED_KEY_1).intValue());
+        assertEquals(5, result.get(PREFIXED_KEY_2).intValue());
+        assertEquals(5, result.get(PREFIXED_KEY_3).intValue());
+
+        // Verify that the other key is unchanged.
+        assertEquals(4, mSubject.readInt("OtherKey"));
     }
 
     @Test
@@ -461,6 +510,29 @@ public class SharedPreferencesManagerTest {
 
     @Test
     @SmallTest
+    public void testSetLongsWithPrefix() {
+        // Write some values.
+        mSubject.writeLong(PREFIXED_KEY_1, 21474836470001L);
+        mSubject.writeLong(PREFIXED_KEY_2, 21474836470002L);
+        mSubject.writeLong(PREFIXED_KEY_3, 21474836470003L);
+        mSubject.writeLong("OtherKey", 21474836470004L);
+
+        // Set values with prefix.
+        mSubject.setLongsWithPrefix(TEST_PREFIX, 21474836470005L);
+
+        // Verify values written are read with readLongsWithPrefix().
+        Map<String, Long> result = mSubject.readLongsWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+        assertEquals(21474836470005L, result.get(PREFIXED_KEY_1).longValue());
+        assertEquals(21474836470005L, result.get(PREFIXED_KEY_2).longValue());
+        assertEquals(21474836470005L, result.get(PREFIXED_KEY_3).longValue());
+
+        // Verify that the other key is unchanged.
+        assertEquals(21474836470004L, mSubject.readLong("OtherKey"));
+    }
+
+    @Test
+    @SmallTest
     public void testReadLongsWithPrefix() {
         // Write some values.
         mSubject.writeLong(PREFIXED_KEY_1, 21474836470001L);
@@ -474,6 +546,29 @@ public class SharedPreferencesManagerTest {
         assertEquals(21474836470001L, result.get(PREFIXED_KEY_1).longValue());
         assertEquals(21474836470002L, result.get(PREFIXED_KEY_2).longValue());
         assertEquals(21474836470003L, result.get(PREFIXED_KEY_3).longValue());
+    }
+
+    @Test
+    @SmallTest
+    public void testSetFloatsWithPrefix() {
+        // Write some values.
+        mSubject.writeFloat(PREFIXED_KEY_1, 1.0f);
+        mSubject.writeFloat(PREFIXED_KEY_2, 2.5f);
+        mSubject.writeFloat(PREFIXED_KEY_3, 3.5f);
+        mSubject.writeFloat("OtherKey", 4.0f);
+
+        // Set values with prefix.
+        mSubject.setFloatsWithPrefix(TEST_PREFIX, 5.0f);
+
+        // Verify values written are read with readFloatsWithPrefix().
+        Map<String, Float> result = mSubject.readFloatsWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+        assertEquals(5.0f, result.get(PREFIXED_KEY_1), 1e-10);
+        assertEquals(5.0f, result.get(PREFIXED_KEY_2), 1e-10);
+        assertEquals(5.0f, result.get(PREFIXED_KEY_3), 1e-10);
+
+        // Verify that the other key is unchanged.
+        assertEquals(4.0f, mSubject.readFloat("OtherKey", 0f), 1e-10);
     }
 
     @Test
@@ -495,6 +590,29 @@ public class SharedPreferencesManagerTest {
 
     @Test
     @SmallTest
+    public void testSetDoublesWithPrefix() {
+        // Write some values.
+        mSubject.writeDouble(PREFIXED_KEY_1, 1.0);
+        mSubject.writeDouble(PREFIXED_KEY_2, 2.5);
+        mSubject.writeDouble(PREFIXED_KEY_3, 3.5);
+        mSubject.writeDouble("OtherKey", 4.0);
+
+        // Set values with prefix.
+        mSubject.setDoublesWithPrefix(TEST_PREFIX, 5.0);
+
+        // Verify values written are read with readDoublesWithPrefix().
+        Map<String, Double> result = mSubject.readDoublesWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+        assertEquals(5.0, result.get(PREFIXED_KEY_1), 1e-10);
+        assertEquals(5.0, result.get(PREFIXED_KEY_2), 1e-10);
+        assertEquals(5.0, result.get(PREFIXED_KEY_3), 1e-10);
+
+        // Verify that the other key is unchanged.
+        assertEquals(4.0, mSubject.readDouble("OtherKey", 0d), 1e-10);
+    }
+
+    @Test
+    @SmallTest
     public void testReadDoublesWithPrefix() {
         // Write some values.
         mSubject.writeDouble(PREFIXED_KEY_1, 1.0);
@@ -508,6 +626,29 @@ public class SharedPreferencesManagerTest {
         assertEquals(1.0, result.get(PREFIXED_KEY_1), 1e-10);
         assertEquals(2.5, result.get(PREFIXED_KEY_2), 1e-10);
         assertEquals(3.5, result.get(PREFIXED_KEY_3).doubleValue(), 1e-10);
+    }
+
+    @Test
+    @SmallTest
+    public void testSetBooleansWithPrefix() {
+        // Write some values.
+        mSubject.writeBoolean(PREFIXED_KEY_1, true);
+        mSubject.writeBoolean(PREFIXED_KEY_2, false);
+        mSubject.writeBoolean(PREFIXED_KEY_3, true);
+        mSubject.writeBoolean("OtherKey", true);
+
+        // Set values with prefix.
+        mSubject.setBooleansWithPrefix(TEST_PREFIX, false);
+
+        // Verify values written are read with readBooleansWithPrefix().
+        Map<String, Boolean> result = mSubject.readBooleansWithPrefix(TEST_PREFIX);
+        assertEquals(3, result.size());
+        assertFalse(result.get(PREFIXED_KEY_1));
+        assertFalse(result.get(PREFIXED_KEY_2));
+        assertFalse(result.get(PREFIXED_KEY_3));
+
+        // Verify that the other key is unchanged.
+        assertTrue(mSubject.readBoolean("OtherKey", false));
     }
 
     @Test
@@ -592,6 +733,19 @@ public class SharedPreferencesManagerTest {
         verify(mChecker, times(7)).checkIsPrefixInUse(eq(TEST_PREFIX));
         mSubject.removeKeysWithPrefix(TEST_PREFIX, "some_key");
         verify(mChecker, times(8)).checkIsPrefixInUse(eq(TEST_PREFIX));
+
+        mSubject.setBooleansWithPrefix(TEST_PREFIX, true);
+        verify(mChecker, times(9)).checkIsPrefixInUse(eq(TEST_PREFIX));
+        mSubject.setIntsWithPrefix(TEST_PREFIX, 1);
+        verify(mChecker, times(10)).checkIsPrefixInUse(eq(TEST_PREFIX));
+        mSubject.setLongsWithPrefix(TEST_PREFIX, 1L);
+        verify(mChecker, times(11)).checkIsPrefixInUse(eq(TEST_PREFIX));
+        mSubject.setFloatsWithPrefix(TEST_PREFIX, 1f);
+        verify(mChecker, times(12)).checkIsPrefixInUse(eq(TEST_PREFIX));
+        mSubject.setDoublesWithPrefix(TEST_PREFIX, 1d);
+        verify(mChecker, times(13)).checkIsPrefixInUse(eq(TEST_PREFIX));
+        mSubject.setStringsWithPrefix(TEST_PREFIX, "");
+        verify(mChecker, times(14)).checkIsPrefixInUse(eq(TEST_PREFIX));
     }
 
     @Test

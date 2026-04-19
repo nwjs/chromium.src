@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fil">
 <translation id="1000436330784933699">Puwede mong buksan ang Lens dito.</translation>
+<translation id="1005291068154454184">Full screen na video ng kung paano itakda ang Chromium bilang default</translation>
 <translation id="1042296835509784301">Bubuksan ang Password Manager sa Chromium.</translation>
 <translation id="1047130070405668746">Piliin ang Chromium</translation>
 <translation id="1091252999271033193">Nangangahulugan itong hihilingin ng Chromium ang pang-mobile na site sa lahat ng pagkakataon.</translation>
@@ -70,9 +71,6 @@ Hindi mase-save ang mga bagong bookmark sa iyong account hangga't hindi ka nagde
 <translation id="2313870531055795960">Sinusuri ang mga URL sa pamamagitan ng listahan ng mga hindi ligtas na site na naka-store sa Chromium. Kung susubukan ng site na nakawin ang iyong password, o kapag nag-download ka ng mapaminsalang file, posible ring magpadala ang Chromium sa Ligtas na Pag-browse ng mga URL, kabilang ang ilang content ng page.</translation>
 <translation id="2314220608288760290">Awtomatikong binubuksan ng Chromium sa Incognito ang mga Incognito na link ng YouTube.</translation>
 <translation id="231828342043114302">Para makatanggap ng naka-personalize na content batay sa iyong mga interes, mag-sign in sa Chromium.</translation>
-<translation id="2326738825692478496">Hindi pa nase-save sa Google Account mo ang ilan sa iyong data sa Chromium.
-
-Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka ngayon, made-delete ang data na ito.</translation>
 <translation id="2334943301233020675">Hindi na-import ang mga sumusunod na passkey sa Password Manager, dahil hindi tumutugma ang mga ito sa mga requirement.</translation>
 <translation id="2337722506862731008">I-share ang Chromium</translation>
 <translation id="2340423701577464731">Magdagdag ng item sa listahan ng babasahin sa Chromium</translation>
@@ -103,7 +101,6 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experience sa Chromium, pumunta sa <ph name="BEGIN_LINK" />Mga Serbisyo ng Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Maghanap gamit ang boses sa Chromium.</translation>
 <translation id="2843571538056574338">Gamitin ang Chromium para sa Autofill</translation>
-<translation id="2899085719655668655">Mga picture in picture na video na tagubilin kung paano itakda ang Chromium bilang default</translation>
 <translation id="2918709798697875261">Hinihiling sa iyo ng organisasyon mo na manatiling naka-sign out sa Chromium.</translation>
 <translation id="2942241131342758843">Gamitin ang Chromium bilang default para magbukas ng mga link, maghanap mula sa mga widget, at mag-autofill ng mga password sa iba pang app</translation>
 <translation id="2977470724722393594">Napapanahon ang Chromium</translation>

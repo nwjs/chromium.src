@@ -201,6 +201,14 @@ sql::Transaction* OpenTransaction::GetTransaction(
   return &transaction_;
 }
 
+void OpenTransaction::AddCallback(base::OnceClosure callback) {
+  callbacks_.push_back(std::move(callback));
+}
+
+std::vector<base::OnceClosure> OpenTransaction::TakeCallbacks() {
+  return std::move(callbacks_);
+}
+
 // static
 bool TabStateStorageDatabase::OpenTransaction::IsValid(
     OpenTransaction* transaction) {
@@ -421,7 +429,19 @@ bool TabStateStorageDatabase::CloseTransaction(
     }
   }
 
+  std::vector<base::OnceClosure> callbacks_to_run;
+  if (success) {
+    callbacks_to_run = open_transaction->TakeCallbacks();
+  }
+
   open_transaction_.reset();
+
+  for (auto& callback : callbacks_to_run) {
+    if (!callback.is_null()) {
+      std::move(callback).Run();
+    }
+  }
+
   return success;
 }
 
@@ -489,7 +509,9 @@ int TabStateStorageDatabase::CountTabsForWindow(std::string_view window_tag,
   count.BindString(0, window_tag);
   count.BindInt(1, static_cast<int>(is_off_the_record));
   count.BindInt(2, static_cast<int>(TabStorageType::kTab));
-  DCHECK(count.Step());
+  if (!count.Step()) {
+    return 0;
+  }
   return count.ColumnInt(0);
 }
 
@@ -538,6 +560,33 @@ void TabStateStorageDatabase::ClearDivergenceWindow(
       db_.GetCachedStatement(SQL_FROM_HERE, kDeleteDivergenceWindowSql));
   delete_statement.BindString(0, window_tag);
   delete_statement.Run();
+}
+
+bool TabStateStorageDatabase::ClearAllWindowsExcept(
+    const std::vector<std::string>& window_tags) {
+  DCHECK(!window_tags.empty());
+  OpenTransaction* transaction = CreateTransaction();
+  const std::string tag_placeholders = base::JoinString(
+      std::vector<std::string_view>(window_tags.size(), "?"), ",");
+  const std::string kDeleteSql = base::StrCat(
+      {"DELETE FROM nodes WHERE window_tag NOT IN (", tag_placeholders, ")"});
+  sql::Statement delete_statement(db_.GetUniqueStatement(kDeleteSql));
+  for (size_t i = 0; i < window_tags.size(); i++) {
+    delete_statement.BindString(i, window_tags[i]);
+  }
+  bool result1 = delete_statement.Run();
+
+  const std::string kDeleteDivergentSql =
+      base::StrCat({"DELETE FROM divergent_nodes WHERE window_tag NOT IN (",
+                    tag_placeholders, ")"});
+  sql::Statement delete_divergent_statement(
+      db_.GetUniqueStatement(kDeleteDivergentSql));
+  for (size_t i = 0; i < window_tags.size(); i++) {
+    delete_divergent_statement.BindString(i, window_tags[i]);
+  }
+  bool result2 = delete_divergent_statement.Run();
+  CloseTransaction(transaction);
+  return result1 && result2;
 }
 
 bool TabStateStorageDatabase::ClearNodesForWindowExcept(

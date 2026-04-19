@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/core/css/css_timing_function_value.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/css_value_id_mappings.h"
+#include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_view_value.h"
 #include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
@@ -73,6 +74,11 @@ void CSSToStyleMap::MapFillClip(StyleResolverState&,
                                 const CSSValue& value) {
   if (value.IsInitialValue()) {
     layer->SetClip(FillLayer::InitialFillClip(layer->GetType()));
+    return;
+  }
+  // [ border-area || text ] parses as a CSSValuePair.
+  if (IsA<CSSValuePair>(value)) {
+    layer->SetClip(EFillBox::kBorderAreaText);
     return;
   }
   layer->SetClip(To<CSSIdentifierValue>(value).ConvertTo<EFillBox>());
@@ -121,8 +127,7 @@ void CSSToStyleMap::MapFillImage(StyleResolverState& state,
   CSSPropertyID property = layer->GetType() == EFillLayerType::kBackground
                                ? CSSPropertyID::kBackgroundImage
                                : CSSPropertyID::kMaskImage;
-  layer->SetImage(
-      state.GetStyleImage(property, state.ResolveLightDarkPair(value)));
+  layer->SetImage(state.GetStyleImage(property, value));
 }
 
 void CSSToStyleMap::MapFillRepeat(StyleResolverState&,
@@ -311,13 +316,19 @@ double CSSToStyleMap::MapAnimationIterationCount(StyleResolverState& state,
       state.CssToLengthConversionData());
 }
 
-AtomicString CSSToStyleMap::MapAnimationName(StyleResolverState& state,
-                                             const CSSValue& value) {
+const ScopedCSSName* CSSToStyleMap::MapAnimationName(StyleResolverState& state,
+                                                     const CSSValue& value) {
   if (auto* custom_ident_value = DynamicTo<CSSCustomIdentValue>(value)) {
-    return AtomicString(custom_ident_value->Value());
+    state.SetHasTreeScopedReference();
+    return MakeGarbageCollected<ScopedCSSName>(
+        AtomicString(custom_ident_value->Value()),
+        custom_ident_value->GetTreeScope());
   }
   if (auto* string_value = DynamicTo<CSSStringValue>(value)) {
-    return AtomicString(string_value->Value());
+    state.SetHasTreeScopedReference();
+    return MakeGarbageCollected<ScopedCSSName>(
+        AtomicString(string_value->Value()),
+        &state.GetDocument().GetTreeScope());
   }
   DCHECK_EQ(To<CSSIdentifierValue>(value).GetValueID(), CSSValueID::kNone);
   return CSSAnimationData::InitialName();
@@ -609,8 +620,7 @@ static Length ConvertBorderImageSliceSide(
     const CSSPrimitiveValue& value) {
   if (value.IsPercentage()) {
     if (value.HasUnresolvablePercentages()) {
-      return DynamicTo<CSSMathFunctionValue>(value)->ConvertToLength(
-          length_resolver);
+      return To<CSSMathFunctionValue>(value).ConvertToLength(length_resolver);
     }
     return Length::Percent(value.ComputePercentage(length_resolver));
   }

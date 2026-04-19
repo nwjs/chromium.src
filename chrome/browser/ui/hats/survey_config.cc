@@ -25,9 +25,11 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/variations/service/google_groups_manager.h"
+#include "media/base/media_switches.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/download/download_warning_desktop_hats_utils.h"
+#include "chrome/browser/metrics/critical_user_journeys/features.h"
 #include "components/password_manager/core/browser/features/password_features.h"  // nogncheck
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"  // nogncheck
 #include "components/performance_manager/public/features.h"  // nogncheck
@@ -76,6 +78,10 @@ constexpr char kHatsSurveyTriggerManageTravelPerception[] =
     "autofill-manage-travel-perception";
 constexpr char kHatsSurveyTriggerAutofillCard[] = "autofill-card";
 constexpr char kHatsSurveyTriggerAutofillPassword[] = "autofill-password";
+constexpr char kHatsSurveyTriggerAutoPipAllowed[] = "autopip-allowed";
+constexpr char kHatsSurveyTriggerAutoPipBlocked[] = "autopip-blocked";
+constexpr char kHatsSurveyTriggerAutoPipPermissionPromptIgnored[] =
+    "autopip-permission-prompt-ignored";
 constexpr char kHatsSurveyTriggerDownloadWarningBubbleBypass[] =
     "download-warning-bubble-bypass";
 constexpr char kHatsSurveyTriggerDownloadWarningBubbleHeed[] =
@@ -110,6 +116,8 @@ constexpr char kHatsSurveyTriggerIdentityProfileMenuSignin[] =
     "identity-profile-menu-signin";
 constexpr char kHatsSurveyTriggerIdentityProfilePickerAddProfileSignin[] =
     "identity-profile-picker-add-profile-signin";
+constexpr char kHatsSurveyTriggerIdentityRefreshedFirstRunCompleted[] =
+    "identity-refreshed-first-run-completed";
 constexpr char kHatsSurveyTriggerIdentitySigninInterceptProfileSeparation[] =
     "identity-signin-intercept-profile-separation";
 constexpr char kHatsSurveyTriggerIdentitySigninPromoBubbleDismissed[] =
@@ -336,7 +344,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       /*presupplied_trigger_id=*/"XWXw3UM1k0ugnJ3q1cK0PKSCtgF3",
       /*product_specific_bits_data_fields=*/std::vector<std::string>{},
       /*product_specific_string_data_fields=*/
-      std::vector<std::string>{"Experiment ID"});
+      std::vector<std::string>{"Experiment ID",
+                               "ContextualTasksExpandButtonOptions",
+                               "ContextualTasksOpenSidePanelOnLinkClicked",
+                               "ContextualTasksEnableLensInContextualTasks",
+                               "ContextualTasksTabAutoSuggestionChipEnabled"});
 
   // History embeddings survey.
   survey_configs.emplace_back(
@@ -539,6 +551,27 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       kHatsSurveyTriggerManageTravelPerception, std::nullopt,
       data_management_psd_bits_fields);
 
+  std::vector<std::string> autopip_string_psd_fields{
+      "AutoPip Reason", "Opener site URL", "Pip window duration"};
+  survey_configs.emplace_back(&media::kAutoPictureInPictureSurveys,
+                              kHatsSurveyTriggerAutoPipPermissionPromptIgnored,
+                              /*presupplied_trigger_id=*/std::nullopt,
+                              std::vector<std::string>{},
+                              autopip_string_psd_fields);
+
+  survey_configs.emplace_back(
+      &media::kAutoPictureInPictureSurveys, kHatsSurveyTriggerAutoPipBlocked,
+      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
+      autopip_string_psd_fields);
+
+  std::vector<std::string> autopip_allowed_string_psd_fields =
+      autopip_string_psd_fields;
+  autopip_allowed_string_psd_fields.push_back("Prompt Result");
+  survey_configs.emplace_back(
+      &media::kAutoPictureInPictureSurveys, kHatsSurveyTriggerAutoPipAllowed,
+      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
+      autopip_allowed_string_psd_fields);
+
   // Wallpaper Search survey.
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForWallpaperSearch,
@@ -630,6 +663,17 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       &switches::kBeforeFirstRunDesktopRefreshSurvey,
       kHatsSurveyTriggerIdentityFirstRunCompleted,
       "XhHJ3uboj0ugnJ3q1cK0S6RQC7u7",
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      std::vector<std::string>{"Channel"},
+      /*log_responses_to_uma=*/true,
+      /*log_responses_to_ukm=*/false,
+      hats::SurveyConfig::ProfileAgeRequirement::kAnyAge);
+
+  survey_configs.emplace_back(
+      &switches::kFirstRunDesktopRefreshSurvey,
+      kHatsSurveyTriggerIdentityRefreshedFirstRunCompleted,
+      "o8AU42wsG0ugnJ3q1cK0PBwPwK1J",
       /*product_specific_bits_data_fields=*/std::vector<std::string>{},
       /*product_specific_string_data_fields=*/
       std::vector<std::string>{"Channel"},
@@ -750,6 +794,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           DownloadWarningHatsType::kDownloadsPageIgnore),
       DownloadWarningHatsProductSpecificData::GetStringDataFields(
           DownloadWarningHatsType::kDownloadsPageIgnore));
+
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForDownloadJourney,
+      metrics::kHatsSurveyTriggerDownloadJourney,
+      /*presupplied_trigger_id=*/"Y2We4jMf70ugnJ3q1cK0QFVzpBEr");
 
   // Lens overlay surveys.
   survey_configs.emplace_back(

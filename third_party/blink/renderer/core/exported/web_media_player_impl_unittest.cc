@@ -342,6 +342,7 @@ class MockSurfaceLayerBridge : public WebSurfaceLayerBridge {
   MOCK_METHOD0(ClearObserver, void());
   MOCK_METHOD0(RegisterFrameSinkHierarchy, void());
   MOCK_METHOD0(UnregisterFrameSinkHierarchy, void());
+  MOCK_METHOD1(ReparentFrameSinkHierarchy, void(const viz::FrameSinkId&));
 };
 
 class MockVideoFrameCompositor : public VideoFrameCompositor {
@@ -630,8 +631,8 @@ class WebMediaPlayerImplTest
     is_background_video_playback_enabled_ = enable;
   }
 
-  bool IsVideoLockedWhenPausedWhenHidden() const {
-    return wmpi_->video_locked_when_paused_when_hidden_;
+  bool IsBackgroundVideoPlaybackAllowed() const {
+    return wmpi_->allow_background_video_playback_;
   }
 
   bool IsPausedBecausePageHidden() const {
@@ -804,7 +805,7 @@ class WebMediaPlayerImplTest
     // we're injecting the response artificially. It's value is unknown to the
     // underlying demuxer.
     const KURL kTestURL(
-        String::FromUTF8(std::string(is_streaming ? "http" : "file") +
+        String::FromUtf8(std::string(is_streaming ? "http" : "file") +
                          "://example.com/sample.webm"));
 
     // This block sets up a fetch context which ultimately provides us a pointer
@@ -1035,6 +1036,20 @@ class WebMediaPlayerImplTest
 TEST_F(WebMediaPlayerImplTest, ConstructAndDestroy) {
   InitializeWebMediaPlayerImpl();
   EXPECT_FALSE(IsSuspended());
+}
+
+TEST_F(WebMediaPlayerImplTest, UnlockBackgroundPlayback) {
+  InitializeWebMediaPlayerImpl();
+
+  // Page hidden should lock background video playback.
+  delegate_.SetPageHiddenForTesting(true);
+  wmpi_->OnPageHidden();
+  EXPECT_FALSE(IsBackgroundVideoPlaybackAllowed());
+
+  // UnlockBackgroundPlayback should unlock background video playback without
+  // user activation.
+  wmpi_->UnlockBackgroundPlayback();
+  EXPECT_TRUE(IsBackgroundVideoPlaybackAllowed());
 }
 
 // Verify LoadAndWaitForCurrentData() functions without issue.
@@ -2833,36 +2848,36 @@ TEST_F(WebMediaPlayerImplTest, VideoLockedWhenPausedWhenHidden) {
 
   OnMetadata(metadata);
 
-  EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_TRUE(IsBackgroundVideoPlaybackAllowed());
 
   // Backgrounding the player sets the lock.
   BackgroundPlayer(BackgroundBehaviorType::Page);
-  EXPECT_TRUE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_FALSE(IsBackgroundVideoPlaybackAllowed());
 
   // Play without a user gesture doesn't unlock the player.
   Play();
-  EXPECT_TRUE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_FALSE(IsBackgroundVideoPlaybackAllowed());
 
   // With a user gesture it does unlock the player.
   GetWebLocalFrame()->NotifyUserActivation(
       mojom::UserActivationNotificationType::kTest);
   Play();
-  EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_TRUE(IsBackgroundVideoPlaybackAllowed());
 
   // Pause without a user gesture doesn't lock the player.
   GetWebLocalFrame()->ConsumeTransientUserActivation();
   Pause(WebMediaPlayer::PauseReason::kPauseCalled);
-  EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_TRUE(IsBackgroundVideoPlaybackAllowed());
 
   // With a user gesture, pause does lock the player.
   GetWebLocalFrame()->NotifyUserActivation(
       mojom::UserActivationNotificationType::kTest);
   Pause(WebMediaPlayer::PauseReason::kPauseCalled);
-  EXPECT_TRUE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_FALSE(IsBackgroundVideoPlaybackAllowed());
 
   // Foregrounding the player unsets the lock.
   ForegroundPlayer(BackgroundBehaviorType::Page);
-  EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
+  EXPECT_TRUE(IsBackgroundVideoPlaybackAllowed());
 
   EXPECT_CALL(*surface_layer_bridge_ptr_, ClearObserver());
 }

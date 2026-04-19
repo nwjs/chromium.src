@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/webid/identity_ui_utils.h"
 #include "chrome/grit/platform_locale_settings.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/autofill_resource_utils.h"
@@ -153,14 +154,10 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
           IDS_AUTOFILL_WORK_PROFILE_ICON_ACCESSIBILITY_LABEL);
     case Suggestion::Icon::kAccount:
     case Suggestion::Icon::kBnplGeneric:
-    case Suggestion::Icon::kBnplAffirmLinked:
-    case Suggestion::Icon::kBnplAffirmUnlinked:
-    case Suggestion::Icon::kBnplAfterpayLinked:
-    case Suggestion::Icon::kBnplAfterpayUnlinked:
-    case Suggestion::Icon::kBnplZipLinked:
-    case Suggestion::Icon::kBnplZipUnlinked:
-    case Suggestion::Icon::kBnplKlarnaLinked:
-    case Suggestion::Icon::kBnplKlarnaUnlinked:
+    case Suggestion::Icon::kBnplAffirm:
+    case Suggestion::Icon::kBnplAfterpay:
+    case Suggestion::Icon::kBnplKlarna:
+    case Suggestion::Icon::kBnplZip:
     case Suggestion::Icon::kClear:
     case Suggestion::Icon::kCode:
     case Suggestion::Icon::kDelete:
@@ -184,6 +181,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kMagic:
     case Suggestion::Icon::kNoIcon:
     case Suggestion::Icon::kOfferTag:
+    case Suggestion::Icon::kPassport:
     case Suggestion::Icon::kPenSpark:
     case Suggestion::Icon::kPersonCheck:
     case Suggestion::Icon::kPlusAddress:
@@ -228,19 +226,24 @@ std::unique_ptr<views::ImageView> ConvertModelToImageView(
 
 // Creates the table in which all the Autofill suggestion content apart from
 // leading and trailing icons is contained.
+// If `stretch_first_column` is true, the first column will expand to take up
+// all available horizontal space.
 std::unique_ptr<views::TableLayoutView> CreateSuggestionContentTable(
     std::unique_ptr<views::Label> main_text_label,
     std::vector<std::unique_ptr<views::View>> minor_text_labels,
     std::unique_ptr<views::Label> description_label,
     std::vector<std::unique_ptr<views::View>> subtext_views,
-    bool align_description_label_to_right) {
+    bool align_description_label_to_right,
+    bool stretch_first_column) {
   const bool has_two_columns = !!description_label;
   auto table =
       views::Builder<views::TableLayoutView>()
-          .AddColumn(views::LayoutAlignment::kStart,
-                     views::LayoutAlignment::kStretch,
-                     views::TableLayout::kFixedSize,
-                     views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
+          .AddColumn(
+              stretch_first_column ? views::LayoutAlignment::kStretch
+                                   : views::LayoutAlignment::kStart,
+              views::LayoutAlignment::kStretch,
+              stretch_first_column ? 1.0f : views::TableLayout::kFixedSize,
+              views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
           .Build();
   if (has_two_columns) {
     const views::LayoutAlignment kHorizontalAlignment =
@@ -428,6 +431,9 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kMagic:
       return ImageModelFromVectorIcon(vector_icons::kMagicButtonIcon,
                                       kIconSize);
+    case Suggestion::Icon::kPassport:
+      return ImageModelFromVectorIcon(vector_icons::kPassportIcon,
+                                      kChromeRefreshIconSize);
     case Suggestion::Icon::kPenSpark:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       return ImageModelFromVectorIcon(vector_icons::kPenSparkIcon, kIconSize);
@@ -498,14 +504,10 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kCardVerve:
     case Suggestion::Icon::kCardVisa:
     case Suggestion::Icon::kBnplGeneric:
-    case Suggestion::Icon::kBnplAffirmLinked:
-    case Suggestion::Icon::kBnplAffirmUnlinked:
-    case Suggestion::Icon::kBnplAfterpayLinked:
-    case Suggestion::Icon::kBnplAfterpayUnlinked:
-    case Suggestion::Icon::kBnplZipLinked:
-    case Suggestion::Icon::kBnplZipUnlinked:
-    case Suggestion::Icon::kBnplKlarnaLinked:
-    case Suggestion::Icon::kBnplKlarnaUnlinked:
+    case Suggestion::Icon::kBnplAffirm:
+    case Suggestion::Icon::kBnplAfterpay:
+    case Suggestion::Icon::kBnplKlarna:
+    case Suggestion::Icon::kBnplZip:
     case Suggestion::Icon::kAndroidMessages: {
       // For other suggestion entries, get the icon from PNG files.
       int icon_id = GetIconResourceID(icon);
@@ -562,6 +564,11 @@ std::u16string GetVoiceOverStringFromSuggestion(const Suggestion& suggestion) {
     }
     std::u16string sublabel = base::JoinString(text_values, u" ");
     add_if_not_empty(sublabel);
+  }
+
+  if (payments::ShouldShowBnplLinkedPill(suggestion)) {
+    text.push_back(l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_CARD_BNPL_LINKED_ISSUER_PILL_LABEL));
   }
 
   bool badge_added_to_labels = false;
@@ -728,7 +735,9 @@ void AddSuggestionContentToView(
       content_view.AddChildView(CreateSuggestionContentTable(
           std::move(main_text_label), std::move(minor_text_labels),
           std::move(description_label), std::move(subtext_views),
-          suggestion.additional_label_alignment_right)),
+          suggestion.additional_label_alignment_right,
+          /*stretch_first_column=*/
+          payments::ShouldShowBnplLinkedPill(suggestion))),
       1);
 
   // The trailing icon.

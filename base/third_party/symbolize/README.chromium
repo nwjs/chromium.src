@@ -5,6 +5,9 @@ License: BSD-3-Clause
 License File: LICENSE
 Shipped: yes
 Security Critical: yes
+Date: 2020-01-08
+Revision: 130a3e1
+Version: N/A
 
 The following files were copied from:
 https://github.com/google/glog/tree/b70ea80433c2a8f20b832be97b90f1f82b0d29e9
@@ -39,3 +42,8 @@ Local modifications:
 - 009-clone-absl-demangle.patch: Clone the demangling implementation from
   abseil-cpp, which is itself a fork of https://github.com/google/glog/.
 - 010-clang-format.patch: format the source files using Chrome formatting rules.
+- 011-expose-end-address.patch: expose the end address to improve speed of the
+  line number parser.
+- 012-buffered-readers.patch: cherry-pick CachingFile from Abseil's fork of the
+  symbolizer to significantly improve performance. Expose CachingFile in the
+  header so Chrome's bespoke parsing code can reuse it too.

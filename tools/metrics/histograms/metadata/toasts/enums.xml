@@ -26,10 +26,16 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
+<!-- LINT.IfChange(ToastAlertLevel) -->
+
 <enum name="ToastAlertLevel">
   <int value="0" label="All"/>
   <int value="1" label="Actionable"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/toasts/toast_metrics.h:ToastAlertLevel) -->
+
+<!-- LINT.IfChange(ToastCloseReason) -->
 
 <enum name="ToastCloseReason">
   <int value="0" label="Auto Dismissed"/>
@@ -40,6 +46,8 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Feature explicitly dismiss toast"/>
   <int value="6" label="Aborted"/>
 </enum>
+
+<!-- LINT.ThenChange(/chrome/browser/ui/toasts/toast_view.h:ToastCloseReason) -->
 
 <!-- LINT.IfChange(ToastId) -->
 
@@ -74,13 +82,16 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="User migrated into enhanced security settings bundle"/>
   <int value="24" label="Saved Skill"/>
   <int value="25" label="Deleted Skill"/>
-  <int value="26" label="(Deprecated) Saved Autofill AI entity to Wallet"/>
+  <int value="26" label="Showed Autofill AI Wallet error message on fetch"/>
   <int value="27" label="Translate"/>
   <int value="28"
-      label="Showed Autofill AI Wallet error message (fetch, update or
-             migrate failed)"/>
+      label="Showed Autofill AI Wallet error message (update or migrate
+             failed)"/>
   <int value="29" label="Showed Record / Replay progress"/>
   <int value="30" label="Auto Sign-in Toast"/>
+  <int value="31" label="Filter Suggestion"/>
+  <int value="32" label="Filter Suggestion Recent"/>
+  <int value="33" label="Saved Skill without Invoke Button"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toasts/api/toast_id.h:ToastId) -->

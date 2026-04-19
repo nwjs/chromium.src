@@ -57,6 +57,10 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled,
                                 true);
 
+  // Boolean pref that enables or disables experimental triggering.
+  registry->RegisterBooleanPref(prefs::kGlicExperimentalTriggeringEnabled,
+                                true);
+
   registry->RegisterIntegerPref(
       prefs::kGlicActuationOnWeb,
       std::to_underlying(GetGlicActuationOnWebPolicyState()));
@@ -82,12 +86,12 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       ui::Command::AcceleratorToString(
           LocalHotkeyManager::GetDefaultAccelerator(
               LocalHotkeyManager::Hotkey::kFocusToggle)));
-  registry->RegisterBooleanPref(
-      prefs::kGlicMultiInstanceEnabledBySubscriptionTier, false);
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetAutopush, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetStaging, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetPreprod, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetProd, "");
+  registry->RegisterStringPref(
+      prefs::kGlicWebContinuityOriginatingHostUrlPreset, "");
 }
 
 }  // namespace glic::prefs

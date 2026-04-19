@@ -72,6 +72,13 @@ String TimelineOffset::ToString() const {
 
 bool TimelineOffset::UpdateOffset(Element* element, CSSValue* value) {
   Length new_offset = ResolveLength(element, value);
+  float new_zoom = 1.0f;
+  if (const auto* style = element->GetComputedStyle()) {
+    new_zoom = style->EffectiveZoom();
+    new_offset = new_offset.Zoom(new_zoom);
+  }
+  zoom = new_zoom;
+
   if (new_offset != offset) {
     offset = new_offset;
     return true;
@@ -123,20 +130,23 @@ std::optional<TimelineOffset> TimelineOffset::Create(
   DCHECK(list.length());
   NamedRange range_name = NamedRange::kNone;
   Length offset = Length::Percent(default_percent);
-  std::optional<String> style_dependent_offset_str;
+
+  // Extract the range name and offset CSSValue from the parsed list.
+  const CSSValue* css_offset_value = nullptr;
   if (list.Item(0).IsIdentifierValue()) {
     range_name = To<CSSIdentifierValue>(list.Item(0)).ConvertTo<NamedRange>();
     if (list.length() == 2u) {
-      const CSSValue* css_offset_value = &list.Item(1);
-      offset = ResolveLength(element, css_offset_value);
-      if (IsStyleDependent(css_offset_value)) {
-        style_dependent_offset_str = css_offset_value->CssText();
-      }
+      css_offset_value = &list.Item(1);
     }
   } else {
-    const CSSValue* css_offset_value = &list.Item(0);
+    css_offset_value = &list.Item(0);
+  }
+
+  // Resolve the offset and store CSS text for values that need re-resolution.
+  std::optional<String> style_dependent_offset_str;
+  if (css_offset_value) {
     offset = ResolveLength(element, css_offset_value);
-    if (IsStyleDependent(css_offset_value)) {
+    if (IsStyleDependent(css_offset_value) || offset.IsFixed()) {
       style_dependent_offset_str = css_offset_value->CssText();
     }
   }
@@ -184,6 +194,7 @@ std::optional<TimelineOffset> TimelineOffset::Create(
       std::optional<double> number = css_value->GetValueIfKnown();
       CHECK(number.has_value());
       parsed_offset = Length::Fixed(number.value());
+      style_dependent_offset_str = css_value->CssText();
     } else if (css_value->IsPercentage()) {
       std::optional<double> number = css_value->GetValueIfKnown();
       CHECK(number.has_value());
@@ -238,16 +249,21 @@ Length TimelineOffset::ResolveLength(Element* element, const CSSValue* value) {
   ElementResolveContext element_resolve_context(*element);
   Document& document = element->GetDocument();
   CSSToLengthConversionData::Flags ignored_flags = 0;
+
+  // Use zoom=1.0 to produce CSS pixel values, consistent with the early returns
+  // above for plain px/percentage values. Using EffectiveZoom() here would
+  // cause pixel values inside calc() expressions to be pre-zoomed, which leads
+  // to double-zooming when callers (e.g. ComputeTriggerBoundary) later apply
+  // zoom explicitly via Length::Zoom().
   CSSToLengthConversionData length_conversion_data(
       element->ComputedStyleRef(), element_resolve_context.ParentStyle(),
       element_resolve_context.RootElementStyle(),
       CSSToLengthConversionData::ViewportSize(document.GetLayoutView()),
       CSSToLengthConversionData::ContainerSizes(element),
       CSSToLengthConversionData::AnchorData(),
-      element->GetComputedStyle()->EffectiveZoom(), ignored_flags, element);
+      /*zoom=*/1.0f, ignored_flags, element);
 
-  return DynamicTo<CSSPrimitiveValue>(value)->ConvertToLength(
-      length_conversion_data);
+  return To<CSSPrimitiveValue>(*value).ConvertToLength(length_conversion_data);
 }
 
 /* static */

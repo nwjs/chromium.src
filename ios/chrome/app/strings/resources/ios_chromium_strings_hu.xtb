@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="hu">
 <translation id="1000436330784933699">Itt nyithatja meg a Lens funkciót.</translation>
+<translation id="1005291068154454184">Teljes képernyős videó arról, hogyan állítható be a Chromium alapértelmezettként</translation>
 <translation id="1042296835509784301">Megnyitja a Jelszókezelőt a Chromiumban.</translation>
 <translation id="1047130070405668746">Válassza ki a Chromium böngészőt.</translation>
 <translation id="1091252999271033193">Ez azt jelenti, hogy a Chromium mindig a mobilwebhelyet kéri majd.</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">Ellenőrzi az URL-eket a Chromiumban a nem biztonságos webhelyekről tárolt lista alapján. Ha valamelyik webhely megpróbálja ellopni az Ön jelszavát, illetve ha Ön kártékony fájlt tölt le, akkor a Chromium elküldheti az URL-eket is (az oldal tartalmának részeivel együtt) a Biztonságos Böngészésnek.</translation>
 <translation id="2314220608288760290">A Chromium automatikusan inkognitó módban nyitja meg a YouTube inkognitó linkjeit.</translation>
 <translation id="231828342043114302">Ha személyre szabott tartalmakat szeretne kapni az érdeklődési körei alapján, jelentkezzen be a Chromiumba.</translation>
-<translation id="2326738825692478496">Az Ön bizonyos Chromium-adatait még nem mentette a rendszer a Google-fiókjába.
-
-A kijelentkezés előtt várjon néhány percet. Ha most jelentkezik ki, akkor ezek az adatok törlődnek.</translation>
 <translation id="2334943301233020675">A következő azonosítókulcsokat nem importálta a rendszer a Jelszókezelőbe, mert nem felelnek meg a követelményeknek.</translation>
 <translation id="2337722506862731008">A Chromium megosztása</translation>
 <translation id="2340423701577464731">Olvasólista-elem felvétele a Chromiumba</translation>
@@ -103,7 +101,6 @@ A kijelentkezés előtt várjon néhány percet. Ha most jelentkezik ki, akkor e
 Az adatokat a Chromium-élmény javítására használó további beállításokért keresse fel a <ph name="BEGIN_LINK" />Google-szolgáltatások<ph name="END_LINK" /> oldalát.</translation>
 <translation id="2832168932648876507">Hangalapú keresés a Chromiumban.</translation>
 <translation id="2843571538056574338">A Chromium használata automatikus kitöltéshez</translation>
-<translation id="2899085719655668655">Videós kép a képben útmutató a Chromium alapértelmezettként való beállításának módjáról</translation>
 <translation id="2918709798697875261">Szervezete nem engedélyezi, hogy bejelentkezzen a Chromiumba.</translation>
 <translation id="2942241131342758843">A Chromiumot alapértelmezett böngészőként használva linkek nyithatók meg, modulokban lehet keresni, és jelszavak tölthetők be automatikusan az egyéb alkalmazásokban</translation>
 <translation id="2977470724722393594">A Chromium naprakész</translation>

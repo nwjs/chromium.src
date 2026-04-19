@@ -20,9 +20,34 @@ std::string GetDaisyChainSourceString(DaisyChainSource source) {
       return "WebHandoff";
     case DaisyChainSource::kAutoOpenPdf:
       return "AutoOpenPdf";
-    default:
+    case DaisyChainSource::kUnknown:
       return "Unknown";
   }
+}
+
+ResponseSegmentation GetResponseSegmentation(bool attached,
+                                             mojom::WebClientMode mode,
+                                             mojom::InvocationSource source) {
+  if (mode == mojom::WebClientMode::kUnknown) {
+    return ResponseSegmentation::kUnknown;
+  }
+
+  ModeOffset modeOffset;
+  if (mode == mojom::WebClientMode::kText && attached) {
+    modeOffset = ModeOffset::kTextAttached;
+  } else if (mode == mojom::WebClientMode::kAudio && attached) {
+    modeOffset = ModeOffset::kAudioAttached;
+  } else if (mode == mojom::WebClientMode::kText && !attached) {
+    modeOffset = ModeOffset::kTextDetached;
+  } else {
+    modeOffset = ModeOffset::kAudioDetached;
+  }
+
+  int baseIndex =
+      static_cast<int>(source) * (static_cast<int>(ModeOffset::kMaxValue));
+  int offset = static_cast<int>(modeOffset);
+
+  return static_cast<ResponseSegmentation>(baseIndex + offset);
 }
 
 GlicEntrypoint GetEntrypointFromInvocationSource(
@@ -58,8 +83,16 @@ GlicEntrypoint GetEntrypointFromInvocationSource(
       return GlicEntrypoint::kAutoOpenedForPdf;
     case glic::mojom::InvocationSource::kIph:
       return GlicEntrypoint::kIph;
-    default:
-      // All other ones, including mojom::InvocationSource::kUnsupported.
+    case glic::mojom::InvocationSource::kWebContentsContextMenu:
+      return GlicEntrypoint::kWebContentsContextMenu;
+    case glic::mojom::InvocationSource::kFre:
+    case glic::mojom::InvocationSource::kProfilePicker:
+    case glic::mojom::InvocationSource::kUnsupported:
+    case glic::mojom::InvocationSource::kAfterSignIn:
+    case glic::mojom::InvocationSource::kActorTaskIcon:
+    case glic::mojom::InvocationSource::kHandoffButton:
+    case glic::mojom::InvocationSource::kCaptureRegionHotkey:
+    case glic::mojom::InvocationSource::kAnchoredContextualCue:
       return GlicEntrypoint::kOther;
   }
 }
@@ -70,6 +103,8 @@ std::string GetEntrypointString(GlicEntrypoint entrypoint) {
       return "AutoOpenedByContextualCue";
     case GlicEntrypoint::kAutoOpenedForPdf:
       return "AutoOpenedForPdf";
+    case GlicEntrypoint::kWebContentsContextMenu:
+      return "WebContentsContextMenu";
     case GlicEntrypoint::kIph:
       return "Iph";
     case GlicEntrypoint::kNavigationCapture:
@@ -96,8 +131,6 @@ std::string GetEntrypointString(GlicEntrypoint entrypoint) {
       return "TopChromeButton";
     case GlicEntrypoint::kWhatsNew:
       return "WhatsNew";
-    default:
-      return "Other";
   }
 }
 }  // namespace glic

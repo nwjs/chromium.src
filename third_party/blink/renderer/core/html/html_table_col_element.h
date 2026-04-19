@@ -37,6 +37,10 @@ class CORE_EXPORT HTMLTableColElement final : public HTMLTablePartElement {
  public:
   HTMLTableColElement(const QualifiedName& tag_name, Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLTableColElement;
+  }
+
   unsigned span() const { return span_; }
   void setSpan(unsigned);
 

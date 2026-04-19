@@ -83,6 +83,7 @@ source_set("host_main_headers") {
     "//remoting/host/crash:crash_uploader_main_headers",
     "//remoting/host/it2me:main_headers",
     "//remoting/host/linux:login_session_reporter_main_headers",
+    "//remoting/host/linux:remote_session_info_main_headers",
     "//remoting/host/mac:agent_process_broker_main_headers",
     "//remoting/host/mac:host_service_main_headers",
     "//remoting/host/mac:remoting_native_messaging_host",
@@ -97,10 +98,8 @@ source_set("host_main_headers") {
     "//remoting/host/win:remoting_desktop",
     "//remoting/host/win:remoting_me2me_host",
   ]
-  sources = [
-    "host_export.h",
-    "host_main.h",
-  ]
+  sources = [ "host_main.h" ]
+  public_deps = [ "//remoting/base:remoting_export" ]
 }
 
 source_set("common_headers") {
@@ -1273,6 +1272,9 @@ if (enable_me2me_host) {
   } else {
     shared_library("remoting_core") {
       deps = [ ":implementation" ]
+      if (is_posix) {
+        deps += [ "//remoting/base:security_key_socket_name" ]
+      }
 
       if (!is_component_build) {
         if (is_linux) {

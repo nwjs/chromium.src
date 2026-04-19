@@ -25,7 +25,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -61,7 +60,6 @@ import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -70,6 +68,7 @@ import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserActionableError;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -156,7 +155,8 @@ public class IdentityDiscController
                         /* canShow= */ false,
                         /* drawable= */ null,
                         /* onClickListener= */ view -> onClick(),
-                        mContext.getString(R.string.accessibility_toolbar_btn_identity_disc),
+                        /* contentDescription= */ SigninUtils.getContentDescriptionForIdentityDisc(
+                                mContext, null, UserActionableError.NONE),
                         /* supportsTinting= */ false,
                         new IphCommandBuilder(
                                 mContext.getResources(),
@@ -196,41 +196,38 @@ public class IdentityDiscController
             return;
         }
 
-        String email = CoreAccountInfo.getEmailFrom(getSignedInAccountInfo());
         ensureProfileDataCache(mProfile);
+        final @Nullable CoreAccountId accountId =
+                CoreAccountInfo.getIdFrom(getSignedInAccountInfo());
+        final @Nullable DisplayableProfileData profileData =
+                accountId != null ? mProfileDataCache.getById(accountId) : null;
 
         mButtonData.setButtonSpec(
-                buttonSpecWithDrawableAndDescription(mButtonData.getButtonSpec(), email));
+                buttonSpecWithDrawableAndDescription(mButtonData.getButtonSpec(), profileData));
         mButtonData.setCanShow(true);
     }
 
     private ButtonSpec buttonSpecWithDrawableAndDescription(
-            ButtonSpec buttonSpec, @Nullable String email) {
-        Drawable drawable = getProfileImage(email);
+            ButtonSpec buttonSpec, @Nullable DisplayableProfileData profileData) {
+        Drawable drawable = getProfileImage(profileData);
         if (buttonSpec.getDrawable() == drawable) {
             return buttonSpec;
         }
 
         // `supportsTinting` must be false when showing the user's profile image or its placeholder,
         // to not alter the images colors in those cases.
-        boolean shouldSupportTinting = email == null;
-        assumeNonNull(mProfileDataCache);
-        DisplayableProfileData profileData =
-                email == null ? null : mProfileDataCache.getProfileDataOrDefault(email);
+        boolean shouldSupportTinting = profileData == null;
         String contentDescription =
                 SigninUtils.getContentDescriptionForIdentityDisc(
                         mContext, profileData, mIdentityError);
-        return new ButtonSpec(
-                drawable,
-                buttonSpec.getOnClickListener(),
-                /* onLongClickListener= */ null,
-                contentDescription,
-                shouldSupportTinting,
-                buttonSpec.getIphCommandBuilder(),
-                AdaptiveToolbarButtonVariant.UNKNOWN,
-                buttonSpec.getActionChipLabelResId(),
-                buttonSpec.getHoverTooltipTextId(),
-                /* hasErrorBadge= */ mIdentityError != UserActionableError.NONE);
+        return new ButtonSpec.Builder(buttonSpec)
+                .setDrawable(drawable)
+                .setContentDescription(contentDescription)
+                .setSupportsTinting(shouldSupportTinting)
+                .setHasErrorBadge(mIdentityError != UserActionableError.NONE)
+                .setButtonVariant(AdaptiveToolbarButtonVariant.UNKNOWN)
+                .setOnLongClickListener(null)
+                .build();
     }
 
     /**
@@ -251,13 +248,14 @@ public class IdentityDiscController
     }
 
     /**
-     * Returns Profile picture Drawable. The size of the image corresponds to current visual state.
+     * Returns profile picture {@link Drawable}. The profile picture is determined by the given
+     * {@link DisplayableProfileData}. If null, a default placeholder image is returned.
      */
-    private Drawable getProfileImage(@Nullable String email) {
-        assumeNonNull(mProfileDataCache);
-        return email == null
-                ? AppCompatResources.getDrawable(mContext, R.drawable.account_circle)
-                : mProfileDataCache.getProfileDataOrDefault(email).getImage();
+    private Drawable getProfileImage(@Nullable DisplayableProfileData profileData) {
+        if (profileData == null) {
+            return AppCompatResources.getDrawable(mContext, R.drawable.account_circle);
+        }
+        return profileData.getImage();
     }
 
     /** Resets ProfileDataCache. Used for flushing cached image when sign-in state changes. */
@@ -359,8 +357,7 @@ public class IdentityDiscController
         }
 
         @UserActionableError int error = SyncSettingsUtils.getSyncError(mProfile);
-        if (error == mIdentityError
-                || !ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
+        if (error == mIdentityError) {
             // Nothing changed.
             return;
         }
@@ -475,8 +472,8 @@ public class IdentityDiscController
                             .signinSurveyType(
                                     SigninSurveyController.SigninSurveyType.NTP_SIGNIN_BUTTON)
                             .build();
-            if (mSigninCoordinator != null) {
-                mSigninCoordinator.startSigninFlow(config);
+            if (SigninFeatureMap.getInstance().isActivitylessSigninAllEntryPointEnabled()) {
+                assumeNonNull(mSigninCoordinator).startSigninFlow(config);
             } else {
                 @Nullable Intent intent =
                         SigninAndHistorySyncActivityLauncherImpl.get()
@@ -509,9 +506,7 @@ public class IdentityDiscController
         assert !mProfile.isOffTheRecord();
 
         if (mSigninCoordinator == null
-                && SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
-                && SigninFeatureMap.isEnabled(
-                        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT)) {
+                && SigninFeatureMap.getInstance().isActivitylessSigninAllEntryPointEnabled()) {
             OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
             profileSupplier.set(mProfile);
 

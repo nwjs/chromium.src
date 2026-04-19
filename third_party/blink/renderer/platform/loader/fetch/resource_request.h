@@ -225,8 +225,7 @@ class PLATFORM_EXPORT ResourceRequestHead {
   }
   void SetHTTPOrigin(const SecurityOrigin*);
   void ClearHTTPOrigin();
-  void SetHttpOriginIfNeeded(const SecurityOrigin*);
-  void SetHTTPOriginToMatchReferrerIfNeeded();
+  void SetHTTPOriginToMatchReferrerPolicyIfNeeded(const SecurityOrigin*);
 
   void SetHTTPUserAgent(const AtomicString& http_user_agent) {
     SetHttpHeaderField(http_names::kUserAgent, http_user_agent);
@@ -512,6 +511,13 @@ class PLATFORM_EXPORT ResourceRequestHead {
   void SetPurposeHeader(const String& value) { purpose_header_ = value; }
   const String& GetPurposeHeader() const { return purpose_header_; }
 
+  void SetEventSourceLastEventId(const String& value) {
+    event_source_last_event_id_ = value;
+  }
+  const String& GetEventSourceLastEventId() const {
+    return event_source_last_event_id_;
+  }
+
   // A V8 stack id string describing where the request was initiated. DevTools
   // can use this to display the initiator call stack when debugging a process
   // that later intercepts the request, e.g., in a service worker fetch event
@@ -698,14 +704,12 @@ class PLATFORM_EXPORT ResourceRequestHead {
 #endif
   }
 
-  bool AllowsDeviceBoundSessionRegistration() const {
-    return allows_device_bound_session_registration_;
+  bool AllowsDeviceBoundSessions() const {
+    return allows_device_bound_sessions_;
   }
 
-  void SetAllowsDeviceBoundSessionRegistration(
-      bool allows_device_bound_session_registration) {
-    allows_device_bound_session_registration_ =
-        allows_device_bound_session_registration;
+  void SetAllowsDeviceBoundSessions(bool allows_device_bound_sessions) {
+    allows_device_bound_sessions_ = allows_device_bound_sessions;
   }
 
  private:
@@ -799,6 +803,7 @@ class PLATFORM_EXPORT ResourceRequestHead {
   String requested_with_header_;
   String client_data_header_;
   String purpose_header_;
+  String event_source_last_event_id_;
 
   std::optional<String> devtools_stack_id_;
 
@@ -866,10 +871,10 @@ class PLATFORM_EXPORT ResourceRequestHead {
   bool is_set_url_allowed_ = true;
 #endif
 
-  // Whether this request is allowed to register new device bound
-  // sessions or accept challenges on device bound sessions (e.g. due to
-  // an Origin Trial)
-  bool allows_device_bound_session_registration_ = false;
+  // Whether this request is allowed to belong to a device bound session. This
+  // includes registering a new session, accepting challenges, or deferring the
+  // request until a session is refreshed.
+  bool allows_device_bound_sessions_ = true;
 };
 
 class PLATFORM_EXPORT ResourceRequestBody {

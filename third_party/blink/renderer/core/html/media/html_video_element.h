@@ -60,6 +60,10 @@ class CORE_EXPORT HTMLVideoElement final
   explicit HTMLVideoElement(Document&);
   void Trace(Visitor*) const override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLVideoElement;
+  }
+
   bool HasPendingActivity() const final;
 
   // Node override.

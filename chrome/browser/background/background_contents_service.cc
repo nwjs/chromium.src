@@ -6,11 +6,14 @@
 
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/one_shot_event.h"
 #include "base/strings/string_util.h"
@@ -147,14 +150,21 @@ class CrashNotificationDelegate : public message_center::NotificationDelegate {
   extensions::ExtensionId extension_id_;
 };
 
-void ReloadExtension(const std::string& extension_id, Profile* profile) {
-  if (g_browser_process->IsShuttingDown() ||
-      !g_browser_process->profile_manager()->IsValidProfile(profile)) {
+void ReloadExtension(const std::string& extension_id,
+                     base::WeakPtr<Profile> profile) {
+  if (!profile) {
     return;
   }
 
-  auto* extension_registrar = extensions::ExtensionRegistrar::Get(profile);
-  auto* extension_registry = extensions::ExtensionRegistry::Get(profile);
+  if (g_browser_process->IsShuttingDown() ||
+      !g_browser_process->profile_manager() ||
+      !g_browser_process->profile_manager()->IsValidProfile(profile.get())) {
+    return;
+  }
+
+  auto* extension_registrar =
+      extensions::ExtensionRegistrar::Get(profile.get());
+  auto* extension_registry = extensions::ExtensionRegistry::Get(profile.get());
   if (!extension_registrar || !extension_registry) {
     return;
   }
@@ -197,6 +207,8 @@ const net::BackoffEntry::Policy kExtensionReloadBackoffPolicy = {
 };
 
 int BackgroundContentsService::restart_delay_in_ms_ = 3000;  // 3 seconds.
+// Used to simulate browser shutdown without destroying the real browser
+// process in browser tests.
 
 BackgroundContentsService::BackgroundContentsService(Profile* profile)
     : profile_(profile) {
@@ -411,7 +423,8 @@ void BackgroundContentsService::RestartForceInstalledExtensionOnCrash(
   // OnExtensionUnloaded() notification and checked the unload reason.
   DCHECK_GT(restart_delay, 0);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce(&ReloadExtension, extension->id(), profile_),
+      FROM_HERE,
+      base::BindOnce(&ReloadExtension, extension->id(), profile_->GetWeakPtr()),
       base::Milliseconds(restart_delay));
 }
 
@@ -671,11 +684,12 @@ void BackgroundContentsService::AddWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     bool* was_blocked) {
-  Browser* browser = chrome::FindLastActiveWithProfile(
+  BrowserWindowInterface* const browser = chrome::FindLastActiveWithProfile(
       Profile::FromBrowserContext(new_contents->GetBrowserContext()));
   if (browser) {
-    chrome::AddWebContents(browser, nullptr, std::move(new_contents),
-                           target_url, disposition, window_features);
+    chrome::AddWebContents(browser->GetBrowserForMigrationOnly(), nullptr,
+                           std::move(new_contents), target_url, disposition,
+                           window_features);
   }
 }
 

@@ -81,9 +81,6 @@ Vær opmærksom på følgende:
 <translation id="2703746758996815929">Aktivér notifikationer i iOS-indstillingerne for at få nyttige tips til Chrome.</translation>
 <translation id="2728851697704606655">Oversæt med Google Lens</translation>
 <translation id="2736805085127235148">Chrome-notifikationer er i øjeblikket deaktiveret i enhedsindstillingerne.</translation>
-<translation id="2754428955276778271">Nogle af dine Chrome-data er endnu ikke gemt på din Google-konto.
-
-Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes de pågældende data.</translation>
 <translation id="2767464022270041271">Der er ingen gemte adgangskoder. Google Adgangs­kode­admin­istrator kan tjekke dine adgangskoder, når du gemmer dem.</translation>
 <translation id="2788811701191021538">Åbner siden med indstillinger for betalingsmetoder i Chrome.</translation>
 <translation id="2876628302275096482">Se, <ph name="BEGIN_LINK" />hvordan Chrome beskytter dine data<ph name="END_LINK" /></translation>
@@ -188,6 +185,7 @@ Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes
 <translation id="5395376160638294582">Sørg for, at du altid kan bruge Chrome-dataene på din Google-konto</translation>
 <translation id="5404252374083197467">Vil du angive Chrome som standard?</translation>
 <translation id="5439191312780166229">Advarer dig om skadelige websites – også websites, som Google ikke tidligere har kendt til – ved at analysere flere data fra websites end Standardbeskyttelse. Du kan vælge at springe Chrome-advarsler over.</translation>
+<translation id="5453077102022695084">Video i fuld skærm, der viser, hvordan du angiver Chrome som standard</translation>
 <translation id="5460571915754665838">4. Vælg Chrome</translation>
 <translation id="5492504007368565877">Google Adgangs­kode­admin­istrator kan ikke tjekke dine adgangskoder.</translation>
 <translation id="5525095647255982834">Hvis du vil sende denne fane til en anden enhed, skal du logge ind på Chrome på den pågældende enhed.</translation>
@@ -374,7 +372,6 @@ Dine data blev krypteret med din adgangssætning <ph name="TIME" />. Angiv adgan
 <translation id="9176561303811134420">Administrer betalingsmetoder i Chrome</translation>
 <translation id="9181628561061032322">Åbner de seneste faner i Chrome.</translation>
 <translation id="924447568950697217">Gør Chrome til din standardbrowser</translation>
-<translation id="93622496651329736">Videovejledning i tilstanden integreret billede, der viser, hvordan du angiver Chrome som standard</translation>
 <translation id="948597495737267756">Åbner siden med din Chrome-historik.</translation>
 <translation id="954347330803595209">Importér dine data for at bruge dine adgangskoder, din historik, dine bogmærker og dine kreditkort i Chrome</translation>
 <translation id="97300214378190234">Brug Chrome, hver gang du trykker på links i andre apps.</translation>

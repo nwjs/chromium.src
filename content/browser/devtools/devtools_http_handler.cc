@@ -26,7 +26,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/message_loop/message_pump_type.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -256,19 +255,18 @@ void TerminateOnUI(std::unique_ptr<base::Thread> thread,
 }
 
 void ServerStartedOnUI(base::WeakPtr<DevToolsHttpHandler> handler,
-                       base::Thread* thread,
+                       std::unique_ptr<base::Thread> thread,
                        ServerWrapper* server_wrapper,
                        DevToolsSocketFactory* socket_factory,
                        std::unique_ptr<net::IPEndPoint> ip_address) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (handler && thread && server_wrapper) {
     handler->ServerStarted(
-        std::unique_ptr<base::Thread>(thread),
-        std::unique_ptr<ServerWrapper>(server_wrapper),
+        std::move(thread), std::unique_ptr<ServerWrapper>(server_wrapper),
         std::unique_ptr<DevToolsSocketFactory>(socket_factory),
         std::move(ip_address));
   } else {
-    TerminateOnUI(std::unique_ptr<base::Thread>(thread),
+    TerminateOnUI(std::move(thread),
                   std::unique_ptr<ServerWrapper>(server_wrapper),
                   std::unique_ptr<DevToolsSocketFactory>(socket_factory));
   }
@@ -324,7 +322,7 @@ void StartServerOnHandlerThread(
 
   GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE,
-      base::BindOnce(&ServerStartedOnUI, std::move(handler), thread.release(),
+      base::BindOnce(&ServerStartedOnUI, std::move(handler), std::move(thread),
                      server_wrapper.release(), socket_factory.release(),
                      std::move(ip_address)));
 }
@@ -355,6 +353,8 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
   }
 
   std::string GetTypeForMetrics() override { return "RemoteDebugger"; }
+
+  bool MayAccessAllCookies() override { return true; }
 
   void AgentHostClosed(DevToolsAgentHost* agent_host) override {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -523,6 +523,12 @@ void ServerWrapper::OnHttpRequest(int connection_id,
 void ServerWrapper::OnWebSocketRequest(
     int connection_id,
     const net::HttpServerRequestInfo& request) {
+  if (!RequestIsSafeToServe(request)) {
+    Send500(connection_id,
+            "Host header is specified and is not an IP address or localhost.");
+    return;
+  }
+
   GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&DevToolsHttpHandler::OnWebSocketRequest,
                                 handler_, connection_id, request));
@@ -969,7 +975,7 @@ void DevToolsHttpHandler::SendJson(int connection_id,
     base::JSONWriter::WriteWithOptions(
         *value, base::JSONWriter::OPTIONS_PRETTY_PRINT, &json_value);
   }
-  std::string json_message = base::WriteJson(base::Value(message)).value_or("");
+  std::string json_message = base::WriteJson(message).value_or("");
 
   net::HttpServerResponseInfo response(status_code);
   response.AddHeader("Content-Security-Policy", "frame-ancestors 'none'");

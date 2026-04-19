@@ -4,6 +4,16 @@
 
 import {sendWithPromise} from 'chrome://resources/js/cr.js';
 
+/**
+ * Information for a login permission for a given site.
+ */
+export interface LoginPermission {
+  signonRealm: string;
+  username: string;
+  displayName: string;
+  faviconUrl: string;
+}
+
 export interface GlicBrowserProxy {
   setGlicOsLauncherEnabled(enabled: boolean): void;
   getGlicShortcut(): Promise<string>;
@@ -12,8 +22,18 @@ export interface GlicBrowserProxy {
   setGlicFocusToggleShortcut(shortcut: string): Promise<void>;
   setShortcutSuspensionState(isSuspended: boolean): void;
   getDisallowedByAdmin(): Promise<boolean>;
+  /**
+   * Get the list of actor login permissions.
+   */
+  getActorLoginPermissions(): Promise<LoginPermission[]>;
+  /**
+   * Revoke actor login permission for a given signonRealm.
+   * @param signonRealm The signon realm for which to revoke the permission.
+   */
+  revokeActorLoginPermission(signonRealm: string, username: string): void;
   getGlicSelectionShortcut(): Promise<string>;
   setGlicSelectionShortcut(shortcut: string): Promise<void>;
+  getWebActuationToggleVisibility(): Promise<boolean>;
 }
 
 export class GlicBrowserProxyImpl implements GlicBrowserProxy {
@@ -22,19 +42,19 @@ export class GlicBrowserProxyImpl implements GlicBrowserProxy {
   }
 
   getGlicShortcut() {
-    return sendWithPromise('getGlicShortcut');
+    return sendWithPromise<string>('getGlicShortcut');
   }
 
   setGlicShortcut(shortcut: string) {
-    return sendWithPromise('setGlicShortcut', shortcut);
+    return sendWithPromise<void>('setGlicShortcut', shortcut);
   }
 
   getGlicFocusToggleShortcut() {
-    return sendWithPromise('getGlicFocusToggleShortcut');
+    return sendWithPromise<string>('getGlicFocusToggleShortcut');
   }
 
   setGlicFocusToggleShortcut(shortcut: string) {
-    return sendWithPromise('setGlicFocusToggleShortcut', shortcut);
+    return sendWithPromise<void>('setGlicFocusToggleShortcut', shortcut);
   }
 
   setShortcutSuspensionState(shouldSuspend: boolean) {
@@ -42,15 +62,27 @@ export class GlicBrowserProxyImpl implements GlicBrowserProxy {
   }
 
   getDisallowedByAdmin() {
-    return sendWithPromise('getGlicDisallowedByAdmin');
+    return sendWithPromise<boolean>('getGlicDisallowedByAdmin');
+  }
+
+  getActorLoginPermissions() {
+    return sendWithPromise<LoginPermission[]>('getActorLoginPermissions');
+  }
+
+  revokeActorLoginPermission(signonRealm: string, username: string) {
+    chrome.send('revokeActorLoginPermission', [signonRealm, username]);
   }
 
   getGlicSelectionShortcut() {
-    return sendWithPromise('getGlicSelectionShortcut');
+    return sendWithPromise<string>('getGlicSelectionShortcut');
   }
 
   setGlicSelectionShortcut(shortcut: string) {
-    return sendWithPromise('setGlicSelectionShortcut', shortcut);
+    return sendWithPromise<void>('setGlicSelectionShortcut', shortcut);
+  }
+
+  getWebActuationToggleVisibility() {
+    return sendWithPromise<boolean>('getWebActuationToggleVisibility');
   }
 
   static getInstance(): GlicBrowserProxy {

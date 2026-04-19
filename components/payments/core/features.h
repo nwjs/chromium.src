@@ -43,8 +43,6 @@ BASE_DECLARE_FEATURE(kGPayAppDynamicUpdate);
 // credential store APIs, or if it can only rely on the user-profile database.
 BASE_DECLARE_FEATURE(kSecurePaymentConfirmationUseCredentialStoreAPIs);
 
-// Used to enable the refreshed fallback flow for Secure Payment Confirmation.
-BASE_DECLARE_FEATURE(kSecurePaymentConfirmationFallback);
 
 // Used to control the usage of the renderer URL loader in the payment request.
 BASE_DECLARE_FEATURE(kPaymentRequestUseRendererUrlLoader);
@@ -52,6 +50,14 @@ BASE_DECLARE_FEATURE(kPaymentRequestUseRendererUrlLoader);
 // Used to control whether Payment Request/Handler dialogs are rejected if the
 // browser window is too small to contain them.
 BASE_DECLARE_FEATURE(kPaymentRequestRejectTooSmallWindows);
+
+// Used to control whether Payment Request allows Payment Handlers to
+// differentiate between 'internal error' and 'user cancelled' as outcomes.
+BASE_DECLARE_FEATURE(kPaymentRequestSupportReportingAppError);
+
+// Used to control whether Payment Handler dialog includes an initiator during
+// the URL load.
+BASE_DECLARE_FEATURE(kPaymentHandlerDialogUseInitiatorInUrlLoad);
 
 }  // namespace features
 }  // namespace payments

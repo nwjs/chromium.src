@@ -153,23 +153,13 @@ class BrowserAutofillManager : public AutofillManager {
   ~BrowserAutofillManager() override;
 
   // Fills or previews `form` with the information in `filling_payload`.
+  // `action_persistence` denotes whether the operation should fill or preview
+  // the form.
   // `field_id` is the ID of the field that triggered the filling operation.
   // `trigger_source` is the reason for triggering the filling operation.
-  // `action_persistence` denotes whether the operation is a filling or preview
-  // operation.
-  virtual void FillOrPreviewForm(mojom::ActionPersistence action_persistence,
-                                 const FormData& form,
-                                 const FieldGlobalId& field_id,
-                                 const FillingPayload& filling_payload,
-                                 AutofillTriggerSource trigger_source);
-
-  // Fills or previews `form` with the information in `filling_payload`.
   // `blocked_fields` are fields which must not be filled because another
   // filling product of higher priority claims them.
-  //
-  // TODO(crbug.com/489959284): Add blocked_fields to the signature of
-  // FillOrPreviewForm and remove this method.
-  virtual void FillOrPreviewFields(
+  virtual void FillOrPreviewForm(
       mojom::ActionPersistence action_persistence,
       const FormData& form,
       const FieldGlobalId& field_id,
@@ -273,6 +263,11 @@ class BrowserAutofillManager : public AutofillManager {
       const FillingPayload& filling_payload,
       AutofillTriggerSource trigger_source,
       std::optional<RefillTriggerReason> refill_trigger_reason);
+
+  // Handles post-filling logic of `field_type_used`, like logging field
+  // metrics.
+  void OnDidFillOrPreviewField(mojom::ActionPersistence action_persistence,
+                               std::optional<FieldType> field_type_used);
 
   // AutofillManager:
   base::WeakPtr<AutofillManager> GetWeakPtr() override;
@@ -513,6 +508,21 @@ class BrowserAutofillManager : public AutofillManager {
       std::vector<SuggestionGenerator::ReturnedSuggestions>
           returned_suggestions);
 
+  // Merges suggestions with `FillingProduct::kAddress` with the other
+  // suggestions whose products supports merging with address suggestions (see
+  // `kSupportedMerges` in `suggestion_generator.h` for more details).
+  std::vector<Suggestion> MergeWithAddressSuggestions(
+      std::map<FillingProduct, std::vector<Suggestion>>& suggestions_map,
+      const FormGlobalId& form_id,
+      const FieldGlobalId& field_id,
+      AutofillSuggestionTriggerSource trigger_source);
+
+  // Merges suggestions with `FillingProduct::kPlusAddress` with the other
+  // suggestions whose products supports merging with plus address suggestions
+  // (see `kSupportedMerges` in `suggestion_generator.h` for more details).
+  std::vector<Suggestion> MergeWithPlusAddressSuggestions(
+      std::map<FillingProduct, std::vector<Suggestion>>& suggestions_map);
+
   // Generates and prioritizes different kinds of suggestions and
   // suggestion surfaces accordingly (Autofill AI, SingleFieldFiller(s), address
   // and credit card popups, OTP suggestions).
@@ -730,6 +740,12 @@ class BrowserAutofillManager : public AutofillManager {
   std::vector<std::string> four_digit_combinations_in_dom_;
 
   std::u16string last_unlocked_credit_card_cvc_;
+
+  // Contains a list of suggestion generators. This must be declared near the
+  // bottom of the class (after members like `bnpl_manager_` and
+  // `amount_extraction_manager_`) to ensure it is destroyed first, as some
+  // generators take class members from BrowserAutofillManager into their
+  // constructors to set as class members.
   std::vector<std::unique_ptr<SuggestionGenerator>> suggestion_generators_;
 
   // Handles general Address on typing feature management, mainly the logic

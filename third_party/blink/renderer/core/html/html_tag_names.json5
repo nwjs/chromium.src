@@ -120,6 +120,8 @@
       name: "colgroup",
       interfaceName: "HTMLTableColElement",
     },
+    // TODO(crbug.com/491158089): This should be removed in M150, once the
+    // HTMLCommandElementRemoval flag was removed.
     {
       name: "command",
       interfaceName: "HTMLUnknownElement",
@@ -286,6 +288,10 @@
       name: "install",
       interfaceName: "HTMLInstallElement",
       runtimeEnabled: "InstallElement",
+      runtimeFlagHasOriginTrial: true,
+      // This element could be enabled in some documents but not others (due to
+      // origin trials), so we need custom type helpers.
+      noTypeHelpers: true,
     },
     {
       name: "kbd",

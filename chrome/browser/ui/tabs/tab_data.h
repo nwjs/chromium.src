@@ -11,15 +11,19 @@
 #include "base/callback_list.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/observer_list.h"
-#include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/contents_observing_tab_feature.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
-#include "chrome/browser/ui/tabs/tab_network_state.h"
+#include "components/tabs/public/tab_alert.h"
+#include "components/tabs/public/tab_network_state.h"
 #include "ui/base/models/image_model.h"
 #include "url/gurl.h"
 
 class TabResourceUsage;
 class ThumbnailImage;
+
+namespace content {
+class WebContents;
+}
 
 namespace tab_groups {
 class CollaborationMessagingTabData;
@@ -84,7 +88,6 @@ class TabDataObserver {
   const TabData& tab_data() { return tab_data_; }
 
  private:
-  void MaybeUpdateShouldThemifyFavicon();
   void NotifyTabDataChanged(TabChangeType change_type);
   void OnTabUIChange();
   void OnAlertsChanged(std::optional<TabAlert> alert_to_show);
@@ -92,6 +95,9 @@ class TabDataObserver {
                             bool new_pinned_state);
   void OnBlockedStateChanged(tabs::TabInterface* tab_interface,
                              bool new_blocked_state);
+  void OnTabDiscarded(tabs::TabInterface* tab_interface,
+                      content::WebContents* old_web_contents,
+                      content::WebContents* new_web_contents);
   void OnTabDetached(tabs::TabInterface* tab_interface,
                      tabs::TabInterface::DetachReason reason);
 
@@ -102,6 +108,7 @@ class TabDataObserver {
   base::CallbackListSubscription alert_change_subscription_;
   base::CallbackListSubscription pinned_state_change_subscription_;
   base::CallbackListSubscription blocked_state_change_subscription_;
+  base::CallbackListSubscription tab_discarded_subscription_;
   base::CallbackListSubscription tab_detached_subscription_;
   base::RepeatingCallbackList<void(TabChangeType, const TabData&)>
       tab_data_changed_callback_list_;

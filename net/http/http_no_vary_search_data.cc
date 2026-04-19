@@ -154,6 +154,19 @@ HttpNoVarySearchData HttpNoVarySearchData::CreateFromVaryParams(
 
 // static
 base::expected<HttpNoVarySearchData, HttpNoVarySearchData::ParseErrorEnum>
+HttpNoVarySearchData::ParseFromHeaderValue(std::string_view value) {
+  // The no-vary-search header is a dictionary type structured field.
+  const auto dict = structured_headers::ParseDictionary(value);
+  if (!dict.has_value()) {
+    // We don't recognize anything else. So this is an authoring error.
+    return base::unexpected(ParseErrorEnum::kNotDictionary);
+  }
+
+  return ParseNoVarySearchDictionary(dict.value());
+}
+
+// static
+base::expected<HttpNoVarySearchData, HttpNoVarySearchData::ParseErrorEnum>
 HttpNoVarySearchData::ParseFromHeaders(
     const HttpResponseHeaders& response_headers) {
   std::optional<std::string> normalized_header =
@@ -163,14 +176,27 @@ HttpNoVarySearchData::ParseFromHeaders(
     return base::unexpected(ParseErrorEnum::kOk);
   }
 
-  // The no-vary-search header is a dictionary type structured field.
-  const auto dict = structured_headers::ParseDictionary(*normalized_header);
-  if (!dict.has_value()) {
-    // We don't recognize anything else. So this is an authoring error.
-    return base::unexpected(ParseErrorEnum::kNotDictionary);
-  }
+  return ParseFromHeaderValue(*normalized_header);
+}
 
-  return ParseNoVarySearchDictionary(dict.value());
+// static
+bool HttpNoVarySearchData::HasBooleanParamsMember(
+    std::string_view header_value) {
+  const auto dict = structured_headers::ParseDictionary(header_value);
+  if (!dict.has_value()) {
+    return false;
+  }
+  auto it = dict->find("params");
+  if (it == dict->end()) {
+    return false;
+  }
+  const auto& member = it->second;
+  if (member.member_is_inner_list) {
+    return false;
+  }
+  // This is guaranteed by the structured headers parser API.
+  CHECK_EQ(member.member.size(), 1u);
+  return member.member[0].item.is_boolean();
 }
 
 bool HttpNoVarySearchData::operator==(const HttpNoVarySearchData& rhs) const =

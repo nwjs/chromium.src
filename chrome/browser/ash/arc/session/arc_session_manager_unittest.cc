@@ -2094,6 +2094,10 @@ class ArcSessionOobeOptInNegotiatorTest
   void SetUp() override {
     ArcSessionManagerTest::SetUp();
 
+    TestingBrowserProcess::GetGlobal()
+        ->platform_part()
+        ->InitializeComponentManager();
+
     ArcSessionManager::SetArcTermsOfServiceOobeNegotiatorEnabledForTesting(
         true);
 
@@ -2103,6 +2107,7 @@ class ArcSessionOobeOptInNegotiatorTest
     std::unique_ptr<ash::ConsolidatedConsentScreen>
         fake_consolidated_consent_screen =
             std::make_unique<ash::ConsolidatedConsentScreen>(
+                TestingBrowserProcess::GetGlobal()->local_state(),
                 TestingBrowserProcess::GetGlobal()
                     ->GetFeatures()
                     ->application_locale_storage(),
@@ -2138,6 +2143,10 @@ class ArcSessionOobeOptInNegotiatorTest
 
     ArcSessionManager::SetArcTermsOfServiceOobeNegotiatorEnabledForTesting(
         false);
+
+    TestingBrowserProcess::GetGlobal()
+        ->platform_part()
+        ->ShutdownComponentManager();
 
     ArcSessionManagerTest::TearDown();
   }

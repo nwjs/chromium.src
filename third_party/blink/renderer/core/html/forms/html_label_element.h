@@ -36,6 +36,10 @@ class CORE_EXPORT HTMLLabelElement final : public HTMLElement {
  public:
   explicit HTMLLabelElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLLabelElement;
+  }
+
   HTMLElement* controlForBinding() const;
   HTMLElement* Control() const;
   HTMLElement* formForBinding() const override;

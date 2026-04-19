@@ -33,6 +33,7 @@ class MenuRunner;
 class BrowserWindowInterface;
 class TabSearchBubbleHost;
 class TabStripFlatEdgeButton;
+class ExpandOnHoverLock;
 
 // A container for two TabStripFlatEdgeButtons that manages their flat edges
 // based on visibility and the combo button's orientation.
@@ -43,11 +44,17 @@ class TabStripComboButton : public views::View,
                             public gfx::AnimationDelegate {
   METADATA_HEADER(TabStripComboButton, views::View)
  public:
+  enum class Context {
+    kHorizontalTabStrip,
+    kVerticalTabStrip,
+  };
+
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTabSearchUnpinMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kProjectsPanelUnpinMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kEverythingMenuUnpinMenuItem);
 
-  explicit TabStripComboButton(BrowserWindowInterface* browser);
+  explicit TabStripComboButton(BrowserWindowInterface* browser,
+                               Context context);
   TabStripComboButton(const TabStripComboButton&) = delete;
   TabStripComboButton& operator=(const TabStripComboButton&) = delete;
   ~TabStripComboButton() override;
@@ -104,10 +111,13 @@ class TabStripComboButton : public views::View,
 
   void MaybeHideTabSearchButton();
 
+  bool IsTabSearchPinned();
+
   actions::ActionItem* GetStartButtonActionItem();
   actions::ActionItem* GetEndButtonActionItem();
 
   const raw_ptr<BrowserWindowInterface> browser_;
+  const Context context_;
   raw_ptr<TabStripFlatEdgeButton> start_button_ = nullptr;
   raw_ptr<TabStripFlatEdgeButton> end_button_ = nullptr;
 
@@ -131,6 +141,8 @@ class TabStripComboButton : public views::View,
   base::OneShotTimer hide_tab_search_timer_;
   base::ScopedObservation<TabSearchBubbleHost, TabSearchBubbleHostObserver>
       tab_search_bubble_host_observation_{this};
+
+  std::unique_ptr<ExpandOnHoverLock> expand_on_hover_lock_;
 
   base::CallbackListSubscription projects_panel_button_subscription_;
 };

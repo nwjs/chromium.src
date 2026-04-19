@@ -13,7 +13,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/payments/save_card_ui.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
@@ -176,7 +175,10 @@ void SaveCardOfferBubbleViews::AddedToWidget() {
     case PaymentsBubbleType::kUploadSave:
     case PaymentsBubbleType::kUploadInProgress:
     case PaymentsBubbleType::kUploadComplete:
-      lottie_resource_id = IDR_AUTOFILL_SAVE_CARD_SECURE_LOTTIE;
+      lottie_resource_id = base::FeatureList::IsEnabled(
+                               features::kAutofillEnableWalletBrandingV2)
+                               ? IDR_AUTOFILL_SAVE_CARD_TO_WALLET_LOTTIE
+                               : IDR_AUTOFILL_SAVE_CARD_SECURE_LOTTIE;
       break;
     case PaymentsBubbleType::kLocalCvcSave:
     case PaymentsBubbleType::kUploadCvcSave:
@@ -389,10 +391,15 @@ SaveCardOfferBubbleViews::CreateLegalMessageView() {
     return nullptr;
   }
 
+  bool v2_branding_enabled =
+      base::FeatureList::IsEnabled(features::kAutofillEnableWalletBrandingV2);
   return ::autofill::CreateLegalMessageView(
       message_lines,
-      base::UTF8ToUTF16(controller()->GetAccountInfo().GetEmail()),
-      GetProfileAvatar(controller()->GetAccountInfo()),
+      v2_branding_enabled
+          ? /*user_email=*/std::u16string()
+          : base::UTF8ToUTF16(controller()->GetAccountInfo().GetEmail()),
+      v2_branding_enabled ? /*user_avatar=*/ui::ImageModel()
+                          : GetProfileAvatar(controller()->GetAccountInfo()),
       base::BindRepeating(&SaveCardOfferBubbleViews::LinkClicked,
                           base::Unretained(this)));
 }

@@ -79,6 +79,8 @@ class TabModelJniBridge : public TabModel {
   void SetActiveIndex(int index) override;
   void ForceCloseAllTabs() override;
   void CloseTabAt(int index) override;
+  std::unique_ptr<content::WebContents> DetachWebContents(
+      tabs::TabHandle tab) override;
 
   tabs::TabInterface* CreateTab(
       TabAndroid* parent,
@@ -112,6 +114,9 @@ class TabModelJniBridge : public TabModel {
 
   void CloseTabsNavigatedInTimeWindow(const base::Time& begin_time,
                                       const base::Time& end_time) override;
+
+  tabs::TabStripCollection* GetTabStripCollection(
+      base::PassKey<tabs_api::AndroidTabStripModelAdapter>) override;
 
   tabs::TabInterface* DuplicateTab(TabAndroid* tab);
 

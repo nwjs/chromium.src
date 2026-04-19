@@ -31,9 +31,8 @@ export interface SearchEngine {
   isPrepopulated: boolean;
   isStarterPack: boolean;
   keyword: string;
-  modelIndex: number;
   name: string;
-  shouldConfirmDeletion: boolean;
+  shouldConfirmRemoval: boolean;
   url: string;
   urlLocked: boolean;
 }
@@ -43,6 +42,14 @@ export interface SearchEnginesInfo {
   actives: SearchEngine[];
   others: SearchEngine[];
   extensions: SearchEngine[];
+  [key: string]: SearchEngine[];
+}
+
+export interface CategorizedTemplateUrls {
+  activeSiteShortcuts: SearchEngine[];
+  inactiveSiteShortcuts: SearchEngine[];
+  activeFeatureShortcuts: SearchEngine[];
+  inactiveFeatureShortcuts: SearchEngine[];
   [key: string]: SearchEngine[];
 }
 
@@ -88,19 +95,21 @@ export enum ChoiceMadeLocation {
 
 export interface SearchEnginesBrowserProxy {
   setDefaultSearchEngine(
-      modelIndex: number, choiceMadeLocation: ChoiceMadeLocation,
+      id: number, choiceMadeLocation: ChoiceMadeLocation,
       saveGuestChoice: boolean|null): void;
 
-  setIsActiveSearchEngine(modelIndex: number, isActive: boolean): void;
+  setIsActiveSearchEngine(id: number, isActive: boolean): void;
 
-  removeSearchEngine(modelIndex: number): void;
+  removeSearchEngine(id: number): void;
 
-  searchEngineEditStarted(modelIndex: number): void;
+  searchEngineEditStarted(id: number): void;
 
   searchEngineEditCancelled(): void;
 
   searchEngineEditCompleted(
       searchEngine: string, keyword: string, queryUrl: string): void;
+
+  getCategorizedTemplateUrls(): Promise<CategorizedTemplateUrls>;
 
   getSearchEnginesList(): Promise<SearchEnginesInfo>;
 
@@ -120,26 +129,25 @@ export interface SearchEnginesBrowserProxy {
 export class SearchEnginesBrowserProxyImpl implements
     SearchEnginesBrowserProxy {
   setDefaultSearchEngine(
-      modelIndex: number, choiceMadeLocation: ChoiceMadeLocation,
+      id: number, choiceMadeLocation: ChoiceMadeLocation,
       saveGuestChoice?: boolean|null) {
     chrome.send(
-        'setDefaultSearchEngine',
-        [modelIndex, choiceMadeLocation, saveGuestChoice]);
+        'setDefaultSearchEngine', [id, choiceMadeLocation, saveGuestChoice]);
   }
 
-  setIsActiveSearchEngine(modelIndex: number, isActive: boolean) {
-    chrome.send('setIsActiveSearchEngine', [modelIndex, isActive]);
+  setIsActiveSearchEngine(id: number, isActive: boolean) {
+    chrome.send('setIsActiveSearchEngine', [id, isActive]);
     this.recordSearchEnginesPageHistogram(
         isActive ? SearchEnginesInteractions.ACTIVATE :
                    SearchEnginesInteractions.DEACTIVATE);
   }
 
-  removeSearchEngine(modelIndex: number) {
-    chrome.send('removeSearchEngine', [modelIndex]);
+  removeSearchEngine(id: number) {
+    chrome.send('removeSearchEngine', [id]);
   }
 
-  searchEngineEditStarted(modelIndex: number) {
-    chrome.send('searchEngineEditStarted', [modelIndex]);
+  searchEngineEditStarted(id: number) {
+    chrome.send('searchEngineEditStarted', [id]);
   }
 
   searchEngineEditCancelled() {
@@ -155,16 +163,22 @@ export class SearchEnginesBrowserProxyImpl implements
     ]);
   }
 
+  getCategorizedTemplateUrls() {
+    return sendWithPromise<CategorizedTemplateUrls>(
+        'getCategorizedTemplateUrls');
+  }
+
   getSearchEnginesList() {
-    return sendWithPromise('getSearchEnginesList');
+    return sendWithPromise<SearchEnginesInfo>('getSearchEnginesList');
   }
 
   getSaveGuestChoice() {
-    return sendWithPromise('getSaveGuestChoice');
+    return sendWithPromise<boolean|null>('getSaveGuestChoice');
   }
 
   validateSearchEngineInput(fieldName: string, fieldValue: string) {
-    return sendWithPromise('validateSearchEngineInput', fieldName, fieldValue);
+    return sendWithPromise<boolean>(
+        'validateSearchEngineInput', fieldName, fieldValue);
   }
 
   recordSearchEnginesPageHistogram(interaction: SearchEnginesInteractions) {

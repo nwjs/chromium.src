@@ -287,16 +287,12 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  if ([self isRunningTest:@selector(testDragAndDropCreatesGroup)]) {
-    config.features_enabled.push_back(kTabGridDragAndDrop);
-  }
 
   if ([self isRunningTest:@selector(testCloseOtherTabsUsingEditMenu)] ||
       [self isRunningTest:@selector(testCloseOtherTabsUsingContextMenu)] ||
       [self isRunningTest:@selector(testCloseOtherTabsUnavailableInEditMenu)] ||
       [self isRunningTest:@selector
             (testCloseOtherTabsUnavailableInContextMenu)]) {
-    config.features_enabled.push_back(kCloseOtherTabs);
     config.features_disabled.push_back(kTabSwitcherOverflowMenu);
   }
 

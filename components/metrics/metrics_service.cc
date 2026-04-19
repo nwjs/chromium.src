@@ -152,6 +152,7 @@
 #include "base/trace_event/named_trigger.h"
 #include "build/build_config.h"
 #include "components/metrics/clean_exit_beacon.h"
+#include "components/metrics/drive_metrics_provider.h"
 #include "components/metrics/environment_recorder.h"
 #include "components/metrics/field_trials_provider.h"
 #include "components/metrics/metrics_features.h"
@@ -321,6 +322,7 @@ void RecordUserLogStoreState(UserLogStoreState state) {
 void MetricsService::RegisterPrefs(PrefRegistrySimple* registry) {
   MetricsStateManager::RegisterPrefs(registry);
   MetricsLog::RegisterPrefs(registry);
+  DriveMetricsProvider::RegisterPrefs(registry);
   StabilityMetricsProvider::RegisterPrefs(registry);
   MetricsReportingService::RegisterPrefs(registry);
 
@@ -710,26 +712,6 @@ void MetricsService::OnAppEnterForeground(bool force_open_new_log) {
   }
 }
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-
-void MetricsService::Flush() {
-  if (recording_active() && !IsTooEarlyToCloseLog()) {
-#if BUILDFLAG(IS_ANDROID)
-    client_->MergeSubprocessHistograms();
-#endif  // BUILDFLAG(IS_ANDROID)
-    {
-      ScopedTerminationChecker scoped_termination_checker(
-          "UMA.MetricsService.OnFlushScopedTerminationChecker");
-      // Trim and store unsent logs so that they're not lost in case of a crash
-      // before upload time. However, the in-memory log store is unchanged.
-      // I.e., logs that are trimmed will still be available in memory. After
-      // uploading (whether successful or not), the log store is trimmed and
-      // stored again, and at that time, the in-memory log store will be
-      // updated.
-      log_store()->TrimAndPersistUnsentLogs(
-          /*overwrite_in_memory_store=*/false);
-    }
-  }
-}
 
 void MetricsService::OnPageLoadStarted() {
   delegating_provider_.OnPageLoadStarted();

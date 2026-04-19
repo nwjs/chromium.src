@@ -31,6 +31,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
@@ -82,6 +83,7 @@ MockActorLoginService::~MockActorLoginService() = default;
 
 void MockActorLoginService::GetCredentials(
     tabs::TabInterface* tab,
+    bool has_sign_in_with_google_button,
     base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
     actor_login::CredentialsOrErrorReply callback) {
   std::move(callback).Run(credentials_);
@@ -93,9 +95,52 @@ void MockActorLoginService::AttemptLogin(
     bool should_store_permission,
     base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
     base::TimeTicks attempt_login_tool_start_time,
-    actor_login::LoginStatusResultOrErrorReply callback) {
+    actor_login::LoginStatusResultOrErrorReply callback,
+    base::WeakPtr<actor_login::ActionSequenceDelegate>
+        action_sequence_delegate) {
+  action_sequence_delegate_ = action_sequence_delegate;
+  action_sequence_subscription_ = {};
+  if (action_sequence_delegate_) {
+    action_sequence_subscription_ =
+        action_sequence_delegate_->RegisterActionSequenceEnded(
+            base::BindOnce(&MockActorLoginService::OnActionSequenceEnded,
+                           base::Unretained(this)));
+  }
+
   last_credential_used_ = credential;
   last_permission_was_permanent_ = should_store_permission;
+
+  if (credential.type == actor_login::CredentialType::kFederated &&
+      on_federated_login_delay_) {
+    // A minimal enum translation for testing purposes.
+    auto to_login_status = [](content::webid::FederatedLoginResult result) {
+      switch (result) {
+        case content::webid::FederatedLoginResult::kSuccess:
+          return actor_login::LoginStatusResult::kSuccessFederated;
+        case content::webid::FederatedLoginResult::kIdpReturnedError:
+          return actor_login::LoginStatusResult::
+              kErrorFederatedIdpReturnedError;
+        case content::webid::FederatedLoginResult::kTimeout:
+        case content::webid::FederatedLoginResult::kTimeoutByEmbedder:
+          return actor_login::LoginStatusResult::kErrorFederatedTimeout;
+        default:
+          ADD_FAILURE() << "Missing enum conversion for test: "
+                        << std::to_underlying(result);
+          return actor_login::LoginStatusResult::kSuccessFederated;
+      }
+    };
+    content::webid::FederatedEmbedderLoginRequest::Set(
+        tab->GetContents(), credential.federation_detail->idp_origin,
+        credential.federation_detail->account_id,
+        base::BindOnce(to_login_status)
+            .Then(base::BindOnce(
+                &actor_login::ActionSequenceDelegate::OnFederatedLoginOutcome,
+                action_sequence_delegate_)));
+    std::move(on_federated_login_delay_)
+        .Run(base::BindOnce(&MockActorLoginService::OnFederatedLoginResume,
+                            tab));
+  }
+
   std::move(callback).Run(login_status_);
 }
 
@@ -114,12 +159,35 @@ void MockActorLoginService::SetLoginStatus(
   login_status_ = login_status;
 }
 
+void MockActorLoginService::SetFederatedLoginDelay(
+    FederatedLoginDelayCallback on_federated_login_delay) {
+  on_federated_login_delay_ = std::move(on_federated_login_delay);
+}
+
+// static
+void MockActorLoginService::OnFederatedLoginResume(
+    tabs::TabInterface* tab,
+    content::webid::FederatedLoginResult result) {
+  content::webid::FederatedEmbedderLoginRequest::Get(tab->GetContents())
+      ->OnFederatedResultReceived(result);
+}
+
 const std::optional<actor_login::Credential>&
 MockActorLoginService::last_credential_used() const {
   return last_credential_used_;
 }
+
 bool MockActorLoginService::last_permission_was_permanent() const {
   return last_permission_was_permanent_;
+}
+
+bool MockActorLoginService::last_sequence_succeeded() const {
+  EXPECT_TRUE(last_sequence_succeeded_.has_value());
+  return last_sequence_succeeded_.value_or(false);
+}
+
+void MockActorLoginService::OnActionSequenceEnded(bool success) {
+  last_sequence_succeeded_ = success;
 }
 
 ActorToolsTest::ActorToolsTest() {
@@ -135,8 +203,9 @@ void ActorToolsTest::SetUpOnMainThread() {
   PlatformBrowserTest::SetUpOnMainThread();
   host_resolver()->AddRule("*", "127.0.0.1");
 
-  task_id_ = ActorKeyedService::Get(GetProfile())
-                 ->CreateTask(NoEnterprisePolicyChecker());
+  task_id_ =
+      ActorKeyedService::Get(GetProfile())
+          ->CreateTask(TestTaskSourceInfo(), NoEnterprisePolicyChecker());
 
   // Optimization guide uses this histogram to signal initialization in tests.
   auto* optimization_guide_init_histogram =

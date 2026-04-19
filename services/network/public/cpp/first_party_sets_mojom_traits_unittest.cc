@@ -16,15 +16,11 @@
 #include "net/first_party_sets/global_first_party_sets.h"
 #include "net/first_party_sets/local_set_declaration.h"
 #include "services/network/public/mojom/first_party_sets.mojom.h"
-#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
 namespace network {
 namespace {
-
-using testing::Key;
-using testing::UnorderedElementsAre;
 
 TEST(FirstPartySetsTraitsTest, Roundtrips_SiteType) {
   for (net::SiteType site_type : {
@@ -85,15 +81,16 @@ TEST(FirstPartySetsTraitsTest, RoundTrips_GlobalFirstPartySets) {
   net::SchemefulSite c(GURL("https://c.test"));
   net::SchemefulSite c_cctld(GURL("https://c.cctld"));
 
-  net::GlobalFirstPartySets original(
-      base::Version("1.2.3"),
-      /*entries=*/
-      {
-          {a, net::FirstPartySetEntry(a, net::SiteType::kPrimary)},
-          {b, net::FirstPartySetEntry(a, net::SiteType::kAssociated)},
-          {c, net::FirstPartySetEntry(a, net::SiteType::kService)},
-      },
-      /*aliases=*/{{c_cctld, c}});
+  net::GlobalFirstPartySets original =
+      net::GlobalFirstPartySets::CreateForTesting(
+          base::Version("1.2.3"),
+          /*entries=*/
+          {
+              {a, net::FirstPartySetEntry(a, net::SiteType::kPrimary)},
+              {b, net::FirstPartySetEntry(a, net::SiteType::kAssociated)},
+              {c, net::FirstPartySetEntry(a, net::SiteType::kService)},
+          },
+          /*aliases=*/{{c_cctld, c}});
 
   original.ApplyManuallySpecifiedSet(
       net::LocalSetDeclaration::Create(
@@ -121,15 +118,16 @@ TEST(FirstPartySetsTraitsTest, GlobalFirstPartySets_InvalidVersion) {
   net::SchemefulSite c(GURL("https://c.test"));
   net::SchemefulSite c_cctld(GURL("https://c.cctld"));
 
-  net::GlobalFirstPartySets original(
-      base::Version(),
-      /*entries=*/
-      {
-          {a, net::FirstPartySetEntry(a, net::SiteType::kPrimary)},
-          {b, net::FirstPartySetEntry(a, net::SiteType::kAssociated)},
-          {c, net::FirstPartySetEntry(a, net::SiteType::kService)},
-      },
-      /*aliases=*/{{c_cctld, c}});
+  net::GlobalFirstPartySets original =
+      net::GlobalFirstPartySets::CreateForTesting(
+          base::Version(),
+          /*entries=*/
+          {
+              {a, net::FirstPartySetEntry(a, net::SiteType::kPrimary)},
+              {b, net::FirstPartySetEntry(a, net::SiteType::kAssociated)},
+              {c, net::FirstPartySetEntry(a, net::SiteType::kService)},
+          },
+          /*aliases=*/{{c_cctld, c}});
 
   original.ApplyManuallySpecifiedSet(
       net::LocalSetDeclaration::Create(
@@ -151,9 +149,18 @@ TEST(FirstPartySetsTraitsTest, GlobalFirstPartySets_InvalidVersion) {
   // base::Version::operator== crashes for invalid versions, so we don't check
   // equality of `round_tripped` and `original` that way. However, we can verify
   // that the original entries and alias are not present in `round_tripped`:
-  EXPECT_THAT(round_tripped.FindEntries({a, b, b_cctld, c, c_cctld},
-                                        net::FirstPartySetsContextConfig()),
-              UnorderedElementsAre(Key(a), Key(b), Key(b_cctld)));
+  EXPECT_NE(round_tripped.FindEntry(a, net::FirstPartySetsContextConfig()),
+            std::nullopt);
+  EXPECT_NE(round_tripped.FindEntry(b, net::FirstPartySetsContextConfig()),
+            std::nullopt);
+  EXPECT_NE(
+      round_tripped.FindEntry(b_cctld, net::FirstPartySetsContextConfig()),
+      std::nullopt);
+  EXPECT_EQ(round_tripped.FindEntry(c, net::FirstPartySetsContextConfig()),
+            std::nullopt);
+  EXPECT_EQ(
+      round_tripped.FindEntry(c_cctld, net::FirstPartySetsContextConfig()),
+      std::nullopt);
 }
 
 TEST(FirstPartySetsTraitsTest, RoundTrips_FirstPartySetsContextConfig) {

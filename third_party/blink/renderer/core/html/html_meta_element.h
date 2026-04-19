@@ -61,6 +61,10 @@ class CORE_EXPORT HTMLMetaElement final : public HTMLElement {
 
   explicit HTMLMetaElement(Document&, const CreateElementFlags);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLMetaElement;
+  }
+
   // Encoding computed from processing the http-equiv, charset and content
   // attributes.
   TextEncoding ComputeEncoding() const;

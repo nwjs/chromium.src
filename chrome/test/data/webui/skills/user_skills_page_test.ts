@@ -41,6 +41,7 @@ suite('UserSkillsPage', function() {
       icon: '',
       prompt: '',
       description: '',
+      imageUrl: '',
       source: SkillSource.kUserCreated,
       creationTime: {internalValue: 0n},
       lastUpdateTime: {internalValue: 0n},
@@ -49,9 +50,8 @@ suite('UserSkillsPage', function() {
   }
 
   async function setUserSkills(skills: Array<Partial<Skill>>) {
-    for (const skill of skills) {
-      browserProxy.callbackRouterRemote.updateSkill(createSkill(skill));
-    }
+    browserProxy.callbackRouterRemote.updateSkills(
+        skills.map(s => createSkill(s)));
     await microtasksFinished();
   }
 

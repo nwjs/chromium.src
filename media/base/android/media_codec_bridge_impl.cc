@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "media/base/android/media_codec_bridge_impl.h"
 
@@ -18,6 +14,7 @@
 #include "base/android/jni_array.h"
 #include "base/android/jni_bytebuffer.h"
 #include "base/android/jni_string.h"
+#include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -29,6 +26,7 @@
 #include "media/base/android/jni_hdr_metadata.h"
 #include "media/base/android/media_codec_bridge.h"
 #include "media/base/android/media_codec_util.h"
+#include "media/base/android/media_format_color_space.h"
 #include "media/base/audio_codecs.h"
 #include "media/base/media_switches.h"
 #include "media/base/subsample_entry.h"
@@ -106,15 +104,15 @@ bool GetCodecSpecificDataForAudio(const AudioDecoderConfig& config,
       const uint8_t* current_pos = extra_data;
       // Calculate the length of the first 2 headers.
       for (int i = 0; i < 2; ++i) {
-        header_length[i] = 0;
+        UNSAFE_TODO(header_length[i]) = 0;
         while (total_length < extra_data_size) {
-          size_t size = *(++current_pos);
+          size_t size = *UNSAFE_TODO(++current_pos);
           total_length += 1 + size;
           if (total_length > 0x80000000) {
             LOG(ERROR) << "Vorbis header size too large";
             return false;
           }
-          header_length[i] += size;
+          UNSAFE_TODO(header_length[i]) += size;
           if (size < 0xFF) {
             break;
           }
@@ -124,14 +122,15 @@ bool GetCodecSpecificDataForAudio(const AudioDecoderConfig& config,
           return false;
         }
       }
-      current_pos++;
+      UNSAFE_TODO(current_pos++);
 
       // The first header is the identification header.
-      output_csd0->assign(current_pos, current_pos + header_length[0]);
+      output_csd0->assign(current_pos,
+                          UNSAFE_TODO(current_pos + header_length[0]));
 
       // The last header is the codec header.
-      output_csd1->assign(extra_data + total_length,
-                          extra_data + extra_data_size);
+      output_csd1->assign(UNSAFE_TODO(extra_data + total_length),
+                          UNSAFE_TODO(extra_data + extra_data_size));
       break;
     }
     case AudioCodec::kFLAC: {
@@ -185,13 +184,13 @@ bool GetCodecSpecificDataForAudio(const AudioDecoderConfig& config,
       const uint8_t* codec_delay_ns_ptr =
           reinterpret_cast<const uint8_t*>(&codec_delay_ns);
       output_csd1->assign(codec_delay_ns_ptr,
-                          codec_delay_ns_ptr + sizeof(int64_t));
+                          UNSAFE_TODO(codec_delay_ns_ptr + sizeof(int64_t)));
 
       // csd2 - Seek Preroll
       const uint8_t* seek_preroll_ns_ptr =
           reinterpret_cast<const uint8_t*>(&seek_preroll_ns);
       output_csd2->assign(seek_preroll_ns_ptr,
-                          seek_preroll_ns_ptr + sizeof(int64_t));
+                          UNSAFE_TODO(seek_preroll_ns_ptr + sizeof(int64_t)));
       break;
     }
     default:
@@ -406,8 +405,7 @@ std::unique_ptr<MediaCodecBridge> MediaCodecBridgeImpl::CreateAudioDecoder(
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jstring> j_mime = ConvertUTF8ToJavaString(env, mime);
 
-  const int channel_count =
-      ChannelLayoutToChannelCount(config.channel_layout());
+  const int channel_count = config.channels();
 
   CodecSpecificData csd0, csd1, csd2;
   bool output_frame_has_adts_header;
@@ -448,10 +446,11 @@ std::unique_ptr<MediaCodecBridge> MediaCodecBridgeImpl::CreateVideoDecoder(
   auto j_csd0 = ToJavaByteArray(env, config.csd0);
   auto j_csd1 = ToJavaByteArray(env, config.csd1);
 
+  MediaFormatColorSpace color_space;
   std::unique_ptr<JniHdrMetadata> jni_hdr_metadata;
   if (!config.hdr_metadata.IsEmpty()) {
-    jni_hdr_metadata = std::make_unique<JniHdrMetadata>(
-        config.container_color_space, config.hdr_metadata);
+    color_space = MediaFormatColorSpace(config.container_color_space);
+    jni_hdr_metadata = std::make_unique<JniHdrMetadata>(config.hdr_metadata);
   }
   auto j_hdr_metadata = jni_hdr_metadata ? jni_hdr_metadata->obj() : nullptr;
   auto j_decoder_name = ConvertUTF8ToJavaString(env, config.name);
@@ -461,7 +460,9 @@ std::unique_ptr<MediaCodecBridge> MediaCodecBridgeImpl::CreateVideoDecoder(
           env, j_mime, static_cast<int>(config.codec_type), config.media_crypto,
           config.initial_expected_coded_size.width(),
           config.initial_expected_coded_size.height(), config.surface, j_csd0,
-          j_csd1, j_hdr_metadata, /*allowAdaptivePlayback=*/true,
+          j_csd1, color_space.standard, color_space.transfer, color_space.range,
+          j_hdr_metadata,
+          /*allowAdaptivePlayback=*/true,
           /*useAsyncApi=*/!config.on_buffers_available_cb.is_null(),
           /*useBlockModel=*/config.use_block_model,
           /*useLowLatencyMode=*/config.use_low_latency_mode, j_decoder_name,
@@ -574,80 +575,21 @@ MediaCodecResult MediaCodecBridgeImpl::GetOutputColorSpace(
 
   // TODO(liberato): Consider consolidating these to save JNI hops.  However,
   // since this is called only rarely, it's clearer this way.
-  int standard = Java_MediaFormatWrapper_colorStandard(env, result);
-  int range = Java_MediaFormatWrapper_colorRange(env, result);
-  int transfer = Java_MediaFormatWrapper_colorTransfer(env, result);
-  gfx::ColorSpace::PrimaryID primary_id;
-  gfx::ColorSpace::TransferID transfer_id;
-  gfx::ColorSpace::MatrixID matrix_id;
-  gfx::ColorSpace::RangeID range_id;
+  MediaFormatColorSpace mf_color_space;
+  mf_color_space.standard = Java_MediaFormatWrapper_colorStandard(env, result);
+  mf_color_space.range = Java_MediaFormatWrapper_colorRange(env, result);
+  mf_color_space.transfer = Java_MediaFormatWrapper_colorTransfer(env, result);
 
-  switch (standard) {
-    case 1:  // MediaFormat.COLOR_STANDARD_BT709:
-      primary_id = gfx::ColorSpace::PrimaryID::BT709;
-      matrix_id = gfx::ColorSpace::MatrixID::BT709;
-      break;
-    case 2:  // MediaFormat.COLOR_STANDARD_BT601_PAL:
-      primary_id = gfx::ColorSpace::PrimaryID::BT470BG;
-      matrix_id = gfx::ColorSpace::MatrixID::SMPTE170M;
-      break;
-    case 4:  // MediaFormat.COLOR_STANDARD_BT601_NTSC:
-      primary_id = gfx::ColorSpace::PrimaryID::SMPTE170M;
-      matrix_id = gfx::ColorSpace::MatrixID::SMPTE170M;
-      break;
-    case 6:  // MediaFormat.COLOR_STANDARD_BT2020
-      primary_id = gfx::ColorSpace::PrimaryID::BT2020;
-      matrix_id = gfx::ColorSpace::MatrixID::BT2020_NCL;
-      break;
-    default:
-      DVLOG(3) << __func__ << ": unsupported primary in p: " << standard
-               << " r: " << range << " t: " << transfer;
-      return {MediaCodecResult::Codes::kError,
-              "Unexpected MediaFormat.COLOR_STANDARD of " +
-                  base::NumberToString(standard) + " specified."};
+  auto gfx_color_space = mf_color_space.ToGfxColorSpace();
+  if (!gfx_color_space.IsValid()) {
+    DVLOG(3) << __func__ << ": unsupported media format:"
+             << " s:" << mf_color_space.standard
+             << " r: " << mf_color_space.range
+             << " t: " << mf_color_space.transfer;
+    return {MediaCodecResult::Codes::kError,
+            "Unexpected MediaFormat specified."};
   }
-
-  switch (transfer) {
-    case 1:  // MediaFormat.COLOR_TRANSFER_LINEAR
-      // TODO(liberato): LINEAR or LINEAR_HDR?
-      // Based on https://android.googlesource.com/platform/frameworks/native/
-      //            +/master/libs/nativewindow/include/android/data_space.h#57
-      // we pick LINEAR_HDR.
-      transfer_id = gfx::ColorSpace::TransferID::LINEAR_HDR;
-      break;
-    case 3:  // MediaFormat.COLOR_TRANSFER_SDR_VIDEO
-      transfer_id = gfx::ColorSpace::TransferID::SMPTE170M;
-      break;
-    case 6:  // MediaFormat.COLOR_TRANSFER_ST2084
-      transfer_id = gfx::ColorSpace::TransferID::PQ;
-      break;
-    case 7:  // MediaFormat.COLOR_TRANSFER_HLG
-      transfer_id = gfx::ColorSpace::TransferID::HLG;
-      break;
-    default:
-      DVLOG(3) << __func__ << ": unsupported transfer in p: " << standard
-               << " r: " << range << " t: " << transfer;
-      return {MediaCodecResult::Codes::kError,
-              "Unexpected MediaFormat.COLOR_TRANSFER of " +
-                  base::NumberToString(transfer) + " specified."};
-  }
-
-  switch (range) {
-    case 1:  // MediaFormat.COLOR_RANGE_FULL
-      range_id = gfx::ColorSpace::RangeID::FULL;
-      break;
-    case 2:  // MediaFormat.COLOR_RANGE_LIMITED
-      range_id = gfx::ColorSpace::RangeID::LIMITED;
-      break;
-    default:
-      DVLOG(3) << __func__ << ": unsupported range in p: " << standard
-               << " r: " << range << " t: " << transfer;
-      return {MediaCodecResult::Codes::kError,
-              "Unexpected MediaFormat.COLOR_RANGE of " +
-                  base::NumberToString(range) + " specified."};
-  }
-
-  *color_space = gfx::ColorSpace(primary_id, transfer_id, matrix_id, range_id);
+  *color_space = gfx_color_space;
 
   return OkStatus();
 }
@@ -708,7 +650,8 @@ MediaCodecResult MediaCodecBridgeImpl::QueueSecureInputBuffer(
   } else {
     for (size_t i = 0; i < decrypt_config.subsamples().size(); ++i) {
       const auto& subsamples = decrypt_config.subsamples()[i];
-      if (subsamples.cypher_bytes > std::numeric_limits<int32_t>::max()) {
+      if (subsamples.cypher_bytes > std::numeric_limits<int32_t>::max() ||
+          subsamples.clear_bytes > std::numeric_limits<int32_t>::max()) {
         return {MediaCodecResult::Codes::kError,
                 "Subsample size is too large."};
       }

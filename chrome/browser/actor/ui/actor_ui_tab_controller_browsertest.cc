@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -29,6 +28,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/tabs/public/tab_alert.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/page_transition_types.h"
@@ -147,8 +147,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
                        TabSpinnerNotVisibleWhenWaitingOnUser) {
   // Start task on tab.
   auto* actor_service = actor::ActorKeyedService::Get(browser()->GetProfile());
-  actor::TaskId task_id =
-      actor_service->CreateTask(NoEnterprisePolicyChecker());
+  actor::TaskId task_id = actor_service->CreateTask(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker());
   actor::ActorTask* task = actor_service->GetTask(task_id);
   actor::ui::StartTask start_task_event(task_id);
   actor_service->GetActorUiStateManager()->OnUiEvent(start_task_event);
@@ -209,8 +209,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
 
 IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
                        RecordsUserActionOnActiveStatusChange) {
-  TaskId task_id =
-      actor_keyed_service()->CreateTask(NoEnterprisePolicyChecker());
+  TaskId task_id = actor_keyed_service()->CreateTask(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker());
 
   ASSERT_TRUE(AddTabAtIndex(0, GURL("about:blank?1"),
                             ::ui::PageTransition::PAGE_TRANSITION_TYPED));

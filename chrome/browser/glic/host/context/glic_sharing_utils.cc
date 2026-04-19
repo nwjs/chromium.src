@@ -31,11 +31,14 @@ bool IsBrowserValidForSharingInProfile(
 }
 
 bool IsTabValidForSharing(content::WebContents* web_contents) {
-  // We allow allow blank pages to avoid flicker during transitions.
+  // We allow blank pages to avoid flicker during transitions.
   static const base::NoDestructor<std::vector<GURL>> kUrlAllowList{
       {GURL(), GURL(url::kAboutBlankURL),
        GURL(chrome::kChromeUINewTabPageThirdPartyURL),
        GURL(chrome::kChromeUINewTabPageURL), GURL(chrome::kChromeUINewTabURL),
+#if BUILDFLAG(IS_ANDROID)
+       GURL(chrome::kChromeUINativeNewTabURL),
+#endif
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
        // NEEDS_ANDROID_IMPL: what's new page
        // "What's New" does not exist in the form of a tab on ChromeOS.
@@ -85,13 +88,9 @@ bool GlicActiveTabForProfileTracker::IsBrowserActiveForProfile(
 
 void GlicActiveTabForProfileTracker::UpdateActiveTabSubscription(
     BrowserWindowInterface* browser) {
+  tab_list_observation_.Reset();
   if (IsBrowserActiveForProfile(browser)) {
-    active_tab_subscription_ = RegisterActiveTabDidChange(
-        browser,
-        base::BindRepeating(&GlicActiveTabForProfileTracker::OnActiveTabChanged,
-                            base::Unretained(this)));
-  } else {
-    active_tab_subscription_ = {};
+    tab_list_observation_.Observe(TabListInterface::From(browser));
   }
 }
 
@@ -103,13 +102,20 @@ void GlicActiveTabForProfileTracker::OnBrowserActivated(
 
 void GlicActiveTabForProfileTracker::OnBrowserDeactivated(
     BrowserWindowInterface* browser) {
-  active_tab_subscription_ = {};
+  tab_list_observation_.Reset();
 
   UpdateActiveTab();
 }
 
 void GlicActiveTabForProfileTracker::OnActiveTabChanged(
-    BrowserWindowInterface* browser) {
+    TabListInterface& tab_list,
+    tabs::TabInterface* tab) {
+  UpdateActiveTab();
+}
+
+void GlicActiveTabForProfileTracker::OnTabListDestroyed(
+    TabListInterface& tab_list) {
+  tab_list_observation_.Reset();
   UpdateActiveTab();
 }
 

@@ -126,11 +126,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
     kDiscard,
   };
 
-  enum ChromiumImageUsage {
-    kAllowChromiumImage,
-    kDisallowChromiumImage,
-  };
-
   static scoped_refptr<DrawingBuffer> Create(
       std::unique_ptr<WebGraphicsContext3DProvider>,
       const Platform::WebGLContextInfo&,
@@ -144,7 +139,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
       bool desynchronized,
       PreserveDrawingBuffer,
       Platform::WebGLContextType,
-      ChromiumImageUsage,
+      bool is_offscreen_canvas,
       PredefinedColorSpace,
       gl::GpuPreference);
 
@@ -218,6 +213,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   bool MarkContentsChanged();
 
   void SetBufferClearNeeded(bool);
+  void RequireExplicitBufferClear();
   bool BufferClearNeeded() const;
 
   void SetIsInHiddenPage(bool);
@@ -289,8 +285,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
       gpu::raster::RasterInterface*,
       const scoped_refptr<gpu::ClientSharedImage>& dst_shared_image,
       const gpu::SyncToken& dst_sync_token,
-      const gfx::Point& dst_texture_offset,
-      const gfx::Rect& src_sub_rectangle,
       SourceDrawingBuffer src_buffer);
 
   bool CopyToVideoFrame(
@@ -315,12 +309,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // latency (e.g., to the display compositor).
   bool SupportsNoCopyExportForLowLatency();
 
-  // Keep track of low latency buffer status.
-  bool low_latency_enabled() const { return low_latency_enabled_; }
-  void set_low_latency_enabled(bool low_latency_enabled) {
-    low_latency_enabled_ = low_latency_enabled;
-  }
-
   scoped_refptr<CanvasResource> ExportCanvasResource();
 
   scoped_refptr<ExternalCanvasResource> ExportLowLatencyCanvasResource();
@@ -341,7 +329,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
                 Platform::WebGLContextType,
                 bool wants_depth,
                 bool wants_stencil,
-                ChromiumImageUsage,
+                bool is_offscreen_canvas,
                 PredefinedColorSpace,
                 gl::GpuPreference);
 
@@ -627,8 +615,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
       viz::SinglePlaneFormat::kRGBA_8888;
 
   Platform::WebGLContextInfo context_info_;
-  const bool using_swap_chain_;
-  bool low_latency_enabled_ = false;
+  bool can_use_low_latency_ = false;
   bool has_implicit_stencil_buffer_ = false;
 
   // The current state restorer, which is used to track state dirtying. It is an
@@ -701,9 +688,8 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   Deque<scoped_refptr<ColorBuffer>> recycled_color_buffer_queue_;
   base::flat_set<scoped_refptr<ColorBuffer>> exported_color_buffers_;
 
-  // Allows the client to override the WebGLImageChromiumEnabled() codepath
-  // being taken.
-  ChromiumImageUsage chromium_image_usage_;
+  // Whether it's an offscreen canvas.
+  bool is_offscreen_canvas_;
 
   bool opengl_flip_y_extension_;
 

@@ -4,7 +4,6 @@
 
 import("//chrome/common/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
-import("//pdf/features.gni")
 
 assert(!is_android && !is_fuchsia)
 
@@ -59,12 +58,14 @@ source_set("impl") {
   deps = [
     ":whats_new",
     "//base",
+    "//chrome/browser:browser_features",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui:ui_features",
     "//chrome/common",
     "//chrome/common:version_header",
     "//components/performance_manager",
     "//components/prefs",
+    "//components/search",
     "//net",
     "//ui/base:features",
     "//url",
@@ -83,18 +84,15 @@ source_set("impl") {
       "//chrome/browser/resources/whats_new:resources",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/hats",
+      "//chrome/browser/ui/tabs:features",
       "//chrome/common:version_header",
       "//components/bookmarks/common",
       "//components/history_embeddings/content",
       "//components/history_embeddings/core",
       "//components/user_education/common",
       "//components/variations/service",
-      "//pdf:buildflags",
       "//ui/webui",
     ]
-    if (enable_pdf) {
-      deps += [ "//pdf:features" ]
-    }
   }
 }
 
@@ -151,5 +149,34 @@ if (!is_android && !is_chromeos) {
       "//content/test:test_support",
       "//testing/gtest",
     ]
+  }
+}
+
+source_set("interactive_ui_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  if (!is_android && !is_chromeos) {
+    sources = [ "whats_new_fetcher_interactive_uitest.cc" ]
+    deps = [
+      ":whats_new",
+      "//base",
+      "//base/test:test_support",
+      "//chrome/browser:browser_process",
+      "//chrome/browser:global_features",
+      "//chrome/browser/ui",
+      "//chrome/browser/ui:ui_features",
+      "//chrome/common:version_header",
+      "//chrome/test:test_support_ui",
+      "//components/user_education/common",
+      "//components/user_education/webui",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+    if (use_ozone) {
+      deps += [ "//ui//ozone" ]
+    }
+    if (is_linux) {
+      deps += [ "//ui/views:test_support" ]
+    }
   }
 }

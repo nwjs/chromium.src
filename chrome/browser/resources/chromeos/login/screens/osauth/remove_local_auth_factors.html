@@ -1,0 +1,34 @@
+<!--
+Copyright 2026 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<style include="oobe-dialog-host-styles cros-color-overrides">
+
+</style>
+<oobe-adaptive-dialog role="dialog" for-step="success">
+  <iron-icon slot="icon" icon="oobe-32:lock"></iron-icon>
+  <h1 slot="title" aria-live="polite">
+    [[i18nDynamic(locale,'factorsRemovedTitle')]]
+  </h1>
+  <div slot="subtitle">
+    [[i18nDynamic(locale,'factorsRemovedSubtitle', domain)]]
+  </div>
+    <div slot="content" class="flex layout vertical center center-justified">
+    <iron-icon icon="oobe-illos:pin-illustration-illo"
+        class="illustration-jelly">
+    </iron-icon>
+  </div>
+
+  <div slot="bottom-buttons">
+    <oobe-text-button id="doneButton" inverse on-click="onDoneClicked"
+        class="focus-on-show" text-key="factorsRemovedDoneButton">
+    </oobe-text-button>
+  </div>
+
+</oobe-adaptive-dialog>
+
+<oobe-loading-dialog id="progress" role="dialog" for-step="progress"
+  title-key="gaiaLoading">
+<iron-icon slot="icon" icon="oobe-32:googleg"></iron-icon>
+</oobe-loading-dialog>

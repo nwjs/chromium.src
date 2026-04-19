@@ -11,6 +11,7 @@
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/graphite_shared_context.h"
+#include "gpu/command_buffer/service/shared_image/compound_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/copy_image_plane.h"
 #include "gpu/command_buffer/service/shared_image/gl_texture_passthrough_fallback_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
@@ -308,10 +309,27 @@ bool WrappedGraphiteTextureBacking::ReadbackToMemory(
   std::vector<ReadPixelsContext> contexts(format().NumberOfPlanes());
   for (int i = 0; i < format().NumberOfPlanes(); i++) {
     const auto color_type = viz::ToClosestSkColorType(format(), i);
+
+    // When wrapping the backend texture for readback, we must use the backing's
+    // actual color space. If we use nullptr (defaulting to sRGB), Skia will
+    // perform an incorrect color conversion if the destination pixmap has a
+    // non-sRGB color space. This happens in the dynamic allocation path where
+    // CPUReadbackUploadCopyStrategy uses the backing's real color space for
+    // the sync copy. In the legacy fallback path, nullptr was "correct" only
+    // because the destination pixmaps also used nullptr, resulting in a raw
+    // copy. We only apply this fix when dynamic allocation is enabled to
+    // maintain parity with the legacy path's raw-copy behavior for now.
+    sk_sp<SkColorSpace> src_color_space = nullptr;
+    if (base::FeatureList::IsEnabled(
+            features::kUseCompoundImageBackingAsDefault) &&
+        base::FeatureList::IsEnabled(features::kUseDynamicBackingAllocations)) {
+      src_color_space = color_space().ToSkColorSpace();
+    }
+
     sk_sp<SkImage> sk_image =
         SkImages::WrapTexture(context_state_->gpu_main_graphite_recorder(),
                               texture_holders_[i]->texture(), color_type,
-                              kOpaque_SkAlphaType, /*colorSpace=*/nullptr);
+                              kOpaque_SkAlphaType, std::move(src_color_space));
     if (!sk_image) {
       return false;
     }
@@ -341,6 +359,42 @@ bool WrappedGraphiteTextureBacking::ReadbackToMemory(
   }
 
   return true;
+}
+
+bool WrappedGraphiteTextureBacking::CheckSupportForAccessStream(
+    SharedImageAccessStream stream,
+    viz::SharedImageFormat format,
+    const AccessParams& params) {
+  if (base::FeatureList::IsEnabled(
+          features::kUseCompoundImageBackingAsDefault) &&
+      base::FeatureList::IsEnabled(features::kUseDynamicBackingAllocations)) {
+    // When kUseDynamicBackingAllocations is enabled, we don't support GL access
+    // directly in this backing. Instead, we want CompoundImageBacking to
+    // allocate a GLTextureImageBacking which provides native GL support.
+    if (stream == SharedImageAccessStream::kGL) {
+      return false;
+    }
+    // Similarly for Skia access with GL context (Ganesh), we want to use the
+    // GLTextureImageBacking via CompoundImageBacking instead of the fallback
+    // path in this backing.
+    if (stream == SharedImageAccessStream::kSkia && params.context_state &&
+        params.context_state->IsUsingGL()) {
+      return false;
+    }
+    // For Dawn access, we want CompoundImageBacking to allocate a
+    // DawnImageBacking which provides native Dawn support instead of using the
+    // fallback path in this backing.
+    if (stream == SharedImageAccessStream::kDawn) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool WrappedGraphiteTextureBacking::SupportsAccess(
+    SharedImageAccessStream stream,
+    const AccessParams& params) const {
+  return CheckSupportForAccessStream(stream, format(), params);
 }
 
 bool WrappedGraphiteTextureBacking::InsertRecordingAndSubmit() {
@@ -381,6 +435,14 @@ WrappedGraphiteTextureBacking::ProduceSkiaGanesh(
     SharedImageManager* manager,
     MemoryTypeTracker* tracker,
     scoped_refptr<SharedContextState> context_state) {
+  // When kUseDynamicBackingAllocations is enabled, this method should not be
+  // called. CompoundImageBacking will instead allocate a
+  // GLTextureImageBacking.
+  CHECK(
+      !(base::FeatureList::IsEnabled(
+            features::kUseCompoundImageBackingAsDefault) &&
+        base::FeatureList::IsEnabled(features::kUseDynamicBackingAllocations)));
+
   // Used with Graphite-Vulkan-Swiftshader backend for testing, but the context
   // passed in is GLContext for passthrough command decoder. See
   // crbug.com/394385381 for more details.
@@ -400,6 +462,14 @@ std::unique_ptr<GLTexturePassthroughImageRepresentation>
 WrappedGraphiteTextureBacking::ProduceGLTexturePassthrough(
     SharedImageManager* manager,
     MemoryTypeTracker* tracker) {
+  // When kUseDynamicBackingAllocations is enabled, this method should not be
+  // called. CompoundImageBacking will instead allocate a
+  // GLTextureImageBacking.
+  CHECK(
+      !(base::FeatureList::IsEnabled(
+            features::kUseCompoundImageBackingAsDefault) &&
+        base::FeatureList::IsEnabled(features::kUseDynamicBackingAllocations)));
+
   CHECK(context_state_->IsGraphiteDawnVulkan());
   if (context_state_->context_lost()) {
     return nullptr;
@@ -417,6 +487,11 @@ WrappedGraphiteTextureBacking::ProduceDawn(
     wgpu::BackendType backend_type,
     std::vector<wgpu::TextureFormat> view_formats,
     scoped_refptr<SharedContextState> context_state) {
+  // If kUseDynamicBackingAllocations is enabled, we don't support Dawn access
+  // directly in this backing. Instead, we want CompoundImageBacking to
+  // allocate a DawnImageBacking which provides native Dawn support.
+  CHECK(!base::FeatureList::IsEnabled(features::kUseDynamicBackingAllocations));
+
   CHECK(context_state_->IsGraphiteDawnVulkan());
   if (context_state_->context_lost()) {
     return nullptr;

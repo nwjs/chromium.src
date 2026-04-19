@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">Producto <ph name="PRODUCT_ID" /> del proveedor <ph name="VENDOR_ID" /> desconocido (número de serie <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">No se ha podido reemplazar el archivo .crx. Comprueba si se está utilizando el archivo.</translation>
 <translation id="3163201441334626963">Producto <ph name="PRODUCT_ID" /> del proveedor <ph name="VENDOR_ID" /> desconocido</translation>
+<translation id="3174723475300476613">Tu organización ha bloqueado el acceso a esta extensión.</translation>
 <translation id="3242289508736283383">La aplicación con el atributo del archivo de manifiesto "kiosk_only" se debe instalar en el modo Kiosco de ChromeOS</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (número de serie <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> del proveedor <ph name="VENDOR_ID" /> (número de serie <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">No se ha podido añadir la aplicación <ph name="TO_INSTALL_APP_NAME" /> porque existe un conflicto con <ph name="INSTALLED_APP_NAME" />.</translation>
 <translation id="388442998277590542">No se ha podido cargar la página de opciones "<ph name="OPTIONS_PAGE" />".</translation>
 <translation id="3984413272403535372">Se ha producido un error al firmar la extensión.</translation>
+<translation id="4094452115117798451">Tu organización ha bloqueado el acceso a esta categoría de extensiones.</translation>
 <translation id="4233778200880751280">No se ha podido cargar la página de información (<ph name="ABOUT_PAGE" />).</translation>
 <translation id="424963718355121712">Las aplicaciones deben proceder del host al que afecten</translation>
 <translation id="4306119971288449206">Las aplicaciones deben incluir el encabezado content-type "<ph name="CONTENT_TYPE" />"</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">Producto <ph name="PRODUCT_ID" /> de <ph name="VENDOR_NAME" /> desconocido</translation>
 <translation id="7068383018033524534">El archivo de manifiesto no es válido</translation>
 <translation id="7217838517480956708">El administrador de este ordenador necesita que se instale <ph name="EXTENSION_NAME" />. No se puede eliminar ni modificar.</translation>
+<translation id="7287143125007575591">Acceso denegado</translation>
 <translation id="7612608473764576263">El valor de entrada de la clave privada debe tener un formato válido (clave RSA con formato PKCS#8 y codificada con PEM).</translation>
 <translation id="765293928828334535">No es posible añadir aplicaciones, extensiones ni secuencias de comandos de usuario desde este sitio web</translation>
 <translation id="7876803335449432072">No se ha podido cargar el archivo "<ph name="RELATIVE_PATH" />" para el script de contenido. Las hojas de estilo del script de contenido solo se pueden cargar desde archivos de hoja de estilo admitidos, como archivos .css.</translation>

@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
+#include "third_party/blink/renderer/core/probe/core_probes.h"
 
 namespace blink {
 
@@ -49,9 +50,12 @@ bool ShouldMonitorElement(Element* element) {
 
 }  // namespace
 
-DisplayAdElementMonitor::DisplayAdElementMonitor(Element* element)
-    : element_(element) {
+DisplayAdElementMonitor::DisplayAdElementMonitor(Element* element,
+                                                 AdProvenance ad_provenance)
+    : element_(element), ad_provenance_(std::move(ad_provenance)) {
   DCHECK(element_);
+  probe::UpdateAdRelatedState(*element, ad_provenance_);
+
   EnsureStarted();
 }
 
@@ -64,7 +68,7 @@ void DisplayAdElementMonitor::EnsureStarted() {
   element_->GetDocument().View()->RegisterForLifecycleNotifications(this);
 }
 
-void DisplayAdElementMonitor::OnElementRemovedOrUntagged() {
+void DisplayAdElementMonitor::OnElementRemoved() {
   if (!started_) {
     return;
   }

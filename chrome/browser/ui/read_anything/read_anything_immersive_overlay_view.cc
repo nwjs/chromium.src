@@ -11,7 +11,9 @@
 #include "chrome/browser/ui/read_anything/read_anything_immersive_web_view.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/tabs/public/tab_interface.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/layout/fill_layout.h"
@@ -125,13 +127,18 @@ void ReadAnythingImmersiveOverlayView::ShowUI(
 void ReadAnythingImmersiveOverlayView::OnShowUI() {
   SetVisible(true);
 
-  // When IRM is being shown, we tell the renderer that the main webpage needs
-  // to be treated as visible even though it's occluded, so it can generate
-  // accessibility events we need for RM to function. We also set the underlying
-  // web contents to be not accessible while IRM is open, so that it won't
-  // receive screen reader focus or be navigable by keyboard.
-  contents_web_view_->GetViewAccessibility().SetIsIgnored(true);
-  contents_web_view_->SetFocusBehavior(views::View::FocusBehavior::NEVER);
+  // We set the underlying web contents to be not accessible while IRM is open,
+  // so that it won't receive screen reader focus or be navigable by keyboard.
+  scoped_accessibility_disconnecter_ =
+      contents_web_view_->DisconnectWebContentsAccessibility();
+
+  GetViewAccessibility().AnnouncePolitely(l10n_util::GetStringUTF16(
+      IDS_IMMERSIVE_READING_MODE_OPENED_ANNOUNCEMENT));
+
+  DUMP_WILL_BE_CHECK(immersive_web_view_);
+  if (immersive_web_view_) {
+    immersive_web_view_->RequestFocus();
+  }
 }
 
 std::unique_ptr<WebUIContentsWrapperT<ReadAnythingUntrustedUI>>
@@ -141,8 +148,7 @@ ReadAnythingImmersiveOverlayView::CloseUI() {
 
   // We want the main web contents to be accessible again if IRM is closed and
   // the main webpage is now visible.
-  contents_web_view_->GetViewAccessibility().SetIsIgnored(false);
-  contents_web_view_->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  scoped_accessibility_disconnecter_.reset();
 
   CHECK(immersive_web_view_);
   std::unique_ptr<ReadAnythingImmersiveWebView> web_view =

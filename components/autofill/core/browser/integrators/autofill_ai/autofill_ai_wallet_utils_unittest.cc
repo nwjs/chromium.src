@@ -4,6 +4,8 @@
 
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_utils.h"
 
+#include "base/test/protobuf_matchers.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager_test_utils.h"
@@ -13,6 +15,8 @@
 #include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
+#include "components/autofill/core/common/autofill_features.h"
+#include "components/wallet/core/common/wallet_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -22,8 +26,10 @@ namespace {
 using test::GetNationalIdCardEntityInstance;
 using test::GetPassportEntityInstance;
 using test::MaskEntityInstance;
+using ::testing::DoAll;
 using ::testing::InSequence;
 using ::testing::NiceMock;
+using ::testing::SaveArg;
 using ::testing::UnorderedElementsAre;
 
 using enum EntityInstance::RecordType;
@@ -33,8 +39,8 @@ class MockAutofillClient : public TestAutofillClient {
   MOCK_METHOD(void, CloseEntityImportBubble, (), (override));
   MOCK_METHOD(void, ShowAutofillAiLocalSaveNotification, (), (override));
   MOCK_METHOD(void,
-              ShowAutofillAiFailureNotification,
-              (std::u16string message),
+              ShowAutofillAiSaveToWalletFailureNotification,
+              (),
               (override));
 };
 
@@ -49,7 +55,7 @@ class AutofillAiWalletUtilsTest : public ::testing::Test {
             webdata_helper_.autofill_webdata_service(),
             /*history_service=*/nullptr,
             /*strike_database=*/nullptr,
-            /*accessibility_annotator_data_adapter=*/nullptr,
+            /*accessibility_annotator_service=*/nullptr,
             /*variation_country_code=*/GeoIpCountryCode("US")));
     // Wait until EDM has finished its load to ensure that the waits in tests
     // are not interrupted due to the notification from the initial load.
@@ -158,7 +164,9 @@ TEST_F(AutofillAiWalletUtilsTest, HandleWalletSaveResponseFailure) {
     InSequence s;
     EXPECT_CALL(autofill_client(), CloseEntityImportBubble);
     EXPECT_CALL(autofill_client(), ShowAutofillAiLocalSaveNotification);
-    EXPECT_CALL(autofill_client(), ShowAutofillAiFailureNotification).Times(0);
+    EXPECT_CALL(autofill_client(),
+                ShowAutofillAiSaveToWalletFailureNotification)
+        .Times(0);
   }
 
   EntityInstance passport =
@@ -181,7 +189,8 @@ TEST_F(AutofillAiWalletUtilsTest, HandleWalletUpdateResponseFailure) {
     EXPECT_CALL(autofill_client(), CloseEntityImportBubble);
     EXPECT_CALL(autofill_client(), ShowAutofillAiLocalSaveNotification)
         .Times(0);
-    EXPECT_CALL(autofill_client(), ShowAutofillAiFailureNotification);
+    EXPECT_CALL(autofill_client(),
+                ShowAutofillAiSaveToWalletFailureNotification);
   }
 
   EntityInstance passport =
@@ -200,7 +209,8 @@ TEST_F(AutofillAiWalletUtilsTest, HandleWalletMigrateResponseFailure) {
     EXPECT_CALL(autofill_client(), CloseEntityImportBubble());
     EXPECT_CALL(autofill_client(), ShowAutofillAiLocalSaveNotification())
         .Times(0);
-    EXPECT_CALL(autofill_client(), ShowAutofillAiFailureNotification);
+    EXPECT_CALL(autofill_client(),
+                ShowAutofillAiSaveToWalletFailureNotification);
   }
 
   EntityInstance passport =
@@ -209,6 +219,70 @@ TEST_F(AutofillAiWalletUtilsTest, HandleWalletMigrateResponseFailure) {
       edm().GetWeakPtr(), autofill_client().GetWeakPtr(),
       AutofillClient::AutofillAiImportPromptType::kMigrate, /*entity=*/passport,
       /*wallet_response=*/std::nullopt);
+}
+
+TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PublicPasses) {
+  EntityInstance entity = test::GetVehicleEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+  EXPECT_EQ(GetWalletManagementURL(entity),
+            "https://wallet.google.com/wallet/passes");
+}
+
+TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PrivatePasses) {
+  EntityInstance entity =
+      test::GetPassportEntityInstance(
+          {.record_type = EntityInstance::RecordType::kServerWallet})
+          .CopyWithNewEntityId(EntityInstance::EntityId("123-456:789"));
+  // Deep links disabled.
+  {
+    base::test::ScopedFeatureList feature;
+    feature.InitAndDisableFeature(
+        features::kAutofillAiWalletPrivatePassesDeepLink);
+    EXPECT_EQ(GetWalletManagementURL(entity),
+              "https://wallet.google.com/wallet/passes");
+  }
+  // Deep links enabled.
+  {
+    base::test::ScopedFeatureList feature(
+        features::kAutofillAiWalletPrivatePassesDeepLink);
+    // Expect that the entity ID is URL encoded.
+    EXPECT_EQ(GetWalletManagementURL(entity),
+              "https://wallet.google.com/wallet?p=walletpass&"
+              "ppid=123-456%3A789&utm_source=chrome&utm_medium=settings&"
+              "utm_campaign=enhanced_autofill");
+  }
+}
+
+TEST_F(AutofillAiWalletUtilsTest, RecordWalletPrivatePassConsent) {
+  base::test::ScopedFeatureList feature_list(
+      wallet::features::kWalletApiPrivatePassesConsent);
+  autofill_client().SetUpPrefsAndIdentityForAutofillAi();
+
+  // Capture the details of the consent that are logged.
+  GaiaId gaia_id;
+  consent_auditor::ConsentAuditor::SessionId session_id;
+  sync_pb::UserConsentTypes::WalletPrivatePassConsent consent;
+  EXPECT_CALL(static_cast<consent_auditor::FakeConsentAuditor&>(
+                  *autofill_client().GetConsentAuditor()),
+              RecordWalletPrivatePassConsent)
+      .WillOnce(DoAll(SaveArg<0>(&gaia_id), SaveArg<1>(&session_id),
+                      SaveArg<2>(&consent)));
+
+  consent_auditor::ConsentAuditor::SessionId returned_session_id =
+      RecordWalletPrivatePassConsent(/*consent_string_id=*/1,
+                                     /*clicked_button_string_id=*/2,
+                                     autofill_client());
+  // Expect that the consent details are populated correctly and that the same
+  // session ID passed to the ConsentAuditor is returned;
+  EXPECT_EQ(gaia_id, autofill_client()
+                         .GetIdentityManager()
+                         ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+                         .gaia);
+  EXPECT_EQ(session_id, returned_session_id);
+  sync_pb::UserConsentTypes::WalletPrivatePassConsent expected_consent;
+  expected_consent.mutable_description_grd_ids()->Add(1);
+  expected_consent.set_confirmation_grd_id(2);
+  EXPECT_THAT(consent, base::test::EqualsProto(expected_consent));
 }
 
 }  // namespace

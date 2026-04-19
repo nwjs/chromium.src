@@ -17,7 +17,7 @@ namespace blink {
 
 TEST(String16MojomTraitsTest, String16) {
   // |str| is 8-bit.
-  String str = String::FromUTF8("hello world");
+  String str = "hello world";
   String output;
 
   ASSERT_TRUE(
@@ -27,7 +27,7 @@ TEST(String16MojomTraitsTest, String16) {
 
   // Replace the "o"s in "hello world" with "o"s with acute, so that |str| is
   // 16-bit.
-  str = String::FromUTF8("hell\xC3\xB3 w\xC3\xB3rld");
+  str = String::FromUtf8("hell\xC3\xB3 w\xC3\xB3rld");
 
   ASSERT_TRUE(
       mojo::test::SerializeAndDeserialize<mojo_base::mojom::blink::String16>(
@@ -36,7 +36,7 @@ TEST(String16MojomTraitsTest, String16) {
 }
 
 TEST(String16MojomTraitsTest, EmptyString16) {
-  String str = String::FromUTF8("");
+  String str = "";
   String output;
 
   ASSERT_TRUE(
@@ -46,7 +46,7 @@ TEST(String16MojomTraitsTest, EmptyString16) {
 }
 
 TEST(String16MojomTraitsTest, BigString16_Empty) {
-  String str = String::FromUTF8("");
+  String str = "";
   String output;
 
   ASSERT_TRUE(
@@ -56,7 +56,7 @@ TEST(String16MojomTraitsTest, BigString16_Empty) {
 }
 
 TEST(String16MojomTraitsTest, BigString16_Short) {
-  String str = String::FromUTF8("hello world");
+  String str = "hello world";
   ASSERT_TRUE(str.Is8Bit());
   String output;
 
@@ -67,7 +67,7 @@ TEST(String16MojomTraitsTest, BigString16_Short) {
 
   // Replace the "o"s in "hello world" with "o"s with acute, so that |str| is
   // 16-bit.
-  str = String::FromUTF8("hell\xC3\xB3 w\xC3\xB3rld");
+  str = String::FromUtf8("hell\xC3\xB3 w\xC3\xB3rld");
 
   ASSERT_TRUE(
       mojo::test::SerializeAndDeserialize<mojo_base::mojom::blink::BigString16>(

@@ -226,8 +226,8 @@ static_library("common_lib") {
     "//components/services/heap_profiling/public/cpp",
     "//components/strings",
     "//components/supervised_user/core/common",
-    #"//components/translate/content/common",
-    #"//components/translate/core/common",
+    "//components/translate/content/common",
+    "//components/translate/core/common",
     "//components/url_formatter",
     "//components/variations",
     "//components/variations/net",
@@ -385,8 +385,6 @@ static_library("common_lib") {
   }
 
   if (is_mac) {
-    public_deps += [ "//third_party/google_toolbox_for_mac" ]
-
     frameworks = [ "ServiceManagement.framework" ]
   }
 
@@ -488,6 +486,7 @@ component("chrome_features") {
     ":buildflags",
     ":non_code_constants",
     "//base",
+    "//build:android_buildflags",
     "//components/offline_pages/buildflags",
     "//content/public/common:buildflags",
     "//device/vr/buildflags",
@@ -502,7 +501,10 @@ component("chrome_features") {
 }
 
 static_library("url_constants") {
-  visibility = [ "//chrome/common/*" ]
+  visibility = [
+    "//chrome/browser/contextual_tasks/*",
+    "//chrome/common/*",
+  ]
   sources = [
     "url_constants.h",
     "webui_url_constants.cc",
@@ -754,6 +756,10 @@ mojom("mojo_bindings") {
       "//chrome/services/mac_notifications/public/mojom",
       "//components/remote_cocoa/common:mojo",
     ]
+  }
+
+  if (!is_android) {
+    sources += [ "indigo/indigo.mojom" ]
   }
 
   if (safe_browsing_mode == 1) {

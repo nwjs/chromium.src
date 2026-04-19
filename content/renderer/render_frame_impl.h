@@ -590,6 +590,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidChangePerformanceTiming() override;
   void DidObserveUserInteraction(base::TimeTicks max_event_start,
                                  base::TimeTicks max_event_queued_main_thread,
+                                 base::TimeTicks max_event_processing_start,
                                  base::TimeTicks max_event_commit_finish,
                                  base::TimeTicks max_event_end,
                                  uint64_t interaction_offset) override;
@@ -675,9 +676,6 @@ class CONTENT_EXPORT RenderFrameImpl
   void WasShown() override;
   void OnFrameVisibilityChanged(
       blink::mojom::FrameVisibility render_status) override;
-
-  void SetUpSharedMemoryForDroppedFrames(
-      base::ReadOnlySharedMemoryRegion dropped_frames_memory) override;
 
   blink::WebURL LastCommittedUrlForUKM() override;
   void ScriptedPrint() override;
@@ -899,13 +897,6 @@ class CONTENT_EXPORT RenderFrameImpl
       const std::optional<base::UnguessableToken>& devtools_frame_token)
       override;
   void Delete(mojom::FrameDeleteIntention intent) override;
-  void UndoCommitNavigation(
-      bool is_loading,
-      blink::mojom::FrameReplicationStatePtr replicated_frame_state,
-      const blink::RemoteFrameToken& frame_token,
-      blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-      blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
-      override;
   void GetInterfaceProvider(
       mojo::PendingReceiver<service_manager::mojom::InterfaceProvider> receiver)
       override;

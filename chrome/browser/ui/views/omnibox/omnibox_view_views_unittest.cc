@@ -102,7 +102,7 @@ class TestingOmniboxView : public OmniboxViewViews {
   void CheckUpdatePopupNotCalled();
 
   void SetClipboardTextForTesting(const std::u16string& text) {
-    clipboard_text_ = text;
+    clipboard_text_for_menu_ = text;
   }
 
   Range scheme_range() const { return scheme_range_; }
@@ -312,6 +312,7 @@ class TestLocationBar : public LocationBar {
 
   ui::TrackedElement* GetAnchorOrNull() override { return nullptr; }
   Browser* GetBrowser() override { return nullptr; }
+  Profile* GetProfile() override { return nullptr; }
   bool IsInitialized() const override { return true; }
   bool IsVisible() const override { return true; }
   bool IsDrawn() const override { return true; }
@@ -319,6 +320,7 @@ class TestLocationBar : public LocationBar {
   bool IsEditingOrEmpty() const override { return false; }
   void InvalidateLayout() override {}
   gfx::Rect Bounds() const override { return gfx::Rect(); }
+  gfx::Rect BoundsInScreen() const override { return gfx::Rect(); }
   gfx::Size MinimumSize() const override { return gfx::Size(); }
   gfx::Size PreferredSize() const override { return gfx::Size(); }
   void Update(content::WebContents* contents) override {}
@@ -1255,20 +1257,20 @@ TEST_P(OmniboxViewViewsClipboardTest, ClipboardCopyOrCutURL) {
   EXPECT_EQ(expected_text, omnibox_view()->GetText());
 
   // Make sure the plain text format is available, but the HTML one isn't.
-  EXPECT_TRUE(clipboard->IsFormatAvailable(
-      ui::ClipboardFormatType::PlainTextType(), clipboard_buffer,
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::PlainTextType(), clipboard_buffer,
       /* data_dst = */ nullptr));
-  EXPECT_FALSE(clipboard->IsFormatAvailable(ui::ClipboardFormatType::HtmlType(),
-                                            clipboard_buffer,
-                                            /* data_dst = */ nullptr));
+  EXPECT_FALSE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::HtmlType(), clipboard_buffer,
+      /* data_dst = */ nullptr));
 
   // Windows clipboard only supports text URLs.
   // Mac clipboard not reporting URL format available for some reason.
   // crbug.com/751031
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  EXPECT_TRUE(clipboard->IsFormatAvailable(ui::ClipboardFormatType::UrlType(),
-                                           clipboard_buffer,
-                                           /* data_dst = */ nullptr));
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::UrlType(), clipboard_buffer,
+      /* data_dst = */ nullptr));
 #endif
 
   std::string read_from_clipboard = ui::clipboard_test_util::ReadAsciiText(
@@ -1294,12 +1296,12 @@ TEST_P(OmniboxViewViewsClipboardTest, ClipboardCopyOrCutUserText) {
 
   // Make sure HTML format isn't written. See
   // BookmarkNodeData::WriteToClipboard() for details.
-  EXPECT_TRUE(clipboard->IsFormatAvailable(
-      ui::ClipboardFormatType::PlainTextType(), clipboard_buffer,
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::PlainTextType(), clipboard_buffer,
       /* data_dst = */ nullptr));
-  EXPECT_FALSE(clipboard->IsFormatAvailable(ui::ClipboardFormatType::HtmlType(),
-                                            clipboard_buffer,
-                                            /* data_dst = */ nullptr));
+  EXPECT_FALSE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::HtmlType(), clipboard_buffer,
+      /* data_dst = */ nullptr));
 
   std::string read_from_clipboard = ui::clipboard_test_util::ReadAsciiText(
       clipboard, clipboard_buffer, /* data_dst = */ nullptr);

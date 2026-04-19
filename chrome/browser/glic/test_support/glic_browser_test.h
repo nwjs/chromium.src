@@ -9,9 +9,12 @@
 #include <memory>
 #include <sstream>
 #include <string_view>
+#include <type_traits>
+#include <vector>
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/functional/function_ref.h"
 #include "base/path_service.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
@@ -25,24 +28,23 @@
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/test/browser_test_utils.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/base_window.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/device_info.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS)
-#include "ui/views/buildflags.h"
-
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)
 #include "ui/views/test/mock_activation_controller.h"
-#endif
 #endif
 
 namespace glic {
@@ -65,6 +67,40 @@ namespace glic {
 #define SKIP_NEEDS_ANDROID_IMPL(message)
 #endif
 
+// Runs `get_value` until it returns `expected_value`. Returns a
+// testing::AssertionResult indicating success or failure.
+// Note, `type_identity_t` ensures T's type is inferred from `expected_value`.
+template <typename T>
+[[nodiscard]] testing::AssertionResult RunUntilEqual(
+    base::FunctionRef<std::type_identity_t<T>()> get_value,
+    const T& expected_value,
+    std::string_view message = std::string_view()) {
+  using ValueType = std::remove_reference_t<T>;
+  if (get_value() == expected_value) {
+    return testing::AssertionSuccess();
+  }
+  std::vector<ValueType> ignored_values;
+  if (base::test::RunUntil([get_value, expected_value, &ignored_values]() {
+        ValueType value = get_value();
+        if (value == expected_value) {
+          return true;
+        }
+        if (ignored_values.empty() || ignored_values.back() != value) {
+          ignored_values.push_back(value);
+        }
+        return false;
+      })) {
+    return testing::AssertionSuccess();
+  }
+  auto failure = testing::AssertionFailure();
+  failure << message << " Expected: " << expected_value << ", saw values: {";
+  for (const auto& value : ignored_values) {
+    failure << value << ", ";
+  }
+  failure << "}";
+  return failure;
+}
+
 template <typename Trigger>
 [[nodiscard]] bool RunUntil(Trigger&& trigger, std::string_view message) {
   if (base::test::RunUntil(std::forward<Trigger>(trigger))) {
@@ -82,7 +118,15 @@ class GlicBrowserTestMixin : public T {
   template <typename... Args>
   explicit GlicBrowserTestMixin(Args&&... args)
       : T(std::forward<Args>(args)...) {
-    scoped_feature_list_.InitAndEnableFeature(features::kGlicMultiInstance);
+    std::vector<base::test::FeatureRefAndParams> enabled_features = {
+        {features::kGlicMultiInstance, {}},
+#if BUILDFLAG(IS_ANDROID)
+        {chrome::android::kBrowserWindowInterfaceMobile, {}},
+        {chrome::android::kTabBottomSheet,
+         { {"dont_show_fusebox", "true"} }},
+#endif
+    };
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
   }
   ~GlicBrowserTestMixin() override = default;
 
@@ -98,23 +142,24 @@ class GlicBrowserTestMixin : public T {
 
   void SetUpOnMainThread() override {
     T::SetUpOnMainThread();
-#if defined(TOOLKIT_VIEWS)
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
     activation_controller_ =
         std::make_unique<views::test::MockActivationController>();
-#endif
 #endif
 
     CHECK(glic_test_environment_.SetupEmbeddedTestServers(
         T::embedded_test_server(), &T::embedded_https_test_server()));
+    T::GetTabListInterface()
+        ->GetActiveTab()
+        ->GetBrowserWindowInterface()
+        ->GetWindow()
+        ->Activate();
     LOG(INFO) << "GlicBrowserTest: done setting up";
   }
 
   void TearDownOnMainThread() override {
-#if defined(TOOLKIT_VIEWS)
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
     activation_controller_.reset();
-#endif
 #endif
     T::TearDownOnMainThread();
   }
@@ -136,6 +181,36 @@ class GlicBrowserTestMixin : public T {
         WaitForGlicOpen(T::GetTabListInterface()->GetActiveTab());
     if (!instance) {
       LOG(ERROR) << "Failed to open Glic for active tab";
+    }
+    return instance;
+  }
+
+  // Registers a conversation and submits input to prevent the instance from
+  // being deleted when closed.
+  void PreventDeletionOnClose(
+      GlicInstanceImpl* instance,
+      const std::string& conversation_id = "test_conversation") {
+    CHECK(instance);
+    auto info = mojom::ConversationInfo::New();
+    info->conversation_id = conversation_id;
+    instance->RegisterConversation(std::move(info), base::DoNothing());
+    instance->OnUserInputSubmitted(mojom::WebClientMode::kText);
+  }
+
+  // Opens the Glic UI on the active tab and detaches it.
+  [[nodiscard]] GlicInstanceImpl* OpenGlicForActiveTabAndDetach() {
+    GlicInstanceImpl* instance = OpenGlicForActiveTab();
+    if (!instance) {
+      return nullptr;
+    }
+    if (instance->IsDetached()) {
+      return instance;
+    }
+    instance->Detach(*T::GetTabListInterface()->GetActiveTab());
+    bool success = RunUntil([instance]() { return instance->IsDetached(); },
+                            "Failed to wait for Glic to detach");
+    if (!success) {
+      return nullptr;
     }
     return instance;
   }
@@ -189,6 +264,16 @@ class GlicBrowserTestMixin : public T {
         "Failed to close Glic UI");
   }
 
+  // Closes Glic for a given tab and waits for it to close.
+  [[nodiscard]] bool CloseGlicForTabAndWait(tabs::TabInterface* tab) {
+    GlicInstanceImpl* instance = GetInstanceForTab(tab);
+    if (!instance) {
+      return false;
+    }
+    instance->Close(tab);
+    return WaitForGlicClose(instance);
+  }
+
   [[nodiscard]] GlicInstanceImpl* WaitForGlicInstanceBoundToTab(
       tabs::TabInterface* tab) {
     bool success = RunUntil(
@@ -228,14 +313,23 @@ class GlicBrowserTestMixin : public T {
   GlicInstanceCoordinatorImpl& coordinator() {
     CHECK(GlicEnabling::IsMultiInstanceEnabled());
     return static_cast<GlicInstanceCoordinatorImpl&>(
-        GlicKeyedService::Get(T::GetProfile())->window_controller());
+        GlicKeyedService::Get(T::GetProfile())->instance_coordinator());
   }
 
-  // Opens a new tab with the given URL.
+  // Opens a new tab with the given URL and wait for load to complete.
   tabs::TabInterface* CreateAndActivateTab(const GURL& url) {
     tabs::TabInterface* new_tab = T::GetTabListInterface()->OpenTab(url, -1);
     T::GetTabListInterface()->ActivateTab(new_tab->GetHandle());
+    CHECK(content::WaitForLoadStop(new_tab->GetContents()));
     return new_tab;
+  }
+
+  // Returns a simple URL for testing that is guaranteed to load properly via
+  // the embedded test server.
+  GURL GetSimpleTestUrl() { return GetTestUrl("page.html"); }
+
+  GURL GetTestUrl(const std::string& file_name) {
+    return T::embedded_test_server()->GetURL("/test_data/" + file_name);
   }
 
   void SetGlicPagePath(const std::string& glic_page_path) {
@@ -264,10 +358,8 @@ class GlicBrowserTestMixin : public T {
  private:
   GlicTestEnvironment glic_test_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
-#if defined(TOOLKIT_VIEWS)
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)
+#if defined(USE_MOCK_ACTIVATION_CONTROLLER)
   std::unique_ptr<views::test::MockActivationController> activation_controller_;
-#endif
 #endif
 };
 

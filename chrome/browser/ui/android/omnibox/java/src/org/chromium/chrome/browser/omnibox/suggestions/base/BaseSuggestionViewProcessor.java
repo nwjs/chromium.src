@@ -72,7 +72,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
         mSuggestionSizePx =
                 mContext.getResources()
                         .getDimensionPixelSize(R.dimen.omnibox_suggestion_content_height);
-        mActionChipsProcessor = new ActionChipsProcessor(uiContext.host);
+        mActionChipsProcessor = new ActionChipsProcessor(uiContext.host, uiContext.actionDelegate);
 
         mShouldShowRemoveButton =
                 OmniboxFeatures.sOmniboxImprovementForLFF.isEnabled()
@@ -189,9 +189,9 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
         assumeNonNull(toolbarPosition);
         @DrawableRes
         int icon =
-                toolbarPosition == ControlsPosition.TOP
-                        ? R.drawable.btn_suggestion_refine_up
-                        : R.drawable.btn_suggestion_refine_down;
+                toolbarPosition == ControlsPosition.BOTTOM
+                        ? R.drawable.btn_suggestion_refine_down
+                        : R.drawable.btn_suggestion_refine_up;
 
         Runnable action =
                 () -> {

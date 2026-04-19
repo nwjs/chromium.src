@@ -234,10 +234,18 @@ export class SettingsAppearancePageElement extends
         },
       },
 
-      showTabStripComboButtonEnabled_: {
+      showVerticalTabsExpandOnHoverEnabled_: {
         type: Boolean,
         value() {
-          return loadTimeData.getBoolean('showTabStripComboButtonEnabled');
+          return loadTimeData.getBoolean(
+              'showVerticalTabsExpandOnHoverEnabled');
+        },
+      },
+
+      showTabSearchEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('showTabSearchEnabled');
         },
       },
 
@@ -296,7 +304,8 @@ export class SettingsAppearancePageElement extends
   // </if>
 
   declare private showVerticalTabsEnabled_: boolean;
-  declare private showTabStripComboButtonEnabled_: boolean;
+  declare private showVerticalTabsExpandOnHoverEnabled_: boolean;
+  declare private showTabSearchEnabled_: boolean;
   declare private showProjectsPanelEnabled_: boolean;
   declare private showEverythingMenuEnabled_: boolean;
   declare private showManagedThemeDialog_: boolean;
@@ -545,10 +554,37 @@ export class SettingsAppearancePageElement extends
     return !this.showProjectsPanelEnabled_ && this.showEverythingMenuEnabled_;
   }
 
+  private onShowTabSearchButtonChange_(event: CustomEvent<boolean>) {
+    this.metricsBrowserProxy_.recordAction(
+        event.detail ? 'TabStripComboButton.TabSearch.Pinned' :
+                       'TabStripComboButton.TabSearch.Unpinned');
+  }
+
+  private onShowProjectsPanelButtonChange_(event: CustomEvent<boolean>) {
+    this.metricsBrowserProxy_.recordAction(
+        event.detail ? 'TabStripComboButton.ProjectsPanel.Pinned' :
+                       'TabStripComboButton.ProjectsPanel.Unpinned');
+  }
+
+  private onShowEverythingMenuButtonChange_(event: CustomEvent<boolean>) {
+    this.metricsBrowserProxy_.recordAction(
+        event.detail ? 'TabStripComboButton.EverythingMenu.Pinned' :
+                       'TabStripComboButton.EverythingMenu.Unpinned');
+  }
+
   private onHoverCardImagesToggleChange_(event: Event) {
     const enabled = (event.target as SettingsToggleButtonElement).checked;
     this.appearanceBrowserProxy_.recordHoverCardImagesEnabledChanged(enabled);
   }
+
+  private showVerticalTabsExpandOnHoverSetting_(): boolean {
+    if (this.prefs === undefined) {
+      return false;
+    }
+    return this.showVerticalTabsExpandOnHoverEnabled_ &&
+        this.getPref<boolean>('vertical_tabs.enabled').value;
+  }
+
 
   private onManagedDialogClosed_() {
     this.showManagedThemeDialog_ = false;

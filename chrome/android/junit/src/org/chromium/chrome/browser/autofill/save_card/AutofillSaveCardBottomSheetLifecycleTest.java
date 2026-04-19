@@ -21,12 +21,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.autofill.AutofillSheetUiController;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 
 /** Unit test for {@link AutofillSaveCardBottomSheetLifecycle}. */
@@ -35,7 +35,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.Stat
 public class AutofillSaveCardBottomSheetLifecycleTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private LayoutStateProvider mLayoutStateProvider;
-    @Mock private BottomSheetController mBottomSheetController;
+    @Mock private AutofillSheetUiController mUiController;
     @Mock private TabModel mTabModel;
     private AutofillSaveCardBottomSheetLifecycle mLifecycle;
     @Mock private AutofillSaveCardBottomSheetMediator mDelegate;
@@ -45,14 +45,14 @@ public class AutofillSaveCardBottomSheetLifecycleTest {
     public void setUp() {
         mLifecycle =
                 new AutofillSaveCardBottomSheetLifecycle(
-                        mBottomSheetController, mLayoutStateProvider, mTabModel);
+                        mUiController, mLayoutStateProvider, mTabModel);
         mLifecycle.begin(mDelegate);
     }
 
     @Test
     public void testBegin() {
         // mLifecycle.begin(mDelegate) called in setUp().
-        verify(mBottomSheetController).addObserver(eq(mLifecycle));
+        verify(mUiController).addObserver(eq(mLifecycle));
         verify(mLayoutStateProvider).addObserver(eq(mLifecycle));
         verify(mTabModel).addObserver(eq(mLifecycle));
     }
@@ -63,7 +63,7 @@ public class AutofillSaveCardBottomSheetLifecycleTest {
 
         verify(mTabModel).removeObserver(eq(mLifecycle));
         verify(mLayoutStateProvider).removeObserver(eq(mLifecycle));
-        verify(mBottomSheetController).removeObserver(eq(mLifecycle));
+        verify(mUiController).removeObserver(eq(mLifecycle));
     }
 
     @Test

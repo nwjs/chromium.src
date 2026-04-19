@@ -10,18 +10,18 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ui/search_engines/edit_search_engine_controller.h"
 #include "chrome/browser/ui/search_engines/keyword_editor_controller.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
-#include "components/prefs/pref_change_registrar.h"
-#include "ui/base/models/table_model_observer.h"
+#include "components/search_engines/template_url_service_observer.h"
 
 class Profile;
 
 namespace settings {
 
 class SearchEnginesHandler : public SettingsPageUIHandler,
-                             public ui::TableModelObserver,
+                             public TemplateURLServiceObserver,
                              public EditSearchEngineControllerDelegate {
  public:
   explicit SearchEnginesHandler(Profile* profile);
@@ -31,11 +31,8 @@ class SearchEnginesHandler : public SettingsPageUIHandler,
 
   ~SearchEnginesHandler() override;
 
-  // ui::TableModelObserver implementation.
-  void OnModelChanged() override;
-  void OnItemsChanged(size_t start, size_t length) override;
-  void OnItemsAdded(size_t start, size_t length) override;
-  void OnItemsRemoved(size_t start, size_t length) override;
+  // TemplateURLServiceObserver implementation.
+  void OnTemplateURLServiceChanged() override;
 
   // EditSearchEngineControllerDelegate implementation.
   void OnEditedKeyword(TemplateURL* template_url,
@@ -50,6 +47,11 @@ class SearchEnginesHandler : public SettingsPageUIHandler,
 
  private:
   friend class SearchEnginesHandlerTest;
+
+  // Retrieves all search engines and returns them to WebUI.
+  void HandleGetCategorizedTemplateUrls(const base::ListValue& args);
+
+  base::DictValue GetCategorizedTemplateUrls();
 
   // Retrieves all search engines and returns them to WebUI.
   void HandleGetSearchEnginesList(const base::ListValue& args);
@@ -99,14 +101,14 @@ class SearchEnginesHandler : public SettingsPageUIHandler,
 #endif
 
   // Returns a dictionary to pass to WebUI representing the given search engine.
-  base::DictValue CreateDictionaryForEngine(size_t index, bool is_default);
+  base::DictValue CreateDictionaryForEngine(TemplateURL* template_url);
 
   const raw_ptr<Profile> profile_;
 
   KeywordEditorController list_controller_;
   std::unique_ptr<EditSearchEngineController> edit_controller_;
-  PrefChangeRegistrar pref_change_registrar_;
-  base::WeakPtrFactory<SearchEnginesHandler> weak_ptr_factory_{this};
+  base::ScopedObservation<TemplateURLService, TemplateURLServiceObserver>
+      scoped_url_service_observation_{this};
 };
 
 }  // namespace settings

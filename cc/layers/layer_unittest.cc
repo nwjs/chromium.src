@@ -73,18 +73,20 @@ using ::testing::StrictMock;
   root->layer_tree_host()->BuildPropertyTreesForTesting();                     \
   EXPECT_FALSE(root->subtree_property_changed());                              \
   EXPECT_TRUE(top->subtree_property_changed());                                \
-  EXPECT_TRUE(const_cast<const LayerTreeHost*>(top->layer_tree_host())         \
-                  ->pending_commit_state()                                     \
-                  ->layers_that_should_push_properties.contains(top.get()));   \
-  EXPECT_TRUE(child->subtree_property_changed());                              \
-  EXPECT_TRUE(const_cast<const LayerTreeHost*>(child->layer_tree_host())       \
-                  ->pending_commit_state()                                     \
-                  ->layers_that_should_push_properties.contains(child.get())); \
-  EXPECT_TRUE(grand_child->subtree_property_changed());                        \
   EXPECT_TRUE(                                                                 \
-      const_cast<const LayerTreeHost*>(grand_child->layer_tree_host())         \
+      const_cast<const LayerTreeHost*>(top->layer_tree_host())                 \
           ->pending_commit_state()                                             \
-          ->layers_that_should_push_properties.contains(grand_child.get()));
+          ->layer_ids_that_should_push_properties.contains(top->id()));        \
+  EXPECT_TRUE(child->subtree_property_changed());                              \
+  EXPECT_TRUE(                                                                 \
+      const_cast<const LayerTreeHost*>(child->layer_tree_host())               \
+          ->pending_commit_state()                                             \
+          ->layer_ids_that_should_push_properties.contains(child->id()));      \
+  EXPECT_TRUE(grand_child->subtree_property_changed());                        \
+  EXPECT_TRUE(const_cast<const LayerTreeHost*>(grand_child->layer_tree_host()) \
+                  ->pending_commit_state()                                     \
+                  ->layer_ids_that_should_push_properties.contains(            \
+                      grand_child->id()));
 
 #define EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(code_to_test)       \
   do {                                                                         \
@@ -151,11 +153,11 @@ class FakeLayerTreeHost : public LayerTreeHost {
   }
 
   void ClearPendingLayerCommitStates() {
-    for (auto layer :
-         pending_commit_state()->layers_that_should_push_properties) {
-      layer->ClearChangedPushPropertiesForTesting();
+    for (auto layer_id :
+         pending_commit_state()->layer_ids_that_should_push_properties) {
+      LayerById(layer_id)->ClearChangedPushPropertiesForTesting();
     }
-    pending_commit_state()->layers_that_should_push_properties.clear();
+    pending_commit_state()->layer_ids_that_should_push_properties.clear();
   }
   CommitState* GetPendingCommitState() { return pending_commit_state(); }
   ThreadUnsafeCommitState& GetThreadUnsafeCommitState() {
@@ -236,17 +238,18 @@ class LayerTest : public testing::Test {
   }
 
   void SimulateCommitForLayer(Layer* layer) {
+    layer_tree_host_->pending_commit_state()->layer_update_rects.insert(
+        std::make_pair(layer->id(), layer->update_rect()));
+    layer->ResetUpdateRect();
     layer->PushPropertiesTo(
         layer->CreateLayerImpl(host_impl_.active_tree()).get(),
-        *layer_tree_host_->GetPendingCommitState(),
-        layer_tree_host_->GetThreadUnsafeCommitState());
+        *layer_tree_host_->GetPendingCommitState());
   }
 
   void CommitAndPushProperties(Layer* layer, LayerImpl* layer_impl) {
-    auto& unsafe_state = layer_tree_host_->GetThreadUnsafeCommitState();
     std::unique_ptr<CommitState> commit_state = layer_tree_host_->WillCommit(
         /*completion=*/nullptr, /*has_updates=*/true);
-    layer->PushPropertiesTo(layer_impl, *commit_state, unsafe_state);
+    layer->PushPropertiesTo(layer_impl, *commit_state);
     layer_tree_host_->CommitComplete(
         commit_state->source_frame_number,
         {base::TimeTicks(), base::TimeTicks::Now()});
@@ -398,15 +401,12 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   host_impl_.active_tree()->set_source_frame_number(
       host_impl_.active_tree()->source_frame_number() + 1);
 
-  auto& unsafe_state = layer_tree_host_->GetThreadUnsafeCommitState();
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state);
-      mask_layer1->PushPropertiesTo(mask_layer1_impl.get(), *commit_state,
-                                    unsafe_state););
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state);
+      mask_layer1->PushPropertiesTo(mask_layer1_impl.get(), *commit_state));
 
   // Once there is a mask layer, resizes require subtree properties to update.
   arbitrary_size = gfx::Size(11, 22);
@@ -420,44 +420,40 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(top->SetContentsOpaque(true));
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(top->SetTrilinearFiltering(true));
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(top->SetTrilinearFiltering(false));
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(2);
   top->SetRoundedCorner({1, 2, 3, 4});
@@ -465,33 +461,30 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(top->SetHideLayerAndSubtree(true));
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(top->SetBlendMode(arbitrary_blend_mode));
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   // Should be a different size than previous call, to ensure it marks tree
   // changed.
@@ -502,11 +495,10 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   FilterOperations arbitrary_filters;
   arbitrary_filters.Append(FilterOperation::CreateOpacityFilter(0.5f));
@@ -515,23 +507,21 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state));
 
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(2);
   EXECUTE_AND_VERIFY_SUBTREE_CHANGED(
       top->SetBackdropFilters(arbitrary_filters));
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state));
-  layer_tree_host_->VerifyAndClearExpectations();
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state);
+      layer_tree_host_->VerifyAndClearExpectations());
 
   gfx::PointF arbitrary_point_f = gfx::PointF(0.125f, 0.25f);
   EXPECT_CALL_MOCK_DELEGATE(*layer_tree_host_, SetNeedsCommit()).Times(1);
@@ -542,11 +532,10 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   EXPECT_TRUE(node->transform_changed());
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state);
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state);
       layer_tree_host_->property_trees()->ResetAllChangeTracking());
   EXPECT_FALSE(node->transform_changed());
   layer_tree_host_->VerifyAndClearExpectations();
@@ -559,9 +548,8 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state);
       layer_tree_host_->property_trees()->ResetAllChangeTracking());
   node = layer_tree_host_->property_trees()->transform_tree_mutable().Node(
       child->transform_tree_index());
@@ -576,11 +564,10 @@ TEST_F(LayerTest, LayerPropertyChangedForSubtree) {
   layer_tree_host_->VerifyAndClearExpectations();
 
   EXECUTE_AND_VERIFY_SUBTREE_CHANGES_RESET_IN_COMMIT(
-      top->PushPropertiesTo(top_impl.get(), *commit_state, unsafe_state);
-      child->PushPropertiesTo(child_impl.get(), *commit_state, unsafe_state);
-      child2->PushPropertiesTo(child2_impl.get(), *commit_state, unsafe_state);
-      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state,
-                                    unsafe_state);
+      top->PushPropertiesTo(top_impl.get(), *commit_state);
+      child->PushPropertiesTo(child_impl.get(), *commit_state);
+      child2->PushPropertiesTo(child2_impl.get(), *commit_state);
+      grand_child->PushPropertiesTo(grand_child_impl.get(), *commit_state);
       layer_tree_host_->property_trees()->ResetAllChangeTracking());
 
   gfx::Transform arbitrary_transform;
@@ -734,7 +721,7 @@ TEST_F(LayerTest, ReorderChildren) {
   for (const auto& child : parent->children()) {
     EXPECT_FALSE(
         layer_tree_host_->GetPendingCommitState()
-            ->layers_that_should_push_properties.contains(child.get()));
+            ->layer_ids_that_should_push_properties.contains(child->id()));
     EXPECT_TRUE(child->subtree_property_changed());
   }
 }
@@ -1765,7 +1752,7 @@ TEST_F(LayerTest, UpdateMirrorCount) {
   EXPECT_EQ(0, test_layer->mirror_count());
   EXPECT_FALSE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_EQ(0u, layer_tree_host_->GetPendingCommitState()
-                    ->layers_that_should_push_properties.size());
+                    ->layer_ids_that_should_push_properties.size());
 
   // Incrementing mirror count from zero should trigger property trees
   // rebuild.
@@ -1774,7 +1761,7 @@ TEST_F(LayerTest, UpdateMirrorCount) {
   EXPECT_TRUE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_TRUE(
       layer_tree_host_->GetPendingCommitState()
-          ->layers_that_should_push_properties.contains(test_layer.get()));
+          ->layer_ids_that_should_push_properties.contains(test_layer->id()));
 
   layer_tree_host_->ClearPendingLayerCommitStates();
   layer_tree_host_->property_trees()->set_needs_rebuild(false);
@@ -1786,7 +1773,7 @@ TEST_F(LayerTest, UpdateMirrorCount) {
   EXPECT_FALSE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_TRUE(
       layer_tree_host_->GetPendingCommitState()
-          ->layers_that_should_push_properties.contains(test_layer.get()));
+          ->layer_ids_that_should_push_properties.contains(test_layer->id()));
 
   layer_tree_host_->ClearPendingLayerCommitStates();
 
@@ -1797,7 +1784,7 @@ TEST_F(LayerTest, UpdateMirrorCount) {
   EXPECT_FALSE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_TRUE(
       layer_tree_host_->GetPendingCommitState()
-          ->layers_that_should_push_properties.contains(test_layer.get()));
+          ->layer_ids_that_should_push_properties.contains(test_layer->id()));
 
   // Decrementing mirror count to zero should trigger property trees rebuild.
   test_layer->DecrementMirrorCount();
@@ -1805,7 +1792,7 @@ TEST_F(LayerTest, UpdateMirrorCount) {
   EXPECT_TRUE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_TRUE(
       layer_tree_host_->GetPendingCommitState()
-          ->layers_that_should_push_properties.contains(test_layer.get()));
+          ->layer_ids_that_should_push_properties.contains(test_layer->id()));
 
   test_layer->SetLayerTreeHost(nullptr);
 }

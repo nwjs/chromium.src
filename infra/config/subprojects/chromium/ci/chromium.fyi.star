@@ -1533,6 +1533,67 @@ ci.builder(
 )
 
 ci.builder(
+    name = "linux-arm64-rel-fyi",
+    description_html = "Linux ARM64 Release FYI builder.",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "arm64",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "remoteexec",
+            "minimal_symbols",
+            "linux",
+            "arm64",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "chromium_linux_gtests",
+        ],
+        mixins = [
+            "linux-jammy",
+            "arm64",
+            "gce",  # So as not to take up baremetal arm bots for VM testing.
+            # TODO(crbug.com/493903786): Can remove the increased expirations
+            # if/when the full resources are delivered.
+            "very_limited_capacity_bot",
+        ],
+        per_test_modifications = {
+            "remoting_unittests": targets.remove(
+                reason = "Not supported on Linux arm64",
+            ),
+            "vr_common_unittests": targets.remove(
+                reason = "Not supported on Linux arm64",
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.LINUX,
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|arm64",
+        short_name = "rel",
+    ),
+    contact_team_email = "chrome-linux-engprod@google.com",
+)
+
+ci.builder(
     name = "linux-upload-perfetto",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
@@ -2139,7 +2200,7 @@ fyi_mac_builder(
         chromium_config = builder_config.chromium_config(
             config = "chromium",
             apply_configs = ["mb"],
-            build_config = builder_config.build_config.DEBUG,
+            build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
@@ -2149,10 +2210,9 @@ fyi_mac_builder(
         configs = [
             "arm64",
             "gpu_tests",
-            "debug_static_builder",
+            "release_builder",
             "remoteexec",
-            "dcheck_off",
-            "shared",
+            "minimal_symbols",
             "mac",
         ],
     ),

@@ -4,6 +4,10 @@
 
 package org.chromium.chrome.browser.pdf;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,15 +17,14 @@ import android.net.Uri;
 import androidx.fragment.app.FragmentActivity;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
-import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -36,6 +39,8 @@ import org.chromium.url.Origin;
 
 @RunWith(BaseRobolectricTestRunner.class)
 public class PdfCoordinatorUnitTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
@@ -45,7 +50,6 @@ public class PdfCoordinatorUnitTest {
 
     private FragmentActivity mActivity;
     private PdfCoordinator mPdfCoordinator;
-    private AutoCloseable mCloseableMocks;
     private static final String PDF_URL =
             "chrome-native://pdf/link?url=https%3A%2F%2Fwww.irs.gov%2Fpub%2Firs-pdf%2Ffw4.pdf";
     private static final String LINK_URL = "https://www.bar.com";
@@ -55,14 +59,8 @@ public class PdfCoordinatorUnitTest {
 
     @Before
     public void setUp() {
-        mCloseableMocks = MockitoAnnotations.openMocks(this);
         mActivityScenarioRule.getScenario().onActivity(activity -> mActivity = activity);
         PdfCoordinator.skipLoadPdfForTesting(true);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        mCloseableMocks.close();
     }
 
     private void createPdfCoordinator(boolean isIncognito) {
@@ -87,19 +85,57 @@ public class PdfCoordinatorUnitTest {
         runOnLinkClickedTest(true);
     }
 
-    public void runOnLinkClickedTest(boolean isIncognito) {
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testNavigateToPage() {
+        createPdfCoordinator(false);
+
+        // Mock the fragment to isolate the coordinator and avoid calling real viewport scrolling
+        // logic which might reach final methods on PdfView.
+        PdfCoordinator.ChromePdfViewerFragment mockFragment =
+                org.mockito.Mockito.mock(PdfCoordinator.ChromePdfViewerFragment.class);
+        mPdfCoordinator.mChromePdfViewerFragment = mockFragment;
+
+        mPdfCoordinator.navigateToPage(2);
+
+        // Verify delegation to the fragment.
+        verify(mockFragment).scrollToPage(2);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testCalculateYOffsetPoints() {
+        float viewHeightPx = 1000f;
+        float zoom = 2.0f;
+
+        // (1000 / 2) / 2.0 = 250f
+        float expectedOffset = 250f;
+        float actualOffset = PdfCoordinator.calculateYOffsetPoints(viewHeightPx, zoom);
+
+        assertEquals("Y offset calculation should be correct", expectedOffset, actualOffset, 0.01f);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testNavigateToPage_PdfViewNull() {
+        createPdfCoordinator(false);
+        mPdfCoordinator.mChromePdfViewerFragment.setPdfViewForTesting(null);
+        mPdfCoordinator.navigateToPage(2);
+    }
+
+    private void runOnLinkClickedTest(boolean isIncognito) {
         createPdfCoordinator(isIncognito);
         Uri linkUri = Uri.parse(LINK_URL);
         boolean result = mPdfCoordinator.onLinkClicked(linkUri);
-        Assert.assertTrue("onLinkClicked should return true.", result);
+        assertTrue("onLinkClicked should return true.", result);
         ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
         verify(mNativePageHost).loadUrl(captor.capture(), eq(isIncognito));
         LoadUrlParams params = captor.getValue();
-        Assert.assertEquals("URL should match.", LINK_URL, params.getUrl());
-        Assert.assertEquals(
+        assertEquals("URL should match.", LINK_URL, params.getUrl());
+        assertEquals(
                 "Transition type should be LINK.", PageTransition.LINK, params.getTransitionType());
-        Assert.assertTrue("isRendererInitiated should be true.", params.getIsRendererInitiated());
-        Assert.assertEquals(
+        assertTrue("isRendererInitiated should be true.", params.getIsRendererInitiated());
+        assertEquals(
                 Origin.create(new GURL(PDF_URL)).toString(),
                 params.getInitiatorOrigin().toString());
     }
@@ -111,9 +147,9 @@ public class PdfCoordinatorUnitTest {
         try {
             PdfCoordinator.ChromePdfViewerFragment fragment =
                     new PdfCoordinator.ChromePdfViewerFragment();
-            Assert.assertNotNull("Fragment should be created successfully.", fragment);
+            assertNotNull("Fragment should be created successfully.", fragment);
         } catch (Exception e) {
-            Assert.fail("Fragment instantiation should not throw an exception: " + e.getMessage());
+            fail("Fragment instantiation should not throw an exception: " + e.getMessage());
         }
     }
 }

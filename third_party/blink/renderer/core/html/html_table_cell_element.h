@@ -37,6 +37,10 @@ class CORE_EXPORT HTMLTableCellElement final : public HTMLTablePartElement {
  public:
   HTMLTableCellElement(const QualifiedName&, Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLTableCellElement;
+  }
+
   int cellIndex() const;
 
   unsigned colSpan() const;

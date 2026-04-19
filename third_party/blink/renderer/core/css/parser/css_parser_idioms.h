@@ -52,13 +52,13 @@ inline bool IsCSSNewLine(UChar cc) {
 // https://drafts.csswg.org/css-syntax/#name-start-code-point
 template <typename CharacterType>
 bool IsNameStartCodePoint(CharacterType c) {
-  return IsASCIIAlpha(c) || c == '_' || !IsASCII(c);
+  return IsAsciiAlpha(c) || c == '_' || !IsAscii(c);
 }
 
 // https://drafts.csswg.org/css-syntax/#name-code-point
 template <typename CharacterType>
 bool IsNameCodePoint(CharacterType c) {
-  return IsNameStartCodePoint(c) || IsASCIIDigit(c) || c == '-';
+  return IsNameStartCodePoint(c) || IsAsciiDigit(c) || c == '-';
 }
 
 // https://drafts.csswg.org/css-syntax/#check-if-two-code-points-are-a-valid-escape

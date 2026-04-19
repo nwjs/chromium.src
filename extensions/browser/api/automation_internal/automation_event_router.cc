@@ -50,15 +50,6 @@ AutomationEventRouter::~AutomationEventRouter() {
   CHECK(!remote_router_);
 }
 
-void AutomationEventRouter::RegisterListenerForOneTree(
-    const ExtensionId& extension_id,
-    const RenderProcessHostId& listener_rph_id,
-    content::WebContents* web_contents,
-    ui::AXTreeID source_ax_tree_id) {
-  Register(extension_id, listener_rph_id, web_contents, source_ax_tree_id,
-           /*desktop=*/false);
-}
-
 void AutomationEventRouter::RegisterListenerWithDesktopPermission(
     const ExtensionId& extension_id,
     const RenderProcessHostId& listener_rph_id,
@@ -129,10 +120,8 @@ void AutomationEventRouter::DispatchTreeDestroyedEvent(ui::AXTreeID tree_id) {
   }
 }
 
-void AutomationEventRouter::DispatchActionResult(
-    const ui::AXActionData& data,
-    bool result,
-    content::BrowserContext* browser_context) {
+void AutomationEventRouter::DispatchActionResult(const ui::AXActionData& data,
+                                                 bool result) {
   CHECK(!data.source_extension_id.empty());
 
   for (const auto& remote : automation_remote_set_) {
@@ -248,7 +237,7 @@ void AutomationEventRouter::Register(const ExtensionId& extension_id,
   std::vector<WorkerId> all_worker_ids =
       process_manager->GetServiceWorkersForExtension(extension_id);
   for (const WorkerId& worker_id : all_worker_ids) {
-    if (worker_id.render_process_id.GetUnsafeValue() != listener_rph_id) {
+    if (worker_id.render_process_id != listener_rph_id) {
       continue;
     }
 
@@ -290,7 +279,7 @@ void AutomationEventRouter::RenderProcessHostDestroyed(
 
 void AutomationEventRouter::RemoveAutomationListener(
     content::RenderProcessHost* host) {
-  RenderProcessHostId rph_id = host->GetDeprecatedID();
+  RenderProcessHostId rph_id = host->GetID();
   ExtensionId extension_id;
   for (auto listener = listeners_.begin(); listener != listeners_.end();) {
     if ((*listener)->render_process_host_id == rph_id) {
@@ -317,7 +306,7 @@ void AutomationEventRouter::RemoveAutomationListener(
       process_manager->GetServiceWorkersForExtension(extension_id);
 
   for (const WorkerId& worker_id : all_worker_ids) {
-    if (worker_id.render_process_id.GetUnsafeValue() != rph_id) {
+    if (worker_id.render_process_id != rph_id) {
       continue;
     }
     const auto& request_uuid_iter =

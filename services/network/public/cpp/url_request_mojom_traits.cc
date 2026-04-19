@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "base/debug/dump_without_crashing.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "mojo/public/cpp/base/file_mojom_traits.h"
@@ -98,6 +97,8 @@ bool StructTraits<network::mojom::TrustedUrlRequestParamsDataView,
           &out->expected_response_headers_for_synthetic_response)) {
     return false;
   }
+  out->is_ad_auction_trusted_signals_request =
+      data.is_ad_auction_trusted_signals_request();
   return true;
 }
 
@@ -221,8 +222,7 @@ bool StructTraits<
   out->client_side_content_decoding_enabled =
       data.client_side_content_decoding_enabled();
   out->required_ip_address_space = data.required_ip_address_space();
-  out->allows_device_bound_session_registration =
-      data.allows_device_bound_session_registration();
+  out->allows_device_bound_sessions = data.allows_device_bound_sessions();
   return true;
 }
 

@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">محصول نامشخص <ph name="PRODUCT_ID" /> از فروشنده <ph name="VENDOR_ID" /> (شماره سریال <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">‏فایل crx جایگزین نشد. بررسی کنید که آیا فایل در حال استفاده است یا نه.</translation>
 <translation id="3163201441334626963">محصول نامشخص <ph name="PRODUCT_ID" /> از فروشنده <ph name="VENDOR_ID" /></translation>
+<translation id="3174723475300476613">سازمانتان دسترسی به این افزونه را مسدود کرده است.</translation>
 <translation id="3242289508736283383">‏برنامه‌ای با مشخصه مانیفست «kiosk_only» باید در حالت کیوسک ChromeOS نصب شود</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (شماره سریال <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397"><ph name="PRODUCT_NAME" /> از فروشنده <ph name="VENDOR_ID" /> (شماره سریال <ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">برنامه «<ph name="TO_INSTALL_APP_NAME" />» اضافه نشد، چون با «<ph name="INSTALLED_APP_NAME" />» ناسازگار است.</translation>
 <translation id="388442998277590542">صفحه گزینه‌ها "<ph name="OPTIONS_PAGE" />" بارگیری نشد.</translation>
 <translation id="3984413272403535372">هنگام امضای برنامهٔ افزودنی خطا رخ داد.</translation>
+<translation id="4094452115117798451">سازمانتان دسترسی به این دسته افزونه را مسدود کرده است.</translation>
 <translation id="4233778200880751280">صفحه درباره «<ph name="ABOUT_PAGE" />» بارگیری نشد.</translation>
 <translation id="424963718355121712">برنامه‌ها باید ازجانب میزبانی ارائه شوند که بر آن‌ها تأثیر دارد</translation>
 <translation id="4306119971288449206">نوع محتوای برنامه باید «<ph name="CONTENT_TYPE" />» باشد</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">محصول نامشخص <ph name="PRODUCT_ID" /> از <ph name="VENDOR_NAME" /></translation>
 <translation id="7068383018033524534">فایل مانیفست نامعتبر است</translation>
 <translation id="7217838517480956708">سرپرست این دستگاه نصب <ph name="EXTENSION_NAME" /> را لازم کرده است. آن را نمی‌توان تغییر داد یا حذف کرد.</translation>
+<translation id="7287143125007575591">دسترسی رد شد.</translation>
 <translation id="7612608473764576263">‏مقدار ورودی برای کلید خصوصی باید قالب معتبری داشته باشد (فرمت PKCS#8، کدبندی‌شده به‌صورت PEM، کلید RSA)</translation>
 <translation id="765293928828334535">برنامه‌ها، افزونه‌ها و اسکریپت‌های کاربر را نمی‌توان از این وب‌سایت اضافه کرد</translation>
 <translation id="7876803335449432072">‏فایل «<ph name="RELATIVE_PATH" />» برای دستورگان محتوا بار نمی‌شود، دستورگان‌های محتوا را فقط می‌توان از فایل‌های شیوه‌نامه پشتیبانی‌شده مانند فایل‌های css. بار کرد.</translation>

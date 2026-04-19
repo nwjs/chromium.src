@@ -15,6 +15,7 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "services/device/public/mojom/wake_lock.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/wake_lock/wake_lock.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
@@ -126,17 +127,15 @@ class MockPermissionService final : public mojom::blink::PermissionService {
       mojom::blink::EmbeddedPermissionRequestDescriptorPtr permissions,
       RequestPageEmbeddedPermissionCallback) override;
   void RequestPermission(mojom::blink::PermissionDescriptorPtr permission,
-                         bool user_gesture,
                          RequestPermissionCallback) override;
   void RequestPermissions(
       Vector<mojom::blink::PermissionDescriptorPtr> permissions,
-      bool user_gesture,
       RequestPermissionsCallback) override;
   void RevokePermission(mojom::blink::PermissionDescriptorPtr permission,
                         RevokePermissionCallback) override;
   void AddPermissionObserver(
       mojom::blink::PermissionDescriptorPtr permission,
-      mojom::blink::PermissionStatus last_known_status,
+      mojom::blink::PermissionStatusWithDetailsPtr last_known_status,
       mojo::PendingRemote<mojom::blink::PermissionObserver>) override;
   void AddPageEmbeddedPermissionObserver(
       mojom::blink::PermissionDescriptorPtr permission,

@@ -33,7 +33,6 @@ class SequencedTaskRunner;
 
 namespace sync_pb {
 class DeviceInfoSpecifics;
-enum SyncEnums_DeviceType : int;
 }  // namespace sync_pb
 
 namespace syncer {
@@ -94,6 +93,8 @@ class DeviceInfoSyncBridge : public DataTypeSyncBridge,
   std::unique_ptr<DataBatch> GetAllDataForDebugging() override;
   std::string GetClientTag(const EntityData& entity_data) const override;
   std::string GetStorageKey(const EntityData& entity_data) const override;
+  sync_pb::EntitySpecifics TrimAllSupportedFieldsFromRemoteSpecifics(
+      const sync_pb::EntitySpecifics& entity_specifics) const override;
   bool IsEntityDataValid(const EntityData& entity_data) const override;
   void ApplyDisableSyncChanges(
       std::unique_ptr<MetadataChangeList> delete_metadata_change_list) override;

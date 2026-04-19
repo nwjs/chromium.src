@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="th">
 <translation id="1000436330784933699">คุณเปิด Lens ได้ที่นี่</translation>
+<translation id="1005291068154454184">วิดีโอแบบเต็มหน้าจอแสดงวิธีการตั้งค่า Chromium เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="1042296835509784301">เปิดเครื่องมือจัดการรหัสผ่านใน Chromium</translation>
 <translation id="1047130070405668746">เลือก Chromium</translation>
 <translation id="1091252999271033193">ซึ่งหมายความว่า Chromium จะขอเว็บไซต์เวอร์ชันมือถือทุกครั้ง</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">ตรวจสอบ URL กับรายการเว็บไซต์ที่ไม่ปลอดภัยซึ่งจัดเก็บไว้ใน Chromium หากเว็บไซต์พยายามขโมยรหัสผ่าน หรือคุณดาวน์โหลดไฟล์ที่เป็นอันตราย Chromium อาจส่ง URL รวมถึงเนื้อหาบางส่วนในหน้าไปยัง Google Safe Browsing ด้วย</translation>
 <translation id="2314220608288760290">Chromium จะเปิดลิงก์ที่ไม่ระบุตัวตนของ YouTube ในโหมดไม่ระบุตัวตนโดยอัตโนมัติ</translation>
 <translation id="231828342043114302">ลงชื่อเข้าใช้ Chromium เพื่อรับเนื้อหาที่ปรับเปลี่ยนตามความสนใจของคุณ</translation>
-<translation id="2326738825692478496">ยังไม่ได้บันทึกข้อมูล Chromium บางอย่างของคุณลงในบัญชี Google
-
-โปรดรอสักครู่ก่อนออกจากระบบ หากคุณออกจากระบบตอนนี้ ระบบจะลบข้อมูลนี้</translation>
 <translation id="2334943301233020675">ระบบไม่ได้นำเข้ารหัสผ่านต่อไปนี้ไปยังเครื่องมือจัดการรหัสผ่านเนื่องจากไม่ตรงตามข้อกำหนด</translation>
 <translation id="2337722506862731008">แชร์ Chromium</translation>
 <translation id="2340423701577464731">เพิ่มรายการเรื่องรออ่านใน Chromium</translation>
@@ -103,7 +101,6 @@
 หากต้องการการตั้งค่าเพิ่มเติมที่ใช้ข้อมูลเพื่อปรับปรุงประสบการณ์การใช้งาน Chromium ให้ไปที่<ph name="BEGIN_LINK" />บริการของ Google<ph name="END_LINK" /></translation>
 <translation id="2832168932648876507">ค้นหาด้วยเสียงใน Chromium</translation>
 <translation id="2843571538056574338">ใช้ Chromium สำหรับการป้อนข้อความอัตโนมัติ</translation>
-<translation id="2899085719655668655">วิดีโอแบบภาพซ้อนภาพแสดงวิธีการตั้งค่า Chromium เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="2918709798697875261">องค์กรกำหนดให้คุณออกจากระบบ Chromium ต่อไป</translation>
 <translation id="2942241131342758843">ใช้ Chromium โดยค่าเริ่มต้นเพื่อเปิดลิงก์ ค้นหาจากวิดเจ็ต และป้อนรหัสผ่านอัตโนมัติในแอปอื่นๆ</translation>
 <translation id="2977470724722393594">Chromium อัปเดตแล้ว</translation>

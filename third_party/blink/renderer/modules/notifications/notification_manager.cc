@@ -128,10 +128,8 @@ ScriptPromise<V8NotificationPermission> NotificationManager::RequestPermission(
           script_state);
   auto promise = resolver->Promise();
 
-  LocalDOMWindow* win = To<LocalDOMWindow>(context);
   permission_service_->RequestPermission(
       CreatePermissionDescriptor(mojom::blink::PermissionName::NOTIFICATIONS),
-      LocalFrame::HasTransientUserActivation(win ? win->GetFrame() : nullptr),
       BindOnce(&NotificationManager::OnPermissionRequestComplete,
                WrapPersistent(this), WrapPersistent(resolver),
                WrapPersistent(deprecated_callback)));
@@ -154,8 +152,8 @@ V8NotificationPermission PermissionStatusToEnum(
 void NotificationManager::OnPermissionRequestComplete(
     ScriptPromiseResolver<V8NotificationPermission>* resolver,
     V8NotificationPermissionCallback* deprecated_callback,
-    mojom::blink::PermissionStatus status) {
-  V8NotificationPermission permission = PermissionStatusToEnum(status);
+    mojom::blink::PermissionStatusWithDetailsPtr status) {
+  V8NotificationPermission permission = PermissionStatusToEnum(status->status);
   if (deprecated_callback) {
     deprecated_callback->InvokeAndReportException(nullptr, permission);
   }

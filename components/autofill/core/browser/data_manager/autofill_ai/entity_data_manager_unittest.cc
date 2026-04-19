@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/scoped_observation.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -15,8 +16,13 @@
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "base/uuid.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_service.h"
+#include "components/accessibility_annotator/core/data_models/entity.h"
+#include "components/accessibility_annotator/core/data_models/entity_types.h"
+#include "components/accessibility_annotator/core/entity_data_provider.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/from_accessibility_annotator.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
@@ -32,17 +38,20 @@
 #include "components/webdata/common/web_database_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace autofill {
 namespace {
 
-using base::Bucket;
-using base::BucketsAre;
+using ::base::Bucket;
+using ::base::BucketsAre;
 using ::testing::AtLeast;
 using ::testing::IsEmpty;
 using ::testing::Optional;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
+
+namespace aa = accessibility_annotator;
 
 class MockEntityDataManagerObserver : public EntityDataManager::Observer {
  public:
@@ -55,163 +64,120 @@ class MockEntityDataManagerObserver : public EntityDataManager::Observer {
   MOCK_METHOD(void, OnEntityInstancesChanged, (), (override));
 };
 
-// Test fixture for the asynchronous database operations in EntityDataManager.
-class EntityDataManagerTest : public testing::Test {
+class MockEntityDataProvider
+    : public accessibility_annotator::EntityDataProvider {
  public:
-  EntityDataManagerTest() = default;
+  MockEntityDataProvider() = default;
+  ~MockEntityDataProvider() override = default;
 
-  void TearDown() override { sync_service_.Shutdown(); }
+  MOCK_METHOD(
+      void,
+      GetEntities,
+      (accessibility_annotator::EntityTypeEnumSet,
+       base::OnceCallback<void(std::vector<accessibility_annotator::Entity>)>),
+      (override));
+
+  void AddObserver(Observer* observer) override {
+    observers_.AddObserver(observer);
+  }
+
+  void RemoveObserver(Observer* observer) override {
+    observers_.RemoveObserver(observer);
+  }
+
+  void NotifyObservers(accessibility_annotator::EntityTypeEnumSet entities) {
+    for (Observer& observer : observers_) {
+      observer.OnEntityDataChanged(*this, entities);
+    }
+  }
+
+ private:
+  base::ObserverList<Observer> observers_;
+};
+
+// Test fixture for the asynchronous database operations in EntityDataManager.
+//
+// Do not use this fixture directly. To keep some order in the test, use
+// EntityDataManagerTest_InitiallyEmpty or
+// EntityDataManagerTest_InitiallyPopulated or create a new subclass.
+class EntityDataManagerTestBase : public testing::Test {
+ public:
+  EntityDataManagerTestBase() = default;
+
+  void SetUp() override {
+    PopulateDatabase(*helper().autofill_webdata_service());
+    helper().WaitUntilIdle();
+    client_ = std::make_unique<TestAutofillClient>();
+    client_->set_entity_data_manager(BuildEntityDataManager());
+  }
+
+  void TearDown() override {
+    client_.reset();
+    sync_service_.Shutdown();
+  }
+
+  virtual void PopulateDatabase(AutofillWebDataService& db) = 0;
 
   AutofillWebDataServiceTestHelper& helper() { return helper_; }
 
-  TestAutofillClient& client() { return client_; }
+  TestAutofillClient& client() { return *client_; }
 
   syncer::TestSyncService& sync_service() { return sync_service_; }
 
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kAutofillAiWithDataSchema};
-  base::test::TaskEnvironment task_environment_{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  AutofillWebDataServiceTestHelper helper_{std::make_unique<EntityTable>()};
-  TestAutofillClient client_;
-  syncer::TestSyncService sync_service_;
-};
+  virtual accessibility_annotator::AccessibilityAnnotatorService*
+  GetAccessibilityAnnotatorService() {
+    return nullptr;
+  }
 
-// Tests that the constructor of EntityDataManager queries the database.
-TEST_F(EntityDataManagerTest, InitialPopulation) {
-  EntityInstance pp = test::GetPassportEntityInstance();
-  EntityInstance dl = test::GetDriversLicenseEntityInstance();
-  EntityInstance fr = test::GetFlightReservationEntityInstance();
-
-  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
-      pp, base::DoNothing());
-  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
-      dl, base::DoNothing());
-  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
-      fr, base::DoNothing());
-  helper().WaitUntilIdle();
-
-  EntityDataManager entity_data_manager(
-      client().GetPrefs(),
-      /*identity_manager=*/nullptr, &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator_data_adapter=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US"));
-  EXPECT_THAT(entity_data_manager.GetEntityInstances(), IsEmpty());
-
-  helper().WaitUntilIdle();
-  EXPECT_THAT(entity_data_manager.GetEntityInstances(),
-              UnorderedElementsAre(pp, dl, fr));
-}
-
-// Tests that the constructor of EntityDataManager queries the database.
-TEST_F(EntityDataManagerTest, StorageMetrics) {
-  EntityInstance passport = test::GetPassportEntityInstance(
-      {.record_type = EntityInstance::RecordType::kLocal});
-  EntityInstance vehicle = test::GetVehicleEntityInstance(
-      {.record_type = EntityInstance::RecordType::kServerWallet});
-
-  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
-      passport, base::DoNothing());
-  helper().autofill_webdata_service()->AddOrUpdateEntityInstance(
-      vehicle, base::DoNothing());
-  helper().WaitUntilIdle();
-
-  base::HistogramTester histogram_tester;
-  EntityDataManager entity_data_manager(
-      client().GetPrefs(),
-      /*identity_manager=*/nullptr, &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator_data_adapter=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US"));
-  helper().WaitUntilIdle();
-  EXPECT_THAT(entity_data_manager.GetEntityInstances(),
-              UnorderedElementsAre(passport, vehicle));
-
-  // Metrics should correctly reflect that the user has one local passport and
-  // one Wallet vehicle stored.
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Ai.StoredEntitiesCount.Passport", 1, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Ai.StoredEntitiesCount.Passport.Local", 1, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Ai.StoredEntitiesCount.Passport.ServerWallet", 0, 1);
-
-  histogram_tester.ExpectUniqueSample("Autofill.Ai.StoredEntitiesCount.Vehicle",
-                                      1, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Ai.StoredEntitiesCount.Vehicle.Local", 0, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Ai.StoredEntitiesCount.Vehicle.ServerWallet", 1, 1);
-}
-
-// Tests the emission of opt-in metrics that are emitted on EDM creation, i.e.
-// on profile startup.
-// TODO(crbug.com/445879337): Fix Linux MSan Test failure and re-enable the
-// test.
-TEST_F(EntityDataManagerTest, OptInMetric) {
-  ASSERT_FALSE(GetAutofillAiOptInStatus(client()));
-  base::HistogramTester histogram_tester;
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator_data_adapter=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
-      BucketsAre(Bucket(0, 1)));
-
-  client().SetUpPrefsAndIdentityForAutofillAi();
-  ASSERT_TRUE(GetAutofillAiOptInStatus(client()));
-
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator_data_adapter=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
-      BucketsAre(Bucket(0, 1), Bucket(1, 1)));
-}
-
-// Test fixture that starts with an empty database.
-class EntityDataManagerTest_InitiallyEmpty : public EntityDataManagerTest {
- public:
-  EntityDataManagerTest_InitiallyEmpty()
-      : entity_data_manager_(
-            client().GetPrefs(),
-            /*identity_manager=*/nullptr,
-            &sync_service(),
-            helper().autofill_webdata_service(),
-            /*history_service=*/nullptr,
-            /*strike_database=*/nullptr,
-            /*accessibility_annotator_data_adapter=*/nullptr,
-            /*variation_country_code=*/GeoIpCountryCode("US")) {}
-
-  EntityDataManager& entity_data_manager() { return entity_data_manager_; }
+  EntityDataManager& entity_data_manager() {
+    return *client().GetEntityDataManager();
+  }
 
   base::span<const autofill::EntityInstance> GetEntityInstances() {
     helper().WaitUntilIdle();
     return entity_data_manager().GetEntityInstances();
   }
 
-  base::optional_ref<const EntityInstance> GetInstance(
+  base::optional_ref<const EntityInstance> GetEntityInstance(
       const EntityInstance::EntityId& guid) {
     helper().WaitUntilIdle();
     return entity_data_manager().GetEntityInstance(guid);
   }
 
+  const base::HistogramTester& histogram_tester() const {
+    return histogram_tester_;
+  }
+
+  // Recreating the EntityDataManager in the middle of the test is discouraged
+  // because this prevents any other code from keeping a pointer to the
+  // EntityDataManager.
+  void RecreateEntityDataManager_Discouraged() {
+    client_->set_entity_data_manager(BuildEntityDataManager());
+  }
+
  private:
-  EntityDataManager entity_data_manager_;
+  std::unique_ptr<EntityDataManager> BuildEntityDataManager() {
+    return std::make_unique<EntityDataManager>(
+        client_->GetPrefs(), client_->GetIdentityManager(), &sync_service_,
+        helper_.autofill_webdata_service(),
+        /*history_service=*/nullptr,
+        /*strike_database=*/nullptr, GetAccessibilityAnnotatorService(),
+        /*variation_country_code=*/GeoIpCountryCode("US"));
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kAutofillAiWithDataSchema};
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  base::HistogramTester histogram_tester_;
+  AutofillWebDataServiceTestHelper helper_{std::make_unique<EntityTable>()};
+  syncer::TestSyncService sync_service_;
+  std::unique_ptr<TestAutofillClient> client_;
+};
+
+class EntityDataManagerTest_InitiallyEmpty : public EntityDataManagerTestBase {
+ public:
+  void PopulateDatabase(AutofillWebDataService& db) override {}
 };
 
 // Tests that AddOrUpdateEntityInstance() asynchronously adds entities.
@@ -265,7 +231,7 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, RecordEntityUsed) {
   entity_data_manager().RecordEntityUsed(pp.guid(), use_date);
 
   auto check_metadata = [&](const EntityInstance::EntityId& guid) {
-    base::optional_ref<const EntityInstance> entity = GetInstance(guid);
+    base::optional_ref<const EntityInstance> entity = GetEntityInstance(guid);
     ASSERT_TRUE(entity);
     EXPECT_EQ(entity->use_count(), 1);
     EXPECT_EQ(entity->use_date(), use_date);
@@ -374,6 +340,86 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, GetEntityInstance) {
             std::nullopt);
 }
 
+// Tests that when the re-auth becomes unavailable, Wallet private passes are
+// removed.
+TEST_F(EntityDataManagerTest_InitiallyEmpty, ValidateEntityReauthRequirements) {
+  EntityInstance local_private_pass = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+  EntityInstance wallet_private_pass =
+      test::MaskEntityInstance(test::GetDriversLicenseEntityInstance(
+          {.record_type = EntityInstance::RecordType::kServerWallet}));
+  EntityInstance public_pass = test::GetVehicleEntityInstance();
+  entity_data_manager().AddOrUpdateEntityInstance(local_private_pass);
+  entity_data_manager().AddOrUpdateEntityInstance(wallet_private_pass);
+  entity_data_manager().AddOrUpdateEntityInstance(public_pass);
+  ASSERT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(local_private_pass, wallet_private_pass,
+                                   public_pass));
+  entity_data_manager().SetReauthAvailability(false);
+  helper().WaitUntilIdle();
+  ASSERT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(local_private_pass, public_pass));
+}
+
+class EntityDataManagerTest_InitiallyPopulated
+    : public EntityDataManagerTestBase {
+ public:
+  void PopulateDatabase(AutofillWebDataService& db) override {
+    db.AddOrUpdateEntityInstance(passport_, base::DoNothing());
+    db.AddOrUpdateEntityInstance(vehicle_, base::DoNothing());
+  }
+
+  const EntityInstance& passport() const { return passport_; }
+  const EntityInstance& vehicle() const { return vehicle_; }
+
+ private:
+  EntityInstance passport_ = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+  EntityInstance vehicle_ = test::GetVehicleEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+};
+
+// Tests that the constructor of EntityDataManager queries the database.
+TEST_F(EntityDataManagerTest_InitiallyPopulated, StorageMetrics) {
+  helper().WaitUntilIdle();
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(passport(), vehicle()));
+
+  // Metrics should correctly reflect that the user has one local passport and
+  // one Wallet vehicle stored.
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport", 1, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport.Local", 1, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Passport.ServerWallet", 0, 1);
+
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Vehicle", 1, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Vehicle.Local", 0, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Autofill.Ai.StoredEntitiesCount.Vehicle.ServerWallet", 1, 1);
+}
+
+// Tests the emission of opt-in metrics that are emitted on EDM creation, i.e.,
+// on profile startup.
+TEST_F(EntityDataManagerTest_InitiallyEmpty, OptInMetric) {
+  using enum AutofillAiOptInStatus;
+  ASSERT_FALSE(GetAutofillAiOptInStatus(client()));
+  EXPECT_THAT(
+      histogram_tester().GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
+      BucketsAre(Bucket(kOptedOut, 1)));
+
+  client().SetUpPrefsAndIdentityForAutofillAi();
+  ASSERT_TRUE(GetAutofillAiOptInStatus(client()));
+
+  RecreateEntityDataManager_Discouraged();
+  EXPECT_THAT(
+      histogram_tester().GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
+      BucketsAre(Bucket(kOptedOut, 1), Bucket(kOptedIn, 1)));
+}
+
 // Tests that a change notification for AUTOFILL_VALUABLE from sync triggers a
 // reload of entities.
 TEST_F(EntityDataManagerTest_InitiallyEmpty, OnAutofillValuableChangedBySync) {
@@ -459,104 +505,153 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty,
   EXPECT_THAT(GetEntityInstances(), UnorderedElementsAre(vh));
 }
 
-// Tests that the syncable pref is correctly migrated from the account keyed
-// pref.
-TEST_F(EntityDataManagerTest,
-       SyncablePrefIsOffAndAccountKeyPrefIsOn_MigratePrefValue) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiSetSyncablePrefFromAccountPref};
-
-  base::HistogramTester histogram_tester;
-  // At first the user is not opted-in, therefore no migration happens.
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator_data_adapter=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-
-  // Opt the user in.
-  ASSERT_TRUE(client().SetUpPrefsAndIdentityForAutofillAi());
-  // Recreate the entity data manager the trigger possible pref migration.
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-  EXPECT_TRUE(prefs::IsAutofillAiSyncedOptInStatusEnabled(client().GetPrefs()));
-  // The first construction of the `EntityDataManager` triggered no migration
-  // because the user was not opted-in.
-  histogram_tester.ExpectBucketCount(
-      "Autofill.Ai.OptIn.PrefMigration",
-      EntityDataManager::AutofillAiPrefMigrationStatus::
-          kPrefNotMigratedAccountPrefNeverSet,
-      1);
-  // The second construction triggers a migration.
-  histogram_tester.ExpectBucketCount(
-      "Autofill.Ai.OptIn.PrefMigration",
-      EntityDataManager::AutofillAiPrefMigrationStatus::kPrefMigratedEnabled,
-      1);
-}
-
-// Tests that no migration happens if the syncable pref is already enabled.
-TEST_F(EntityDataManagerTest, SyncablePrefIsOn_DoNotMigrate) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiSetSyncablePrefFromAccountPref};
-
-  base::HistogramTester histogram_tester;
-  // At first the user is not opted-in, therefore no migration happens.
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-
-  // Opt the user in.
-  ASSERT_TRUE(client().SetUpPrefsAndIdentityForAutofillAi());
-  // Enable synced pref, which should lead to no migration.
-  client().GetPrefs()->SetBoolean(prefs::kAutofillAiSyncedOptInStatus, true);
-
-  // Recreate the entity data manager the trigger possible pref migration.
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-  // The first construction of the `EntityDataManager` triggered no migration
-  // because the user was not opted-in.
-  histogram_tester.ExpectBucketCount(
-      "Autofill.Ai.OptIn.PrefMigration",
-      EntityDataManager::AutofillAiPrefMigrationStatus::
-          kPrefNotMigratedAccountPrefNeverSet,
-      1);
-  // The first construction of the `EntityDataManager` triggered no migration
-  // because the synced pref has already been set.
-  histogram_tester.ExpectBucketCount(
-      "Autofill.Ai.OptIn.PrefMigration",
-      EntityDataManager::AutofillAiPrefMigrationStatus::
-          kPrefNotMigratedAlreadySet,
-      1);
-}
-
 TEST_F(
-    EntityDataManagerTest,
+    EntityDataManagerTest_InitiallyEmpty,
     SyncablePrefIsOffAndAccountKeyPrefIsOn_FeatureOff_DoNotMigratePrefValue) {
-  base::HistogramTester histogram_tester;
-  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
-      client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
-      helper().autofill_webdata_service(),
-      /*history_service=*/nullptr,
-      /*strike_database=*/nullptr,
-      /*accessibility_annotator=*/nullptr,
-      /*variation_country_code=*/GeoIpCountryCode("US")));
-  histogram_tester.ExpectTotalCount("Autofill.Ai.OptIn.PrefMigration", 0);
+  histogram_tester().ExpectTotalCount("Autofill.Ai.OptIn.PrefMigration", 0);
+}
+
+// Fixture for testing entities from Accessibility Annotator in
+// EntityDataManager.
+class EntityDataManagerTest_AccessibilityAnnotator
+    : public EntityDataManagerTestBase {
+ public:
+  EntityDataManagerTest_AccessibilityAnnotator() {
+    ON_CALL(entity_data_provider(), GetEntities)
+        .WillByDefault(
+            base::test::RunOnceCallback<1>(std::vector{kRawPassport}));
+  }
+
+  void PopulateDatabase(AutofillWebDataService& db) override {
+    db.AddOrUpdateEntityInstance(kPassportFromDatabase, base::DoNothing());
+  }
+
+  MockEntityDataProvider& entity_data_provider() {
+    return static_cast<MockEntityDataProvider&>(
+        *service_.GetEntityDataProvider());
+  }
+
+  // Test entity from Accessibility Annotator.
+  const accessibility_annotator::Entity kRawDriversLicense = [] {
+    aa::Entity entity;
+    entity.entity_id = "dl-456";
+    entity.specifics.emplace<aa::DriversLicense>().number = "67890";
+    return entity;
+  }();
+
+  // Test entity from Accessibility Annotator.
+  const accessibility_annotator::Entity kRawPassport = [] {
+    aa::Entity entity;
+    entity.entity_id = "pp-123";
+    entity.specifics.emplace<aa::Passport>().number = "12345";
+    return entity;
+  }();
+
+  // Test entity from the database.
+  const EntityInstance kDriversLicense =
+      *FromAccessibilityAnnotator(kRawDriversLicense);
+  const EntityInstance kPassport = *FromAccessibilityAnnotator(kRawPassport);
+  const EntityInstance kPassportFromDatabase = test::GetPassportEntityInstance(
+      {.record_type = EntityInstance::RecordType::kLocal});
+
+ private:
+  accessibility_annotator::AccessibilityAnnotatorService*
+  GetAccessibilityAnnotatorService() override {
+    return &service_;
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kAutofillUseAccessibilityAnnotator};
+
+  accessibility_annotator::AccessibilityAnnotatorService service_{
+      std::make_unique<testing::NiceMock<MockEntityDataProvider>>()};
+};
+
+// Tests that entities provided by the Accessibility Annotator are present
+// alongside entities from the database.
+TEST_F(EntityDataManagerTest_AccessibilityAnnotator, InitialEntities) {
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase));
+}
+
+// Tests that when accessibility_annotator::EntityDataProvider sees a new entity
+// and updates another entity, then both are reflected in the EntityDataManager.
+TEST_F(EntityDataManagerTest_AccessibilityAnnotator, NewAndUpdatedEntity) {
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase));
+
+  const aa::Entity kRawPassportUpdated = [this] {
+    aa::Entity p = kRawPassport;
+    p.specifics.emplace<aa::Passport>().number = "123984712345987";
+    return p;
+  }();
+  const EntityInstance kPassportUpdated =
+      *FromAccessibilityAnnotator(kRawPassportUpdated);
+
+  // Adds a new entity `kRawDriversLicense`.
+  // Updates `kRawPassport` to `kRawPassportUpdated`.
+  EXPECT_CALL(entity_data_provider(), GetEntities)
+      .WillOnce(base::test::RunOnceCallback<1>(
+          std::vector{kRawDriversLicense, kRawPassportUpdated}));
+  entity_data_provider().NotifyObservers(aa::EntityTypeEnumSet::All());
+
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kDriversLicense, kPassportUpdated,
+                                   kPassportFromDatabase));
+}
+
+// Tests that when accessibility_annotator::EntityDataProvider sees a new entity
+// and updates one entity, then both is reflected in the EntityDataManager.
+TEST_F(EntityDataManagerTest_AccessibilityAnnotator, NewAndDeletedEntity) {
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase));
+
+  // Adds a new entity `kRawDriversLicense`.
+  // Deletes `kRawPassport`.
+  EXPECT_CALL(entity_data_provider(), GetEntities)
+      .WillOnce(
+          base::test::RunOnceCallback<1>(std::vector{kRawDriversLicense}));
+  entity_data_provider().NotifyObservers(aa::EntityTypeEnumSet::All());
+
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kDriversLicense, kPassportFromDatabase));
+}
+
+// Tests that when accessibility_annotator::EntityDataProvider reports an event
+// for a subset of EntityTypes, then unaffected EntityTypes remain in the
+// EntityDataManager.
+TEST_F(EntityDataManagerTest_AccessibilityAnnotator,
+       PreserveEntitiesUnaffectedByUpdate) {
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase));
+
+  // Adds a new entity `kRawDriversLicense`.
+  // Leaves the `kPassport` unchanged.
+  EXPECT_CALL(entity_data_provider(), GetEntities)
+      .WillOnce(
+          base::test::RunOnceCallback<1>(std::vector{kRawDriversLicense}));
+  entity_data_provider().NotifyObservers({aa::EntityType::kDriversLicense});
+
+  EXPECT_THAT(
+      GetEntityInstances(),
+      UnorderedElementsAre(kDriversLicense, kPassport, kPassportFromDatabase));
+}
+
+// Tests that when a new entity is added to the database, the entities from the
+// Accessibility Annotator remain in EntityDataManager.
+TEST_F(EntityDataManagerTest_AccessibilityAnnotator,
+       PreserveEntitiesAfterDatabaseUpdate) {
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase));
+
+  const EntityInstance kFlightReservationFromDatabase =
+      test::GetFlightReservationEntityInstance();
+  entity_data_manager().AddOrUpdateEntityInstance(
+      kFlightReservationFromDatabase);
+
+  EXPECT_THAT(GetEntityInstances(),
+              UnorderedElementsAre(kPassport, kPassportFromDatabase,
+                                   kFlightReservationFromDatabase));
 }
 
 }  // namespace

@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_PRELOADING_SEARCH_PRELOAD_SEARCH_PRELOAD_PIPELINE_MANAGER_H_
 #define CHROME_BROWSER_PRELOADING_SEARCH_PRELOAD_SEARCH_PRELOAD_PIPELINE_MANAGER_H_
 
+#include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/preloading/prerender/search_prewarm_progress_service.h"
 #include "chrome/browser/preloading/search_preload/search_preload_pipeline.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -79,6 +81,8 @@ class SearchPreloadPipelineManager
   // Returns true iff invalidated successfully.
   bool InvalidatePipelineForTesting(GURL canonical_url);
 
+  void OnSearchPrewarmFinished();
+
  private:
   friend content::WebContentsUserData<SearchPreloadPipelineManager>;
   WEB_CONTENTS_USER_DATA_KEY_DECL();
@@ -95,6 +99,54 @@ class SearchPreloadPipelineManager
       TemplateURLService& template_url_service,
       const AutocompleteMatch& match,
       const std::optional<net::HttpNoVarySearchData>& no_vary_search_hint);
+
+  // Helper to record histograms.
+  void RecordPreloadHistograms(
+      std::tuple<std::optional<SearchPreloadSignalResult>,
+                 std::optional<SearchPreloadSignalResult>> signal_results);
+
+  // Keeps the information of search prefetch/prerender requests, which can be
+  // used to trigger the preloads.
+  //
+  // It's a pure data structure and intended to be used in only
+  // `SearchPreloadPipelineManager`.
+  struct TriggerPreloadsData {
+    TriggerPreloadsData(
+        base::WeakPtr<SearchPreloadService> search_preload_service,
+        GURL canonical_url,
+        GURL prefetch_url,
+        std::optional<GURL> prerender_url,
+        std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
+        int confidence);
+    // Movable but not copyable.
+    TriggerPreloadsData(TriggerPreloadsData&& other);
+    TriggerPreloadsData& operator=(TriggerPreloadsData&& other);
+    TriggerPreloadsData(const TriggerPreloadsData& other) = delete;
+    TriggerPreloadsData& operator=(const TriggerPreloadsData& other) = delete;
+    ~TriggerPreloadsData();
+
+    base::WeakPtr<SearchPreloadService> search_preload_service;
+    GURL canonical_url;
+    GURL prefetch_url;
+    std::optional<GURL> prerender_url;
+    std::optional<net::HttpNoVarySearchData> no_vary_search_hint;
+    int confidence;
+  };
+
+  // Only the latest trigger data is stored, as only the latest input is the
+  // most likely to navigate.
+  std::optional<TriggerPreloadsData> deferred_trigger_data_;
+
+  // Prewarm page loading status tracker to throttle the concurrent requests to
+  // search.
+  base::WeakPtr<SearchPrewarmProgressService> prewarm_progress_service_;
+
+  base::CallbackListSubscription prewarm_finished_subscription_;
+
+  // Trigger prefetch and prerender for a specific URL, which can be deferred.
+  std::tuple<std::optional<SearchPreloadSignalResult>,
+             std::optional<SearchPreloadSignalResult>>
+  TriggerPreloads(TriggerPreloadsData data);
 
   // Manages pipeline per canonical URL.
   base::flat_map<GURL, std::unique_ptr<SearchPreloadPipeline>> pipelines_;

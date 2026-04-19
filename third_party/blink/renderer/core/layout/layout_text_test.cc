@@ -27,15 +27,15 @@ namespace {
 
 class LayoutTextTest : public RenderingTest {
  public:
-  void SetBasicBody(const char* message) {
-    SetBodyInnerHTML(UNSAFE_TODO(String::Format(
-        "<div id='target' style='font-size: 10px;'>%s</div>", message)));
+  void SetBasicBody(const char* content) {
+    SetBodyInnerHTML(StrCat(
+        {"<div id='target' style='font-size: 10px;'>", content, "</div>"}));
   }
 
-  void SetAhemBody(const char* message, const unsigned width) {
-    SetBodyInnerHTML(UNSAFE_TODO(String::Format(
-        "<div id='target' style='font: 10px Ahem; width: %uem'>%s</div>", width,
-        message)));
+  void SetAhemBody(const char* content, const unsigned width) {
+    SetBodyInnerHTML(
+        StrCat({"<div id='target' style='font: 10px Ahem; width: ",
+                String::Number(width), "em'>", content, "</div>"}));
   }
 
   LayoutText* GetLayoutTextById(const char* id) {
@@ -122,10 +122,10 @@ class LayoutTextTest : public RenderingTest {
       if (item.GetLayoutObject() == layout_text) {
         stream << "*";
       }
-      stream << "{'"
-             << data.text_content.Substring(item.StartOffset(), item.Length())
-                    .Utf8()
-             << "'";
+      stream
+          << "{'"
+          << data.text_content.substr(item.StartOffset(), item.Length()).Utf8()
+          << "'";
       if (const auto* shape_result = item.TextShapeResult()) {
         stream << ", ShapeResult=" << shape_result->StartIndex() << "+"
                << shape_result->NumCharacters();

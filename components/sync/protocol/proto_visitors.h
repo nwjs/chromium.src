@@ -63,6 +63,7 @@
 #include "components/sync/protocol/sync_entity.pb.h"
 #include "components/sync/protocol/sync_invalidations_payload.pb.h"
 #include "components/sync/protocol/tab_group_attribution_metadata.pb.h"
+#include "components/sync/protocol/theme_android_specifics.pb.h"
 #include "components/sync/protocol/theme_ios_specifics.pb.h"
 #include "components/sync/protocol/theme_specifics.pb.h"
 #include "components/sync/protocol/theme_types.pb.h"
@@ -221,8 +222,6 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT(profile_label);
   VISIT_REP(name_first);
   VISIT_REP(name_middle);
-  VISIT_REP(name_last_prefix);
-  VISIT_REP(name_last_core);
   VISIT_REP(name_last_first);
   VISIT_REP(name_last_conjunction);
   VISIT_REP(name_last_second);
@@ -231,8 +230,6 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
 
   VISIT_REP(name_first_status);
   VISIT_REP(name_middle_status);
-  VISIT_REP(name_last_prefix_status);
-  VISIT_REP(name_last_core_status);
   VISIT_REP(name_last_first_status);
   VISIT_REP(name_last_conjunction_status);
   VISIT_REP(name_last_second_status);
@@ -419,8 +416,6 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(name_first);
   VISIT(name_middle);
   VISIT(name_last);
-  VISIT(name_last_prefix);
-  VISIT(name_last_core);
   VISIT(name_last_first);
   VISIT(name_last_conjunction);
   VISIT(name_last_second);
@@ -792,6 +787,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(shared_tab_group_data);
   VISIT(sharing_message);
   VISIT(theme);
+  VISIT(theme_android);
   VISIT(theme_ios);
   VISIT(typed_url);
   VISIT(user_consent);
@@ -1152,6 +1148,8 @@ VISIT_PROTO_FIELDS(const sync_pb::PasswordSpecificsData& proto) {
   VISIT(date_received_windows_epoch_micros);
   VISIT(sharing_notification_displayed);
   VISIT(sender_profile_image_url);
+  VISIT(date_last_filled_windows_epoch_micros);
+  VISIT(actor_login_approved);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::PasswordIssues& proto) {
@@ -1377,6 +1375,10 @@ VISIT_PROTO_FIELDS(const sync_pb::SendTabToSelfSpecifics& proto) {
   VISIT(opened);
   VISIT(notification_dismissed);
   VISIT(page_context);
+  VISIT_REP(navigation);
+  VISIT(current_navigation_index);
+  VISIT(received_time_windows_epoch_micros);
+  VISIT(opened_time_windows_epoch_micros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::TextFragmentData& proto) {
@@ -1655,6 +1657,18 @@ VISIT_PROTO_FIELDS(
   VISIT(color);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::ThemeAndroidSpecifics& proto) {
+  VISIT(use_custom_theme);
+  VISIT(ntp_background);
+  VISIT(user_color_theme);
+  VISIT(chrome_color_info);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::ChromeColorInfo& proto) {
+  VISIT(theme_color_id);
+  VISIT(last_daily_update_timestamp_unix_epoch_millis);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::ThemeIosSpecifics& proto) {
   VISIT(user_color_theme);
   VISIT(ntp_background);
@@ -1718,6 +1732,7 @@ VISIT_PROTO_FIELDS(const sync_pb::UniquePosition& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::UserConsentSpecifics& proto) {
   VISIT(locale);
   VISIT(client_consent_time_usec);
+  VISIT(session_id);
   VISIT(obfuscated_gaia_id);
   VISIT(sync_consent);
   VISIT(arc_backup_and_restore_consent);
@@ -1726,6 +1741,12 @@ VISIT_PROTO_FIELDS(const sync_pb::UserConsentSpecifics& proto) {
   VISIT(assistant_activity_control_consent);
   VISIT(account_passwords_consent);
   VISIT(recorder_speaker_label_consent);
+  VISIT(wallet_private_pass_consent);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::UserConsentSpecifics::SessionId& proto) {
+  VISIT(most_significant_uuid_bits);
+  VISIT(least_significant_uuid_bits);
 }
 
 VISIT_PROTO_FIELDS(
@@ -1779,6 +1800,12 @@ VISIT_PROTO_FIELDS(
   VISIT_REP(description_grd_ids);
   VISIT(confirmation_grd_id);
   VISIT_ENUM(status);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::UserConsentTypes::WalletPrivatePassConsent& proto) {
+  VISIT_REP(description_grd_ids);
+  VISIT(confirmation_grd_id);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::UserEventSpecifics& proto) {
@@ -2100,6 +2127,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
   VISIT(redress_number);
   VISIT(known_traveler_number);
   VISIT(serialized_chrome_valuables_metadata);
+  VISIT(event_ticket);
+  VISIT(transit_pass);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Any& proto) {
@@ -2182,6 +2211,23 @@ VISIT_PROTO_FIELDS(const sync_pb::KnownTravelerNumber& proto) {
   VISIT(masked_number);
   VISIT(owner_name);
   VISIT(expiration_date);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::EventTicket& proto) {
+  VISIT(ticket_holder_name);
+  VISIT(event_name);
+  VISIT(event_venue_name);
+  VISIT(event_venue_address);
+  VISIT(ticket_number);
+  VISIT(issuer_name);
+  VISIT(event_start_time_windows_epoch_micros);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::TransitPass& proto) {
+  VISIT(agency_name);
+  VISIT(passenger_name);
+  VISIT(transit_pass_number);
+  VISIT(agency_logo_url);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableMetadataSpecifics& proto) {
@@ -2365,10 +2411,38 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(
+    const sync_pb::AccessibilityAnnotationSpecifics::GmailSource& proto) {
+  VISIT(thread_id);
+  VISIT(message_id);
+  VISIT(thread_locator);
+  VISIT(received_time_unix_epoch_seconds);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::AccessibilityAnnotationSpecifics::CalendarSource& proto) {
+  VISIT(event_id);
+  VISIT(modified_time_unix_epoch_seconds);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::AccessibilityAnnotationSpecifics::PhotosSource& proto) {
+  VISIT(photo_id);
+  VISIT(creation_time_unix_epoch_seconds);
+}
+
+VISIT_PROTO_FIELDS(
     const sync_pb::AccessibilityAnnotationSpecifics::NaiveDate& proto) {
   VISIT(day);
   VISIT(month);
   VISIT(year);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::AccessibilityAnnotationSpecifics::Source& proto) {
+  VISIT(deeplink);
+  VISIT(gmail_source);
+  VISIT(calendar_source);
+  VISIT(photos_source);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AccessibilityAnnotationSpecifics& proto) {
@@ -2380,6 +2454,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AccessibilityAnnotationSpecifics& proto) {
   VISIT(national_id);
   VISIT(flight_reservation);
   VISIT(vehicle);
+  VISIT_REP(sources);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AiThreadSpecifics& proto) {

@@ -4,8 +4,11 @@
 
 #include "remoting/host/daemon_process.h"
 
+#include <signal.h>
 #include <stdint.h>
+#include <unistd.h>
 
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -13,16 +16,18 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/notimplemented.h"
 #include "base/path_service.h"
+#include "base/posix/safe_strerror.h"
 #include "base/process/process.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -37,6 +42,7 @@
 #include "remoting/base/branding.h"
 #include "remoting/base/crash/crash_reporting_breakpad.h"
 #include "remoting/base/logging.h"
+#include "remoting/base/passwd_utils.h"
 #include "remoting/base/username.h"
 #include "remoting/host/base/host_exit_codes.h"
 #include "remoting/host/base/screen_resolution.h"
@@ -47,19 +53,21 @@
 #include "remoting/host/ipc_constants.h"
 #include "remoting/host/linux/desktop_session_factory_linux.h"
 #include "remoting/host/linux/linux_process_launcher_delegate.h"
-#include "remoting/host/linux/passwd_utils.h"
 #include "remoting/host/mojom/chromoting_host_services.mojom.h"
 #include "remoting/host/mojom/remoting_host.mojom.h"
+#include "remoting/host/pairing_registry_delegate_linux.h"
+#include "remoting/host/posix/signal_handler.h"
 #include "remoting/host/usage_stats_consent.h"
 #include "remoting/host/worker_process_launcher.h"
 
 namespace remoting {
 
-class DaemonProcessLinux : public DaemonProcess {
+class DaemonProcessLinux : public DaemonProcess,
+                           public mojom::ChromotingHostServices {
  public:
   DaemonProcessLinux(scoped_refptr<AutoThreadTaskRunner> caller_task_runner,
                      scoped_refptr<AutoThreadTaskRunner> io_task_runner,
-                     base::OnceClosure stopped_callback);
+                     StoppedCallback stopped_callback);
 
   DaemonProcessLinux(const DaemonProcessLinux&) = delete;
   DaemonProcessLinux& operator=(const DaemonProcessLinux&) = delete;
@@ -77,6 +85,7 @@ class DaemonProcessLinux : public DaemonProcess {
       mojo::ScopedMessagePipeHandle desktop_pipe) override;
 
   void StartDesktopSessionFactory();
+  bool SetupPairingRegistry();
 
  private:
   // DaemonProcess implementation.
@@ -90,12 +99,19 @@ class DaemonProcessLinux : public DaemonProcess {
   void SendTerminalDisconnected(int terminal_id) override;
   void StartChromotingHostServices() override;
 
+  // mojom::ChromotingHostServices implementation.
+  void BindSessionServices(
+      mojo::PendingReceiver<mojom::ChromotingSessionServices> receiver)
+      override;
+
   void OnStartDesktopSessionFactoryResult(
       base::expected<void, Loggable> result);
 
+  void HandleSigTerm(int signal_number);
+
   void BindChromotingHostServices(
       mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
-      base::ProcessId peer_pid);
+      std::unique_ptr<named_mojo_ipc_server::ConnectionInfo> connection_info);
 
   // Mojo keeps the task runner passed to it alive forever, so an
   // AutoThreadTaskRunner should not be passed to it. Otherwise, the process may
@@ -111,18 +127,31 @@ class DaemonProcessLinux : public DaemonProcess {
   mojo::AssociatedRemote<mojom::DesktopSessionConnectionEvents>
       desktop_session_connection_events_;
   mojo::AssociatedRemote<mojom::RemotingHostControl> remoting_host_control_;
+
+  mojo::ReceiverSet<mojom::ChromotingHostServices,
+                    std::unique_ptr<named_mojo_ipc_server::ConnectionInfo>>
+      receivers_;
+
+  base::WeakPtrFactory<DaemonProcessLinux> weak_ptr_factory_{this};
 };
 
 DaemonProcessLinux::DaemonProcessLinux(
     scoped_refptr<AutoThreadTaskRunner> caller_task_runner,
     scoped_refptr<AutoThreadTaskRunner> io_task_runner,
-    base::OnceClosure stopped_callback)
+    StoppedCallback stopped_callback)
     : DaemonProcess(caller_task_runner,
                     io_task_runner,
                     std::move(stopped_callback)),
       ipc_support_(io_task_runner->task_runner(),
                    mojo::core::ScopedIPCSupport::ShutdownPolicy::FAST),
-      desktop_session_factory_(io_task_runner) {}
+      desktop_session_factory_(io_task_runner) {
+  io_task_runner->PostTask(
+      FROM_HERE,
+      base::BindOnce(base::IgnoreResult(&RegisterSignalHandler), SIGTERM,
+                     base::BindPostTaskToCurrentDefault(
+                         base::BindRepeating(&DaemonProcessLinux::HandleSigTerm,
+                                             weak_ptr_factory_.GetWeakPtr()))));
+}
 
 DaemonProcessLinux::~DaemonProcessLinux() = default;
 
@@ -170,6 +199,45 @@ void DaemonProcessLinux::StartDesktopSessionFactory() {
                      base::Unretained(this)));
 }
 
+bool DaemonProcessLinux::SetupPairingRegistry() {
+  // The pairing directory is under the config directory, which is owned by
+  // root, so we need to create the pairing directory and change its owner to
+  // the network process user.
+  base::FilePath pairing_dir =
+      PairingRegistryDelegateLinux::GetDefaultRegistryPath();
+
+  // Create the directory if it doesn't exist.
+  base::File::Error error;
+  if (!base::CreateDirectoryAndGetError(pairing_dir, &error)) {
+    LOG(ERROR) << "Failed to create pairing registry directory: "
+               << base::File::ErrorToString(error);
+    return false;
+  }
+
+  // Set the owner to the network process user.
+  auto user_info = GetPasswdUserInfo(GetNetworkProcessUsername());
+  if (!user_info.has_value()) {
+    LOG(ERROR) << "Failed to get network process user info: "
+               << user_info.error();
+    return false;
+  }
+
+  if (HANDLE_EINTR(chown(pairing_dir.value().c_str(), user_info->uid,
+                         user_info->gid)) != 0) {
+    PLOG(ERROR) << "Failed to chown pairing registry directory to "
+                << GetNetworkProcessUsername();
+    return false;
+  }
+
+  // Set permissions to 700.
+  if (!base::SetPosixFilePermissions(pairing_dir,
+                                     base::FILE_PERMISSION_USER_MASK)) {
+    LOG(ERROR) << "Failed to set permissions on pairing registry directory";
+    return false;
+  }
+  return true;
+}
+
 std::unique_ptr<DesktopSession> DaemonProcessLinux::DoCreateDesktopSession(
     int terminal_id,
     const mojom::DesktopSessionOptions& options) {
@@ -182,7 +250,7 @@ std::unique_ptr<DesktopSession> DaemonProcessLinux::DoCreateDesktopSession(
 void DaemonProcessLinux::DoCrashNetworkProcess(const base::Location& location) {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
-  NOTIMPLEMENTED();
+  network_launcher_->Crash(location);
 }
 
 void DaemonProcessLinux::LaunchNetworkProcess() {
@@ -193,14 +261,14 @@ void DaemonProcessLinux::LaunchNetworkProcess() {
   base::FilePath this_exe;
   if (!base::PathService::Get(base::BasePathKey::FILE_EXE, &this_exe)) {
     LOG(ERROR) << "Failed to get the current executable path.";
-    Stop();
+    Stop(kInitializationFailed);
     return;
   }
 
   auto user_info = GetPasswdUserInfo(GetNetworkProcessUsername());
   if (!user_info.has_value()) {
     LOG(ERROR) << user_info.error();
-    Stop();
+    Stop(kInitializationFailed);
     return;
   }
 
@@ -216,7 +284,7 @@ void DaemonProcessLinux::LaunchNetworkProcess() {
   base::FilePath temp_dir;
   if (!base::PathService::Get(base::DIR_TEMP, &temp_dir)) {
     LOG(ERROR) << "Failed to get the temporary directory path.";
-    Stop();
+    Stop(kInitializationFailed);
     return;
   }
   options.working_dir = temp_dir;
@@ -272,19 +340,40 @@ void DaemonProcessLinux::OnStartDesktopSessionFactoryResult(
 
   if (!result.has_value()) {
     LOG(ERROR) << result.error();
-    Stop();
+    Stop(kInitializationFailed);
   }
+}
+
+void DaemonProcessLinux::HandleSigTerm(int signal_number) {
+  DCHECK(caller_task_runner()->BelongsToCurrentThread());
+  DCHECK_EQ(signal_number, SIGTERM);
+
+  // systemd sends SIGTERM when the service stops, so we clean up all desktop
+  // sessions here. While destroying a DesktopSession also terminates it, we
+  // must wait for all sessions to fully terminate before exiting, which the
+  // destructor alone does not handle.
+  HOST_LOG << "SIGTERM received. Terminating all desktop sessions.";
+  desktop_session_factory_.TerminateAllSessions(
+      base::BindOnce([](base::expected<void, Loggable> result) {
+        if (!result.has_value()) {
+          LOG(ERROR) << result.error();
+        } else {
+          HOST_LOG << "All desktop sessions have been terminated.";
+        }
+        exit(kSuccessExitCode);
+      }));
 }
 
 std::unique_ptr<DaemonProcess> DaemonProcess::Create(
     scoped_refptr<AutoThreadTaskRunner> caller_task_runner,
     scoped_refptr<AutoThreadTaskRunner> io_task_runner,
-    base::OnceClosure stopped_callback) {
+    StoppedCallback stopped_callback) {
   auto daemon_process = std::make_unique<DaemonProcessLinux>(
       caller_task_runner, io_task_runner, std::move(stopped_callback));
 
-  // TODO: crbug.com/475611769 - set ACL on the pairing registry directory for
-  // the network user.
+  if (!daemon_process->SetupPairingRegistry()) {
+    return nullptr;
+  }
 
   daemon_process->StartDesktopSessionFactory();
 
@@ -296,13 +385,38 @@ std::unique_ptr<DaemonProcess> DaemonProcess::Create(
 
 void DaemonProcessLinux::BindChromotingHostServices(
     mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
-    base::ProcessId peer_pid) {
-  if (!remoting_host_control_.is_bound()) {
+    std::unique_ptr<named_mojo_ipc_server::ConnectionInfo> connection_info) {
+  DCHECK(caller_task_runner()->BelongsToCurrentThread());
+  if (!connection_info) {
+    LOG(WARNING) << "Binding rejected because no connection info was provided.";
+    return;
+  }
+
+  // We cannot validate `connection_info` here, since the user may not have an
+  // active graphical session when ChromotingHostServices is bound. It will be
+  // validated in BindSessionServices().
+  // IsTrustedMojoEndpoint() has done some rudimental security checks when the
+  // client connected in, but it is PID-based which means it is susceptible of
+  // PID reuse attacks.
+  receivers_.Add(this, std::move(receiver), std::move(connection_info));
+}
+
+void DaemonProcessLinux::BindSessionServices(
+    mojo::PendingReceiver<mojom::ChromotingSessionServices> receiver) {
+  DCHECK(caller_task_runner()->BelongsToCurrentThread());
+  if (!desktop_session_connection_events_.is_bound()) {
     LOG(ERROR) << "Binding rejected. Network process is not ready.";
     return;
   }
-  remoting_host_control_->BindChromotingHostServices(std::move(receiver),
-                                                     peer_pid);
+
+  uid_t uid = receivers_.current_context()->credentials.uid;
+  DesktopSession* session = desktop_session_factory_.GetSessionByUid(uid);
+  if (session) {
+    desktop_session_connection_events_->OnSessionServicesClientConnected(
+        session->id(), std::move(receiver));
+  } else {
+    LOG(WARNING) << "No desktop session found for UID " << uid;
+  }
 }
 
 }  // namespace remoting

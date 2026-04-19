@@ -29,6 +29,7 @@ data/ac4-ims.ac4
 data/ac4-only-ajoc-frag.mp4
 data/ac4-only-channel-based-coding-frag.mp4
 data/ac4-only-ims-frag.mp4
+data/agtm-metadata-track-frag.mp4
 data/audio-start-time-only.webm
 data/av1-1-b8-02-allintra.ivf
 data/av1-1-b8-02-allintra.ivf.json
@@ -416,6 +417,7 @@ data/noise-xhe-aac-mono.mp4
 data/noise-xhe-aac.mp4
 data/nonzero-start-time.webm
 data/npot-video.h264
+data/obs_remux_variable_aac_durations.mp4
 data/one_frame_1280x720.mjpeg
 data/opus-test.opus
 data/opus-trimming-test.mp4
@@ -517,7 +519,6 @@ data/vp8-P-frame-320x240
 data/vp8-corrupt-I-frame
 data/vp9-I-frame-1280x720
 data/vp9-I-frame-320x240
-data/vp9-agtm-country-code-extension.webm
 data/vp9-agtm.webm
 data/vp9-duplicate-frame.webm
 data/vp9-hdr-init-segment.mp4

@@ -40,7 +40,6 @@ import org.chromium.base.IntentUtils;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -137,7 +136,6 @@ public class ChromeDragAndDropBrowserDelegateUnitTest {
 
     @Test
     @Config(sdk = 30)
-    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testDragAndDropBrowserDelegate_createLinkIntent_PostR() {
         MultiWindowTestUtils.enableMultiInstance();
         Intent intent =
@@ -171,7 +169,7 @@ public class ChromeDragAndDropBrowserDelegateUnitTest {
     }
 
     @Test
-    @Config(sdk = 29)
+    @Config(sdk = BaseRobolectricTestRunner.MIN_SDK)
     public void testDragAndDropBrowserDelegate_createLinkIntent_PreR() {
         Intent intent =
                 mDelegate.createUrlIntent(

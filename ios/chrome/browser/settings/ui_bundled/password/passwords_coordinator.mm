@@ -23,7 +23,6 @@
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
-#import "ios/chrome/browser/passwords/coordinator/password_utils.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/metrics/ios_password_manager_metrics.h"
@@ -39,6 +38,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_view_controller_presentation_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_coordinator_delegate.h"
+#import "ios/chrome/browser/settings/ui_bundled/password/password_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_consumer.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_mediator.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_settings_commands.h"
@@ -53,7 +53,6 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-#import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -75,9 +74,6 @@
 
 // Main mediator for this coordinator.
 @property(nonatomic, strong) PasswordsMediator* mediator;
-
-// Reauthentication module used by passwords export and password details.
-@property(nonatomic, strong) ReauthenticationModule* reauthModule;
 
 // Coordinator for Password Checkup.
 @property(nonatomic, strong)
@@ -166,8 +162,6 @@
   self.mediator.tracker =
       feature_engagement::TrackerFactory::GetForProfile(profile);
 
-  self.reauthModule = password_manager::BuildReauthenticationModule(
-      /*successfulReauthTimeAccessor=*/self.mediator);
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(profile);
 
@@ -191,7 +185,6 @@
   passwordsViewController.handler = self;
   passwordsViewController.delegate = self.mediator;
   passwordsViewController.presentationDelegate = self;
-  passwordsViewController.reauthenticationModule = self.reauthModule;
   passwordsViewController.imageDataSource = self.mediator;
 
   self.mediator.consumer = self.passwordsViewController;
@@ -265,7 +258,6 @@
   self.passwordCheckupCoordinator = [[PasswordCheckupCoordinator alloc]
       initWithBaseNavigationController:self.baseNavigationController
                                browser:self.browser
-                          reauthModule:self.reauthModule
                               referrer:password_manager::PasswordCheckReferrer::
                                            kPasswordSettings];
   self.passwordCheckupCoordinator.delegate = self;
@@ -286,7 +278,6 @@
       initWithBaseNavigationController:self.baseNavigationController
                                browser:self.browser
                             credential:credential
-                          reauthModule:self.reauthModule
                                context:DetailsContext::kPasswordSettings];
   self.passwordDetailsCoordinator.delegate = self;
   [self.passwordDetailsCoordinator start];
@@ -305,7 +296,6 @@
       initWithBaseNavigationController:self.baseNavigationController
                                browser:self.browser
                        affiliatedGroup:affiliatedGroup
-                          reauthModule:self.reauthModule
                                context:DetailsContext::kPasswordSettings];
   self.passwordDetailsCoordinator.delegate = self;
   [self.passwordDetailsCoordinator start];
@@ -606,7 +596,6 @@
   _reauthCoordinator = [[LocalReauthenticationCoordinator alloc]
       initWithBaseNavigationController:_baseNavigationController
                                browser:self.browser
-                reauthenticationModule:_reauthModule
                            authOnStart:authOnStart];
 
   _reauthCoordinator.delegate = self;
@@ -706,8 +695,7 @@
   _credentialImportCoordinator = [[CredentialImportCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser
-                            UUID:self.credentialImportUUID
-                    reauthModule:self.reauthModule];
+                            UUID:self.credentialImportUUID];
   self.credentialImportUUID = nil;
   _credentialImportCoordinator.delegate = self;
   [_credentialImportCoordinator start];

@@ -159,6 +159,17 @@ sync_pb::AutofillValuableMetadataSpecifics CreateSpecificsFromValuableMetadata(
   return specifics;
 }
 
+ValuableMetadata CreateValuableMetadataFromSpecifics(
+    const AutofillValuableMetadataSpecifics& specifics) {
+  // Since the specifics are guaranteed to be valid by `IsEntityDataValid()`,
+  // the conversion will succeed.
+  return ValuableMetadata(
+      ValuableId(specifics.valuable_id()),
+      base::Time::FromDeltaSinceWindowsEpoch(
+          base::Microseconds(specifics.last_used_date_unix_epoch_micros())),
+      specifics.use_count());
+}
+
 AutofillValuableSpecifics TrimAutofillValuableSpecificsDataForCaching(
     const AutofillValuableSpecifics& specifics) {
   // LINT.IfChange(TrimAutofillValuableSpecificsDataForCaching)
@@ -225,6 +236,11 @@ AutofillValuableSpecifics TrimAutofillValuableSpecificsDataForCaching(
       if (trimmed_specifics.known_traveler_number().ByteSizeLong() == 0) {
         trimmed_specifics.clear_known_traveler_number();
       }
+      break;
+    }
+    case AutofillValuableSpecifics::kEventTicket:
+    case AutofillValuableSpecifics::kTransitPass: {
+      // Chrome does not support these types.
       break;
     }
     case AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:

@@ -39,8 +39,8 @@
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_ui_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
@@ -590,7 +590,7 @@ void AuthenticatorRequestDialogController::OpenGpmSettings() {
   auto* render_frame_host = GetRenderFrameHost();
   auto* web_contents =
       content::WebContents::FromRenderFrameHost(render_frame_host);
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   chrome::ShowPasswordManagerSettings(browser);
 }
 
@@ -2330,23 +2330,6 @@ AuthenticatorRequestDialogController::IndexOfImmediateGetPriorityMechanism() {
       model_->gpm_uv_method.value_or(
           EnclaveUserVerificationMethod::kUnsatisfiable) ==
       EnclaveUserVerificationMethod::kUVKeyWithChromeUI;
-
-  if (transport_availability_.autoselect_in_immediate_mediation) {
-    bool is_password =
-        std::holds_alternative<Mechanism::Password>(mechanism.type);
-    bool is_chrome_profile =
-        std::holds_alternative<Mechanism::Credential>(mechanism.type) &&
-        std::get<Mechanism::Credential>(mechanism.type).value().source ==
-            AuthenticatorType::kTouchID;
-    if (is_password || is_chrome_profile ||
-        (is_enclave && !chrome_does_uv_for_gpm)) {
-      // Password and Chrome Profile UV does not display account details.
-      // Similarly non-Chrome user verification UI for enclave passkeys does not
-      // display the selected account details. Show the Chrome UI first.
-      return std::nullopt;
-    }
-    return 0;
-  }
 
   if (is_enclave && chrome_does_uv_for_gpm) {
     return 0;

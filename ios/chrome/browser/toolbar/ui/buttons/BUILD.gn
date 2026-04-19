@@ -4,8 +4,12 @@
 
 source_set("buttons") {
   sources = [
+    "highlight_button_util.h",
+    "highlight_button_util.mm",
     "toolbar_button.h",
     "toolbar_button.mm",
+    "toolbar_button_constants.h",
+    "toolbar_button_constants.mm",
     "toolbar_button_factory.h",
     "toolbar_button_factory.mm",
     "toolbar_button_visibility.h",
@@ -14,10 +18,41 @@ source_set("buttons") {
   ]
   deps = [
     "//base",
+    "//ios/chrome/browser/shared/ui/elements/gradient",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/toolbar/ui:constants",
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/util",
+  ]
+  frameworks = [ "UIKit.framework" ]
+}
+
+source_set("menus") {
+  sources = [
+    "toolbar_button_menu_factory.h",
+    "toolbar_button_menu_factory.mm",
+    "toolbar_button_menu_factory_delegate.h",
+  ]
+  deps = [
+    "//base",
+    "//components/open_from_clipboard",
+    "//components/search",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/lens/ui_bundled:lens_availability",
+    "//ios/chrome/browser/menu/ui_bundled",
+    "//ios/chrome/browser/ntp/model:util",
+    "//ios/chrome/browser/search_engines/model:search_engines_util",
+    "//ios/chrome/browser/shared/coordinator/scene/state",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/public/features:system_flags",
+    "//ios/chrome/browser/shared/ui/symbols",
+    "//ios/chrome/browser/shared/ui/util",
+    "//ios/public/provider/chrome/browser/lens:lens_api",
+    "//ios/web/public/favicon",
+    "//ios/web/public/navigation",
+    "//ui/base",
+    "//ui/gfx",
   ]
   frameworks = [ "UIKit.framework" ]
 }

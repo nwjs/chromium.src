@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="bs">
 <translation id="1000436330784933699">Ovdje možete otvoriti Objektiv.</translation>
+<translation id="1005291068154454184">Videozapis preko cijelog ekrana za postavljanje Chromiuma kao zadanog preglednika</translation>
 <translation id="1042296835509784301">Otvara Upravitelj lozinki u Chromiumu.</translation>
 <translation id="1047130070405668746">Odaberite Chromium</translation>
 <translation id="1091252999271033193">Ovo znači da će Chromium svaki put zatražiti web lokaciju za mobilni uređaj.</translation>
@@ -70,9 +71,6 @@ Nove oznake se ne mogu sačuvati na računu dok ne izbrišete neke. Ako se sada 
 <translation id="2313870531055795960">Provjerava URL-ove s listom nesigurnih web lokacija pohranjenih u Chromiumu. Ako web lokacija pokuša ukrasti vašu lozinku ili kada preuzimate štetan fajl, Chromium može slati i URL-ove, uključujući dijelove sadržaja stranice, u Sigurno pregledanje.</translation>
 <translation id="2314220608288760290">Chromium automatski otvara anonimne linkove YouTubea u anonimnom načinu rada.</translation>
 <translation id="231828342043114302">Da primate personaliziran sadržaj na osnovu svojih interesovanja, prijavite se u Chromium.</translation>
-<translation id="2326738825692478496">Određeni podaci Chromiuma još uvijek nisu sačuvani na Google račun.
-
-Pričekajte nekoliko minuta prije odjave. Ako se sada odjavite, ovi podaci će se izbrisati.</translation>
 <translation id="2334943301233020675">Sljedeći pristupni ključevi nisu uvezeni na Upravitelj lozinki jer se ne podudaraju sa zahtjevima.</translation>
 <translation id="2337722506862731008">Dijelite Chromium</translation>
 <translation id="2340423701577464731">Dodavanje stavke na listu za čitanje u Chromiumu</translation>
@@ -103,7 +101,6 @@ Pričekajte nekoliko minuta prije odjave. Ako se sada odjavite, ovi podaci će s
 Za više postavki koje koriste podatke radi poboljšanja iskustva u Chromiumu idite na <ph name="BEGIN_LINK" />Googleove usluge<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Pretraživanje glasovnim komandama u Chromiumu.</translation>
 <translation id="2843571538056574338">Koristite Chromium za automatsko popunjavanje</translation>
-<translation id="2899085719655668655">Video uputstva sa slikom u slici za postavljanje Chromiuma kao zadanog preglednika</translation>
 <translation id="2918709798697875261">Vaša organizacija zahtijeva da ostanete odjavljeni s Chromiuma.</translation>
 <translation id="2942241131342758843">Koristite Chromium prema zadanim postavkama da otvarate linkove, pretražujete iz vidžeta i automatski popunjavate lozinke u drugim aplikacijama</translation>
 <translation id="2977470724722393594">Chromium je ažuriran</translation>

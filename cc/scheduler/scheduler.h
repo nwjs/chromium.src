@@ -85,9 +85,6 @@ class SchedulerClient {
                                   FrameSkippedReason reason) = 0;
   virtual void WillNotReceiveBeginFrame() = 0;
   virtual void DidChangeBeginFrameSourcePaused(bool paused) = 0;
-  virtual void SendBeginMainFrameNotExpectedSoon() = 0;
-  virtual void ScheduledActionBeginMainFrameNotExpectedUntil(
-      base::TimeTicks time) = 0;
   virtual void FrameIntervalUpdated(base::TimeDelta interval) = 0;
   virtual void OnBeginImplFrameDeadline() = 0;
 
@@ -197,7 +194,6 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
   void DidReceiveCompositorFrameAck();
 
   void SetTreePrioritiesAndScrollState(TreePriority tree_priority,
-                                       ScrollHandlerState scroll_handler_state,
                                        bool is_current_scroll_main_painted);
 
   // Commit step happens after the main thread has completed updating for a
@@ -252,10 +248,6 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
   // being triggered. Impl frames are drawn until any in-flight updates from the
   // main thread are drawn.
   void SetPauseRendering(bool pause_rendering);
-
-  // Controls whether the BeginMainFrameNotExpected messages should be sent to
-  // the main thread by the cc scheduler.
-  void SetMainThreadWantsBeginMainFrameNotExpected(bool new_state);
 
   void AsProtozeroInto(
       perfetto::EventContext& ctx,
@@ -390,8 +382,6 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
   // Used to drop the pending begin frame before we go idle.
   void CancelPendingBeginFrameTask();
 
-  void BeginMainFrameNotExpectedUntil(base::TimeTicks time);
-  void BeginMainFrameNotExpectedSoon();
   void DrawIfPossible();
   void DrawForced();
   void ProcessScheduledActions();

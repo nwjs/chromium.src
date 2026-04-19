@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_input/cr_input.js';
 import '//resources/cr_elements/cr_slider/cr_slider.js';
+import '//resources/cr_elements/cr_tab_box/cr_tab_box.js';
 import '//resources/cr_elements/cr_textarea/cr_textarea.js';
 import '/strings.m.js';
 
@@ -11,7 +13,7 @@ import type {CrSliderElement} from '//resources/cr_elements/cr_slider/cr_slider.
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {Time} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
 
-import type {Tab} from '../contextual_tasks_internals.mojom-webui.js';
+import type {EligibilityState, Tab} from '../contextual_tasks_internals.mojom-webui.js';
 import {TabSelectionMode} from '../contextual_tasks_types.mojom-webui.js';
 
 import {getCss} from './app.css.js';
@@ -102,8 +104,10 @@ export class ContextualTasksInternalsAppElement extends CrLitElement {
       isQueryPending_: {type: Boolean},
       tabSelectionMode_: {type: String},
       minModelScore_: {type: Number},
-      minModelScoreTicks_: {type: Array},
       eventLogMessages_: {type: Array},
+      forcedHost_: {type: String},
+      currentHost_: {type: String},
+      eligibilityState_: {type: Object},
     };
   }
 
@@ -113,6 +117,9 @@ export class ContextualTasksInternalsAppElement extends CrLitElement {
   protected accessor tabSelectionMode_: string = 'kEmbeddingsMatch';
   protected accessor minModelScore_: number = 0.8;
   protected accessor eventLogMessages_: EventLogMessage[] = [];
+  protected accessor forcedHost_: string = '';
+  protected accessor currentHost_: string = '';
+  protected accessor eligibilityState_: EligibilityState|null = null;
 
   private proxy_: BrowserProxy = BrowserProxy.getInstance();
 
@@ -120,6 +127,46 @@ export class ContextualTasksInternalsAppElement extends CrLitElement {
     super.connectedCallback();
     this.proxy_.callbackRouter.onLogMessageAdded.addListener(
         this.onLogMessageAdded_.bind(this));
+    this.refreshCurrentHost_();
+    this.refreshEligibility_();
+    this.syncTabsWithUrlHash_();
+  }
+
+  private syncTabsWithUrlHash_() {
+    const tabUrlHashes = ['#model-selection', '#debugging', '#eligibility'];
+    const tabBox = this.shadowRoot.querySelector('cr-tab-box')!;
+
+    tabBox.addEventListener('selected-index-change', e => {
+      window.location.hash = tabUrlHashes[e.detail] || '';
+    });
+
+    if (window.location.hash.startsWith('#')) {
+      const entryIndex = tabUrlHashes.indexOf(window.location.hash);
+      if (entryIndex >= 0) {
+        tabBox.setAttribute('selected-index', String(entryIndex));
+      }
+    }
+  }
+
+  private async refreshEligibility_() {
+    const response = await this.proxy_.handler.getEligibilityState();
+    this.eligibilityState_ = response.state;
+  }
+
+  private async refreshCurrentHost_() {
+    const response = await this.proxy_.handler.getForcedEmbeddedPageHost();
+    const fullUrl = response.host;
+    if (fullUrl) {
+      // Create a URL object to extract just the host part for display.
+      // If the URL is invalid, display an error message.
+      const parsedUrl = URL.parse(fullUrl);
+      this.currentHost_ = parsedUrl ?
+          parsedUrl.host :
+          `Error: Invalid URL provided (${fullUrl})`;
+    } else {
+      // Reset the current host if the forced host is empty.
+      this.currentHost_ = '';
+    }
   }
 
   protected onTabSelectionModeChange_() {
@@ -132,6 +179,38 @@ export class ContextualTasksInternalsAppElement extends CrLitElement {
 
   protected onQueryValueChanged_(e: CustomEvent<{value: string}>) {
     this.query_ = e.detail.value;
+  }
+
+  protected onForcedHostValueChanged_(e: CustomEvent<{value: string}>) {
+    this.forcedHost_ = e.detail.value;
+  }
+
+  protected async onSetForcedHostClick_() {
+    const url = URL.parse(this.forcedHost_);
+
+    // Check if the current URL is valid.
+    if (!url) {
+      this.currentHost_ = `Error: Invalid URL provided (${this.forcedHost_})`;
+      return;
+    }
+
+    // Verify that the host is a Google domain.
+    // LINT.IfChange(AllowedHosts)
+    if (!url.host.endsWith('.google.com') && !url.host.endsWith('.googlers.com')) {
+      this.currentHost_ =
+          `Error: URL must be a Google domain (.google.com or .googlers.com)`;
+      return;
+    }
+    // LINT.ThenChange(//components/contextual_tasks/public/features.cc:AllowedHosts)
+
+    await this.proxy_.handler.setForcedEmbeddedPageHost(url.href);
+    await this.refreshCurrentHost_();
+  }
+
+  protected async onResetForcedHostClick_() {
+    this.forcedHost_ = '';
+    await this.proxy_.handler.setForcedEmbeddedPageHost('');
+    await this.refreshCurrentHost_();
   }
 
   protected async onSubmitClick_() {

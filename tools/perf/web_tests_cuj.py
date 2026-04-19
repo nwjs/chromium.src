@@ -21,8 +21,17 @@ def main():
   env = os.environ.copy()
   env['PYTHONPATH'] = CROSSBENCH_DIR
 
-  # TODO(b:435031130): For initial testing, only run a single benchmark.
-  command_line = [CUJ_RUNNER, '--platform=cros', '--tests=speeometer3.1']
+  # TODO(b:435031130): For initial testing, only run the default
+  # variant of speedometer 3.1.
+  command_line = [
+      CUJ_RUNNER, '--platform=adb', '--tests=speedometer_3.1', '--variants=$'
+  ]
+
+  # If ISOLATED_OUTDIR exists, pass it to the runner.
+  isolated_outdir = os.environ.get('ISOLATED_OUTDIR')
+  if isolated_outdir:
+    command_line.append(f'--out-dir={isolated_outdir}')
+
   proc = subprocess.run(command_line, check=False, env=env)
   status = proc.returncode
 

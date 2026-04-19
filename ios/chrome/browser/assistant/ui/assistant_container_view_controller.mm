@@ -13,58 +13,90 @@
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_layout_utils.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_view.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/chrome_overlay_window/chrome_overlay_container_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 
 namespace {
 
 // The height assigned to a detent that isn't in the list.
 constexpr NSInteger kInvalidDetentHeight = -1;
 
-// Constants used for the container resizing animation.
-constexpr CGFloat kSpringDuration = 0.3;
-constexpr CGFloat kSpringDamping = 0.85;
-constexpr CGFloat kMomentumProjectionSeconds = 0.2;
-
 // The height of the top area that responds to the pan gesture.
 constexpr CGFloat kGestureTopAreaHeight = 44.0;
 
+// The maximum width of the sheet container on iPad devices.
+constexpr CGFloat kAssistantSheetMaxWidth = 700.0;
+// The multiplier for the width of the sheet container relative to its parent.
+constexpr CGFloat kAssistantSheetWidthMultiplier = 2.0 / 3.0;
+
+// The absolute minimum padding between the top of the container and the top of
+// the screen if no safe area insets exist (e.g. iPad full screen, iPhone
+// landscape).
+constexpr CGFloat kMinTopPadding = 12.0;
+
+// The fullscreen progress threshold below which the container minimizes.
+constexpr CGFloat kFullscreenMinimizationThreshold = 0.50;
+
+// Default percentage for the medium detent.
+constexpr NSInteger kDefaultMediumDetentPercentage = 50;
+
+// Returns the height for the medium detent, taking into account the
+// experimental setting percentage.
+NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
+  NSInteger percentage =
+      GetAssistantMediumDetentPercentage() ?: kDefaultMediumDetentPercentage;
+  return absoluteMax * (percentage / 100.0);
+}
+
 }  // namespace
 
-@interface AssistantContainerViewController () <UIGestureRecognizerDelegate>
+@interface AssistantContainerViewController () <FullscreenUIElement,
+                                                UIGestureRecognizerDelegate>
 @end
 
 @implementation AssistantContainerViewController {
+  // The view that holds the child view controller.
+  AssistantContainerView* _assistantContainerView;
+  // Background dimming view for transitions to large detent.
+  UIView* _dimmingView;
+
   // Layout constraints for the container.
   NSLayoutConstraint* _heightConstraint;
   NSLayoutConstraint* _leadingConstraint;
   NSLayoutConstraint* _trailingConstraint;
-  NSLayoutConstraint* _bottomConstraint;
+  NSLayoutConstraint* _outerBottomConstraint;
+  NSLayoutConstraint* _innerBottomConstraint;
 
-  // Background dimming view for transitions to large detent.
-  UIView* _dimmingView;
-
-  // The view that holds the child view controller.
-  AssistantContainerView* _assistantContainerView;
+  // Layout constraints for width-restricted contexts (iPad/Landscape).
+  NSArray<NSLayoutConstraint*>* _widthRestrictedConstraints;
+  // Constraints pinning the container to the parent view for side panel.
+  NSArray<NSLayoutConstraint*>* _sidePanelConstraints;
 
   // State storage for configuration before view load.
   UIViewController* _childViewController;
-
-  // Gesture recognizer for resizing the container.
-  UIPanGestureRecognizer* _headerPanGesture;
+  // Cached map of calculated heights for the active detents.
+  std::map<AssistantContainerDetent, NSInteger> _detentHeights;
+  // Tracks the active detent to prevent redundant delegate callbacks and layout
+  // loops.
+  std::optional<AssistantContainerDetent> _activeDetent;
   // The height of the container when the gesture started.
   CGFloat _initialConstraintHeight;
   // Whether the view has appeared.
   BOOL _hasAppeared;
 
-  // Cached map of calculated heights for the active detents.
-  std::map<AssistantContainerDetent, NSInteger> _detentHeights;
-
-  // Tracks the active detent to prevent redundant delegate callbacks and layout
-  // loops.
-  std::optional<AssistantContainerDetent> _activeDetent;
+  // Gesture recognizer for resizing the container.
+  UIPanGestureRecognizer* _headerPanGesture;
+  // Observer for the fullscreen controller.
+  std::unique_ptr<FullscreenUIUpdater> _fullscreenUIUpdater;
 }
+
+@synthesize isAnimating = _isAnimating;
 
 - (instancetype)initWithViewController:(UIViewController*)viewController {
   self = [super initWithNibName:nil bundle:nil];
@@ -94,9 +126,16 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-  self.view.translatesAutoresizingMaskIntoConstraints = NO;
+  UIView* view = self.view;
+  view.translatesAutoresizingMaskIntoConstraints = NO;
 
   [self setUpGestures];
+
+  [self
+      registerForTraitChanges:
+          @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
+                   withAction:@selector
+                   (updatePresentationContextFromTraitCollection)];
 
   // Apply pending configuration.
   if (_childViewController) {
@@ -114,10 +153,39 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   _heightConstraint = [_assistantContainerView.heightAnchor
       constraintEqualToConstant:initialHeight];
   _heightConstraint.active = YES;
+
+  // Pin the container inside the wrapper, these constraints mutate during
+  // morphing.
+  _leadingConstraint = [_assistantContainerView.leadingAnchor
+      constraintEqualToAnchor:view.safeAreaLayoutGuide.leadingAnchor];
+  _trailingConstraint = [_assistantContainerView.trailingAnchor
+      constraintEqualToAnchor:view.safeAreaLayoutGuide.trailingAnchor];
+
+  NSLayoutConstraint* proportionalWidthConstraint =
+      [_assistantContainerView.widthAnchor
+          constraintEqualToAnchor:view.widthAnchor
+                       multiplier:kAssistantSheetWidthMultiplier];
+  proportionalWidthConstraint.priority = UILayoutPriorityRequired - 1;
+
+  // Set up width-restricted constraints, inactive by default.
+  _widthRestrictedConstraints = @[
+    [_assistantContainerView.centerXAnchor
+        constraintEqualToAnchor:view.safeAreaLayoutGuide.centerXAnchor],
+    proportionalWidthConstraint,
+    [_assistantContainerView.widthAnchor
+        constraintLessThanOrEqualToConstant:kAssistantSheetMaxWidth]
+  ];
 }
 
 - (void)didMoveToParentViewController:(UIViewController*)parent {
   [super didMoveToParentViewController:parent];
+  if (_innerBottomConstraint) {
+    [NSLayoutConstraint deactivateConstraints:@[
+      _innerBottomConstraint, _outerBottomConstraint
+    ]];
+    _innerBottomConstraint = nil;
+    _outerBottomConstraint = nil;
+  }
   if (parent) {
     [self layoutInParentView:parent.view];
   }
@@ -166,10 +234,7 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
     return;
   }
 
-  NSInteger maxHeight = [self effectiveMaxHeight];
-  NSInteger minHeight = [self effectiveMinHeight];
-  NSInteger targetHeight =
-      std::clamp(_detentHeights[detentIdentifier], minHeight, maxHeight);
+  NSInteger targetHeight = _detentHeights[detentIdentifier];
 
   _heightConstraint.constant = targetHeight;
   CGFloat targetPercentage = [self expandPercentageForHeight:targetHeight];
@@ -210,14 +275,55 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
       }];
 }
 
+- (void)setUpFullscreenObservation:(FullscreenController*)fullscreenController {
+  if (fullscreenController) {
+    _fullscreenUIUpdater =
+        std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
+  } else {
+    _fullscreenUIUpdater = nullptr;
+  }
+}
+
 #pragma mark - Properties
 
-- (void)setIsAnimating:(BOOL)isAnimating {
-  if (_isAnimating == isAnimating) {
+- (void)setPresentationContext:
+    (AssistantPresentationContext)presentationContext {
+  if (_presentationContext == presentationContext) {
     return;
   }
-  _isAnimating = isAnimating;
-  [self updatePanGestureEnabledState];
+  _presentationContext = presentationContext;
+
+  if ([self.delegate respondsToSelector:@selector(assistantContainer:
+                                                    didChangeContext:)]) {
+    [self.delegate assistantContainer:self
+                     didChangeContext:presentationContext];
+  }
+
+  if (presentationContext == AssistantPresentationContext::kSheet &&
+      _activeDetent.has_value()) {
+    if ([self.delegate respondsToSelector:@selector(assistantContainer:
+                                                       didChangeDetent:)]) {
+      [self.delegate assistantContainer:self
+                        didChangeDetent:_activeDetent.value()];
+    }
+  }
+
+  [self applyLayoutForPresentationContext];
+}
+
+- (void)setDelegate:(id<AssistantContainerDelegate>)delegate {
+  if (_delegate == delegate) {
+    return;
+  }
+  _delegate = delegate;
+
+  if (_heightConstraint &&
+      [_delegate respondsToSelector:@selector(assistantContainer:
+                                        didUpdateExpandPercentage:)]) {
+    CGFloat percentage =
+        [self expandPercentageForHeight:_heightConstraint.constant];
+    [_delegate assistantContainer:self didUpdateExpandPercentage:percentage];
+  }
 }
 
 - (void)setDetents:(std::vector<AssistantContainerDetent>)detents {
@@ -228,13 +334,39 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
               return a < b;
             });
   [self updateDetentHeights];
-  [self updatePanGestureEnabledState];
+  [self updateInteractionEnabledState];
   [self.view setNeedsLayout];
 }
 
 - (void)setMinimizedDetentHeight:(NSInteger)minimizedDetentHeight {
   _minimizedDetentHeight = minimizedDetentHeight;
   [self updateDetentHeights];
+}
+
+- (void)setAnchorView:(UIView*)anchorView {
+  if (_anchorView == anchorView) {
+    return;
+  }
+  _anchorView = anchorView;
+  [self updateHeightConstraint];
+}
+
+#pragma mark - AssistantContainerAnimatable
+
+- (void)setIsAnimating:(BOOL)isAnimating {
+  if (_isAnimating == isAnimating) {
+    return;
+  }
+  _isAnimating = isAnimating;
+  [self updateInteractionEnabledState];
+}
+
+- (UIView*)dimmingView {
+  return _dimmingView;
+}
+
+- (UIView*)assistantContainerView {
+  return _assistantContainerView;
 }
 
 #pragma mark - UIGestureRecognizerDelegate
@@ -245,7 +377,7 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
     return YES;
   }
   CGPoint location = [touch locationInView:_assistantContainerView];
-  // Restrict the pan gesture to the top area.
+  // Restrict the gesture to the top area.
   return location.y <= kGestureTopAreaHeight;
 }
 
@@ -261,6 +393,25 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   return NO;
 }
 
+#pragma mark - FullscreenUIElement
+
+- (void)updateForFullscreenProgress:(CGFloat)progress {
+  if (_presentationContext == AssistantPresentationContext::kPanel) {
+    self.view.alpha = 1.0;
+    return;
+  }
+
+  self.view.alpha = MIN(1.0, progress / kFullscreenMinimizationThreshold);
+
+  AssistantContainerDetent smallestDetent = _detents.front();
+  if (progress <= kFullscreenMinimizationThreshold &&
+      _activeDetent != smallestDetent) {
+    [self animateToDetent:smallestDetent
+                 duration:kAssistantSheetSpringDuration
+                    curve:UIViewAnimationCurveEaseInOut];
+  }
+}
+
 #pragma mark - Private
 
 // Configures and adds the background dimming view.
@@ -269,6 +420,12 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   _dimmingView.translatesAutoresizingMaskIntoConstraints = NO;
   _dimmingView.backgroundColor = UIColor.blackColor;
   _dimmingView.alpha = 0.0;
+
+  UITapGestureRecognizer* tapGesture = [[UITapGestureRecognizer alloc]
+      initWithTarget:self
+              action:@selector(handleDimmingViewTap:)];
+  [_dimmingView addGestureRecognizer:tapGesture];
+
   [self.view addSubview:_dimmingView];
   AddSameConstraints(_dimmingView, self.view);
 }
@@ -284,12 +441,20 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   ContainerMorphingConstraints constraints = CalculateMorphingConstraints(
       height, minimizedHeight, mediumHeight, largeHeight);
 
+  if (IsRegularXRegularSizeClass(self.traitCollection)) {
+    // iPad floating sheet always has 4 rounded corners and a bottom margin.
+    constraints.top_corner_radius = kMorphingBaseCornerRadius;
+    constraints.bottom_corner_radius = kMorphingBaseCornerRadius;
+    constraints.bottom_margin = kMorphingBaseMargin;
+  }
+
   _heightConstraint.constant = constraints.actual_height;
   _leadingConstraint.constant = constraints.side_margin;
   _trailingConstraint.constant = -constraints.side_margin;
-  _bottomConstraint.constant = -constraints.bottom_margin;
-  [_assistantContainerView updateCornerRadius:constraints.corner_radius
-                                maskedCorners:constraints.masked_corners];
+  _innerBottomConstraint.constant = -constraints.bottom_margin;
+  [_assistantContainerView
+      updateTopCornerRadius:constraints.top_corner_radius
+         bottomCornerRadius:constraints.bottom_corner_radius];
   _dimmingView.alpha = constraints.background_dimming_alpha;
 }
 
@@ -308,12 +473,19 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
 
 // Adds gesture recognizers to the view.
 - (void)setUpGestures {
+  // Pan gesture for resizing the container.
   _headerPanGesture = [[UIPanGestureRecognizer alloc]
       initWithTarget:self
               action:@selector(handlePanGesture:)];
   _headerPanGesture.delegate = self;
   [_assistantContainerView addGestureRecognizer:_headerPanGesture];
-  [self updatePanGestureEnabledState];
+
+  // Configure the grabber button action for toggling container size.
+  [_assistantContainerView.grabberButton
+             addTarget:self
+                action:@selector(handleGrabberButtonTapped:)
+      forControlEvents:UIControlEventTouchUpInside];
+  [self updateInteractionEnabledState];
 }
 
 // Called when the animation to a detent completes.
@@ -334,15 +506,38 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   }
 }
 
-// Updates the pan gesture enabled state based on animation and detents.
-- (void)updatePanGestureEnabledState {
-  // Prevent the gesture recognizer from interfering with the animation.
+// Updates the interaction enabled state based on animation and detents.
+- (void)updateInteractionEnabledState {
+  // Prevent interactions from interfering with the animation.
   if (self.isAnimating) {
     _headerPanGesture.enabled = NO;
+    _assistantContainerView.grabberButton.enabled = NO;
     return;
   }
 
   _headerPanGesture.enabled = YES;
+  _assistantContainerView.grabberButton.enabled = YES;
+}
+
+// Handles the tap on the grabber button to toggle container size.
+- (void)handleGrabberButtonTapped:(UIButton*)sender {
+  if (self.isAnimating) {
+    return;
+  }
+
+  AssistantContainerDetent minDetent = self.detents.front();
+  AssistantContainerDetent maxDetent = self.detents.back();
+
+  if (minDetent == maxDetent) {
+    return;
+  }
+
+  AssistantContainerDetent targetDetent =
+      _activeDetent.value() == maxDetent ? minDetent : maxDetent;
+
+  [self animateToDetent:targetDetent
+               duration:kAssistantSheetSpringDuration
+                  curve:UIViewAnimationCurveEaseInOut];
 }
 
 // Handles the pan gesture on the header to resize the container.
@@ -374,6 +569,22 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   }
 }
 
+// Handles the tap gesture on the dimming view.
+- (void)handleDimmingViewTap:(UITapGestureRecognizer*)gesture {
+  if (_activeDetent != AssistantContainerDetent::kLarge) {
+    return;
+  }
+
+  AssistantContainerDetent detent = self.detents.front();
+  if (detent == AssistantContainerDetent::kLarge) {
+    return;
+  }
+
+  [self animateToDetent:detent
+               duration:kAssistantSheetSpringDuration
+                  curve:UIViewAnimationCurveEaseInOut];
+}
+
 // Handles the state when the pan gesture begins.
 - (void)handlePanGestureBegan:(UIPanGestureRecognizer*)gesture {
   CHECK(gesture == _headerPanGesture);
@@ -394,8 +605,8 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
 
 // Converts a physical pixel height mathematically into an expansion percentage.
 - (CGFloat)expandPercentageForHeight:(CGFloat)height {
-  CGFloat minHeight = [self effectiveMinHeight];
-  CGFloat maxHeight = [self effectiveMaxHeight];
+  CGFloat minHeight = self.minimizedDetentHeight;
+  CGFloat maxHeight = [self absoluteMaxHeight];
   if (maxHeight <= minHeight) {
     return 0.0;
   }
@@ -479,8 +690,8 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   NSInteger minDistance = NSIntegerMax;
 
   // Project height based on velocity to simulate momentum.
-  NSInteger projectedHeight =
-      round(currentHeight - (velocity.y * kMomentumProjectionSeconds));
+  NSInteger projectedHeight = round(
+      currentHeight - (velocity.y * kAssistantSheetMomentumProjectionSeconds));
 
   for (AssistantContainerDetent detent : self.detents) {
     NSInteger val = _detentHeights[detent];
@@ -547,17 +758,17 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
 // Calculates the maximum allowable height for the container, respecting the
 // safe area.
 - (NSInteger)absoluteMaxHeight {
-  UIView* superview = self.view.superview;
-  if (!superview) {
-    return 0;
+  CGFloat maxAvailableHeight = self.view.frame.size.height;
+  CGFloat safeAreaTop = self.view.safeAreaInsets.top;
+
+  // Fallback to window safe area if view safe area is not yet available.
+  if (safeAreaTop == 0 && self.view.window) {
+    safeAreaTop = self.view.window.safeAreaInsets.top;
   }
 
-  // We use the view's frame max Y because the container is anchored to a view
-  // (e.g. toolbar) that is above the screen bottom.
-  CGFloat bottomY = CGRectGetMaxY(self.view.frame);
-  CGFloat safeAreaTop = superview.safeAreaInsets.top;
+  CGFloat topInset = MAX(safeAreaTop, kMinTopPadding);
 
-  return round(bottomY - safeAreaTop);
+  return round(maxAvailableHeight - topInset);
 }
 
 // Lays out the view anchored to the guide/view within the parent view.
@@ -566,50 +777,133 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
     return;
   }
 
-  _leadingConstraint.active = NO;
-  _trailingConstraint.active = NO;
-  _bottomConstraint.active = NO;
-
   NSLayoutYAxisAnchor* bottomAnchor = nil;
   if (self.anchorView) {
-    bottomAnchor = self.anchorToBottom ? self.anchorView.bottomAnchor
-                                       : self.anchorView.topAnchor;
+    bottomAnchor = self.anchorView.topAnchor;
   }
 
   if (!bottomAnchor) {
     bottomAnchor = parentView.safeAreaLayoutGuide.bottomAnchor;
   }
 
-  // Pin the wrapper to the parent view.
-  [NSLayoutConstraint activateConstraints:@[
-    [self.view.topAnchor constraintEqualToAnchor:parentView.topAnchor],
-    [self.view.leadingAnchor constraintEqualToAnchor:parentView.leadingAnchor],
-    [self.view.trailingAnchor
-        constraintEqualToAnchor:parentView.trailingAnchor],
-    [self.view.bottomAnchor constraintEqualToAnchor:bottomAnchor],
+  UIView* view = self.view;
+
+  // Anchor the container directly to the dynamic bottom anchor.
+  if (!_innerBottomConstraint) {
+    _innerBottomConstraint = [_assistantContainerView.bottomAnchor
+        constraintEqualToAnchor:view.bottomAnchor];
+    _outerBottomConstraint =
+        [view.bottomAnchor constraintEqualToAnchor:bottomAnchor];
+
+    [NSLayoutConstraint activateConstraints:@[
+      _outerBottomConstraint, _innerBottomConstraint
+    ]];
+  }
+
+  // Trigger initial adaptive layout once the view is successfully in the
+  // hierarchy.
+  [self updatePresentationContextFromTraitCollection];
+}
+
+// Updates the presentation context based on the current trait collection.
+- (void)updatePresentationContextFromTraitCollection {
+  if (!self.view.window) {
+    return;
+  }
+
+  AssistantPresentationContext targetContext =
+      IsSidePanelLayout(self.traitCollection)
+          ? AssistantPresentationContext::kPanel
+          : AssistantPresentationContext::kSheet;
+
+  if (_presentationContext != targetContext) {
+    self.presentationContext = targetContext;
+  } else if (_presentationContext == AssistantPresentationContext::kSheet) {
+    // Re-evaluate sheet constraints on pure trait changes.
+    [self applySheetLayoutConstraints];
+  }
+}
+
+// Configures the constraints for the panel layout.
+- (void)applyPanelLayoutConstraints {
+  UIView* view = self.view;
+
+  [NSLayoutConstraint deactivateConstraints:_widthRestrictedConstraints];
+  [NSLayoutConstraint deactivateConstraints:@[
+    _leadingConstraint, _trailingConstraint, _innerBottomConstraint,
+    _outerBottomConstraint, _heightConstraint
   ]];
 
-  // Pin the container inside the wrapper (these constraints mutate during
-  // morphing).
-  _leadingConstraint = [_assistantContainerView.leadingAnchor
-      constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor];
-  _trailingConstraint = [_assistantContainerView.trailingAnchor
-      constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor];
+  if (!_sidePanelConstraints) {
+    _sidePanelConstraints = @[
+      [_assistantContainerView.leadingAnchor
+          constraintEqualToAnchor:view.safeAreaLayoutGuide.leadingAnchor],
+      [_assistantContainerView.trailingAnchor
+          constraintEqualToAnchor:view.safeAreaLayoutGuide.trailingAnchor],
+      [_assistantContainerView.topAnchor
+          constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor],
+      [_assistantContainerView.bottomAnchor
+          constraintEqualToAnchor:view.safeAreaLayoutGuide.bottomAnchor]
+    ];
+  }
+  [NSLayoutConstraint activateConstraints:_sidePanelConstraints];
 
-  // Anchor to bottom of the wrapper.
-  _bottomConstraint = [_assistantContainerView.bottomAnchor
-      constraintEqualToAnchor:self.view.bottomAnchor];
+  _headerPanGesture.enabled = NO;
+  _dimmingView.hidden = YES;
+  _assistantContainerView.grabberButton.hidden = YES;
+}
 
-  _leadingConstraint.active = YES;
-  _trailingConstraint.active = YES;
-  _bottomConstraint.active = YES;
+// Applies the constraints and view states for the current presentation context.
+- (void)applyLayoutForPresentationContext {
+  if (_presentationContext == AssistantPresentationContext::kPanel) {
+    [self applyPanelLayoutConstraints];
+    return;
+  }
+
+  // Sheet layout.
+  [self applySheetLayoutConstraints];
+}
+
+// Configures the constraints for the sheet layout.
+- (void)applySheetLayoutConstraints {
+  UIView* view = self.view;
+
+  [NSLayoutConstraint deactivateConstraints:_sidePanelConstraints];
+  [NSLayoutConstraint activateConstraints:@[
+    _outerBottomConstraint, _innerBottomConstraint, _heightConstraint
+  ]];
+
+  _headerPanGesture.enabled = YES;
+  _dimmingView.hidden = NO;
+  _assistantContainerView.grabberButton.hidden = NO;
+
+  if (IsRegularXRegularSizeClass(self.traitCollection) ||
+      IsIPhoneLandscapeLayout(self.traitCollection)) {
+    [NSLayoutConstraint
+        deactivateConstraints:@[ _leadingConstraint, _trailingConstraint ]];
+    [NSLayoutConstraint activateConstraints:_widthRestrictedConstraints];
+  } else {
+    [NSLayoutConstraint deactivateConstraints:_widthRestrictedConstraints];
+    [NSLayoutConstraint
+        activateConstraints:@[ _leadingConstraint, _trailingConstraint ]];
+  }
+
+  // By only calling setNeedsLayout, we are batching all constraint changes. We
+  // allow the height calculations to finish, and UIKit will then perform a
+  // single layout pass at the end.
+  [view setNeedsLayout];
 
   [self updateDetentHeights];
+  if (_activeDetent.has_value()) {
+    _heightConstraint.constant = _detentHeights[_activeDetent.value()];
+  }
 
-  // Update its value with the initial height based on detents.
-  _heightConstraint.constant =
-      MAX(_detentHeights[self.detents.front()], self.minimizedDetentHeight);
+  [self updateHeightConstraint];
   [self updateContainerStylingForHeight:_heightConstraint.constant];
+
+  if (_hasAppeared && !self.isAnimating) {
+    [self animateLayoutIfNeededWithInitialVelocity:0];
+  }
 }
 
 // Animates layout changes with standard spring parameters.
@@ -618,9 +912,10 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   CGFloat targetPercentage = [self expandPercentageForHeight:targetHeight];
 
   __weak __typeof(self) weakSelf = self;
-  [UIView animateWithDuration:kSpringDuration
+
+  [UIView animateWithDuration:kAssistantSheetSpringDuration
                         delay:0
-       usingSpringWithDamping:kSpringDamping
+       usingSpringWithDamping:kAssistantSheetSpringDamping
         initialSpringVelocity:velocity
                       options:UIViewAnimationOptionCurveEaseOut |
                               UIViewAnimationOptionBeginFromCurrentState
@@ -637,13 +932,14 @@ constexpr CGFloat kGestureTopAreaHeight = 44.0;
   _detentHeights[AssistantContainerDetent::kMedium] = kInvalidDetentHeight;
   _detentHeights[AssistantContainerDetent::kLarge] = kInvalidDetentHeight;
 
+  NSInteger absoluteMax = [self absoluteMaxHeight];
   for (AssistantContainerDetent detent : self.detents) {
     switch (detent) {
       case AssistantContainerDetent::kLarge:
-        _detentHeights[detent] = [self absoluteMaxHeight];
+        _detentHeights[detent] = absoluteMax;
         break;
       case AssistantContainerDetent::kMedium:
-        _detentHeights[detent] = [self absoluteMaxHeight] / 2;
+        _detentHeights[detent] = GetMediumDetentHeight(absoluteMax);
         break;
       case AssistantContainerDetent::kMinimized:
         _detentHeights[detent] = self.minimizedDetentHeight;

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sr-Latn">
 <translation id="1000436330784933699">Ovde možete da otvorite Objektiv.</translation>
+<translation id="1005291068154454184">Video preko celog ekrana o tome kako da podesite Chromium kao podrazumevani pregledač</translation>
 <translation id="1042296835509784301">Otvara Menadžer lozinki u Chromium-u.</translation>
 <translation id="1047130070405668746">Izaberite Chromium</translation>
 <translation id="1091252999271033193">To znači da će Chromium svaki put zahtevati mobilni sajt.</translation>
@@ -70,9 +71,6 @@ Ne možete da sačuvate nove obeleživače na nalogu dok neke ne izbrišete. Ako
 <translation id="2313870531055795960">Proverava URL-ove sa listom nebezbednih sajtova koji se čuvaju u Chromium-u. Ako neki sajt pokuša da ukrade vašu lozinku ili probate da preuzmete štetnu datoteku, Chromium može da pošalje URL-ove, uključujući delove sadržaja stranice, u Bezbedno pregledanje.</translation>
 <translation id="2314220608288760290">Chromium automatski otvara YouTube linkove bez arhiviranja u režimu bez arhiviranja.</translation>
 <translation id="231828342043114302">Da biste dobijali personalizovani sadržaj na osnovu interesovanja, prijavite se u Chromium.</translation>
-<translation id="2326738825692478496">Neki Chromium podaci još nisu sačuvani na Google nalogu.
-
-Sačekajte nekoliko minuta pre nego što se odjavite. Ako se odjavite odmah, ovi podaci će biti izbrisani.</translation>
 <translation id="2334943301233020675">Sledeći pristupni ključevi nisu uvezeni u Menadžer lozinki jer ne ispunjavaju uslove.</translation>
 <translation id="2337722506862731008">Deli Chromium</translation>
 <translation id="2340423701577464731">Dodavanje stavke liste za čitanje u Chromium</translation>
@@ -103,7 +101,6 @@ Sačekajte nekoliko minuta pre nego što se odjavite. Ako se odjavite odmah, ovi
 Još podešavanja koja koriste podatke za poboljšanje doživljaja Chromium-a potražite u <ph name="BEGIN_LINK" />Google uslugama<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Pretražujte glasom u Chromium-u.</translation>
 <translation id="2843571538056574338">Koristite Chromium za automatsko popunjavanje</translation>
-<translation id="2899085719655668655">Video uputstva u režimu slike u slici o tome kako da podesite Chromium kao podrazumevani pregledač</translation>
 <translation id="2918709798697875261">Organizacija zahteva da ostanete odjavljeni sa Chromium-a.</translation>
 <translation id="2942241131342758843">Podrazumevano koristite Chromium da biste otvarali linkove, pretraživali iz vidžeta i automatski popunjavali lozinke u drugim aplikacijama</translation>
 <translation id="2977470724722393594">Chromium je ažuriran</translation>

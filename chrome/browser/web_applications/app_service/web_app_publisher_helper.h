@@ -19,7 +19,6 @@
 #include "base/types/id_type.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
-#include "chrome/browser/apps/app_service/launch_result_type.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
@@ -34,6 +33,7 @@
 #include "components/services/app_service/public/cpp/icon_types.h"
 #include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_filter.h"
+#include "components/services/app_service/public/cpp/launch_result.h"
 #include "components/services/app_service/public/cpp/permission.h"
 #include "components/webapps/common/web_app_id.h"
 #include "ui/gfx/native_ui_types.h"
@@ -307,6 +307,10 @@ class WebAppPublisherHelper : public WebAppRegistrarObserver,
   void OnWebAppUninstalled(
       const webapps::AppId& app_id,
       webapps::WebappUninstallSource uninstall_source) override;
+  // Dynamically update the AppService on an app being migrated from being the
+  // `source_app` to being the `destination_app`.
+  void OnWebAppMigrated(const webapps::AppId& source_app_id,
+                        const webapps::AppId& target_app_id) override;
   void OnWebAppInstallManagerDestroyed() override;
 
   // WebAppRegistrarObserver:
@@ -320,6 +324,8 @@ class WebAppPublisherHelper : public WebAppRegistrarObserver,
   void OnWebAppUserDisplayModeChanged(
       const webapps::AppId& app_id,
       mojom::UserDisplayMode user_display_mode) override;
+  void OnWebAppEffectiveScopeChanged(const webapps::AppId& app_id,
+                                     const WebAppScope& new_scope) override;
   void OnWebAppRunOnOsLoginModeChanged(
       const webapps::AppId& app_id,
       RunOnOsLoginMode run_on_os_login_mode) override;

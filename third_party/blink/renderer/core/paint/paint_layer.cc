@@ -881,8 +881,7 @@ bool PaintLayer::RequiresScrollableArea() const {
   if (!box) {
     return false;
   }
-  if (box->Style()->IsInternalOverscrollAreaAuto() ||
-      box->IsScrollContainer()) {
+  if (box->IsScrollContainer() || box->IsOverscrollContainer()) {
     return true;
   }
   // Iframes with the resize property can be resized. This requires
@@ -1993,12 +1992,7 @@ std::optional<gfx::SizeF> PaintLayer::FilterViewport() const {
 
 gfx::RectF PaintLayer::BackdropFilterReferenceBox() const {
   if (const auto* layout_inline = DynamicTo<LayoutInline>(GetLayoutObject())) {
-    if (RuntimeEnabledFeatures::
-            PaintOffsetTranslationForBackdropFilterWithInlineElementEnabled()) {
-      return gfx::RectF(layout_inline->PhysicalLinesBoundingBox());
-    }
-    return gfx::RectF(
-        gfx::SizeF(layout_inline->PhysicalLinesBoundingBox().size));
+    return gfx::RectF(layout_inline->PhysicalLinesBoundingBox());
   }
   return gfx::RectF(GetLayoutBox()->PhysicalBorderBoxRect());
 }
@@ -2322,13 +2316,18 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
                                 const ComputedStyle* old_style) {
   UpdateScrollableArea();
 
+  // The compositor cannot easily track the filters applied within a layer
+  // (i.e. composited filters) and is unable to expand the damage rect.
+  // See `CompositorMayHaveIncorrectDamageRect`.
   bool had_filter_that_moves_pixels = has_filter_that_moves_pixels_;
   has_filter_that_moves_pixels_ = ComputeHasFilterThatMovesPixels();
-  if (had_filter_that_moves_pixels != has_filter_that_moves_pixels_) {
-    // The compositor cannot easily track the filters applied within a layer
-    // (i.e. composited filters) and is unable to expand the damage rect.
+  // To ensure proper tracking of reference filters, we must also note if one is
+  // added or all are removed for later action within `LayoutEmbeddedContent`.
+  bool had_reference_filter = has_reference_filter_;
+  has_reference_filter_ = ComputeHasReferenceFilter();
+  if (had_filter_that_moves_pixels != has_filter_that_moves_pixels_ ||
+      had_reference_filter != has_reference_filter_) {
     // Force paint invalidation to update any potentially affected animations.
-    // See |CompositorMayHaveIncorrectDamageRect|.
     GetLayoutObject().SetSubtreeShouldDoFullPaintInvalidation();
   }
 
@@ -2565,6 +2564,14 @@ bool PaintLayer::ComputeHasFilterThatMovesPixels() const {
   if (GetLayoutObject().HasReflection())
     return true;
   return false;
+}
+
+bool PaintLayer::ComputeHasReferenceFilter() const {
+  if (!HasFilterInducingProperty()) {
+    return false;
+  }
+  const ComputedStyle& style = GetLayoutObject().StyleRef();
+  return style.HasFilter() && style.Filter().HasReferenceFilter();
 }
 
 void PaintLayer::SetNeedsRepaint() {

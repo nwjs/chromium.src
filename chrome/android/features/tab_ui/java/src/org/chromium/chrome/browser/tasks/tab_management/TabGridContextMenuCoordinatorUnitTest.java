@@ -43,6 +43,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
@@ -69,7 +71,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link TabGridContextMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS, ChromeFeatureList.MEDIA_INDICATORS_ANDROID})
+@EnableFeatures(ChromeFeatureList.MEDIA_INDICATORS_ANDROID)
 public class TabGridContextMenuCoordinatorUnitTest {
     private static @TabId final int TAB_ID = 1;
     private static final int MENU_WIDTH = 300;
@@ -97,6 +99,7 @@ public class TabGridContextMenuCoordinatorUnitTest {
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private ShowTabListEditor mShowTabListEditor;
     @Mock private ViewRectProvider mViewRectProvider;
+    @Mock private MultiInstanceOrchestrator mMultiInstanceOrchestrator;
 
     private TabGridContextMenuCoordinator mCoordinator;
     private ModelList mMenuItemList;
@@ -118,6 +121,7 @@ public class TabGridContextMenuCoordinatorUnitTest {
         when(mTab.getTabGroupId()).thenReturn(mTabGroupId);
 
         BookmarkModel.setInstanceForTesting(mBookmarkModel);
+        MultiInstanceOrchestratorFactory.setInstanceForTesting(mMultiInstanceOrchestrator);
 
         mActivityScenarioRule.getScenario().onActivity(activity -> mActivity = activity);
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);

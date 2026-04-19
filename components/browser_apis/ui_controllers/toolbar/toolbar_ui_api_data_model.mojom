@@ -4,23 +4,30 @@
 
 module toolbar_ui_api.mojom;
 
+import "components/content_settings/core/common/content_settings_types.mojom";
+import "mojo/public/mojom/base/string16.mojom";
+import "ui/gfx/range/mojom/range.mojom";
+
 // The context menu types that can be opened with ToolbarUIService's
 // ShowContextMenu.
 enum ContextMenuType {
-  kUnspecified = 0,
-  kReload = 1,
-  kSplitTabsAction = 2,
-  kSplitTabsContext = 3,
-  kBack = 4,
-  kForward = 5,
+  kUnspecified,
+  kReload,
+  kSplitTabsAction,
+  kSplitTabsContext,
+  kBack,
+  kForward,
+  kHome,
 };
 
-struct ButtonState {
+struct BackForwardButtonState {
   bool enabled;
   bool visible;
+  bool is_context_menu_visible;
 };
 
 enum SplitTabActiveLocation {
+  kUnspecified,
   kStart,
   kEnd,
   kTop,
@@ -28,7 +35,9 @@ enum SplitTabActiveLocation {
 };
 
 enum ToolbarButtonType {
+  kUnspecified,
   kSplitTabs,
+  kHome,
 };
 
 struct ReloadControlState {
@@ -45,15 +54,213 @@ struct SplitTabsControlState {
 };
 
 struct BackForwardControlState {
-  ButtonState back_button_state;
-  ButtonState forward_button_state;
+  BackForwardButtonState back_button_state;
+  BackForwardButtonState forward_button_state;
   int32 back_button_leading_margin;
+};
+
+struct HomeControlState {
+  bool is_pinned;
+  bool is_context_menu_visible;
+};
+
+// The type of the content setting image model.
+//
+// Unlike ContentSettingsType, which defines the underlying settings, this enum
+// defines the icon to display.  This distinction matters for things like
+// kFramebust (iframe tried to navigate the top-level frame without user
+// activation and was blocked), which has a separate icon from kPopups
+// (window.open() called without user activation and was blocked), even though
+// they share the same underlying setting to disable blocking.
+//
+// Therefore, this enum is UI-specific, unlike ContentSettingsType.
+enum ContentSettingImageType {
+  kCookies = 0,
+  kImages = 1,
+  kJavaScript = 2,
+  // kPpapiBroker = 3, // Deprecated.
+  kPopups = 5,
+  kGeolocation = 6,
+  kMixedScript = 7,
+  kProtocolHandlers = 8,
+  kMediaStream = 9,
+  kAds = 10,
+  kAutomaticDownloads = 11,
+  kMidiSysex = 12,
+  kSound = 13,
+  kFramebust = 14,
+  // kClipboardRead = 15, // Replaced by kClipboardReadWrite in M81.
+  kSensors = 16,
+  // kNotificationsQuietPrompt = 17, // Replaced by kNotifications in M124
+  kClipboardReadWrite = 18,
+  kStorageAccess = 19,
+  // kMidi = 20, // Deprecated.
+  kNotifications = 21,
+  [EnableIf=is_chromeos]
+  kSmartCard = 22,
+  [EnableIf=is_win]
+  kProtectedMediaIdentifier = 23,
+};
+
+// These fields correspond to the accessors of ContentSettingImageModel.
+struct ContentSettingImageState {
+  // The type of icon to display.
+  ContentSettingImageType type;
+
+  // NOTE: this isn't actually announced unless `should_notify_accessibility` is
+  // true -- it's merely the accessible name.
+  mojo_base.mojom.String16 accessibility_announcement_string;
+
+  // Mouseover popup text to display over icon.
+  mojo_base.mojom.String16 tooltip;
+
+  // Indicates that the content setting has been blocked (that is, disabled) by
+  // the user (i.e. turn off JavaScript) -- the icon should change to indicate
+  // the blocked status.
+  bool is_blocked;
+
+  // If true, `accessibility_announcement_string` is announced to users of
+  // accessibility technologies.
+  bool should_notify_accessibility;
+
+  // If true, the bubble should open on its own, without requiring a click from
+  // the user. This round-trips through WebUI so that the bubble never opens
+  // before the icon is ready.
+  //
+  // If set, `is_bubble_visible` should also be set. Technically, the bubble
+  // only displays after requested by the WebUI, but this prevents a flicker
+  // where the icon appears non-highlighted initially before immediately
+  // transitioning to highlighted.
+  bool should_auto_open_bubble;
+
+  // If true, the bubble is visible, so the icon should be highlighted. Should
+  // always be set to true if `should_auto_open_bubble` is true.
+  bool is_bubble_visible;
+
+  // If true, when `explanitory_string` is displayed, it should appear via an
+  // animation.
+  bool should_run_animation;
+
+  // Explanatory text that either appears instantly, or animates in, depending
+  // on the value of `should_run_animation`.
+  mojo_base.mojom.String16 explanatory_string;
+
+  // NOTE: The visual icon to display is determined by `type`
+  // and `is_blocked`.
+};
+
+// Colors used by the omnibox.
+enum OmniboxTextColor {
+  // Should never be used. If this value is received, there is a bug.
+  kUnspecified,
+
+  // These colors correspond to the Chrome palette entries of matching names ---
+  // e.g. kOmniboxText corresponds to kColorOmniboxText, etc.
+  kOmniboxText,
+  kOmniboxTextDimmed,
+  kOmniboxForegroundDisabled,
+  kOmniboxSecurityChipDangerous,
+};
+
+struct OmniboxTextPortion {
+  string text;
+  bool strikethrough = false;
+  OmniboxTextColor color;
+};
+
+struct OmniboxViewState {
+  // Text to display in the omnibox view.
+  array<OmniboxTextPortion> text_pieces;
+
+  // Selection or caret (if start == end) to set on the omnibox view, if any.
+  gfx.mojom.Range? selection;
+
+  // This is set if the omnibox view contains a URL and must therefore force
+  // LTR rendering even in RTL languages.
+  bool text_is_url = false;
+};
+
+struct LocationBarFlags {
+  // Whether the user has edited the text. Note that this includes them entering
+  // something and tabbing out; it's not just set when they're actively making
+  // changes.
+  bool user_input_in_progress = false;
+
+  // Whether to render as if we have focus, due to omnibox popup taking it over.
+  bool render_focused = false;
+};
+
+// Enum of all supported pinned toolbar actions.
+enum PinnedToolbarAction {
+ kUnspecified, // Unused; triggers assert if used.
+ kNewIncognitoWindow,
+ kShowPasswordsBubbleOrPage,
+ kShowPaymentsBubbleOrPage,
+ kShowAddressesBubbleOrPage,
+ kSidePanelShowBookmarks,
+ kSidePanelShowReadingList,
+ kSidePanelShowHistoryCluster,
+ kShowDownloads,
+ kClearBrowsingData,
+ kPrint,
+ kSidePanelShowLensOverlayResults,
+ kShowTranslate,
+ kQrCodeGenerator,
+ kRouteMedia,
+ kSidePanelShowReadAnything,
+ kCopyUrl,
+ kSendTabToSelf,
+ kTaskManager,
+ kDevTools,
+ kTabSearch,
+ kSidePanelShowContextualTasks,
+ kSidePanelShowLens,
+ kSidePanelShowAboutThisSite,
+ kSidePanelShowCustomizeChrome,
+ kSidePanelShowShoppingInsights,
+ kSidePanelShowMerchantTrust,
+ kSendSharedTabGroupFeedback,
+ kSidePanelShowComments,
+ kDivider, // A divider; not a clickable action.
+};
+
+// The state of a pinned toolbar action button that should be displayed.
+struct PinnedToolbarActionState {
+  // The action to invoke upon click of this button.
+  PinnedToolbarAction action;
+
+  // Should this button appear highlighted?
+  bool highlighted;
+
+  // Should this button appear enabled?
+  bool enabled;
+
+  // Tooltip text to display on hover.
+  mojo_base.mojom.String16 tooltip;
+
+  // Accessible name (aria-label) for the action.
+  mojo_base.mojom.String16 accessibility_text;
+
+  // The ElementIdentifier for this action, if any.
+  string? element_id;
+};
+
+struct LocationBarState {
+  OmniboxViewState omnibox_view_state;
+  LocationBarFlags location_bar_flags;
+  // The set of content setting icon state for each visible LHS icon.
+  array<ContentSettingImageState> content_setting_image_states;
 };
 
 struct NavigationControlsState {
   ReloadControlState reload_control_state;
   SplitTabsControlState split_tabs_control_state;
   BackForwardControlState back_forward_control_state;
+  HomeControlState home_control_state;
+  LocationBarState location_bar_state;
+  // List of pinned toolbar action button states. Order corresponds to order
+  // of the drawn buttons and duplicates imply duplicate buttons.
+  array<PinnedToolbarActionState> pinned_toolbar_actions_state;
   // This is incremented every time a settings change may change the layout
   // constants.
   int32 layout_constants_version = 0;

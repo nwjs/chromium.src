@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Fut një kërkesë</translation>
 <translation id="115705039208660697">ananasë</translation>
 <translation id="1164939766849482256">Mbrojtësi i ekranit nga agimi në muzg</translation>
-<translation id="1167755866710282443">Hap menynë për të personalizuar tastet. Zvarrite menynë për ta zhvendosur.</translation>
 <translation id="1171349345463658120">lagunë me rërë</translation>
 <translation id="1174073918202301297">Shkurtorja e shtua</translation>
 <translation id="11743817593307477">Përdor tastet e shigjetave për të zhvendosur këtë kontroll te veprimi i lojës që dëshiron. Përdor tastin "Enter" për të vendosur kontrollin. Përdor tastin "Escape" për ta anuluar.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Zëvendëso skedarin</translation>
 <translation id="2006864819935886708">Lidhshmëria</translation>
 <translation id="2008685064673031089">Kërkimi kryesor</translation>
-<translation id="2011174342667534258">Versioni i SDK-së:</translation>
 <translation id="2016697457005847575">Provo hapat e zgjidhjes së problemeve</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">artikuj tavoline</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">Blloku i drejtimit për organizimin e tasteve</translation>
 <translation id="3217462202230355157">Sigurohu që mikrofoni yt të jetë i lidhur ose provo të rinisësh <ph name="DEVICE_TYPE" /></translation>
 <translation id="3226405216343213872">Po kërkon për skanerë</translation>
-<translation id="3226657629376379887">Menyja e veprimeve të strukturës</translation>
 <translation id="3227186760713762082">Pjesëto vlerën <ph name="CATEGORY_TEXT" /> me <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">art dixhital</translation>
 <translation id="3246869037381808805">Printimet më të vjetra se 1 ditë do të hiqen</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Drejtimi i çelësit</translation>
 <translation id="3294437725009624529">Vizitor</translation>
 <translation id="3303855915957856445">Nuk u gjetën rezultate kërkimi</translation>
-<translation id="3305294846493618482">më shumë</translation>
 <translation id="3310640316857623290">Vonesa e DNS-së është shumë më lart se pragu i lejueshëm</translation>
 <translation id="3316495615885967552">Shkarkimi i modelit për krijimin e përmbledhjeve dhe titujve përfundoi</translation>
 <translation id="3321030238473337787">Shpejtësia e luajtjes</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">Ndodhi një gabim. Provo përsëri.</translation>
 <translation id="357889014807611375">Wi-Fi me matje</translation>
 <translation id="3583278742022654445">Fuqi e dobët e sinjalit. Provo t'i afrohesh më shumë burimit të sinjalit Wi-Fi.</translation>
+<translation id="3586931643579894722">Fshih detajet</translation>
 <translation id="3588034708467091142">Sigurohu që të jesh lidhur me internetin dhe provo përsëri.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> është emri i përshtatshëm për përdoruesin për <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Bateria është plot</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Prapa me 10 sekonda</translation>
 <translation id="4128271910628504223">Fut një kërkesë, si p.sh. "vizato një pyll të mjegullt"</translation>
 <translation id="4130035430755296270">Vazhdo të mbash kursorin mbi të për opsione të tjera të strukturës</translation>
-<translation id="4130750466177569591">Jam dakord</translation>
 <translation id="4131410914670010031">Bardhezi</translation>
 <translation id="4137700675046373159">të shtunën</translation>
 <translation id="4139326893730851150">Përditësimet e firmuerit</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Skeda</translation>
 <translation id="5612205513582918357">"Veglat e orës së mësimit" po ndajnë ekranin tënd me <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Ke dalë nga llogaria</translation>
-<translation id="5620281292257375798">Vetëm i brendshëm</translation>
 <translation id="5628106863521633649">Gjuhët e disponueshme</translation>
 <translation id="5630438231335788050">bauhaus</translation>
 <translation id="5631759159893697722">abstrakt</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">hapësirë prapa</translation>
 <translation id="6137614725462089991">punk kibernetik</translation>
 <translation id="6137767437444130246">Certifikata e përdoruesit</translation>
+<translation id="6140948187512243695">Shfaq detajet</translation>
 <translation id="6146993107019042706">Për të përfunduar, fut fjalëkalimin e ri</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Nuk mund të lidhet me internetin</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Kjo pajisje <ph name="DEVICE_TYPE" /> menaxhohet nga <ph name="MANAGER" />. Administratorët mund ta konfigurojnë në distancë pajisjen.</translation>
 <translation id="7180611975245234373">Rifresko</translation>
 <translation id="7180865173735832675">Personalizo</translation>
-<translation id="7184043045742675738">Kliko te një tast për të personalizuar butonin tënd. Ndrysho pozicionin e tastit me anë të miut ose tasteve të shigjetave.</translation>
 <translation id="7187669805838282391">të mërkurën</translation>
 <translation id="7205318498545665455">Zgjidh mikrofonin tënd</translation>
-<translation id="7206979415662233817">Kushtet e shërbimit</translation>
 <translation id="7210635925306941239">të bruztë</translation>
 <translation id="7212547870105584639">Menaxho cilësimet e APN-së së rrjetit. APN-të vendosin një lidhje mes një rrjeti celular dhe internetit. <ph name="BEGIN_LINK_LEARN_MORE" />Mëso më shumë<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Përditësimet e firmuerit për pajisjet e jashtme</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">jeshile dhe gurkali</translation>
 <translation id="7328475450575141167">strelitzia</translation>
-<translation id="7331297744262591636">Duhet të jesh të paktën 18 vjeç dhe të pranosh që përdorimi i imazheve të sfondit nga IA nga ana jote është objekt i <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Kushteve të shërbimit të Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> dhe <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Kushteve shtesë të shërbimit të inteligjencës artificiale gjeneruese<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          Mund të krijosh imazhe sfondi me IA vetëm për përdorim personal dhe jotregtar. Kur merr ndihmë për imazhin e sfondit, teksti dërgohet te serverët e inteligjencës artificiale të Google për të gjeneruar sugjerime për imazhin e sfondit, objekt i <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Politikës së privatësisë të Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Mëso më shumë<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; Shtyp "Kërko" plus "Hapësirë" për ta shikuar rezultatin në "Kërko në Google".</translation>
 <translation id="7343649194310845056">Pajisjet e rrjetit</translation>
 <translation id="7344788170842919262">toke</translation>
 <translation id="7346768383111016081">Vendos kontrollin për veprimin e lojës për të luajtur me tastierën tënde</translation>
@@ -1507,7 +1496,6 @@ Shkarko modelin e transkriptimit (deri në 100 MB) për të marrë këto transk
 <translation id="7590883480672980941">Cilësimet e hyrjes</translation>
 <translation id="7595982850646262331"><ph name="TIME_VALUE" /> të mbetura</translation>
 <translation id="7600430297804876776">Administratori i <ph name="MANAGER" /> ka caktuar se kur mund të përdoret kjo pajisje <ph name="DEVICE_TYPE" />.</translation>
-<translation id="7613724632293948900">Ndrysho pozicionin me anë të miut ose tasteve të shigjetave.</translation>
 <translation id="7618216277886673749">Zgjidh: <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Neutrale</translation>
 <translation id="7620771111601174153">Mëso më shumë në "Qendrën e ndihmës"</translation>
@@ -1641,6 +1629,7 @@ Shkarko modelin e transkriptimit (deri në 100 MB) për të marrë këto transk
 <translation id="819278132617411009">Përdor IA-në e Google për të qenë më produktiv</translation>
 <translation id="8200772114523450471">Vazhdo</translation>
 <translation id="8206859287963243715">Rrjeti celular</translation>
+<translation id="8208043093301544621">Shtëpi</translation>
 <translation id="8208861521865154048">Avantazhet</translation>
 <translation id="8226628635270268143">Zgjidh fotografitë dhe albumet e tua të preferuara</translation>
 <translation id="8227119283605456246">Bashkëngjit skedarin</translation>
@@ -1838,7 +1827,6 @@ Shkarko modelin e transkriptimit (deri në 100 MB) për të marrë këto transk
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth-i</translation>
 <translation id="9082718469794970195">Përdor këtë video</translation>
-<translation id="9087578468327036362">Raportoje këtë kërkesë</translation>
 <translation id="9088306295921699330">Përdorimi aktual</translation>
 <translation id="9088994563996376283">Thjeshto</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@ Shkarko modelin e transkriptimit (deri në 100 MB) për të marrë këto transk
 <translation id="921080052717160800">Imazhi u caktua si sfondi i kamerës</translation>
 <translation id="9211490828691860325">Të gjitha tavolinat e punës</translation>
 <translation id="9218016617214286986">Shfaq APN-të e njohura</translation>
-<translation id="932327136139879170">Faqja kryesore</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Dërgo komente</translation>
 <translation id="950520315903467048">Tasti mungon për drejtimin <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

@@ -130,7 +130,6 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private Supplier<Integer> mActivityThemeColorSupplier;
     @Mock private AppMenuBlocker mAppMenuBlocker;
     @Mock private BooleanSupplier mSupportsAppMenuSupplier;
-    @Mock private BooleanSupplier mSupportsFindInPage;
     @Mock private Supplier<TabCreatorManager> mTabCreatorManagerSupplier;
     @Mock private FullscreenManager mFullscreenManager;
     @Mock private Supplier<TabContentManager> mTabContentManagerSupplier;
@@ -232,7 +231,6 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
                         mModalDialogManagerSupplier,
                         mAppMenuBlocker,
                         mSupportsAppMenuSupplier,
-                        mSupportsFindInPage,
                         mTabCreatorManagerSupplier,
                         mFullscreenManager,
                         mCompositorViewHolderSupplier,
@@ -332,6 +330,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
                 .thenReturn(coordinatorMock);
         SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(launcherMock);
 
+        mBaseCustomTabRootUiCoordinator.onPreInflationStartup();
         mBaseCustomTabRootUiCoordinator.initProfileDependentFeatures(mProfile);
 
         Assert.assertEquals(
@@ -361,6 +360,10 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures({
+        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
+        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
+    })
     public void testCreateMismatchNotificationChecker() {
         // No profile
         assertNull(

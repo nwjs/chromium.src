@@ -10,6 +10,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
+#include "chrome/browser/download/download_danger_prompt.h"
 #include "chrome/browser/ui/extensions/mv2_disabled_dialog_controller.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
@@ -25,6 +26,7 @@
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 class Browser;
+class BrowserWindowInterface;
 class ControlledHomeDialogControllerInterface;
 class SettingsOverriddenDialogController;
 class Profile;
@@ -36,6 +38,10 @@ class WebContents;
 namespace custom_handlers {
 class ProtocolHandler;
 }  // namespace custom_handlers
+
+namespace download {
+class DownloadItem;
+}  // namespace download
 
 namespace gfx {
 class ImageSkia;
@@ -54,6 +60,8 @@ namespace extensions {
 class Extension;
 
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kControlledHomeDialogCancelButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kDownloadDangerDialogCancelButtonElementId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kDownloadDangerDialogKeepButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kExtensionInstallFrictionLearnMoreLink);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogManageButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogParagraphElementId);
@@ -96,6 +104,14 @@ void ShowDownloadOpenConfirmationDialog(
     const base::FilePath& file_path,
     base::OnceCallback<void(bool)> open_callback);
 
+// Shows a dialog that prompts the user for whether to accept a dangerous
+// DownloadItem using native UI. This step is necessary to prevent a malicious
+// extension from accepting a dangerous download.
+void ShowDownloadDangerDialog(
+    download::DownloadItem* download_item,
+    content::WebContents* web_contents,
+    base::OnceCallback<void(DownloadDangerPrompt::Action)> done_callback);
+
 // Shows a modal dialog to Enhanced Safe Browsing users before the extension
 // install dialog if the extension is not included in the Safe Browsing CRX
 // allowlist. `callback` will be invoked with `true` if the user accepts or
@@ -125,7 +141,7 @@ void ShowMv2DeprecationDisabledDialog(
 
 // Shows a dialog when the user triggers the warning dismissal for an extension
 // affected by the MV2 deprecation.
-void ShowMv2DeprecationKeepDialog(Browser* browser,
+void ShowMv2DeprecationKeepDialog(BrowserWindowInterface* browser,
                                   const Extension& extension,
                                   base::OnceClosure accept_callback,
                                   base::OnceClosure cancel_callback);

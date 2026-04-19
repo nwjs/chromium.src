@@ -18,6 +18,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory_coordinator/memory_coordinator_features.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -375,6 +376,9 @@ void LogSessionKeyMismatch(QuicSessionKeyPartialMatchResult result,
 }
 
 base::TimeDelta GetAdditionalDelayForMainJob() {
+  if (!base::FeatureList::IsEnabled(features::kAdditionalDelayMainJob)) {
+    return base::TimeDelta();
+  }
   return features::kAdditionalDelay.Get();
 }
 
@@ -537,11 +541,14 @@ void QuicSessionRequest::SetSession(
 }
 
 QuicSessionPool::QuicCryptoClientConfigOwner::QuicCryptoClientConfigOwner(
+    NetworkAnonymizationKey network_anonymization_key,
     std::unique_ptr<quic::ProofVerifier> proof_verifier,
     std::unique_ptr<quic::QuicClientSessionCache> session_cache,
     size_t max_cache_entries,
     QuicSessionPool* quic_session_pool)
-    : config_(std::move(proof_verifier), std::move(session_cache)),
+    : network_anonymization_key_(std::move(network_anonymization_key)),
+      config_(std::move(proof_verifier), std::move(session_cache)),
+      clock_(base::DefaultClock::GetInstance()),
       max_cache_entries_(max_cache_entries),
       quic_session_pool_(quic_session_pool) {
   DCHECK(quic_session_pool_);
@@ -569,11 +576,46 @@ QuicSessionPool::QuicCryptoClientConfigOwner::~QuicCryptoClientConfigOwner() {
 
 void QuicSessionPool::QuicCryptoClientConfigOwner::OnMemoryPressure(
     base::MemoryPressureLevel memory_pressure_level) {
-  // The memory pressure level might have changed, which potentially changed the
-  // the memory limit. Enforce the new limit.
   quic::SessionCache* session_cache = config_.session_cache();
-  if (session_cache) {
+  if (!session_cache) {
+    return;
+  }
+
+  if (network_anonymization_key_.network_isolation_partition() ==
+          NetworkIsolationPartition::kDnsOverHttps &&
+      base::FeatureList::IsEnabled(
+          features::kIgnoreQuicCryptoConfigMemoryPressureForDoh)) {
+    // We don't want to clear the session cache used by DNS-over-HTTPS
+    // connections because this will almost certainly be needed again soon,
+    // and since DNS query completion is in the critical path of every other
+    // request without a cached DNS record. Furthermore, the DoH-specific
+    // session cache should only ever have a few entries because it's used
+    // exclusively for connections to configured DoH server(s).
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    // The memory pressure level might have changed, which potentially changed
+    // the memory limit. Enforce the new limit.
     session_cache->UpdateMaxSize(max_cache_entries_ * GetMemoryLimitRatio());
+    return;
+  }
+
+  time_t now = clock_->Now().ToTimeT();
+  uint64_t now_u64 = 0;
+  if (now > 0) {
+    now_u64 = static_cast<uint64_t>(now);
+  }
+  switch (memory_pressure_level) {
+    case base::MEMORY_PRESSURE_LEVEL_NONE:
+      break;
+    case base::MEMORY_PRESSURE_LEVEL_MODERATE:
+      session_cache->RemoveExpiredEntries(
+          quic::QuicWallTime::FromUNIXSeconds(now_u64));
+      break;
+    case base::MEMORY_PRESSURE_LEVEL_CRITICAL:
+      session_cache->Clear();
+      break;
   }
 }
 
@@ -923,6 +965,7 @@ std::unique_ptr<QuicSessionAttempt> QuicSessionPool::CreateSessionAttempt(
     int cert_verify_flags,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> dns_resolution_details,
     bool use_dns_aliases,
     std::set<std::string> dns_aliases,
     MultiplexedSessionCreationInitiator session_creation_initiator,
@@ -933,7 +976,7 @@ std::unique_ptr<QuicSessionAttempt> QuicSessionPool::CreateSessionAttempt(
   return std::make_unique<QuicSessionAttempt>(
       delegate, quic_endpoint.ip_endpoint, std::move(quic_endpoint.metadata),
       quic_endpoint.quic_version, cert_verify_flags, dns_resolution_start_time,
-      dns_resolution_end_time,
+      dns_resolution_end_time, std::move(dns_resolution_details),
       params_.retry_on_alternate_network_before_handshake, use_dns_aliases,
       std::move(dns_aliases),
       CreateCryptoConfigHandle(QuicCryptoClientConfigKey(session_key)),
@@ -1638,8 +1681,7 @@ QuicChromiumClientSession* QuicSessionPool::HasMatchingIpSession(
     // TODO(fayang): consider to use CanWaiveIpMatching().
     if (session->received_origins().contains(key.destination()) ||
         (ignore_ip_matching_when_finding_existing_sessions_ &&
-         session->config()->HasReceivedConnectionOptions() &&
-         quic::ContainsQuicTag(session->config()->ReceivedConnectionOptions(),
+         quic::ContainsQuicTag(session->received_connection_options(),
                                quic::kNOIP))) {
       std::set<std::string> dns_aliases;
       if (use_dns_aliases) {
@@ -1750,6 +1792,7 @@ int QuicSessionPool::CreateSessionSync(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> resolution_details,
     const NetLogWithSource& net_log,
     raw_ptr<QuicChromiumClientSession>* session,
     handles::NetworkHandle* network,
@@ -1773,6 +1816,7 @@ int QuicSessionPool::CreateSessionSync(
           std::move(key), quic_version, cert_verify_flags, require_confirmation,
           std::move(peer_address), std::move(metadata),
           dns_resolution_start_time, dns_resolution_end_time,
+          std::move(resolution_details),
           /*session_max_packet_length=*/0, net_log, *network, std::move(socket),
           session_creation_initiator, connection_management_config);
   if (!result.has_value()) {
@@ -1794,6 +1838,7 @@ int QuicSessionPool::CreateSessionAsync(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> resolution_details,
     const NetLogWithSource& net_log,
     handles::NetworkHandle network,
     MultiplexedSessionCreationInitiator session_creation_initiator,
@@ -1808,6 +1853,7 @@ int QuicSessionPool::CreateSessionAsync(
       std::move(callback), std::move(key), quic_version, cert_verify_flags,
       require_confirmation, peer_address, std::move(metadata),
       dns_resolution_start_time, dns_resolution_end_time,
+      std::move(resolution_details),
       /*session_max_packet_length=*/0, net_log, network, std::move(socket),
       session_creation_initiator, connection_management_config);
 
@@ -1879,8 +1925,8 @@ int QuicSessionPool::CreateSessionOnProxyStream(
           &QuicSessionPool::FinishCreateSession, weak_factory_.GetWeakPtr(),
           std::move(callback), std::move(key), quic_version, cert_verify_flags,
           require_confirmation, proxy_peer_address, std::move(metadata),
-          dns_resolution_time, dns_resolution_time, session_max_packet_length,
-          net_log, network, std::move(socket),
+          dns_resolution_time, dns_resolution_time, std::nullopt,
+          session_max_packet_length, net_log, network, std::move(socket),
           MultiplexedSessionCreationInitiator::kUnknown,
           /*connection_management_config=*/std::nullopt));
 
@@ -1907,6 +1953,7 @@ void QuicSessionPool::FinishCreateSession(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> resolution_details,
     quic::QuicPacketLength session_max_packet_length,
     const NetLogWithSource& net_log,
     handles::NetworkHandle network,
@@ -1924,8 +1971,9 @@ void QuicSessionPool::FinishCreateSession(
           std::move(key), quic_version, cert_verify_flags, require_confirmation,
           std::move(peer_address), std::move(metadata),
           dns_resolution_start_time, dns_resolution_end_time,
-          session_max_packet_length, net_log, network, std::move(socket),
-          session_creation_initiator, connection_management_config);
+          std::move(resolution_details), session_max_packet_length, net_log,
+          network, std::move(socket), session_creation_initiator,
+          connection_management_config);
   std::move(callback).Run(std::move(result));
 }
 
@@ -1939,6 +1987,7 @@ QuicSessionPool::CreateSessionHelper(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
+    std::optional<ResolutionDetails> resolution_details,
     quic::QuicPacketLength session_max_packet_length,
     const NetLogWithSource& net_log,
     handles::NetworkHandle network,
@@ -2024,6 +2073,11 @@ QuicSessionPool::CreateSessionHelper(
         quic::ParseQuicTagVector(features::kQuicOptions.Get()));
   }
 
+  if (base::FeatureList::IsEnabled(features::kIgnoreIpMatching)) {
+    config.AddConnectionOptionsToSend(
+        quic::ParseQuicTagVector(features::kNoIPQuicOption.Get()));
+  }
+
   auto keep_alive_timeout = ping_timeout_;
   bool enabled_connection_keep_alive = false;
   if (connection_management_config.has_value() &&
@@ -2074,8 +2128,8 @@ QuicSessionPool::CreateSessionHelper(
       yield_after_packets_, yield_after_duration_, cert_verify_flags, config,
       std::move(crypto_config_handle),
       network_connection_.connection_description(), dns_resolution_start_time,
-      dns_resolution_end_time, tick_clock_, task_runner_.get(),
-      std::move(socket_performance_watcher), metadata,
+      dns_resolution_end_time, std::move(resolution_details), tick_clock_,
+      task_runner_.get(), std::move(socket_performance_watcher), metadata,
       params_.enable_origin_frame, params_.allow_server_migration,
       session_creation_initiator, net_log);
   QuicChromiumClientSession* session = new_session.get();
@@ -2425,6 +2479,7 @@ QuicSessionPool::CreateCryptoConfigHandle(QuicCryptoClientConfigKey key) {
   // |active_crypto_config_map_|.
   std::unique_ptr<QuicCryptoClientConfigOwner> crypto_config_owner =
       std::make_unique<QuicCryptoClientConfigOwner>(
+          key.network_anonymization_key,
           std::make_unique<ProofVerifierChromium>(
               cert_verifier_, transport_security_state_, sct_auditing_delegate_,
               std::move(hostnames_to_allow_unknown_roots),
@@ -2521,6 +2576,28 @@ bool QuicSessionPool::CryptoConfigCacheIsEmptyForTesting(
     }
   }
   return !cached || cached->IsEmpty();
+}
+
+bool QuicSessionPool::CryptoConfigSessionCacheIsEmptyForTesting(
+    QuicCryptoClientConfigKey key) {
+  if (!use_network_anonymization_key_for_crypto_configs_) {
+    key.network_anonymization_key = NetworkAnonymizationKey();
+  }
+  quic::QuicCryptoClientConfig* config = nullptr;
+  auto map_iterator = active_crypto_config_map_.find(key);
+  if (map_iterator != active_crypto_config_map_.end()) {
+    config = map_iterator->second->config();
+  } else {
+    auto mru_iterator = recent_crypto_config_map_.Peek(key);
+    if (mru_iterator != recent_crypto_config_map_.end()) {
+      config = mru_iterator->second->config();
+    }
+  }
+
+  if (!config || !config->session_cache()) {
+    return true;
+  }
+  return config->session_cache()->GetSize() == 0;
 }
 
 }  // namespace net

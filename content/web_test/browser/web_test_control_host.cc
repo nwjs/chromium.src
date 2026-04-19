@@ -80,6 +80,7 @@
 #include "content/shell/browser/shell_content_browser_client.h"
 #include "content/shell/browser/shell_content_index_provider.h"
 #include "content/shell/browser/shell_devtools_frontend.h"
+#include "content/test/mock_clipboard_host.h"
 #include "content/test/mock_platform_notification_service.h"
 #include "content/test/storage_partition_test_helpers.h"
 #include "content/web_test/browser/devtools_protocol_test_bindings.h"
@@ -1132,7 +1133,7 @@ void WebTestControlHost::RenderViewDeleted(RenderViewHost* render_view_host) {
 void WebTestControlHost::DidStartNavigation(
     NavigationHandle* navigation_handle) {
   if (lcpp_hint_) {
-    navigation_handle->SetLCPPNavigationHint(lcpp_hint_.value());
+    navigation_handle->SetLCPPNavigationHint(lcpp_hint_->Clone());
   }
 }
 
@@ -1892,6 +1893,28 @@ void WebTestControlHost::DisableAutoResize(const gfx::Size& new_size) {
   main_window_->ResizeWebContentForTests(new_size);
 }
 
+void WebTestControlHost::GetClipboardReadState(
+    GetClipboardReadStateCallback callback) {
+  MockClipboardHost* mock =
+      WebTestContentBrowserClient::Get()->GetMockClipboardHost();
+  if (mock) {
+    std::move(callback).Run(
+        mock->read_text_called(), mock->read_html_called(),
+        mock->read_unsanitized_custom_format_called(),
+        mock->read_available_custom_and_standard_formats_called());
+  } else {
+    std::move(callback).Run(false, false, false, false);
+  }
+}
+
+void WebTestControlHost::ResetClipboardReadTracking() {
+  MockClipboardHost* mock =
+      WebTestContentBrowserClient::Get()->GetMockClipboardHost();
+  if (mock) {
+    mock->ResetReadTracking();
+  }
+}
+
 void WebTestControlHost::SetLCPPNavigationHint(
     blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr hint) {
   lcpp_hint_ = *hint.get();
@@ -2213,16 +2236,16 @@ mojo::AssociatedRemote<mojom::WebTestRenderFrame>&
 WebTestControlHost::GetWebTestRenderFrameRemote(RenderFrameHost* frame) {
   GlobalRenderFrameHostId key(frame->GetProcess()->GetDeprecatedID(),
                               frame->GetRoutingID());
-  if (!web_test_render_frame_map_.contains(key)) {
-    mojo::AssociatedRemote<mojom::WebTestRenderFrame>& new_ptr =
-        web_test_render_frame_map_[key];
+  auto [it, inserted] = web_test_render_frame_map_.try_emplace(key);
+  if (inserted) {
+    mojo::AssociatedRemote<mojom::WebTestRenderFrame>& new_ptr = it->second;
     frame->GetRemoteAssociatedInterfaces()->GetInterface(&new_ptr);
     new_ptr.set_disconnect_handler(
         base::BindOnce(&WebTestControlHost::HandleWebTestRenderFrameRemoteError,
                        weak_factory_.GetWeakPtr(), key));
   }
-  DCHECK(web_test_render_frame_map_[key].get());
-  return web_test_render_frame_map_[key];
+  DCHECK(it->second.get());
+  return it->second;
 }
 
 void WebTestControlHost::HandleWebTestRenderFrameRemoteError(

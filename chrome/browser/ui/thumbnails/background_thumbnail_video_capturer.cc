@@ -8,7 +8,7 @@
 
 #include <utility>
 
-#include "base/metrics/histogram_macros.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_id_helper.h"
 #include "content/public/browser/render_frame_host.h"
@@ -168,14 +168,16 @@ void BackgroundThumbnailVideoCapturer::OnFrameCaptured(
   effective_content_rect.Inset(scroll_insets);
 
   const gfx::Size bitmap_size(content_rect.right(), content_rect.bottom());
+  const SkImageInfo image_info = SkImageInfo::MakeN32(
+      bitmap_size.width(), bitmap_size.height(), kPremul_SkAlphaType,
+      info->color_space.ToSkColorSpace());
+  const size_t row_bytes =
+      media::VideoFrame::RowBytes(media::VideoFrame::Plane::kARGB,
+                                  info->pixel_format, info->coded_size.width());
+  CHECK_GE(mapping.size(), image_info.computeByteSize(row_bytes));
   SkBitmap frame;
   frame.installPixels(
-      SkImageInfo::MakeN32(bitmap_size.width(), bitmap_size.height(),
-                           kPremul_SkAlphaType,
-                           info->color_space.ToSkColorSpace()),
-      pixels,
-      media::VideoFrame::RowBytes(media::VideoFrame::Plane::kARGB,
-                                  info->pixel_format, info->coded_size.width()),
+      image_info, pixels, row_bytes,
       [](void* addr, void* context) {
         delete static_cast<FramePinner*>(context);
       },

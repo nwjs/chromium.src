@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="af">
 <translation id="1000436330784933699">Jy kan Lens hier oopmaak.</translation>
+<translation id="1005291068154454184">Volskermvideo oor hoe om Chromium as verstek te stel</translation>
 <translation id="1042296835509784301">Maak die Wagwoordbestuurder in Chromium oop.</translation>
 <translation id="1047130070405668746">Kies Chromium</translation>
 <translation id="1091252999271033193">Dit beteken dat Chromium elke keer die mobiele werf sal versoek.</translation>
@@ -70,9 +71,6 @@ Nuwe boekmerke kan nie in jou rekening gestoor word totdat jy sommige boekmerke 
 <translation id="2313870531055795960">Vergelyk URL'e met 'n lys onveilige werwe wat in Chromium geberg is. As 'n werf probeer om jou wagwoord te steel, of wanneer jy 'n skadelike lêer aflaai, sal Chromium dalk ook URL'e, insluitend stukkies bladsyinhoud, na Veiligblaai toe stuur.</translation>
 <translation id="2314220608288760290">Chromium maak outomaties YouTube Incognito-skakels in Incognito oop.</translation>
 <translation id="231828342043114302">Meld by Chromium aan om gepersonaliseerde inhoud op grond van jou belangstellings te ontvang.</translation>
-<translation id="2326738825692478496">Sommige van jou Chromium-data is nog nie in jou Google-rekening gestoor nie.
-
-Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hierdie data uitgevee word.</translation>
 <translation id="2334943301233020675">Die volgende toegangsleutels is nie na Wagwoordbestuurder toe ingevoer nie, omdat dit nie aan die vereistes voldoen nie.</translation>
 <translation id="2337722506862731008">Deel Chromium</translation>
 <translation id="2340423701577464731">Voeg leeslysitem by Chromium</translation>
@@ -103,7 +101,6 @@ Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hier
 Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer instellings wat data gebruik om jou Chromium-ervaring te verbeter.</translation>
 <translation id="2832168932648876507">Soek met stem in Chromium.</translation>
 <translation id="2843571538056574338">Gebruik Chromium vir outovul</translation>
-<translation id="2899085719655668655">Prent-in-prent-video-instruksies oor hoe om Chromium as verstek te stel</translation>
 <translation id="2918709798697875261">Jou organisasie vereis dat jy van Chromium afgemeld bly.</translation>
 <translation id="2942241131342758843">Gebruik by verstek Chromium om skakels oop te maak, van legstukke af te soek, en wagwoorde outomaties by ander programme in te vul</translation>
 <translation id="2977470724722393594">Chromium is op datum</translation>

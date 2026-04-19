@@ -441,8 +441,8 @@ void ServiceWorkerRegistry::FindRegistrationForClientUrl(
     // `ServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl`) will
     // eliminate this IPC overhead.
     storage::mojom::ServiceWorkerFindRegistrationResultPtr result =
-        service_worker_loader_helpers::CreateSyntheticRegistration(client_url,
-                                                                   key);
+        service_worker_loader_helpers::GetOrCreateSyntheticRegistration(
+            client_url, key);
     DidFindRegistrationForClientUrl(
         client_url, key, trace_event_id, std::move(callback),
         storage::mojom::ServiceWorkerDatabaseStatus::kOk, std::move(result),
@@ -1321,7 +1321,6 @@ void ServiceWorkerRegistry::DidFindRegistrationForClientUrl(
   if (database_status != storage::mojom::ServiceWorkerDatabaseStatus::kOk &&
       database_status !=
           storage::mojom::ServiceWorkerDatabaseStatus::kErrorNotFound) {
-    DCHECK(!scopes);
     // The following `ScheduleDeleteAndStartOver()` calls
     // `ClearAllInternalCache()`. Therefore, no need to call
     // `ClearInternalCacheForStorageKey()` here.

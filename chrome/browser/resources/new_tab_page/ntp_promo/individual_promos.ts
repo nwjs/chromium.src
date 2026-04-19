@@ -6,10 +6,12 @@
  * @fileoverview A component for displaying a single NTP Promo.
  */
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
+import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/icons.html.js';
 import './ntp_promo_icons.html.js';
 
+import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
@@ -20,7 +22,10 @@ import {getHtml} from './individual_promos.html.js';
 import {NtpPromoProxyImpl} from './ntp_promo_proxy.js';
 
 export interface IndividualPromosElement {
-  $: {promos: HTMLElement};
+  $: {
+    actionMenu: CrActionMenuElement,
+    promos: HTMLElement,
+  };
 }
 
 export class IndividualPromosElement extends CrLitElement {
@@ -38,14 +43,12 @@ export class IndividualPromosElement extends CrLitElement {
 
   static override get properties() {
     return {
-      eligiblePromos_: {type: Array},
-      maxPromos: {type: Number, attribute: true, useDefault: true},
+      promo_: {type: Object},
     };
   }
 
 
-  accessor eligiblePromos_: Promo[] = [];
-  accessor maxPromos: number = 0;
+  accessor promo_: Promo|null = null;
 
   private handler_: NtpPromoHandlerInterface;
   private callbackRouter_: NtpPromoClientCallbackRouter;
@@ -61,8 +64,8 @@ export class IndividualPromosElement extends CrLitElement {
   override connectedCallback() {
     super.connectedCallback();
 
-    this.listenerIds_.push(this.callbackRouter_.setPromos.addListener(
-        this.onSetPromos.bind(this)));
+    this.listenerIds_.push(
+        this.callbackRouter_.setPromo.addListener(this.onSetPromo.bind(this)));
     this.handler_.requestPromos();
   }
 
@@ -75,19 +78,17 @@ export class IndividualPromosElement extends CrLitElement {
   }
 
   // Public for testing purposes only.
-  onSetPromos(eligible: Promo[]) {
-    this.eligiblePromos_ =
-        eligible.slice(0, Math.min(this.maxPromos, eligible.length));
+  onSetPromo(promo: Promo|null) {
+    this.promo_ = promo;
 
-    if (this.eligiblePromos_.length > 0) {
+    if (this.promo_) {
       this.style.display = 'block';
     } else {
       this.style.display = 'none';
     }
-    if (!this.notifiedShown_) {
+    if (!this.notifiedShown_ && this.promo_) {
       this.notifiedShown_ = true;
-      const shown = this.eligiblePromos_.map(p => p.id);
-      this.handler_.onPromosShown(shown, []);
+      this.handler_.onPromoShown(this.promo_.id);
     }
   }
 
@@ -96,8 +97,22 @@ export class IndividualPromosElement extends CrLitElement {
     this.handler_.onPromoClicked(promoId);
   }
 
+  protected onMenuButtonClick_(e: Event) {
+    e.stopPropagation();
+    this.$.actionMenu.showAt(e.target as HTMLElement);
+  }
+
+  protected onPromoDismissed_(e: Event) {
+    e.stopPropagation();
+    this.$.actionMenu.close();
+    if (this.promo_) {
+      this.handler_.onPromoDismissed(this.promo_.id);
+      this.promo_ = null;
+    }
+  }
+
   protected getBodyTextCssClass_(): string {
-    return this.eligiblePromos_.length > 1 ? 'multiplePromos' : 'singlePromo';
+    return 'singlePromo';
   }
 }
 

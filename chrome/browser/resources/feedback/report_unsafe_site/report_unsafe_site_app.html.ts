@@ -27,6 +27,7 @@ export function getHtml(this: ReportUnsafeSiteAppElement) {
     <div>
       <cr-checkbox id="includeScreenshotCheckbox"
           ?checked="${this.includeScreenshot_}"
+          ?disabled="${this.screenshotDataUri_.length === 0}"
           @checked-changed="${this.onIncludeScreenshotCheckedChanged_}">
         $i18n{reportUnsafeSiteDialogIncludeScreenshotCheckboxLabel}
       </cr-checkbox>
@@ -37,7 +38,8 @@ export function getHtml(this: ReportUnsafeSiteAppElement) {
         @click="${this.onCancelButtonClick_}">
       $i18n{cancel}
     </cr-button>
-    <cr-button class="action-button" @click="${this.onActionButtonClick_}">
+    <cr-button class="action-button" @click="${this.onActionButtonClick_}"
+        ?disabled="${this.pageUrl_ === ''}">
       $i18n{reportUnsafeSiteDialogSendButtonLabel}
     </cr-button>
   </div>

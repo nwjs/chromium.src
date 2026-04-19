@@ -11,6 +11,7 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
+#include "components/consent_auditor/consent_auditor.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/version_info/version_info.h"
 #include "components/wallet/core/browser/metrics/wallet_metrics.h"
@@ -166,7 +167,7 @@ TEST_F(WalletHttpClientImplTest, UpsertPublicPass_TokenFetchError) {
 
   // Access token fetch fails.
   identity_test_env()->WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
-      GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED));
+      GoogleServiceAuthError::FromConnectionError(net::ERR_FAILED));
 
   ASSERT_TRUE(upsert_pass_callback.Wait());
   EXPECT_EQ(upsert_pass_callback.Get().error(),
@@ -328,7 +329,9 @@ TEST_F(WalletHttpClientImplTest, UpsertPrivatePass_RequestHeaders) {
   base::test::TestFuture<
       const base::expected<PrivatePass, WalletHttpClient::WalletRequestError>&>
       callback;
-  client()->UpsertPrivatePass(pass, callback.GetCallback());
+  client()->UpsertPrivatePass(
+      pass, consent_auditor::ConsentAuditor::GenerateSessionId(),
+      callback.GetCallback());
 
   identity_test_env()->WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       kAccessToken, base::Time::Max());
@@ -387,7 +390,9 @@ TEST_F(WalletHttpClientImplTest, UpsertPrivatePass_Latency) {
       callback;
   PrivatePass pass;
   pass.mutable_passport();
-  client()->UpsertPrivatePass(pass, callback.GetCallback());
+  client()->UpsertPrivatePass(
+      pass, consent_auditor::ConsentAuditor::GenerateSessionId(),
+      callback.GetCallback());
   identity_test_env()->WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       kAccessToken, base::Time::Max());
 

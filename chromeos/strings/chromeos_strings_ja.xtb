@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">プロンプトを入力</translation>
 <translation id="115705039208660697">パイナップル</translation>
 <translation id="1164939766849482256">「夜明けから夜更けまで」のスクリーン セーバー</translation>
-<translation id="1167755866710282443">メニューを開いてキーをカスタマイズします。メニューをドラッグして移動します。</translation>
 <translation id="1171349345463658120">砂のラグーン</translation>
 <translation id="1174073918202301297">ショートカットを追加しました</translation>
 <translation id="11743817593307477">矢印キーで、このコントロールを該当のゲーム操作に移動します。コントロールを配置するには、Enter キーを押します。キャンセルするには Esc キーを押します。</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">ファイルを交換</translation>
 <translation id="2006864819935886708">接続</translation>
 <translation id="2008685064673031089">Prime サーチ</translation>
-<translation id="2011174342667534258">SDK のバージョン:</translation>
 <translation id="2016697457005847575">トラブルシューティングの手順を試す</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">カトラリー</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">キーマッピングの D-pad</translation>
 <translation id="3217462202230355157">マイクが接続されていることを確認するか、<ph name="DEVICE_TYPE" /> を再起動してみてください</translation>
 <translation id="3226405216343213872">スキャナを検索しています</translation>
-<translation id="3226657629376379887">レイアウトの操作メニュー</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> の値を <ph name="CONVERSION_RATE" /> で割る</translation>
 <translation id="3242622575335502454">デジタルアート</translation>
 <translation id="3246869037381808805">昨日より前の印刷ジョブは削除されます</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">鍵の方向</translation>
 <translation id="3294437725009624529">ゲスト</translation>
 <translation id="3303855915957856445">一致する結果は見つかりませんでした</translation>
-<translation id="3305294846493618482">続き</translation>
 <translation id="3310640316857623290">DNS の応答時間が許容値を大幅に超えています</translation>
 <translation id="3316495615885967552">要約とタイトル作成のモデルのダウンロードが完了しました</translation>
 <translation id="3321030238473337787">再生速度</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">エラーが発生しました。もう一度お試しください。</translation>
 <translation id="357889014807611375">従量制 Wi-Fi</translation>
 <translation id="3583278742022654445">電波が弱い状態です。Wi-Fi　信号の発生元に近づいてみてください。</translation>
+<translation id="3586931643579894722">詳細を非表示</translation>
 <translation id="3588034708467091142">インターネットに接続していることを確認してから、もう一度お試しください。</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> は、<ph name="APN_NAME" /> の名称をわかりやすくしたものです。</translation>
 <translation id="3595596368722241419">バッテリー残量: フル</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">10 秒巻き戻し</translation>
 <translation id="4128271910628504223">「霧の森を描く」などのプロンプトを入力</translation>
 <translation id="4130035430755296270">カーソルを合わせると他のレイアウト オプションが表示されます</translation>
-<translation id="4130750466177569591">同意する</translation>
 <translation id="4131410914670010031">白黒</translation>
 <translation id="4137700675046373159">土曜日</translation>
 <translation id="4139326893730851150">ファームウェア アップデート</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">タブ</translation>
 <translation id="5612205513582918357">クラスツールが画面を <ph name="RECEIVER_NAME" /> に共有しています</translation>
 <translation id="5613201299517339763">ログアウトしました</translation>
-<translation id="5620281292257375798">内部専用</translation>
 <translation id="5628106863521633649">対応言語</translation>
 <translation id="5630438231335788050">バウハウス</translation>
 <translation id="5631759159893697722">概要</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">Backspace</translation>
 <translation id="6137614725462089991">サイバーパンク</translation>
 <translation id="6137767437444130246">ユーザー証明書</translation>
+<translation id="6140948187512243695">詳細を表示</translation>
 <translation id="6146993107019042706">終了するには、新しいパスワードを入力してください</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">インターネットに接続できません</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">この <ph name="DEVICE_TYPE" /> は <ph name="MANAGER" /> によって管理されています。管理者がこのデバイスをリモートで設定している可能性があります。</translation>
 <translation id="7180611975245234373">更新</translation>
 <translation id="7180865173735832675">カスタマイズ</translation>
-<translation id="7184043045742675738">ボタンをカスタマイズするには、いずれかのキーをクリックします。マウスまたは矢印キーを使用してキーの位置を変更します。</translation>
 <translation id="7187669805838282391">水曜日</translation>
 <translation id="7205318498545665455">マイクを指定してください</translation>
-<translation id="7206979415662233817">利用規約</translation>
 <translation id="7210635925306941239">シアン</translation>
 <translation id="7212547870105584639">ネットワークの APN 設定を管理します。APN は、モバイル ネットワークとインターネットの間の接続を確立します。<ph name="BEGIN_LINK_LEARN_MORE" />詳細<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">外部デバイスのファームウェア アップデート</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">緑色とティール</translation>
 <translation id="7328475450575141167">フウチョウ科</translation>
-<translation id="7331297744262591636">AI 壁紙を使用できるのは 18 歳以上の方に限られ、ご使用には <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Google 利用規約<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" />と<ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />生成 AI の追加利用規約<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />が適用されることに同意していただく必要があります。
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          AI による壁紙は非営利の個人的な目的でのみ作成できます。壁紙の作成サポートでは、<ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google のプライバシー ポリシー<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />に沿ってテキストが Google AI サーバーに送信され、壁紙の候補が生成されます。<ph name="BEGIN_LINK_LEARN_MORE" />詳細<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; Google 検索で結果を確認するには [検索]+Space キーを押してください。</translation>
 <translation id="7343649194310845056">ネットワーク デバイス</translation>
 <translation id="7344788170842919262">アースカラー</translation>
 <translation id="7346768383111016081">キーボードでプレイするにはゲーム操作のコントロールを設定します</translation>
@@ -1507,7 +1496,6 @@
 <translation id="7590883480672980941">入力設定</translation>
 <translation id="7595982850646262331">あと <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776"><ph name="MANAGER" /> の管理者が、この <ph name="DEVICE_TYPE" /> を使用できる時間を設定しました。</translation>
-<translation id="7613724632293948900">マウスまたは矢印キーを使用して位置を変更します。</translation>
 <translation id="7618216277886673749"><ph name="LANGUAGE_NAME" /> を選択</translation>
 <translation id="7618774594543487847">中間色</translation>
 <translation id="7620771111601174153">詳しくはヘルプセンターをご覧ください</translation>
@@ -1641,6 +1629,7 @@
 <translation id="819278132617411009">Google AI を使用して生産性を高める</translation>
 <translation id="8200772114523450471">再開</translation>
 <translation id="8206859287963243715">携帯電話</translation>
+<translation id="8208043093301544621">ホーム</translation>
 <translation id="8208861521865154048">特典</translation>
 <translation id="8226628635270268143">お気に入りの写真やアルバムを選択してください</translation>
 <translation id="8227119283605456246">添付ファイル</translation>
@@ -1838,7 +1827,6 @@
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">この動画を使う</translation>
-<translation id="9087578468327036362">このクエリを報告</translation>
 <translation id="9088306295921699330">現在の使用状況</translation>
 <translation id="9088994563996376283">簡略化</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@
 <translation id="921080052717160800">カメラの背景に設定した画像</translation>
 <translation id="9211490828691860325">すべてのデスク</translation>
 <translation id="9218016617214286986">既知の APN を表示</translation>
-<translation id="932327136139879170">自宅</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">フィードバックを送信</translation>
 <translation id="950520315903467048"><ph name="DIRECTION" /> のキーが設定されていません。<ph name="ASSIGN_INSTRUCTION" /></translation>

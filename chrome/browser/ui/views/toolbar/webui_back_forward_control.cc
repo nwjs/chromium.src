@@ -9,6 +9,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
 
@@ -27,13 +28,16 @@ WebUIBackForwardControl::~WebUIBackForwardControl() = default;
 
 void WebUIBackForwardControl::HandleContextMenu(
     views::Widget* widget,
-    gfx::Point screen_location,
+    const gfx::Rect& screen_rect,
     ui::mojom::MenuSourceType source) {
   menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::HAS_MNEMONICS);
+      &menu_model_, views::MenuRunner::HAS_MNEMONICS,
+      base::BindRepeating(&WebUIToolbarWebView::OnBackForwardStateChanged,
+                          base::Unretained(webui_toolbar_web_view_)));
   menu_runner_->RunMenuAt(webui_toolbar_web_view_->GetWidget(), nullptr,
-                          gfx::Rect(screen_location, gfx::Size()),
-                          views::MenuAnchorPosition::kTopLeft, source);
+                          screen_rect, views::MenuAnchorPosition::kTopLeft,
+                          source);
+  webui_toolbar_web_view_->OnBackForwardStateChanged();
 }
 
 void WebUIBackForwardControl::SetEnabled(bool enabled) {
@@ -56,8 +60,9 @@ void WebUIBackForwardControl::SetLeadingMargin(int margin) {
   }
 }
 
-toolbar_ui_api::mojom::ButtonStatePtr WebUIBackForwardControl::GetButtonState()
-    const {
-  return toolbar_ui_api::mojom::ButtonState::New(/*enabled=*/enabled_,
-                                                 /*visible=*/visible_);
+toolbar_ui_api::mojom::BackForwardButtonStatePtr
+WebUIBackForwardControl::GetButtonState() const {
+  return toolbar_ui_api::mojom::BackForwardButtonState::New(
+      /*enabled=*/enabled_, /*visible=*/visible_,
+      /*is_context_menu_visible=*/menu_runner_ && menu_runner_->IsRunning());
 }

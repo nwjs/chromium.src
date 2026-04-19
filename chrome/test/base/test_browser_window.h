@@ -123,6 +123,12 @@ class TestBrowserWindow : public BrowserWindow,
   void SetContentsSize(const gfx::Size& size) override;
   bool IsMaximized() const override;
   bool IsMinimized() const override;
+#if BUILDFLAG(IS_ANDROID)
+  bool CanResize(ui::WindowResizePrecheckResult& result) const override {
+    result = ui::WindowResizePrecheckResult::kOk;
+    return true;
+  }
+#endif
   void Maximize() override {}
   void Minimize() override {}
   void Restore() override {}
@@ -219,7 +225,7 @@ class TestBrowserWindow : public BrowserWindow,
       int download_count,
       Browser::DownloadCloseType dialog_type,
       base::OnceCallback<void(bool)> callback) override {}
-  void UserChangedTheme(BrowserThemeChangeType theme_change_type) override {}
+
   std::unique_ptr<FindBar> CreateFindBar() override;
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
       override;
@@ -257,9 +263,7 @@ class TestBrowserWindow : public BrowserWindow,
 
   void SetCloseCallback(base::OnceClosure close_callback);
 
-  void CreateTabSearchBubble(
-      tab_search::mojom::TabSearchSection section =
-          tab_search::mojom::TabSearchSection::kSearch) override {}
+  void CreateTabSearchBubble() override {}
   void CloseTabSearchBubble() override {}
 
   bool IsTabModalPopupDeprecated() const override;
@@ -306,6 +310,7 @@ class TestBrowserWindow : public BrowserWindow,
     void UpdateWithoutTabRestore() override {}
     ui::TrackedElement* GetAnchorOrNull() override;
     Browser* GetBrowser() override;
+    Profile* GetProfile() override;
     bool IsInitialized() const override;
     bool IsVisible() const override;
     bool IsDrawn() const override;
@@ -313,6 +318,7 @@ class TestBrowserWindow : public BrowserWindow,
     bool IsEditingOrEmpty() const override;
     void InvalidateLayout() override {}
     gfx::Rect Bounds() const override;
+    gfx::Rect BoundsInScreen() const override;
     gfx::Size MinimumSize() const override;
     gfx::Size PreferredSize() const override;
     void Update(content::WebContents* contents) override {}

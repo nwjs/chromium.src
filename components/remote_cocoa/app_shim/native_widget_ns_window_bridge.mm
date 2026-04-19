@@ -1417,6 +1417,14 @@ void NativeWidgetNSWindowBridge::OnPositionChanged() {
   UpdateWindowGeometry();
 }
 
+void NativeWidgetNSWindowBridge::OnWindowWillMove() {
+  host_->OnWindowWillMove();
+}
+
+void NativeWidgetNSWindowBridge::OnWindowDidEndMove() {
+  host_->OnWindowDidEndMove();
+}
+
 void NativeWidgetNSWindowBridge::OnWindowWillStartLiveResize() {
   if (!NSWindowIsMaximized(window_) && !fullscreen_controller_.IsInFullscreenTransition()) {
     bounds_before_maximize_ = [window_ frame];
@@ -1739,6 +1747,10 @@ bool NativeWidgetNSWindowBridge::ShouldWaitInPreCommit() {
 
 base::TimeDelta NativeWidgetNSWindowBridge::PreCommitTimeout() {
   return kUIPaintTimeout;
+}
+
+bool NativeWidgetNSWindowBridge::IsWindowInLiveResize() {
+  return [window_ inLiveResize];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

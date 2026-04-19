@@ -30,7 +30,6 @@
 #include "third_party/blink/renderer/modules/xr/xr_viewport.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_drawing_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_layer.h"
-#include "third_party/blink/renderer/platform/graphics/gpu/xr_frame_transport.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/xr_frame_transport_delegate.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "ui/display/display.h"
@@ -702,7 +701,7 @@ void XRFrameProvider::SubmitLayer(device::LayerId layer_id,
     // Image is written to shared buffer already. No need to hold it.
     DVLOG(3) << __func__ << ": FrameSubmit for SharedBuffer mode";
     any_layer_changed_ = true;
-    layer_ids_.push_back(layer_id);
+    layers_.emplace_back(layer_id, nullptr);
     return;
   } else {
     CHECK_NE(client->session()->GraphicsApi(), XRGraphicsBinding::Api::kWebGPU)
@@ -717,8 +716,7 @@ void XRFrameProvider::SubmitLayer(device::LayerId layer_id,
   }
 
   any_layer_changed_ = true;
-  current_frame_images_.push_back(std::move(image_ref));
-  layer_ids_.push_back(layer_id);
+  layers_.emplace_back(layer_id, std::move(image_ref));
 }
 
 // TODO(bajones): This only works because we're restricted to a single layer at
@@ -812,8 +810,7 @@ void XRFrameProvider::UpdateLayerViewports(XRProjectionLayer* layer) {
 
 void XRFrameProvider::ClearCachedLayersData() {
   any_layer_changed_ = false;
-  current_frame_images_.clear();
-  layer_ids_.clear();
+  layers_.clear();
 }
 
 void XRFrameProvider::SubmitFrame(
@@ -830,8 +827,6 @@ void XRFrameProvider::SubmitFrame(
   // Ensure temporary data is always reset.
   bool was_any_layer_changed = any_layer_changed_;
   any_layer_changed_ = false;
-  auto image_refs = std::move(current_frame_images_);
-  auto layer_ids = std::move(layer_ids_);
 
   if (frame_id_ < 0) {
     // There is no valid frame_id_, and the browser side is not currently
@@ -864,18 +859,17 @@ void XRFrameProvider::SubmitFrame(
 
   frame_transport_->FramePreImage(transport_delegate);
 
-  // The backend expects an empty layer ID list if the 'layers' feature is not
-  // enabled.
+  // The backend expects layer ID list to contain a single element (i.e. the
+  // base layer) if the 'layers' feature is not enabled.
   if (!layer_manager_.is_bound()) {
     // At this case, only a single layer should exist since the
     // layers feature is not enabled.
-    CHECK_EQ(layer_ids.size(), 1U);
-    layer_ids.clear();
+    CHECK_EQ(layers_.size(), 1U);
   }
 
   bool succeeded = frame_transport_->FrameSubmit(
       immersive_presentation_provider_.get(), transport_delegate,
-      std::move(layer_ids), std::move(image_refs), this_frame_id);
+      std::move(layers_), this_frame_id);
 
   succeeded ? num_frames_++ : dropped_frames_++;
   if (succeeded) {

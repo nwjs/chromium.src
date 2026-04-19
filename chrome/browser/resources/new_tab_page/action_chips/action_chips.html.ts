@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {type ActionChip, IconType} from '../action_chips.mojom-webui.js';
+import {IconType} from '../action_chips.mojom-webui.js';
+import type {ActionChip} from '../action_chips.mojom-webui.js';
 
 import {type ActionChipsElement} from './action_chips.js';
 
@@ -15,9 +16,7 @@ export function getHtml(this: ActionChipsElement) {
     ${
       this.actionChips_.length ?
       html`
-      <div class="action-chips-container"
-        @contextmenu="${this.showBackground && this.showSimplifiedUI_
-          ? this.onContextmenu_ : nothing}">
+      <div class="action-chips-container">
       ${
           this.actionChips_.map(
               (chip: ActionChip, index: number) => html`
@@ -27,7 +26,8 @@ export function getHtml(this: ActionChipsElement) {
             data-index="${index}"
             title="${this.getChipTitle_(chip)}"
             @click="${this.onClick_}"
-            @contextmenu="${this.onContextmenu_}">
+            @contextmenu="${this.disablementContextMenuEnabled_ ?
+                this.onContextmenu_ : nothing}">
             <div class="action-chip-icon-container ${
                     this.getAdditionalIconClasses_(chip)}">
               ${

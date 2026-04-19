@@ -74,41 +74,64 @@ CompositingReasons CompositingReasonsForWillChange(const ComputedStyle& style) {
   if (style.SubtreeWillChangeContents())
     return reasons;
 
-  if (style.HasWillChangeTransformHint())
-    reasons |= CompositingReason::kWillChangeTransform;
-  if (style.HasWillChangeScaleHint())
-    reasons |= CompositingReason::kWillChangeScale;
-  if (style.HasWillChangeRotateHint())
-    reasons |= CompositingReason::kWillChangeRotate;
-  if (style.HasWillChangeTranslateHint())
-    reasons |= CompositingReason::kWillChangeTranslate;
-  if (style.HasWillChangeOpacityHint())
-    reasons |= CompositingReason::kWillChangeOpacity;
-  if (style.HasWillChangeFilterHint())
-    reasons |= CompositingReason::kWillChangeFilter;
-  if (style.HasWillChangeBackdropFilterHint())
-    reasons |= CompositingReason::kWillChangeBackdropFilter;
-  if (style.HasWillChangeClipPathHint()) {
-    reasons |= CompositingReason::kWillChangeClipPath;
+  const StyleWillChangeData* will_change = style.WillChange();
+  if (!will_change) {
+    return reasons;
   }
-  if (style.HasWillChangeMixBlendModeHint()) {
-    reasons |= CompositingReason::kWillChangeMixBlendMode;
-  }
-  // Even though 'mask' generally implies mask-image, will-change treats them
-  // separately, so we need to check them both to get accurate backdrop filter
-  // reasons.
-  if (style.HasWillChangeMaskHint()) {
-    reasons |= CompositingReason::kWillChangeMask;
-  }
-  if (style.HasWillChangeMaskImageHint()) {
-    reasons |= CompositingReason::kWillChangeMaskImage;
+
+  bool has_will_change_other = false;
+  for (CSSPropertyID id : will_change->resolved_longhand_ids) {
+    switch (id) {
+      case CSSPropertyID::kBackdropFilter:
+        reasons |= CompositingReason::kWillChangeBackdropFilter;
+        break;
+      case CSSPropertyID::kClipPath:
+        reasons |= CompositingReason::kWillChangeClipPath;
+        break;
+      case CSSPropertyID::kFilter:
+        reasons |= CompositingReason::kWillChangeFilter;
+        break;
+      case CSSPropertyID::kMaskImage:
+        reasons |= CompositingReason::kWillChangeMask;
+        break;
+      case CSSPropertyID::kMixBlendMode:
+        reasons |= CompositingReason::kWillChangeMixBlendMode;
+        break;
+      case CSSPropertyID::kOpacity:
+        reasons |= CompositingReason::kWillChangeOpacity;
+        break;
+      case CSSPropertyID::kRotate:
+        reasons |= CompositingReason::kWillChangeRotate;
+        break;
+      case CSSPropertyID::kScale:
+        reasons |= CompositingReason::kWillChangeScale;
+        break;
+      case CSSPropertyID::kTranslate:
+        reasons |= CompositingReason::kWillChangeTranslate;
+        break;
+      case CSSPropertyID::kTransform:
+      case CSSPropertyID::kPerspective:
+      case CSSPropertyID::kTransformStyle:
+        reasons |= CompositingReason::kWillChangeTransform;
+        break;
+      case CSSPropertyID::kOffsetPath:
+      case CSSPropertyID::kOffsetPosition:
+      case CSSPropertyID::kTop:
+      case CSSPropertyID::kLeft:
+      case CSSPropertyID::kBottom:
+      case CSSPropertyID::kRight:
+        has_will_change_other = true;
+        break;
+      default:
+        break;
+    }
   }
 
   // kWillChangeOther is needed only when none of the explicit kWillChange*
   // reasons are set.
-  if (reasons == CompositingReason::kNone &&
-      style.HasWillChangeCompositingHint())
+  if (reasons == CompositingReason::kNone && has_will_change_other) {
     reasons |= CompositingReason::kWillChangeOther;
+  }
 
   return reasons;
 }
@@ -283,27 +306,13 @@ CompositingReasons CompositingReasonsForScrollDependentPosition(
   }
 
   // Don't promote sticky position elements that cannot move with scrolls.
-  // We check for |HasOverflow| instead of |ScrollsOverflow| to ensure sticky
-  // position elements are composited under overflow: hidden, which can still
-  // have smooth scroll animations.
+  // |StickyPositionScrollingConstraints::HasScrollDependentOffset()| uses
+  // |HasOverflow| instead of |ScrollsOverflow| so sticky elements can still be
+  // composited under overflow: hidden, which can still have smooth scroll
+  // animations.
   auto constraints = layer.GetLayoutObject().StickyConstraints();
   if (constraints.HasScrollDependentOffset()) {
-    const auto* x_data = constraints.AxisData(PhysicalAxis::kHorizontal);
-    const auto* y_data = constraints.AxisData(PhysicalAxis::kVertical);
-    const auto* x_layer =
-        x_data ? x_data->containing_scroll_container_layer.Get() : nullptr;
-    const auto* y_layer =
-        y_data ? y_data->containing_scroll_container_layer.Get() : nullptr;
-
-    bool has_multiple_scrollers = x_layer && y_layer && x_layer != y_layer;
-    CHECK(RuntimeEnabledFeatures::SingleAxisScrollContainersEnabled() ||
-          !has_multiple_scrollers);
-
-    if (!has_multiple_scrollers) {
-      // TODO(crbug.com/481019005): Implement compositor support for multiple
-      // scroll container parents. Fall back to main-thread scrolling for now.
-      reasons |= CompositingReason::kStickyPosition;
-    }
+    reasons |= CompositingReason::kStickyPosition;
   }
 
   return reasons;
@@ -361,12 +370,12 @@ CompositingReasons CompositingReasonFinder::DirectReasonsForPaintProperties(
   CompositingReasons reasons = CompositingReason::kNone;
 
   auto* element = DynamicTo<Element>(object.GetNode());
-  if (element && IsA<LayoutBox>(object) &&
-      RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+  if (element && RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
     if (element->IsInCanvasSubtree()) [[unlikely]] {
       auto* canvas_parent =
           DynamicTo<HTMLCanvasElement>(element->parentElement());
-      if (canvas_parent && canvas_parent->layoutSubtree() &&
+      if (IsA<LayoutBox>(object) && canvas_parent &&
+          canvas_parent->layoutSubtree() &&
           !canvas_parent->IsInCanvasSubtree()) {
         reasons |= CompositingReason::kCanvasChild;
       } else {
@@ -469,8 +478,15 @@ bool CompositingReasonFinder::ShouldForcePreferCompositingToLCDText(
     return true;
   }
 
-  if (object.StyleRef().WillChangeScrollPosition())
+  // TODO(crbug.com/486987060): Support raster inducing scroll on non-overlay
+  // overscroll areas.
+  if (object.InternalOverscrollArea() == EInternalOverscrollArea::kAuto) {
     return true;
+  }
+
+  if (object.StyleRef().HasWillChangeScrollPosition()) {
+    return true;
+  }
 
   // Though we don't treat hidden backface as a direct compositing reason, it's
   // very likely that the object will be composited, and it also indicates

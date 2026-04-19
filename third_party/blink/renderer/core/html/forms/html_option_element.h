@@ -59,6 +59,10 @@ class CORE_EXPORT HTMLOptionElement final : public HTMLElement {
   ~HTMLOptionElement() override;
   void Trace(Visitor* visitor) const override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLOptionElement;
+  }
+
   // A text to be shown to users.  The difference from |label()| is |label()|
   // returns an empty string if |label| content attribute is empty.
   // |displayLabel()| returns the value string in that case.
@@ -143,6 +147,11 @@ class CORE_EXPORT HTMLOptionElement final : public HTMLElement {
   // toggle selectedness and dirtiness, deselect other options, close the
   // select's picker, and set default handled on the event.
   void ChooseOption(Event&);
+
+  // Helper to choose the option for customizable combobox event handling in
+  // DefaultEventHandler. It sets the value of the input element to the value or
+  // contents of this option and fires the input and change events on the input.
+  void ChooseOptionForCombobox(HTMLInputElement&, HTMLDataListElement&);
 
   // Gets and sets whether this element matches the :filtered pseudo-class.
   bool IsFiltered() const { return is_filtered_; }

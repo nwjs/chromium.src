@@ -374,7 +374,8 @@ std::optional<FieldGlobalId> GetSafeCreditCardNumberField(
   const FormData& form = form_structure->ToFormData();
 
   CreditCardSuggestionGenerator generator(
-      /*four_digit_combinations_in_dom=*/{}, payments::AmountExtractionStatus(),
+      /*four_digit_combinations_in_dom=*/{},
+      /*amount_extraction_manager=*/nullptr, /*bnpl_manager=*/nullptr,
       /*credit_card_form_event_logger=*/nullptr,
       AutofillMetrics::PaymentsSigninState::kUnknown,
       /*exclude_virtual_cards=*/true);
@@ -526,12 +527,12 @@ void ActorFormFillingServiceImpl::GetSuggestions(
     std::vector<SubRequest> sub_requests;
 
     switch (requested_data) {
-      case FormFillingRequest_RequestedData_ADDRESS:
-      case FormFillingRequest_RequestedData_SHIPPING_ADDRESS:
-      case FormFillingRequest_RequestedData_BILLING_ADDRESS:
-      case FormFillingRequest_RequestedData_HOME_ADDRESS:
-      case FormFillingRequest_RequestedData_WORK_ADDRESS:
-      case FormFillingRequest_RequestedData_CONTACT_INFORMATION: {
+      case kAddress:
+      case kShippingAddress:
+      case kBillingAddress:
+      case kHomeAddress:
+      case kWorkAddress:
+      case kContactInformation: {
         if (!base::FeatureList::IsEnabled(
                 ::features::kActorFormFillingServiceEnableAddress)) {
           LOG_AF(log_manager) << LoggingScope::kAutofillActor
@@ -544,16 +545,13 @@ void ActorFormFillingServiceImpl::GetSuggestions(
         if (actor::ShouldSplitOutContactInfo(trigger_fields, autofill_manager,
                                              log_manager)) {
           sub_requests.push_back(
-              {FormFillingRequest_RequestedData_CONTACT_INFORMATION,
-               actor::SectionSplitPart::kContactInfo});
+              {kContactInformation, actor::SectionSplitPart::kContactInfo});
           // For the address split part, use the original requested_data type
           // unless it was CONTACT_INFORMATION as that would create a misleading
           // UX (two contact info cards back to back).
           ActorFormFillingRequest::RequestedData address_requested_data =
-              (requested_data ==
-               FormFillingRequest_RequestedData_CONTACT_INFORMATION)
-                  ? FormFillingRequest_RequestedData_ADDRESS
-                  : requested_data;
+              (requested_data == kContactInformation) ? kAddress
+                                                      : requested_data;
           sub_requests.push_back(
               {address_requested_data, actor::SectionSplitPart::kAddress});
         } else {
@@ -562,7 +560,7 @@ void ActorFormFillingServiceImpl::GetSuggestions(
         }
         break;
       }
-      case FormFillingRequest_RequestedData_CREDIT_CARD: {
+      case kCreditCard: {
         if (!base::FeatureList::IsEnabled(
                 ::features::kActorFormFillingServiceEnableCreditCard)) {
           LOG_AF(log_manager) << LoggingScope::kAutofillActor
@@ -571,8 +569,8 @@ void ActorFormFillingServiceImpl::GetSuggestions(
               .Run(base::unexpected(kAutofillNotAvailable));
           return;
         }
-        sub_requests.push_back({FormFillingRequest_RequestedData_CREDIT_CARD,
-                                actor::SectionSplitPart::kNoSplit});
+        sub_requests.push_back(
+            {kCreditCard, actor::SectionSplitPart::kNoSplit});
         break;
       }
       default: {
@@ -588,17 +586,17 @@ void ActorFormFillingServiceImpl::GetSuggestions(
     for (const SubRequest& sub_request : sub_requests) {
       ActorSuggestions suggestion_data;
       switch (sub_request.requested_data) {
-        case FormFillingRequest_RequestedData_ADDRESS:
-        case FormFillingRequest_RequestedData_SHIPPING_ADDRESS:
-        case FormFillingRequest_RequestedData_BILLING_ADDRESS:
-        case FormFillingRequest_RequestedData_HOME_ADDRESS:
-        case FormFillingRequest_RequestedData_WORK_ADDRESS:
-        case FormFillingRequest_RequestedData_CONTACT_INFORMATION:
+        case kAddress:
+        case kShippingAddress:
+        case kBillingAddress:
+        case kHomeAddress:
+        case kWorkAddress:
+        case kContactInformation:
           suggestion_data =
               GetAddressSuggestions(trigger_fields, autofill_manager,
                                     log_manager, sub_request.split_part);
           break;
-        case FormFillingRequest_RequestedData_CREDIT_CARD:
+        case kCreditCard:
           suggestion_data = GetCreditCardSuggestions(
               trigger_fields, autofill_manager, log_manager);
           break;
@@ -621,8 +619,7 @@ void ActorFormFillingServiceImpl::GetSuggestions(
       if (const FormStructure* form_structure =
               autofill_manager.FindCachedFormById(trigger_fields[0])) {
         products_by_form[form_structure->global_id()].insert(
-            sub_request.requested_data ==
-                    FormFillingRequest_RequestedData_CREDIT_CARD
+            sub_request.requested_data == kCreditCard
                 ? FillingProduct::kCreditCard
                 : FillingProduct::kAddress);
       }
@@ -799,7 +796,7 @@ ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
                            actor::GetBlockedFieldsForSplit(
                                *form_structure, trigger_field_id,
                                fill_data->split_part, action_persistence);
-                       autofill_manager.FillOrPreviewFields(
+                       autofill_manager.FillOrPreviewForm(
                            action_persistence, form_structure->ToFormData(),
                            trigger_field_id, &autofill_profile,
                            AutofillTriggerSource::kGlic, blocked_fields);
@@ -808,7 +805,8 @@ ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
                        autofill_manager.FillOrPreviewForm(
                            action_persistence, form_structure->ToFormData(),
                            trigger_field_id, &credit_card,
-                           AutofillTriggerSource::kGlic);
+                           AutofillTriggerSource::kGlic,
+                           /*blocked_fields=*/{});
                      },
                      [&](const std::monostate&) {
                        LOG_AF(log_manager)

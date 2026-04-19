@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/metrics/histogram_functions.h"
+#include "cc/paint/paint_canvas.h"
+#include "cc/paint/paint_flags.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_htmlcanvaselement_offscreencanvas.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_union_offscreen_rendering_context.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_union_rendering_context.h"
@@ -37,14 +39,15 @@ ImageBitmapRenderingContext::ImageBitmapRenderingContext(
 
 ImageBitmapRenderingContext::~ImageBitmapRenderingContext() = default;
 
-V8UnionHTMLCanvasElementOrOffscreenCanvas*
-ImageBitmapRenderingContext::getHTMLOrOffscreenCanvas() const {
+V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret
+ImageBitmapRenderingContext::getHTMLOrOffscreenCanvas(
+    ScriptState* script_state) const {
   if (Host()->IsOffscreenCanvas()) {
-    return MakeGarbageCollected<V8UnionHTMLCanvasElementOrOffscreenCanvas>(
-        static_cast<OffscreenCanvas*>(Host()));
+    return V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret(
+        script_state, static_cast<OffscreenCanvas*>(Host()));
   }
-  return MakeGarbageCollected<V8UnionHTMLCanvasElementOrOffscreenCanvas>(
-      static_cast<HTMLCanvasElement*>(Host()));
+  return V8UnionHTMLCanvasElementOrOffscreenCanvas::Ret(
+      script_state, static_cast<HTMLCanvasElement*>(Host()));
 }
 
 void ImageBitmapRenderingContext::Reset() {
@@ -221,16 +224,13 @@ bool ImageBitmapRenderingContext::PushFrame() {
 
   cc::PaintFlags paint_flags;
   paint_flags.setBlendMode(SkBlendMode::kSrc);
-  resource_provider_for_offscreen_canvas_->Canvas().drawImage(
-      image->PaintImageForCurrentFrame(), 0, 0, SkSamplingOptions(),
-      &paint_flags);
   scoped_refptr<CanvasResource> resource =
-      resource_provider_for_offscreen_canvas_->ProduceCanvasResource(
-          FlushReason::kOther);
-  Host()->PushFrame(
-      std::move(resource),
-      SkIRect::MakeWH(image_layer_bridge_->GetImage()->Size().width(),
-                      image_layer_bridge_->GetImage()->Size().height()));
+      resource_provider_for_offscreen_canvas_->DoExternalDrawAndProduceResource(
+          [&](cc::PaintCanvas& canvas) {
+            canvas.drawImage(image->PaintImageForCurrentFrame(), 0, 0,
+                             SkSamplingOptions(), &paint_flags);
+          });
+  Host()->PushFrame(std::move(resource));
   return true;
 }
 

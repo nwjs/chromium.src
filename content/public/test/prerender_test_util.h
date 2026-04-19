@@ -116,7 +116,6 @@ class PrerenderHostCreationWaiter {
 class ScopedPrerenderFeatureList {
  public:
   ScopedPrerenderFeatureList();
-  explicit ScopedPrerenderFeatureList(bool force_disable_prerender2_fallback);
   ScopedPrerenderFeatureList(const ScopedPrerenderFeatureList&) = delete;
   ScopedPrerenderFeatureList& operator=(const ScopedPrerenderFeatureList&) =
       delete;
@@ -129,8 +128,6 @@ class ScopedPrerenderFeatureList {
 class PrerenderTestHelper {
  public:
   explicit PrerenderTestHelper(const WebContents::Getter& fn);
-  explicit PrerenderTestHelper(const WebContents::Getter& fn,
-                               bool force_disable_prerender2_fallback);
   ~PrerenderTestHelper();
   PrerenderTestHelper(const PrerenderTestHelper&) = delete;
   PrerenderTestHelper& operator=(const PrerenderTestHelper&) = delete;
@@ -278,7 +275,8 @@ class PrerenderTestHelper {
   // This is intended for activating a prerendered page initiated for a new
   // window.
   static void OpenNewWindowWithoutOpener(WebContents& web_contents,
-                                         const GURL& url);
+                                         const GURL& url,
+                                         bool is_form_submission = false);
 
   // Confirms that, internally, appropriate subframes report that they are
   // prerendering (and that each frame tree type is kPrerender).
@@ -316,6 +314,12 @@ class PrerenderTestHelper {
                    std::string_view predictor,
                    bool holdback);
 
+  // For non-//content tests.
+  static bool IsPrerender2FallbackPrefetchSpecRulesEnabled();
+  // Note that it uses `ScopedFeatureList` internally. Follow the WARNING and
+  // limitation of `ScopedFeatureList`.
+  void DisablePrerender2FallbackPrefetchSpecRules();
+
  private:
   void MonitorResourceRequest(const net::test_server::HttpRequest& request);
 
@@ -329,6 +333,7 @@ class PrerenderTestHelper {
   std::map<std::string, net::test_server::HttpRequest::HeaderMap>
       request_headers_by_path_ GUARDED_BY(lock_);
   ScopedPrerenderFeatureList feature_list_;
+  base::test::ScopedFeatureList scoped_feature_list_prerender2_fallback_;
   base::OnceClosure monitor_callback_ GUARDED_BY(lock_);
   base::Lock lock_;
   PreloadingConfigOverride preloading_config_override_;

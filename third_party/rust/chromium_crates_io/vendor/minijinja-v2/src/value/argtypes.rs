@@ -155,6 +155,14 @@ pub trait ArgType<'a> {
     }
 
     #[doc(hidden)]
+    fn from_state_and_value_owned(
+        _state: Option<&'a State>,
+        value: Value,
+    ) -> Result<Self::Output, Error> {
+        Self::from_value_owned(value)
+    }
+
+    #[doc(hidden)]
     fn from_state_and_value(
         _state: Option<&'a State>,
         value: Option<&'a Value>,
@@ -553,6 +561,9 @@ impl<'a> ArgType<'a> for Cow<'_, str> {
             Some(value) => Ok(match value.0 {
                 ValueRepr::String(ref s, _) => Cow::Borrowed(s as &str),
                 ValueRepr::SmallStr(ref s) => Cow::Borrowed(s.as_str()),
+                ValueRepr::U64(v) => Cow::Owned(v.to_string()),
+                ValueRepr::I64(v) => Cow::Owned(v.to_string()),
+                ValueRepr::Bool(v) => Cow::Owned(v.to_string()),
                 _ => {
                     if value.is_kwargs() {
                         return Err(Error::new(
@@ -565,6 +576,16 @@ impl<'a> ArgType<'a> for Cow<'_, str> {
             }),
             None => Err(Error::from(ErrorKind::MissingArgument)),
         }
+    }
+
+    fn from_state_and_value(
+        state: Option<&'a State>,
+        value: Option<&'a Value>,
+    ) -> Result<(Self::Output, usize), Error> {
+        if let (Some(state), Some(value)) = (state, value) {
+            ok!(state.undefined_behavior().assert_value_not_undefined(value));
+        }
+        Ok((ok!(Self::from_value(value)), 1))
     }
 }
 
@@ -675,7 +696,7 @@ impl<'a, T: ArgType<'a, Output = T>> ArgType<'a> for Rest<T> {
     }
 
     fn from_state_and_values(
-        _state: Option<&'a State>,
+        state: Option<&'a State>,
         values: &'a [Value],
         offset: usize,
     ) -> Result<(Self, usize), Error> {
@@ -683,7 +704,7 @@ impl<'a, T: ArgType<'a, Output = T>> ArgType<'a> for Rest<T> {
         Ok((
             Rest(ok!(args
                 .iter()
-                .map(|v| T::from_value(Some(v)))
+                .map(|v| T::from_state_and_value(state, Some(v)).map(|x| x.0))
                 .collect::<Result<_, _>>())),
             args.len(),
         ))
@@ -979,6 +1000,28 @@ impl<'a> ArgType<'a> for String {
         }
     }
 
+    fn from_state_and_value(
+        state: Option<&'a State>,
+        value: Option<&'a Value>,
+    ) -> Result<(Self::Output, usize), Error> {
+        if let (Some(state), Some(value)) = (state, value) {
+            ok!(state.undefined_behavior().assert_value_not_undefined(value));
+        }
+        Ok((ok!(Self::from_value(value)), 1))
+    }
+
+    fn from_state_and_value_owned(
+        state: Option<&'a State>,
+        value: Value,
+    ) -> Result<Self::Output, Error> {
+        if let Some(state) = state {
+            ok!(state
+                .undefined_behavior()
+                .assert_value_not_undefined(&value));
+        }
+        Self::from_value_owned(value)
+    }
+
     fn from_value_owned(value: Value) -> Result<Self, Error> {
         Ok(value.to_string())
     }
@@ -1001,6 +1044,27 @@ impl<'a, T: ArgType<'a, Output = T>> ArgType<'a> for Vec<T> {
                     rv.push(ok!(T::from_value_owned(value)));
                 }
                 Ok(rv)
+            }
+        }
+    }
+
+    fn from_state_and_value(
+        state: Option<&'a State>,
+        value: Option<&'a Value>,
+    ) -> Result<(Self::Output, usize), Error> {
+        match value {
+            None => Ok((Vec::new(), 1)),
+            Some(value) => {
+                let iter = ok!(value
+                    .as_object()
+                    .filter(|x| matches!(x.repr(), ObjectRepr::Seq | ObjectRepr::Iterable))
+                    .and_then(|x| x.try_iter())
+                    .ok_or_else(|| { Error::new(ErrorKind::InvalidOperation, "not iterable") }));
+                let mut rv = Vec::new();
+                for value in iter {
+                    rv.push(ok!(T::from_state_and_value_owned(state, value)));
+                }
+                Ok((rv, 1))
             }
         }
     }

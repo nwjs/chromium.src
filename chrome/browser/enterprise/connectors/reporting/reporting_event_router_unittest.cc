@@ -4,6 +4,8 @@
 
 #include "components/enterprise/connectors/core/reporting_event_router.h"
 
+#include "base/no_destructor.h"
+#include "base/test/bind.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/enterprise/connectors/test/mock_realtime_reporting_client.h"
@@ -42,14 +44,14 @@ constexpr char kFakeActiveUserEmail[] = "active_user@example.com";
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 const std::set<std::string>* ZipMimeType() {
-  static std::set<std::string> set = {"application/zip"};
-  return &set;
+  static base::NoDestructor<std::set<std::string>> set({"application/zip"});
+  return set.get();
 }
 
 const std::vector<std::string>& GetFakeFrameUrlChain() {
-  static const std::vector<std::string> kFrameUrls = {"https://frame1.com/",
-                                                      "https://frame2.com/"};
-  return kFrameUrls;
+  static base::NoDestructor<std::vector<std::string>> kFrameUrls(
+      {"https://frame1.com/", "https://frame2.com/"});
+  return *kFrameUrls;
 }
 
 google::protobuf::RepeatedPtrField<std::string> CreateFakeFrameUrlChainProto() {
@@ -82,10 +84,12 @@ class RealtimeReportingClientFakeActiveGaia : public RealtimeReportingClient {
   }
 };
 
-class ReportingEventRouterTest : public testing::TestWithParam<bool> {
+class ReportingEventRouterTestBase : public ::testing::Test {
  public:
-  ReportingEventRouterTest()
+  ReportingEventRouterTestBase()
       : profile_manager_(TestingBrowserProcess::GetGlobal()) {}
+
+  virtual bool use_proto_format() const = 0;
 
   void SetUp() override {
     if (use_proto_format()) {
@@ -125,8 +129,6 @@ class ReportingEventRouterTest : public testing::TestWithParam<bool> {
     RealtimeReportingClientFactory::GetForProfile(profile_)
         ->SetBrowserCloudPolicyClientForTesting(nullptr);
   }
-
-  bool use_proto_format() { return GetParam(); }
 
   std::string GetProfileIdentifier() const {
     return profile_->GetPath().AsUTF8Unsafe();
@@ -178,6 +180,13 @@ class ReportingEventRouterTest : public testing::TestWithParam<bool> {
   std::unique_ptr<ReportingEventRouter> reporting_event_router_;
   signin::IdentityTestEnvironment identity_test_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class ReportingEventRouterTest : public ReportingEventRouterTestBase,
+                                 public testing::WithParamInterface<bool> {
+ public:
+  ReportingEventRouterTest() = default;
+  bool use_proto_format() const override { return GetParam(); }
 };
 
 TEST_P(ReportingEventRouterTest, CheckEventEnabledReturnsFalse) {
@@ -821,8 +830,49 @@ TEST_P(ReportingEventRouterTest, TestPasswordChanged) {
   run_loop.Run();
 }
 
+INSTANTIATE_TEST_SUITE_P(, ReportingEventRouterTest, ::testing::Bool());
+
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || \
+    BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
+class ReportingEventRouterFileEventTest
+    : public ReportingEventRouterTestBase,
+      public ::testing::WithParamInterface<std::tuple<bool, bool>> {
+ public:
+  ReportingEventRouterFileEventTest() = default;
+
+  bool use_proto_format() const override { return std::get<0>(GetParam()); }
+  bool async_file_hash() const { return std::get<1>(GetParam()); }
+
+  HashCallbackVariant GetHashCallbackVariant(std::string hash) {
+    if (!async_file_hash()) {
+      return hash;
+    }
+    return base::BindLambdaForTesting([this, hash](OnGotHashCallback callback) {
+      std::move(callback).Run(hash);
+      async_file_hash_run_loop_.Quit();
+    });
+  }
+
+  void RunUntilHashObtained() {
+    if (!async_file_hash()) {
+      return;
+    }
+    async_file_hash_run_loop_.Run();
+  }
+
+  base::RunLoop async_file_hash_run_loop_;
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         ReportingEventRouterFileEventTest,
+                         ::testing::Combine(::testing::Bool(),
+                                            ::testing::Bool()));
+
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) ||
+        // BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
+
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
-TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Allowed) {
+TEST_P(ReportingEventRouterFileEventTest, TestOnUnscannedFileEvent_Allowed) {
   test::SetOnSecurityEventReporting(
       profile_->GetPrefs(), /*enabled=*/true,
       /*enabled_event_names=*/{kKeyUnscannedFileEvent},
@@ -839,8 +889,9 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Allowed) {
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
     expected_event.set_file_name("encrypted.zip");
-    expected_event.set_download_digest_sha_256("sha256_of_data");
+    expected_event.set_download_digest_sha_256("DEADBEEF");
     expected_event.set_content_type("application/zip");
+    expected_event.set_scan_id("123");
     expected_event.set_content_size(12345);
 
     expected_event.set_unscanned_reason(
@@ -864,8 +915,9 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Allowed) {
         /*expected_source=*/"exampleSource",
         /*expected_destination=*/"exampleDestination",
         /*expected_filename=*/"encrypted.zip",
-        /*expected_sha256=*/"sha256_of_data",
+        /*expected_sha256=*/"DEADBEEF",
         /*expected_trigger=*/"FILE_UPLOAD",
+        /*expected_scan_id=*/"123",
         /*expected_reason=*/"FILE_PASSWORD_PROTECTED",
         /*expected_mimetypes=*/ZipMimeType(), /*expected_content_size=*/12345,
         /* expected_result=*/"EVENT_RESULT_ALLOWED",
@@ -877,13 +929,14 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Allowed) {
 
   reporting_event_router_->OnUnscannedFileEvent(
       GURL("about:blank"), GURL("tab:about:blank"), "exampleSource",
-      "exampleDestination", "encrypted.zip", "sha256_of_data",
-      "application/zip", "FILE_UPLOAD", "FILE_PASSWORD_PROTECTED",
+      "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
+      "application/zip", "FILE_UPLOAD", "123", "FILE_PASSWORD_PROTECTED",
       "CONTENT_TRANSFER_METHOD_DRAG_AND_DROP", 12345, EventResult::ALLOWED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Blocked) {
+TEST_P(ReportingEventRouterFileEventTest, TestOnUnscannedFileEvent_Blocked) {
   test::SetOnSecurityEventReporting(
       profile_->GetPrefs(), /*enabled=*/true,
       /*enabled_event_names=*/{kKeyUnscannedFileEvent},
@@ -900,9 +953,10 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Blocked) {
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
     expected_event.set_file_name("encrypted.zip");
-    expected_event.set_download_digest_sha_256("sha256_of_data");
+    expected_event.set_download_digest_sha_256("DEADBEEF");
     expected_event.set_content_type("application/zip");
     expected_event.set_content_size(12345);
+    expected_event.set_scan_id("123");
 
     expected_event.set_unscanned_reason(
         chrome::cros::reporting::proto::UnscannedFileEvent::
@@ -922,8 +976,9 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Blocked) {
         /*expected_source=*/"exampleSource",
         /*expected_destination=*/"exampleDestination",
         /*expected_filename=*/"encrypted.zip",
-        /*expected_sha256=*/"sha256_of_data",
+        /*expected_sha256=*/"DEADBEEF",
         /*expected_trigger=*/"FILE_DOWNLOAD",
+        /*expected_scan_id=*/"123",
         /*expected_reason=*/"FILE_PASSWORD_PROTECTED",
         /*expected_mimetypes=*/ZipMimeType(), /*expected_content_size=*/12345,
         /*expected_result=*/"EVENT_RESULT_BLOCKED",
@@ -934,13 +989,14 @@ TEST_P(ReportingEventRouterTest, TestOnUnscannedFileEvent_Blocked) {
 
   reporting_event_router_->OnUnscannedFileEvent(
       GURL("about:blank"), GURL("tab:about:blank"), "exampleSource",
-      "exampleDestination", "encrypted.zip", "sha256_of_data",
-      "application/zip", "FILE_DOWNLOAD", "FILE_PASSWORD_PROTECTED", "", 12345,
-      EventResult::BLOCKED);
+      "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
+      "application/zip", "FILE_DOWNLOAD", "123", "FILE_PASSWORD_PROTECTED", "",
+      12345, EventResult::BLOCKED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Allowed) {
+TEST_P(ReportingEventRouterFileEventTest, TestOnSensitiveDataEvent_Allowed) {
   EnableEnhancedFieldsForSecOps();
 
   test::SetOnSecurityEventReporting(
@@ -964,7 +1020,7 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Allowed) {
     expected_event.set_tab_url("about:blank");
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
-    expected_event.set_download_digest_sha_256("sha256_of_data");
+    expected_event.set_download_digest_sha_256("DEADBEEF");
     expected_event.set_file_name("encrypted.zip");
     expected_event.set_content_type("application/zip");
     expected_event.set_content_size(200);
@@ -993,7 +1049,7 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Allowed) {
         /*source*/ "exampleSource",
         /*destination*/ "exampleDestination",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*trigger*/ "FILE_UPLOAD",
         /*dlp_verdict*/ *result,
         /*mimetype*/ ZipMimeType(),
@@ -1014,16 +1070,16 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Allowed) {
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnSensitiveDataEvent(
       GURL("about:blank"), GURL("about:blank"), "exampleSource",
-      "exampleDestination", "encrypted.zip", "sha256_of_data",
+      "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       "application/zip", "FILE_UPLOAD", "123",
       "CONTENT_TRANSFER_METHOD_DRAG_AND_DROP", "test@gmail.com",
       "gaia@gmail.com", /*user_justification=*/std::nullopt, *result, 200,
-      referrer_chain, CreateFakeFrameUrlChainProto(),
-      EventResult::ALLOWED);
+      referrer_chain, CreateFakeFrameUrlChainProto(), EventResult::ALLOWED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Blocked) {
+TEST_P(ReportingEventRouterFileEventTest, TestOnSensitiveDataEvent_Blocked) {
   EnableEnhancedFieldsForSecOps();
 
   test::SetOnSecurityEventReporting(
@@ -1053,7 +1109,7 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Blocked) {
     expected_event.set_tab_url("about:blank");
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
-    expected_event.set_download_digest_sha_256("sha256_of_data");
+    expected_event.set_download_digest_sha_256("DEADBEEF");
     expected_event.set_file_name("encrypted.zip");
     expected_event.set_content_type("application/zip");
     expected_event.set_content_size(200);
@@ -1088,7 +1144,7 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Blocked) {
         /*source*/ "exampleSource",
         /*destination*/ "exampleDestination",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*trigger*/ "FILE_DOWNLOAD",
         /*dlp_verdict*/ *result,
         /*mimetype*/ ZipMimeType(),
@@ -1109,15 +1165,15 @@ TEST_P(ReportingEventRouterTest, TestOnSensitiveDataEvent_Blocked) {
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnSensitiveDataEvent(
       GURL("about:blank"), GURL("about:blank"), "exampleSource",
-      "exampleDestination", "encrypted.zip", "sha256_of_data",
+      "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       "application/zip", "FILE_DOWNLOAD", "123", "", "test@gmail.com",
       "gaia@gmail.com", /*user_justification=*/std::nullopt, *result, 200,
-      referrer_chain, CreateFakeFrameUrlChainProto(),
-      EventResult::BLOCKED);
+      referrer_chain, CreateFakeFrameUrlChainProto(), EventResult::BLOCKED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Warned) {
+TEST_P(ReportingEventRouterFileEventTest, TestOnDangerousDownloadEvent_Warned) {
   EnableEnhancedFieldsForSecOps();
 
   test::SetOnSecurityEventReporting(
@@ -1136,7 +1192,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Warned) {
     expected_event.set_tab_url("https://example.com/");
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
-    expected_event.set_download_digest_sha256("sha256_of_data");
+    expected_event.set_download_digest_sha256("DEADBEEF");
     expected_event.set_threat_type(
         chrome::cros::reporting::proto::SafeBrowsingDangerousDownloadEvent::
             POTENTIALLY_UNWANTED);
@@ -1164,7 +1220,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Warned) {
         /*source*/ "exampleSource",
         /*destination*/ "exampleDestination",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*threat_type*/ "POTENTIALLY_UNWANTED",
         /*trigger*/ "FILE_DOWNLOAD",
         /*mimetypes*/ ZipMimeType(),
@@ -1180,14 +1236,17 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Warned) {
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnDangerousDownloadEvent(
       GURL("https://example.com/download.exe"), GURL("https://example.com/"),
-      "exampleSource", "exampleDestination", "encrypted.zip", "sha256_of_data",
-      "POTENTIALLY_UNWANTED", "application/zip", "FILE_DOWNLOAD", "123",
+      "exampleSource", "exampleDestination", "encrypted.zip",
+      GetHashCallbackVariant("DEADBEEF"), "POTENTIALLY_UNWANTED",
+      "application/zip", "FILE_DOWNLOAD", "123",
       /*content_transfer_method=*/"", 12345, std::move(referrer_chain),
       CreateFakeFrameUrlChainProto(), EventResult::WARNED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Blocked) {
+TEST_P(ReportingEventRouterFileEventTest,
+       TestOnDangerousDownloadEvent_Blocked) {
   EnableEnhancedFieldsForSecOps();
 
   test::SetOnSecurityEventReporting(
@@ -1206,7 +1265,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Blocked) {
     expected_event.set_tab_url("https://example.com/");
     expected_event.set_source("exampleSource");
     expected_event.set_destination("exampleDestination");
-    expected_event.set_download_digest_sha256("sha256_of_data");
+    expected_event.set_download_digest_sha256("DEADBEEF");
     expected_event.set_threat_type(
         chrome::cros::reporting::proto::SafeBrowsingDangerousDownloadEvent::
             DANGEROUS);
@@ -1234,7 +1293,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Blocked) {
         /*source*/ "exampleSource",
         /*destination*/ "exampleDestination",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*threat_type*/ "DANGEROUS",
         /*trigger*/ "FILE_DOWNLOAD",
         /*mimetypes*/ ZipMimeType(),
@@ -1250,14 +1309,17 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Blocked) {
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnDangerousDownloadEvent(
       GURL("https://example.com/download.exe"), GURL("https://example.com/"),
-      "exampleSource", "exampleDestination", "encrypted.zip", "sha256_of_data",
-      "DANGEROUS", "application/zip", "FILE_DOWNLOAD", "123",
+      "exampleSource", "exampleDestination", "encrypted.zip",
+      GetHashCallbackVariant("DEADBEEF"), "DANGEROUS", "application/zip",
+      "FILE_DOWNLOAD", "123",
       /*content_transfer_method=*/"", 12345, std::move(referrer_chain),
       CreateFakeFrameUrlChainProto(), EventResult::BLOCKED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Bypassed) {
+TEST_P(ReportingEventRouterFileEventTest,
+       TestOnDangerousDownloadEvent_Bypassed) {
   EnableEnhancedFieldsForSecOps();
 
   test::SetOnSecurityEventReporting(
@@ -1276,7 +1338,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Bypassed) {
     expected_event.set_tab_url("https://example.com/");
     expected_event.set_source("");
     expected_event.set_destination("");
-    expected_event.set_download_digest_sha256("sha256_of_data");
+    expected_event.set_download_digest_sha256("DEADBEEF");
     expected_event.set_threat_type(
         chrome::cros::reporting::proto::SafeBrowsingDangerousDownloadEvent::
             DANGEROUS);
@@ -1304,7 +1366,7 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Bypassed) {
         /*source*/ "",
         /*destination*/ "",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*threat_type*/ "DANGEROUS",
         /*trigger*/ "FILE_DOWNLOAD",
         /*mimetypes*/ ZipMimeType(),
@@ -1320,14 +1382,15 @@ TEST_P(ReportingEventRouterTest, TestOnDangerousDownloadEvent_Bypassed) {
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnDangerousDownloadEvent(
       GURL("https://example.com/download.exe"), GURL("https://example.com/"),
-      "encrypted.zip", "sha256_of_data",
+      "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/zip",
       "FILE_DOWNLOAD", "123", 12345, std::move(referrer_chain),
       CreateFakeFrameUrlChainProto(), EventResult::BYPASSED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 
-TEST_P(ReportingEventRouterTest,
+TEST_P(ReportingEventRouterFileEventTest,
        TestOnDangerousDownloadEvent_WarnedFromSafeBrowsing) {
   EnableEnhancedFieldsForSecOps();
 
@@ -1347,7 +1410,7 @@ TEST_P(ReportingEventRouterTest,
     expected_event.set_tab_url("https://example.com/");
     expected_event.set_source("");
     expected_event.set_destination("");
-    expected_event.set_download_digest_sha256("sha256_of_data");
+    expected_event.set_download_digest_sha256("DEADBEEF");
     expected_event.set_threat_type(
         chrome::cros::reporting::proto::SafeBrowsingDangerousDownloadEvent::
             DANGEROUS);
@@ -1374,7 +1437,7 @@ TEST_P(ReportingEventRouterTest,
         /*source*/ "",
         /*destination*/ "",
         /*filename*/ "encrypted.zip",
-        /*sha256*/ "sha256_of_data",
+        /*sha256*/ "DEADBEEF",
         /*threat_type*/ "DANGEROUS",
         /*trigger*/ "FILE_DOWNLOAD",
         /*mimetypes*/ ZipMimeType(),
@@ -1390,10 +1453,11 @@ TEST_P(ReportingEventRouterTest,
   referrer_chain.Add(test::MakeReferrerChainEntry());
   reporting_event_router_->OnDangerousDownloadEvent(
       GURL("https://example.com/download.exe"), GURL("https://example.com/"),
-      "encrypted.zip", "sha256_of_data",
+      "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/zip",
       "FILE_DOWNLOAD", "", 12345, std::move(referrer_chain),
       CreateFakeFrameUrlChainProto(), EventResult::WARNED);
+  RunUntilHashObtained();
   run_loop.Run();
 }
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -1446,8 +1510,8 @@ TEST_P(ReportingEventRouterTest, TestOnDataControlsSensitiveDataEvent) {
         /*expected_destination*/ "exampleDestination",
         /*expected_mimetypes=*/
         []() {
-          static std::set<std::string> set = {"text/html"};
-          return &set;
+          static base::NoDestructor<std::set<std::string>> set({"text/html"});
+          return set.get();
         }(),
         /*expected_trigger=*/"WEB_CONTENT_UPLOAD",
         /*triggered_rules=*/triggered_rules,
@@ -1468,7 +1532,5 @@ TEST_P(ReportingEventRouterTest, TestOnDataControlsSensitiveDataEvent) {
   run_loop.Run();
 }
 #endif  // BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
-
-INSTANTIATE_TEST_SUITE_P(, ReportingEventRouterTest, ::testing::Bool());
 
 }  // namespace enterprise_connectors

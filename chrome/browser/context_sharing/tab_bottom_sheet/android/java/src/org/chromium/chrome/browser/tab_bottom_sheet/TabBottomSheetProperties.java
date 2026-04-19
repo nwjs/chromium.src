@@ -8,25 +8,26 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
-import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableFloatPropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 
 /** Properties for the "Tab Bottom Sheet" bottom sheet. */
 @NullMarked
 public class TabBottomSheetProperties {
     public static final ReadableObjectPropertyKey<CoBrowseViews> BOTTOM_SHEET_VIEWS =
             new ReadableObjectPropertyKey<>("bottom_sheet_views");
-    public static final WritableObjectPropertyKey<Integer> THIN_WEB_VIEW_HEIGHT =
-            new WritableObjectPropertyKey<>("thin_web_view_height");
-    public static final WritableObjectPropertyKey<Integer> WEB_UI_CONTAINER_HEIGHT =
-            new WritableObjectPropertyKey<>("web_ui_container_height");
-    public static final WritableObjectPropertyKey<Integer> THIN_WEB_VIEW_INSET_BOTTOM =
-            new WritableObjectPropertyKey<>("thin_web_view_inset_bottom");
+    public static final WritableIntPropertyKey SHEET_HEIGHT =
+            new WritableIntPropertyKey("sheet_height");
+    public static final WritableFloatPropertyKey PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA =
+            new WritableFloatPropertyKey("peek_view_alpha_and_expanded_content_alpha");
+    public static final WritableIntPropertyKey PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY =
+            new WritableIntPropertyKey("peek_view_and_expanded_content_visibility");
 
     public static final PropertyKey[] ALL_KEYS = {
         BOTTOM_SHEET_VIEWS,
-        THIN_WEB_VIEW_HEIGHT,
-        WEB_UI_CONTAINER_HEIGHT,
-        THIN_WEB_VIEW_INSET_BOTTOM
+        SHEET_HEIGHT,
+        PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA,
+        PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY,
     };
 
     /**

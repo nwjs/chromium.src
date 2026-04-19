@@ -53,6 +53,7 @@
 <translation id="1399511500114202393">ユーザー証明書なし</translation>
 <translation id="1403008701842173542">すべてのプラットフォーム</translation>
 <translation id="1404323374378969387">ノルウェー語</translation>
+<translation id="1412476183660741812">署名付きウェブバンドル</translation>
 <translation id="1433628812591023318">Parallels Desktop にファイルをドロップするには [Windows ファイル] にファイルを移動する必要があります。</translation>
 <translation id="1435838927755162558">Parallels Desktop とのフォルダ共有</translation>
 <translation id="1439919885608649279">花を持っている人</translation>
@@ -220,6 +221,7 @@
 <translation id="2708477391501452176">フランス語 BÉPO</translation>
 <translation id="2719020180254996569"><ph name="NETWORK_INDEX" /> 番目のネットワーク（全 <ph name="NETWORK_COUNT" /> 件）、<ph name="NETWORK_NAME" />、<ph name="CONNECTION_STATUS" />、詳細</translation>
 <translation id="2724954091494693138">トルコ語（F）キーボード</translation>
+<translation id="2727633948226935816">今後表示しない</translation>
 <translation id="2728450421877450246">フランス語</translation>
 <translation id="2732288874651063549"><ph name="VM_NAME" /> との共有を管理</translation>
 <translation id="2732839045120506979">ベトナム語（VNI）</translation>
@@ -470,6 +472,7 @@
 <translation id="4788401404269709922"><ph name="NUMBER_OF_KB" /> KB</translation>
 <translation id="4789067489790477934">Parallels Desktop に Google ドライブのファイルへのアクセスを許可します。変更が加えられた場合は他のデバイスに同期されます。</translation>
 <translation id="4790766916287588578">ヒンディー語（字母）キーボード</translation>
+<translation id="4798645114741131062">お使いの ChromeOS Flex デバイスは、まもなく更新の受信を停止します。ChromeOS デバイスへのアップグレードをご検討ください。</translation>
 <translation id="4801956050125744859">両方を保持</translation>
 <translation id="4802185962157240723">ハンガリー語</translation>
 <translation id="4804827417948292437">アボカド</translation>
@@ -619,6 +622,7 @@
 <translation id="5819442873484330149">ハングル（3 ボル式、最終版）</translation>
 <translation id="5832976493438355584">ロックされています</translation>
 <translation id="5833610766403489739">このファイルは移動されています。ダウンロード保存先の設定を確認し、もう一度お試しください。</translation>
+<translation id="5833859326857395309">最終の更新</translation>
 <translation id="5838451609423551646">すべての項目を選択範囲から削除しました。</translation>
 <translation id="5845721951356578987">看護師</translation>
 <translation id="5858478190805449225">バッテリー セーバー モードがオンです。バッテリー セーバー モードをオフにしてから、もう一度お試しください。</translation>

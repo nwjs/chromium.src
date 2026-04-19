@@ -131,7 +131,8 @@ void TabsEventRouterPlatformDelegate::OnTabStripModelChanged(
   switch (change.type()) {
     case TabStripModelChange::kInserted:
     case TabStripModelChange::kMoved:
-    case TabStripModelChange::kRemoved: {
+    case TabStripModelChange::kRemoved:
+    case TabStripModelChange::kSelectionOnly: {
       // These are handled via the TabsEventRouter's observation of
       // TabListInterface.
       break;
@@ -142,12 +143,6 @@ void TabsEventRouterPlatformDelegate::OnTabStripModelChanged(
                             replace->index);
       break;
     }
-    case TabStripModelChange::kSelectionOnly:
-      break;
-  }
-
-  if (tab_strip_model->empty()) {
-    return;
   }
 }
 

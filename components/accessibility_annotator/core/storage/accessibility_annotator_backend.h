@@ -6,82 +6,93 @@
 #define COMPONENTS_ACCESSIBILITY_ANNOTATOR_CORE_STORAGE_ACCESSIBILITY_ANNOTATOR_BACKEND_H_
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
-#include "base/containers/lru_cache.h"
-#include "base/files/file_path.h"
+#include "base/containers/span.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "base/scoped_observation.h"
-#include "base/threading/sequence_bound.h"
-#include "components/accessibility_annotator/core/storage/accessibility_annotation_sync_bridge.h"
+#include "base/types/optional_ref.h"
+#include "base/values.h"
+#include "components/accessibility_annotator/core/data_models/entity_types.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/sync/model/data_type_store.h"
+#include "components/optimization_guide/proto/features/content_annotation.pb.h"
 #include "url/gurl.h"
 
 namespace syncer {
 class DataTypeControllerDelegate;
 }  // namespace syncer
 
-namespace version_info {
-enum class Channel;
-}  // namespace version_info
+namespace sync_pb {
+class AccessibilityAnnotationSpecifics;
+}  // namespace sync_pb
 
 namespace accessibility_annotator {
 
-class AccessibilityAnnotatorDatabase;
+class AccessibilityAnnotationSyncBridge;
 
-class AccessibilityAnnotatorBackend
-    : public KeyedService,
-      public AccessibilityAnnotationSyncBridge::Observer {
+class AccessibilityAnnotatorBackend : public KeyedService {
  public:
-  AccessibilityAnnotatorBackend(
-      version_info::Channel channel,
-      syncer::RepeatingDataTypeStoreFactory data_type_store_factory,
-      const base::FilePath& db_path);
+  struct ContentAnnotationsData {
+    ContentAnnotationsData();
+    ~ContentAnnotationsData();
+    ContentAnnotationsData(ContentAnnotationsData&& other);
+    ContentAnnotationsData& operator=(ContentAnnotationsData&& other);
 
-  ~AccessibilityAnnotatorBackend() override;
+    ContentAnnotationsData(const ContentAnnotationsData&) = delete;
+    ContentAnnotationsData& operator=(const ContentAnnotationsData&) = delete;
 
-  AccessibilityAnnotatorBackend(const AccessibilityAnnotatorBackend&) = delete;
-  AccessibilityAnnotatorBackend& operator=(
-      const AccessibilityAnnotatorBackend&) = delete;
+    std::string page_title;
+    std::optional<int> tab_id;
+    std::optional<base::DictValue> annotations;
+    std::optional<optimization_guide::proto::ContentAnnotation>
+        content_annotation;
+    base::DictValue classifier_results;
+  };
 
-  // Initializes the database at the given path. Must be called before any other
-  // methods.
-  void Init();
+  ~AccessibilityAnnotatorBackend() override = default;
+
+  // Initializes the database. Must be called before any other methods.
+  virtual void Init() = 0;
 
   // Returns DataTypeControllerDelegate for the accessibility annotation
   // datatype.
-  base::WeakPtr<syncer::DataTypeControllerDelegate>
-  GetAccessibilityAnnotationControllerDelegate();
-
-  // AccessibilityAnnotationSyncBridge::Observer implementation.
-  void OnAccessibilityAnnotationChanged() override;
-  void OnAccessibilityAnnotationSyncBridgeLoaded() override;
+  virtual base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetAccessibilityAnnotationControllerDelegate() = 0;
 
   // Reads from Content Annotations cache.
-  std::optional<std::string> GetContentAnnotationsCacheData(
-      const GURL& url) const;
+  virtual base::optional_ref<const ContentAnnotationsData>
+  GetContentAnnotationsCacheData(const GURL& url) const = 0;
 
   // Writes to Content Annotations cache.
-  void SetContentAnnotationsCacheData(const GURL& url, std::string annotations);
+  virtual void SetContentAnnotationsCacheData(const GURL& url,
+                                              ContentAnnotationsData data) = 0;
 
-  // Pulls cache data into a formatted string to use in the debug UI.
-  std::string GetDebugUIFormattedCacheData() const;
+  // Removes the entries with the given URLs from Content Annotations cache.
+  virtual void RemoveContentAnnotationsCacheData(
+      base::span<const GURL> urls) = 0;
 
- private:
-  const base::FilePath db_path_;
-  base::SequenceBound<AccessibilityAnnotatorDatabase> db_;
-  std::unique_ptr<AccessibilityAnnotationSyncBridge>
-      accessibility_annotation_sync_bridge_;
+  // Clears the Content Annotations cache.
+  virtual void ClearContentAnnotationsCache() = 0;
 
-  // Stores annotations keyed by the URL they are associated with. The cache
-  // size is `kContentAnnotatorMaxCacheAnnotations`. When the cache is full, the
-  // least recently used entry is evicted.
-  base::LRUCache<GURL, std::string> content_annotations_cache_;
+  // Pulls cache data into a base::Value for use in the debug UI.
+  virtual base::Value GetDebugUICacheData() const = 0;
 
-  base::ScopedObservation<AccessibilityAnnotationSyncBridge,
-                          AccessibilityAnnotationSyncBridge::Observer>
-      sync_bridge_observation_{this};
+  // Returns sync annotations from the sync bridge that match the given entity
+  // types.
+  virtual void GetSyncAnnotationsByTypes(
+      EntityTypeEnumSet types,
+      base::OnceCallback<
+          void(std::vector<sync_pb::AccessibilityAnnotationSpecifics>)>
+          callback) = 0;
+
+  // Returns `accessibility_annotation_sync_bridge_`.
+  // TODO(crbug.com/489492084): This is currently used by
+  // `DirectServerEntityProvider` to directly observe the sync bridge. Remove
+  // this method once `DirectServerEntityProvider` is deprecated and removed.
+  virtual AccessibilityAnnotationSyncBridge*
+  accessibility_annotation_sync_bridge() = 0;
 };
 
 }  // namespace accessibility_annotator

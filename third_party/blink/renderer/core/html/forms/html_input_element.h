@@ -66,6 +66,10 @@ class CORE_EXPORT HTMLInputElement
   ~HTMLInputElement() override;
   void Trace(Visitor*) const override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLInputElement;
+  }
+
   bool HasPendingActivity() const final;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange, kWebkitspeechchange)
@@ -359,7 +363,6 @@ class CORE_EXPORT HTMLInputElement
   bool ShouldDrawCapsLockIndicator() const;
   void SetShouldRevealPassword(bool value);
   bool ShouldRevealPassword() const { return should_reveal_password_; }
-  bool IsLastInputElementInForm();
   void DispatchSimulatedEnter();
   AXObject* PopupRootAXObject();
   void DidNotifySubtreeInsertionsToDocument() override;
@@ -384,6 +387,7 @@ class CORE_EXPORT HTMLInputElement
 
   mojom::blink::FormControlType FormControlType() const final;
 
+  bool SupportsReadOnly() const override;
   bool isMutable();
   void showPicker(ExceptionState&);
   bool IsPickerVisible() const;

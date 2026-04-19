@@ -171,6 +171,7 @@ class TestNetworkContext : public mojom::NetworkContext {
       mojo::PendingReceiver<mojom::RestrictedUDPSocket> receiver,
       mojo::PendingRemote<mojom::UDPSocketListener> listener,
       bool allow_multicast,
+      bool allow_source_specific_multicast,
       mojom::NetworkContext::CreateRestrictedUDPSocketCallback callback)
       override {}
   void CreateTCPServerSocket(
@@ -211,7 +212,8 @@ class TestNetworkContext : public mojom::NetworkContext {
           url_loader_network_observer,
       mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
-      const std::optional<base::UnguessableToken>& throttling_profile_id)
+      const std::optional<base::UnguessableToken>& throttling_profile_id,
+      const std::optional<base::UnguessableToken>& network_restrictions_id)
       override {}
   void CreateWebTransport(
       const GURL& url,
@@ -333,6 +335,7 @@ class TestNetworkContext : public mojom::NetworkContext {
       const net::AuthCredentials& credentials,
       AddAuthCacheEntryCallback callback) override {}
   void SetCorsNonWildcardRequestHeadersSupport(bool value) override {}
+  void SetDohFallbackUpgradeAllowed(bool allowed) override {}
 #if BUILDFLAG(IS_CHROMEOS)
   void LookupProxyAuthCredentials(
       const net::ProxyServer& proxy_server,

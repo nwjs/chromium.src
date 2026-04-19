@@ -323,34 +323,12 @@ const XRSharedImageData& XRWebGLLayer::CameraSharedImage() const {
   return session()->LayerSharedImageManager().CameraSharedImage();
 }
 
-WebGLTexture* XRWebGLLayer::GetCameraTexture() {
-  DVLOG(1) << __func__;
-
-  // We already have a WebGL texture for the camera image - return it:
-  if (camera_image_texture_) {
-    return camera_image_texture_.Get();
-  }
-
-  // We don't have a WebGL texture, and we cannot create it - return null:
-  if (!camera_image_shared_image_texture_) {
-    return nullptr;
-  }
-
-  // We don't have a WebGL texture, but we can create it, so create, store and
-  // return it:
-  camera_image_texture_ = MakeGarbageCollected<WebGLUnownedTexture>(
-      webgl_context_, camera_image_shared_image_texture_->id(), GL_TEXTURE_2D);
-
-  return camera_image_texture_.Get();
-}
-
 void XRWebGLLayer::OnFrameStart() {
   if (framebuffer_) {
     framebuffer_->MarkOpaqueBufferComplete(true);
     framebuffer_->SetContentsChanged(false);
 
     const XRSharedImageData& content_image_data = SharedImage();
-    const XRSharedImageData& camera_image_data = CameraSharedImage();
 
     if (content_image_data.shared_image) {
       drawing_buffer_->UseSharedBuffer(content_image_data.shared_image,
@@ -361,37 +339,15 @@ void XRWebGLLayer::OnFrameStart() {
     } else {
       is_direct_draw_frame = false;
     }
-
-    if (camera_image_data.shared_image) {
-      DVLOG(3) << __func__ << ": camera_image_data.shared_image->mailbox()"
-               << camera_image_data.shared_image->mailbox().ToDebugString();
-      CreateAndBindCameraBufferTexture(camera_image_data.shared_image,
-                                       camera_image_data.sync_token);
-    }
-  }
-}
-
-void XRWebGLLayer::CreateAndBindCameraBufferTexture(
-    const scoped_refptr<gpu::ClientSharedImage>& buffer_shared_image,
-    const gpu::SyncToken& buffer_sync_token) {
-  gpu::gles2::GLES2Interface* gl = drawing_buffer_->ContextGL();
-
-  DVLOG(3) << __func__
-           << ": buffer_sync_token=" << buffer_sync_token.ToDebugString();
-  camera_image_shared_image_texture_ = buffer_shared_image->CreateGLTexture(gl);
-  DVLOG(3) << __func__ << ": camera_image_shared_image_texture_->id()="
-           << camera_image_shared_image_texture_->id();
-  if (buffer_shared_image) {
-    uint32_t texture_target = buffer_shared_image->GetTextureTarget();
-    camera_image_texture_scoped_access_ =
-        camera_image_shared_image_texture_->BeginAccess(buffer_sync_token,
-                                                        /*readonly=*/true);
-    gl->BindTexture(texture_target,
-                    camera_image_texture_scoped_access_->texture_id());
   }
 }
 
 void XRWebGLLayer::OnFrameEnd() {
+  OnFrameEndWithoutSubmit();
+  SubmitLayer();
+}
+
+void XRWebGLLayer::OnFrameEndWithoutSubmit() {
   // The session might have ended in the middle of the frame. Only perform the
   // main work of OnFrameEnd if it's still valid. Otherwise, simply ensure the
   // shared image access is properly ended.
@@ -401,11 +357,6 @@ void XRWebGLLayer::OnFrameEnd() {
       is_direct_draw_frame = false;
     }
 
-    if (camera_image_texture_scoped_access_) {
-      gpu::SharedImageTexture::ScopedAccess::EndAccess(
-          std::move(camera_image_texture_scoped_access_));
-      camera_image_shared_image_texture_.reset();
-    }
     return;
   }
 
@@ -421,8 +372,8 @@ void XRWebGLLayer::OnFrameEnd() {
       bool framebuffer_dirty = framebuffer_->HaveContentsChanged();
 
       // Not drawing to the framebuffer during a session's rAF callback is
-      // usually a sign that something is wrong, such as the app drawing to the
-      // wrong render target. Show a warning in the console if we see that
+      // usually a sign that something is wrong, such as the app drawing to
+      // the wrong render target. Show a warning in the console if we see that
       // happen too many times.
       if (!framebuffer_dirty) {
         // If the session doesn't have a pose then the framebuffer being clean
@@ -440,40 +391,15 @@ void XRWebGLLayer::OnFrameEnd() {
           }
         }
       }
-
-      // Need to stop accessing the camera image texture before calling
-      // `SubmitLayer` so that we stop using it before the sync token
-      // that `SubmitLayer` will generate.
-      if (camera_image_shared_image_texture_) {
-        const XRSharedImageData& camera_image_data = CameraSharedImage();
-
-        // We shouldn't ever have a camera texture if the holder wasn't present:
-        CHECK(camera_image_data.shared_image);
-
-        DVLOG(3) << __func__
-                 << ": deleting camera image texture, "
-                    "camera_image_shared_image_texture_->id()="
-                 << camera_image_shared_image_texture_->id();
-
-        gpu::SharedImageTexture::ScopedAccess::EndAccess(
-            std::move(camera_image_texture_scoped_access_));
-        camera_image_shared_image_texture_.reset();
-
-        // Notify our WebGLUnownedTexture (created from
-        // camera_image_shared_image_texture_) that we have deleted it. Also,
-        // release the reference since we no longer need it (note that it could
-        // still be kept alive by the JS application, but should be a defunct
-        // object).
-        if (camera_image_texture_) {
-          camera_image_texture_->OnGLDeleteTextures();
-          camera_image_texture_ = nullptr;
-        }
-      }
-
-      // Always call submit, but notify if the contents were changed or not.
-      session()->xr()->frameProvider()->SubmitLayer(layer_id(), this,
-                                                    framebuffer_dirty);
     }
+  }
+}
+
+void XRWebGLLayer::SubmitLayer() {
+  // Always call submit, but notify if the contents were changed or not.
+  if (!session()->ended() && framebuffer_ && session()->immersive()) {
+    session()->xr()->frameProvider()->SubmitLayer(
+        layer_id(), this, framebuffer_->HaveContentsChanged());
   }
 }
 
@@ -544,7 +470,6 @@ void XRWebGLLayer::Trace(Visitor* visitor) const {
   visitor->Trace(right_viewport_);
   visitor->Trace(webgl_context_);
   visitor->Trace(framebuffer_);
-  visitor->Trace(camera_image_texture_);
   visitor->Trace(transport_delegate_);
   XRLayer::Trace(visitor);
 }

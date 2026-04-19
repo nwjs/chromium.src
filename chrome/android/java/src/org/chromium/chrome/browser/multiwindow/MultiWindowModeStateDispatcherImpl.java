@@ -68,19 +68,9 @@ public class MultiWindowModeStateDispatcherImpl implements MultiWindowModeStateD
     }
 
     @Override
-    public boolean isOpenInOtherWindowSupported() {
-        return MultiWindowUtils.getInstance().isOpenInOtherWindowSupported(mActivity);
-    }
-
-    @Override
     public boolean isMoveToOtherWindowSupported(TabModelSelector tabModelSelector) {
         return MultiWindowUtils.getInstance()
                 .isMoveToOtherWindowSupported(mActivity, tabModelSelector);
-    }
-
-    @Override
-    public boolean canEnterMultiWindowMode() {
-        return MultiWindowUtils.getInstance().canEnterMultiWindowMode();
     }
 
     @Override

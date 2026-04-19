@@ -17,32 +17,7 @@ enum class FeedSwipeIPHVariation {
   kAnimated,
 };
 
-// Represents the possible onboarding treatments of Lens Overlay.
-enum class NTPMIAEntrypointVariation {
-  // The default experience.
-  kDisabled = 0,
-  // The entrypoint is shown in the omnibox as a single button.
-  kOmniboxContainedSingleButton = 1,
-  // The entrypoint is shown in the omnibox as a button inline with Lens and
-  // Voice.
-  kOmniboxContainedInline = 2,
-  // The entrypoint is shown inside the enlarged fake omnibox.
-  kOmniboxContainedEnlargedFakebox = 3,
-  // The entrypoint is shown inside the enlarged fake omnibox without incognito
-  // shortcut.
-  kEnlargedFakeboxNoIncognito = 4,
-  // The entrypoint is shown as a quick actions button, with enlarged fake
-  // omnibox
-  kAIMInQuickAction = 5,
-  kMaxValue = kAIMInQuickAction,
-};
-
 #pragma mark - Feature declarations
-
-// Feature flag to fix the NTP view hierarchy if it is broken before applying
-// constraints.
-// TODO(crbug.com/40799579): Remove this when it is fixed.
-BASE_DECLARE_FEATURE(kEnableNTPViewHierarchyRepair);
 
 // Flag to modify the feed header through the server. Enabling this feature on
 // its own does nothing; relies on feature parameters.
@@ -94,9 +69,6 @@ extern const char kFeedSwipeInProductHelpArmParam[];
 
 #pragma mark - Helpers
 
-// Whether the NTP view hierarchy repair is enabled.
-bool IsNTPViewHierarchyRepairEnabled();
-
 // Whether the sync promo should be shown on top of the feed.
 bool IsDiscoverFeedTopSyncPromoEnabled();
 
@@ -110,17 +82,8 @@ FeedSwipeIPHVariation GetFeedSwipeIPHVariation();
 // the new tab page mediator.
 bool UseFeedEligibilityService();
 
-// Returns the enabled variation of feature kNTPMIAEntrypoint;
-NTPMIAEntrypointVariation GetNTPMIAEntrypointVariation();
-
-// Whether to show only the MIA button in the fakebox.
-bool ShowOnlyMIAEntrypointInNTPFakebox();
-
-// Whether the quick actions row should be displayed.
-bool ShouldShowQuickActionsRow();
-
-// Whether a MIA variation should increase the size of the fakebox.
-bool ShouldEnlargeNTPFakeboxForMIA();
+// Whether the AIM button is allowed in NTP.
+bool IsAimEnabledInNtp();
 
 // Whether customized most visited tiles is enabled on Chrome on iOS.
 bool IsContentSuggestionsCustomizable();

@@ -16,7 +16,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -503,7 +502,7 @@ bool BrowsingHistoryService::ShouldQueryRemote(const QueryHistoryState& state) {
     return false;
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
   // Actor visits are local-only and user visits should not be queried.
   if (history::IsBrowsingHistoryActorIntegrationM3Enabled() &&
       !state.original_options.include_user_visits) {
@@ -638,15 +637,15 @@ void BrowsingHistoryService::MergeDuplicateResults(
       current_day_midnight = entry.time.LocalMidnight();
     }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
     auto& current_day_entries =
         history::IsBrowsingHistoryActorIntegrationM2Enabled() &&
                 entry.is_actor_visit
             ? actor_current_day_entries
             : non_actor_current_day_entries;
-#else   // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#else
     auto& current_day_entries = non_actor_current_day_entries;
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif
 
     // Keep this visit if it's the first visit to this URL on the current day.
     if (current_day_entries.count(entry.url) == 0) {
@@ -733,15 +732,15 @@ BrowsingHistoryService::GroupSimilarVisits(QueryHistoryState* state) {
       current_day_midnight = entry.time.LocalMidnight();
     }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
     auto& current_day_entries =
         history::IsBrowsingHistoryActorIntegrationM2Enabled() &&
                 entry.is_actor_visit
             ? actor_current_day_entries
             : non_actor_current_day_entries;
-#else   // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#else
     auto& current_day_entries = non_actor_current_day_entries;
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif
 
     // TODO(b/481272035): Use the domain name that matches the displayed domain
     // name in the UI.
@@ -873,8 +872,9 @@ void BrowsingHistoryService::ReturnResultsToDriver(
 
   QueryResultsInfo info;
   info.search_text = state->search_text;
-  info.reached_beginning =
-      !CanRetry(state->local_status) && !CanRetry(state->remote_status);
+  info.reached_beginning = !CanRetry(state->local_status) &&
+                           (!CanRetry(state->remote_status) ||
+                            state->original_options.app_id != kNoAppIdFilter);
   info.sync_timed_out = state->remote_status == TIMED_OUT;
   base::OnceClosure continuation =
       base::BindOnce(&BrowsingHistoryService::QueryHistoryInternal,

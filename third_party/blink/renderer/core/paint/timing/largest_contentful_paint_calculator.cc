@@ -130,13 +130,12 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulImage(
     return;
   }
 
-  largest_image_bpp_ = largest_image.EntropyForLCP();
   largest_reported_size_ = largest_image.RecordedSize();
   const KURL& url = media_timing->Url();
   const String& image_string = url.GetString();
   const String& image_url =
       url.ProtocolIsData()
-          ? image_string.Left(ImageElementTiming::kInlineImageMaxChars)
+          ? image_string.substr(0, ImageElementTiming::kInlineImageMaxChars)
           : image_string;
   // Do not expose element attribution from shadow trees.
   Element* image_element =

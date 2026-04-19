@@ -879,6 +879,10 @@ component("net") {
     "proxy_resolution/proxy_retry_info.h",
     "proxy_resolution/resolve_host_request.cc",
     "proxy_resolution/resolve_host_request.h",
+    "proxy_resolution/system_proxy_resolution_request.cc",
+    "proxy_resolution/system_proxy_resolution_request.h",
+    "proxy_resolution/system_proxy_resolution_service.cc",
+    "proxy_resolution/system_proxy_resolution_service.h",
     "quic/address_utils.h",
     "quic/bidirectional_stream_quic_impl.cc",
     "quic/bidirectional_stream_quic_impl.h",
@@ -1431,6 +1435,11 @@ component("net") {
       "cert/test_keychain_search_list_mac.h",
       "cert/test_root_certs_builtin.cc",
       "proxy_resolution/mac/mac_proxy_resolution_status.h",
+      "proxy_resolution/mac/mac_system_proxy_resolution_request.cc",
+      "proxy_resolution/mac/mac_system_proxy_resolution_request.h",
+      "proxy_resolution/mac/mac_system_proxy_resolution_service.cc",
+      "proxy_resolution/mac/mac_system_proxy_resolution_service.h",
+      "proxy_resolution/mac/mac_system_proxy_resolver.h",
       "proxy_resolution/proxy_config_service_mac.cc",
       "proxy_resolution/proxy_config_service_mac.h",
       "ssl/client_cert_identity_mac.cc",
@@ -3563,6 +3572,7 @@ target(_test_target_type, "net_unittests") {
       "iphlpapi.lib",
       "ncrypt.lib",
     ]
+    deps += [ "//components/winhttp" ]
   }
 
   if (chrome_root_store_supported) {
@@ -3734,8 +3744,8 @@ if (use_fuzzing_engine) {
       "//net",
     ]
     data = [
-      "data/fuzzer_data",
-      "data/fuzzer_dictionaries",
+      "data/fuzzer_data/",
+      "data/fuzzer_dictionaries/",
     ]
     allow_circular_includes_from = [ "//net/dns:fuzzer_test_support" ]
   }
@@ -3826,6 +3836,7 @@ fuzzer_test("net_pickle_fuzzer") {
     ":net_fuzzer_test_support",
     "//base",
     "//net",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
   seed_corpus = "//net/data/fuzzer_data/pickle/"
 }
@@ -3852,6 +3863,7 @@ fuzzer_test("net_parse_proxy_host_matching_rules_fuzzer") {
   deps = [
     ":net_fuzzer_test_support",
     "//net",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
 }
 
@@ -3860,6 +3872,7 @@ fuzzer_test("net_parse_proxy_rules_fuzzer") {
   deps = [
     ":net_fuzzer_test_support",
     "//net",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
   dict =
       "data/fuzzer_dictionaries/net_parse_proxy_host_matching_rules_fuzzer.dict"
@@ -4142,6 +4155,7 @@ fuzzer_test("net_http_chunked_decoder_fuzzer") {
   deps = [
     ":net_fuzzer_test_support",
     "//net",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
   dict = "data/fuzzer_dictionaries/http_chunked_decoder_fuzzer.dict"
 }

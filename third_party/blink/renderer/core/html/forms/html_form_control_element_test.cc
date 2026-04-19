@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/page/scoped_page_pauser.h"
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -76,10 +77,10 @@ TEST_F(HTMLFormControlElementTest, customValidationMessageTextDirection) {
 
   auto* input = To<HTMLInputElement>(GetElementById("input"));
   input->setCustomValidity(
-      String::FromUTF8("\xD8\xB9\xD8\xB1\xD8\xA8\xD9\x89"));
+      String::FromUtf8("\xD8\xB9\xD8\xB1\xD8\xA8\xD9\x89"));
   input->setAttribute(
       html_names::kTitleAttr,
-      AtomicString::FromUTF8("\xD8\xB9\xD8\xB1\xD8\xA8\xD9\x89"));
+      AtomicString::FromUtf8("\xD8\xB9\xD8\xB1\xD8\xA8\xD9\x89"));
 
   String message = input->validationMessage().StripWhiteSpace();
   String sub_message = input->ValidationSubMessage().StripWhiteSpace();
@@ -99,7 +100,7 @@ TEST_F(HTMLFormControlElementTest, customValidationMessageTextDirection) {
   EXPECT_EQ(TextDirection::kRtl, message_dir);
   EXPECT_EQ(TextDirection::kLtr, sub_message_dir);
 
-  input->setCustomValidity(String::FromUTF8("Main message."));
+  input->setCustomValidity("Main message.");
   message = input->validationMessage().StripWhiteSpace();
   sub_message = input->ValidationSubMessage().StripWhiteSpace();
   input->FindCustomValidationMessageTextDirection(message, message_dir,
@@ -227,5 +228,31 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("select", "", FormControlType::kSelectOne),
         std::make_tuple("select", "multiple", FormControlType::kSelectMultiple),
         std::make_tuple("textarea", "", FormControlType::kTextArea)));
+
+TEST_F(HTMLFormControlElementTest, IsReadOnly) {
+  ScopedFixHTMLFormControlElementIsReadOnlyForTest scoped_feature(
+      /*enabled=*/true);
+
+  SetHtmlInnerHTML(
+      "<body>"
+      "<button id=btn readonly>Click Me</button>"
+      "<select id=sel readonly><option>Option</option></select>"
+      "<input id=text type=text readonly>"
+      "<input id=checkbox type=checkbox readonly>"
+      "<textarea id=textarea readonly></textarea>"
+      "</body>");
+
+  auto* btn = To<HTMLFormControlElement>(GetElementById("btn"));
+  auto* sel = To<HTMLFormControlElement>(GetElementById("sel"));
+  auto* text = To<HTMLFormControlElement>(GetElementById("text"));
+  auto* checkbox = To<HTMLFormControlElement>(GetElementById("checkbox"));
+  auto* textarea = To<HTMLFormControlElement>(GetElementById("textarea"));
+
+  EXPECT_FALSE(btn->IsReadOnly());
+  EXPECT_FALSE(sel->IsReadOnly());
+  EXPECT_TRUE(text->IsReadOnly());
+  EXPECT_FALSE(checkbox->IsReadOnly());
+  EXPECT_TRUE(textarea->IsReadOnly());
+}
 
 }  // namespace blink

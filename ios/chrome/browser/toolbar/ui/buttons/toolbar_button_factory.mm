@@ -4,10 +4,13 @@
 
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_factory.h"
 
+#import "base/check.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_visibility.h"
+#import "ios/chrome/browser/toolbar/ui/buttons/toolbar_buttons_utils.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_constants.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
 namespace {
 // Default point size for toolbar buttons.
@@ -32,10 +35,62 @@ constexpr CGFloat kDefaultSymbolPointSize = 22;
   return button;
 }
 
+- (UIView*)makeConjoinedBackButton:(ToolbarButton*)backButton
+                     forwardButton:(ToolbarButton*)forwardButton {
+  CHECK(backButton);
+  CHECK(forwardButton);
+  UIView* buttonsContainer = [[UIView alloc] init];
+  buttonsContainer.translatesAutoresizingMaskIntoConstraints = NO;
+  [buttonsContainer
+      setContentCompressionResistancePriority:UILayoutPriorityRequired
+                                      forAxis:UILayoutConstraintAxisHorizontal];
+  [buttonsContainer setContentHuggingPriority:UILayoutPriorityRequired
+                                      forAxis:UILayoutConstraintAxisHorizontal];
+
+  // Internal stack view to handle dynamic resizing when the forward button
+  // visibility changes.
+  UIStackView* buttonsStack = [[UIStackView alloc]
+      initWithArrangedSubviews:@[ backButton, forwardButton ]];
+  buttonsStack.translatesAutoresizingMaskIntoConstraints = NO;
+  buttonsStack.axis = UILayoutConstraintAxisHorizontal;
+  buttonsStack.distribution = UIStackViewDistributionFill;
+  buttonsStack.alignment = UIStackViewAlignmentFill;
+
+  [buttonsContainer addSubview:buttonsStack];
+  AddSameConstraints(buttonsStack, buttonsContainer);
+
+  backButton.translatesAutoresizingMaskIntoConstraints = NO;
+  forwardButton.translatesAutoresizingMaskIntoConstraints = NO;
+
+  [NSLayoutConstraint activateConstraints:@[
+    [buttonsContainer.heightAnchor
+        constraintEqualToAnchor:backButton.heightAnchor]
+  ]];
+
+  buttonsContainer.backgroundColor = ToolbarButtonColor();
+  ConfigureCornerRadiusForToolbarButtonContainer(
+      buttonsContainer, buttonsContainer.traitCollection);
+  buttonsContainer.clipsToBounds = YES;
+  buttonsContainer.layer.masksToBounds = YES;
+  ConfigureShadowForToolbarButton(buttonsContainer);
+
+  backButton.backgroundColor = [UIColor clearColor];
+  forwardButton.backgroundColor = [UIColor clearColor];
+
+  [buttonsContainer
+      registerForTraitChanges:
+          @[ UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class ]
+                  withHandler:^(id<UITraitEnvironment>, UITraitCollection*) {
+                    ConfigureCornerRadiusForToolbarButtonContainer(
+                        buttonsContainer, buttonsContainer.traitCollection);
+                  }];
+  return buttonsContainer;
+}
+
 - (ToolbarButton*)makeReloadButton {
   ToolbarButton* button = [self toolbarButtonForImageNamed:kArrowClockWiseSymbol
                                               defaultImage:NO];
-  button.visibilityMask = ToolbarButtonVisibility::kRegularRegular;
+  button.visibilityMask = ToolbarButtonVisibility::kWideLayout;
   button.accessibilityIdentifier = kToolbarReloadButtonIdentifier;
   return button;
 }
@@ -43,7 +98,7 @@ constexpr CGFloat kDefaultSymbolPointSize = 22;
 - (ToolbarButton*)makeStopButton {
   ToolbarButton* button = [self toolbarButtonForImageNamed:kXMarkSymbol
                                               defaultImage:YES];
-  button.visibilityMask = ToolbarButtonVisibility::kRegularRegular;
+  button.visibilityMask = ToolbarButtonVisibility::kWideLayout;
   button.accessibilityIdentifier = kToolbarStopButtonIdentifier;
   return button;
 }
@@ -73,6 +128,8 @@ constexpr CGFloat kDefaultSymbolPointSize = 22;
 }
 
 - (ToolbarButton*)makeAssistantButton {
+  /// TODO(crbug.com/493956100): Update the icon for the Assistant button in the
+  /// toolbar.
   ToolbarButton* button =
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
       [self toolbarButtonForImageNamed:kGeminiBrandedLogoSymbol

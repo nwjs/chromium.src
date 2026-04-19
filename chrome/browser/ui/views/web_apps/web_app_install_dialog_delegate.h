@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_WEB_APPS_WEB_APP_INSTALL_DIALOG_DELEGATE_H_
 #define CHROME_BROWSER_UI_VIEWS_WEB_APPS_WEB_APP_INSTALL_DIALOG_DELEGATE_H_
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 
@@ -41,6 +42,8 @@ class Rect;
 namespace web_app {
 
 enum InstallDialogType { kSimple, kDetailed, kDiy, kMaxValue = kDiy };
+
+std::ostream& operator<<(std::ostream& os, InstallDialogType type);
 
 inline constexpr int kIconSize = 32;
 
@@ -88,9 +91,11 @@ class WebAppInstallDialogDelegate : public WebAppModalDialogDelegate {
 
   ~WebAppInstallDialogDelegate() override;
 
-  void OnAccept();
+  virtual void OnAccept();
   void OnCancel();
   void OnClose();
+
+  virtual bool OnOkButtonClicked();
 
   // This is called when the dialog has been either accepted, cancelled, closed
   // or destroyed without an user-action.
@@ -112,12 +117,14 @@ class WebAppInstallDialogDelegate : public WebAppModalDialogDelegate {
   // WebAppModalDialogDelegate overrides:
   void CloseDialogAsIgnored() override;
 
+ protected:
+  std::unique_ptr<WebAppInstallInfo> install_info_;
+
  private:
   void MeasureIphOnDialogClose();
   void MeasureAcceptUserActionsForInstallDialog();
   void MeasureCancelUserActionsForInstallDialog();
 
-  std::unique_ptr<WebAppInstallInfo> install_info_;
   std::unique_ptr<webapps::MlInstallOperationTracker> install_tracker_;
   AppInstallationAcceptanceCallback callback_;
   PwaInProductHelpState iph_state_;
@@ -136,7 +143,6 @@ class WebAppInstallDialogDelegate : public WebAppModalDialogDelegate {
 
   base::WeakPtrFactory<WebAppInstallDialogDelegate> weak_ptr_factory_{this};
 };
-
 }  // namespace web_app
 
 #endif  // CHROME_BROWSER_UI_VIEWS_WEB_APPS_WEB_APP_INSTALL_DIALOG_DELEGATE_H_

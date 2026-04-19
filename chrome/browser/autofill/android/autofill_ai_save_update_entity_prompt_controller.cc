@@ -108,7 +108,8 @@ std::u16string AutofillAiSaveUpdateEntityPromptController::GetSourceNotice()
       l10n_util::GetStringUTF16(IDS_AUTOFILL_GOOGLE_WALLET_TITLE);
   return l10n_util::GetStringFUTF16(
       IDS_AUTOFILL_AI_SAVE_OR_UPDATE_ENTITY_IN_WALLET_SOURCE_NOTICE,
-      google_wallet_text, base::UTF8ToUTF16(account->email));
+      google_wallet_text, google_wallet_text,
+      base::UTF8ToUTF16(account->email));
 }
 
 bool AutofillAiSaveUpdateEntityPromptController::IsWalletableEntity() const {
@@ -148,7 +149,8 @@ void AutofillAiSaveUpdateEntityPromptController::OnPromptDismissed(
 void AutofillAiSaveUpdateEntityPromptController::RunPromptClosedCallback(
     AutofillClient::AutofillAiBubbleResult result) {
   if (prompt_result_callback_) {
-    std::move(prompt_result_callback_).Run(result);
+    // TODO(crbug.com/489354073): Pass the correct UI context.
+    std::move(prompt_result_callback_).Run(result, {});
   }
 }
 

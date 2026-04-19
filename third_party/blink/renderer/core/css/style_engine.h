@@ -770,7 +770,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void Trace(Visitor*) const override;
   const char* GetHumanReadableName() const override { return "StyleEngine"; }
 
-  RuleSet* DefaultViewTransitionStyle(const Element&) const;
+  RuleSet* ActiveViewTransitionStyle(const Element&) const;
 
   void UpdateViewTransitionOptIn();
 
@@ -1226,6 +1226,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
 
   // The @view-transition rule currently applying to the document.
   CascadeLayered<StyleRuleViewTransition> view_transition_rule_;
+  CascadeLayered<StyleRuleViewTransition> view_transition_preview_rule_;
 
   // Cache for sharing ImageResourceContent between CSSValues referencing the
   // same URL.

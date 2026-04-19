@@ -5,7 +5,10 @@
 #ifndef COMPONENTS_OPTIMIZATION_GUIDE_CONTENT_BROWSER_PAGE_CONTEXT_ELIGIBILITY_API_H_
 #define COMPONENTS_OPTIMIZATION_GUIDE_CONTENT_BROWSER_PAGE_CONTEXT_ELIGIBILITY_API_H_
 
+#include <stddef.h>
+
 #include <string>
+#include <string_view>
 #include <vector>
 
 extern "C" {
@@ -39,6 +42,13 @@ struct FrameMetadata {
   std::vector<MetaTag> meta_tags;
 };
 
+// Represents an span of string views. Used instead of a std::span to avoid ABI
+// issues.
+struct StringViewSpan {
+  const std::string_view* data;
+  size_t size;
+};
+
 // Table of C API functions defined within the library.
 struct PageContextEligibilityAPI {
   // Whether the page is context eligible.
@@ -57,6 +67,13 @@ struct PageContextEligibilityAPI {
       const std::string& host,
       const std::string& path,
       const std::vector<std::string>& updated_meta_tags);
+  // Returns the meta tag names that, if changed on a frame, could affect the
+  // page context eligibility. This could be empty if meta tag changes would
+  // not affect eligibility.
+  StringViewSpan (*GetMetaTagNamesAffectingEligibility)(
+      std::string_view host,
+      std::string_view path,
+      const std::vector<FrameMetadata>& frame_metadata);
 };
 
 // Signature of the GetPageContextEligibilityAPI() function which the shared

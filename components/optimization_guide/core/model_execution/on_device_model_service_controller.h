@@ -70,6 +70,9 @@ class ModelController {
 // a single instance of this object.
 class OnDeviceModelServiceController final {
  public:
+  // The model type managed by this controller.
+  static constexpr OnDeviceModelType kModelType = OnDeviceModelType::kBaseModel;
+
   OnDeviceModelServiceController(
       on_device_model::ServiceClient& service_client,
       UsageTracker& usage_tracker,
@@ -141,9 +144,6 @@ class OnDeviceModelServiceController final {
 
     // Creates a config describing this solution;
     mojom::ModelSolutionConfigPtr MakeConfig() const override;
-
-    // Returns the adapter for this solution.
-    const OnDeviceModelFeatureAdapter* GetAdapter() const override;
 
     const scoped_refptr<const OnDeviceModelFeatureAdapter>& adapter() const {
       return adapter_;

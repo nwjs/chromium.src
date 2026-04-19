@@ -157,7 +157,7 @@ export function getHtml(this: MyElement) {
 **Do:**
 ```ts
 // my_element.ts
-protected accessor isVisible = false;
+protected accessor isVisible_ = false;
 
 // my_element.html.ts
 export function getHtml(this: MyElement) {
@@ -363,6 +363,21 @@ export function getHtml(this: MyCrLitElement) {
 ```
 
 ## Naming Conventions
+
+### CrLitElement DOM, file, class names.
+
+* The DOM name **should not end** with the `-element` suffix.
+* The file name **should not end** with the `_element` suffix.
+* The class name **should end** with the `Element` suffix.
+* The class and file name **should be derived** from the DOM name.
+
+Where the pattern to derive the class and file names from the DOM name is
+
+* DOM name: `foo-bar-baz`
+* Class name candidates: `<OptionalPrefix>FooBarBazElement`, or `BarBazElement`,
+  or `BazElement`
+* File name candidates: `foo_bar_baz.{css,html,ts}`, `bar_baz.{css,html,ts}` or
+  `baz.{css,html,ts}`,
 
 ### Events
 

@@ -63,6 +63,7 @@ component("cpp") {
     "avail_language_header_parser.h",
     "browsing_topics_parser.cc",
     "browsing_topics_parser.h",
+    "connection_allowlist_metrics.h",
     "connection_allowlist_parser.cc",
     "connection_allowlist_parser.h",
     "constants.cc",
@@ -293,6 +294,7 @@ component("connection_allowlist") {
     "//components/url_pattern",
     "//net",
     "//services/network/public/mojom:mojom_connection_allowlist_shared",
+    "//url/mojom:url_mojom_gurl",
   ]
   public_deps = [
     "//base",
@@ -843,6 +845,7 @@ source_set("tests") {
     "network_mojom_traits_unittest.cc",
     "network_param_mojom_traits_unittest.cc",
     "network_quality_tracker_unittest.cc",
+    "no_vary_search_header_parser_unittest.cc",
     "optional_trust_token_params_unittest.cc",
     "origin_agent_cluster_parser_unittest.cc",
     "originating_process_id_mojom_traits_unittest.cc",

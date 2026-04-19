@@ -42,7 +42,7 @@ public class ExtensionsMenuTypes {
         public final boolean isOn;
         public final @Nullable Bitmap icon;
 
-        @CalledByNative("ControlState")
+        @CalledByNative
         public ControlState(
                 @Status int status,
                 @JniType("std::u16string") String text,
@@ -64,19 +64,23 @@ public class ExtensionsMenuTypes {
         public final String id;
         public final ControlState actionButton;
         public final ControlState contextMenuButton;
+        public final ControlState siteAccessToggle;
+        public final ControlState sitePermissionsButton;
 
-        // TODO(crbug.com/471016915): add site permissions button.
-        // TODO(crbug.com/471016915): add site access toggle.
         // TODO(crbug.com/471016915): add is enterprise boolean.
 
-        @CalledByNative("MenuEntryState")
+        @CalledByNative
         public MenuEntryState(
                 @JniType("std::string") String id,
                 ControlState actionButton,
-                ControlState contextMenuButton) {
+                ControlState contextMenuButton,
+                ControlState siteAccessToggle,
+                ControlState sitePermissionsButton) {
             this.id = id;
             this.actionButton = actionButton;
             this.contextMenuButton = contextMenuButton;
+            this.siteAccessToggle = siteAccessToggle;
+            this.sitePermissionsButton = sitePermissionsButton;
         }
     }
 
@@ -86,12 +90,42 @@ public class ExtensionsMenuTypes {
         public final boolean hasTooltip;
         public final ControlState toggle;
 
-        @CalledByNative("SiteSettingsState")
+        @CalledByNative
         public SiteSettingsState(
                 @JniType("std::u16string") String label, boolean hasTooltip, ControlState toggle) {
             this.label = label;
             this.hasTooltip = hasTooltip;
             this.toggle = toggle;
+        }
+    }
+
+    /** Mirrors {@code ExtensionsMenuViewModel::OptionalSection} */
+    @IntDef({
+        OptionalSectionType.HOST_ACCESS_REQUESTS,
+        OptionalSectionType.NONE,
+        OptionalSectionType.RELOAD_PAGE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface OptionalSectionType {
+        int HOST_ACCESS_REQUESTS = 0;
+        int NONE = 1;
+        int RELOAD_PAGE = 2;
+    }
+
+    /** Mirrors {@code ExtensionsMenuViewModel::HostAccessRequest} */
+    public static class HostAccessRequest {
+        public final String extensionId;
+        public final String extensionName;
+        public final @Nullable Bitmap extensionIcon;
+
+        @CalledByNative
+        public HostAccessRequest(
+                @JniType("std::string") String extensionId,
+                @JniType("std::u16string") String extensionName,
+                @Nullable Bitmap extensionIcon) {
+            this.extensionId = extensionId;
+            this.extensionName = extensionName;
+            this.extensionIcon = extensionIcon;
         }
     }
 }

@@ -27,7 +27,8 @@ class MirrorLayerTest : public testing::Test {
   void SynchronizeTrees() {
     TreeSynchronizer::PushLayerProperties(
         *layer_tree_host_->GetPendingCommitState(),
-        layer_tree_host_->GetThreadUnsafeCommitState(),
+        const_cast<const FakeLayerTreeHost*>(layer_tree_host_.get())
+            ->thread_unsafe_commit_state(),
         host_impl_.pending_tree());
   }
 
@@ -69,18 +70,23 @@ TEST_F(MirrorLayerTest, PushProperties) {
   EXPECT_EQ(mirrored.get(), mirror->mirrored_layer());
 
   auto root_impl = LayerImpl::Create(host_impl_.pending_tree(), root->id());
+  host_impl_.pending_tree()->AddLayer(std::move(root_impl));
   auto mirrored_impl =
       LayerImpl::Create(host_impl_.pending_tree(), mirrored->id());
+  auto* mirrored_impl_ptr = mirrored_impl.get();
+  host_impl_.pending_tree()->AddLayer(std::move(mirrored_impl));
   auto mirror_impl =
       MirrorLayerImpl::Create(host_impl_.pending_tree(), mirror->id());
+  auto* mirror_impl_ptr = mirror_impl.get();
+  host_impl_.pending_tree()->AddLayer(std::move(mirror_impl));
 
   // Verify that impl layers have default property values.
-  EXPECT_EQ(0, mirror_impl->mirrored_layer_id());
+  EXPECT_EQ(0, mirror_impl_ptr->mirrored_layer_id());
 
   SynchronizeTrees();
 
   // Verify that property values are pushed to impl layers.
-  EXPECT_EQ(mirrored_impl->id(), mirror_impl->mirrored_layer_id());
+  EXPECT_EQ(mirrored_impl_ptr->id(), mirror_impl_ptr->mirrored_layer_id());
 }
 
 // This test verifies adding/removing mirror layers updates mirror count
@@ -105,7 +111,7 @@ TEST_F(MirrorLayerTest, MirrorCount) {
   EXPECT_TRUE(
       const_cast<const FakeLayerTreeHost*>(layer_tree_host_.get())
           ->pending_commit_state()
-          ->layers_that_should_push_properties.contains(mirrored.get()));
+          ->layer_ids_that_should_push_properties.contains(mirrored->id()));
   layer_tree_host_->property_trees()->set_needs_rebuild(false);
 
   // Creating a second mirror layer should not trigger property trees rebuild.
@@ -116,7 +122,7 @@ TEST_F(MirrorLayerTest, MirrorCount) {
   EXPECT_TRUE(
       const_cast<const FakeLayerTreeHost*>(layer_tree_host_.get())
           ->pending_commit_state()
-          ->layers_that_should_push_properties.contains(mirrored.get()));
+          ->layer_ids_that_should_push_properties.contains(mirrored->id()));
   layer_tree_host_->property_trees()->set_needs_rebuild(false);
 
   // Destroying one of the mirror layers should not trigger property trees
@@ -127,7 +133,7 @@ TEST_F(MirrorLayerTest, MirrorCount) {
   EXPECT_FALSE(layer_tree_host_->property_trees()->needs_rebuild());
   EXPECT_EQ(1u, const_cast<const FakeLayerTreeHost*>(layer_tree_host_.get())
                     ->pending_commit_state()
-                    ->layers_that_should_push_properties.size());
+                    ->layer_ids_that_should_push_properties.size());
   layer_tree_host_->property_trees()->set_needs_rebuild(false);
 
   // Destroying the only remaining mirror layer should trigger property trees
@@ -139,7 +145,7 @@ TEST_F(MirrorLayerTest, MirrorCount) {
   EXPECT_TRUE(
       const_cast<const FakeLayerTreeHost*>(layer_tree_host_.get())
           ->pending_commit_state()
-          ->layers_that_should_push_properties.contains(mirrored.get()));
+          ->layer_ids_that_should_push_properties.contains(mirrored->id()));
   layer_tree_host_->property_trees()->set_needs_rebuild(false);
 
   mirrored->SetLayerTreeHost(nullptr);

@@ -24,7 +24,6 @@
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/one_shot_event.h"
 #include "base/stl_util.h"
@@ -44,6 +43,7 @@
 #include "chrome/browser/extensions/chrome_extension_registrar_delegate.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
+#include "chrome/browser/extensions/cws_info_service_factory.h"
 #include "chrome/browser/extensions/extension_action_storage_manager.h"
 #include "chrome/browser/extensions/extension_allowlist.h"
 #include "chrome/browser/extensions/extension_disabled_ui.h"
@@ -81,6 +81,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/blocklist_state.h"
+#include "extensions/browser/cws_info_service.h"
 #include "extensions/browser/delayed_install_manager.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/event_router.h"
@@ -253,7 +254,8 @@ ExtensionService::ExtensionService(
   UpgradeDetector::GetInstance()->AddObserver(this);
 #endif
 
-  cws_info_service_observation_.Observe(CWSInfoService::Get(profile_));
+  cws_info_service_observation_.Observe(
+      CWSInfoServiceFactory::GetForProfile(profile_));
 
   ExtensionManagementFactory::GetForBrowserContext(profile_)->AddObserver(this);
 
@@ -785,7 +787,7 @@ void ExtensionService::OnExtensionManagementSettingsChanged() {
   if (profile_->GetPrefs()->GetInteger(
           pref_names::kExtensionUnpublishedAvailability) !=
       kAllowUnpublishedExtensions) {
-    CWSInfoService::Get(profile_)->CheckAndMaybeFetchInfo();
+    CWSInfoServiceFactory::GetForProfile(profile_)->CheckAndMaybeFetchInfo();
   }
 }
 

@@ -392,6 +392,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       int cert_verify_flags,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
+      std::optional<ResolutionDetails> dns_resolution_details,
       bool use_dns_aliases,
       std::set<std::string> dns_aliases,
       MultiplexedSessionCreationInitiator session_creation_initiator,
@@ -631,6 +632,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       ConnectionEndpointMetadata metadata,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
+      std::optional<ResolutionDetails> resolution_details,
       const NetLogWithSource& net_log,
       raw_ptr<QuicChromiumClientSession>* session,
       handles::NetworkHandle* network,
@@ -652,6 +654,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       ConnectionEndpointMetadata metadata,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
+      std::optional<ResolutionDetails> resolution_details,
       const NetLogWithSource& net_log,
       handles::NetworkHandle network,
       MultiplexedSessionCreationInitiator session_creation_initiator,
@@ -678,6 +681,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       ConnectionEndpointMetadata metadata,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
+      std::optional<ResolutionDetails> resolution_details,
       quic::QuicPacketLength session_max_packet_length,
       const NetLogWithSource& net_log,
       handles::NetworkHandle network,
@@ -695,6 +699,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       ConnectionEndpointMetadata metadata,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
+      std::optional<ResolutionDetails> resolution_details,
       quic::QuicPacketLength session_max_packet_length,
       const NetLogWithSource& net_log,
       handles::NetworkHandle network,
@@ -794,6 +799,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
 
   bool CryptoConfigCacheIsEmptyForTesting(const quic::QuicServerId& server_id,
                                           QuicCryptoClientConfigKey key);
+
+  bool CryptoConfigSessionCacheIsEmptyForTesting(QuicCryptoClientConfigKey key);
 
   const quic::ParsedQuicVersionVector& supported_versions() const {
     return params_.supported_versions;
@@ -947,6 +954,7 @@ class QuicSessionPool::QuicCryptoClientConfigOwner
     : public base::MemoryPressureListener {
  public:
   QuicCryptoClientConfigOwner(
+      NetworkAnonymizationKey network_anonymization_key,
       std::unique_ptr<quic::ProofVerifier> proof_verifier,
       std::unique_ptr<quic::QuicClientSessionCache> session_cache,
       size_t max_cache_entries,
@@ -982,8 +990,10 @@ class QuicSessionPool::QuicCryptoClientConfigOwner
     num_refs_--;
   }
 
+  const NetworkAnonymizationKey network_anonymization_key_;
   int num_refs_ = 0;
   quic::QuicCryptoClientConfig config_;
+  raw_ptr<base::Clock> clock_;
   const size_t max_cache_entries_;
   std::unique_ptr<base::AsyncMemoryPressureListenerRegistration>
       memory_pressure_listener_registration_;

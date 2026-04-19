@@ -71,8 +71,6 @@ packaging_files_binaries = packaging_files_executables + packaging_files_shlibs
 # (e.g. all locales, resources, etc.)
 packaging_files = packaging_files_binaries + [
                     "common/installer.py",
-                    "$root_out_dir/xdg-mime",
-                    "$root_out_dir/xdg-settings",
                     "$root_out_dir/locales/en-US.pak",
                     "$root_out_dir/MEIPreload/manifest.json",
                     "$root_out_dir/MEIPreload/preloaded_data.pb",
@@ -424,7 +422,7 @@ group("installer_deps") {
     "//sandbox/linux:chrome_sandbox",
   ]
   if (is_linux) {
-    public_deps += [ "//chrome:xdg_mime" ]
+    public_deps += [ "//chrome:linux_cros_extra_data" ]
   }
   if (bundle_widevine_cdm) {
     public_deps += [ "//third_party/widevine/cdm" ]

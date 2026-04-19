@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/custom_state_set.h"
+#include "third_party/blink/renderer/core/html/forms/element_behavior.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
@@ -101,6 +102,7 @@ void ElementInternals::Trace(Visitor* visitor) const {
   visitor->Trace(validity_flags_);
   visitor->Trace(validation_anchor_);
   visitor->Trace(custom_states_);
+  visitor->Trace(behaviors_);
   visitor->Trace(explicitly_set_attr_elements_map_);
   ListedElement::Trace(visitor);
   ScriptWrappable::Trace(visitor);
@@ -406,6 +408,47 @@ const FrozenArray<Element>* ElementInternals::GetElementArrayAttribute(
   return it->value.Get();
 }
 
+const FrozenArray<ElementBehavior>& ElementInternals::behaviors() const {
+  DCHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled());
+  if (!behaviors_) {
+    DEFINE_STATIC_LOCAL(Persistent<FrozenArray<ElementBehavior>>, empty,
+                        (MakeGarbageCollected<FrozenArray<ElementBehavior>>()));
+    return *empty;
+  }
+  return *behaviors_;
+}
+
+void ElementInternals::SetBehaviors(
+    HeapVector<Member<ElementBehavior>> behaviors,
+    ExceptionState& exception_state) {
+  DCHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled());
+
+  HashSet<String> seen_names;
+  for (ElementBehavior* behavior : behaviors) {
+    String name(behavior->BehaviorName());
+    // Check for duplicate instances or duplicate types (same BehaviorName).
+    if (seen_names.Contains(name)) {
+      exception_state.ThrowTypeError("Only one instance of " + name +
+                                     " is allowed per element.");
+      return;
+    }
+    // Check if the behavior is already attached to another element.
+    if (behavior->GetElementInternals()) {
+      exception_state.ThrowTypeError(
+          name + " instance is already attached to another element.");
+      return;
+    }
+    seen_names.insert(name);
+  }
+
+  // All behaviors validated. Attach and create the frozen array.
+  for (ElementBehavior* behavior : behaviors) {
+    behavior->SetElementInternals(this);
+  }
+  behaviors_ =
+      MakeGarbageCollected<FrozenArray<ElementBehavior>>(std::move(behaviors));
+}
+
 const FrozenArray<Element>* ElementInternals::ariaControlsElements() const {
   return GetElementArrayAttribute(html_names::kAriaControlsAttr);
 }
@@ -477,8 +520,7 @@ bool ElementInternals::IsTargetFormAssociated() const {
   // ElementInternals needs to handle elements to be form-associated same as
   // form-associated custom elements because web authors want to call
   // form-related operations of ElementInternals in constructors.
-  CustomElementRegistry* registry =
-      Target().GetTreeScope().customElementRegistry();
+  CustomElementRegistry* registry = Target().customElementRegistry();
   if (!registry)
     return false;
   auto* definition = registry->DefinitionForName(Target().localName());

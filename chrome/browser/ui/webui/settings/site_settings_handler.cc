@@ -65,6 +65,9 @@
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/web_app.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
+#include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -562,13 +565,17 @@ void ConvertSiteGroupMapToList(
     site_group.Set(kHasInstalledPWA, has_installed_pwa);
     site_group.Set(kNumCookies, 0);
     site_group.Set(kOriginList, std::move(origin_list));
-    if (etld_plus1.has_value() && rws_map.count(*etld_plus1)) {
-      site_group.Set(kRwsOwner, rws_map[*etld_plus1].first);
-      site_group.Set(kRwsNumMembers, rws_map[*etld_plus1].second);
-      auto schemeful_site = ConvertEtldToSchemefulSite(*etld_plus1);
-      site_group.Set(kRwsEnterpriseManaged,
-                     privacy_sandbox_service->IsPartOfManagedRelatedWebsiteSet(
-                         schemeful_site));
+    if (etld_plus1.has_value()) {
+      if (auto it = rws_map.find(*etld_plus1); it != rws_map.end()) {
+        auto& [rws_owner, rws_num_members] = it->second;
+        site_group.Set(kRwsOwner, rws_owner);
+        site_group.Set(kRwsNumMembers, rws_num_members);
+        auto schemeful_site = ConvertEtldToSchemefulSite(*etld_plus1);
+        site_group.Set(
+            kRwsEnterpriseManaged,
+            privacy_sandbox_service->IsPartOfManagedRelatedWebsiteSet(
+                schemeful_site));
+      }
     }
     list_value->Append(std::move(site_group));
   }
@@ -840,6 +847,11 @@ void SiteSettingsHandler::RegisterMessages() {
       "openSystemPermissionSettings",
       base::BindRepeating(
           &SiteSettingsHandler::HandleOpenSystemPermissionSettings,
+          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "getSubAppsPermissionExplanation",
+      base::BindRepeating(
+          &SiteSettingsHandler::HandleGetSubAppsPermissionExplanation,
           base::Unretained(this)));
 }
 
@@ -2558,6 +2570,60 @@ void SiteSettingsHandler::HandleOpenSystemPermissionSettings(
 
   content::WebContents* web_contents = CHECK_DEREF(web_ui()).GetWebContents();
   system_permission_settings::OpenSystemSettings(web_contents, permission_type);
+}
+
+void SiteSettingsHandler::HandleGetSubAppsPermissionExplanation(
+    const base::ListValue& args) {
+  AllowJavascript();
+
+  CHECK_EQ(2U, args.size());
+  const base::Value& callback_id = args[0];
+  const std::string& url_string = args[1].GetString();
+
+  const GURL url(url_string);
+  base::DictValue result;
+  result.Set("isSubApp", false);
+  result.Set("hasSubApps", false);
+
+  auto* web_app_provider = web_app::WebAppProvider::GetForWebApps(profile_);
+  if (!web_app_provider) {
+    ResolveJavascriptCallback(callback_id, result);
+    return;
+  }
+
+  const web_app::WebAppRegistrar& registrar =
+      web_app_provider->registrar_unsafe();
+  std::optional<webapps::AppId> app_id =
+      web_app::FindInstalledAppWithUrlInScope(profile_, url);
+
+  if (app_id.has_value()) {
+    if (registrar.AppMatches(*app_id,
+                             web_app::WebAppFilter::IsIsolatedSubApp())) {
+      const web_app::WebApp* app = registrar.GetAppById(*app_id);
+      if (app && app->parent_app_id().has_value()) {
+        std::string parent_app_id = app->parent_app_id().value();
+        result.Set("isSubApp", true);
+        result.Set("appName", registrar.GetAppShortName(*app_id));
+        result.Set("parentAppName", registrar.GetAppShortName(parent_app_id));
+        GURL parent_app_url = registrar.GetAppStartUrl(parent_app_id);
+        std::string parent_url_string =
+            parent_app_url.SchemeIs(webapps::kIsolatedAppScheme)
+                ? parent_app_url.spec()
+                : url::Origin::Create(parent_app_url).Serialize();
+        result.Set("parentAppOrigin", parent_url_string);
+      }
+    }
+
+    if (!result.FindBool("isSubApp").value_or(false) &&
+        registrar.AppMatches(*app_id, web_app::WebAppFilter::IsIsolatedApp())) {
+      if (!registrar.GetAllSubAppIds(*app_id).empty()) {
+        result.Set("hasSubApps", true);
+        result.Set("appName", registrar.GetAppShortName(*app_id));
+      }
+    }
+  }
+
+  ResolveJavascriptCallback(callback_id, result);
 }
 
 void SiteSettingsHandler::RemoveNonModelData(

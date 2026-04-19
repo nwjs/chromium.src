@@ -19,6 +19,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -26,8 +27,11 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.content.common.ContentInternalFeatures;
+import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.ui.accessibility.testservice.IAccessibilityTestHelperService;
 import org.chromium.ui.accessibility.testservice.WaitForEventParams;
 
@@ -57,7 +61,7 @@ public class WebContentsAccessibilityE2ETest {
             ACCESSIBILITY_TEST_SERVICE_COMPONENT_NAME.flattenToString();
     private static final long BIND_TIMEOUT_MS = 5000;
     private static final long EVENT_TIMEOUT_MS = 5000;
-    private static final String TAG = "WebContentsAccessibilityE2ETest";
+    private static final String TAG = "WebContentsAXTest";
 
     private final AtomicReference<CompletableFuture<IAccessibilityTestHelperService>>
             mServiceFuture = new AtomicReference<>(new CompletableFuture<>());
@@ -179,6 +183,10 @@ public class WebContentsAccessibilityE2ETest {
     @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     public void testAccessibilityServiceReceivesInitialEvent_SdkBalklavaAndAbove()
             throws Throwable {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1);
+
         // Load a page.
         String url = UrlUtils.encodeHtmlDataUri("<p>hello</p>");
         mActivityTestRule.launchContentShellWithUrl(url);
@@ -246,6 +254,180 @@ public class WebContentsAccessibilityE2ETest {
                                         .setText("Click Me")
                                         .build());
         Assert.assertTrue("Service did not receive accessibility focus event", eventReceived);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    public void testDumpWebContentsAccessibilityTree() throws Throwable {
+        // Load a page with more complex HTML content.
+        String html =
+                """
+                <h1>Heading</h1>
+                <p>Some text</p>
+                <button>Click Me</button>
+                <div><a href="#">Link</a></div>
+                """;
+        mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+
+        // Wait for the page to load by waiting for the initial TWCC.
+        boolean initialEventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue(
+                "Service did not receive initial TYPE_WINDOW_CONTENT_CHANGED event",
+                initialEventReceived);
+
+        // Dump the accessibility tree.
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+        String expectedDump =
+"""
+WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
+  TextView text:"Heading" heading actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="heading", roleDescription="heading 1"]
+  TextView text:"Some text" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"]
+  Button text:"Click Me" clickable focusable actions:[FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="button", clickableScore="300"]
+  View actions:[AX_FOCUS] bundle:[chromeRole="genericContainer"]
+    View text:"null" contentDescription:"Link" clickable focusable actions:[FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Ch1%3EHeading%3C%2Fh1%3E%0A%3Cp%3ESome%20text%3C%2Fp%3E%0A%3Cbutton%3EClick%20Me%3C%2Fbutton%3E%0A%3Cdiv%3E%3Ca%20href%3D%22%23%22%3ELink%3C%2Fa%3E%3C%2Fdiv%3E%0A#"]
+      TextView text:"Link" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
+""";
+        Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    @EnableFeatures({ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION})
+    public void testDumpTreeWithInitialSelection() throws Throwable {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1);
+
+        // Load a page with an initial selection.
+        String html =
+                """
+                <p id="p1">Some selected text</p>
+                """;
+        mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+
+        // Wait for the page to load by waiting for the initial TWCC.
+        boolean initialEventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue(
+                "Service did not receive initial TYPE_WINDOW_CONTENT_CHANGED event",
+                initialEventReceived);
+
+        // Inject script to set the selection.
+        String script =
+                """
+                  var range = document.createRange();
+                  var p1 = document.getElementById("p1").firstChild;
+                  range.setStart(p1, 5);
+                  range.setEnd(p1, 13);
+                  window.getSelection().removeAllRanges();
+                  window.getSelection().addRange(range);
+                """;
+        mActivityTestRule.executeJSAndGetResult(script);
+
+        // Wait for the selection event to be fired.
+        boolean selectionEventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue(
+                "Service did not receive TYPE_VIEW_TEXT_SELECTION_CHANGED event",
+                selectionEventReceived);
+
+        // Dump the accessibility tree.
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+
+        String expectedDump =
+"""
+WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
+  TextView text:"Some selected text" viewIdResName:"p1" actions:[CLEAR_AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 extendedSelectionEnd:13
+""";
+        Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    @EnableFeatures({
+        ContentInternalFeatures.ACCESSIBILITY_EXPOSE_NON_ATOMIC_TEXT_FIELD_CHILDREN,
+        ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION
+    })
+    public void testSelectionInContentEditable() throws Throwable {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1);
+
+        // Load a page with a contenteditable containing a line break and a link.
+        String html =
+                """
+                <html><body><div contenteditable>
+                Line one<br>
+                <a id='link' href='#'>Link text</a> node
+                </div></body></html>
+                """;
+        String url = UrlUtils.encodeHtmlDataUri(html);
+        mActivityTestRule.launchContentShellWithUrl(url);
+
+        // Wait for the page to load.
+        getAccessibilityHelperService()
+                .waitForEvent(
+                        new WaitForEventParamsBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                .setClassName("android.webkit.WebView")
+                                .build());
+
+        // Set selection in the contenteditable via JS.
+        mActivityTestRule.executeJSAndGetResult(
+                """
+                const link = document.getElementById('link');
+                const range = document.createRange();
+                range.selectNodeContents(link);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                """);
+
+        boolean selectionReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue("Service did not receive selection change event", selectionReceived);
+
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+
+        String expectedDump =
+"""
+WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
+  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, CLEAR_AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] extendedSelectionStart:9 extendedSelectionEnd:10
+    TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
+    View text:"\\n" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
+    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"]
+      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0 extendedSelectionEnd:9
+    TextView text:" node" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
+""";
+        Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
     }
 
     private static class WaitForEventParamsBuilder {

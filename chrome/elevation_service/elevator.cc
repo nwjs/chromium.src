@@ -185,6 +185,8 @@ HRESULT Elevator::DecryptData(const BSTR ciphertext,
   base::win::ScopedLocalAlloc intermediate_freer(intermediate.pbData);
 
   std::string plaintext_str;
+  bool should_reencrypt = false;
+
   if (ScopedClientImpersonation impersonate; impersonate.is_valid()) {
     DATA_BLOB output = {};
     // Decrypt using the user store.
@@ -217,11 +219,13 @@ HRESULT Elevator::DecryptData(const BSTR ciphertext,
       *last_error = ::GetLastError();
       return validation_result;
     }
+    if (validation_result == kSuccessShouldReencrypt) {
+      should_reencrypt = true;
+    }
     plaintext_str = PopFromStringFront(mutable_plaintext);
   } else {
     return impersonate.result();
   }
-  bool should_reencrypt = false;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   InternalFlags flags;
   auto post_process_result = PostProcessData(plaintext_str, &flags);
@@ -319,7 +323,6 @@ HRESULT Elevator::RunIsolatedChrome(DWORD flags,
 
     trusted_command_line.emplace(chrome_exe);
   }
-  const auto other_args = untrusted_command_line.GetArgs();
 
   const char* const kAllowedSwitches[] = {
       // Allow selection of profile.
@@ -360,20 +363,33 @@ HRESULT Elevator::RunIsolatedChrome(DWORD flags,
       ::switches::kUninstall,
       ::switches::kUninstallAppId,
       // Logging.
+      ::switches::kEnableLogging,
       ::switches::kLoggingLevel,
       ::switches::kLogFile,
   };
 
-  trusted_command_line->CopySwitchesFrom(untrusted_command_line,
-                                         kAllowedSwitches);
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAllowUntrustedSwitchesForTesting)) {
+    for (const auto& untrusted_switch : untrusted_command_line.GetSwitches()) {
+      trusted_command_line->AppendSwitchNative(untrusted_switch.first,
+                                               untrusted_switch.second);
+    }
+  } else {
+    trusted_command_line->CopySwitchesFrom(untrusted_command_line,
+                                           kAllowedSwitches);
+  }
 
   trusted_command_line->AppendSwitch(::switches::kIsolated);
-  for (const auto& arg : other_args) {
-    // Safety check.
-    if (arg[0] == L'-') {
-      continue;
+
+  if (!untrusted_command_line.GetArgs().empty()) {
+    // Additional arguments can come after a `--` to distinguish them from
+    // switches. The base::CommandLine argument parser already handles this
+    // internally, so ensure this behavior is matched when constructing the
+    // command line for the isolated process.
+    trusted_command_line->AppendArgNative(L"--");
+    for (const auto& arg : untrusted_command_line.GetArgs()) {
+      trusted_command_line->AppendArgNative(arg);
     }
-    trusted_command_line->AppendArgNative(arg);
   }
 
   std::wstring writeable_command_line(

@@ -61,6 +61,9 @@ class GPU_GLES2_EXPORT WrappedSkImageBackingFactory
                    GrContextType gr_context_type,
                    base::span<const uint8_t> pixel_data) override;
   SharedImageBackingType GetBackingType() override;
+  bool IsSupportedForAccessStream(SharedImageAccessStream stream,
+                                  viz::SharedImageFormat format,
+                                  const AccessParams* params) const override;
 
  private:
   scoped_refptr<SharedContextState> context_state_;

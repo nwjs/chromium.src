@@ -164,7 +164,7 @@ String TruncateDialogMessage(const String& message) {
 
   // 10k ought to be enough for anyone.
   const wtf_size_t kMaxMessageSize = 10 * 1024;
-  return message.Substring(0, kMaxMessageSize);
+  return message.substr(0, kMaxMessageSize);
 }
 
 bool DisplayModeIsBorderless(LocalFrame& frame) {
@@ -285,6 +285,17 @@ gfx::Rect ChromeClientImpl::RootWindowRect(LocalFrame& frame) {
 void ChromeClientImpl::DidAccessInitialMainDocument() {
   DCHECK(web_view_);
   web_view_->DidAccessInitialMainDocument();
+}
+
+void ChromeClientImpl::DidChangeThemeColor(std::optional<SkColor> theme_color) {
+  DCHECK(web_view_);
+  web_view_->DidChangeThemeColor(theme_color);
+}
+
+void ChromeClientImpl::DidChangeBackgroundColor(SkColor4f background_color,
+                                                bool color_adjust) {
+  DCHECK(web_view_);
+  web_view_->DidChangeBackgroundColor(background_color, color_adjust);
 }
 
 void ChromeClientImpl::FocusPage() {

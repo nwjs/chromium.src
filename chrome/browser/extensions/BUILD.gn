@@ -11,6 +11,7 @@ import("//chrome/common/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/guest_view/buildflags/buildflags.gni")
 import("//components/safe_browsing/buildflags.gni")
+import("//components/spellcheck/spellcheck_build_features.gni")
 import("//content/public/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
@@ -128,16 +129,6 @@ source_set("extensions") {
     "api/instance_id/instance_id_api.h",
     "api/management/chrome_management_api_delegate.cc",
     "api/management/chrome_management_api_delegate.h",
-    "api/messaging/chrome_messaging_delegate.cc",
-    "api/messaging/chrome_messaging_delegate.h",
-    "api/messaging/chrome_native_message_port_dispatcher.cc",
-    "api/messaging/chrome_native_message_port_dispatcher.h",
-    "api/messaging/incognito_connectability.cc",
-    "api/messaging/incognito_connectability.h",
-    "api/messaging/incognito_connectability_infobar_delegate.cc",
-    "api/messaging/incognito_connectability_infobar_delegate.h",
-    "api/messaging/native_messaging_host_manifest.cc",
-    "api/messaging/native_messaging_host_manifest.h",
     "api/metrics_private/chrome_metrics_private_delegate.cc",
     "api/metrics_private/chrome_metrics_private_delegate.h",
     "api/preference/cookie_controls_mode_transformer.cc",
@@ -264,8 +255,6 @@ source_set("extensions") {
     "corrupted_extension_reinstaller.h",
     "corrupted_extension_reinstaller_factory.cc",
     "corrupted_extension_reinstaller_factory.h",
-    "cws_info_service.cc",
-    "cws_info_service.h",
     "cws_info_service_factory.cc",
     "cws_info_service_factory.h",
     "data_deleter.cc",
@@ -421,8 +410,6 @@ source_set("extensions") {
     "safe_browsing_verdict_handler.h",
     "settings_api_helpers.cc",
     "settings_api_helpers.h",
-    "shared_module_service.cc",
-    "shared_module_service.h",
     "shared_module_service_factory.cc",
     "shared_module_service_factory.h",
     "side_panel_helper.cc",
@@ -443,13 +430,13 @@ source_set("extensions") {
     "sync/extension_sync_service_factory.h",
     "sync/extension_sync_util.cc",
     "sync/extension_sync_util.h",
-    "sync/features.cc",
-    "sync/features.h",
     "sync/sync_bundle.cc",
     "sync/sync_bundle.h",
     "system_display/display_info_provider.h",
     "tab_helper.cc",
     "tab_helper.h",
+    "updater/authenticated_network_fetcher.cc",
+    "updater/authenticated_network_fetcher.h",
     "updater/chrome_extension_downloader_factory.cc",
     "updater/chrome_extension_downloader_factory.h",
     "updater/chrome_update_client_config.cc",
@@ -464,14 +451,8 @@ source_set("extensions") {
     "updater/extension_updater_switches.h",
     "user_script_listener.cc",
     "user_script_listener.h",
-    "webstore_data_fetcher.cc",
-    "webstore_data_fetcher.h",
-    "webstore_data_fetcher_delegate.cc",
-    "webstore_data_fetcher_delegate.h",
     "webstore_install_helper.cc",
     "webstore_install_helper.h",
-    "webstore_installer.cc",
-    "webstore_installer.h",
     "webstore_reinstaller.cc",
     "webstore_reinstaller.h",
     "webstore_standalone_installer.cc",
@@ -490,6 +471,9 @@ source_set("extensions") {
     # TODO(crbug.com/40161499): Remove this circular dependency.
     "//chrome/browser/devtools",
 
+    # TODO(crbug.com/497896145): Remove this circular dependency.
+    "//chrome/browser/extensions/api/messaging",
+
     # TODO(crbug.com/353284909): Remove this circular dependency.
     "//chrome/browser/media/webrtc",
     "//chrome/browser/ui/extensions",
@@ -501,6 +485,7 @@ source_set("extensions") {
     "//base",
     "//chrome/app:command_ids",
     "//chrome/app/theme:chrome_unscaled_resources",
+    "//chrome/browser:browser_features",
     "//chrome/browser:browser_process",
     "//chrome/browser:chrome_content_browser_client_parts",
     "//chrome/browser:shell_integration",
@@ -511,7 +496,7 @@ source_set("extensions") {
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/devtools",
     "//chrome/browser/download",
-    "//chrome/browser/extensions:cws_item_service_proto",
+    "//chrome/browser/enterprise/connectors/reporting",
     "//chrome/browser/extensions:external_loader",
     "//chrome/browser/extensions/api:api_registration",
     "//chrome/browser/favicon",
@@ -528,7 +513,9 @@ source_set("extensions") {
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/profiles/keep_alive",
+    "//chrome/browser/renderer_host",
     "//chrome/browser/resources:component_extension_resources",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:metrics_collector",
@@ -546,13 +533,18 @@ source_set("extensions") {
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/prefs",
     "//chrome/browser/ui/safety_hub",
+    "//chrome/browser/ui/select_file_policy",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/webui:webui_util",
+    "//chrome/browser/undo",
+    "//chrome/browser/update_client",
     "//chrome/common",
     "//components/bookmarks/browser",
     "//components/bookmarks/managed",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/browser:cookie_settings",
+    "//components/contextual_tasks/public",
     "//components/cookie_config",
     "//components/crx_file",
     "//components/data_sharing/public",
@@ -594,13 +586,16 @@ source_set("extensions") {
     "//content/public/browser",
     "//extensions/browser",
     "//extensions/browser:crx_installer",
+    "//extensions/browser:cws_item_service_proto",
     "//extensions/browser:keepalive",
+    "//extensions/browser:webstore_installer",
     "//extensions/browser/api/content_settings",
     "//extensions/browser/api/storage:settings_namespace",
     "//extensions/browser/api/storage:settings_observer",
     "//extensions/browser/api/system_display:display_info_provider",
     "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
     "//extensions/browser/forced_extensions",
+    "//extensions/browser/mime_handler:stream_container",
     "//extensions/browser/updater",
     "//extensions/common",
     "//extensions/strings",
@@ -617,8 +612,10 @@ source_set("extensions") {
     "//ui/shell_dialogs",
   ]
   public_deps = [
+    "//chrome/browser/extensions/api/messaging",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/supervised_user",
+    "//chrome/browser/ui/tab_contents",
     "//chrome/browser/upgrade_detector",
     "//components/safe_browsing/core/browser/db:util",
     "//components/signin/core/browser",
@@ -629,17 +626,17 @@ source_set("extensions") {
   if (is_mac || is_win || is_linux || is_chromeos) {
     deps += [ "//components/webapps/isolated_web_apps:scheme" ]
   }
+  if (enable_spellcheck) {
+    deps += [ "//chrome/browser/spellchecker" ]
+  }
   if (is_android) {
     sources += [
       "api/chrome_extensions_api_client_android.cc",
       "api/identity/identity_unimplemented_functions_android.cc",
       "api/identity/identity_unimplemented_functions_android.h",
       "api/management/chrome_management_api_delegate_android.cc",
-      "api/messaging/native_message_android_host.cc",
-      "api/messaging/native_message_android_host.h",
       "api/tabs/tabs_event_router_platform_delegate_android.cc",
       "api/tabs/tabs_event_router_platform_delegate_android.h",
-      "chrome_extension_host_delegate_android.cc",
       "extension_disabled_ui_android.cc",
       "extension_error_ui_android.cc",
       "extension_error_ui_android.h",
@@ -657,7 +654,6 @@ source_set("extensions") {
       "api/chrome_extensions_api_client_non_android.cc",
       "api/tabs/tabs_event_router_platform_delegate_non_android.cc",
       "api/tabs/tabs_event_router_platform_delegate_non_android.h",
-      "chrome_extension_host_delegate_non_android.cc",
     ]
     public_deps += [
       "//chrome/browser/ui/tabs:utils",
@@ -671,25 +667,11 @@ source_set("extensions") {
 
   if (!is_chromeos) {
     sources += [ "chrome_kiosk_delegate_non_chromeos.cc" ]
-    if (!is_android) {
-      sources += [
-        "api/messaging/launch_context.cc",
-        "api/messaging/launch_context.h",
-        "api/messaging/native_message_process_host.cc",
-        "api/messaging/native_message_process_host.h",
-        "api/messaging/native_messaging_launch_from_native.cc",
-        "api/messaging/native_messaging_launch_from_native.h",
-        "api/messaging/native_process_launcher.cc",
-        "api/messaging/native_process_launcher.h",
-      ]
-    }
-    if (is_posix) {
-      sources += [ "api/messaging/launch_context_posix.cc" ]
-    }
   }
 
   if (enable_guest_view) {
     deps += [
+      "//chrome/browser/guest_view",
       "//components/guest_view/browser",
       "//components/guest_view/common:mojom",
     ]
@@ -756,7 +738,7 @@ source_set("extensions") {
       "api/language_settings_private/language_settings_private_delegate.h",
       "api/language_settings_private/language_settings_private_delegate_factory.cc",
       "api/language_settings_private/language_settings_private_delegate_factory.h",
-      "api/management/chrome_management_api_delegate_nonandroid.cc",
+      "api/management/chrome_management_api_delegate_non_android.cc",
       "api/mime_handlers/dispatch_mime_handler_event.cc",
       "api/mime_handlers/dispatch_mime_handler_event.h",
       "api/passwords_private/password_access_auth_timeout_handler.cc",
@@ -838,14 +820,6 @@ source_set("extensions") {
       ]
     }
 
-    # Chrome OS does not support Native Messaging policies.
-    if (!is_chromeos) {
-      sources += [
-        "api/messaging/native_messaging_policy_handler.cc",
-        "api/messaging/native_messaging_policy_handler.h",
-      ]
-    }
-
     allow_circular_includes_from += [
       # TODO(b/40251079): Remove this circular dependency.
       "//chrome/browser/apps/app_service/app_icon",
@@ -886,7 +860,6 @@ source_set("extensions") {
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/global_error",
       "//chrome/browser/ui/passwords/settings",
-      "//chrome/browser/ui/tab_contents",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
       "//chrome/common",
@@ -931,6 +904,7 @@ source_set("extensions") {
       "//chrome/browser/search/background",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/search_engines",
+      "//chrome/browser/signin:google_accounts_private_api",
       "//chrome/browser/sync",
       "//chrome/browser/themes",
       "//chrome/browser/ui/apps",
@@ -1112,10 +1086,6 @@ source_set("extensions") {
         "api/file_system/consent_provider_impl.h",
         "api/file_system/request_file_system_notification.cc",
         "api/file_system/request_file_system_notification.h",
-        "api/messaging/native_message_built_in_host.cc",
-        "api/messaging/native_message_built_in_host.h",
-        "api/messaging/native_message_echo_host.cc",
-        "api/messaging/native_message_echo_host.h",
         "api/passwords_private/passwords_private_utils_chromeos.cc",
         "api/passwords_private/passwords_private_utils_chromeos.h",
         "api/platform_keys_core/platform_keys_utils.cc",
@@ -1143,6 +1113,7 @@ source_set("extensions") {
         "//chrome/browser/chromeos/platform_keys",
         "//chrome/browser/chromeos/policy/dlp",
         "//chrome/browser/chromeos/upload_office_to_cloud",
+        "//chrome/browser/speech",
         "//chromeos/ash/components/browser_context_helper",
         "//chromeos/ash/components/platform_keys",
         "//chromeos/components/kiosk",
@@ -1247,7 +1218,6 @@ source_set("extensions") {
         "api/image_writer_private/removable_storage_provider_chromeos.cc",
         "api/media_perception_private/media_perception_api_delegate_chromeos.cc",
         "api/media_perception_private/media_perception_api_delegate_chromeos.h",
-        "api/messaging/native_message_host_chromeos.cc",
         "api/networking_private/networking_private_ui_delegate_chromeos.cc",
         "api/networking_private/networking_private_ui_delegate_chromeos.h",
         "api/settings_private/chromeos_resolve_time_zone_by_geolocation_method_short.cc",
@@ -1488,7 +1458,6 @@ source_set("extensions") {
     if (is_win) {
       sources += [
         "api/image_writer_private/removable_storage_provider_win.cc",
-        "api/messaging/launch_context_win.cc",
         "external_registry_loader_win.cc",
         "external_registry_loader_win.h",
         "system_display/display_info_provider_win.cc",
@@ -1516,12 +1485,6 @@ source_set("extensions") {
         "plugin_manager.cc",
         "plugin_manager.h",
       ]
-    }
-
-    if (enable_printing && (is_win || is_mac || is_linux || is_chromeos)) {
-      # TODO(crbug.com/40183776)  Replace this with more accurate dependency
-      # once //chrome/browser/printing build is able to be cleanly targeted.
-      deps += [ "//chrome/services/printing/public/mojom" ]
     }
 
     if (enable_pdf) {
@@ -1561,6 +1524,10 @@ source_set("extensions") {
     }
   }  # if (enable_extensions)
 
+  if (enable_printing) {
+    deps += [ "//chrome/browser/printing" ]
+  }
+
   if (enable_platform_apps) {
     sources += [
       "api/tabs/app_base_window.cc",
@@ -1571,10 +1538,6 @@ source_set("extensions") {
       "api/tabs/app_window_helper.h",
     ]
   }
-}
-
-proto_library("cws_item_service_proto") {
-  sources = [ "cws_item_service.proto" ]
 }
 
 static_library("test_support") {
@@ -1635,8 +1598,6 @@ static_library("test_support") {
 
   if (enable_extensions) {
     sources += [
-      "api/messaging/native_messaging_test_util.cc",
-      "api/messaging/native_messaging_test_util.h",
       "api/passwords_private/test_passwords_private_delegate.cc",
       "api/passwords_private/test_passwords_private_delegate.h",
       "mock_crx_installer.cc",
@@ -1704,8 +1665,10 @@ source_set("chrome_extensions_browser_client") {
     "//chrome/browser/app_mode",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/extensions",
+    "//chrome/browser/external_protocol",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/prefetch",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/task_manager",
@@ -1717,6 +1680,7 @@ source_set("chrome_extensions_browser_client") {
     "//components/proxy_config",
     "//components/sessions",
     "//components/update_client",
+    "//extensions/browser:crx_installer",
     "//extensions/browser:keepalive",
     "//extensions/browser/api/content_settings",
     "//extensions/browser/updater",

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/assistant/ui/assistant_container_view.h"
 
+#import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -11,35 +12,26 @@
 namespace {
 
 // Shadow styling.
-constexpr float kShadowOpacity = 0.1f;
-constexpr CGFloat kShadowRadius = 10.0;
-constexpr CGSize kShadowOffset = {0, 5};
+constexpr float kShadowOpacity = 0.29f;
+constexpr CGFloat kShadowRadius = 21.0;
+constexpr CGSize kShadowOffset = {0, 11};
 
 // Grabber styling.
-constexpr CGFloat kGrabberWidth = 33.0;
+constexpr CGFloat kGrabberWidth = 32.0;
 constexpr CGFloat kGrabberHeight = 4.0;
-constexpr CGFloat kGrabberTopMargin = 5.0;
-constexpr CGFloat kGrabberAlpha = 0.24;
-
-// Content styling.
-constexpr CGFloat kContentTopMargin = 16.0;
+constexpr CGFloat kGrabberTopMargin = 8.0;
 
 }  // namespace
 
 @implementation AssistantContainerView {
-  UIView* _scrollContainerView;
-  UIScrollView* _scrollView;
-  UIView* _grabberView;
-  CAGradientLayer* _maskLayer;
-  CGFloat _cornerRadius;
-  CACornerMask _maskedCorners;
+  UIView* _bottomRoundingView;
+  CGFloat _topCornerRadius;
+  CGFloat _bottomCornerRadius;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
-    _maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner |
-                     kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
     [self configureContainerStyling];
     [self setUpSubviews];
   }
@@ -51,138 +43,135 @@ constexpr CGFloat kContentTopMargin = 16.0;
 - (void)layoutSubviews {
   [super layoutSubviews];
 
-  // Translate CACornerMask to UIRectCorner for the bezier path.
-  // Mapping the active mask to `UIRectCorner` ensures the shadow perfectly
-  // matches the layer's actual geometry.
-  UIRectCorner rectCorners = 0;
-  if (_maskedCorners & kCALayerMinXMinYCorner) {
-    rectCorners |= UIRectCornerTopLeft;
-  }
-  if (_maskedCorners & kCALayerMaxXMinYCorner) {
-    rectCorners |= UIRectCornerTopRight;
-  }
-  if (_maskedCorners & kCALayerMinXMaxYCorner) {
-    rectCorners |= UIRectCornerBottomLeft;
-  }
-  if (_maskedCorners & kCALayerMaxXMaxYCorner) {
-    rectCorners |= UIRectCornerBottomRight;
-  }
-
-  // Update shadow path to match the view's bounds and specific corner masking.
-  self.layer.shadowPath =
-      [UIBezierPath
-          bezierPathWithRoundedRect:self.bounds
-                  byRoundingCorners:rectCorners
-                        cornerRadii:CGSizeMake(_cornerRadius, _cornerRadius)]
-          .CGPath;
-
-  [self updateScrollContainerMask];
+  self.layer.shadowPath = [self shadowPathWithTopRadius:_topCornerRadius
+                                           bottomRadius:_bottomCornerRadius]
+                              .CGPath;
 }
 
 #pragma mark - Private
 
+// Generates a UIBezierPath for the container's shadow.
+- (UIBezierPath*)shadowPathWithTopRadius:(CGFloat)topRadius
+                            bottomRadius:(CGFloat)bottomRadius {
+  UIBezierPath* path = [UIBezierPath bezierPath];
+  CGFloat width = self.bounds.size.width;
+  CGFloat height = self.bounds.size.height;
+
+  [path moveToPoint:CGPointMake(0, topRadius)];
+  [path addArcWithCenter:CGPointMake(topRadius, topRadius)
+                  radius:topRadius
+              startAngle:M_PI
+                endAngle:M_PI * 1.5
+               clockwise:YES];
+  [path addLineToPoint:CGPointMake(width - topRadius, 0)];
+  [path addArcWithCenter:CGPointMake(width - topRadius, topRadius)
+                  radius:topRadius
+              startAngle:M_PI * 1.5
+                endAngle:0
+               clockwise:YES];
+  [path addLineToPoint:CGPointMake(width, height - bottomRadius)];
+  [path
+      addArcWithCenter:CGPointMake(width - bottomRadius, height - bottomRadius)
+                radius:bottomRadius
+            startAngle:0
+              endAngle:M_PI * 0.5
+             clockwise:YES];
+  [path addLineToPoint:CGPointMake(bottomRadius, height)];
+  [path addArcWithCenter:CGPointMake(bottomRadius, height - bottomRadius)
+                  radius:bottomRadius
+              startAngle:M_PI * 0.5
+                endAngle:M_PI
+               clockwise:YES];
+  [path closePath];
+
+  return path;
+}
+
+// Updates the shadow opacity based on the currently masked corners.
+- (void)updateShadowOpacity {
+  self.layer.shadowOpacity = (_bottomCornerRadius > 0.0) ? kShadowOpacity : 0.0;
+}
+
 // Configures the visual styling of the container.
 - (void)configureContainerStyling {
-  self.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
-  self.clipsToBounds = YES;
+  self.backgroundColor = [UIColor clearColor];
+  self.clipsToBounds = NO;
 
   self.layer.shadowColor = [UIColor blackColor].CGColor;
-  self.layer.shadowOpacity = kShadowOpacity;
   self.layer.shadowOffset = kShadowOffset;
   self.layer.shadowRadius = kShadowRadius;
-  self.layer.cornerRadius = _cornerRadius;
-  self.layer.maskedCorners = _maskedCorners;
+  [self updateShadowOpacity];
 }
 
 // Allows the controller to dynamically morph the container radius.
-- (void)updateCornerRadius:(CGFloat)cornerRadius
-             maskedCorners:(CACornerMask)maskedCorners {
-  if (_cornerRadius == cornerRadius && _maskedCorners == maskedCorners) {
+- (void)updateTopCornerRadius:(CGFloat)topCornerRadius
+           bottomCornerRadius:(CGFloat)bottomCornerRadius {
+  if (_topCornerRadius == topCornerRadius &&
+      _bottomCornerRadius == bottomCornerRadius) {
     return;
   }
-  _cornerRadius = cornerRadius;
-  _maskedCorners = maskedCorners;
-  self.layer.cornerRadius = _cornerRadius;
-  self.layer.maskedCorners = _maskedCorners;
+  _topCornerRadius = topCornerRadius;
+  _bottomCornerRadius = bottomCornerRadius;
+
+  _contentView.layer.cornerRadius = _topCornerRadius;
+  _bottomRoundingView.layer.cornerRadius = _bottomCornerRadius;
+
+  [self updateShadowOpacity];
   [self setNeedsLayout];
 }
 
 // Sets up the view hierarchy by creating and adding subviews.
 - (void)setUpSubviews {
-  _scrollContainerView = [[UIView alloc] init];
-  _scrollContainerView.translatesAutoresizingMaskIntoConstraints = NO;
-  [self addSubview:_scrollContainerView];
+  _bottomRoundingView = [self createBottomRoundingView];
+  [self addSubview:_bottomRoundingView];
 
-  // Initialize the gradient mask layer to fade out content at the top.
-  _maskLayer = [CAGradientLayer layer];
-  _maskLayer.colors = @[
-    (id)[UIColor clearColor].CGColor, (id)[UIColor blackColor].CGColor,
-    (id)[UIColor blackColor].CGColor
-  ];
-  _scrollContainerView.layer.mask = _maskLayer;
+  _contentView = [self createContentView];
+  [_bottomRoundingView addSubview:_contentView];
 
-  _scrollView = [[UIScrollView alloc] init];
-  _scrollView.translatesAutoresizingMaskIntoConstraints = NO;
-  [_scrollContainerView addSubview:_scrollView];
-
-  _contentView = [[UIView alloc] init];
-  _contentView.translatesAutoresizingMaskIntoConstraints = NO;
-  [_scrollView addSubview:_contentView];
-
-  _grabberView = [self createGrabberView];
-  [self addSubview:_grabberView];
-
-  // Add a low-priority height constraint to allow content to fill the scroll
-  // view if it's smaller, while still allowing it to grow larger.
-  NSLayoutConstraint* contentViewHeightConstraint = [_contentView.heightAnchor
-      constraintGreaterThanOrEqualToAnchor:_scrollView.heightAnchor];
-  contentViewHeightConstraint.priority = UILayoutPriorityDefaultLow;
+  _grabberButton = [self createGrabberButton];
+  [self addSubview:_grabberButton];
 
   [NSLayoutConstraint activateConstraints:@[
-    // Grabber view constraints.
-    [_grabberView.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
-    [_grabberView.topAnchor constraintEqualToAnchor:self.topAnchor
-                                           constant:kGrabberTopMargin],
-    [_grabberView.widthAnchor constraintEqualToConstant:kGrabberWidth],
-    [_grabberView.heightAnchor constraintEqualToConstant:kGrabberHeight],
-
-    // Content view constraints.
-    [_contentView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-    [_contentView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-    [_contentView.topAnchor constraintEqualToAnchor:_scrollView.topAnchor],
-    [_contentView.bottomAnchor
-        constraintEqualToAnchor:_scrollView.bottomAnchor],
-    contentViewHeightConstraint,
+    // Grabber button constraints.
+    [_grabberButton.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
+    [_grabberButton.topAnchor constraintEqualToAnchor:self.topAnchor
+                                             constant:kGrabberTopMargin],
+    [_grabberButton.widthAnchor constraintEqualToConstant:kGrabberWidth],
+    [_grabberButton.heightAnchor constraintEqualToConstant:kGrabberHeight],
   ]];
 
-  AddSameConstraints(_scrollContainerView, self);
-  AddSameConstraints(_scrollContainerView, _scrollView);
+  AddSameConstraints(_bottomRoundingView, self);
+  AddSameConstraints(_contentView, _bottomRoundingView);
 }
 
-// Creates and configures the grabber view.
-- (UIView*)createGrabberView {
-  UIView* grabberView = [[UIView alloc] init];
-  grabberView.translatesAutoresizingMaskIntoConstraints = NO;
-  grabberView.backgroundColor =
-      [[UIColor blackColor] colorWithAlphaComponent:kGrabberAlpha];
-  grabberView.layer.cornerRadius = kGrabberHeight / 2.0;
-  return grabberView;
+// Creates and configures the bottom rounding clipping view.
+- (UIView*)createBottomRoundingView {
+  UIView* view = [[UIView alloc] init];
+  view.translatesAutoresizingMaskIntoConstraints = NO;
+  view.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+  view.clipsToBounds = YES;
+  view.backgroundColor = [UIColor clearColor];
+  return view;
 }
 
-// Updates the gradient mask over the scroll container to ensure
-// exactly the top `kContentTopMargin` is faded out.
-- (void)updateScrollContainerMask {
-  _maskLayer.frame = _scrollContainerView.bounds;
+// Creates and configures the top rounding content clipping view.
+- (UIView*)createContentView {
+  UIView* view = [[UIView alloc] init];
+  view.translatesAutoresizingMaskIntoConstraints = NO;
+  view.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner;
+  view.clipsToBounds = YES;
+  view.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
+  return view;
+}
 
-  CGFloat containerHeight = _scrollContainerView.bounds.size.height;
-  if (containerHeight <= 0) {
-    return;
-  }
-
-  // To ensure exactly `kContentTopMargin` points are faded out the ratio must
-  // be calculated dynamically.
-  CGFloat fadeRatio = MIN(1.0, kContentTopMargin / containerHeight);
-  _maskLayer.locations = @[ @0.0, @(fadeRatio), @1.0 ];
+// Creates and configures the grabber button.
+- (UIButton*)createGrabberButton {
+  UIButton* grabberButton =
+      [ExtendedTouchTargetButton buttonWithType:UIButtonTypeCustom];
+  grabberButton.translatesAutoresizingMaskIntoConstraints = NO;
+  grabberButton.backgroundColor = [UIColor colorNamed:kTertiaryBackgroundColor];
+  grabberButton.layer.cornerRadius = kGrabberHeight / 2.0;
+  return grabberButton;
 }
 
 @end

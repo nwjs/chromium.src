@@ -44,7 +44,6 @@
 <translation id="1155154308031262006">Introdu o solicitare</translation>
 <translation id="115705039208660697">ananași</translation>
 <translation id="1164939766849482256">Screensaver din zori până seara</translation>
-<translation id="1167755866710282443">Deschide meniul pentru a personaliza tastele. Trage meniul pentru a muta.</translation>
 <translation id="1171349345463658120">lagună cu nisip</translation>
 <translation id="1174073918202301297">Comanda rapidă a fost adăugată</translation>
 <translation id="11743817593307477">Folosește tastele săgeți pentru a muta comanda la acțiunea de joc dorită. Folosește tasta Enter pentru a plasa comanda. Folosește tasta Escape pentru a anula.</translation>
@@ -273,7 +272,6 @@
 <translation id="200669432486043882">Înlocuiește un fișier</translation>
 <translation id="2006864819935886708">Conectivitate</translation>
 <translation id="2008685064673031089">Căutare de numere prime</translation>
-<translation id="2011174342667534258">Versiunea SDK:</translation>
 <translation id="2016697457005847575">Încearcă pașii pentru remedierea erorilor</translation>
 <translation id="202500043506723828">EID</translation>
 <translation id="2045814230297767491">tacâmuri</translation>
@@ -508,7 +506,6 @@
 <translation id="3211671540163313381">D-pad pentru maparea tastelor</translation>
 <translation id="3217462202230355157">Verifică dacă microfonul este conectat sau repornește <ph name="DEVICE_TYPE" /></translation>
 <translation id="3226405216343213872">Se caută scanere</translation>
-<translation id="3226657629376379887">Meniu de acțiuni pentru aspect</translation>
 <translation id="3227186760713762082">Împarte valoarea pentru <ph name="CATEGORY_TEXT" /> la <ph name="CONVERSION_RATE" /></translation>
 <translation id="3242622575335502454">artă digitală</translation>
 <translation id="3246869037381808805">Sarcinile de printare mai vechi de o zi vor fi eliminate</translation>
@@ -523,7 +520,6 @@
 <translation id="3291996639387199448">Direcția cheii</translation>
 <translation id="3294437725009624529">Invitat</translation>
 <translation id="3303855915957856445">Nu s-au găsit rezultate de căutare</translation>
-<translation id="3305294846493618482">mai multe</translation>
 <translation id="3310640316857623290">Latența DNS depășește semnificativ pragul permisibil</translation>
 <translation id="3316495615885967552">Descărcarea modelului pentru crearea de rezumate și titluri s-a finalizat</translation>
 <translation id="3321030238473337787">Viteza de redare</translation>
@@ -582,6 +578,7 @@
 <translation id="3577473026931028326">A apărut o eroare. Încearcă din nou.</translation>
 <translation id="357889014807611375">Wi-Fi contorizat</translation>
 <translation id="3583278742022654445">Semnal slab. Apropie-te de sursa semnalului Wi-Fi.</translation>
+<translation id="3586931643579894722">Ascunde detaliile</translation>
 <translation id="3588034708467091142">Verifică dacă te-ai conectat la internet și încearcă din nou.</translation>
 <translation id="3594280220611906414"><ph name="USER_FRIENDLY_APN_NAME" /> este numele ușor de folosit pentru <ph name="APN_NAME" />.</translation>
 <translation id="3595596368722241419">Baterie încărcată</translation>
@@ -702,7 +699,6 @@
 <translation id="4126551873361000548">Derulează înapoi cu 10 secunde</translation>
 <translation id="4128271910628504223">Introdu o solicitare, de exemplu „desenează o pădure în ceață”</translation>
 <translation id="4130035430755296270">Plasează cursorul pentru mai multe opțiuni de aspect</translation>
-<translation id="4130750466177569591">Sunt de acord</translation>
 <translation id="4131410914670010031">Alb-negru</translation>
 <translation id="4137700675046373159">sâmbătă</translation>
 <translation id="4139326893730851150">Actualizări de firmware</translation>
@@ -1051,7 +1047,6 @@
 <translation id="5606865426897221650">Tab</translation>
 <translation id="5612205513582918357">Class Tools permite accesul la ecranul tău pentru <ph name="RECEIVER_NAME" /></translation>
 <translation id="5613201299517339763">Te-ai deconectat</translation>
-<translation id="5620281292257375798">Numai intern</translation>
 <translation id="5628106863521633649">Limbi disponibile</translation>
 <translation id="5630438231335788050">bauhaus</translation>
 <translation id="5631759159893697722">rezumat</translation>
@@ -1167,6 +1162,7 @@
 <translation id="6136285399872347291">șterge un caracter</translation>
 <translation id="6137614725462089991">cyberpunk</translation>
 <translation id="6137767437444130246">Certificat de utilizator</translation>
+<translation id="6140948187512243695">Afișează detaliile</translation>
 <translation id="6146993107019042706">Pentru a finaliza, introdu noua parolă</translation>
 <translation id="6147514244879357420">PNG</translation>
 <translation id="6149015141270619212">Nu se poate conecta la internet</translation>
@@ -1412,10 +1408,8 @@
 <translation id="7177485034254901881">Acest <ph name="DEVICE_TYPE" /> este gestionat de <ph name="MANAGER" />. Administratorii pot să configureze dispozitivul de la distanță.</translation>
 <translation id="7180611975245234373">Actualizați</translation>
 <translation id="7180865173735832675">Personalizează</translation>
-<translation id="7184043045742675738">Dă clic pe orice tastă pentru a personaliza butonul. Repoziționează tasta folosind mouse-ul sau tastele săgeată.</translation>
 <translation id="7187669805838282391">miercuri</translation>
 <translation id="7205318498545665455">Alege microfonul</translation>
-<translation id="7206979415662233817">Termeni și condiții</translation>
 <translation id="7210635925306941239">azuriu</translation>
 <translation id="7212547870105584639">Gestionează setările APN ale rețelei. APN-urile stabilesc o conexiune între o rețea de date mobile și internet. <ph name="BEGIN_LINK_LEARN_MORE" />Află mai multe<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7212734716605298123">Actualizări de firmware pentru dispozitive externe</translation>
@@ -1446,11 +1440,6 @@
 <translation id="7319430975418800333">A3</translation>
 <translation id="7321055305895875150">verde și verde-albăstrui</translation>
 <translation id="7328475450575141167">pasărea paradisului</translation>
-<translation id="7331297744262591636">Trebuie să ai cel puțin 18 ani și să accepți că folosirea fundalurilor AI se supune <ph name="GOOGLE_TERMS_OF_SERVICE_LINK" />Termenilor și condițiilor Google<ph name="END_LINK_GOOGLE_TERMS_OF_SERVICE" /> și <ph name="BEGIN_LINK_GEN_AI_TERMS_OF_SERVICE" />Termenilor și condițiilor suplimentare privind AI generativ<ph name="END_LINK_GEN_AI_TERMS_OF_SERVICE" />.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          Poți să creezi fundaluri cu AI numai pentru utilizare personală și non-comercială. Când soliciți ajutor pentru fundaluri, textul este trimis la serverele Google AI pentru a genera sugestii de fundaluri, în conformitate cu <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Politica de confidențialitate Google<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" />. <ph name="BEGIN_LINK_LEARN_MORE" />Află mai multe<ph name="END_LINK_LEARN_MORE" /></translation>
-<translation id="7343581795491695942"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" />; apasă tasta de căutare + bara de spațiu pentru a vedea rezultatul în Căutarea Google.</translation>
 <translation id="7343649194310845056">Dispozitive de rețea</translation>
 <translation id="7344788170842919262">pământii</translation>
 <translation id="7346768383111016081">Plasează comanda pe acțiunea în joc pentru a juca folosind tastatura</translation>
@@ -1507,7 +1496,6 @@ Descarcă modelul de transcriere (până la 100 MB) pentru a obține aceste tran
 <translation id="7590883480672980941">Setări de introducere a textului</translation>
 <translation id="7595982850646262331">Timp rămas: <ph name="TIME_VALUE" /></translation>
 <translation id="7600430297804876776">Administratorul <ph name="MANAGER" /> a setat când se poate folosi acest <ph name="DEVICE_TYPE" /></translation>
-<translation id="7613724632293948900">Repoziționează folosind mouse-ul sau tastele săgeată.</translation>
 <translation id="7618216277886673749">Selectează <ph name="LANGUAGE_NAME" /></translation>
 <translation id="7618774594543487847">Neutru</translation>
 <translation id="7620771111601174153">Află mai multe din Centrul de ajutor</translation>
@@ -1641,6 +1629,7 @@ Descarcă modelul de transcriere (până la 100 MB) pentru a obține aceste tran
 <translation id="819278132617411009">Folosește Google AI pentru productivitate</translation>
 <translation id="8200772114523450471">Reia</translation>
 <translation id="8206859287963243715">Celular</translation>
+<translation id="8208043093301544621">Pagina principală</translation>
 <translation id="8208861521865154048">Avantaje</translation>
 <translation id="8226628635270268143">Alege fotografiile și albumele preferate</translation>
 <translation id="8227119283605456246">Atașează un fișier</translation>
@@ -1838,7 +1827,6 @@ Descarcă modelul de transcriere (până la 100 MB) pentru a obține aceste tran
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9082718469794970195">Folosește videoclipul</translation>
-<translation id="9087578468327036362">Raportează interogarea</translation>
 <translation id="9088306295921699330">Folosire actuală</translation>
 <translation id="9088994563996376283">Simplifică</translation>
 <translation id="9095775724867566971">Pluginvm</translation>
@@ -1871,7 +1859,6 @@ Descarcă modelul de transcriere (până la 100 MB) pentru a obține aceste tran
 <translation id="921080052717160800">Imaginea a fost setată ca fundal al camerei foto</translation>
 <translation id="9211490828691860325">Toate desktopurile</translation>
 <translation id="9218016617214286986">Afișează APN-uri cunoscute</translation>
-<translation id="932327136139879170">Pagina de pornire</translation>
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Trimite feedback</translation>
 <translation id="950520315903467048">Lipsește tasta pentru <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>

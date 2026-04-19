@@ -34,7 +34,6 @@
 <translation id="132092532143527429">Chromium හි Gemini සමග උත්සාහ කරන්න</translation>
 <translation id="1324107359134968521">බ්ලූටූත් උපාංග ගවේෂණය කිරීමට Chromium හට බ්ලූටූත් ප්‍රවේශය අවශ්‍යයි.<ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">භාෂාව අනාවරණය කරන්න</translation>
-<translation id="1330742950061766891">Chromium නිර්දේශිත බ්‍රව්සර සැකසීම් භාවිතා කරන්න</translation>
 <translation id="1342274909142618978">Chromium වෙතින් ද දත්ත මකන්න (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">අමුණන ලදි! ඔබට මෙවලම් තීරුවේ ඇති නව බොත්තමෙන් රූප සෙවීම වෙත නැවත ප්‍රවේශ විය හැක</translation>
 <translation id="1356661055722410047">අලුත්! ඔබට ඔබේ තිරයේ ඇති පෙළ සහ පින්තූර දෙකම පරිවර්තනය කළ හැක</translation>
@@ -56,8 +55,10 @@
 <translation id="1594928384848033697">Chromium හට ඔබේ මුරපද කළමනාකරු දත්ත මැකීමට අවශ්‍යයි. මෙයට ඉඩ දීමට ඔබේ Windows මුරපදය ටයිප් කරන්න.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ}=1{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළුව යළි විවෘත නොවෙයි.}one{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළු # යළි විවෘත නොවෙයි.}other{යාවත්කාලීනයක් යෙදීමට ඔබ Chromium නැවත ආරම්භ කිරීම පරිපාලකයාට අවශ්‍ය වේ. ඔබේ අප්‍රසිද්ධ කවුළු # යළි විවෘත නොවෙයි.}}</translation>
 <translation id="1625909126243026060">Chromium හි ප්‍රධාන පෞද්ගලිකත්ව සහ ආරක්ෂක පාලන සමාලෝචනය කරන්න</translation>
+<translation id="1639380494700489405">පිටුවෙන් පිටව නොයා ඔබේ පටිත්ත ගැන AI මාදිලියෙන් විමසීමට, Chromium වෙත පුරන්න. ඔබේ සියලු උපාංගවල ඔබේ මුරපද සහ තවත් දේ ඔබට ලැබෙනු ඇත.</translation>
 <translation id="1640672724030957280">බාගනිමින්...</translation>
 <translation id="1680687534629375545">මෙම පිටුව ගැන රූප සෙවීමෙන් විමසන්න</translation>
+<translation id="1708414395296835197">ඔබ පණිවිඩ, ලේඛන, සහ වෙනත් යෙදුම්වල සබැඳි ක්ලික් කරන ඕනෑම වේලාවක ඔබට Chromium භාවිත කළ හැක. එය ඔබේ කාර්ය තීරුවට ද අමුණනු ඇත.</translation>
 <translation id="1709772298389099340"><ph name="BROWSER_NAME" /> සඳහා උසස් වරප්‍රසාද ලබා දෙයි.</translation>
 <translation id="1715127912119967311">මෙම විශේෂාංග වැඩිදියුණු කිරීමට උදවු කිරීම සඳහා, Chromium ඒවා සමග ඔබේ අන්තර්ක්‍රියා Google වෙත යවයි. මෙම දත්ත මානව සමාලෝචකයින් විසින් කියවනු ලැබීමට, සකසනු ලැබීමට සහ විවරණ කරනු ලැබීමට හැකිය.</translation>
 <translation id="1722488837206509557">මෙය ඔබට පවතින උපාංගවලින් තේරීමට සහ ඒවායේ අන්තර්ගතය පෙන්වීමට ඉඩ දෙනු ඇත.</translation>
@@ -197,6 +198,7 @@
 <translation id="3045032126857188731">පරිවර්තිත භාෂාව: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">ප්‍රතිපෝෂණ සංවාදය වසන්න</translation>
 <translation id="3068187312562070417">වෙනත් Chromium පැතිකඩ</translation>
+<translation id="3068290154869370196">දිගු යනු ඔබට Chromium අභිරුචිකරණය කිරීමට ඉඩ දෙන ඈඳුම් වේ. සංවිධානාත්මකව සිටීම සිට, එදිනෙදා කාර්යයන් සරල කිරීම දක්වා, දිගු ඔබට Chromium ඔබේම කර ගැනීමට උදවු කරයි.</translation>
 <translation id="3068515742935458733">බිඳ වැටුම් වාර්තා සහ <ph name="UMA_LINK" /> Google වෙත යවමින් Google Chromium දියුණු කිරීමට සහය වන්න</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{1 USB උපාංගයකට එක Chromium දිගුවකින් හෝ වැඩි ගණනකින් ප්‍රවේශ වන ලදි}=1{1 USB උපාංගයකට එක Chromium දිගුවකින් හෝ වැඩි ගණනකින් ප්‍රවේශ වනු ලබයි}one{USB උපාංග #කට එක Chromium දිගුවකින් හෝ වැඩි ගණනකින් ප්‍රවේශ වනු ලබයි}other{USB උපාංග #කට එක Chromium දිගුවකින් හෝ වැඩි ගණනකින් ප්‍රවේශ වනු ලබයි}}</translation>
 <translation id="3095811995836568724">Chromium ඉතිහාසය</translation>
@@ -227,7 +229,6 @@
 <translation id="3313189106987092621">අනාරක්ෂිත සම්බන්ධතාවයක් භාවිතයෙන් ඕනෑම අඩවියක් පූරණය කිරීමට පෙර Chromium ඔබට අනතුරු අඟවනු ඇත</translation>
 <translation id="3316771292331273802">ඔබ Chromium වෙත පුරනය වී ඇති නම් ඔබේ Google ගිණුම හැර, ඔබ සියලු Chromium කවුළු වසා දැමූ විට ඔබ බොහෝ අඩවිවලින් වරනු ලැබේ. අඩවිවලට ඔබව මතක තබා ගැනීමට ඉඩ දීමට, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3322413454779348750">ඔබේ පෙරනිමි සෙවීම් යන්ත්‍රය Chromium වෙතින් පිටතින් වෙනස් කර ඇත. ඔබව ආරක්ෂා කිරීමට, Chromium එය යළි සකසයි.</translation>
-<translation id="3331557257666250900">ඔබේ සියලු උපාංගවල ඔබේ මුරපද පිටුසන් සහ තවත් දේ ලබා ගැනීමට Chromium වෙත පුරන්න</translation>
 <translation id="3352986031709923790">සෙවීම් ප්‍රදේශයේ ඉහළම දකුණු කෙළවර: දකුණ <ph name="RIGHT" />%, ඉහළ <ph name="TOP" />%</translation>
 <translation id="3366305173356742781">ඔබේ ගිණුමේ Chromium දත්ත</translation>
 <translation id="3369405342922656244">රූප සෙවීම භාවිතයෙන් මෙම පිටුව සොයන්න</translation>
@@ -438,6 +439,7 @@
 <translation id="5895138241574237353">යළි අරඹන්න</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - ජාල පුරනය</translation>
 <translation id="5924017743176219022">අන්තර්ජාලය වෙත සම්බන්ධ වෙමින්...</translation>
+<translation id="5939553720811388432">ඔබේ Chromium සූදානම් කරමු</translation>
 <translation id="5941711191222866238">කුඩා කරන්න</translation>
 <translation id="5949225980829865667">මෙම පිටු සලකුණ සහ තවත් දේ ඔබේ සියලු උපාංගවල ලබා ගැනීමට, Chromium වෙත පුරන්න</translation>
 <translation id="5953657885167112863">Chromium ඔබේ කර ගන්න</translation>
@@ -591,6 +593,7 @@ Chromium හට ඔබගේ සැකසුම් ප්‍රතිසාධ�
 <translation id="7352651011704765696">යමක් වැරදිනි</translation>
 <translation id="7368826207863345663">අනාගත Chromium යාවත්කාලීන ලබා ගැනීමට, ඔබට macOS 13 හෝ පසු අනුවාද අවශ්‍ය වෙයි. මෙම පරිගණකය macOS 12 භාවිත කරයි.</translation>
 <translation id="7376384068949534168">ඔබ මෑත පැමිණ නැත. Chromium <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> ඉවත් කළා.</translation>
+<translation id="73786666777299047">Chrome Web Store විවෘත කරන්න</translation>
 <translation id="7384121030444253939">මෙම දිගුව තවදුරටත් සහාය නොදක්වයි. ඒ වෙනුවට එය ඉවත් කරන ලෙස Chromium නිර්දේශ කරයි.</translation>
 <translation id="7413153308467572558">ඔබ නතර කළ තැනින් ඉදිරියට යන්න: ඔබ යළි අරඹන සෑම අවස්ථාවකම Chromium ඔබේ පටිති ප්‍රතිසාධනය කරයි. මෙය ක්‍රියාවිරහිත කිරීම සඳහා, වෙත යන්න</translation>
 <translation id="7427879960656355200">Chromium වෙත මුරපද ආයාත කරන්න</translation>

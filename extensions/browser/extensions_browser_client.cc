@@ -7,11 +7,13 @@
 #include <memory>
 #include <optional>
 
+#include "base/base_paths.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/path_service.h"
 #include "components/update_client/configurator.h"
 #include "components/update_client/update_client.h"
 #include "content/public/browser/browser_context.h"
@@ -90,6 +92,11 @@ void ExtensionsBrowserClient::ReportError(
 }
 
 bool ExtensionsBrowserClient::IsActivityLoggingEnabled(
+    content::BrowserContext* context) {
+  return false;
+}
+
+bool ExtensionsBrowserClient::IsTelemetryLoggingEnabled(
     content::BrowserContext* context) {
   return false;
 }
@@ -224,7 +231,8 @@ void ExtensionsBrowserClient::GetWebViewStoragePartitionConfig(
   auto partition_config = content::StoragePartitionConfig::Create(
       browser_context, owner_site_url.GetHost(), partition_name, in_memory);
 
-  if (owner_site_url.SchemeIs(extensions::kExtensionScheme)) {
+  if (owner_site_instance->GetSecurityPrincipal().SchemeIs(
+          extensions::kExtensionScheme)) {
     const auto& owner_config =
         owner_site_instance->GetSecurityPrincipal().GetStoragePartitionConfig();
 #if DCHECK_IS_ON()
@@ -331,6 +339,32 @@ InstallStageTracker* ExtensionsBrowserClient::GetInstallStageTracker(
 InstallTracker* ExtensionsBrowserClient::GetInstallTracker(
     content::BrowserContext* context) {
   return nullptr;
+}
+
+InstallVerifier* ExtensionsBrowserClient::GetInstallVerifier(
+    content::BrowserContext* context) {
+  return nullptr;
+}
+
+SharedModuleService* ExtensionsBrowserClient::GetSharedModuleService(
+    content::BrowserContext* context) {
+  return nullptr;
+}
+
+scoped_refptr<CrxInstaller>
+ExtensionsBrowserClient::CreateCrxInstallerFromDownloadItem(
+    content::BrowserContext* context,
+    const download::DownloadItem& download) {
+  return nullptr;
+}
+
+void ExtensionsBrowserClient::UpdateCheckIfEnabled(
+    content::BrowserContext* context) {}
+
+base::FilePath ExtensionsBrowserClient::GetUserDataDir() {
+  base::FilePath temp_dir;
+  base::PathService::Get(base::DIR_TEMP, &temp_dir);
+  return temp_dir;
 }
 
 }  // namespace extensions

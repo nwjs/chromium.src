@@ -7,7 +7,6 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "components/javascript_dialogs/app_modal_dialog_manager.h"
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
@@ -49,10 +48,8 @@ void AppModalDialogViewAndroid::ShowAppModalDialog() {
   }
 
   ScopedJavaLocalRef<jobject> dialog_object;
-  ScopedJavaLocalRef<jstring> title =
-      ConvertUTF16ToJavaString(env, controller_->title());
-  ScopedJavaLocalRef<jstring> message =
-      ConvertUTF16ToJavaString(env, controller_->message_text());
+  const std::u16string& title = controller_->title();
+  const std::u16string& message = controller_->message_text();
 
   switch (controller_->javascript_dialog_type()) {
     case content::JAVASCRIPT_DIALOG_TYPE_ALERT: {
@@ -72,11 +69,9 @@ void AppModalDialogViewAndroid::ShowAppModalDialog() {
       break;
     }
     case content::JAVASCRIPT_DIALOG_TYPE_PROMPT: {
-      ScopedJavaLocalRef<jstring> default_prompt_text =
-          ConvertUTF16ToJavaString(env, controller_->default_prompt_text());
       dialog_object = Java_JavascriptAppModalDialog_createPromptDialog(
           env, title, message, controller_->display_suppress_checkbox(),
-          default_prompt_text);
+          controller_->default_prompt_text());
       break;
     }
     default:
@@ -109,12 +104,9 @@ void AppModalDialogViewAndroid::AcceptAppModalDialog() {
 }
 
 void AppModalDialogViewAndroid::DidAcceptAppModalDialog(
-    JNIEnv* env,
-    const JavaRef<jstring>& prompt,
+    const std::u16string& prompt,
     bool should_suppress_js_dialogs) {
-  std::u16string prompt_text =
-      base::android::ConvertJavaStringToUTF16(env, prompt);
-  controller_->OnAccept(prompt_text, should_suppress_js_dialogs);
+  controller_->OnAccept(prompt, should_suppress_js_dialogs);
   delete this;
 }
 
@@ -128,7 +120,6 @@ bool AppModalDialogViewAndroid::IsShowing() const {
 }
 
 void AppModalDialogViewAndroid::DidCancelAppModalDialog(
-    JNIEnv* env,
     bool should_suppress_js_dialogs) {
   controller_->OnCancel(should_suppress_js_dialogs);
   delete this;

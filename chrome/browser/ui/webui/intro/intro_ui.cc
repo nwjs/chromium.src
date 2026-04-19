@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/intro/intro_ui.h"
 
 #include "base/check_deref.h"
+#include "base/check_is_test.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/notreached.h"
@@ -26,8 +27,21 @@
 #include "components/strings/grit/components_branded_strings.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/webui/webui_util.h"
+
+namespace {
+int GetBackupCardDescriptionId(bool is_first_run_desktop_refresh_enabled) {
+  if (!syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
+    return IDS_UNO_FRE_BACKUP_CARD_DESCRIPTION;
+  }
+
+  return is_first_run_desktop_refresh_enabled
+             ? IDS_UNO_FRE_REFRESH_BACKUP_CARD_DESCRIPTION_WITH_PASSWORDS
+             : IDS_UNO_FRE_BACKUP_CARD_DESCRIPTION_WITH_PASSWORDS;
+}
+}  // namespace
 
 IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
   auto* profile = Profile::FromWebUI(web_ui);
@@ -47,7 +61,14 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
                                   ? IDR_INTRO_INTRO_REFRESH_HTML
                                   : IDR_INTRO_INTRO_HTML);
 
-  int title_id = IDS_FRE_SIGN_IN_TITLE_0;
+  const bool is_dont_sign_in_on_gaia_page_variation =
+      is_first_run_desktop_refresh_enabled &&
+      switches::kFirstRunDesktopSignInPromoVariation.Get() ==
+          switches::FirstRunDesktopSignInPromoVariation::kDontSignInOnGaiaPage;
+
+  const int title_id = is_dont_sign_in_on_gaia_page_variation
+                           ? IDS_FRE_GET_YOUR_BROWSER_READY_TITLE
+                           : IDS_FRE_SIGN_IN_TITLE_0;
 
   // Setting the title here instead of relying on the one provided from the
   // page itself makes it available much earlier, and avoids having to fallback
@@ -63,6 +84,7 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
       {"securityCardDescription", IDS_FRE_SECURITY_CARD_DESCRIPTION},
       {"backupCardTitle", IDS_FRE_BACKUP_CARD_TITLE},
       {"acceptSignInButtonTitle", IDS_FRE_ACCEPT_SIGN_IN_BUTTON_TITLE},
+      {"createAccountDisclaimer", IDS_FRE_CREATE_ACCOUNT_DESCRIPTION},
       {"productLogoAltText", IDS_SHORT_PRODUCT_LOGO_ALT_TEXT},
       // Strings for default browser promo subpage.
       {"defaultBrowserTitle", IDS_FRE_DEFAULT_BROWSER_TITLE_NEW},
@@ -85,15 +107,18 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
   source->AddLocalizedString("pageTitle", title_id);
   source->AddLocalizedString(
       "backupCardDescription",
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
-          ? IDS_UNO_FRE_BACKUP_CARD_DESCRIPTION_WITH_PASSWORDS
-          : IDS_UNO_FRE_BACKUP_CARD_DESCRIPTION);
+      GetBackupCardDescriptionId(is_first_run_desktop_refresh_enabled));
   source->AddLocalizedString(
       "declineSignInButtonTitle",
       base::FeatureList::IsEnabled(
           switches::kProfileCreationDeclineSigninCTAExperiment)
           ? IDS_FRE_STAY_SIGNED_OUT_BUTTON_TITLE
           : IDS_FRE_DECLINE_SIGN_IN_BUTTON_TITLE);
+
+  source->AddLocalizedString("acceptSignInButtonTitle",
+                             is_dont_sign_in_on_gaia_page_variation
+                                 ? IDS_FRE_NEXT_BUTTON_TITLE
+                                 : IDS_FRE_ACCEPT_SIGN_IN_BUTTON_TITLE);
 
   const bool is_device_managed =
       policy::ManagementServiceFactory::GetForPlatform()->IsManaged();
@@ -114,6 +139,19 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
   source->AddBoolean("usePrimaryAndTonalButtonsForPromos",
                      base::FeatureList::IsEnabled(
                          switches::kUsePrimaryAndTonalButtonsForPromos));
+  if (base::FeatureList::IsEnabled(
+          switches::kDisableFirstRunAnimationsForTesting)) {
+    CHECK_IS_TEST();
+    source->AddBoolean("disableAnimations", true);
+  } else {
+    source->AddBoolean("disableAnimations", false);
+  }
+
+  if (is_first_run_desktop_refresh_enabled) {
+    source->AddInteger(
+        "signInPromoVariation",
+        static_cast<int>(switches::kFirstRunDesktopSignInPromoVariation.Get()));
+  }
 
   // Setup chrome://intro/default-browser UI.
   source->AddResourcePath(
@@ -123,9 +161,8 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
           : IDR_INTRO_DEFAULT_BROWSER_DEFAULT_BROWSER_HTML);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  source->AddResourcePath(
-      "images/refresh_showcase_illustration.png",
-      IDR_DEFAULT_BROWSER_SHOWCASE_CHROME);
+  source->AddResourcePath("images/refresh_showcase_illustration.png",
+                          IDR_DEFAULT_BROWSER_SHOWCASE_CHROME);
 #else
   source->AddResourcePath(
       "images/refresh_showcase_illustration.png",
@@ -138,6 +175,12 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   source->AddResourcePath("images/gshield.svg", IDR_GSHIELD_ICON_SVG);
 #endif
+
+  if (is_first_run_desktop_refresh_enabled) {
+    source->OverrideContentSecurityPolicy(
+        network::mojom::CSPDirectiveName::WorkerSrc,
+        "worker-src blob: chrome://resources 'self';");
+  }
 
   // Unretained ok: `this` owns the handler.
   auto intro_handler = std::make_unique<IntroHandler>(

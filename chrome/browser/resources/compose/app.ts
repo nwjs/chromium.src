@@ -133,7 +133,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
         reflect: true,
       },
       enableUpfrontInputModes: {type: Boolean},
-      feedbackState_: {type: String},
+      feedbackState_: {type: Number},
       hasPartialOutput_: {type: Boolean},
       input_: {type: String},
       inputParams_: {type: Object},
@@ -192,7 +192,11 @@ export class ComposeAppElement extends ComposeAppElementBase {
       CrFeedbackOption.UNSPECIFIED;
   protected accessor hasPartialOutput_: boolean = false;
   protected accessor input_: string = '';
-  protected accessor inputParams_: ConfigurableParams|undefined;
+  protected accessor inputParams_: ConfigurableParams = {
+    minWordLimit: 0,
+    maxWordLimit: 0,
+    maxCharacterLimit: 0,
+  };
   protected accessor isEditingSubmittedInput_: boolean = false;
   protected accessor isEditingResultText_: boolean = false;
   protected accessor isEditSubmitEnabled_: boolean = true;
@@ -418,7 +422,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
         this.response_ = composeState.response;
         this.undoEnabled_ = Boolean(this.response_?.undoAvailable);
         this.redoEnabled_ = Boolean(this.response_?.redoAvailable);
-        this.feedbackEnabled_ = Boolean(!this.response_?.providedByUser);
+        this.feedbackEnabled_ = !this.response_?.providedByUser;
       }
 
       if (composeState.webuiState) {
@@ -847,7 +851,7 @@ export class ComposeAppElement extends ComposeAppElementBase {
   protected isBackFromErrorAvailable_(): boolean {
     // True when the current response is a filtering error and resulted from
     // applying a modifier.
-    return Boolean(
+    return (
         this.response_?.status === ComposeStatus.kFiltered &&
         this.response_?.triggeredFromModifier);
   }

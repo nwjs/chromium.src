@@ -31,10 +31,10 @@ class TextOffsetMappingTest : public EditingTestBase {
     const String text = mapping.GetText();
     const int offset = mapping.ComputeTextOffset(position);
     StringBuilder builder;
-    builder.Append(text.Left(offset));
+    builder.Append(text.subview(0, offset));
     builder.Append('|');
-    builder.Append(text.Substring(offset));
-    return builder.ToString().Utf8();
+    builder.Append(text.subview(offset));
+    return StringView(builder).Utf8();
   }
 
   std::string GetRange(const std::string& selection_text) {

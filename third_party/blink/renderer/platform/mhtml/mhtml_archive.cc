@@ -96,14 +96,14 @@ void QuotedPrintableEncode(base::span<const char> input,
     out.append_range(base::span_from_cstring(kRFC2047EncodingPrefix));
   size_t current_line_length = 0;
   for (size_t i = 0; i < input.size(); ++i) {
-    bool is_last_character = (i == input.size() - 1);
-    char current_character = input[i];
+    const bool is_last_character = (i == input.size() - 1);
+    const char current_character = input[i];
     bool requires_encoding = false;
     // All non-printable ASCII characters and = require encoding.
-    if ((current_character < ' ' || current_character > '~' ||
-         current_character == '=') &&
-        current_character != '\t')
+    if ((!IsAsciiPrintable(current_character) || current_character == '=') &&
+        current_character != '\t') {
       requires_encoding = true;
+    }
 
     // Decide if space and tab characters need to be encoded.
     if (!requires_encoding &&
@@ -162,8 +162,8 @@ void QuotedPrintableEncode(base::span<const char> input,
     // Finally, insert the actual character(s).
     if (requires_encoding) {
       out.push_back('=');
-      out.push_back(UpperNibbleToASCIIHexDigit(current_character));
-      out.push_back(LowerNibbleToASCIIHexDigit(current_character));
+      out.push_back(UpperNibbleToAsciiHexDigit(current_character));
+      out.push_back(LowerNibbleToAsciiHexDigit(current_character));
       current_line_length += 3;
     } else {
       out.push_back(current_character);
@@ -178,7 +178,7 @@ String ConvertToPrintableCharacters(const String& text) {
   // If the text contains all printable ASCII characters, no need for encoding.
   bool found_non_printable_char = false;
   for (wtf_size_t i = 0; i < text.length(); ++i) {
-    if (!IsASCIIPrintable(text[i])) {
+    if (!IsAsciiPrintable(text[i])) {
       found_non_printable_char = true;
       break;
     }

@@ -11,8 +11,8 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/feature_buildflags.h"
 #include "base/feature_list.h"
-#include "base/feature_list_buildflags.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
@@ -83,7 +83,7 @@ bool IsDefaultValue(const FeatureEntry& entry,
     case FeatureEntry::SINGLE_DISABLE_VALUE:
     case FeatureEntry::ORIGIN_LIST_VALUE:
     case FeatureEntry::STRING_VALUE:
-      return enabled_entries.count(entry.internal_name) == 0;
+      return !enabled_entries.contains(entry.internal_name);
     case FeatureEntry::MULTI_VALUE:
     case FeatureEntry::ENABLE_DISABLE_VALUE:
     case FeatureEntry::FEATURE_VALUE:
@@ -93,7 +93,7 @@ bool IsDefaultValue(const FeatureEntry& entry,
     case FeatureEntry::PLATFORM_FEATURE_NAME_WITH_PARAMS_VALUE:
 #endif  // BUILDFLAG(IS_CHROMEOS)
       for (int i = 0; i < entry.NumOptions(); ++i) {
-        if (enabled_entries.count(entry.NameForOption(i)) > 0) {
+        if (enabled_entries.contains(entry.NameForOption(i))) {
           return false;
         }
       }
@@ -119,10 +119,10 @@ base::ListValue CreateOptionsData(
   base::ListValue result;
   for (int i = 0; i < entry.NumOptions(); ++i) {
     base::DictValue dict;
-    const std::string name = entry.NameForOption(i);
-    dict.Set("internal_name", name);
+    std::string name = entry.NameForOption(i);
+    dict.Set("selected", enabled_entries.contains(name));
+    dict.Set("internal_name", std::move(name));
     dict.Set("description", entry.DescriptionForOption(i));
-    dict.Set("selected", enabled_entries.count(name) > 0);
     result.Append(std::move(dict));
   }
   return result;
@@ -189,11 +189,11 @@ std::vector<std::string> TokenizeOriginList(const std::string& value) {
         (!url.SchemeIsHTTPOrHTTPS() && !url.SchemeIsWSOrWSS())) {
       continue;
     }
-    const std::string origin = url::Origin::Create(url).Serialize();
+    std::string origin = url::Origin::Create(url).Serialize();
     if (!IsSafeValue(origin)) {
       continue;
     }
-    origin_strings.push_back(origin);
+    origin_strings.emplace_back(std::move(origin));
   }
   return origin_strings;
 }
@@ -206,14 +206,13 @@ std::string CombineAndSanitizeOriginLists(const std::string& value1,
   std::set<std::string> seen_origins;
   std::vector<std::string> origin_vector;
   for (const std::string& list : {value1, value2}) {
-    for (const std::string& origin : TokenizeOriginList(list)) {
-      if (!seen_origins.contains(origin)) {
-        origin_vector.push_back(origin);
-        seen_origins.insert(origin);
+    for (std::string& origin : TokenizeOriginList(list)) {
+      if (seen_origins.insert(origin).second) {
+        origin_vector.emplace_back(std::move(origin));
       }
     }
   }
-  const std::string result =
+  std::string result =
       base::JoinString(origin_vector, kOriginListValueSeparator);
   CHECK(IsSafeValue(result));
   return result;
@@ -236,10 +235,9 @@ std::string GetCombinedStringValue(const FlagsStorage& flags_storage,
                                    const base::CommandLine& command_line,
                                    const std::string& internal_entry_name,
                                    const std::string& command_line_switch) {
-  const std::string existing_value =
+  std::string existing_value =
       command_line.GetSwitchValueASCII(command_line_switch);
-  const std::string new_value =
-      flags_storage.GetStringFlag(internal_entry_name);
+  std::string new_value = flags_storage.GetStringFlag(internal_entry_name);
   if (new_value.empty()) {
     return existing_value;
   }
@@ -251,7 +249,7 @@ std::string GetCombinedStringValue(const FlagsStorage& flags_storage,
 void RemoveCommandLineSwitch(base::CommandLine* current_cl,
                              const std::string& switch_to_remove) {
   base::CommandLine new_cl(current_cl->GetProgram());
-  const base::CommandLine::SwitchMap switches = current_cl->GetSwitches();
+  const base::CommandLine::SwitchMap& switches = current_cl->GetSwitches();
   for (const auto& it : switches) {
     const auto& switch_name = it.first;
     const auto& switch_value = it.second;
@@ -461,10 +459,9 @@ void FlagsState::SetFeatureEntryEnabled(FlagsStorage* flags_storage,
     } else {
       // Find the currently enabled choice and disable it.
       for (int i = 0; i < e->NumOptions(); ++i) {
-        std::string choice_name = e->NameForOption(i);
-        if (enabled_entries.find(choice_name) != enabled_entries.end()) {
+        const std::string choice_name = e->NameForOption(i);
+        if (enabled_entries.erase(choice_name) > 0) {
           needs_restart_ = true;
-          enabled_entries.erase(choice_name);
           // Continue on just in case there's a bug and more than one
           // entry for this choice was enabled.
         }
@@ -553,7 +550,7 @@ void FlagsState::RemoveFlagsSwitches(
 #if BUILDFLAG(IS_WIN)
       (*switch_list)[switch_name] = base::UTF8ToWide(switch_value);
 #else
-      (*switch_list)[switch_name] = switch_value;
+      (*switch_list)[switch_name] = std::move(switch_value);
 #endif
     }
   }
@@ -605,7 +602,7 @@ std::vector<std::string> FlagsState::RegisterEnabledFeatureVariationParameters(
     ) {
       for (int j = 0; j < entry.NumOptions(); ++j) {
         if (entry.StateForOption(j) == FeatureEntry::FeatureState::ENABLED &&
-            enabled_entries.count(entry.NameForOption(j))) {
+            enabled_entries.contains(entry.NameForOption(j))) {
           std::string trial_name;
           if (entry.type == FeatureEntry::FEATURE_WITH_PARAMS_VALUE) {
             trial_name = entry.feature.feature_trial_name;
@@ -792,11 +789,12 @@ void FlagsState::AddSwitchMapping(
     const std::string& switch_name,
     const std::string& switch_value,
     std::map<std::string, SwitchEntry>* name_to_switch_map) const {
-  DCHECK(!name_to_switch_map->contains(key));
+  auto [it, inserted] = name_to_switch_map->try_emplace(key);
+  DCHECK(inserted);
 
-  SwitchEntry* entry = &(*name_to_switch_map)[key];
-  entry->switch_name = switch_name;
-  entry->switch_value = switch_value;
+  SwitchEntry& entry = it->second;
+  entry.switch_name = switch_name;
+  entry.switch_value = switch_value;
 }
 
 void FlagsState::AddFeatureMapping(
@@ -805,12 +803,13 @@ void FlagsState::AddFeatureMapping(
     bool feature_state,
     const std::string& variation_id,
     std::map<std::string, SwitchEntry>* name_to_switch_map) const {
-  DCHECK(!name_to_switch_map->contains(key));
+  auto [it, inserted] = name_to_switch_map->try_emplace(key);
+  DCHECK(inserted);
 
-  SwitchEntry* entry = &(*name_to_switch_map)[key];
-  entry->feature_name = feature_name;
-  entry->feature_state = feature_state;
-  entry->variation_id = variation_id;
+  SwitchEntry& entry = it->second;
+  entry.feature_name = feature_name;
+  entry.feature_state = feature_state;
+  entry.variation_id = variation_id;
 }
 
 void FlagsState::AddSwitchesToCommandLine(
@@ -826,8 +825,6 @@ void FlagsState::AddSwitchesToCommandLine(
     modified_flag_switches_.insert(switches::kFlagSwitchesBegin);
   }
 
-  std::vector<std::string> variation_ids;
-
   for (const std::string& entry_name : enabled_entries) {
     const auto& entry_it = name_to_switch_map.find(entry_name);
     if (entry_it == name_to_switch_map.end()) {
@@ -837,9 +834,6 @@ void FlagsState::AddSwitchesToCommandLine(
     const SwitchEntry& entry = entry_it->second;
     if (!entry.feature_name.empty()) {
       feature_switches[entry.feature_name] = entry.feature_state;
-      if (!entry.variation_id.empty()) {
-        variation_ids.push_back(entry.variation_id);
-      }
     } else if (!entry.switch_name.empty()) {
       if (entry.switch_name == enable_features_flag_name ||
           entry.switch_name == disable_features_flag_name) {
@@ -868,9 +862,6 @@ void FlagsState::AddSwitchesToCommandLine(
                                   true, command_line);
     MergeFeatureCommandLineSwitch(feature_switches, disable_features_flag_name,
                                   false, command_line);
-  }
-  if (!variation_ids.empty()) {
-    MergeVariationIdsCommandLineSwitch(variation_ids, command_line);
   }
 
   if (sentinels == kAddSentinels) {
@@ -905,25 +896,6 @@ void FlagsState::MergeFeatureCommandLineSwitch(
   if (switch_value != original_switch_value) {
     command_line->AppendSwitchASCII(switch_name, switch_value);
   }
-}
-
-void FlagsState::MergeVariationIdsCommandLineSwitch(
-    const std::vector<std::string>& variation_ids,
-    base::CommandLine* command_line) {
-  DCHECK(!variation_ids.empty());
-  std::string variation_ids_switch = command_line->GetSwitchValueASCII(
-      variations::switches::kForceVariationIds);
-
-  // At this point, the switch value is guaranteed to change since
-  // |variation_ids| is not empty. Hence, we do not conditionally update the
-  // switch value, as is done in FlagsState::MergeFeatureCommandLineSwitch().
-  // Note that it is an error to try to set the same variation id in multiple
-  // ways.
-  command_line->AppendSwitchASCII(
-      variations::switches::kForceVariationIds,
-      base::StrCat({variation_ids_switch,
-                    variation_ids_switch.empty() ? "" : ",",
-                    base::JoinString(variation_ids, ",")}));
 }
 
 std::set<std::string> FlagsState::SanitizeList(
@@ -1153,8 +1125,7 @@ void FlagsState::SetFlags(
           entry->StateForOption(feature_option);
       bool feature_value =
           (feature_state == FeatureEntry::FeatureState::ENABLED);
-      std::string feature_value_string = base::ToString(feature_value);
-      features[feature_name] = feature_value_string;
+      features[feature_name] = base::ToString(feature_value);
 
       if (entry->type == FeatureEntry::FEATURE_WITH_PARAMS_VALUE) {
         feature_params[feature_name] = std::map<std::string, std::string>();
@@ -1172,7 +1143,7 @@ void FlagsState::SetFlags(
         for (const auto& feature_param : feature_variations->params) {
           std::string param_name = std::string(feature_param.param_name);
           std::string param_value = std::string(feature_param.param_value);
-          cur_feature_params[param_name] = param_value;
+          cur_feature_params[param_name] = std::move(param_value);
         }
       }
     }

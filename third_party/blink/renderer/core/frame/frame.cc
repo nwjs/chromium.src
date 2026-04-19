@@ -504,7 +504,7 @@ void Frame::UpdateVisibleToHitTesting() {
   if (auto* local_owner = DynamicTo<HTMLFrameOwnerElement>(owner_.Get())) {
     self_visible_to_hit_testing =
         !local_owner->GetLayoutObject() ||
-        local_owner->GetLayoutObject()->Style()->VisibleToHitTesting();
+        local_owner->GetLayoutObject()->StyleRef().VisibleToHitTesting();
   }
 
   bool visible_to_hit_testing =
@@ -693,8 +693,7 @@ void Frame::FocusPage(LocalFrame* originating_frame) {
   // is specially permitted to change focus without user interaction.
   if (originating_frame &&
       (LocalFrame::HasTransientUserActivation(originating_frame) ||
-       originating_frame->GetSettings()
-           ->GetAllowWindowFocusWithoutUserGesture())) {
+       originating_frame->GetSettings()->GetAllowUnrestrictedWindowFocus())) {
     // Ask the browser process to focus the page.
     GetPage()->GetChromeClient().FocusPage();
 

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -43,6 +44,9 @@ class AHardwareBufferImageBackingFactory;
 #endif
 
 class GPU_GLES2_EXPORT SharedImageFactory {
+  // TODO(crbug.com/497136403): Remove this macro once the bug gets fixed.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   // All objects passed are expected to outlive this class.
   SharedImageFactory(const GpuPreferences& gpu_preferences,
@@ -177,12 +181,19 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   SharedImageRepresentationFactoryRef* GetFactoryRef(
       const Mailbox& mailbox) const;
 
+  // Returns the first factory that can create a shared image with the given
+  // params. `stream` and `params` are optional and are used to further
+  // filter the factories based on the access stream requirements. This is
+  // currently used for dynamic allocation of backings for
+  // CompoundImageBacking.
   SharedImageBackingFactory* GetFactoryByUsage(
       SharedImageUsageSet usage,
       viz::SharedImageFormat format,
       const gfx::Size& size,
       base::span<const uint8_t> pixel_data,
-      gfx::GpuMemoryBufferType gmb_type);
+      gfx::GpuMemoryBufferType gmb_type,
+      std::optional<SharedImageAccessStream> stream,
+      const AccessParams* params);
   void LogGetFactoryFailed(gpu::SharedImageUsageSet usage,
                            viz::SharedImageFormat format,
                            gfx::GpuMemoryBufferType gmb_type,

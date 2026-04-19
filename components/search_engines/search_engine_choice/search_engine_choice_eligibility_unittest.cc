@@ -133,11 +133,9 @@ class KeywordsDatabaseHolder {
   scoped_refptr<KeywordWebDataService> keyword_web_data;
 };
 
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_IOS)
 const ui::DeviceFormFactorSet kPhoneFormFactors{
     ui::DEVICE_FORM_FACTOR_PHONE, ui::DEVICE_FORM_FACTOR_FOLDABLE};
-const ui::DeviceFormFactorSet kNonPhoneFormFactors =
-    base::Difference(ui::DeviceFormFactorSet::All(), kPhoneFormFactors);
 #endif
 
 SearchEngineChoiceScreenConditions IfSupported(
@@ -241,6 +239,9 @@ class SearchEngineChoiceEligibilityTest
 // overridden in the intial_preferences file.
 TEST_F(SearchEngineChoiceEligibilityTest,
        DoNotShowChoiceScreenWithProviderListOverride) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kIgnoreSearchProviderOverrides);
+
   base::ListValue override_list;
   pref_service()->SetList(prefs::kSearchProviderOverrides,
                           override_list.Clone());
@@ -248,6 +249,21 @@ TEST_F(SearchEngineChoiceEligibilityTest,
   EXPECT_EQ(
       GetStaticConditions(),
       IfSupported(SearchEngineChoiceScreenConditions::kSearchProviderOverride));
+}
+
+// Test that the choice screen gets displayed even if the provider list is
+// overridden in the intial_preferences file, when the flag is enabled.
+TEST_F(SearchEngineChoiceEligibilityTest,
+       DoShowChoiceScreenWithProviderListOverrideIfFlagEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(switches::kIgnoreSearchProviderOverrides);
+
+  base::ListValue override_list;
+  pref_service()->SetList(prefs::kSearchProviderOverrides,
+                          override_list.Clone());
+
+  EXPECT_EQ(GetStaticConditions(),
+            IfSupported(SearchEngineChoiceScreenConditions::kEligible));
 }
 
 // Test that the choice screen gets displayed if the
@@ -434,8 +450,6 @@ TEST_F(SearchEngineChoiceEligibilityTest,
     GTEST_SKIP();
   }
 
-  base::test::ScopedFeatureList scoped_feature_list{switches::kTaiyaki};
-
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kSearchEngineChoiceCountry, "JP");
   static_cast<regional_capabilities::FakeRegionalCapabilitiesServiceClient&>(
@@ -491,8 +505,6 @@ TEST_F(SearchEngineChoiceEligibilityTest,
     GTEST_SKIP();
   }
 
-  base::test::ScopedFeatureList scoped_feature_list{switches::kTaiyaki};
-
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kSearchEngineChoiceCountry, "JP");
   static_cast<regional_capabilities::FakeRegionalCapabilitiesServiceClient&>(
@@ -520,8 +532,6 @@ TEST_F(SearchEngineChoiceEligibilityTest,
   if (!kPhoneFormFactors.Has(ui::GetDeviceFormFactor())) {
     GTEST_SKIP();
   }
-
-  base::test::ScopedFeatureList scoped_feature_list{switches::kTaiyaki};
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kSearchEngineChoiceCountry, "JP");
@@ -653,8 +663,6 @@ TEST_F(SearchEngineChoiceEligibilityTest,
   if (!kPhoneFormFactors.Has(ui::GetDeviceFormFactor())) {
     GTEST_SKIP();
   }
-
-  base::test::ScopedFeatureList scoped_feature_list{switches::kTaiyaki};
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kSearchEngineChoiceCountry, "JP");
@@ -957,9 +965,14 @@ struct Spec {
     std::optional<ChoiceStatus> expect_choice_status_after;
   };
 
+  enum class RestoreFeatureState {
+    kDisabled,
+    kEnableJustInTime,
+    kEnabledRetroactive
+  };
+
   std::string test_name;
-  bool restore_feature_enabled;
-  bool taiyaki_feature_enabled;
+  RestoreFeatureState restore_feature_state;
   base::RepeatingCallback<bool()> check_should_skip;
   std::vector<Run> runs;
 };
@@ -1067,13 +1080,22 @@ TEST_P(SearchEngineChoiceEligibilityOnRestoreTest, Run) {
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatureStates({
-      {switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection,
-       param.restore_feature_enabled},
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-      {switches::kTaiyaki, param.taiyaki_feature_enabled},
-#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-  });
+  std::vector<base::test::FeatureRefAndParams> enabled_features;
+  std::vector<base::test::FeatureRef> disabled_features;
+  if (param.restore_feature_state == Spec::RestoreFeatureState::kDisabled) {
+    disabled_features.push_back(
+        switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection);
+  } else {
+    enabled_features.push_back(
+        {switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection,
+         {{switches::kInvalidateChoiceOnRestoreIsRetroactive.name,
+           param.restore_feature_state ==
+                   Spec::RestoreFeatureState::kEnabledRetroactive
+               ? "true"
+               : "false"}}});
+  }
+  scoped_feature_list.InitWithFeaturesAndParameters(enabled_features,
+                                                    disabled_features);
 
   latest_restore_time_ = std::nullopt;
   for (const auto& current_run : param.runs) {
@@ -1109,7 +1131,8 @@ INSTANTIATE_TEST_SUITE_P(
     SearchEngineChoiceEligibilityOnRestoreTest,
     ::testing::ValuesIn(
         {Spec{.test_name = "1p",
-              .restore_feature_enabled = true,
+              .restore_feature_state =
+                  Spec::RestoreFeatureState::kEnableJustInTime,
               .runs =
                   {
                       // Sets up Chrome as running in France, and having
@@ -1155,8 +1178,8 @@ INSTANTIATE_TEST_SUITE_P(
                   }},
 #if BUILDFLAG(IS_IOS)
          Spec{.test_name = "1pTaiyaki",
-              .restore_feature_enabled = true,
-              .taiyaki_feature_enabled = true,
+              .restore_feature_state =
+                  Spec::RestoreFeatureState::kEnableJustInTime,
               .check_should_skip = base::BindRepeating([]() {
                 return !kPhoneFormFactors.Has(ui::GetDeviceFormFactor());
               }),
@@ -1205,7 +1228,7 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // BUILDFLAG(IS_IOS)
          Spec{
              .test_name = "1pNoRestoreDetection",
-             .restore_feature_enabled = false,
+             .restore_feature_state = Spec::RestoreFeatureState::kDisabled,
              .runs =
                  {
                      // Sets up Chrome as running in France, and having
@@ -1248,7 +1271,8 @@ INSTANTIATE_TEST_SUITE_P(
                  },
          },
          Spec{.test_name = "3p",
-              .restore_feature_enabled = true,
+              .restore_feature_state =
+                  Spec::RestoreFeatureState::kEnableJustInTime,
               .runs =
                   {
                       // Sets up Chrome as running in France, and having
@@ -1327,7 +1351,7 @@ INSTANTIATE_TEST_SUITE_P(
                   }},
          Spec{
              .test_name = "3pNoRestoreDetection",
-             .restore_feature_enabled = false,
+             .restore_feature_state = Spec::RestoreFeatureState::kDisabled,
              .runs =
                  {
                      // Sets up Chrome as running in France, and having
@@ -1383,7 +1407,8 @@ INSTANTIATE_TEST_SUITE_P(
          },
          Spec{
              .test_name = "custom",
-             .restore_feature_enabled = true,
+             .restore_feature_state =
+                 Spec::RestoreFeatureState::kEnableJustInTime,
              .runs =
                  {
                      // Sets up Chrome as running in France, and having selected
@@ -1493,7 +1518,8 @@ INSTANTIATE_TEST_SUITE_P(
          },
          Spec{
              .test_name = "customGoogle",
-             .restore_feature_enabled = true,
+             .restore_feature_state =
+                 Spec::RestoreFeatureState::kEnableJustInTime,
              .runs =
                  {
                      // Sets up Chrome as running in France, and having

@@ -102,6 +102,20 @@ public class StripLayoutTab extends StripLayoutView {
                 }
             };
 
+    /** A property for animations to use for shifting the pinned icon to the center. */
+    public static final FloatProperty<StripLayoutTab> PINNED_TAB_FAVICON_OFFSET =
+            new FloatProperty<>("pinnedTabFaviconOffset") {
+                @Override
+                public void setValue(StripLayoutTab object, float value) {
+                    object.setPinnedTabFaviconOffsetX(value);
+                }
+
+                @Override
+                public Float get(StripLayoutTab object) {
+                    return object.getPinnedTabFaviconOffsetX();
+                }
+            };
+
     // Animation/Timer Constants
     private static final int ANIM_TAB_CLOSE_BUTTON_FADE_MS = 150;
 
@@ -142,6 +156,13 @@ public class StripLayoutTab extends StripLayoutView {
                             - CLOSE_BUTTON_PADDING_DP
                             - MEDIA_INDICATOR_INTERNAL_PADDING_DP);
 
+    // Tab Underline Constants
+    public static final float TAB_UNDERLINE_THICKNESS_DP = 2.f;
+    public static final float TAB_UNDERLINE_CORNER_RADIUS_DP = TAB_UNDERLINE_THICKNESS_DP / 2;
+    // Used to ensure a 2dp gap between tab group underline and Glic underline.
+    public static final float TAB_UNDERLINE_BOTTOM_MARGIN_DP =
+            StripLayoutGroupTitle.BOTTOM_INDICATOR_HEIGHT_DP + 2.f;
+
     // Divider Constants
     private static final int DIVIDER_OFFSET_X = 13;
 
@@ -160,6 +181,7 @@ public class StripLayoutTab extends StripLayoutView {
     private boolean mIsClosed;
     private boolean mIsSelected;
     private boolean mIsPinned;
+    private float mPinnedTabFaviconOffsetX;
     private boolean mIsHovered;
     private boolean mIsMultiSelected;
     private boolean mCanShowCloseButton = true;
@@ -171,6 +193,7 @@ public class StripLayoutTab extends StripLayoutView {
     private float mBottomMargin;
     private float mContainerOpacity;
     private @MediaState int mMediaState;
+    private boolean mIsUnderlined;
 
     // For avoiding unnecessary accessibility description updates.
     private @Nullable String mCachedA11yDescriptionTitle;
@@ -339,7 +362,7 @@ public class StripLayoutTab extends StripLayoutView {
      * @param isPinned whether this tab has been pinned.
      */
     public void setIsPinned(boolean isPinned) {
-        mIsPinned = StripLayoutUtils.isTabPinningFromStripEnabled() ? isPinned : false;
+        mIsPinned = isPinned;
     }
 
     /** Gets whether this tab has been pinned */
@@ -353,6 +376,20 @@ public class StripLayoutTab extends StripLayoutView {
 
     public @MediaState int getMediaState() {
         return mMediaState;
+    }
+
+    /**
+     * Sets whether this tab is underlined
+     *
+     * @param isUnderlined whether this tab is underlined.
+     */
+    public void setIsUnderlined(boolean isUnderlined) {
+        mIsUnderlined = isUnderlined;
+    }
+
+    /** Gets whether this tab is underlined. */
+    public boolean isUnderlined() {
+        return mIsUnderlined;
     }
 
     /**
@@ -671,6 +708,20 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /**
+     * @param offset How far to horizontally offset the favicon when the tab is pinned.
+     */
+    public void setPinnedTabFaviconOffsetX(float offset) {
+        mPinnedTabFaviconOffsetX = offset;
+    }
+
+    /**
+     * @return How far to horizontally offset the favicon when the tab is pinned.
+     */
+    public float getPinnedTabFaviconOffsetX() {
+        return mPinnedTabFaviconOffsetX;
+    }
+
+    /**
      * @return How far to vertically offset the tab content.
      */
     public float getContentOffsetY() {
@@ -982,7 +1033,7 @@ public class StripLayoutTab extends StripLayoutView {
         boolean shouldShow = mCanShowCloseButton && !mIsPlaceholder;
 
         if (shouldShow != mShowingCloseButton) {
-            float opacity = shouldShow ? 1.f : 0.f;
+            float opacity = shouldShow ? 1.0f : 0.0f;
             if (animate) {
                 if (mButtonOpacityAnimation != null) mButtonOpacityAnimation.end();
                 mButtonOpacityAnimation =

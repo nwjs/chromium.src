@@ -11,8 +11,6 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
-#include "third_party/blink/renderer/core/style/computed_style_constants.h"
-#include "third_party/blink/renderer/core/style/gap_data_list.h"
 #include "third_party/blink/renderer/platform/text/writing_mode_utils.h"
 
 namespace blink {
@@ -165,7 +163,7 @@ CSSGapDecorationUtils::GetExpandedGapDataList(
         // Integer repeater, add values `count` times.
         wtf_size_t count = repeater->RepeatCount();
 
-        for (size_t i = 0; i < count; ++i) {
+        for (wtf_size_t i = 0; i < count; ++i) {
           for (const auto& value : repeater->RepeatedValues()) {
             expanded_values.push_back(GapData<T>(value));
           }
@@ -175,6 +173,18 @@ CSSGapDecorationUtils::GetExpandedGapDataList(
   }
 
   return expanded_values;
+}
+
+Vector<int> CSSGapDecorationUtils::GetExpandedWidths(
+    const GapDataList<int>& gap_data_list,
+    wtf_size_t gap_count) {
+  GapDataListIterator<int> iter(gap_data_list.GetGapDataList(), gap_count);
+  Vector<int> result;
+  result.ReserveInitialCapacity(gap_count);
+  while (iter.HasNext()) {
+    result.push_back(iter.Next());
+  }
+  return result;
 }
 
 RuleBreak CSSGapDecorationUtils::ResolveRuleBreakValue(
@@ -202,20 +212,69 @@ RuleVisibilityItems CSSGapDecorationUtils::ResolveRuleVisibilityItemsValue(
   RuleVisibilityItems rule_visibility = direction == kForColumns
                                             ? style.ColumnRuleVisibilityItems()
                                             : style.RowRuleVisibilityItems();
-  if (rule_visibility != RuleVisibilityItems::kAuto) {
+  if (rule_visibility != RuleVisibilityItems::kNormal) {
     return rule_visibility;
   }
 
-  // Resolve `auto` value based on the container type.
+  // Resolve `normal` value based on the container type.
   //
   // https://drafts.csswg.org/css-gaps-1/#visibility-rules.
   switch (container_type) {
     case GapGeometry::ContainerType::kGrid:
-    case GapGeometry::ContainerType::kFlex:
       return RuleVisibilityItems::kAll;
+    case GapGeometry::ContainerType::kFlex:
     case GapGeometry::ContainerType::kMultiColumn:
       return RuleVisibilityItems::kBetween;
   }
+}
+
+bool CSSGapDecorationUtils::IsRuleSegmentVisible(
+    GridTrackSizingDirection track_direction,
+    wtf_size_t gap_index,
+    wtf_size_t intersection_index,
+    RuleVisibilityItems rule_visibility,
+    const GapGeometry& gap_geometry) {
+  if (rule_visibility == RuleVisibilityItems::kAll) {
+    return true;
+  }
+
+  GapSegmentState gap_state = gap_geometry.GetIntersectionGapSegmentState(
+      track_direction, gap_index, intersection_index);
+
+  switch (rule_visibility) {
+    case RuleVisibilityItems::kAround:
+      // Paint if either side of the segment is occupied (i.e. not empty on both
+      // sides).
+      return !gap_state.IsEmpty();
+    case RuleVisibilityItems::kBetween:
+      // Paint only when both sides of the segment are occupied (i.e. gap
+      // segment state has no empty status).
+      return !gap_state.HasEmptyStatus();
+    case RuleVisibilityItems::kAll:
+    case RuleVisibilityItems::kNormal:
+      // `kAll` should have been handled as an early return at the beginning of
+      // this function. `normal` should have been resolved before reaching this
+      // point.
+      NOTREACHED();
+  }
+
+  NOTREACHED();
+}
+
+bool CSSGapDecorationUtils::HasOverlapJoin(const ComputedStyle& style,
+                                           bool is_column_gap) {
+  return (is_column_gap ? style.ColumnRuleEdgeInsetStart()
+                        : style.RowRuleEdgeInsetStart())
+             .IsOverlapJoin() ||
+         (is_column_gap ? style.ColumnRuleEdgeInsetEnd()
+                        : style.RowRuleEdgeInsetEnd())
+             .IsOverlapJoin() ||
+         (is_column_gap ? style.ColumnRuleInteriorInsetStart()
+                        : style.RowRuleInteriorInsetStart())
+             .IsOverlapJoin() ||
+         (is_column_gap ? style.ColumnRuleInteriorInsetEnd()
+                        : style.RowRuleInteriorInsetEnd())
+             .IsOverlapJoin();
 }
 
 // Explicit template instantiations

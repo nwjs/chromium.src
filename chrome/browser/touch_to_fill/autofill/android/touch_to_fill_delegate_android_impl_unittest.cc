@@ -194,14 +194,6 @@ class MockBrowserAutofillManager : public TestBrowserAutofillManager {
                const FormData& form,
                const FieldGlobalId& field_id,
                const FillingPayload& filling_payload,
-               AutofillTriggerSource trigger_source),
-              (override));
-  MOCK_METHOD(void,
-              FillOrPreviewFields,
-              (mojom::ActionPersistence action_persistence,
-               const FormData& form,
-               const FieldGlobalId& field_id,
-               const FillingPayload& filling_payload,
                AutofillTriggerSource trigger_source,
                const base::flat_set<FieldGlobalId>& blocked_fields),
               (override));
@@ -242,11 +234,8 @@ class TouchToFillDelegateAndroidImplUnitTest
           MockPaymentsAutofillClient> {
  public:
   TouchToFillDelegateAndroidImplUnitTest() {
-    features_.InitWithFeatures(
-        {features::kAutofillEnableLoyaltyCardsFilling,
-         features::kAutofillEnableEmailOrLoyaltyCardsFilling,
-         features::kAutofillEnableBuyNowPayLaterSyncing},
-        {});
+    features_.InitAndEnableFeature(
+        features::kAutofillEnableBuyNowPayLaterSyncing);
     // Some date after in the 2000s because Autofill doesn't allow expiration
     // dates before 2000.
     task_environment_.AdvanceClock(base::Days(365 * 50));
@@ -379,7 +368,7 @@ TEST_F(TouchToFillDelegateAndroidImplUnitTest,
        BnplSuggestionSelected_WithValidAmount) {
   std::optional<int64_t> extracted_amount = 12345;
   EXPECT_CALL(*autofill_manager().GetPaymentsBnplManager(),
-              OnDidAcceptBnplSuggestion(extracted_amount, _));
+              OnUserDecisionToUseBnpl(extracted_amount, _));
 
   touch_to_fill_delegate_->BnplSuggestionSelected(extracted_amount);
 }
@@ -387,7 +376,7 @@ TEST_F(TouchToFillDelegateAndroidImplUnitTest,
 TEST_F(TouchToFillDelegateAndroidImplUnitTest,
        BnplSuggestionSelected_WithNullAmount) {
   EXPECT_CALL(*autofill_manager().GetPaymentsBnplManager(),
-              OnDidAcceptBnplSuggestion(testing::Eq(std::nullopt), _));
+              OnUserDecisionToUseBnpl(testing::Eq(std::nullopt), _));
 
   touch_to_fill_delegate_->BnplSuggestionSelected(
       /*extracted_amount=*/std::nullopt);
@@ -402,7 +391,7 @@ TEST_F(TouchToFillDelegateAndroidImplUnitTest,
 
   base::OnceCallback<void(const CreditCard&)> captured_callback;
   EXPECT_CALL(*autofill_manager().GetPaymentsBnplManager(),
-              OnDidAcceptBnplSuggestion(_, _))
+              OnUserDecisionToUseBnpl)
       .WillOnce([&](std::optional<uint64_t> amount,
                     base::OnceCallback<void(const CreditCard&)> callback) {
         captured_callback = std::move(callback);
@@ -417,7 +406,7 @@ TEST_F(TouchToFillDelegateAndroidImplUnitTest,
       FillOrPreviewForm(
           mojom::ActionPersistence::kFill, form_, form_.fields()[0].global_id(),
           ::testing::VariantWith<const CreditCard*>(Pointee(test_card)),
-          AutofillTriggerSource::kKeyboardAccessoryOrBottomSheet));
+          AutofillTriggerSource::kKeyboardAccessoryOrBottomSheet, _));
 
   // Run the captured callback, simulating a successful VCN fetch.
   std::move(captured_callback).Run(test_card);
@@ -432,7 +421,7 @@ TEST_F(TouchToFillDelegateAndroidImplUnitTest,
 
   base::OnceCallback<void(const CreditCard&)> captured_callback;
   EXPECT_CALL(*autofill_manager().GetPaymentsBnplManager(),
-              OnDidAcceptBnplSuggestion(_, _))
+              OnUserDecisionToUseBnpl)
       .WillOnce([&](std::optional<uint64_t> amount,
                     base::OnceCallback<void(const CreditCard&)> callback) {
         captured_callback = std::move(callback);

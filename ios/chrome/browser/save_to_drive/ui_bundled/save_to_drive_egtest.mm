@@ -12,12 +12,15 @@
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/authentication/test/signin_matchers.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/views/views_constants.h"
 #import "ios/chrome/browser/download/ui/download_manager_constants.h"
+#import "ios/chrome/browser/drive/model/drive_metrics.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
 #import "ios/chrome/browser/drive/model/test_constants.h"
 #import "ios/chrome/browser/google_one/test/constants.h"
 #import "ios/chrome/browser/google_one/test/google_one_app_interface.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
 #import "ios/chrome/browser/policy/model/scoped_policy_list.h"
 #import "ios/chrome/browser/save_to_drive/ui_bundled/file_destination_picker_constants.h"
@@ -117,6 +120,23 @@ id<GREYMatcher> G1View() {
   return grey_accessibilityID(kTestGoogleOneControllerAccessibilityID);
 }
 
+// Matcher for consistency sign-in promo.
+id<GREYMatcher> SigninPromo() {
+  return grey_allOf(
+      grey_accessibilityID(kConsistencySigninAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+}
+
+// Matcher for consistency sign-in promo primary button.
+id<GREYMatcher> SigninPromoPrimaryButton() {
+  return chrome_test_util::ConsistencySigninPrimaryButtonMatcher();
+}
+
+// Matcher for consistency sign-in promo cancel button.
+id<GREYMatcher> SigninPromoCancelButton() {
+  return chrome_test_util::ConsistencySigninSkipButtonMatcher();
+}
+
 // Provides downloads landing page with download link.
 std::unique_ptr<net::test_server::HttpResponse> GetResponse(
     const net::test_server::HttpRequest& request) {
@@ -146,6 +166,9 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
       base::BindRepeating(&testing::HandleDownload)));
 
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+
+  chrome_test_util::GREYAssertErrorNil(
+      [MetricsAppInterface setupHistogramTester]);
 }
 
 - (void)tearDownHelper {
@@ -155,7 +178,11 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration configuration = [super appConfigurationForTestCase];
-  if ([self isRunningTest:@selector(testSaveToDriveDisplayedWhenSignedOut)]) {
+  if ([self isRunningTest:@selector(testSaveToDriveDisplayedWhenSignedOut)] ||
+      [self isRunningTest:@selector
+            (testSaveToDriveWhenSignedOutWithAccountOnDevice)] ||
+      [self isRunningTest:@selector(testDriveFullStorageSignedOut)] ||
+      [self isRunningTest:@selector(testCanDownloadToDrive)]) {
     configuration.features_enabled.push_back(kIOSSaveToDriveSignedOut);
   }
   if ([self isRunningTest:@selector(testCanRetryDownloadToDrive)]) {
@@ -166,7 +193,8 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
     configuration.additional_args.push_back(base::StringPrintf(
         "--%s=%s", commandLineSwitch.c_str(), commandLineValue.c_str()));
   }
-  if ([self isRunningTest:@selector(testDriveFullStorage)]) {
+  if ([self isRunningTest:@selector(testDriveFullStorage)] ||
+      [self isRunningTest:@selector(testDriveFullStorageSignedOut)]) {
     const std::string commandLineSwitch =
         std::string(kTestDriveFileUploaderCommandLineSwitch);
     const std::string commandLineValue =
@@ -299,6 +327,14 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
       waitForUIElementToAppearWithMatcher:DownloadManagerGetTheAppButton()
                                   timeout:base::test::ios::
                                               kWaitForDownloadTimeout];
+  // Check that the sign-in status histogram records kSignedIn.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          SaveToDriveSignInStatus::kSignedIn)
+                         forHistogram:@(kSaveToDriveSignInStatus)],
+      @"Unexpected histogram error for sign in status.");
 }
 
 // Tests that if the storage is full, an alert is displayed and user can open G1
@@ -330,6 +366,45 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
   [[EarlGrey selectElementWithMatcher:ManageStorageButton()]
       performAction:grey_tap()];
 
+  // Wait for the G1 view to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:G1View()];
+}
+
+// Tests that if the storage is full when signed out, an alert is displayed and
+// user can open G1 settings to manage their storage.
+- (void)testDriveFullStorageSignedOut {
+  [GoogleOneAppInterface overrideGoogleOneController];
+  // Add account on device.
+  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
+  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  // Load a page with a download button and tap the download button.
+  [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
+  [ChromeEarlGrey waitForWebStateContainingText:"Download"];
+  [ChromeEarlGrey tapWebStateElementWithID:@"download"];
+  // Check that the "Drive" button is presented and tap it.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:SaveEllipsisButton()];
+  [[EarlGrey selectElementWithMatcher:SaveEllipsisButton()]
+      performAction:grey_tap()];
+  // Wait for the account picker to appear, select "Drive" and tap "Save".
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:AccountPicker()];
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:FileDestinationDriveButton()];
+  [[EarlGrey selectElementWithMatcher:FileDestinationDriveButton()]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:AccountPickerPrimaryButton()]
+      performAction:grey_tap()];
+  // Wait for the consistency sign in promo to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:SigninPromo()];
+  // Tap the "Sign in" button.
+  [[EarlGrey selectElementWithMatcher:SigninPromoPrimaryButton()]
+      performAction:grey_tap()];
+  // Tap the "Sign in" confirmation popup.
+  [SigninEarlGreyUI dismissSigninConfirmationSnackbarForIdentity:fakeIdentity
+                                                   assertVisible:YES];
+  // Wait for the alert to appear and tap it.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:ManageStorageButton()];
+  [[EarlGrey selectElementWithMatcher:ManageStorageButton()]
+      performAction:grey_tap()];
   // Wait for the G1 view to appear.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:G1View()];
 }
@@ -392,7 +467,8 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:DownloadButton()];
 }
 
-// Test that the account picker is displayed when signed out.
+// Test that the account picker is displayed when signed out without account on
+// device.
 - (void)testSaveToDriveDisplayedWhenSignedOut {
   // Load a page with a download button and tap the download button.
   [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
@@ -406,6 +482,110 @@ std::unique_ptr<net::test_server::HttpResponse> GetResponse(
       performAction:grey_tap()];
   // Wait for the account picker to appear.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:AccountPicker()];
+  // Tap the "Drive" button.
+  [[EarlGrey selectElementWithMatcher:FileDestinationDriveButton()]
+      performAction:grey_tap()];
+  // Check that the identity button is hidden.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::AccountChooserButtonMatcher(
+                                   nil)] assertWithMatcher:grey_notVisible()];
+  // Tap the "Save" button.
+  [[EarlGrey selectElementWithMatcher:AccountPickerPrimaryButton()]
+      performAction:grey_tap()];
+  // Wait for the account picker to disappear.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:AccountPicker()];
+  // Wait for the consistency sign in promo to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:SigninPromo()];
+  [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
+                                          IDS_IOS_SIGNIN_PROMO_SAVE_TO_DRIVE))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  // Tap the "Cancel" button.
+  [[EarlGrey selectElementWithMatcher:SigninPromoCancelButton()]
+      performAction:grey_tap()];
+  // Check that the sign-in status histogram records
+  // kSignedOutWithoutAccountOnDevice.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          SaveToDriveSignInStatus::
+                                              kSignedOutWithoutAccountOnDevice)
+                         forHistogram:@(kSaveToDriveSignInStatus)],
+      @"Unexpected histogram error for sign in status.");
+  // Check that the sign-in result histogram records kSignInCanceled.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(SaveToDriveSignInResult::
+                                                           kSignInCanceled)
+                         forHistogram:@(kSaveToDriveSignInResult)],
+      @"Unexpected histogram error for sign in result.");
+}
+
+// Test Save to Drive when signed out with account on device.
+- (void)testSaveToDriveWhenSignedOutWithAccountOnDevice {
+  // Add fake identity.
+  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
+  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  // Load a page with a download button and tap the download button.
+  [ChromeEarlGrey loadURL:self.testServer->GetURL("/")];
+  [ChromeEarlGrey waitForWebStateContainingText:"Download"];
+  [ChromeEarlGrey tapWebStateElementWithID:@"download"];
+  // Check that the "SAVE..." button is presented instead of the "DOWNLOAD"
+  // button.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:SaveEllipsisButton()];
+  // Tap that the "SAVE..." button.
+  [[EarlGrey selectElementWithMatcher:SaveEllipsisButton()]
+      performAction:grey_tap()];
+  // Wait for the account picker to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:AccountPicker()];
+  // Tap the "Drive" button.
+  [[EarlGrey selectElementWithMatcher:FileDestinationDriveButton()]
+      performAction:grey_tap()];
+  // Check that the identity button is hidden.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::AccountChooserButtonMatcher(
+                                   fakeIdentity)]
+      assertWithMatcher:grey_notVisible()];
+  // Tap the "Save" button.
+  [[EarlGrey selectElementWithMatcher:AccountPickerPrimaryButton()]
+      performAction:grey_tap()];
+  // Wait for the account picker to disappear.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:AccountPicker()];
+  // Wait for the consistency sign in promo to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:SigninPromo()];
+  [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
+                                          IDS_IOS_SIGNIN_PROMO_SAVE_TO_DRIVE))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  // Tap the "Sign in" button.
+  [[EarlGrey selectElementWithMatcher:SigninPromoPrimaryButton()]
+      performAction:grey_tap()];
+  // Tap the "Sign in" confirmation popup.
+  [SigninEarlGreyUI dismissSigninConfirmationSnackbarForIdentity:fakeIdentity
+                                                   assertVisible:YES];
+  // Check that after a few seconds, the "GET THE APP" button appears.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:DownloadManagerGetTheAppButton()
+                                  timeout:base::test::ios::
+                                              kWaitForDownloadTimeout];
+  // Check that the sign-in status histogram records
+  // kSignedOutWithAccountOnDevice.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          SaveToDriveSignInStatus::
+                                              kSignedOutWithAccountOnDevice)
+                         forHistogram:@(kSaveToDriveSignInStatus)],
+      @"Unexpected histogram error for sign in status.");
+  // Check that the sign-in result histogram records kSignInSuccess.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(SaveToDriveSignInResult::
+                                                           kSignInSuccess)
+                         forHistogram:@(kSaveToDriveSignInResult)],
+      @"Unexpected histogram error for sign in result.");
 }
 
 // Tests that "DOWNLOAD" button is presented instead of "SAVE..." in Incognito.

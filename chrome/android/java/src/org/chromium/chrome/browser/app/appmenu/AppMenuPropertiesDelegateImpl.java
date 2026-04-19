@@ -596,9 +596,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     }
 
     @VisibleForTesting
-    public boolean instanceSwitcherWithMultiInstanceEnabled() {
-        return MultiWindowUtils.instanceSwitcherEnabled()
-                && MultiWindowUtils.isMultiInstanceApi31Enabled();
+    public boolean isMultiInstanceEnabled() {
+        return MultiWindowUtils.isMultiInstanceApi31Enabled();
     }
 
     @VisibleForTesting
@@ -699,6 +698,19 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         return isTabletSizeScreen() && shouldEnableDownloadPage(currentTab);
     }
 
+    /** Build the PropertyModel for the backward navigation action. */
+    protected PropertyModel buildBackwardActionModel(@Nullable Tab currentTab) {
+        PropertyModel backwardButton =
+                buildModelForIcon(
+                        R.id.back_menu_id,
+                        R.string.accessibility_menu_back,
+                        R.string.menu_back,
+                        R.drawable.btn_back);
+        backwardButton.set(
+                AppMenuItemProperties.ENABLED, currentTab != null && currentTab.canGoBack());
+        return backwardButton;
+    }
+
     /** Build the PropertyModel for the forward navigation action. */
     protected PropertyModel buildForwardActionModel(@Nullable Tab currentTab) {
         PropertyModel forwardButton =
@@ -736,15 +748,22 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         return downloadButton;
     }
 
-    protected PropertyModel buildGlicActionModel(@Nullable Tab currentTab) {
-        PropertyModel glicButton =
-                buildModelForIcon(
-                        R.id.glic_menu_id,
-                        R.string.glic_button_entrypoint_ask_gemini_label,
-                        R.string.glic_button_entrypoint_label,
-                        R.drawable.ic_spark_24dp);
-        glicButton.set(AppMenuItemProperties.ENABLED, true);
-        return glicButton;
+    protected boolean shouldShowPageInfoItem() {
+        return ChromeFeatureList.sAndroidPageInfoAsAppMenuItem.isEnabled()
+                || ChromeFeatureList.sThreeDotMenuBackButton.isEnabled();
+    }
+
+    /** Construct the page info menu item. */
+    protected MVCListAdapter.ListItem buildPageInfoItem(@Nullable Tab currentTab) {
+        MVCListAdapter.ListItem item =
+                new MVCListAdapter.ListItem(
+                        AppMenuHandler.AppMenuItemType.STANDARD,
+                        buildModelForStandardMenuItem(
+                                R.id.info_menu_id,
+                                R.string.menu_site_controls,
+                                shouldShowIconBeforeItem() ? R.drawable.ic_settings_tune_24dp : 0));
+        item.model.set(AppMenuItemProperties.ENABLED, currentTab != null);
+        return item;
     }
 
     /** Build the PropertyModel for the page info action. */

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fr-CA">
 <translation id="1000436330784933699">Vous pouvez ouvrir Lentille ici.</translation>
+<translation id="1005291068154454184">Vidéo en plein écran sur la façon de définir Chromium comme navigateur par défaut</translation>
 <translation id="1042296835509784301">Ouvre le gestionnaire de mots de passe dans Chromium.</translation>
 <translation id="1047130070405668746">Sélectionnez Chromium</translation>
 <translation id="1091252999271033193">Cela signifie que Chromium demandera toujours la version mobile du site.</translation>
@@ -70,9 +71,6 @@ Vous ne pourrez pas enregistrer de nouveaux favoris dans votre compte tant que v
 <translation id="2313870531055795960">Il vérifie les URL en fonction d'une liste de sites non sécuritaires stockée dans Chromium. Si un site tente de voler votre mot de passe ou si vous téléchargez un fichier dangereux, Chromium peut également envoyer les URL concernées, y compris des extraits du contenu de pages, à la navigation sécurisée.</translation>
 <translation id="2314220608288760290">Chromium ouvre automatiquement les liens de la Navigation privée YouTube en mode Navigation privée.</translation>
 <translation id="231828342043114302">Pour recevoir du contenu personnalisé en fonction de vos intérêts, connectez-vous à Chromium.</translation>
-<translation id="2326738825692478496">Certaines de vos données Chromium n'ont pas encore été enregistrées dans votre compte Google.
-
-Essayez d'attendre quelques minutes avant de vous déconnecter. Si vous vous déconnectez maintenant, ces données seront supprimées.</translation>
 <translation id="2334943301233020675">Les clés d'accès suivantes n'ont pas été importées dans le gestionnaire de mots de passe parce qu'elles ne répondent pas aux exigences.</translation>
 <translation id="2337722506862731008">Partager Chromium</translation>
 <translation id="2340423701577464731">Ajouter un élément à la Liste de lecture dans Chromium</translation>
@@ -103,7 +101,6 @@ Essayez d'attendre quelques minutes avant de vous déconnecter. Si vous vous dé
 Afin d'accéder à plus de paramètres utilisant des données pour améliorer votre expérience Chromium, accédez aux <ph name="BEGIN_LINK" />services Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Effectuez une recherche vocale dans Chromium.</translation>
 <translation id="2843571538056574338">Utiliser Chromium pour le remplissage automatique</translation>
-<translation id="2899085719655668655">Instructions vidéo en incrustation d'image sur la façon de définir Chromium comme navigateur par défaut</translation>
 <translation id="2918709798697875261">Votre organisation vous demande de rester déconnecté de Chromium.</translation>
 <translation id="2942241131342758843">Utilisez Chromium par défaut pour ouvrir des liens, faire des recherches dans des widgets et entrer automatiquement des mots de passe dans d'autres applications</translation>
 <translation id="2977470724722393594">Chromium est à jour</translation>

@@ -15,6 +15,10 @@
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "url/origin.h"
 
+namespace web {
+class WebState;
+}
+
 class FrameGrafter;
 
 // Util functions to populate the APC proto nodes out of the annotated page
@@ -46,5 +50,17 @@ void PopulatePageInteractionInfoNode(
     const base::DictValue& page_interaction_info_content,
     optimization_guide::proto::PageInteractionInfo*
         destination_page_interaction_info_node);
+
+// Populate the BoundingRect node for the viewport geometry from the
+// `viewport_geometry_content` object from the renderer.
+void PopulateViewportGeometryNode(
+    const base::DictValue& viewport_geometry_content,
+    optimization_guide::proto::BoundingRect*
+        destination_viewport_geometry_node);
+
+// Populate Autofill Address and Credit Card information from the profile.
+void PopulateAutofillInformation(
+    web::WebState* web_state,
+    optimization_guide::proto::AutofillInformation* autofill_information);
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_PROTO_WRAPPERS_ANNOTATED_PAGE_CONTENT_EXTRACTION_UTILS_H_

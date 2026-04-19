@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="SubresourceFilter.Actions2" enum="SubresourceFilterActions2"
-    expires_after="2026-07-26">
+    expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -47,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.DocumentLoad.SubframeFilteringDelay.Allowed"
-    units="microseconds" expires_after="2026-07-26">
+    units="microseconds" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -189,7 +189,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.PageLoad.ActivationList"
-    enum="ActivationList" expires_after="2026-07-26">
+    enum="ActivationList" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -199,7 +199,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.PageLoad.ActivationState"
-    enum="SubresourceFilterActivationState" expires_after="2026-07-26">
+    enum="SubresourceFilterActivationState" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -307,7 +307,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SubresourceFilter.PageLoad.SubresourceEvaluation.TotalCPUDuration"
-    units="microseconds" expires_after="2026-07-26">
+    units="microseconds" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -325,7 +325,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SubresourceFilter.PageLoad.SubresourceEvaluation.TotalWallDuration"
-    units="microseconds" expires_after="2026-07-26">
+    units="microseconds" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -357,7 +357,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SubresourceFilter.SubresourceLoad.Evaluation.CPUDuration"
-    units="microseconds" expires_after="2026-07-26">
+    units="microseconds" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
   <summary>
@@ -398,7 +398,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SubresourceFilter.SubresourceLoad.Evaluation.WallDuration.FirstRun"
-    units="microseconds" expires_after="2026-07-26">
+    units="microseconds" expires_after="2026-09-27">
   <owner>alexmt@chromium.org</owner>
   <owner>csharrison@chromium.org</owner>
   <owner>chrome-ads-histograms@google.com</owner>
@@ -413,6 +413,31 @@ chromium-metrics-reviews@google.com.
     will cause this metric to have an abnormal distribution. When considering
     revising this histogram, see UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES for the
     solution.
+  </summary>
+</histogram>
+
+<histogram name="SubresourceFilter.UrlPatternIndex.CorruptedIndexFields"
+    enum="Boolean" expires_after="2027-03-14">
+  <owner>csharrison@chromium.org</owner>
+  <owner>engedy@chromium.org</owner>
+  <summary>
+    Recorded at most once per process (renderer or browser) when the
+    UrlPatternIndex hash table or empty slot is unexpectedly null or empty at
+    match time, despite passing validation at construction. This indicates that
+    the underlying flatbuffer index data was likely corrupted after loading
+    (e.g. due to mmap corruption). Always emitted as true.
+  </summary>
+</histogram>
+
+<histogram name="SubresourceFilter.UrlPatternIndex.HashTableProbeExhausted"
+    enum="Boolean" expires_after="2027-03-12">
+  <owner>csharrison@chromium.org</owner>
+  <owner>engedy@chromium.org</owner>
+  <summary>
+    Recorded at most once per process (renderer or browser) when a hash table
+    probe in UrlPatternIndex exhausts all slots without finding a match or empty
+    slot, indicating that the underlying flatbuffer index data is likely
+    corrupted. Always emitted as true.
   </summary>
 </histogram>
 

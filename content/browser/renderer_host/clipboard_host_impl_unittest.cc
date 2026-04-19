@@ -23,9 +23,9 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
+#include "content/public/test/test_content_browser_client.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
-#include "content/test/test_content_browser_client.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "skia/ext/skia_utils_base.h"
@@ -101,8 +101,8 @@ class ClipboardHostImplTest : public RenderViewHostTestHarness {
   }
 
   bool IsFormatAvailable(ui::ClipboardFormatType type) {
-    return system_clipboard()->IsFormatAvailable(
-        type, ui::ClipboardBuffer::kCopyPaste,
+    return ui::clipboard_test_util::IsFormatAvailable(
+        system_clipboard(), type, ui::ClipboardBuffer::kCopyPaste,
         /* data_dst=*/nullptr);
   }
 
@@ -134,14 +134,17 @@ TEST_F(ClipboardHostImplTest, SimpleImage_ReadPng) {
 
   EXPECT_NE(sequence_number, system_clipboard()->GetSequenceNumber(
                                  ui::ClipboardBuffer::kCopyPaste));
-  EXPECT_FALSE(system_clipboard()->IsFormatAvailable(
-      ui::ClipboardFormatType::PlainTextType(), ui::ClipboardBuffer::kCopyPaste,
+  EXPECT_FALSE(ui::clipboard_test_util::IsFormatAvailable(
+      system_clipboard(), ui::ClipboardFormatType::PlainTextType(),
+      ui::ClipboardBuffer::kCopyPaste,
       /* data_dst=*/nullptr));
-  EXPECT_TRUE(system_clipboard()->IsFormatAvailable(
-      ui::ClipboardFormatType::BitmapType(), ui::ClipboardBuffer::kCopyPaste,
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      system_clipboard(), ui::ClipboardFormatType::BitmapType(),
+      ui::ClipboardBuffer::kCopyPaste,
       /*data_dst=*/nullptr));
-  EXPECT_TRUE(system_clipboard()->IsFormatAvailable(
-      ui::ClipboardFormatType::PngType(), ui::ClipboardBuffer::kCopyPaste,
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      system_clipboard(), ui::ClipboardFormatType::PngType(),
+      ui::ClipboardBuffer::kCopyPaste,
       /*data_dst=*/nullptr));
 
   std::vector<uint8_t> png = ui::clipboard_test_util::ReadPng(

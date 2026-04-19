@@ -15,16 +15,17 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/geometry/rect_f.h"
 
 // Mock implementation of the
 // toolbar_ui_api::mojom::ToolbarUIObserver interface.
-class MockReloadButtonPage : public toolbar_ui_api::mojom::ToolbarUIObserver {
+class MockToolbarUIObserver : public toolbar_ui_api::mojom::ToolbarUIObserver {
  public:
-  MockReloadButtonPage();
-  ~MockReloadButtonPage() override;
+  MockToolbarUIObserver();
+  ~MockToolbarUIObserver() override;
 
-  MockReloadButtonPage(const MockReloadButtonPage&) = delete;
-  MockReloadButtonPage& operator=(const MockReloadButtonPage&) = delete;
+  MockToolbarUIObserver(const MockToolbarUIObserver&) = delete;
+  MockToolbarUIObserver& operator=(const MockToolbarUIObserver&) = delete;
 
   // Returns a PendingRemote to this mock implementation.
   mojo::PendingRemote<toolbar_ui_api::mojom::ToolbarUIObserver>
@@ -55,7 +56,7 @@ class MockToolbarUIServiceDelegate
   MOCK_METHOD(void,
               HandleContextMenu,
               (toolbar_ui_api::mojom::ContextMenuType,
-               gfx::Point,
+               const gfx::RectF&,
                ui::mojom::MenuSourceType),
               (override));
   MOCK_METHOD(void, OnPageInitialized, (), (override));

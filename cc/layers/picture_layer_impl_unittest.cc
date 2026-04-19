@@ -15,7 +15,9 @@
 
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/sanitizer_buildflags.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "cc/animation/animation_host.h"
 #include "cc/base/features.h"
 #include "cc/base/math_util.h"
@@ -1071,6 +1073,68 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledBackdropFilterMaskLayer) {
   EXPECT_EQ(gfx::SizeF(1.0f, 1.0f), mask_uv_size);
 }
 
+// TODO(crbug.com/450651370): Fix flakiness on Linux UBSan and CFI builder.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize \
+  DISABLED_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize
+#else
+#define MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize \
+  GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize
+#endif
+TEST_F(
+    PictureLayerImplTest,
+    MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize) {
+  gfx::Size layer_bounds(100, 200);
+  scoped_refptr<FakeRasterSource> valid_raster_source =
+      FakeRasterSource::CreateFilled(layer_bounds);
+  SetupPendingTree(valid_raster_source);
+
+  CreateEffectNode(pending_layer())
+      .backdrop_filters.Append(FilterOperation::CreateHueRotateFilter(1.0));
+  auto* pending_mask = AddLayer<FakePictureLayerImpl>(
+      host_impl()->pending_tree(), valid_raster_source);
+  SetupMaskProperties(pending_layer(), pending_mask);
+  ASSERT_TRUE(pending_mask->is_backdrop_filter_mask());
+
+  host_impl()->AdvanceToNextFrame(base::Milliseconds(1));
+  UpdateDrawProperties(host_impl()->pending_tree());
+
+  // Mask has a 1.0 scale tiling.
+  EXPECT_EQ(1.f, pending_mask->HighResTiling()->contents_scale_key());
+  EXPECT_EQ(1u, pending_mask->num_tilings());
+
+  ActivateTree();
+
+  FakePictureLayerImpl* active_mask = static_cast<FakePictureLayerImpl*>(
+      host_impl()->active_tree()->LayerById(pending_mask->id()));
+
+  // Manually initialize the tile with a resource size that is larger than the
+  // tiling rect.
+  active_mask->HighResTiling()->CreateAllTilesForTesting();
+  std::vector<Tile*> tiles = active_mask->HighResTiling()->AllTilesForTesting();
+  ASSERT_EQ(1u, tiles.size());
+
+  Tile* tile = tiles[0];
+  gfx::Size resource_size(200, 400);
+  active_mask->InitializeTileWithResourceSize(tile, resource_size);
+
+  // The mask resource exists.
+  viz::ResourceId mask_resource_id;
+  gfx::Size mask_texture_size;
+  gfx::SizeF mask_uv_size;
+  active_mask->GetContentsResourceId(&mask_resource_id, &mask_texture_size,
+                                     &mask_uv_size);
+  EXPECT_NE(viz::kInvalidResourceId, mask_resource_id);
+  EXPECT_EQ(resource_size, mask_texture_size);
+
+  // `mask_uv_size` is the ratio between the tiling's width/height (i.e., the
+  // content size) and that of the resource. Here, the tiling rect (100x200) is
+  // half the size of the resource (200x400) in each dimension.
+  EXPECT_EQ(mask_uv_size, gfx::SizeF(0.5f, 0.5f));
+
+  active_mask->ReleaseTileResources();
+}
+
 TEST_F(LegacySWPictureLayerImplTest, ScaledMaskLayer) {
   host_impl()->AdvanceToNextFrame(base::Milliseconds(1));
 
@@ -1709,7 +1773,7 @@ TEST_F(LegacySWPictureLayerImplTest,
 
   // All tiles in activation rect is ready to draw.
   EXPECT_EQ(0, data.num_missing_tiles);
-  EXPECT_FALSE(data.checkerboarded_needs_record);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_TRUE(active_layer()->produced_tile_last_append_quads());
 }
 
@@ -1740,7 +1804,7 @@ TEST_F(LegacySWPictureLayerImplTest, HighResTileIsComplete) {
   // All high res tiles drew, nothing was incomplete.
   EXPECT_EQ(9u, render_pass->quad_list.size());
   EXPECT_EQ(0, data.num_missing_tiles);
-  EXPECT_FALSE(data.checkerboarded_needs_record);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_TRUE(active_layer()->produced_tile_last_append_quads());
 }
 
@@ -1764,7 +1828,7 @@ TEST_F(LegacySWPictureLayerImplTest, HighResTileIsIncomplete) {
 
   EXPECT_EQ(1u, render_pass->quad_list.size());
   EXPECT_EQ(1, data.num_missing_tiles);
-  EXPECT_FALSE(data.checkerboarded_needs_record);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_FALSE(active_layer()->produced_tile_last_append_quads());
 }
 
@@ -1829,7 +1893,7 @@ TEST_F(LegacySWPictureLayerImplTest,
 
   // Neither the high res nor the ideal tiles were considered as incomplete.
   EXPECT_EQ(0, data.num_missing_tiles);
-  EXPECT_FALSE(data.checkerboarded_needs_record);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_TRUE(active_layer()->produced_tile_last_append_quads());
 }
 
@@ -1864,7 +1928,7 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   EXPECT_EQ(recorded_bounds, active_layer()->HighResTiling()->tiling_rect());
   EXPECT_EQ(1u, render_pass->quad_list.size());
   EXPECT_EQ(1, data.num_missing_tiles);
-  EXPECT_TRUE(data.checkerboarded_needs_record);
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_FALSE(active_layer()->produced_tile_last_append_quads());
 
   recorded_bounds = gfx::Rect(30, 30, 150, 150);
@@ -1884,7 +1948,7 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
             active_layer()->HighResTiling()->tiling_rect());
   EXPECT_EQ(1u, render_pass->quad_list.size());
   EXPECT_EQ(1, data.num_missing_tiles);
-  EXPECT_TRUE(data.checkerboarded_needs_record);
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_FALSE(active_layer()->produced_tile_last_append_quads());
 
   // Initialize all tiles with resources.
@@ -1901,7 +1965,7 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   active_layer()->DidDraw(nullptr);
   EXPECT_EQ(4u, render_pass->quad_list.size());
   EXPECT_EQ(0, data.num_missing_tiles);
-  EXPECT_TRUE(data.checkerboarded_needs_record);
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_TRUE(active_layer()->produced_tile_last_append_quads());
 
   // Now the layer is fully recorded.
@@ -1922,7 +1986,7 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   active_layer()->DidDraw(nullptr);
   EXPECT_EQ(4u, render_pass->quad_list.size());
   EXPECT_EQ(0, data.num_missing_tiles);
-  EXPECT_FALSE(data.checkerboarded_needs_record);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
   EXPECT_TRUE(active_layer()->produced_tile_last_append_quads());
 }
 
@@ -1979,7 +2043,7 @@ TEST_F(LegacySWPictureLayerImplTest, RasterInducingScrollPaintCheckerboarding) {
         &data);
     active_layer()->DidDraw(nullptr);
     EXPECT_EQ(1u, render_pass->quad_list.size());
-    EXPECT_EQ(expected, data.checkerboarded_needs_record);
+    EXPECT_EQ(expected, active_layer()->ComputeCheckerboardedNeedsRecord());
   };
   check_checkerboarding(false);
 
@@ -2433,7 +2497,7 @@ TEST_F(LegacySWPictureLayerImplTest, NoTilingIfDoesNotDrawContent) {
   // Set up layers with tilings.
   SetupDefaultTrees(gfx::Size(10, 10));
   SetContentsScaleOnBothLayers(1.f, 1.f, 1.f);
-  pending_layer()->PushPropertiesTo(active_layer());
+  pending_layer()->MovePropertiesToActiveLayer(active_layer());
   EXPECT_TRUE(pending_layer()->draws_content());
   EXPECT_TRUE(pending_layer()->CanHaveTilings());
   EXPECT_GE(pending_layer()->num_tilings(), 0u);
@@ -2445,7 +2509,7 @@ TEST_F(LegacySWPictureLayerImplTest, NoTilingIfDoesNotDrawContent) {
   EXPECT_FALSE(pending_layer()->CanHaveTilings());
 
   // No tilings should be pushed to active layer.
-  pending_layer()->PushPropertiesTo(active_layer());
+  pending_layer()->MovePropertiesToActiveLayer(active_layer());
   EXPECT_EQ(0u, active_layer()->num_tilings());
 }
 
@@ -3011,7 +3075,7 @@ TEST_F(LegacySWPictureLayerImplTest,
   pending_layer()->SetBounds(layer_bounds);
   pending_layer()->SetRasterSourceForTesting(
       FakeRasterSource::CreateFilled(layer_bounds));
-  pending_layer()->PushPropertiesTo(active_layer());
+  pending_layer()->MovePropertiesToActiveLayer(active_layer());
   SetContentsAndAnimationScalesOnBothLayers(contents_scale, device_scale,
                                             page_scale, maximum_animation_scale,
                                             affected_by_invalid_scale);
@@ -3583,7 +3647,7 @@ TEST_F(LegacySWPictureLayerImplTest,
   pending_layer()->SetBounds(layer_bounds);
   pending_layer()->SetRasterSourceForTesting(
       FakeRasterSource::CreateFilled(layer_bounds));
-  pending_layer()->PushPropertiesTo(active_layer());
+  pending_layer()->MovePropertiesToActiveLayer(active_layer());
   SetContentsScaleOnBothLayers(contents_scale, device_scale, page_scale);
   EXPECT_BOTH_EQ(HighResTiling()->contents_scale_key(), 2.f);
 }
@@ -5704,13 +5768,10 @@ TEST_F(LegacySWPictureLayerImplTest, AnimatedImages) {
 
   // All images should be registered on the pending layer.
   SetupPendingTree(raster_source, gfx::Size(), Region(gfx::Rect(layer_bounds)));
-  auto* controller = host_impl()->image_animation_controller();
-  EXPECT_EQ(controller->GetDriversForTesting(image1.stable_id())
-                .count(pending_layer()),
-            1u);
-  EXPECT_EQ(controller->GetDriversForTesting(image2.stable_id())
-                .count(pending_layer()),
-            1u);
+  EXPECT_TRUE(
+      host_impl()->GatherImageAnimationState().contains(image1.stable_id()));
+  EXPECT_TRUE(
+      host_impl()->GatherImageAnimationState().contains(image2.stable_id()));
 
   // Make only the first image visible and verify that only this image is
   // animated.
@@ -5722,12 +5783,10 @@ TEST_F(LegacySWPictureLayerImplTest, AnimatedImages) {
   // Now activate and make sure the active layer is registered as well.
   ActivateTree();
   active_layer()->SetVisibleLayerRectForTesting(visible_rect);
-  EXPECT_EQ(controller->GetDriversForTesting(image1.stable_id())
-                .count(active_layer()),
-            1u);
-  EXPECT_EQ(controller->GetDriversForTesting(image2.stable_id())
-                .count(active_layer()),
-            1u);
+  base::flat_map<PaintImage::Id, bool> animation_state;
+  host_impl()->active_tree()->AnnotateAnimatedImages(animation_state);
+  EXPECT_TRUE(animation_state.contains(image1.stable_id()));
+  EXPECT_TRUE(animation_state.contains(image2.stable_id()));
 
   // Once activated, only the active layer should drive animations for these
   // images. Since DrawProperties are not updated on the recycle tree, it has
@@ -6423,6 +6482,243 @@ TEST_P(LCDTextTest, TransformAnimation) {
   GetTransformNode(layer_.get())->has_potential_animation = false;
   SetLocalTransformChanged(layer_.get());
   CheckCanUseLCDText(LCDTextDisallowedReason::kNone, "no transform animation");
+}
+
+TEST_F(PictureLayerImplTest, ComputeCheckerboardedNeedsRecord_MultipleCases) {
+  gfx::Size layer_bounds(500, 500);
+
+  // Case 1: raster_source_ is nullptr.
+  SetupPendingTree(nullptr);
+  ActivateTree();
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Restore raster source via pending tree.
+  scoped_refptr<FakeRasterSource> raster_source =
+      FakeRasterSource::CreateFilled(layer_bounds);
+  SetupPendingTree(raster_source);
+  ActivateTree();
+  active_layer()->SetDrawsContent(true);
+
+  // Case 2: scaled_cull_rect is std::nullopt (no scroll node).
+  // Set up a scroll node and cull rect on pending tree, then activate.
+  ElementId element_id(456);
+  gfx::Size container_bounds(200, 200);
+  gfx::Point container_origin(0, 0);
+
+  SetupPendingTree(raster_source);
+  CreateScrollNodeForNonCompositedScroller(
+      host_impl()->pending_tree()->property_trees(),
+      pending_layer()->scroll_tree_index(), element_id, layer_bounds,
+      container_bounds, container_origin);
+
+  // Re-setup draw properties to ensure scroll node is linked.
+  pending_layer()->SetScrollTreeIndex(host_impl()
+                                          ->pending_tree()
+                                          ->property_trees()
+                                          ->scroll_tree()
+                                          .FindNodeFromElementId(element_id)
+                                          ->id);
+  // Ensure transform_tree_index matches scroll_node->transform_id.
+  pending_layer()->SetTransformTreeIndex(host_impl()
+                                             ->pending_tree()
+                                             ->property_trees()
+                                             ->scroll_tree()
+                                             .FindNodeFromElementId(element_id)
+                                             ->transform_id);
+
+  ActivateTree();
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 3: scaled_cull_rect does NOT contain unoccluded_recorded_visible_rect
+  // -> returns true.
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(0, 0, 100, 100));
+
+  active_layer()->draw_properties().visible_layer_rect =
+      gfx::Rect(layer_bounds);
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 4: scaled_cull_rect DOES contain unoccluded_recorded_visible_rect ->
+  // returns false.
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(layer_bounds));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 5: scaled_cull_rect DOES contain unoccluded_recorded_visible_rect
+  // with max_contents_scale = 2.5.
+  SetupDrawPropertiesAndUpdateTiles(active_layer(), 2.5f, 1.f, 1.f);
+  ASSERT_EQ(2.5f, active_layer()->GetMaximumContentsScaleForUseInAppendQuads());
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 6: scaled_cull_rect does NOT contain unoccluded_recorded_visible_rect
+  // with max_contents_scale = 2.5.
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(0, 0, 100, 100));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 7: scaled_cull_rect DOES contain unoccluded_recorded_visible_rect
+  // with max_contents_scale = 0.75.
+  active_layer()->picture_layer_tiling_set()->RemoveAllTilings();
+  SetupDrawPropertiesAndUpdateTiles(active_layer(), 0.75f, 1.f, 1.f);
+  ASSERT_EQ(0.75f,
+            active_layer()->GetMaximumContentsScaleForUseInAppendQuads());
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(layer_bounds));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 8: scaled_cull_rect does NOT contain unoccluded_recorded_visible_rect
+  // with max_contents_scale = 0.75.
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(0, 0, 100, 100));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 9: target_space_transform has translation and scale.
+  // scaled_cull_rect DOES contain unoccluded_recorded_visible_rect.
+  gfx::Transform transform;
+  transform.Translate(10.f, 20.f);
+  transform.Scale(2.f, 2.f);
+  active_layer()->picture_layer_tiling_set()->RemoveAllTilings();
+  SetupDrawPropertiesAndUpdateTiles(active_layer(), 2.f, 1.f, 1.f);
+  active_layer()->draw_properties().target_space_transform = transform;
+
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(layer_bounds));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Case 10: target_space_transform has translation and scale.
+  // scaled_cull_rect does NOT contain unoccluded_recorded_visible_rect.
+  host_impl()
+      ->active_tree()
+      ->property_trees()
+      ->scroll_tree_mutable()
+      .SetScrollingContentsCullRect(element_id, gfx::Rect(0, 0, 100, 100));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+}
+
+TEST_F(PictureLayerImplTest,
+       ComputeCheckerboardedNeedsRecord_RasterInducingScrolls) {
+  host_impl()->AdvanceToNextFrame(base::Milliseconds(1));
+
+  gfx::Size layer_bounds(500, 500);
+  ElementId scroll_element_id(123);
+  gfx::Point scroll_container_origin(0, 0);
+  gfx::Size scroll_container_bounds(200, 200);
+  gfx::Size scroll_contents_bounds(5000, 5000);
+  gfx::Rect cull_rect(0, 0, 1000, 1000);
+
+  auto scroll_list = base::MakeRefCounted<DisplayItemList>();
+  scroll_list->StartPaint();
+  scroll_list->push<DrawColorOp>(SkColors::kBlack, SkBlendMode::kSrcOver);
+  scroll_list->EndPaintOfUnpaired(
+      gfx::Rect(scroll_container_origin, scroll_contents_bounds));
+  scroll_list->Finalize();
+  auto display_list = base::MakeRefCounted<DisplayItemList>();
+  display_list->PushDrawScrollingContentsOp(
+      scroll_element_id, std::move(scroll_list),
+      gfx::Rect(scroll_container_origin, scroll_container_bounds));
+  display_list->Finalize();
+
+  FakeContentLayerClient client;
+  client.set_display_item_list(display_list);
+  RecordingSource recording;
+  Region invalidation;
+  recording.Update(layer_bounds, 1, client, invalidation);
+
+  SetupPendingTree(FakeRasterSource::CreateFromRecordingSource(recording));
+  CreateScrollNodeForNonCompositedScroller(
+      host_impl()->pending_tree()->property_trees(),
+      pending_layer()->scroll_tree_index(), scroll_element_id,
+      scroll_contents_bounds, scroll_container_bounds, scroll_container_origin);
+
+  ActivateTree();
+  active_layer()->SetDrawsContent(true);
+
+  ScrollTree& active_scroll_tree =
+      host_impl()->active_tree()->property_trees()->scroll_tree_mutable();
+  active_scroll_tree.SetScrollingContentsCullRect(scroll_element_id, cull_rect);
+
+  active_layer()->draw_properties().visible_layer_rect =
+      gfx::Rect(layer_bounds);
+
+  // Initial state: visible_rect is within cull_rect.
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Scroll beyond cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(1001, 0));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Test again with max_contents_scale = 2.5.
+  active_layer()->picture_layer_tiling_set()->RemoveAllTilings();
+  SetupDrawPropertiesAndUpdateTiles(active_layer(), 2.5f, 1.f, 1.f);
+  ASSERT_EQ(2.5f, active_layer()->GetMaximumContentsScaleForUseInAppendQuads());
+
+  // visible_rect is within cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(0, 0));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Scroll beyond cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(1001, 0));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Test again with max_contents_scale = 0.75.
+  active_layer()->picture_layer_tiling_set()->RemoveAllTilings();
+  SetupDrawPropertiesAndUpdateTiles(active_layer(), 0.75f, 1.f, 1.f);
+  ASSERT_EQ(0.75f,
+            active_layer()->GetMaximumContentsScaleForUseInAppendQuads());
+
+  // visible_rect is within cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(0, 0));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Scroll beyond cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(1001, 0));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Test with target_space_transform.
+  gfx::Transform transform;
+  transform.Translate(50.f, 100.f);
+  transform.Scale(1.5f, 1.5f);
+  active_layer()->draw_properties().target_space_transform = transform;
+
+  // visible_rect is within cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(0, 0));
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+
+  // Scroll beyond cull_rect.
+  active_scroll_tree.SetScrollOffset(scroll_element_id, gfx::PointF(1001, 0));
+  EXPECT_TRUE(active_layer()->ComputeCheckerboardedNeedsRecord());
+}
+
+TEST_F(PictureLayerImplTest, ComputeCheckerboardedNeedsRecord_EarlyReturns) {
+  gfx::Size layer_bounds(500, 500);
+  SetupDefaultTrees(layer_bounds);
+
+  // Case 1: is_backdrop_filter_mask() is true.
+  active_layer()->SetIsBackdropFilterMask(true);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
+  active_layer()->SetIsBackdropFilterMask(false);
+
+  // Case 2: solid_color() is true.
+  active_layer()->SetSolidColor(SkColors::kRed);
+  EXPECT_FALSE(active_layer()->ComputeCheckerboardedNeedsRecord());
 }
 
 }  // namespace

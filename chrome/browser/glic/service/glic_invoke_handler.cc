@@ -11,9 +11,10 @@
 #include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
-
+#include "chrome/common/chrome_features.h"
 namespace glic {
 
 constexpr base::TimeDelta kDefaultTimeout = base::Minutes(1);
@@ -52,8 +53,23 @@ void GlicInvokeHandler::Invoke() {
     return;
   }
 
-  instance_->Show(ShowOptions::ForSidePanel(
-      *tab_, GlicPinTrigger::kInstanceCreation, options_.invocation_source));
+  auto show_options = ShowOptions::ForSidePanel(
+      *tab_, GlicPinTrigger::kInstanceCreation, options_.invocation_source);
+  if (options_.fre_override != mojom::FreOverride::kUnspecified) {
+    if (RequiresOverrideIncompatibleFre()) {
+      OnError(GlicInvokeError::kInvalidConfiguration);
+      return;
+    }
+
+    show_options.fre_override = options_.fre_override;
+  }
+
+  if (auto_submit_passkey_ && RequiresAutoSubmitIncompatibleFre()) {
+    OnError(GlicInvokeError::kInvalidConfiguration);
+    return;
+  }
+
+  instance_->Show(show_options);
 
   if (instance_->host().IsReady()) {
     SendToClient();
@@ -66,6 +82,27 @@ void GlicInvokeHandler::Invoke() {
 void GlicInvokeHandler::WebClientConnected() {
   host_observation_.Reset();
   SendToClient();
+}
+
+bool GlicInvokeHandler::RequiresAutoSubmitIncompatibleFre() const {
+  if (GlicEnabling::HasConsentedForProfile(instance_->profile())) {
+    return false;
+  }
+  if (options_.fre_override != mojom::FreOverride::kUnspecified) {
+    return options_.fre_override != mojom::FreOverride::kTrustFirstInline;
+  }
+  return GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(
+             instance_->profile()) &&
+         (features::kGlicTrustFirstOnboardingArmParam.Get() == 1 ||
+          features::kGlicTrustFirstOnboardingArmParam.Get() == 2);
+}
+
+bool GlicInvokeHandler::RequiresOverrideIncompatibleFre() const {
+  if (GlicEnabling::HasConsentedForProfile(instance_->profile())) {
+    return false;
+  }
+  return !GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(
+      instance_->profile());
 }
 
 void GlicInvokeHandler::SendToClient() {

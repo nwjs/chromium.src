@@ -51,6 +51,7 @@
 #include "third_party/blink/renderer/core/streams/writable_stream_transferring_optimizer.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/platform/bindings/v8_external_memory_accounter.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_child_paint_record.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partitions.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
@@ -105,6 +106,7 @@ class CORE_EXPORT SerializedScriptValue
   using ArrayBufferContentsArray = Vector<ArrayBufferContents, 1>;
   using SharedArrayBufferContentsArray = Vector<ArrayBufferContents, 1>;
   using ImageBitmapContentsArray = Vector<scoped_refptr<StaticBitmapImage>, 1>;
+  using ElementImageContentsArray = Vector<CanvasChildPaintRecord, 1>;
   using TransferredWasmModulesArray = Vector<v8::CompiledWasmModule>;
   using MessagePortChannelArray = Vector<MessagePortChannel>;
   using StreamArray = Vector<Stream>;
@@ -210,6 +212,9 @@ class CORE_EXPORT SerializedScriptValue
     return data_buffer_.as_span();
   }
 
+  bool HasDeserializationError() const { return deserialization_error_; }
+  void SetDeserializationError(bool error) { deserialization_error_ = error; }
+
   // Deserializes the value (in the current context). Returns a null value in
   // case of failure.
   struct DeserializeOptions {
@@ -266,6 +271,11 @@ class CORE_EXPORT SerializedScriptValue
       const ImageBitmapArray&,
       ExceptionState&);
 
+  static ElementImageContentsArray TransferElementImageContents(
+      v8::Isolate*,
+      const ElementImageArray&,
+      ExceptionState&);
+
   // Informs V8 about external memory allocated and owned by this object.
   // Large values should contribute to GC counters to eventually trigger a GC,
   // otherwise flood of postMessage() can cause OOM.
@@ -303,6 +313,11 @@ class CORE_EXPORT SerializedScriptValue
     return image_bitmap_contents_array_;
   }
   void SetImageBitmapContentsArray(ImageBitmapContentsArray contents);
+
+  ElementImageContentsArray& GetElementImageContentsArray() {
+    return element_image_contents_array_;
+  }
+  void SetElementImageContentsArray(ElementImageContentsArray contents);
 
   StreamArray& GetStreams() { return streams_; }
 
@@ -392,6 +407,9 @@ class CORE_EXPORT SerializedScriptValue
   void TransferImageBitmaps(v8::Isolate*,
                             const ImageBitmapArray&,
                             ExceptionState&);
+  void TransferElementImages(v8::Isolate*,
+                             const ElementImageArray&,
+                             ExceptionState&);
   void TransferOffscreenCanvas(v8::Isolate*,
                                const OffscreenCanvasArray&,
                                ExceptionState&);
@@ -423,6 +441,7 @@ class CORE_EXPORT SerializedScriptValue
   // UnpackedSerializedScriptValue thereafter.
   ArrayBufferContentsArray array_buffer_contents_array_;
   ImageBitmapContentsArray image_bitmap_contents_array_;
+  ElementImageContentsArray element_image_contents_array_;
 
   // |streams_| is also single-use but is special-cased because it works
   // with ServiceWorkers.
@@ -439,6 +458,7 @@ class CORE_EXPORT SerializedScriptValue
   std::optional<v8::SharedValueConveyor> shared_value_conveyor_;
   raw_ptr<v8::Isolate> isolate_;
   bool has_registered_external_allocation_;
+  bool deserialization_error_ = false;
 #if DCHECK_IS_ON()
   bool was_unpacked_ = false;
 #endif

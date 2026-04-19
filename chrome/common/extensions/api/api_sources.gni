@@ -19,12 +19,13 @@ schema_sources_ = [
   "cookies.json",
   "debugger.json",
   "desktop_capture.json",
-  "developer_private.idl",
-  "downloads_internal.idl",
-  "downloads.idl",
-  "enterprise_hardware_platform.idl",
+  "developer_private.webidl",
+  "downloads_internal.webidl",
+  "downloads.webidl",
+  "enterprise_hardware_platform.webidl",
   "font_settings.json",
   "gcm.json",
+  "glic_private.webidl",
   "history.json",
   "identity.idl",
   "instance_id.json",
@@ -40,7 +41,6 @@ schema_sources_ = [
   "tab_capture.idl",
   "tab_groups.json",
   "tabs.json",
-  "web_authentication_proxy.webidl",
   "web_navigation.json",
 
   # Despite the name, these APIs do not rely on any WebRTC-specific bits and
@@ -75,19 +75,19 @@ types_only_schema_sources_ = []
 if (enable_extensions) {
   schema_sources_ += [
     "accessibility_features.json",
+    "autofill_private.idl",
+    "autotest_private.webidl",
+    "bookmark_manager_private.json",
+    "braille_display_private.webidl",
+    "command_line_private.json",
+    "crash_report_private.webidl",
+    "enterprise_reporting_private.idl",
     "experimental_actor.idl",
     "experimental_ai_data.idl",
-    "autofill_private.idl",
-    "autotest_private.idl",
-    "bookmark_manager_private.json",
-    "braille_display_private.idl",
-    "command_line_private.json",
-    "crash_report_private.idl",
-    "enterprise_reporting_private.idl",
-    "proxy_override_rules_private.json",
     "image_writer_private.idl",
     "language_settings_private.idl",
     "passwords_private.idl",
+    "proxy_override_rules_private.json",
     "resources_private.idl",
     "safe_browsing_private.idl",
     "settings_private.idl",
@@ -99,17 +99,21 @@ if (enable_extensions) {
     "webrtc_desktop_capture_private.idl",
   ]
 
+  if (is_win || is_mac || is_linux) {
+    schema_sources_ += [ "web_authentication_proxy.webidl" ]
+  }
+
   if (is_chromeos) {
     schema_sources_ += [
       "accessibility_private.json",
-      "accessibility_service_private.idl",
-      "certificate_provider.idl",
-      "certificate_provider_internal.idl",
-      "document_scan.idl",
+      "accessibility_service_private.webidl",
+      "certificate_provider.webidl",
+      "certificate_provider_internal.webidl",
+      "document_scan.webidl",
       "echo_private.json",
-      "enterprise_device_attributes.idl",
-      "enterprise_kiosk_input.idl",
-      "enterprise_login.idl",
+      "enterprise_device_attributes.webidl",
+      "enterprise_kiosk_input.webidl",
+      "enterprise_login.webidl",
       "enterprise_networking_attributes.idl",
       "enterprise_platform_keys.idl",
       "enterprise_platform_keys_internal.idl",

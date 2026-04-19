@@ -12,9 +12,9 @@
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
-#include "chrome/browser/password_manager/account_password_store_factory.h"
-#include "chrome/browser/password_manager/password_store_utils.h"
-#include "chrome/browser/password_manager/profile_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/password_store_utils.h"
+#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
@@ -165,8 +165,7 @@ ManagePasswordsBubbleController::GetPasswordSyncState() const {
       return SyncState::kNotActive;
     case password_manager::sync_util::SyncState::kActiveWithNormalEncryption:
     case password_manager::sync_util::SyncState::kActiveWithCustomPassphrase:
-      if (base::FeatureList::IsEnabled(
-              syncer::kReplaceSyncPromosWithSignInPromos)) {
+      if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
         return SyncState::kActiveWithAccountPasswords;
       }
       return sync_service->IsSyncFeatureEnabled()

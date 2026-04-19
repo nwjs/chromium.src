@@ -44,7 +44,6 @@
 #include "third_party/blink/renderer/platform/audio/audio_bus.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
-#include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/platform/bindings/v8_object_constructor.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -334,16 +333,14 @@ class AudioWorkletGlobalScopeTest : public PageTestBase, public ModuleTestBase {
     output_buses.push_back(output_bus.get());
 
     // Fill `input_channel` with 1 and zero out `output_bus`.
-    std::fill(
-        input_channel->MutableData(),
-        UNSAFE_TODO(input_channel->MutableData() + input_channel->length()), 1);
+    std::ranges::fill(input_channel->MutableSpan(), 1);
     output_bus->Zero();
 
     // Then invoke the process() method to perform JS buffer manipulation. The
     // output buffer should contain a constant value of 2.
     processor->Process(input_buses, output_buses, param_data_map);
     for (unsigned i = 0; i < output_channel->length(); ++i) {
-      UNSAFE_TODO(EXPECT_EQ(output_channel->Data()[i], 2));
+      EXPECT_EQ(output_channel->Span()[i], 2);
     }
 
     wait_event->Signal();

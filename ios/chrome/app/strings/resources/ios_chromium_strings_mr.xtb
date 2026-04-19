@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="mr">
 <translation id="1000436330784933699">तुम्ही इथे Lens उघडू शकता.</translation>
+<translation id="1005291068154454184">Chromium ला डीफॉल्ट म्हणून कसे सेट करावे याबद्दलचा फुल स्क्रीन व्हिडिओ</translation>
 <translation id="1042296835509784301">Chromium मध्ये Password Manager उघडते.</translation>
 <translation id="1047130070405668746">Chromium निवडा</translation>
 <translation id="1091252999271033193">याचा अर्थ असा, की Chromium हे प्रत्येक वेळी मोबाइल साइटची विनंती करेल.</translation>
@@ -70,9 +71,6 @@
 <translation id="2313870531055795960">Chromium मध्ये स्टोअर केलेल्या असुरक्षित साइटच्या सूचीमध्ये URL तपासतो. एखाद्या साइटने तुमचा पासवर्ड चोरण्याचा प्रयत्न केल्यास किंवा तुम्ही हानीकारक फाइल डाउनलोड केल्यावर, Chromium हे पेजवरील काही आशयाच्या समावेशासह, URL सुरक्षित ब्राउझिंग कडे पाठवू शकते.</translation>
 <translation id="2314220608288760290">Chromium हे गुप्त मोडमध्ये YouTube गुप्त मोड लिंक आपोआप उघडते.</translation>
 <translation id="231828342043114302">तुमच्या स्वारस्यांवर आधारित पर्सनलाइझ केलेला आशय मिळवण्यासाठी, Chromium मध्ये साइन इन करा.</translation>
-<translation id="2326738825692478496">तुमचा काही Chromium डेटा अद्याप तुमच्या Google खाते मध्ये सेव्ह करण्यात आलेला नाही.
-
-साइन आउट करण्यापूर्वी काही मिनिटे प्रतीक्षा करून पहा. तुम्ही आता साइन आउट केल्यास, हा डेटा हटवला जाईल.</translation>
 <translation id="2334943301233020675">पुढील पासकी Password Manager मध्ये इंपोर्ट केल्या नव्हत्या, कारण त्या आवश्यकतांची पूर्तता करत नाहीत.</translation>
 <translation id="2337722506862731008">Chromium शेअर करा</translation>
 <translation id="2340423701577464731">Chromium मध्ये वाचन सूची आयटम जोडा</translation>
@@ -103,7 +101,6 @@
 तुमच्या Chromium अनुभवामध्ये सुधारणा करण्यासाठी डेटा वापरणाऱ्या आणखी सेटिंग्जकरिता, <ph name="BEGIN_LINK" />Google सेवा<ph name="END_LINK" /> यावर जा.</translation>
 <translation id="2832168932648876507">Chromium मध्ये आवाज वापरून शोधा.</translation>
 <translation id="2843571538056574338">ऑटोफिलसाठी Chromium वापरा</translation>
-<translation id="2899085719655668655">Chromium ला डीफॉल्ट म्हणून कसे सेट करावे याच्या चित्रात-चित्र यासह व्हिडिओ सूचना</translation>
 <translation id="2918709798697875261">तुमच्या संस्थेनुसार, तुम्ही Chromium मधून साइन आउट केलेले राहणे आवश्यक आहे.</translation>
 <translation id="2942241131342758843">लिंक उघडण्यासाठी, विजेटमध्ये शोधण्यासाठी आणि इतर ॲप्समध्ये पासवर्ड ऑटोफिल करण्यासाठी बाय डीफॉल्ट Chromium वापरा</translation>
 <translation id="2977470724722393594">Chromium अद्ययावत आहे</translation>

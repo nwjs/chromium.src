@@ -44,8 +44,6 @@
 namespace payments {
 namespace {
 
-// Arbitrary change.
-
 using ::base::test::RunOnceCallback;
 using ::testing::_;
 using ::testing::DoAll;
@@ -63,6 +61,10 @@ using ::testing::SaveArg;
 static constexpr char kAlgorithmIdentifier = 1;
 static constexpr char kChallengeBase64[] = "aaaa";
 static constexpr char kCredentialIdBase64[] = "cccc";
+static constexpr char kPaymentEntity1LogoUrl[] =
+    "https://payment-entity-1.example/icon.png";
+static constexpr char kPaymentEntity2LogoUrl[] =
+    "https://payment-entity-2.example/icon.png";
 
 class SecurePaymentConfirmationAppTest : public testing::Test,
                                          public PaymentApp::Delegate {
@@ -114,7 +116,8 @@ class SecurePaymentConfirmationAppTest : public testing::Test,
     on_instrument_details_ready_called_ = true;
   }
 
-  void OnInstrumentDetailsError(const std::string& error_message) override {
+  void OnInstrumentDetailsError(mojom::PaymentEventResponseType error,
+                                const std::string& error_message) override {
     EXPECT_EQ(error_message,
               "The operation either timed out or was not allowed. See: "
               "https://www.w3.org/TR/webauthn-2/"
@@ -453,21 +456,6 @@ TEST_P(SecurePaymentConfirmationAppBrowserBindingTest,
       /*expected_bucket_count=*/1);
 }
 
-class SecurePaymentConfirmationAppWithUxRefreshFlagTest
-    : public SecurePaymentConfirmationAppTest {
- public:
-  SecurePaymentConfirmationAppWithUxRefreshFlagTest()
-      : scoped_feature_list_{
-            blink::features::kSecurePaymentConfirmationUxRefresh} {}
-
-  const GURL kPaymentEntity1LogoUrl =
-      GURL("https://payment-entity-1.example/icon.png");
-  const GURL kPaymentEntity2LogoUrl =
-      GURL("https://payment-entity-2.example/icon.png");
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
 
 Matcher<blink::mojom::ShownPaymentEntityLogoPtr> IsShownPaymentEntityLogo(
     GURL url,
@@ -477,7 +465,7 @@ Matcher<blink::mojom::ShownPaymentEntityLogoPtr> IsShownPaymentEntityLogo(
       Field("label", &blink::mojom::ShownPaymentEntityLogo::label, label)));
 }
 
-TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest, NoCredentials) {
+TEST_F(SecurePaymentConfirmationAppTest, NoCredentials) {
   web_contents_ = web_contents_factory_.CreateWebContents(&context_);
   SecurePaymentConfirmationApp app(
       web_contents_, "effective_rp.example", payment_instrument_label_,
@@ -497,7 +485,7 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest, NoCredentials) {
 
 // Test that the SPC app returns HasEnrolledInstrument true when the ux refresh
 // feature is enabled but there are credentials (i.e. no fallback).
-TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest, WithCredentials) {
+TEST_F(SecurePaymentConfirmationAppTest, WithCredentials) {
   web_contents_ = web_contents_factory_.CreateWebContents(&context_);
   std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
                                      credential_id_bytes_.end());
@@ -516,7 +504,7 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest, WithCredentials) {
   EXPECT_TRUE(app.HasEnrolledInstrument());
   EXPECT_EQ(app.GetId(), base::Base64Encode(credential_id));
 }
-TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
+TEST_F(SecurePaymentConfirmationAppTest,
        AddsPaymentEntitiesLogosAndDetailsToPaymentOptions) {
   web_contents_ = web_contents_factory_.CreateWebContents(&context_);
   std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
@@ -531,9 +519,9 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
   drawsSomethingBitmap2->allocN32Pixels(/*width=*/32, /*height=*/64);
   std::vector<PaymentApp::PaymentEntityLogo> logos;
   logos.emplace_back(u"PaymentEntity #1", std::move(drawsSomethingBitmap1),
-                     kPaymentEntity1LogoUrl);
+                     GURL(kPaymentEntity1LogoUrl));
   logos.emplace_back(u"PaymentEntity #2", std::move(drawsSomethingBitmap2),
-                     kPaymentEntity2LogoUrl);
+                     GURL(kPaymentEntity2LogoUrl));
   mojom::SecurePaymentConfirmationRequestPtr request = MakeRequest();
   request->instrument->details = "**** 1234";
   SecurePaymentConfirmationApp app(
@@ -553,23 +541,24 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
   app.InvokePaymentApp(/*delegate=*/weak_ptr_factory_.GetWeakPtr());
 
   // The first logo is not included because its bitmap is not set.
-  EXPECT_THAT(payment_options,
-              Pointer(AllOf(
-                  Field("payment_entities_logos",
-                        &blink::mojom::PaymentOptions::payment_entities_logos,
-                        Optional(ElementsAre(
-                            IsShownPaymentEntityLogo(kPaymentEntity1LogoUrl,
-                                                     "PaymentEntity #1"),
-                            IsShownPaymentEntityLogo(kPaymentEntity2LogoUrl,
-                                                     "PaymentEntity #2")))),
-                  Field("instrument", &blink::mojom::PaymentOptions::instrument,
-                        Pointer(Field(
-                            "details",
+  EXPECT_THAT(
+      payment_options,
+      Pointer(AllOf(
+          Field("payment_entities_logos",
+                &blink::mojom::PaymentOptions::payment_entities_logos,
+                Optional(ElementsAre(
+                    IsShownPaymentEntityLogo(GURL(kPaymentEntity1LogoUrl),
+                                             "PaymentEntity #1"),
+                    IsShownPaymentEntityLogo(GURL(kPaymentEntity2LogoUrl),
+                                             "PaymentEntity #2")))),
+          Field(
+              "instrument", &blink::mojom::PaymentOptions::instrument,
+              Pointer(Field("details",
                             &blink::mojom::PaymentCredentialInstrument::details,
                             "**** 1234"))))));
 }
 
-TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
+TEST_F(SecurePaymentConfirmationAppTest,
        PaymentEntitiesLogosWithoutBitmapsAreEmptyUrlsInPaymentOptions) {
   web_contents_ = web_contents_factory_.CreateWebContents(&context_);
   std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
@@ -582,9 +571,9 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
   drawsSomethingBitmap->allocN32Pixels(/*width=*/32, /*height=*/32);
   std::vector<PaymentApp::PaymentEntityLogo> logos;
   logos.emplace_back(u"PaymentEntity #1",
-                     /*icon=*/nullptr, kPaymentEntity1LogoUrl);
+                     /*icon=*/nullptr, GURL(kPaymentEntity1LogoUrl));
   logos.emplace_back(u"PaymentEntity #2", std::move(drawsSomethingBitmap),
-                     kPaymentEntity2LogoUrl);
+                     GURL(kPaymentEntity2LogoUrl));
   SecurePaymentConfirmationApp app(
       web_contents_, "effective_rp.example", payment_instrument_label_,
       payment_instrument_details_,
@@ -609,58 +598,8 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
           &blink::mojom::PaymentOptions::payment_entities_logos,
           Optional(ElementsAre(
               IsShownPaymentEntityLogo(GURL::EmptyGURL(), "PaymentEntity #1"),
-              IsShownPaymentEntityLogo(kPaymentEntity2LogoUrl,
+              IsShownPaymentEntityLogo(GURL(kPaymentEntity2LogoUrl),
                                        "PaymentEntity #2"))))));
-}
-
-class SecurePaymentConfirmationAppWithDisabledUxRefreshFlagTest
-    : public SecurePaymentConfirmationAppTest {
- public:
-  SecurePaymentConfirmationAppWithDisabledUxRefreshFlagTest()
-      : scoped_feature_list_() {
-    scoped_feature_list_.InitAndDisableFeature(
-        blink::features::kSecurePaymentConfirmationUxRefresh);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_F(SecurePaymentConfirmationAppWithDisabledUxRefreshFlagTest,
-       DoesNotAddPaymentEntitiesLogosAndDetailsToPaymentOptions) {
-  web_contents_ = web_contents_factory_.CreateWebContents(&context_);
-  std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
-                                     credential_id_bytes_.end());
-  auto authenticator =
-      std::make_unique<webauthn::MockInternalAuthenticator>(web_contents_);
-  webauthn::MockInternalAuthenticator* mock_authenticator = authenticator.get();
-  SecurePaymentConfirmationApp app(
-      web_contents_, "effective_rp.example", payment_instrument_label_,
-      payment_instrument_details_,
-      /*payment_instrument_icon=*/std::make_unique<SkBitmap>(),
-      std::move(credential_id),
-      /*passkey_browser_binder=*/nullptr,
-      /*device_supports_browser_bound_keys_in_hardware=*/false,
-      url::Origin::Create(GURL("https://merchant.example")), spec_->AsWeakPtr(),
-      MakeRequest(), std::move(authenticator),
-      /*payment_entities_logos=*/{},
-      /*is_error_dialog=*/false);
-
-  blink::mojom::PaymentOptionsPtr payment_options;
-  EXPECT_CALL(*mock_authenticator, SetPaymentOptions)
-      .WillOnce(MoveArg<0>(&payment_options));
-  app.InvokePaymentApp(/*delegate=*/weak_ptr_factory_.GetWeakPtr());
-
-  EXPECT_THAT(payment_options,
-              Pointer(AllOf(
-                  Field("payment_entities_logos",
-                        &blink::mojom::PaymentOptions::payment_entities_logos,
-                        std::cref(std::nullopt)),
-                  Field("instrument", &blink::mojom::PaymentOptions::instrument,
-                        Pointer(Field(
-                            "details",
-                            &blink::mojom::PaymentCredentialInstrument::details,
-                            std::cref(std::nullopt)))))));
 }
 
 // Test that OnInstrumentDetailsError is called when the authenticator returns
@@ -696,58 +635,6 @@ TEST_F(SecurePaymentConfirmationAppTest, OnInstrumentDetailsError) {
   EXPECT_TRUE(on_instrument_details_error_called_);
 }
 
-class SecurePaymentConfirmationAppFallbackTest
-    : public SecurePaymentConfirmationAppTest {
- public:
-  SecurePaymentConfirmationAppFallbackTest() {
-    feature_list_.InitAndEnableFeature(
-        features::kSecurePaymentConfirmationFallback);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Test that the SPC app can be created without credentials.
-TEST_F(SecurePaymentConfirmationAppFallbackTest, NoCredentials) {
-  web_contents_ = web_contents_factory_.CreateWebContents(&context_);
-  SecurePaymentConfirmationApp app(
-      web_contents_, "effective_rp.example", payment_instrument_label_,
-      payment_instrument_details_,
-      /*payment_instrument_icon=*/std::make_unique<SkBitmap>(),
-      /*credential_id=*/std::vector<uint8_t>(),
-      /*passkey_browser_binder=*/nullptr,
-      /*device_supports_browser_bound_keys_in_hardware=*/false,
-      url::Origin::Create(GURL("https://merchant.example")), spec_->AsWeakPtr(),
-      MakeRequest(), /*authenticator=*/nullptr,
-      /*payment_entities_logos=*/{},
-      /*is_error_dialog=*/true);
-
-  EXPECT_FALSE(app.HasEnrolledInstrument());
-  EXPECT_EQ(app.GetId(), "spc");
-}
-
-// Test that the SPC app returns HasEnrolledInstrument true when the fallback
-// feature is enabled but there are credentials (i.e. no fallback).
-TEST_F(SecurePaymentConfirmationAppFallbackTest, WithCredentials) {
-  web_contents_ = web_contents_factory_.CreateWebContents(&context_);
-  std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
-                                     credential_id_bytes_.end());
-  SecurePaymentConfirmationApp app(
-      web_contents_, "effective_rp.example", payment_instrument_label_,
-      payment_instrument_details_,
-      /*payment_instrument_icon=*/std::make_unique<SkBitmap>(), credential_id,
-      /*passkey_browser_binder=*/nullptr,
-      /*device_supports_browser_bound_keys_in_hardware=*/false,
-      url::Origin::Create(GURL("https://merchant.example")), spec_->AsWeakPtr(),
-      MakeRequest(),
-      std::make_unique<webauthn::MockInternalAuthenticator>(web_contents_),
-      /*payment_entities_logos=*/{},
-      /*is_error_dialog=*/false);
-
-  EXPECT_TRUE(app.HasEnrolledInstrument());
-  EXPECT_EQ(app.GetId(), base::Base64Encode(credential_id));
-}
 
 }  // namespace
 }  // namespace payments

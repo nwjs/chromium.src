@@ -725,11 +725,11 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
   if (URL.gurl == GURL(kGoogleServicesSettingsURL)) {
-    // kGoogleServicesSettingsURL is not a realy link. It should be handled
+    // kGoogleServicesSettingsURL is not a real link. It should be handled
     // with a special case.
     [self.settingsHandler showGoogleServicesSettingsFromViewController:self];
   } else if (URL.gurl == GURL(kSyncSettingsURL)) {
-    [self.settingsHandler showSyncSettingsFromViewController:self];
+    [self.presentationDelegate showSyncSettingsWithViewController:self];
   } else {
     [super view:view didTapLinkURL:URL];
   }
@@ -846,6 +846,8 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 - (void)HTTPSOnlyModeSwitchToggled:(UISwitch*)switchView {
   BOOL isOn = switchView.isOn;
   [_HTTPSOnlyModePref setValue:isOn];
+  self.HTTPSOnlyModeItem.on = isOn;
+  [self reconfigureCellsForItems:@[ self.HTTPSOnlyModeItem ]];
   [self enhancedSafeBrowsingInlinePromoTriggerCriteriaMet];
 }
 
@@ -856,6 +858,8 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 - (void)PasswordLeakCheckSwitchToggled:(UISwitch*)switchView {
   BOOL isOn = switchView.isOn;
   [_passwordLeakCheckPref setValue:isOn];
+  self.passwordLeakCheckItem.on = isOn;
+  [self reconfigureCellsForItems:@[ self.passwordLeakCheckItem ]];
 }
 
 // Called from the Incognito interstitial setting's UIControlEventValueChanged.
@@ -864,6 +868,8 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 // switchView.on is YES.
 - (void)incognitoInterstitialSwitchToggled:(UISwitch*)switchView {
   self.incognitoInterstitialPref.value = switchView.on;
+  self.incognitoInterstitialItem.on = switchView.on;
+  [self reconfigureCellsForItems:@[ self.incognitoInterstitialItem ]];
   UMA_HISTOGRAM_ENUMERATION(
       kIncognitoInterstitialSettingsActionsHistogram,
       switchView.on ? IncognitoInterstitialSettingsActions::kEnabled
@@ -899,6 +905,10 @@ const char kSyncSettingsURL[] = "settings://open_sync";
                                  }
                                  [switchView setOn:enabled animated:YES];
                                  weakSelf.incognitoReauthPref.value = enabled;
+                                 weakSelf.incognitoReauthItem.on = enabled;
+                                 [weakSelf reconfigureCellsForItems:@[
+                                   weakSelf.incognitoReauthItem
+                                 ]];
                                  [weakSelf
                                      enhancedSafeBrowsingInlinePromoTriggerCriteriaMet];
                                }];

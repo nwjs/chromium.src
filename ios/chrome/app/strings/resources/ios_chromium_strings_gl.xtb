@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="gl">
 <translation id="1000436330784933699">Podes abrir Lens aquí.</translation>
+<translation id="1005291068154454184">Vídeo en pantalla completa sobre como definir Chromium como navegador predeterminado</translation>
 <translation id="1042296835509784301">Abre o xestor de contrasinais en Chromium.</translation>
 <translation id="1047130070405668746">Selecciona Chromium</translation>
 <translation id="1091252999271033193">En consecuencia, Chromium sempre solicitará abrir o sitio para móbiles.</translation>
@@ -70,9 +71,6 @@ Non poderás gardar máis ata que elimines uns cantos. Se pechas a sesión agora
 <translation id="2313870531055795960">Comproba enderezos URL cunha lista de sitios non seguros almacenada en Chromium. Se un sitio tenta roubarche o contrasinal ou se descargas un ficheiro daniño, Chromium tamén pode comprobar os enderezos URL, entre os que se inclúen fragmentos de contido das páxinas, a través da función Navegación segura.</translation>
 <translation id="2314220608288760290">Chromium abre automaticamente as ligazóns de incógnito de YouTube no modo de incógnito.</translation>
 <translation id="231828342043114302">Para recibir contido personalizado en función dos teus intereses, inicia sesión en Chromium.</translation>
-<translation id="2326738825692478496">Algúns dos teus datos de Chromium aínda non se gardaron na túa Conta de Google.
-
-Espera uns minutiños antes de pechar a sesión. Se a pechas agora, estes datos eliminaranse.</translation>
 <translation id="2334943301233020675">Non se importaron as seguintes claves de acceso ao xestor de contrasinais porque non cumpren os requisitos.</translation>
 <translation id="2337722506862731008">Compartir Chromium</translation>
 <translation id="2340423701577464731">Engadir o elemento da lista de lectura a Chromium</translation>
@@ -103,7 +101,6 @@ Espera uns minutiños antes de pechar a sesión. Se a pechas agora, estes datos 
 Se queres ver máis opcións de configuración que usen datos para mellorar a túa experiencia con Chromium, vai a <ph name="BEGIN_LINK" />Servizos de Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Fai buscas por voz en Chromium.</translation>
 <translation id="2843571538056574338">Utiliza a opción de autocompletar de Chromium</translation>
-<translation id="2899085719655668655">Instrucións de vídeo en pantalla superposta de como definir Chromium como navegador predeterminado</translation>
 <translation id="2918709798697875261">A túa organización require que manteñas a sesión pechada en Chromium.</translation>
 <translation id="2942241131342758843">Usa Chromium de forma predeterminada para abrir ligazóns, realizar buscas desde widgets e autocompletar contrasinais noutras aplicacións</translation>
 <translation id="2977470724722393594">Chromium está actualizado</translation>

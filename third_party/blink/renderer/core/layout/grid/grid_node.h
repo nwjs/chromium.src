@@ -11,6 +11,7 @@
 
 namespace blink {
 
+struct GridItemData;
 class GridItems;
 class GridSizingSubtree;
 
@@ -45,12 +46,10 @@ class CORE_EXPORT GridNode final : public BlockNode {
   }
 
   // If `oof_children` is provided, aggregate any out of flow children.
-  GridItems ConstructGridItems(const GridLineResolver& line_resolver,
-                               bool* must_invalidate_placement_cache,
-                               HeapVector<Member<LayoutBox>>* opt_oof_children,
-                               bool* opt_has_nested_subgrid = nullptr) const;
-
-  void AppendSubgriddedItems(GridItems* grid_items) const;
+  GridItems* ConstructGridItems(const GridLineResolver& line_resolver,
+                                bool* must_invalidate_placement_cache,
+                                HeapVector<Member<LayoutBox>>* opt_oof_children,
+                                bool* opt_has_nested_subgrid = nullptr) const;
 
   MinMaxSizesResult ComputeSubgridMinMaxSizes(
       const GridSizingSubtree& sizing_subtree,
@@ -60,8 +59,18 @@ class CORE_EXPORT GridNode final : public BlockNode {
       const GridSizingSubtree& sizing_subtree,
       const ConstraintSpace& space) const;
 
- private:
-  GridItems ConstructGridItems(
+  // Adjusts a subgridded item's span to be relative to the parent grid's
+  // coordinate system.
+  void AdjustSubgriddedItemSpan(const GridItemData& subgrid_item,
+                                GridItemData& subgridded_item) const;
+
+  // Computes the set indices for the `subgrid_item` in both the column and row
+  // axes.
+  void ComputeSetIndicesForSubgrid(GridItemData& subgrid_item,
+                                   GridLayoutData& layout_data) const;
+
+  // Constructs grid items with explicit subgrid parameters.
+  GridItems* ConstructGridItems(
       const GridLineResolver& line_resolver,
       const ComputedStyle& root_grid_style,
       const ComputedStyle& parent_grid_style,

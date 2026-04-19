@@ -7,6 +7,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "content/common/content_export.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -19,6 +20,11 @@ namespace content {
 
 class PrefetchRequest;
 
+// Creates the common factory params used for prefetching, including by
+// `CreatePrefetchURLLoaderFactory()` below.
+network::mojom::URLLoaderFactoryParamsPtr
+CreatePrefetchURLLoaderFactoryParams();
+
 // Creates a `URLLoaderFactory` (which is finally connected to
 // `network_context`) to be used for the prefetch. The configurations like
 // isolated network context and prefetch proxy are reflected in
@@ -29,7 +35,9 @@ class PrefetchRequest;
 // `URLLoaderFactory` is created around prefetching.
 CONTENT_EXPORT scoped_refptr<network::SharedURLLoaderFactory>
 CreatePrefetchURLLoaderFactory(network::mojom::NetworkContext* network_context,
-                               const PrefetchRequest& prefetch_request);
+                               const PrefetchRequest& prefetch_request,
+                               scoped_refptr<network::SharedURLLoaderFactory>
+                                   pre_prefetch_url_loader_factory = nullptr);
 
 }  // namespace content
 

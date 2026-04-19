@@ -31,9 +31,9 @@
 #import "ios/chrome/browser/ai_prototyping/utils/ai_prototyping_constants.h"
 #import "ios/chrome/browser/ai_prototyping/utils/json_action_parser.h"
 #import "ios/chrome/browser/ai_prototyping/utils/page_context_util.h"
-#import "ios/chrome/browser/intelligence/actuation/model/actuation_error.h"
-#import "ios/chrome/browser/intelligence/actuation/model/actuation_service.h"
-#import "ios/chrome/browser/intelligence/actuation/model/actuation_service_factory.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_error.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_service_impl.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/ios_smart_tab_grouping_request_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
@@ -544,13 +544,13 @@
 }
 
 - (void)executeActuationWithParams:(NSDictionary*)params {
-  ActuationService* actuationService =
-      ActuationServiceFactory::GetForProfile(ProfileIOS::FromBrowserState(
+  actor::ActorService* actorService =
+      actor::ActorServiceFactory::GetForProfile(ProfileIOS::FromBrowserState(
           _webStateList->GetActiveWebState()->GetBrowserState()));
 
-  if (!actuationService) {
-    [self.consumer updateQueryResult:@"Error: ActuationService not available."
-                          forFeature:AIPrototypingFeature::kActuationTools];
+  if (!actorService) {
+    [self.consumer updateQueryResult:@"Error: ActorService not available."
+                          forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
 
@@ -558,40 +558,41 @@
   NSString* jsonString = params[@"json"];
   if (jsonString.length == 0) {
     [self.consumer updateQueryResult:@"Error: No JSON provided."
-                          forFeature:AIPrototypingFeature::kActuationTools];
+                          forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
   std::optional<base::Value> jsonVal = base::JSONReader::Read(
-      base::SysNSStringToUTF8(jsonString), base::JSON_PARSE_RFC);
+      base::SysNSStringToUTF8(jsonString), base::JSON_ALLOW_TRAILING_COMMAS);
 
   if (!jsonVal || !jsonVal->is_dict()) {
     [self.consumer updateQueryResult:@"Error: Invalid JSON."
-                          forFeature:AIPrototypingFeature::kActuationTools];
+                          forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
 
   // Try to parse the JSON to a known action optimization_guide::proto::Action.
   if (!ai_prototyping::ParseActionFromDict(jsonVal->GetDict(), &action)) {
     [self.consumer updateQueryResult:@"Error: Unknown action type in JSON."
-                          forFeature:AIPrototypingFeature::kActuationTools];
+                          forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
 
   __weak __typeof(self) weakSelf = self;
-  actuationService->ExecuteAction(
-      action, base::BindOnce(^(ActuationTool::ActuationResult result) {
-        NSLog(@"[AIPrototypingMediator] Actuation callback executed.");
+  actorService->ExecuteAction(
+      action, base::BindOnce(^(actor::ActorTool::ToolExecutionResult result) {
+        NSLog(@"[AIPrototypingMediator] Actor callback executed.");
         if (result.has_value()) {
           [weakSelf.consumer
               updateQueryResult:@"Action executed successfully."
-                     forFeature:AIPrototypingFeature::kActuationTools];
+                     forFeature:AIPrototypingFeature::kActorTools];
         } else {
           NSString* errorMsg = base::SysUTF8ToNSString(base::StringPrintf(
-              "Action failed: %s", GetActuationErrorMessage(result.error())));
+              "Action failed: %s",
+              actor::GetActorToolErrorMessage(result.error()).c_str()));
           NSLog(@"[AIPrototypingMediator] %@", errorMsg);
           [weakSelf.consumer
               updateQueryResult:errorMsg
-                     forFeature:AIPrototypingFeature::kActuationTools];
+                     forFeature:AIPrototypingFeature::kActorTools];
         }
       }));
 }
@@ -625,11 +626,15 @@
 // `PageContextWrapper`. The resulting `PageContext` proto is serialized to disk
 // in a background thread, and the file path is displayed in the prototyping
 // menu.
-- (void)executeAPCExtractionWithRichExtraction:(BOOL)useRichExtraction {
+- (void)executeAPCExtractionWithRichExtraction:(BOOL)useRichExtraction
+                              includeDebugData:(BOOL)includeDebugData {
   web::WebState* activeWebState = _webStateList->GetActiveWebState();
   if (!activeWebState) {
     [self.consumer updateQueryResult:@"Error: No active web state."
                           forFeature:AIPrototypingFeature::kAPC];
+    if ([self.consumer respondsToSelector:@selector(updateFrameList:)]) {
+      [self.consumer updateFrameList:@[]];
+    }
     return;
   }
 
@@ -644,11 +649,19 @@
       [weakSelf.consumer
           updateQueryResult:@"Error: Failed to populate PageContext."
                  forFeature:AIPrototypingFeature::kAPC];
+      if ([weakSelf.consumer respondsToSelector:@selector(updateFrameList:)]) {
+        [weakSelf.consumer updateFrameList:@[]];
+      }
       return;
     }
 
     std::unique_ptr<optimization_guide::proto::PageContext> page_context =
         std::move(response.value());
+
+    if (includeDebugData) {
+      [weakSelf getFramesAndContentNodes:*page_context
+                             forConsumer:weakSelf.consumer];
+    }
 
     std::string serialized_proto = page_context->SerializeAsString();
 
@@ -701,6 +714,125 @@
 
   _pageContextWrapper.shouldGetAnnotatedPageContent = YES;
   [_pageContextWrapper populatePageContextFieldsAsync];
+}
+
+// Retrieves the frames and content nodes from the `PageContext` as needed by
+// the `consumer`.
+- (void)getFramesAndContentNodes:
+            (const optimization_guide::proto::PageContext&)pageContext
+                     forConsumer:(id<AIPrototypingConsumer>)consumer {
+  if (!pageContext.has_annotated_page_content()) {
+    if ([consumer respondsToSelector:@selector
+                  (updateFramesAndContentNodesDebugString:)]) {
+      [consumer updateFramesAndContentNodesDebugString:
+                    @"Error: AnnotatedPageContent is not available."];
+    }
+    if ([consumer respondsToSelector:@selector(updateFrameList:)]) {
+      [consumer updateFrameList:@[]];
+    }
+    return;
+  }
+  const auto& apc = pageContext.annotated_page_content();
+  NSMutableArray<NSDictionary*>* frames = [NSMutableArray array];
+
+  if (apc.has_main_frame_data()) {
+    NSDictionary* mainFrame =
+        [self frameDictionaryFromFrameData:apc.main_frame_data()
+                               isMainFrame:YES
+                                     depth:0];
+    if (mainFrame) {
+      [frames addObject:mainFrame];
+    }
+  }
+
+  std::string framesAndContentNodes;
+  if (apc.has_main_frame_data() &&
+      apc.main_frame_data().has_document_identifier()) {
+    framesAndContentNodes += base::StringPrintf(
+        "Main Frame [ID: %s]\n",
+        apc.main_frame_data().document_identifier().serialized_token().c_str());
+  }
+
+  [self extractFramesAndContentNodesFromNode:apc.root_node()
+                                  intoFrames:frames
+                             intoDebugString:framesAndContentNodes
+                                       depth:0];
+
+  if ([consumer respondsToSelector:@selector(updateFrameList:)]) {
+    [consumer updateFrameList:frames];
+  }
+  if ([consumer respondsToSelector:@selector
+                (updateFramesAndContentNodesDebugString:)]) {
+    [consumer
+        updateFramesAndContentNodesDebugString:base::SysUTF8ToNSString(
+                                                   framesAndContentNodes)];
+  }
+}
+
+// Traverses the `PageContext` tree to extract frames and build a debug string.
+- (void)extractFramesAndContentNodesFromNode:
+            (const optimization_guide::proto::ContentNode&)node
+                                  intoFrames:
+                                      (NSMutableArray<NSDictionary*>*)frames
+                             intoDebugString:(std::string&)debugString
+                                       depth:(int)depth {
+  std::string indent(depth * 2, ' ');
+  debugString += indent;
+
+  const auto& attrs = node.content_attributes();
+  if (attrs.has_common_ancestor_dom_node_id()) {
+    debugString +=
+        base::StringPrintf("[ID: %d] ", attrs.common_ancestor_dom_node_id());
+  }
+
+  if (attrs.has_text_data()) {
+    std::string text = attrs.text_data().text_content();
+    if (text.length() > 50) {
+      text = std::string(base::TruncateUTF8ToByteSize(text, 47)) + "...";
+    }
+    debugString += "\"" + text + "\"";
+  } else {
+    debugString += optimization_guide::proto::ContentAttributeType_Name(
+        attrs.attribute_type());
+
+    if (attrs.has_iframe_data() && attrs.iframe_data().has_frame_data()) {
+      const auto& frameData = attrs.iframe_data().frame_data();
+      NSDictionary* frame = [self frameDictionaryFromFrameData:frameData
+                                                   isMainFrame:NO
+                                                         depth:depth + 1];
+      if (frame) {
+        [frames addObject:frame];
+        debugString += base::StringPrintf(
+            "\n%s  [Frame ID: %s]", indent.c_str(),
+            frameData.document_identifier().serialized_token().c_str());
+      }
+    }
+  }
+  debugString += "\n";
+
+  for (const auto& child : node.children_nodes()) {
+    [self extractFramesAndContentNodesFromNode:child
+                                    intoFrames:frames
+                               intoDebugString:debugString
+                                         depth:depth + 1];
+  }
+}
+
+- (NSDictionary*)frameDictionaryFromFrameData:
+                     (const optimization_guide::proto::FrameData&)frameData
+                                  isMainFrame:(BOOL)isMainFrame
+                                        depth:(int)depth {
+  if (!frameData.has_document_identifier()) {
+    return nil;
+  }
+  return @{
+    @"document_identifier" : base::SysUTF8ToNSString(
+        frameData.document_identifier().serialized_token())
+        ?: @"",
+    @"url" : base::SysUTF8ToNSString(frameData.url()) ?: @"",
+    @"is_main_frame" : @(isMainFrame),
+    @"depth" : @(depth)
+  };
 }
 
 @end

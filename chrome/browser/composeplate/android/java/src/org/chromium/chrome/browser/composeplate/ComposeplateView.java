@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.composeplate;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
@@ -22,25 +21,12 @@ import org.chromium.build.annotations.NullMarked;
 @NullMarked
 /** View for the composeplate layout which is shown below the fake search box on NTP. */
 public class ComposeplateView extends LinearLayout {
-    private final int mPaddingForShadowLateralPx;
-    private final int mTopMarginPx;
 
     private @Nullable View mComposeplateButton;
     private @Nullable View mIncognitoButton;
-    private @Nullable ImageView mLensButton;
-    private @Nullable ImageView mVoiceSearchButton;
 
     public ComposeplateView(Context context, AttributeSet attrs) {
         super(context, attrs);
-
-        Resources resources = getResources();
-        mPaddingForShadowLateralPx =
-                resources.getDimensionPixelSize(
-                        R.dimen.composeplate_view_button_padding_for_shadow_lateral);
-        // This is the 4dp top margin when NTP customization is enabled.
-        mTopMarginPx =
-                resources.getDimensionPixelSize(
-                        R.dimen.composeplate_view_button_padding_for_shadow_bottom);
     }
 
     @Override
@@ -49,48 +35,21 @@ public class ComposeplateView extends LinearLayout {
 
         mComposeplateButton = findViewById(R.id.composeplate_button);
         mIncognitoButton = findViewById(R.id.incognito_button);
-        mLensButton = findViewById(R.id.lens_camera_button);
-        mVoiceSearchButton = findViewById(R.id.voice_search_button);
     }
 
     /**
-     * Applies a white background with shadow or resets to the default background.
+     * Applies a white background or resets to the default background.
      *
      * @param apply Whether to apply or reset to the default background.
      */
-    void applyWhiteBackgroundWithShadow(boolean apply) {
-        MarginLayoutParams marginLayoutParams = (MarginLayoutParams) getLayoutParams();
-        if (apply) {
-            // Adds paddings on each sides of the view to prevent shadow from being cut.
-            setPadding(
-                    mPaddingForShadowLateralPx,
-                    getPaddingTop(),
-                    mPaddingForShadowLateralPx,
-                    getPaddingBottom());
-            // The 4dp top margin will be added to the fake search box which is on top of the
-            // composeplate view.
-            marginLayoutParams.topMargin = 0;
-        } else {
-            setPadding(0, getPaddingTop(), 0, getPaddingBottom());
-            marginLayoutParams.topMargin = mTopMarginPx;
-        }
-        setLayoutParams(marginLayoutParams);
-
+    void applyWhiteBackground(boolean apply) {
         Context context = getContext();
         if (mComposeplateButton != null) {
-            ComposeplateUtils.applyWhiteBackgroundAndShadow(context, mComposeplateButton, apply);
+            ComposeplateUtils.applyWhiteBackground(context, mComposeplateButton, apply);
         }
 
         if (mIncognitoButton != null) {
-            ComposeplateUtils.applyWhiteBackgroundAndShadow(context, mIncognitoButton, apply);
-        }
-
-        if (mLensButton != null) {
-            ComposeplateUtils.applyWhiteBackgroundAndShadow(context, mLensButton, apply);
-        }
-
-        if (mVoiceSearchButton != null) {
-            ComposeplateUtils.applyWhiteBackgroundAndShadow(context, mVoiceSearchButton, apply);
+            ComposeplateUtils.applyWhiteBackground(context, mIncognitoButton, apply);
         }
     }
 
@@ -104,19 +63,10 @@ public class ComposeplateView extends LinearLayout {
                     colorStateList);
         }
 
-        // TODO (https://crbug.com/421944848): Cleans up this class when cleaning up
-        //  composeplate_view_layout(_V2).xml.
         if (mIncognitoButton != null) {
-            if (mIncognitoButton instanceof ImageView incognitoButtonImageView) {
-                incognitoButtonImageView.setImageTintList(colorStateList);
-            } else {
-                setColorStateList(
-                        mIncognitoButton.findViewById(R.id.incognito_button_icon), colorStateList);
-            }
+            setColorStateList(
+                    mIncognitoButton.findViewById(R.id.incognito_button_icon), colorStateList);
         }
-
-        setColorStateList(mLensButton, colorStateList);
-        setColorStateList(mVoiceSearchButton, colorStateList);
     }
 
     /**

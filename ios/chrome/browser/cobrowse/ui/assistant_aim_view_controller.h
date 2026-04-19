@@ -8,8 +8,9 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_consumer.h"
-@protocol AssistantAIMMutator;
+
 @class AssistantAIMViewController;
+@class ComposeboxInputPlateViewController;
 
 // Delegate for the AssistantAIMViewController.
 @protocol AssistantAIMViewControllerDelegate <NSObject>
@@ -18,15 +19,32 @@
 - (void)assistantAIMViewControllerDidTapClose:
     (AssistantAIMViewController*)viewController;
 
+// Called when the keyboard is shown.
+- (void)assistantAIMViewController:(AssistantAIMViewController*)viewController
+       didShowKeyboardWithDuration:(NSTimeInterval)duration
+                             curve:(UIViewAnimationCurve)curve;
+
+// Called when the keyboard is hidden.
+- (void)assistantAIMViewControllerDidHideKeyboard:
+    (AssistantAIMViewController*)viewController;
+
+// Called when the UI requests ending editing.
+- (void)assistantAIMViewControllerDidRequestEndEditing:
+    (AssistantAIMViewController*)viewController;
+
 @end
 
 @interface AssistantAIMViewController : UIViewController <AssistantAIMConsumer>
 
-// The mutator for this view controller.
-@property(nonatomic, weak) id<AssistantAIMMutator> mutator;
-
 // The delegate for this view controller.
 @property(nonatomic, weak) id<AssistantAIMViewControllerDelegate> delegate;
+
+// Adds the input view controller to this ViewController.
+- (void)addInputViewController:
+    (ComposeboxInputPlateViewController*)inputViewController;
+
+// Adjusts the UI based on the percentage open of the container.
+- (void)adjustForContainerOpenPercentage:(CGFloat)percentage;
 
 @end
 

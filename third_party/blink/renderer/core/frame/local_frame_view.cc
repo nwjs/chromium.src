@@ -54,6 +54,7 @@
 #include "third_party/blink/public/mojom/frame/remote_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
@@ -755,9 +756,17 @@ void LocalFrameView::PerformLayout() {
           ++add_result.stored_value->value;
         }
       }
-      for (auto& root : layout_subtree_root_list_.Ordered()) {
-        bool should_rebuild_fragments = false;
+      HeapVector<LayoutObjectWithDepth> ordered_roots =
+          layout_subtree_root_list_.Ordered();
+      for (LayoutObjectWithDepth& root : ordered_roots) {
         LayoutObject& root_layout_object = *root;
+        if (!layout_subtree_root_list_.Contains(root_layout_object)) {
+          // A previous iteration removed the entry from the list.
+          // This can happen when interleaved style recalc sets the element
+          // associated the layout subtree root to display:none.
+          continue;
+        }
+        bool should_rebuild_fragments = false;
         LayoutBox* container_box = root->ContainingNGBox();
         if (container_box) {
           auto it = fragment_tree_spines.find(container_box);
@@ -1053,14 +1062,15 @@ void LocalFrameView::RunCanvasOnpaintSteps() {
     if (frame_view.canvas_elements_needing_onpaint_.empty()) {
       return;
     }
-    HeapHashMap<Member<HTMLCanvasElement>, HeapLinkedHashSet<Member<Element>>>
+    HeapHashMap<Member<HTMLCanvasElement>,
+                Member<GCedHeapLinkedHashSet<Member<Element>>>>
         canvas_elements_needing_onpaint;
     canvas_elements_needing_onpaint.swap(
         frame_view.canvas_elements_needing_onpaint_);
 
     for (const auto& entry : canvas_elements_needing_onpaint) {
       HTMLCanvasElement* canvas = entry.key;
-      const HeapVector<Member<Element>> children(entry.value);
+      const HeapVector<Member<Element>> children(*entry.value);
       CanvasPaintEventInit* init = CanvasPaintEventInit::Create();
       init->setChangedElements(std::move(children));
       canvas->DispatchEvent(
@@ -2333,7 +2343,7 @@ bool LocalFrameView::UpdateLifecyclePhases(
     force_debug_info.emplace(&paint_debug_info_enabled_, true);
 
   // Run the lifecycle updates.
-  UpdateLifecyclePhasesInternal(target_state);
+  UpdateLifecyclePhasesInternal(target_state, reason);
 
   if (target_state == DocumentLifecycle::kPaintClean) {
     TRACE_EVENT0("blink", "LocalFrameView::DidFinishLifecycleUpdate");
@@ -2385,7 +2395,8 @@ cc::PropertyChangeForcesCommitCriteria LocalFrameView::ForceCommitCriteria()
 }
 
 void LocalFrameView::UpdateLifecyclePhasesInternal(
-    DocumentLifecycle::LifecycleState target_state) {
+    DocumentLifecycle::LifecycleState target_state,
+    DocumentUpdateReason reason) {
   // TODO(https://crbug.com/1196853): Switch to ScriptForbiddenScope once
   // failures are fixed.
   BlinkLifecycleScopeWillBeScriptForbidden forbid_script;
@@ -2439,7 +2450,8 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
     // https://github.com/w3c/csswg-drafts/issues/5261
     if (should_run_post_layout_snapshot_client_steps) {
       should_run_post_layout_snapshot_client_steps = false;
-      bool needs_to_repeat_lifecycle = RunSnapshotPostLayoutStateSteps();
+      bool needs_to_repeat_lifecycle =
+          RunSnapshotPostLayoutStateSteps(target_state, reason);
       if (needs_to_repeat_lifecycle) {
         continue;
       }
@@ -2596,7 +2608,28 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
          Lifecycle().GetState() == DocumentLifecycle::kPaintClean);
 }
 
-bool LocalFrameView::RunSnapshotPostLayoutStateSteps() {
+bool LocalFrameView::RunSnapshotPostLayoutStateSteps(
+    DocumentLifecycle::LifecycleState target_state,
+    DocumentUpdateReason reason) {
+  if (reason != DocumentUpdateReason::kBeginMainFrame &&
+      target_state != DocumentLifecycle::kPaintClean) {
+    switch (reason) {
+      case DocumentUpdateReason::kTest:
+        // Allow running snapshotting for unit tests because some tests target
+        // a phase before kPaintClean in order to test for intermediate states.
+        break;
+      case DocumentUpdateReason::kPrinting:
+        // Printing does not target kPaintClean, but still needs to do
+        // snapshotting. Otherwise, scroll-state(), anchor positioning, and
+        // scroll-timeline effects will be rendered incorrectly.
+        CHECK_EQ(target_state, DocumentLifecycle::kPrePaintClean);
+        break;
+      default:
+        // Snapshotting only happens after updating the rendering in the HTML
+        // event loop. That is equivalent to the target_state being kPaintClean.
+        return false;
+    }
+  }
   // TODO(crbug.com/1329159): Determine if the source for a view timeline has
   // changed, which may in turn require a fresh style/layout cycle.
 
@@ -3793,7 +3826,8 @@ void LocalFrameView::ServiceScrollAnimations(base::TimeTicks start_time) {
           start_time.since_origin().InSecondsF());
     }
 
-    if (!RuntimeEnabledFeatures::RunSnapshotPostLayoutStateStepsEnabled()) {
+    if (!RuntimeEnabledFeatures::RunSnapshotPostLayoutStateStepsEnabled() ||
+        !RuntimeEnabledFeatures::SnapshotScrollTimelinesPostLayoutEnabled()) {
       GetFrame().UpdatePostLayoutSnapshotClientsForServiceAnimations();
     }
     if (SVGDocumentExtensions::ServiceSmilOnAnimationFrame(*document)) {
@@ -5052,20 +5086,22 @@ void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
                                          Element& child) {
   DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
   if (IsUpdatingLifecycle()) {
-    // HeapHashMap::insert does nothing if key is already present, so this
-    // won't overwrite an existing set if one exists.
-    canvas_elements_needing_onpaint_
-        .insert(&canvas, HeapLinkedHashSet<Member<Element>>())
-        .stored_value->value.insert(&child);
+    auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
+    if (add_result.is_new_entry) {
+      add_result.stored_value->value =
+          MakeGarbageCollected<GCedHeapLinkedHashSet<Member<Element>>>();
+    }
+    add_result.stored_value->value->insert(&child);
   }
 }
 
 void LocalFrameView::RequestCanvasOnpaint(HTMLCanvasElement& canvas) {
   DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
-  // HeapHashMap::insert does nothing if key is already present, so this
-  // won't overwrite an existing set if one exists.
-  canvas_elements_needing_onpaint_.insert(&canvas,
-                                          HeapLinkedHashSet<Member<Element>>());
+  auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
+  if (add_result.is_new_entry) {
+    add_result.stored_value->value =
+        MakeGarbageCollected<GCedHeapLinkedHashSet<Member<Element>>>();
+  }
   ScheduleAnimation();
 }
 
@@ -5469,6 +5505,10 @@ void LocalFrameView::ExecutePendingScrollMarkerSelectionUpdates() {
     }
     pending_scroll_marker_selection_updates_->clear();
   }
+}
+
+mojom::blink::WebFeature LocalFrameView::SvgFilterPaintedCounter() const {
+  return mojom::blink::WebFeature::kSvgFilterPaintedOnLocalFrame;
 }
 
 }  // namespace blink

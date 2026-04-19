@@ -433,14 +433,14 @@ void* PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::
           address, size, "");
 }
 
-#if PA_BUILDFLAG(IS_CAST_ANDROID)
+#if PA_BUILDFLAG(ENABLE_SYSTEM_FREE_FALLBACK)
 extern "C" {
 void __real_free(void*);
 }  // extern "C"
-#endif  // PA_BUILDFLAG(IS_CAST_ANDROID)
+#endif  // PA_BUILDFLAG(ENABLE_SYSTEM_FREE_FALLBACK)
 
 constexpr bool MightNeedToHandleSystemDeallocation() {
-#if PA_BUILDFLAG(IS_APPLE) || PA_BUILDFLAG(IS_CAST_ANDROID)
+#if PA_BUILDFLAG(IS_APPLE) || PA_BUILDFLAG(ENABLE_SYSTEM_FREE_FALLBACK)
   return true;
 #else
   return false;
@@ -465,7 +465,7 @@ PA_ALWAYS_INLINE bool MaybeHandleSystemDeallocation(void* object) {
   // malloc() pointer can be passed to PartitionAlloc's free(). If we don't own
   // the pointer, pass it along. This should not have a runtime cost vs regular
   // Android, since on Android we have a PA_CHECK() rather than the branch here.
-#if PA_BUILDFLAG(IS_CAST_ANDROID)
+#if PA_BUILDFLAG(ENABLE_SYSTEM_FREE_FALLBACK)
   if (!partition_alloc::IsManagedByPartitionAlloc(
           reinterpret_cast<uintptr_t>(object)) &&
       object) [[unlikely]] {
@@ -475,7 +475,7 @@ PA_ALWAYS_INLINE bool MaybeHandleSystemDeallocation(void* object) {
     __real_free(object);
     return true;
   }
-#endif  // PA_BUILDFLAG(IS_CAST_ANDROID)
+#endif  // PA_BUILDFLAG(ENABLE_SYSTEM_FREE_FALLBACK)
   return false;
 }
 
@@ -496,6 +496,29 @@ PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::Free(
   }
   partition_alloc::PartitionRoot::FreeInlineInUnknownRoot<base_free_flags>(
       object);
+}
+
+// static
+template <partition_alloc::AllocFlags base_alloc_flags,
+          partition_alloc::FreeFlags base_free_flags>
+PA_ALWAYS_INLINE void
+PartitionAllocFunctionsInternal<base_alloc_flags, base_free_flags>::AlignedFree(
+    void* object,
+    void* context) {
+  constexpr partition_alloc::FreeFlags kMaybeAlignedFreeForMemoryTool =
+#if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
+      partition_alloc::FreeFlags::kAlignedFreeForMemoryTool;
+#else
+      partition_alloc::FreeFlags::kNone;
+#endif
+  // By default PartitionAlloc is always aligned, but with memory tools it may
+  // not be, so we have to pass the information down. So in production this is
+  // all inlined to just be the same as Free, and in memory tool replaces
+  // allocator builds, it will ensure we call the correct aligned free system
+  // function.
+  PartitionAllocFunctionsInternal<
+      base_alloc_flags,
+      base_free_flags | kMaybeAlignedFreeForMemoryTool>::Free(object, context);
 }
 
 // static

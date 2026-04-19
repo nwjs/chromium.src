@@ -15,6 +15,7 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
+#include "base/logging.h"
 #include "base/notimplemented.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/string_util.h"
@@ -22,6 +23,8 @@
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "media/capture/video/linux/scoped_v4l2_device_fd.h"
+#include "media/capture/video/linux/v4l2_capture_device.h"
+#include "media/capture/video/linux/v4l2_capture_device_impl.h"
 #include "media/capture/video/linux/video_capture_device_linux.h"
 
 #if BUILDFLAG(IS_OPENBSD)

@@ -32,6 +32,7 @@
 #include "base/functional/function_ref.h"
 #include "base/logging.h"
 #include "base/logging/logging_settings.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
@@ -193,14 +194,6 @@ std::string GetDecodedInstallDataFromAppArgs(const std::string& app_id) {
 std::string GetInstallDataIndexFromAppArgs(const std::string& app_id) {
   const std::optional<tagging::AppArgs> app_args = GetAppArgs(app_id);
   return app_args ? app_args->install_data_index : std::string();
-}
-
-std::optional<base::FilePath> GetLogFilePath(UpdaterScope scope) {
-  const std::optional<base::FilePath> log_dir = GetInstallDirectory(scope);
-  if (log_dir) {
-    return log_dir->Append(FILE_PATH_LITERAL("updater.log"));
-  }
-  return std::nullopt;
 }
 
 void InitLogging(UpdaterScope updater_scope) {

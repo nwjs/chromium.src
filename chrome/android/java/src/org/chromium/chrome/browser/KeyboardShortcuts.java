@@ -80,7 +80,7 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_RIGHT,
         KeyboardShortcutsSemanticMeaning.MOVE_TO_SPECIFIC_TAB,
         KeyboardShortcutsSemanticMeaning.MOVE_TO_LAST_TAB,
-        KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TAB_SEARCH,
+        KeyboardShortcutsSemanticMeaning.TAB_SEARCH,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TOGGLE_MULTITASK_MENU,
         KeyboardShortcutsSemanticMeaning.CLOSE_TAB,
         KeyboardShortcutsSemanticMeaning.CLOSE_WINDOW,
@@ -102,7 +102,7 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_FOCUS_ON_INACTIVE_DIALOGS,
         KeyboardShortcutsSemanticMeaning.OPEN_BOOKMARKS,
         KeyboardShortcutsSemanticMeaning.BOOKMARK_PAGE,
-        KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_BOOKMARK_ALL_TABS,
+        KeyboardShortcutsSemanticMeaning.BOOKMARK_ALL_TABS,
         KeyboardShortcutsSemanticMeaning.TOGGLE_BOOKMARK_BAR,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TOGGLE_IMMERSIVE,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_EXIT_IMMERSIVE,
@@ -155,7 +155,7 @@ public class KeyboardShortcuts {
         int MOVE_TO_TAB_RIGHT = 9;
         int MOVE_TO_SPECIFIC_TAB = 10;
         int MOVE_TO_LAST_TAB = 11;
-        int NOT_IMPLEMENTED_TAB_SEARCH = 12;
+        int TAB_SEARCH = 12;
         int NOT_IMPLEMENTED_TOGGLE_MULTITASK_MENU = 13;
 
         // Closing.
@@ -187,7 +187,7 @@ public class KeyboardShortcuts {
         // Bookmarks.
         int OPEN_BOOKMARKS = 32;
         int BOOKMARK_PAGE = 33;
-        int NOT_IMPLEMENTED_BOOKMARK_ALL_TABS = 34;
+        int BOOKMARK_ALL_TABS = 34;
         int TOGGLE_BOOKMARK_BAR = 35;
 
         // Fullscreen.
@@ -465,6 +465,13 @@ public class KeyboardShortcuts {
                     new KeyCombo(KeyEvent.KEYCODE_BUTTON_B, NO_MODIFIER),
                 });
 
+        // Tab search.
+        new KeyboardShortcutDefinition(
+                KeyboardShortcutsSemanticMeaning.TAB_SEARCH,
+                new KeyCombo(KeyEvent.KEYCODE_A, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
+                R.string.keyboard_shortcut_tab_search,
+                R.string.keyboard_shortcut_tab_group_header);
+
         // Navigation shortcuts (keyboard_shortcut_tab_navigation_group_header).
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_RIGHT,
@@ -736,9 +743,6 @@ public class KeyboardShortcuts {
         // Unimplemented shortcuts.
         // TODO(crbug.com/402775002): Figure out what shortcut does TOGGLE_MULTITASK_MENU.
         new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TAB_SEARCH,
-                new KeyCombo(KeyEvent.KEYCODE_A, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)));
-        new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_FOCUS_WEB_CONTENTS_PANE,
                 new KeyCombo(KeyEvent.KEYCODE_F6, KeyEvent.META_CTRL_ON));
         new KeyboardShortcutDefinition(
@@ -762,7 +766,7 @@ public class KeyboardShortcuts {
                 KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_FOCUS_ON_INACTIVE_DIALOGS,
                 new KeyCombo(KeyEvent.KEYCODE_A, KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON));
         new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_BOOKMARK_ALL_TABS,
+                KeyboardShortcutsSemanticMeaning.BOOKMARK_ALL_TABS,
                 new KeyCombo(KeyEvent.KEYCODE_D, KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON));
         // TODO(crbug.com/402775002): Allow long press on Esc.
         new KeyboardShortcutDefinition(
@@ -1019,8 +1023,8 @@ public class KeyboardShortcuts {
 
         RecordHistogram.recordEnumeratedHistogram(
                 AccessibilityState.isKnownScreenReaderEnabled()
-                        ? "Accessibility.Android.KeyboardShortcut.ScreenReaderRunning5"
-                        : "Accessibility.Android.KeyboardShortcut.NoScreenReader5",
+                        ? "Accessibility.Android.KeyboardShortcut.ScreenReaderRunning6"
+                        : "Accessibility.Android.KeyboardShortcut.NoScreenReader6",
                 semanticMeaning,
                 KeyboardShortcuts.KeyboardShortcutsSemanticMeaning.MAX_VALUE);
 
@@ -1083,6 +1087,9 @@ public class KeyboardShortcuts {
 
         if (isCurrentTabVisible) {
             switch (semanticMeaning) {
+                case KeyboardShortcutsSemanticMeaning.TAB_SEARCH:
+                    menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.tab_search, false);
+                    return true;
                 case KeyboardShortcutsSemanticMeaning.MOVE_TO_SPECIFIC_TAB:
                     if (tabSwitchingEnabled) {
                         int numCode =
@@ -1170,6 +1177,10 @@ public class KeyboardShortcuts {
                 case KeyboardShortcutsSemanticMeaning.BOOKMARK_PAGE:
                     menuOrKeyboardActionController.onMenuOrKeyboardAction(
                             R.id.bookmark_this_page_id, false);
+                    return true;
+                case KeyboardShortcutsSemanticMeaning.BOOKMARK_ALL_TABS:
+                    menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.bookmark_all_tabs, false);
                     return true;
                 case KeyboardShortcutsSemanticMeaning.OPEN_HISTORY:
                     menuOrKeyboardActionController.onMenuOrKeyboardAction(

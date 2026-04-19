@@ -20,7 +20,6 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_string_resource.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_address_errors.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_android_pay_method_data.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_google_play_billing_method_data.h"
@@ -109,7 +108,7 @@ struct TypeConverter<PaymentCurrencyAmountPtr, blink::PaymentCurrencyAmount> {
   static PaymentCurrencyAmountPtr Convert(
       const blink::PaymentCurrencyAmount& input) {
     PaymentCurrencyAmountPtr output = PaymentCurrencyAmount::New();
-    output->currency = input.currency().UpperASCII();
+    output->currency = input.currency().ToAsciiUpper();
     output->value = input.value();
     return output;
   }
@@ -1719,6 +1718,10 @@ void PaymentRequest::OnError(PaymentErrorReason error,
 
     case PaymentErrorReason::USER_ACTIVATION_REQUIRED:
       exception_code = DOMExceptionCode::kSecurityError;
+      break;
+
+    case PaymentErrorReason::PAYMENT_APP_ERROR:
+      exception_code = DOMExceptionCode::kOperationError;
       break;
 
     case PaymentErrorReason::UNKNOWN:

@@ -75,8 +75,10 @@ PopupBnplFootnoteView::PopupBnplFootnoteView(
       autofill::payments::GetBnplUiFooterTextForAi(
           pdm->payments_data_manager());
 
+  full_text_ = text_with_link.text;
+
   auto styled_label = std::make_unique<views::StyledLabel>();
-  styled_label->SetText(text_with_link.text);
+  styled_label->SetText(full_text_);
   styled_label->SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT);
   styled_label->SetDefaultTextStyle(views::style::STYLE_BODY_5);
   styled_label->SetDefaultEnabledColorId(ui::kColorLabelForegroundSecondary);
@@ -98,19 +100,6 @@ PopupBnplFootnoteView::PopupBnplFootnoteView(
 }
 
 PopupBnplFootnoteView::~PopupBnplFootnoteView() = default;
-
-gfx::Size PopupBnplFootnoteView::CalculatePreferredSize(
-    const views::SizeBounds& available_size) const {
-  gfx::Size size = views::View::CalculatePreferredSize(available_size);
-  // Prevent the footnote from forcing the popup to `kAutofillPopupMaxWidth`.
-  // By returning a width of 0 when unbounded, the layout manager will size
-  // the popup based strictly on the other rows (like the BNPL providers) and
-  // then pass that determined width back to this view to calculate its size.
-  if (!available_size.width().is_bounded()) {
-    size.set_width(0);
-  }
-  return size;
-}
 
 BEGIN_METADATA(PopupBnplFootnoteView)
 END_METADATA

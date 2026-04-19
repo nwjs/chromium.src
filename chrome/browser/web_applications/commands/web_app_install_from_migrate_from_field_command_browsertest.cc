@@ -41,14 +41,12 @@ class WebAppInstallFromMigrateFromFieldCommandBrowserTest
     : public WebAppBrowserTestBase {
  public:
   WebAppInstallFromMigrateFromFieldCommandBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {blink::features::kWebAppMigrationApi,
-         features::kWebAppPredictableAppUpdating},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kWebAppMigrationApi);
   }
 
   void SetUp() override {
-    https_server()->RegisterRequestHandler(base::BindRepeating(
+    embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(
         &WebAppInstallFromMigrateFromFieldCommandBrowserTest::
             RequestHandlerOverride,
         base::Unretained(this)));
@@ -92,13 +90,14 @@ class WebAppInstallFromMigrateFromFieldCommandBrowserTest
   }
 
   GURL GetSourceStartUrl() {
-    return https_server()->GetURL("/banners/manifest_test_page.html");
+    return embedded_https_test_server().GetURL(
+        "/banners/manifest_test_page.html");
   }
   webapps::ManifestId GetSourceManifestId() {
     return webapps::ManifestId(GetSourceStartUrl());
   }
   GURL GetTargetStartUrl() {
-    return https_server()->GetURL("/banners/target_app.html");
+    return embedded_https_test_server().GetURL("/banners/target_app.html");
   }
   webapps::ManifestId GetTargetManifestId() {
     return webapps::ManifestId(GetTargetStartUrl());
@@ -119,7 +118,7 @@ IN_PROC_BROWSER_TEST_F(WebAppInstallFromMigrateFromFieldCommandBrowserTest,
   EXPECT_FALSE(source_app_id.empty());
 
   // 2. Navigate to a page that includes a manifest for the target app.
-  GURL page_url = https_server()->GetURL(
+  GURL page_url = embedded_https_test_server().GetURL(
       "/web_apps/standalone/basic.html?manifest=target_manifest.json");
 
   base::RunLoop run_loop;

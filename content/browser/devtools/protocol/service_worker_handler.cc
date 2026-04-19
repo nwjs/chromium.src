@@ -406,9 +406,8 @@ void ServiceWorkerHandler::OnWorkerVersionUpdated(
             .Build();
     scoped_refptr<DevToolsAgentHostImpl> host(
         ServiceWorkerDevToolsManager::GetInstance()
-            ->GetDevToolsAgentHostForWorker(
-                version.process_id,
-                version.devtools_agent_route_id));
+            ->GetDevToolsAgentHostForWorker(version.process_id,
+                                            version.devtools_agent_route_id));
     if (host) {
       version_value->SetTargetId(host->GetId());
     }

@@ -10,16 +10,17 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.tab_groups.TabGroupColorId;
 
@@ -27,24 +28,20 @@ import org.chromium.components.tab_groups.TabGroupColorId;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class TabWindowManagerUtilsUnitTest {
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TabWindowManager mTabWindowManager;
     @Mock private TabModelSelector mTabModelSelector;
-    @Mock private TabGroupModelFilter mTabGroupModelFilter;
+    @Mock private TabModel mTabModel;
     @Mock private Context mContext;
-
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-    }
 
     @Test
     public void testGetTabGroupTitleInAnyWindow() {
         Token tabGroupId = new Token(1, 1);
         when(mTabWindowManager.findWindowIdForTabGroup(tabGroupId)).thenReturn(1);
         when(mTabWindowManager.getTabModelSelectorById(1)).thenReturn(mTabModelSelector);
-        when(mTabModelSelector.getTabGroupModelFilter(false)).thenReturn(mTabGroupModelFilter);
-        when(mTabGroupModelFilter.tabGroupExists(tabGroupId)).thenReturn(true);
-        when(mTabGroupModelFilter.getTabGroupTitle(tabGroupId)).thenReturn("Test Title");
+        when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
+        when(mTabModel.tabGroupExists(tabGroupId)).thenReturn(true);
+        when(mTabModel.getTabGroupTitle(tabGroupId)).thenReturn("Test Title");
 
         String title =
                 TabWindowManagerUtils.getTabGroupTitleInAnyWindow(
@@ -81,9 +78,8 @@ public class TabWindowManagerUtilsUnitTest {
         Token tabGroupId = new Token(1, 1);
         when(mTabWindowManager.findWindowIdForTabGroup(tabGroupId)).thenReturn(1);
         when(mTabWindowManager.getTabModelSelectorById(1)).thenReturn(mTabModelSelector);
-        when(mTabModelSelector.getTabGroupModelFilter(false)).thenReturn(mTabGroupModelFilter);
-        when(mTabGroupModelFilter.getTabGroupColorWithFallback(tabGroupId))
-                .thenReturn(TabGroupColorId.BLUE);
+        when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
+        when(mTabModel.getTabGroupColorWithFallback(tabGroupId)).thenReturn(TabGroupColorId.BLUE);
 
         int color =
                 TabWindowManagerUtils.getTabGroupColorInAnyWindow(

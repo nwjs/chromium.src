@@ -47,7 +47,6 @@
 #include "cc/layers/layer.h"
 #include "cc/layers/painted_scrollbar_layer.h"
 #include "cc/metrics/ukm_dropped_frames_data.h"
-#include "cc/metrics/ukm_manager.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/tiles/raster_dark_mode_filter.h"
@@ -75,7 +74,6 @@
 #include "cc/view_transition/view_transition_request.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
-#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/tracing/public/cpp/perfetto/macros.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
@@ -144,14 +142,13 @@ std::unique_ptr<LayerTreeHost> LayerTreeHost::CreateSingleThreaded(
 LayerTreeHost::LayerTreeHost(InitParams params, CompositorMode mode)
     : micro_benchmark_controller_(this),
       image_worker_task_runner_(std::move(params.image_worker_task_runner)),
-      ukm_recorder_factory_(std::move(params.ukm_recorder_factory)),
       compositor_mode_(mode),
       ui_resource_manager_(std::make_unique<UIResourceManager>()),
       client_(params.client),
       scheduling_client_(params.scheduling_client),
       rendering_stats_instrumentation_(RenderingStatsInstrumentation::Create()),
       pending_commit_state_(std::make_unique<CommitState>()),
-      thread_unsafe_commit_state_(params.mutator_host, *this),
+      thread_unsafe_commit_state_(params.mutator_host),
       settings_(*params.settings),
       id_(s_layer_tree_host_sequence_number.GetNext() + 1),
       task_graph_runner_(params.task_graph_runner),
@@ -435,7 +432,6 @@ std::unique_ptr<CommitState> LayerTreeHost::WillCommit(
   std::unique_ptr<CommitState> result;
   if (has_updates)
     result = ActivateCommitState();
-  thread_unsafe_commit_state().num_layers = layer_id_map_.size();
   swap_promise_manager_.WillCommit();
   mutator_host()->RemoveStaleTimelines();
   mutator_host()->RemoveStaleTriggers();
@@ -461,9 +457,22 @@ std::unique_ptr<CommitState> LayerTreeHost::ActivateCommitState() {
   pending_commit_state()->benchmarks =
       micro_benchmark_controller_.CreateImplBenchmarks();
 
+  std::vector<std::pair<int, gfx::Rect>> layer_update_rects;
+  for (auto* layer : *this) {
+    if (!layer->update_rect().IsEmpty()) {
+      layer->SetNeedsPushProperties();
+      layer_update_rects.emplace_back(layer->id(), layer->update_rect());
+      layer->ResetUpdateRect();
+    }
+  }
+  std::sort(layer_update_rects.begin(), layer_update_rects.end());
+  pending_commit_state()->layer_update_rects = base::flat_map<int, gfx::Rect>(
+      base::sorted_unique_t(), std::move(layer_update_rects));
+
   // Snapshot PropertyTrees change tracking state prior to resetting it.
   property_trees()->GetChangeState(
       pending_commit_state()->property_trees_change_state);
+  pending_commit_state()->property_trees = *property_trees();
   property_trees()->ResetAllChangeTracking();
 
   auto active_commit_state = std::move(pending_commit_state_);
@@ -631,8 +640,7 @@ std::unique_ptr<LayerTreeHostImpl> LayerTreeHost::CreateLayerTreeHostImpl(
       client, thread_unsafe_commit_state_.mutator_host, settings_,
       task_runner_provider_.get(), dark_mode_filter_, id_, task_graph_runner_,
       image_worker_task_runner_, scheduling_client_,
-      rendering_stats_instrumentation_.get(), ukm_recorder_factory_,
-      compositor_delegate_weak_ptr_);
+      rendering_stats_instrumentation_.get(), compositor_delegate_weak_ptr_);
 }
 
 std::unique_ptr<LayerTreeHostImpl>
@@ -647,7 +655,6 @@ LayerTreeHost::CreateLayerTreeHostImplInternal(
     scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
     LayerTreeHostSchedulingClient* scheduling_client,
     RenderingStatsInstrumentation* rendering_stats_instrumentation,
-    std::unique_ptr<UkmRecorderFactory>& ukm_recorder_factory,
     base::WeakPtr<CompositorDelegateForInput>& compositor_delegate_weak_ptr) {
   std::unique_ptr<MutatorHost> mutator_host_impl =
       mutator_host->CreateImplInstance();
@@ -661,10 +668,6 @@ LayerTreeHost::CreateLayerTreeHostImplInternal(
       settings, client, task_runner_provider, rendering_stats_instrumentation,
       task_graph_runner, std::move(mutator_host_impl), dark_mode_filter, id,
       std::move(image_worker_task_runner), scheduling_client);
-  if (ukm_recorder_factory) {
-    host_impl->InitializeUkm(ukm_recorder_factory->CreateRecorder());
-    ukm_recorder_factory.reset();
-  }
 
   task_graph_runner = nullptr;
   dark_mode_filter = nullptr;
@@ -1541,10 +1544,19 @@ void LayerTreeHost::SetOverscrollBehavior(const OverscrollBehavior& behavior) {
 void LayerTreeHost::SetPageScaleFactorAndLimits(float page_scale_factor,
                                                 float min_page_scale_factor,
                                                 float max_page_scale_factor) {
-  if (pending_commit_state()->page_scale_factor == page_scale_factor &&
+  if (pending_commit_state()->page_scale_factor_limits_set &&
+      pending_commit_state()->page_scale_factor == page_scale_factor &&
       pending_commit_state()->min_page_scale_factor == min_page_scale_factor &&
-      pending_commit_state()->max_page_scale_factor == max_page_scale_factor)
+      pending_commit_state()->max_page_scale_factor == max_page_scale_factor) {
     return;
+  }
+  if (page_scale_factor <= 0) {
+    page_scale_factor = 1;
+  }
+  if (min_page_scale_factor <= 0) {
+    min_page_scale_factor = page_scale_factor;
+  }
+  DCHECK_GE(max_page_scale_factor, min_page_scale_factor);
   DCHECK_GE(page_scale_factor, min_page_scale_factor);
   DCHECK_LE(page_scale_factor, max_page_scale_factor);
   // We should never process non-unit page_scale_delta for an OOPIF subframe.
@@ -1556,6 +1568,7 @@ void LayerTreeHost::SetPageScaleFactorAndLimits(float page_scale_factor,
       << pending_commit_state()->page_scale_factor
       << ", new psf = " << page_scale_factor;
 
+  pending_commit_state()->page_scale_factor_limits_set = true;
   pending_commit_state()->page_scale_factor = page_scale_factor;
   pending_commit_state()->min_page_scale_factor = min_page_scale_factor;
   pending_commit_state()->max_page_scale_factor = max_page_scale_factor;
@@ -1749,21 +1762,21 @@ void LayerTreeHost::RegisterLayer(Layer* layer) {
   DCHECK(IsMainThread());
   DCHECK(!LayerById(layer->id()));
   DCHECK(!in_paint_layer_contents_);
-  layer_id_map_[layer->id()] = layer;
+  thread_unsafe_commit_state().layer_id_map[layer->id()] = layer;
 }
 
 void LayerTreeHost::UnregisterLayer(Layer* layer) {
   DCHECK(IsMainThread());
   DCHECK(LayerById(layer->id()));
   DCHECK(!in_paint_layer_contents_);
-  pending_commit_state()->layers_that_should_push_properties.erase(layer);
-  layer_id_map_.erase(layer->id());
+  pending_commit_state()->layer_ids_that_should_push_properties.erase(
+      layer->id());
+  thread_unsafe_commit_state().layer_id_map.erase(layer->id());
 }
 
 Layer* LayerTreeHost::LayerById(int id) {
   DCHECK(IsMainThread());
-  auto iter = layer_id_map_.find(id);
-  return iter != layer_id_map_.end() ? iter->second : nullptr;
+  return thread_unsafe_commit_state().LayerById(id);
 }
 
 bool LayerTreeHost::PaintContent(const LayerList& update_layer_list) {
@@ -1797,7 +1810,8 @@ void LayerTreeHost::RemoveSurfaceRange(const viz::SurfaceRange& surface_range) {
 }
 
 void LayerTreeHost::AddLayerShouldPushProperties(Layer* layer) {
-  pending_commit_state()->layers_that_should_push_properties.insert(layer);
+  pending_commit_state()->layer_ids_that_should_push_properties.insert(
+      layer->id());
 }
 
 void LayerTreeHost::SetPageScaleFromImplSide(float page_scale) {
@@ -1907,6 +1921,7 @@ void LayerTreeHost::SetElementIdsForTesting() {
 
 void LayerTreeHost::BuildPropertyTreesForTesting() {
   PropertyTreeBuilder::BuildPropertyTrees(this);
+  pending_commit_state()->property_trees = *property_trees();
 }
 
 bool LayerTreeHost::IsElementInPropertyTrees(ElementId element_id,
@@ -2058,7 +2073,7 @@ LayerListReverseConstIterator LayerTreeHost::rend() const {
 
 void LayerTreeHost::SetPropertyTreesForTesting(
     const PropertyTrees* property_trees) {
-  thread_unsafe_commit_state().property_trees = *property_trees;
+  property_trees_ = *property_trees;
 }
 
 void LayerTreeHost::SetNeedsDisplayOnAllLayers() {
@@ -2085,20 +2100,6 @@ void LayerTreeHost::SetSourceURL(ukm::SourceId source_id, const GURL& url) {
   // If this is not used as a common web page, don't show HUD.
   if (!url.SchemeIsHTTPOrHTTPS())
     pending_commit_state()->debug_state.TurnOffHudInfoDisplay();
-}
-
-base::ReadOnlySharedMemoryRegion
-LayerTreeHost::CreateSharedMemoryForDroppedFramesUkm() {
-  DCHECK(IsMainThread());
-  const auto size = sizeof(UkmDroppedFramesDataShared);
-  auto ukm_dropped_frames_mapping =
-      base::ReadOnlySharedMemoryRegion::Create(size);
-  if (!ukm_dropped_frames_mapping.IsValid()) {
-    return {};
-  }
-  proxy_->SetUkmDroppedFramesDestination(
-      std::move(ukm_dropped_frames_mapping.mapping));
-  return std::move(ukm_dropped_frames_mapping.region);
 }
 
 void LayerTreeHost::SetRenderFrameObserver(

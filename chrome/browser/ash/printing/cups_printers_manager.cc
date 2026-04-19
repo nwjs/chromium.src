@@ -450,9 +450,10 @@ class CupsPrintersManagerImpl
 
     // If the printer is being installed now, stop the process.
     std::vector<PrinterSetupCallback> callbacks;
-    if (printers_being_setup_.contains(printer_id)) {
-      callbacks = std::move(printers_being_setup_[printer_id].callbacks);
-      printers_being_setup_.erase(printer_id);
+    if (auto it = printers_being_setup_.find(printer_id);
+        it != printers_being_setup_.end()) {
+      callbacks = std::move(it->second.callbacks);
+      printers_being_setup_.erase(it);
     }
     for (auto& callback : callbacks) {
       std::move(callback).Run(PrinterSetupResult::kPrinterRemoved);
@@ -924,7 +925,8 @@ class CupsPrintersManagerImpl
   void MaybeRecordInstallation(
       const Printer& printer,
       bool is_automatic_installation,
-      const std::optional<chromeos::IppPrinterInfo>& ipp_printer_info) {
+      const std::optional<chromeos::IppPrinterInfo>& ipp_printer_info,
+      const std::string& ppd_filename) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_);
     if (synced_printers_manager_->GetPrinter(printer.id())) {
       // It's just an update, not a new installation, so don't record an event.
@@ -954,11 +956,12 @@ class CupsPrintersManagerImpl
                      << " for installation event logging";
         return;
       }
-      event_tracker_->RecordUsbPrinterInstalled(
-          ppd_info->ppd_reference, ppd_info->ppd_search_data, mode);
+      event_tracker_->RecordUsbPrinterInstalled(ppd_info->ppd_reference,
+                                                ppd_info->ppd_search_data, mode,
+                                                ppd_filename);
     } else {
-      event_tracker_->RecordIppPrinterInstalled(printer, mode,
-                                                ipp_printer_info);
+      event_tracker_->RecordIppPrinterInstalled(printer, mode, ipp_printer_info,
+                                                ppd_filename);
     }
   }
 
@@ -1063,12 +1066,12 @@ class CupsPrintersManagerImpl
                                const Printer& printer) {
     printers_.Insert(printer_class, printer);
 
+    bool inserted = detected_printers_seen_.insert(printer.id()).second;
     // If we've seen this printer before, don't trigger a new detection event.
-    if (detected_printers_seen_.contains(printer.id())) {
+    if (!inserted) {
       return;
     }
 
-    detected_printers_seen_.insert(printer.id());
     NotifyLocalPrinterObservers();
   }
 
@@ -1182,6 +1185,8 @@ class CupsPrintersManagerImpl
 
     if (result == PrinterSetupResult::kSuccess) {
       installed_printer_fingerprints_[printer_id] = it->second.fingerprint;
+      std::string ppd_filename = it->second.configurer->GetLastPpdBasename();
+
       // TODO: b/295243026 - Solve this issue during metrics clean-up.
       // We check this condition before calling MaybeRecordInstallation() to
       // make it backward compatible with the state before crrev.com/c/4763464.
@@ -1193,7 +1198,7 @@ class CupsPrintersManagerImpl
         std::optional<chromeos::Printer> printer = printers_.Get(printer_id);
         if (printer) {
           MaybeRecordInstallation(*printer, is_automatic_installation,
-                                  ipp_printer_info);
+                                  ipp_printer_info, ppd_filename);
         }
       }
     }

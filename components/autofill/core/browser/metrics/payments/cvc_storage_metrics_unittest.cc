@@ -125,11 +125,12 @@ class CvcStorageMetricsTest
 TEST_P(CvcStorageMetricsTest, LogShownMetrics) {
   base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /* enabled_features */
-      {features::kAutofillEnableCvcStorageAndFilling,
-       features::kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement},
-      /* disabled_features */ {});
+#if !BUILDFLAG(IS_IOS)
+  features.InitAndEnableFeature(
+      features::kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement);
+#else
+  features.InitWithFeatures({}, {});
+#endif
   test_paydm().SetIsPaymentCvcStorageEnabled(true);
 
   // Simulate activating the autofill popup for the credit card field.
@@ -161,8 +162,6 @@ TEST_P(CvcStorageMetricsTest, LogShownMetrics) {
 // Test CVC suggestion selected metrics are correctly logged.
 TEST_P(CvcStorageMetricsTest, LogSelectedMetrics) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
 
   test_paydm().SetIsPaymentCvcStorageEnabled(true);
 
@@ -174,7 +173,8 @@ TEST_P(CvcStorageMetricsTest, LogSelectedMetrics) {
   autofill_manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form(),
                                        form().fields().back().global_id(),
                                        paydm().GetCreditCardByGUID(kCardGuid),
-                                       AutofillTriggerSource::kPopup);
+                                       AutofillTriggerSource::kPopup,
+                                       /*blocked_fields=*/{});
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples(GetExpectedHistogramName()),
@@ -191,7 +191,8 @@ TEST_P(CvcStorageMetricsTest, LogSelectedMetrics) {
   autofill_manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form(),
                                        form().fields().front().global_id(),
                                        paydm().GetCreditCardByGUID(kCardGuid),
-                                       AutofillTriggerSource::kPopup);
+                                       AutofillTriggerSource::kPopup,
+                                       /*blocked_fields=*/{});
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples(GetExpectedHistogramName()),
@@ -209,8 +210,6 @@ TEST_P(CvcStorageMetricsTest, LogSelectedMetrics) {
 // Test CVC suggestion filled metrics are correctly logged.
 TEST_P(CvcStorageMetricsTest, LogFilledMetrics) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
 
   test_paydm().SetIsPaymentCvcStorageEnabled(true);
 
@@ -222,7 +221,8 @@ TEST_P(CvcStorageMetricsTest, LogFilledMetrics) {
   autofill_manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form(),
                                        form().fields().front().global_id(),
                                        paydm().GetCreditCardByGUID(kCardGuid),
-                                       AutofillTriggerSource::kPopup);
+                                       AutofillTriggerSource::kPopup,
+                                       /*blocked_fields=*/{});
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples(GetExpectedHistogramName()),
@@ -243,7 +243,8 @@ TEST_P(CvcStorageMetricsTest, LogFilledMetrics) {
   autofill_manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form(),
                                        form().fields().front().global_id(),
                                        paydm().GetCreditCardByGUID(kCardGuid),
-                                       AutofillTriggerSource::kPopup);
+                                       AutofillTriggerSource::kPopup,
+                                       /*blocked_fields=*/{});
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples(GetExpectedHistogramName()),
@@ -261,8 +262,6 @@ TEST_P(CvcStorageMetricsTest, LogFilledMetrics) {
 // Test will submit and submitted metrics are correctly logged.
 TEST_P(CvcStorageMetricsTest, LogSubmitMetrics) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
 
   test_paydm().SetIsPaymentCvcStorageEnabled(true);
 
@@ -276,7 +275,8 @@ TEST_P(CvcStorageMetricsTest, LogSubmitMetrics) {
   autofill_manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form(),
                                        form().fields().front().global_id(),
                                        paydm().GetCreditCardByGUID(kCardGuid),
-                                       AutofillTriggerSource::kPopup);
+                                       AutofillTriggerSource::kPopup,
+                                       /*blocked_fields=*/{});
   SubmitForm(form());
 
   EXPECT_THAT(

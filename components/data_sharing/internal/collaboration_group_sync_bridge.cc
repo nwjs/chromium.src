@@ -85,7 +85,7 @@ CollaborationGroupSyncBridge::ApplyIncrementalSyncChanges(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
-      data_type_store_->CreateWriteBatch();
+      data_type_store_->CreateWriteBatch(std::move(metadata_change_list));
 
   std::vector<GroupId> added_ids;
   std::vector<GroupId> updated_ids;
@@ -127,7 +127,6 @@ CollaborationGroupSyncBridge::ApplyIncrementalSyncChanges(
     }
   }
 
-  batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
   data_type_store_->CommitWriteBatch(
       std::move(batch),
       base::BindOnce(&CollaborationGroupSyncBridge::OnDataTypeStoreCommit,
@@ -190,6 +189,14 @@ void CollaborationGroupSyncBridge::ApplyDisableSyncChanges(
   for (auto& observer : observers_) {
     observer.OnSyncBridgeUpdateTypeChanged(SyncBridgeUpdateType::kDefaultState);
   }
+}
+
+sync_pb::EntitySpecifics
+CollaborationGroupSyncBridge::TrimAllSupportedFieldsFromRemoteSpecifics(
+    const sync_pb::EntitySpecifics& entity_specifics) const {
+  // Clears all fields by default to avoid the memory and I/O overhead of an
+  // additional copy of the data.
+  return sync_pb::EntitySpecifics();
 }
 
 bool CollaborationGroupSyncBridge::IsEntityDataValid(

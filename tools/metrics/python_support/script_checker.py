@@ -9,7 +9,7 @@ import tempfile
 import time
 import subprocess
 
-import setup_modules
+import setup_modules  # pylint: disable=unused-import
 
 from chromium_src.tools.metrics.python_support.tests_helpers import TestableScript
 
@@ -71,6 +71,7 @@ def check_scripts(commands_to_check: List[TestableScript],
     proc = subprocess.Popen(testable_script.cmd,
                             stdout=out_f,
                             stderr=err_f,
+                            shell=sys.platform == 'win32',
                             cwd=cwd)
     running_processes.append((testable_script, proc, out_f, err_f))
 

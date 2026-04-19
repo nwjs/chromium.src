@@ -11,7 +11,7 @@
 #import "components/optimization_guide/proto/features/ios_smart_tab_grouping.pb.h"
 #import "components/tab_groups/tab_group_color.h"
 #import "components/tab_groups/tab_group_visual_data.h"
-#import "ios/chrome/browser/intelligence/actuation/tab_actions.h"
+#import "ios/chrome/browser/intelligence/actor/tools/utils/tab_actions_utils.h"
 #import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/web/public/web_state.h"
@@ -35,7 +35,7 @@ void ApplySmartTabGroupResponse(
   }
 
   if (!indices_to_ungroup.empty()) {
-    UngroupTabs(indices_to_ungroup, web_state_list);
+    actor::UngroupTabs(indices_to_ungroup, web_state_list);
   }
 
   // Map tab unique IDs to WebState pointers. This is necessary because
@@ -100,7 +100,7 @@ void ApplySmartTabGroupResponse(
     const tab_groups::TabGroupVisualData group_visual_data(
         base::UTF8ToUTF16(title_with_emoji), color);
 
-    CreateTabGroup(indices_in_group, group_visual_data, web_state_list);
+    actor::CreateTabGroup(indices_in_group, group_visual_data, web_state_list);
 
     group_color_index++;
   }

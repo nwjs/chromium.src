@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "media/base/android/media_codec_bridge_impl.h"
 
@@ -176,9 +172,9 @@ AudioDecoderConfig NewAudioConfig(
     base::TimeDelta seek_preroll = base::TimeDelta(),
     int64_t codec_delay = 0) {
   AudioDecoderConfig config;
-  config.Initialize(codec, kSampleFormatPlanarF32, CHANNEL_LAYOUT_STEREO, 44100,
-                    extra_data, EncryptionScheme::kUnencrypted, seek_preroll,
-                    codec_delay);
+  config.Initialize(codec, kSampleFormatPlanarF32,
+                    ChannelLayoutConfig::Stereo(), 44100, extra_data,
+                    EncryptionScheme::kUnencrypted, seek_preroll, codec_delay);
   return config;
 }
 

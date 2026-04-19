@@ -197,14 +197,30 @@ void NativeWidgetMac::OnWindowKeyStatusChanged(
   }
 }
 
+void NativeWidgetMac::OnWindowWillMove() {
+  if (delegate_) {
+    delegate_->OnNativeWidgetBeginUserBoundsChange();
+    delegate_->OnNativeWidgetUserDragStarted();
+  }
+}
+
+void NativeWidgetMac::OnWindowDidEndMove() {
+  if (delegate_) {
+    delegate_->OnNativeWidgetEndUserBoundsChange();
+    delegate_->OnNativeWidgetUserDragEnded();
+  }
+}
+
 void NativeWidgetMac::OnWindowWillStartLiveResize() {
   if (delegate_) {
+    delegate_->OnNativeWidgetBeginUserBoundsChange();
     delegate_->OnNativeWidgetUserResizeStarted();
   }
 }
 
 void NativeWidgetMac::OnWindowDidEndLiveResize() {
   if (delegate_) {
+    delegate_->OnNativeWidgetEndUserBoundsChange();
     delegate_->OnNativeWidgetUserResizeEnded();
   }
 }
@@ -395,8 +411,7 @@ void NativeWidgetMac::ReparentNativeViewImpl(gfx::NativeView new_parent) {
 }
 
 std::unique_ptr<FrameView> NativeWidgetMac::CreateFrameView() {
-  return GetWidget() ? std::make_unique<NativeFrameViewMac>(GetWidget(),
-                                                            /*client=*/nullptr)
+  return GetWidget() ? std::make_unique<NativeFrameViewMac>(GetWidget())
                      : nullptr;
 }
 
@@ -926,10 +941,10 @@ void NativeWidgetMac::FlashFrame(bool flash_frame) {
   NOTIMPLEMENTED();
 }
 
-void NativeWidgetMac::RunShellDrag(std::unique_ptr<ui::OSExchangeData> data,
-                                   const gfx::Point& location,
-                                   int operation,
-                                   ui::mojom::DragEventSource source) {
+void NativeWidgetMac::RunDragDropLoop(std::unique_ptr<ui::OSExchangeData> data,
+                                      const gfx::Point& location,
+                                      int operation,
+                                      ui::mojom::DragEventSource source) {
   if (!ns_window_host_) {
     return;
   }
@@ -937,7 +952,7 @@ void NativeWidgetMac::RunShellDrag(std::unique_ptr<ui::OSExchangeData> data,
                                                         operation, source);
 }
 
-void NativeWidgetMac::CancelShellDrag(View* view) {
+void NativeWidgetMac::CancelDragDropLoop(View* view) {
   if (!ns_window_host_) {
     return;
   }

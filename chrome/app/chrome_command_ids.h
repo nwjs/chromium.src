@@ -85,6 +85,7 @@
 #define IDC_NEW_SPLIT_TAB               34055
 #define IDC_TOGGLE_VERTICAL_TABS        34056
 #define IDC_VERTICAL_TABS_SEND_FEEDBACK 34057
+#define IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER 34058
 
 // Web app window commands
 #define IDC_COPY_URL                    34060
@@ -304,6 +305,7 @@
 #define IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_GEMINI 40300
 #define IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_DEVTOOLS 40301
 #define IDC_REPORT_UNSAFE_SITE 40302
+#define IDC_SHOW_READING_MODE_KEYBOARD 40303
 
 // Spell-check
 // Insert any additional suggestions before _LAST; these have to be consecutive.
@@ -462,6 +464,7 @@
 #define IDC_CONTENT_CONTEXT_CLOSE_GLIC  50231
 #define IDC_CONTENT_CONTEXT_RELOAD_GLIC  50232
 #define IDC_CONTENT_CONTEXT_ARCHIVE_GLIC 50233
+#define IDC_CONTENT_CONTEXT_GLIC    50234
 // Context menu items in the bookmark bar
 #define IDC_BOOKMARK_BAR_OPEN_ALL 51000
 #define IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW 51001
@@ -587,12 +590,10 @@
 #define IDC_SET_BROWSER_AS_DEFAULT 53300
 
 // Glic status tray icon menu
-#define IDC_GLIC_STATUS_ICON_MENU_SHOW                        53310
 #define IDC_GLIC_STATUS_ICON_MENU_CUSTOMIZE_KEYBOARD_SHORTCUT 53311
 #define IDC_GLIC_STATUS_ICON_MENU_REMOVE_ICON                 53312
 #define IDC_GLIC_STATUS_ICON_MENU_SETTINGS                    53313
 #define IDC_GLIC_STATUS_ICON_MENU_EXIT                        53314
-#define IDC_GLIC_STATUS_ICON_MENU_CLOSE                       53315
 #define IDC_GLIC_STATUS_ICON_MENU_TOGGLE                      53316
 
 // Glic button context menu and tabstrip context menu

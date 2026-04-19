@@ -1336,11 +1336,12 @@ bool WebLocalFrameImpl::ExecuteCommand(const WebString& name) {
   String command = name;
 
   // Make sure the first letter is upper case.
-  command.replace(0, 1, command.Substring(0, 1).UpperASCII());
+  command.replace(0, 1, command.substr(0, 1).ToAsciiUpper());
 
   // Remove the trailing ':' if existing.
-  if (command[command.length() - 1] == UChar(':'))
-    command = command.Substring(0, command.length() - 1);
+  if (command.ends_with(':')) {
+    command = command.substr(0, command.length() - 1);
+  }
 
   Node* plugin_lookup_context_node = nullptr;
   if (WebPluginContainerImpl::SupportsCommand(name))
@@ -1594,7 +1595,7 @@ void WebLocalFrameImpl::SelectRange(
   if (selection_menu_behavior == SelectionMenuBehavior::kShow) {
     ContextMenuAllowedScope scope;
     GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
-        nullptr, kMenuSourceAdjustSelection);
+        nullptr, ui::mojom::blink::MenuSourceType::kAdjustSelection);
   }
 }
 
@@ -2801,6 +2802,7 @@ bool WebLocalFrameImpl::DispatchBeforeUnloadEvent(
     return true;
 
   return GetFrame()->Loader().ShouldClose(is_reload,
+                                          /*force_to_proceed=*/false,
                                           out_before_unload_dialog_opened_time,
                                           out_before_unload_dialog_closed_time);
 }

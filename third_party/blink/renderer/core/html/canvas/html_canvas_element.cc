@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_element_elementimage.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -79,6 +80,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_factory.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_resource_tracker.h"
+#include "third_party/blink/renderer/core/html/canvas/element_image.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/canvas/predefined_color_space.h"
 #include "third_party/blink/renderer/core/html/canvas/unique_font_selector.h"
@@ -110,6 +112,7 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_context_rate_limiter.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
@@ -914,6 +917,15 @@ void HTMLCanvasElement::OnWidthOrHeightAssigned() {
         To<LayoutHTMLCanvas>(layout_object)->CanvasSizeChanged();
       layout_object->SetShouldDoFullPaintInvalidation();
     }
+
+    if (RuntimeEnabledFeatures::CanvasDrawElementEnabled() && layoutSubtree()) {
+      // Invalidate the child's paint properties so that its cached
+      // CanvasChildPaintState is updated with the new canvas size.
+      for (LayoutObject* child = layout_object->SlowFirstChild(); child;
+           child = child->NextSibling()) {
+        child->SetNeedsPaintPropertyUpdate();
+      }
+    }
   }
 }
 
@@ -928,93 +940,72 @@ void HTMLCanvasElement::ResetLayer() {
   }
 }
 
-void HTMLCanvasElement::TakeGridScaleFactorSnapshot() {
-  CHECK(GetDocument().Lifecycle().GetState() == DocumentLifecycle::kInPaint);
-
-  grid_scale_factor_snapshot_ = {1.f, 1.f};
-  if (!RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
-    return;
-  }
-  if (!GetDocument().View() || !GetLayoutBox()) {
-    return;
-  }
-
-  // As a special case, if the canvas is sized to its devicePixelContentBox,
-  // make sure the element's physical pixels are mapped 1:1 to the canvas
-  // grid to avoid any inadverent fuzziness due to rounding.
-  gfx::Size canvas_size = Size();
-  gfx::Size device_pixel_content_box =
-      ResizeObserverUtilities::ComputeSnappedDevicePixelContentBox(
-          LogicalSize(GetLayoutBox()->ContentLogicalWidth(),
-                      GetLayoutBox()->ContentLogicalHeight()),
-          *GetLayoutBox(), GetLayoutBox()->StyleRef());
-  if (canvas_size == device_pixel_content_box) {
-    return;
-  }
-
-  PhysicalRect content_rect;
-  if (auto* replaced = DynamicTo<LayoutReplaced>(GetLayoutBox())) {
-    content_rect = replaced->ReplacedContentRect();
-  } else {
-    content_rect = GetLayoutBox()->PhysicalContentBoxRect();
-  }
-  grid_scale_factor_snapshot_ = {
-      canvas_size.width() / content_rect.Width().ToFloat(),
-      canvas_size.height() / content_rect.Height().ToFloat()};
-}
-
-namespace {
-
-// Given a transform at the origin, return an adjusted transform that is
-// equivalent, but can be applied to `element` given the current
-// `transform-origin`.
-DOMMatrix* AdjustTransformByTransformOrigin(const Element* element,
-                                            DOMMatrix* transform) {
-  gfx::Point3F origin_css;
-  if (LayoutBox* box = element ? element->GetLayoutBox() : nullptr) {
-    const PhysicalRect reference_box = ComputeReferenceBox(*box);
-    const ComputedStyle& style = box->StyleRef();
-
-    gfx::Point3F origin_phys;
-    origin_phys.set_x(FloatValueForLength(style.GetTransformOrigin().X(),
-                                          reference_box.Width()));
-    origin_phys.set_y(FloatValueForLength(style.GetTransformOrigin().Y(),
-                                          reference_box.Height()));
-    origin_phys.set_z(style.GetTransformOrigin().Z());
-    origin_css = ScalePoint(origin_phys, 1.0f / style.EffectiveZoom());
-  }
-
-  DOMMatrix* result = DOMMatrix::Create();
-  result->translateSelf(-origin_css.x(), -origin_css.y(), -origin_css.z());
-  result->multiplySelf(*transform);
-  result->translateSelf(origin_css.x(), origin_css.y(), origin_css.z());
-  return result;
-}
-
-}  // namespace
-
 DOMMatrix* HTMLCanvasElement::getElementTransform(
-    Element* element,
+    const V8UnionElementOrElementImage* element_or_image,
     DOMMatrix* draw_transform,
     ExceptionState& exception_state) {
-  DOMMatrix* result = DOMMatrix::Create();
-
-  // This is a change of basis for a transform in canvas pixel grid coordinates
-  // to a canvas in css coordinates. The general formula is:
-  // T_css = S_canvas_to_css * T_canvas * S_canvas_to_css-1
-  gfx::Vector2dF physical_to_canvas_grid =
-      PhysicalPixelToCanvasGridScaleFactor();
-  float physical_to_css = 1.0f;
-  if (element->GetComputedStyle()) {
-    physical_to_css = 1.0f / element->ComputedStyleRef().EffectiveZoom();
+  if (element_or_image->IsElement()) {
+    if (!VerifyDrawElementImageEligibility(element_or_image->GetAsElement(),
+                                           "getElementTransform",
+                                           exception_state)) {
+      return nullptr;
+    }
+  } else if (element_or_image->IsElementImage()) {
+    if (!element_or_image->GetAsElementImage()->PaintRecord()) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                        "The ElementImage has been closed.");
+      return nullptr;
+    }
   }
-  float canvas_grid_to_css_x = physical_to_css / physical_to_canvas_grid.x();
-  float canvas_grid_to_css_y = physical_to_css / physical_to_canvas_grid.y();
-  result->scaleSelf(canvas_grid_to_css_x, canvas_grid_to_css_y);
-  result->multiplySelf(*draw_transform);
-  result->scaleSelf(1.0f / canvas_grid_to_css_x, 1.0f / canvas_grid_to_css_y);
 
-  return AdjustTransformByTransformOrigin(element, result);
+  const auto* paint_state = GetCanvasChildPaintState(element_or_image);
+  if (!paint_state) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "No cached paint record for element.");
+    return nullptr;
+  }
+
+  return MakeGarbageCollected<DOMMatrix>(
+      GetElementTransform(*paint_state, Size(), draw_transform->Matrix()));
+}
+
+bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
+    Element* element,
+    const String& func_name,
+    ExceptionState& exception_state) const {
+  if (element->parentElement() != this) {
+    exception_state.ThrowTypeError(
+        "Only immediate children of the <canvas> element can be passed to " +
+        func_name + ".");
+    return false;
+  }
+  if (!layoutSubtree()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        func_name +
+            " requires the canvas to have the layoutsubtree attribute.");
+    return false;
+  }
+  return true;
+}
+
+ElementImage* HTMLCanvasElement::captureElementImage(
+    Element* element,
+    ExceptionState& exception_state) {
+  if (!VerifyDrawElementImageEligibility(element, "captureElementImage",
+                                         exception_state)) {
+    return nullptr;
+  }
+
+  std::optional<CanvasChildPaintRecord> child_paint_record =
+      GetCanvasChildPaintRecord(element->GetDomNodeId());
+  if (!child_paint_record) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "No cached paint record for element.");
+    return nullptr;
+  }
+  return MakeGarbageCollected<ElementImage>(
+      std::make_unique<CanvasChildPaintRecord>(std::move(*child_paint_record)));
 }
 
 bool HTMLCanvasElement::PaintsIntoCanvasBuffer() const {
@@ -1510,8 +1501,7 @@ CanvasResourceDispatcher* HTMLCanvasElement::GetOrCreateResourceDispatcher() {
   return frame_dispatcher_.get();
 }
 
-bool HTMLCanvasElement::PushFrame(scoped_refptr<CanvasResource>&& image,
-                                  const SkIRect& damage_rect) {
+bool HTMLCanvasElement::PushFrame(scoped_refptr<CanvasResource>&& image) {
   NOTIMPLEMENTED();
   return false;
 }
@@ -1556,13 +1546,8 @@ bool HTMLCanvasElement::ShouldAccelerate() const {
 
   // Avoid creating |contextProvider| until we're sure we want to try use it,
   // since it costs us GPU memory.
-  base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper =
-      SharedGpuContext::ContextProviderWrapper();
-  if (!context_provider_wrapper) {
-    return false;
-  }
-
-  return context_provider_wrapper->Utils()->Accelerated2DCanvasFeatureEnabled();
+  return Accelerated2DCanvasFeatureEnabled(
+      SharedGpuContext::ContextProviderWrapper().get());
 }
 
 bool HTMLCanvasElement::CanStartSelection() const {
@@ -1686,6 +1671,32 @@ HTMLCanvasElement::GetCanvasChildPaintRecord(DOMNodeId child_id) const {
   return std::nullopt;
 }
 
+const CanvasChildPaintState* HTMLCanvasElement::GetCanvasChildPaintState(
+    DOMNodeId child_id) const {
+  if (auto* view = GetDocument().View()) {
+    if (auto* pac = view->GetPaintArtifactCompositor()) {
+      return pac->GetCanvasChildPaintState(child_id);
+    }
+  }
+  return nullptr;
+}
+
+const CanvasChildPaintState* HTMLCanvasElement::GetCanvasChildPaintState(
+    const V8UnionElementOrElementImage* element_or_image) const {
+  if (!element_or_image) {
+    return nullptr;
+  }
+
+  if (element_or_image->IsElementImage()) {
+    const auto& paint_record =
+        element_or_image->GetAsElementImage()->PaintRecord();
+    return paint_record ? &paint_record->paint_state : nullptr;
+  }
+
+  return GetCanvasChildPaintState(
+      element_or_image->GetAsElement()->GetDomNodeId());
+}
+
 void HTMLCanvasElement::UpdateSuspendOffscreenCanvasAnimation() {
   if (!GetPage()) {
     return;
@@ -1732,13 +1743,16 @@ bool HTMLCanvasElement::StyleChangeNeedsDidDraw(
   return old_style &&
          old_style->ImageRendering() != new_style.ImageRendering() &&
          (old_style->ImageRendering() == EImageRendering::kPixelated ||
-          new_style.ImageRendering() == EImageRendering::kPixelated);
+          old_style->ImageRendering() == EImageRendering::kCrispEdges ||
+          new_style.ImageRendering() == EImageRendering::kPixelated ||
+          new_style.ImageRendering() == EImageRendering::kCrispEdges);
 }
 
 void HTMLCanvasElement::StyleDidChange(const ComputedStyle* old_style,
                                        const ComputedStyle& new_style) {
   const auto new_filter_quality =
-      (new_style.ImageRendering() == EImageRendering::kPixelated)
+      (new_style.ImageRendering() == EImageRendering::kPixelated ||
+       new_style.ImageRendering() == EImageRendering::kCrispEdges)
           ? cc::PaintFlags::FilterQuality::kNone
           : cc::PaintFlags::FilterQuality::kLow;
   const auto new_dynamic_range_limit = new_style.GetDynamicRangeLimit();
@@ -1791,6 +1805,10 @@ void HTMLCanvasElement::RemovedFrom(ContainerNode& insertion_point) {
   ColorSchemeMayHaveChanged();
 }
 
+bool HTMLCanvasElement::ChildrenChangedAllChildrenRemovedNeedsList() const {
+  return RuntimeEnabledFeatures::CanvasDrawElementEnabled();
+}
+
 void HTMLCanvasElement::ChildrenChanged(const ChildrenChange& change) {
   HTMLElement::ChildrenChanged(change);
   if (hasChildren()) {
@@ -1798,6 +1816,30 @@ void HTMLCanvasElement::ChildrenChanged(const ChildrenChange& change) {
     if (firstElementChild()) {
       UseCounter::Count(GetDocument(),
                         WebFeature::kCanvasFallbackElementContent);
+    }
+  }
+
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+    if (change.type == ChildrenChangeType::kElementRemoved) {
+      if (auto* element = DynamicTo<Element>(change.sibling_changed)) {
+        ChildElementRemoved(*element);
+      }
+    } else if (change.type == ChildrenChangeType::kAllChildrenRemoved) {
+      for (Node* node : change.removed_nodes) {
+        if (auto* element = DynamicTo<Element>(node)) {
+          ChildElementRemoved(*element);
+        }
+      }
+    }
+  }
+}
+
+void HTMLCanvasElement::ChildElementRemoved(Element& child) {
+  if (auto* view = GetDocument().View()) {
+    if (auto* pac = view->GetPaintArtifactCompositor()) {
+      if (pac->HasCanvasChildPaintRecord(child.GetDomNodeId())) {
+        requestPaint();
+      }
     }
   }
 }

@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
@@ -294,7 +295,10 @@ std::u16string SaveCardBubbleControllerImpl::GetWindowTitle() const {
     case PaymentsBubbleType::kUploadSave:
     case PaymentsBubbleType::kUploadInProgress:
       return l10n_util::GetStringUTF16(
-          IDS_AUTOFILL_SAVE_CARD_PROMPT_TITLE_TO_CLOUD_SECURITY);
+          base::FeatureList::IsEnabled(
+              features::kAutofillEnableWalletBrandingV2)
+              ? IDS_AUTOFILL_SAVE_CARD_IN_GOOGLE_WALLET_PROMPT_TITLE
+              : IDS_AUTOFILL_SAVE_CARD_PROMPT_TITLE_TO_CLOUD_SECURITY);
     case PaymentsBubbleType::kUploadCvcSave:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_SAVE_CVC_PROMPT_TITLE_TO_CLOUD);
@@ -311,9 +315,7 @@ std::u16string SaveCardBubbleControllerImpl::GetWindowTitle() const {
 }
 
 std::u16string SaveCardBubbleControllerImpl::GetExplanatoryMessage() const {
-  if (current_bubble_type_ == PaymentsBubbleType::kLocalSave &&
-      base::FeatureList::IsEnabled(
-          features::kAutofillEnableCvcStorageAndFilling)) {
+  if (current_bubble_type_ == PaymentsBubbleType::kLocalSave) {
     CHECK_NE(options_.card_save_type,
              payments::PaymentsAutofillClient::CardSaveType::kCvcSaveOnly);
     return l10n_util::GetStringUTF16(
@@ -342,7 +344,10 @@ std::u16string SaveCardBubbleControllerImpl::GetExplanatoryMessage() const {
 
   return l10n_util::GetStringUTF16(
       base::FeatureList::IsEnabled(features::kAutofillEnableWalletBranding)
-          ? IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_TO_WALLET_EXPLANATION_SECURITY
+          ? (base::FeatureList::IsEnabled(
+                 features::kAutofillEnableWalletBrandingV2)
+                 ? IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_TO_WALLET_V2_EXPLANATION
+                 : IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_TO_WALLET_EXPLANATION_SECURITY)
           : IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_EXPLANATION_SECURITY);
 }
 
@@ -815,14 +820,16 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
     return;
   }
 
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
   if (current_bubble_type_ == PaymentsBubbleType::kUploadComplete) {
-    SetBubbleView(*browser->window()
+    SetBubbleView(*browser->GetBrowserForMigrationOnly()
+                       ->window()
                        ->GetAutofillBubbleHandler()
                        ->ShowSaveCardConfirmationBubble(web_contents(), this));
   } else {
     SetBubbleView(
-        *browser->window()
+        *browser->GetBrowserForMigrationOnly()
+             ->window()
              ->GetAutofillBubbleHandler()
              ->ShowSaveCreditCardBubble(web_contents(), this,
                                         is_triggered_by_user_gesture_));

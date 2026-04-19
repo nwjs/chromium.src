@@ -7,12 +7,30 @@
 namespace contextual_tasks {
 
 MockContextualTasksUiService::MockContextualTasksUiService()
-    : ContextualTasksUiService(nullptr, nullptr, nullptr, nullptr) {}
+    : ContextualTasksUiService(/*profile=*/nullptr,
+                               /*delegate=*/nullptr,
+                               /*contextual_tasks_service=*/nullptr,
+                               /*identity_manager=*/nullptr,
+                               /*aim_eligibility_service=*/nullptr) {}
 
 MockContextualTasksUiService::MockContextualTasksUiService(
     Profile* profile,
     ContextualTasksService* service)
-    : ContextualTasksUiService(profile, service, nullptr, nullptr) {}
+    : MockContextualTasksUiService(profile,
+                                   service,
+                                   /*identity_manager=*/nullptr,
+                                   /*aim_eligibility_service=*/nullptr) {}
+
+MockContextualTasksUiService::MockContextualTasksUiService(
+    Profile* profile,
+    ContextualTasksService* service,
+    signin::IdentityManager* identity_manager,
+    AimEligibilityService* aim_eligibility_service)
+    : ContextualTasksUiService(profile,
+                               nullptr,
+                               service,
+                               identity_manager,
+                               aim_eligibility_service) {}
 
 MockContextualTasksUiService::~MockContextualTasksUiService() = default;
 

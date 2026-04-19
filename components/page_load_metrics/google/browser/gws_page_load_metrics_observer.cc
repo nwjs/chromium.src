@@ -14,7 +14,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -78,6 +78,8 @@ const char kHistogramGWSConnectedCallbackDelay[] =
     HISTOGRAM_PREFIX "NavigationTiming.ConnectedCallbackDelay2";
 const char kHistogramGWSInitializeStreamDelay[] =
     HISTOGRAM_PREFIX "NavigationTiming.InitializeStreamDelay";
+const char kHistogramGWSMaxStreamLimitPendingDelay[] =
+    HISTOGRAM_PREFIX "NavigationTiming.MaxStreamLimitPendingDelay";
 const char kHistogramGWSAcceptCHFrameReceived[] =
     HISTOGRAM_PREFIX "AcceptCHFrameReceived";
 const char kHistogramGWSOnConnectedCalled[] =
@@ -85,6 +87,12 @@ const char kHistogramGWSOnConnectedCalled[] =
 
 const char kHistogramGWSConnectTimingFirstRequestDomainLookupDelay[] =
     HISTOGRAM_PREFIX "ConnectTiming.FirstRequestDomainLookupDelay";
+const char kHistogramGWSConnectTimingFirstRequestDomainLookupDelaySecureDns[] =
+    HISTOGRAM_PREFIX "ConnectTiming.FirstRequestDomainLookupDelay.SecureDns";
+const char
+    kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns[] =
+        HISTOGRAM_PREFIX
+    "ConnectTiming.FirstRequestDomainLookupDelay.InsecureDns";
 const char kHistogramGWSConnectTimingFirstRequestConnectDelay[] =
     HISTOGRAM_PREFIX "ConnectTiming.FirstRequestConnectDelay";
 const char kHistogramGWSConnectTimingFirstRequestSslDelay[] =
@@ -137,6 +145,9 @@ const char kHistogramGWSNavigationSourceTypeDNSReuse[] =
     HISTOGRAM_PREFIX "NavigationSourceType.DNSReuse";
 const char kHistogramGWSNavigationSourceTypeNonReuse[] =
     HISTOGRAM_PREFIX "NavigationSourceType.NonConnectionReuse";
+
+const char kHistogramGWSBeforeUnloadExecutionMode[] =
+    HISTOGRAM_PREFIX "Navigation.BeforeUnloadExecutionMode";
 
 const char kHistogramGWSIsFirstNavigationForGWS[] =
     HISTOGRAM_PREFIX "IsFirstNavigationForGWS";
@@ -496,6 +507,14 @@ GWSPageLoadMetricsObserver::OnCommit(
       base::StrCat({internal::kHistogramSiteInstanceProcessAssignment, suffix}),
       render_process_assignment);
 
+  if (!navigation_handle->IsSameDocument() &&
+      navigation_handle->IsInOutermostMainFrame() &&
+      navigation_handle->GetURL().SchemeIsHTTPOrHTTPS()) {
+    base::UmaHistogramEnumeration(
+        internal::kHistogramGWSBeforeUnloadExecutionMode,
+        navigation_handle->GetBeforeUnloadExecutionMode());
+  }
+
   return CONTINUE_OBSERVING;
 }
 
@@ -839,7 +858,12 @@ void GWSPageLoadMetricsObserver::LogMetricsOnComplete() {
     return;
   }
 
-  if (aft_end_time_.has_value()) {
+  // We only record the AFT end time histogram if the navigation not a
+  // prerendered navigation, or if it is a prerendered navigation that was later
+  // activated.
+  if (aft_end_time_.has_value() &&
+      (!is_prerendered_ || WasActivatedInForegroundOptionalEventInForeground(
+                               aft_end_time_, GetDelegate()))) {
     // There are multiple patterns to record the prenavigation latency events:
     // - For non prerendering cases: If we have prenavigation latency, we should
     // add them to the AFT performance mark to get the total latency.
@@ -969,6 +993,24 @@ void GWSPageLoadMetricsObserver::RecordNavigationTimingHistograms() {
   record_histogram_with_suffix(
       internal::kHistogramGWSConnectTimingFirstRequestDomainLookupDelay,
       timing.first_request_domain_lookup_delay);
+
+  if (timing.session_details.has_value() &&
+      timing.session_details->session_source == net::SessionSource::kNew) {
+    if (timing.session_details->resolution_source ==
+        net::ResolutionSource::kSecure) {
+      PAGE_LOAD_SHORT_HISTOGRAM(
+          internal::
+              kHistogramGWSConnectTimingFirstRequestDomainLookupDelaySecureDns,
+          timing.first_request_domain_lookup_delay);
+    } else if (timing.session_details->resolution_source ==
+               net::ResolutionSource::kInsecure) {
+      PAGE_LOAD_SHORT_HISTOGRAM(
+          internal::
+              kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns,
+          timing.first_request_domain_lookup_delay);
+    }
+  }
+
   record_histogram_with_suffix(
       internal::kHistogramGWSConnectTimingFirstRequestConnectDelay,
       timing.first_request_connect_delay);
@@ -1222,6 +1264,13 @@ void GWSPageLoadMetricsObserver::RecordSessionDetails(
       // `session_source` is expected to be present. Collect a
       // DumpWithoutCrashing report.
       base::debug::DumpWithoutCrashing();
+    }
+
+    if (session_details.max_stream_limit_pending_delay.has_value()) {
+      PAGE_LOAD_SHORT_HISTOGRAM(
+          base::StrCat(
+              {internal::kHistogramGWSMaxStreamLimitPendingDelay, protocol}),
+          *session_details.max_stream_limit_pending_delay);
     }
   }
 

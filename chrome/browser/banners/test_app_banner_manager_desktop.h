@@ -52,7 +52,7 @@ class TestAppBannerManagerDesktop : public AppBannerManagerDesktop,
   void SetCompleteCallback(base::OnceClosure on_complete);
 
   // Returns the internal state of the AppBannerManager.
-  AppBannerManager::State state();
+  AppBannerManager::State state_for_testing() const;
 
   // Block until the current app has been installed.
   void AwaitAppInstall();
@@ -88,6 +88,7 @@ class TestAppBannerManagerDesktop : public AppBannerManagerDesktop,
       const std::optional<WebAppBannerData>&) override {}
   void WillFetchManifest() override;
   void OnInstall() override;
+  void OnBannerShown() override;
   void OnBannerPromptReply() override;
   void OnComplete() override;
 

@@ -1,11 +1,13 @@
 include_rules = [
   "+components/history/core/browser",
+  "+components/history/core/test",
   "+components/keyed_service/core",
   "+components/optimization_guide/core",
   "+components/optimization_guide/proto",
   "+components/page_content_annotations/content",
   "+components/page_content_annotations/core",
   "+components/passage_embeddings",
+  "+components/sessions",
   "+components/sync",
   "+components/translate/core",
   "+components/ukm",

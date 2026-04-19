@@ -14,10 +14,10 @@
 #include "base/functional/bind.h"
 #include "base/i18n/number_formatting.h"
 #include "base/i18n/rtl.h"
-#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/notimplemented.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -25,6 +25,8 @@
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -34,7 +36,9 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
@@ -51,7 +55,6 @@
 #include "chrome/browser/ui/tab_search_feature.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/glic_actor_task_icon_manager_factory.h"
-#include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -142,8 +145,10 @@
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/actions/action_view_controller.h"
 #include "ui/views/background.h"
 #include "ui/views/cascading_property.h"
+#include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
@@ -162,6 +167,8 @@
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 
 #if defined(USE_AURA)
+#include <array>
+
 #include "ui/aura/window_occlusion_tracker.h"
 #endif
 
@@ -172,97 +179,6 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool, kActionItemUnderlineIndicatorKey, false)
 
 namespace {
 
-// Intermediate data for determining whether a point should be considered in the
-// caption are when the toolbar is the top element in the browser.
-struct CaptionHitTestData {
-  raw_ptr<const views::View> at = nullptr;
-  bool is_direct_hit = false;
-  raw_ptr<const views::View> before = nullptr;
-  int before_dist = 0;
-  raw_ptr<const views::View> after = nullptr;
-  int after_dist = 0;
-};
-
-// Calculates the `CaptionHitTestData` (`data`) starting at `view` for `point`,
-// which should be in `view`'s local coordinates. Bails out immediately if a
-// View is hit; may traverse into icon containers.
-void CalculateIsPositionInWindowCaption(CaptionHitTestData& data,
-                                        const views::View* view,
-                                        const gfx::Point& point) {
-  for (auto& child : view->children()) {
-    if (!child->GetVisible()) {
-      continue;
-    }
-    const gfx::Rect bounds = child->bounds();
-
-    if (views::IsViewClass<ToolbarIconContainerView>(child) ||
-        views::IsViewClass<page_actions::PageActionContainerView>(child)) {
-      // Traverse into known icon containers.
-      const auto in_child =
-          views::View::ConvertPointToTarget(view, child, point);
-      CalculateIsPositionInWindowCaption(data, child, in_child);
-    } else if (bounds.x() <= point.x() && bounds.right() >= point.x()) {
-      // This point is in/above/below the child.
-      data.at = child;
-      data.is_direct_hit = bounds.Contains(point);
-    } else {
-      // See if the view is the closest before or after the target point in the
-      // layout.
-      if (bounds.right() < point.x()) {
-        const int dist = point.x() - bounds.right();
-        if (!data.before || data.before_dist > dist) {
-          data.before = child;
-          data.before_dist = dist;
-        }
-      } else if (bounds.x() > point.x()) {
-        const int dist = bounds.x() - point.x();
-        if (!data.after || data.after_dist > dist) {
-          data.after = child;
-          data.after_dist = dist;
-        }
-      }
-    }
-
-    // If a view was hit at any level, stop processing.
-    if (data.at) {
-      break;
-    }
-  }
-}
-
-// Returns whether `point` should be treated as part of the caption area in
-// `view`, which should be the topmost view in the browser.
-bool IsPositionInWindowCaption(const views::View* view,
-                               const gfx::Point& point) {
-  CaptionHitTestData data;
-  CalculateIsPositionInWindowCaption(data, view, point);
-
-  const bool is_above_centerline =
-      point.y() <= view->GetLocalBounds().CenterPoint().y();
-  const auto is_separator = [](const views::View* view) {
-    return views::IsViewClass<views::Separator>(view) ||
-           views::IsViewClass<ToolbarDivider>(view);
-  };
-
-  // If the point is in a view, then it's not in the caption unless the view is
-  // a separator. If the point is at a view but not in it, then it is caption if
-  // the point is centerline; otherwise it's not.
-  if (data.at) {
-    return is_separator(data.at) ||
-           (!data.is_direct_hit && is_above_centerline);
-  }
-
-  // If the point is not in a view but it is next to a separator or the edge of
-  // the toolbar, it is caption.
-  if (!data.before || is_separator(data.before) || !data.after ||
-      is_separator(data.after)) {
-    return true;
-  }
-
-  // All remaining points (between non-separator views) are caption if they are
-  // above centerline.
-  return is_above_centerline;
-}
 // Gets the display mode for a given browser.
 ToolbarView::DisplayMode GetDisplayMode(Browser* browser) {
   // Checked in this order because even tabbed PWAs use the CUSTOM_TAB
@@ -295,10 +211,36 @@ constexpr int kLargeSpaceBetweenButtons = 6;
 constexpr int kInsideBorderAroundGlicButtons = 2;
 constexpr int kOutsideBorderAroundGlicButtons = 11;
 
-bool IsMigratedClickToCallBubble(
-    IntentPickerBubbleView::BubbleType bubble_type) {
-  return bubble_type == IntentPickerBubbleView::BubbleType::kClickToCall &&
-         IsPageActionMigrated(PageActionIconType::kClickToCall);
+// Returns whether `point` should be treated as part of the caption area in
+// `view`. Recursively traverses into icon containers to correctly handle
+// padding between buttons.
+bool IsPositionInWindowCaptionForView(const views::View* view,
+                                      const gfx::Point& point) {
+  for (const views::View* child : view->children()) {
+    if (!child->GetVisible() || !child->bounds().Contains(point)) {
+      continue;
+    }
+    // Recurse into known icon container types to check their children.
+    if (views::IsViewClass<ToolbarIconContainerView>(child) ||
+        views::IsViewClass<page_actions::PageActionContainerView>(child)) {
+      const gfx::Point point_in_child =
+          views::View::ConvertPointToTarget(view, child, point);
+      return IsPositionInWindowCaptionForView(child, point_in_child);
+    }
+    // Separators and dividers are non-interactive and should be treated
+    // as caption area.
+    if (views::IsViewClass<views::Separator>(child) ||
+        views::IsViewClass<ToolbarDivider>(child)) {
+      return true;
+    }
+    // The point hit an interactive control (button, location bar, etc.).
+    return false;
+  }
+  // The point is not in any child's bounds — it's in empty space between
+  // children, padding, or above/below a child. In VTS mode the toolbar is
+  // at the very top of the window, so all non-interactive areas should be
+  // draggable regardless of vertical position.
+  return true;
 }
 
 }  // namespace
@@ -336,7 +278,7 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
   mouse_watcher_ = std::make_unique<views::MouseWatcher>(
       std::make_unique<views::MouseWatcherViewHost>(this, gfx::Insets()), this);
 
-  tabs::GlicNudgeController* glic_nudge_controller =
+  glic::GlicNudgeController* glic_nudge_controller =
       browser_->browser_window_features()->glic_nudge_controller();
 
   // `glic_nudge_controller` will be null if feature is not enabled.
@@ -356,7 +298,7 @@ ToolbarView::~ToolbarView() {
     chrome::RemoveCommandObserver(browser_, view_and_command.second, this);
   }
 
-  tabs::GlicNudgeController* glic_nudge_controller =
+  glic::GlicNudgeController* glic_nudge_controller =
       browser_->browser_window_features()->glic_nudge_controller();
   if (glic_nudge_controller) {
     glic_nudge_controller->SetToolbarDelegate(/*delegate=*/nullptr);
@@ -495,12 +437,16 @@ void ToolbarView::Init() {
         AddChildView(std::make_unique<SplitTabsToolbarButton>(browser_));
   }
 
-  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks) &&
-      ((contextual_tasks::kShowEntryPoint.Get() ==
-        contextual_tasks::EntryPointOption::kToolbarPermanent) ||
-       (contextual_tasks::kShowEntryPoint.Get() ==
-        contextual_tasks::EntryPointOption::kToolbarRevisit))) {
-    AddChildView(std::make_unique<ContextualTasksButton>(browser_));
+  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
+    if ((contextual_tasks::kShowEntryPoint.Get() ==
+         contextual_tasks::EntryPointOption::kToolbarPermanent) ||
+        (contextual_tasks::kShowEntryPoint.Get() ==
+         contextual_tasks::EntryPointOption::kToolbarRevisit)) {
+      AddChildView(std::make_unique<ContextualTasksButton>(browser_));
+    } else if (contextual_tasks::kShowEntryPoint.Get() ==
+               contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+      AddChildViewAt(std::make_unique<ContextualTasksButton>(browser_), 0);
+    }
   }
 
   if (location_bar_view) {
@@ -552,13 +498,22 @@ void ToolbarView::Init() {
     toolbar_divider_ = AddChildView(std::move(toolbar_divider));
   }
 
-  pinned_toolbar_actions_container_ = AddChildView(
-      std::make_unique<PinnedToolbarActionsContainer>(browser_view_, this));
+  if (!features::IsWebUIPinnedToolbarActionsEnabled()) {
+    pinned_toolbar_actions_container_ = AddChildView(
+        std::make_unique<PinnedToolbarActionsContainer>(browser_view_, this));
+    pinned_toolbar_actions_ = pinned_toolbar_actions_container_;
+  } else {
+    pinned_toolbar_actions_ = toolbar_webview_->GetPinnedToolbarActions();
+  }
 
   if (!base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton) &&
       features::HasTabSearchToolbarButton()) {
+    CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
+        << "WebUIPinnedToolbarActions does not support "
+           "CreatePermanentButtonFor, consider enabling "
+           "HorizontalTabStripComboButton";
     tab_search_button_ =
-        pinned_toolbar_actions_container()->CreatePermanentButtonFor(
+        pinned_toolbar_actions_container_->CreatePermanentButtonFor(
             kActionTabSearch);
     tab_search_button_->SetProperty(views::kElementIdentifierKey,
                                     kTabSearchButtonElementId);
@@ -574,6 +529,8 @@ void ToolbarView::Init() {
           chrome_labs_prefs::kBrowserLabsEnabledEnterprisePolicy, prefs,
           base::BindRepeating(&ToolbarView::OnChromeLabsPrefChanged,
                               base::Unretained(this)));
+      CHECK(!features::IsWebUIPinnedToolbarActionsEnabled())
+          << "WebUIPinnedToolbarActions does not support ChromeLabs.";
       // Set the visibility for the button based on initial enterprise policy
       // value. Only call OnChromeLabsPrefChanged if there is a change from
       // the initial value.
@@ -595,6 +552,23 @@ void ToolbarView::Init() {
 
   if (media_button) {
     media_button_ = AddChildView(std::move(media_button));
+  }
+
+  if (glic::GlicEnabling::IsProfileEligible(browser_view_->GetProfile())) {
+    if (base::FeatureList::IsEnabled(features::kAiOverlayDialog) &&
+        ttc::AiOverlayDialogController::From(browser_)) {
+      actions::ActionItem* action_item =
+          actions::ActionManager::Get().FindAction(
+              kActionShowAiOverlayDialog, browser_->browser_window_features()
+                                              ->browser_actions()
+                                              ->root_action_item());
+      if (action_item) {
+        action_item->SetVisible(true);
+        action_item->SetEnabled(true);
+        PinnedToolbarActionsModel::Get(browser_->profile())
+            ->UpdatePinnedState(kActionShowAiOverlayDialog, true);
+      }
+    }
   }
 
   avatar_ = AddChildView(std::make_unique<AvatarToolbarButton>(browser_view_));
@@ -713,6 +687,16 @@ ToolbarView::CreateGlicActorTaskIcon() {
           base::BindRepeating(&ToolbarView::OnGlicActorTaskIconClicked,
                               base::Unretained(this)));
 
+  // Add a MenuButtonController in order to keep the task icon pressed while the
+  // bubble is visible.
+  glic_actor_task_icon->SetButtonController(
+      std::make_unique<views::MenuButtonController>(
+          glic_actor_task_icon.get(),
+          base::BindRepeating(&ToolbarView::OnGlicActorTaskIconClicked,
+                              base::Unretained(this)),
+          std::make_unique<views::Button::DefaultButtonControllerDelegate>(
+              glic_actor_task_icon.get())));
+
   glic_actor_task_icon->SetProperty(views::kCrossAxisAlignmentKey,
                                     views::LayoutAlignment::kCenter);
 
@@ -727,7 +711,11 @@ void ToolbarView::OnGlicActorTaskIconClicked() {
 
   ActorTaskListBubbleController* controller =
       ActorTaskListBubbleController::From(browser_view_->browser());
-  controller->ShowBubble(glic_actor_task_icon_);
+  // Only show the bubble if the button is not currently pressed. Clicking on
+  // the pressed button should dismiss the nudge.
+  if (!glic_actor_task_icon_->GetIsPressed()) {
+    controller->ShowBubble(glic_actor_task_icon_);
+  }
 
   auto current_task_nudge_state = icon_manager->GetCurrentActorTaskNudgeState();
   actor::ui::LogGlobalTaskIndicatorClick(current_task_nudge_state);
@@ -767,7 +755,7 @@ void ToolbarView::OnGlicButtonClicked() {
       FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
 
   std::optional<std::string> prompt_suggestion;
-  tabs::GlicNudgeController* glic_nudge_controller =
+  glic::GlicNudgeController* glic_nudge_controller =
       browser_->browser_window_features()->glic_nudge_controller();
   if (glic_nudge_controller) {
     prompt_suggestion = glic_nudge_controller->GetPromptSuggestion();
@@ -785,7 +773,7 @@ void ToolbarView::OnGlicButtonClicked() {
 
   if (glic_button_->GetIsShowingNudge()) {
     glic_nudge_controller->OnNudgeActivity(
-        tabs::GlicNudgeActivity::kNudgeClicked);
+        glic::GlicNudgeActivity::kNudgeClicked);
   }
 
   ExecuteHideToolbarNudge(glic_button_);
@@ -796,7 +784,7 @@ void ToolbarView::OnGlicButtonClicked() {
 
 void ToolbarView::OnGlicButtonDismissed() {
   browser_->browser_window_features()->glic_nudge_controller()->OnNudgeActivity(
-      tabs::GlicNudgeActivity::kNudgeDismissed);
+      glic::GlicNudgeActivity::kNudgeDismissed);
 
   // Force hide the button when pressed, bypassing locked expansion mode.
   ExecuteHideToolbarNudge(glic_button_);
@@ -877,6 +865,15 @@ void ToolbarView::OnTriggerGlicNudgeUI(std::string label) {
     glic_button_->SetNudgeLabel(label);
     ShowToolbarNudge(glic_button_);
   }
+}
+
+void ToolbarView::OnTriggerAnchoredMessage(
+    std::string label,
+    std::string anchored_message_text,
+    std::optional<std::string> prompt_suggestion) {
+  // ToolbarView does not support the page action framework path used by
+  // TabStripActionContainer. Fall back to the chip nudge.
+  OnTriggerGlicNudgeUI(std::move(label));
 }
 
 void ToolbarView::OnHideGlicNudgeUI() {
@@ -962,7 +959,7 @@ void ToolbarView::FinalizeHideGlicActorTaskIcon() {
   CHECK(glic_button_);
   // Reset Nudge State
   if (glic_actor_task_icon_->GetIsShowingNudge()) {
-    // TODO(crbug.com/): Glic actor nudge animation
+    // TODO(crbug.com/484389669): Glic actor nudge animation
     glic_actor_task_icon_->SetIsShowingNudge(false);
   }
   glic_actor_task_icon_->SetVisible(false);
@@ -1053,7 +1050,9 @@ void ToolbarView::UpdateGlicActorVisibility() {
   }
 
   bool is_glic_actor_visible =
-      should_show_glic_actor_ && should_display_vertical_tabs_;
+      should_show_glic_actor_ &&
+      (should_display_vertical_tabs_ ||
+       base::FeatureList::IsEnabled(features::kGlicHorizontalTabToolbarButton));
 
   glic_actor_task_icon_->SetVisible(is_glic_actor_visible);
 }
@@ -1064,7 +1063,9 @@ void ToolbarView::UpdateGlicButtonVisibility() {
   }
 
   bool is_glic_visible =
-      should_show_glic_button_ && should_display_vertical_tabs_;
+      should_show_glic_button_ &&
+      (should_display_vertical_tabs_ ||
+       base::FeatureList::IsEnabled(features::kGlicHorizontalTabToolbarButton));
 
   glic_button_->SetVisible(is_glic_visible);
   glic_button_divider_->SetVisible(is_glic_visible);
@@ -1223,23 +1224,23 @@ void ToolbarView::ShowIntentPickerBubble(
     IntentPickerBubbleView::BubbleType bubble_type,
     const std::optional<url::Origin>& initiating_origin,
     IntentPickerResponse callback) {
-  views::Button* highlighted_button = nullptr;
-  if (bubble_type == IntentPickerBubbleView::BubbleType::kClickToCall) {
-    highlighted_button =
-        GetPageActionIconView(PageActionIconType::kClickToCall);
-  } else if (highlighted_button = GetIntentChipButton(); !highlighted_button) {
-    highlighted_button = GetPageActionView(kActionShowIntentPicker);
+  std::optional<ui::ElementIdentifier> higlighted_element;
+  if (bubble_type != IntentPickerBubbleView::BubbleType::kClickToCall) {
+    if (GetIntentChipButton()) {
+      higlighted_element = kIntentChipElementId;
+    } else if (GetPageActionView(kActionShowIntentPicker)) {
+      higlighted_element = kIntentPickerPageActionElementId;
+    } else {
+      return;
+    }
   }
 
-  // Post migration, highlighted_button is a nullptr for ClickToCall
-  // BubbleType but the bubble still gets shown without a page action being
-  // shown/highlighted.
-  if (highlighted_button || IsMigratedClickToCallBubble(bubble_type)) {
-    IntentPickerBubbleView::ShowBubble(
-        location_bar_view(), highlighted_button, bubble_type, GetWebContents(),
-        std::move(app_info), show_stay_in_chrome, show_remember_selection,
-        initiating_origin, std::move(callback));
-  }
+  // At this point, we either have a highlighted_element or it's a ClickToCall
+  // bubble which doesn't have a corresponding page action button to highlight.
+  IntentPickerBubbleView::ShowBubble(
+      location_bar_view(), higlighted_element, bubble_type, GetWebContents(),
+      std::move(app_info), show_stay_in_chrome, show_remember_selection,
+      initiating_origin, std::move(callback));
 }
 
 void ToolbarView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
@@ -1254,7 +1255,7 @@ void ToolbarView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
 
 bool ToolbarView::IsPositionInWindowCaption(
     const gfx::Point& test_point) const {
-  return ::IsPositionInWindowCaption(this, test_point);
+  return IsPositionInWindowCaptionForView(this, test_point);
 }
 
 views::Button* ToolbarView::GetChromeLabsButton() const {
@@ -1268,10 +1269,8 @@ ExtensionsToolbarButton* ToolbarView::GetExtensionsButton() const {
 }
 
 ToolbarButton* ToolbarView::GetCastButton() const {
-  return pinned_toolbar_actions_container()
-             ? pinned_toolbar_actions_container()->GetButtonFor(
-                   kActionRouteMedia)
-             : nullptr;
+  return pinned_toolbar_actions_ ? pinned_toolbar_actions_->GetCastButton()
+                                 : nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1546,7 +1545,7 @@ void ToolbarView::InitLayout() {
   toolbar_controller_ = std::make_unique<ToolbarController>(
       ToolbarController::GetDefaultResponsiveElements(browser_),
       ToolbarController::GetDefaultOverflowOrder(), kToolbarFlexOrderStart,
-      this, overflow_button_, pinned_toolbar_actions_container_,
+      this, overflow_button_, pinned_toolbar_actions_,
       PinnedToolbarActionsModel::Get(browser_view_->GetProfile()));
   overflow_button_->set_toolbar_controller(toolbar_controller_.get());
 
@@ -1633,8 +1632,8 @@ ExtensionsToolbarDesktop* ToolbarView::GetExtensionsToolbarDesktop() {
   return extensions_container_;
 }
 
-PinnedToolbarActionsContainer* ToolbarView::GetPinnedToolbarActionsContainer() {
-  return pinned_toolbar_actions_container_;
+PinnedToolbarActions* ToolbarView::GetPinnedToolbarActions() {
+  return pinned_toolbar_actions_;
 }
 
 gfx::Size ToolbarView::GetToolbarButtonSize() const {
@@ -1729,11 +1728,11 @@ views::BubbleAnchor ToolbarView::GetBubbleAnchor(
     if (!view->IsDrawn() && browser_view_) {
       auto* top_container = browser_view_->top_container();
       CHECK(top_container);
-      return top_container;
+      return views::BubbleAnchor(top_container);
     }
-    return view;
+    return views::BubbleAnchor(view);
   }
-  return nullptr;
+  return views::BubbleAnchor();
 }
 
 void ToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
@@ -1747,10 +1746,11 @@ void ToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
     return;
   }
 
-  CHECK(location_bar_view_)
-      << "Alternate location bar impls need to handle this.";
-  location_bar_view_->page_action_icon_controller()->ZoomChangedForActiveTab(
-      can_show_bubble);
+  // Other impls are expected to only launch after page action migration.
+  if (location_bar_view_) {
+    location_bar_view_->page_action_icon_controller()->ZoomChangedForActiveTab(
+        can_show_bubble);
+  }
 }
 
 AvatarToolbarButton* ToolbarView::GetAvatarToolbarButton() {
@@ -1773,7 +1773,7 @@ ReloadControl* ToolbarView::GetReloadButton() {
 }
 
 IntentChipButton* ToolbarView::GetIntentChipButton() {
-  return location_bar_view()->intent_chip();
+  return location_bar_view() ? location_bar_view()->intent_chip() : nullptr;
 }
 
 ToolbarButton* ToolbarView::GetDownloadButton() {

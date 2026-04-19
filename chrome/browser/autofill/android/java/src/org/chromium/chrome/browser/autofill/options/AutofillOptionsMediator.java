@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.autofill.options;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.FRAGMENT_TITLE;
+import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_CLICKED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_REAUTH_SETTING_TOGGLED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_SETTING_TOGGLED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_THIRD_PARTY_TOGGLE_CHANGED;
@@ -127,12 +128,18 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
                 new PropertyModel.Builder(AutofillOptionsProperties.ALL_KEYS)
                         .with(FRAGMENT_TITLE, getFragmentTitle(context))
                         .with(ON_THIRD_PARTY_TOGGLE_CHANGED, this::onThirdPartyToggleChanged)
+                        .with(
+                                ON_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_CLICKED,
+                                this::onAutofillAiAccessibilityAnnotatorClicked)
                         .with(ON_AUTOFILL_AI_SETTING_TOGGLED, this::onAutofillAiSettingToggled)
                         .with(
                                 ON_AUTOFILL_AI_REAUTH_SETTING_TOGGLED,
                                 this::onAutofillAiReauthSettingToggled)
                         .build();
         updateToggleStateFromPref();
+        mModel.set(
+                AutofillOptionsProperties.AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_VISIBLE,
+                isAutofillAiAccessibilityAnnotatorVisible(referrer));
         mModel.set(AutofillOptionsProperties.AUTOFILL_AI_VISIBLE, isAutofillAiVisible(referrer));
         mModel.set(
                 AutofillOptionsProperties.AUTOFILL_AI_SETTING_ELIGIBLE, isEligibleToAutofillAi());
@@ -175,6 +182,16 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
                 : context.getString(R.string.autofill_options_title);
     }
 
+    private boolean isAutofillAiAccessibilityAnnotatorVisible(int referrer) {
+        return isAutofillAiVisible(referrer)
+                && AutofillOptionsFragment.isAutofillAiAccessibilityAnnotatorEnabled();
+    }
+
+    private void onAutofillAiAccessibilityAnnotatorClicked() {
+        // TODO(b/494484717): Implement on-click action.
+        // TODO(b/494136622): Implement on-click metrics.
+    }
+
     private boolean isAutofillAiVisible(@AutofillOptionsReferrer int referrer) {
         // Autofill AI related preferences are not shown if the fragment is opened using a deep
         // link to show only the 3p Autofill services toggle.
@@ -197,12 +214,18 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
 
     private boolean isEligibleToAutofillAi() {
         @Nullable EntityDataManager manager = EntityDataManagerFactory.getForProfile(mProfile);
-        return isAutofillAiEnabled() && manager != null && manager.isEligibleToAutofillAi();
+        return isAutofillAiEnabled()
+                && manager != null
+                && manager.isEligibleToAutofillAi()
+                && !prefs().getBoolean(Pref.AUTOFILL_USING_PLATFORM_AUTOFILL);
     }
 
     private boolean isAutofillAiOn() {
         @Nullable EntityDataManager manager = EntityDataManagerFactory.getForProfile(mProfile);
-        return isAutofillAiEnabled() && manager != null && manager.getAutofillAiOptInStatus();
+        return isAutofillAiEnabled()
+                && manager != null
+                && manager.getAutofillAiOptInStatus()
+                && isEligibleToAutofillAi();
     }
 
     private void onAutofillAiSettingToggled(boolean isOn) {

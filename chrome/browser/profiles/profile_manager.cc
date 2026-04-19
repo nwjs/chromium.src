@@ -116,7 +116,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
+#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"  // nogncheck
 #include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension_set.h"
@@ -133,11 +133,8 @@
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/nuke_profile_directory_utils.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
-#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"  // nogncheck
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck
 #include "components/live_caption/live_caption_controller.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #else
@@ -184,6 +181,24 @@
 using content::BrowserThread;
 
 namespace {
+
+const void* const kProfileDestructionObserverKey =
+    &kProfileDestructionObserverKey;
+
+class ProfileDestructionObserver : public base::SupportsUserData::Data {
+ public:
+  explicit ProfileDestructionObserver(base::OnceClosure on_destroyed)
+      : on_destroyed_(std::move(on_destroyed)) {}
+
+  ~ProfileDestructionObserver() override {
+    if (on_destroyed_) {
+      std::move(on_destroyed_).Run();
+    }
+  }
+
+ private:
+  base::OnceClosure on_destroyed_;
+};
 
 // There may be multiple profile creations happening, but only one stack trace
 // is recorded (the most recent one). See https://crbug.com/1472849
@@ -490,6 +505,9 @@ ProfileManager::~ProfileManager() {
     }
   }
 
+  // Clear the profiles pending destruction. This avoids running the callbacks
+  // when the profiles are deleted through `profile_info_.clear()`.
+  profiles_pending_destruction_.clear();
   profiles_info_.clear();
   ProfileDestroyer::DestroyPendingProfilesForShutdown();
 }
@@ -829,6 +847,8 @@ void ProfileManager::CreateProfileAsync(
   TRACE_EVENT1("browser,startup", "ProfileManager::CreateProfileAsync",
                "profile_path", profile_path.AsUTF8Unsafe());
 
+  // Defer async profile creation during startup, to avoid colliding with
+  // synchronous creation.
   if (defer_async_loading_ &&
       base::FeatureList::IsEnabled(kProfileManagerDeferAsyncLoading)) {
     deferred_asynchronous_loads_.push_back(base::BindOnce(
@@ -838,9 +858,21 @@ void ProfileManager::CreateProfileAsync(
     return;
   }
 
+  // If a profile with the same path is being destroyed, queue the creation
+  // for later, to avoid issues such as database files being locked.
+  if (auto pending_it = profiles_pending_destruction_.find(profile_path);
+      pending_it != profiles_pending_destruction_.end()) {
+    pending_it->second.push_back(base::BindOnce(
+        &ProfileManager::CreateProfileAsync, weak_factory_.GetWeakPtr(),
+        profile_path, std::move(initialized_callback),
+        std::move(created_callback)));
+    return;
+  }
+
   if (!CanCreateProfileAtPath(profile_path)) {
-    if (!initialized_callback.is_null())
+    if (!initialized_callback.is_null()) {
       std::move(initialized_callback).Run(nullptr);
+    }
     return;
   }
 
@@ -1665,8 +1697,10 @@ ProfileManager::ProfileInfo::~ProfileInfo() {
   DCHECK(owned_profile_);
   DCHECK_EQ(owned_profile_.get(), unowned_profile_);
   unowned_profile_ = nullptr;
-  ProfileDestroyer::DestroyOriginalProfileWhenAppropriate(
-      std::move(owned_profile_));
+
+  if (destroy_profile_callback_) {
+    std::move(destroy_profile_callback_).Run(std::move(owned_profile_));
+  }
 }
 
 // static
@@ -1680,10 +1714,13 @@ ProfileManager::ProfileInfo::FromUnownedProfile(Profile* profile) {
 }
 
 void ProfileManager::ProfileInfo::TakeOwnershipOfProfile(
-    std::unique_ptr<Profile> profile) {
+    std::unique_ptr<Profile> profile,
+    base::OnceCallback<void(std::unique_ptr<Profile>)>
+        destroy_profile_callback) {
   DCHECK_EQ(unowned_profile_, profile.get());
   DCHECK(!owned_profile_);
   owned_profile_ = std::move(profile);
+  destroy_profile_callback_ = std::move(destroy_profile_callback);
 }
 
 void ProfileManager::ProfileInfo::MarkProfileAsCreated(Profile* profile) {
@@ -1823,7 +1860,7 @@ Profile* ProfileManager::CreateAndInitializeProfile(
   // OnProfileCreationStarted().
   info = GetProfileInfoByPath(profile->GetPath());
   DCHECK(info);
-  info->TakeOwnershipOfProfile(std::move(profile));
+  TakeOwnershipOfProfile(std::move(profile), info);
   info->MarkProfileAsCreated(info->GetRawProfile());
   Profile* profile_ptr = info->GetCreatedProfile();
 
@@ -1959,7 +1996,7 @@ ProfileManager::ProfileInfo* ProfileManager::RegisterOwnedProfile(
   TRACE_EVENT0("browser", "ProfileManager::RegisterOwnedProfile");
   Profile* profile_ptr = profile.get();
   auto info = ProfileInfo::FromUnownedProfile(profile_ptr);
-  info->TakeOwnershipOfProfile(std::move(profile));
+  TakeOwnershipOfProfile(std::move(profile), info.get());
   ProfileInfo* info_raw = info.get();
   profiles_info_.insert(
       std::make_pair(profile_ptr->GetPath(), std::move(info)));
@@ -2121,6 +2158,45 @@ void ProfileManager::SaveActiveProfiles() {
   }
 }
 
+void ProfileManager::TakeOwnershipOfProfile(std::unique_ptr<Profile> profile,
+                                            ProfileInfo* info) {
+  info->TakeOwnershipOfProfile(
+      std::move(profile),
+      // `base::Unretained()` is safe, as `ProfileManager` owns `ProfileInfo`.
+      base::BindOnce(&ProfileManager::StartProfileDestruction,
+                     base::Unretained(this)));
+}
+
+void ProfileManager::StartProfileDestruction(std::unique_ptr<Profile> profile) {
+  // Make sure there is an entry in the list of pending destructions, so that
+  // `CreateProfileAsync()` can enqueue a callback.
+  profiles_pending_destruction_[profile->GetPath()];
+  profile->SetUserData(
+      kProfileDestructionObserverKey,
+      std::make_unique<ProfileDestructionObserver>(
+          base::BindOnce(&ProfileManager::OnProfileDestructionComplete,
+                         weak_factory_.GetWeakPtr(), profile->GetPath())));
+
+  ProfileDestroyer::DestroyOriginalProfileWhenAppropriate(std::move(profile));
+}
+
+void ProfileManager::OnProfileDestructionComplete(
+    const base::FilePath& profile_path) {
+  auto it = profiles_pending_destruction_.find(profile_path);
+  if (it == profiles_pending_destruction_.end()) {
+    return;
+  }
+
+  std::vector<base::OnceClosure> callbacks = std::move(it->second);
+  profiles_pending_destruction_.erase(it);
+
+  for (auto& callback : callbacks) {
+    if (!callback.is_null()) {
+      std::move(callback).Run();
+    }
+  }
+}
+
 void ProfileManager::SetProfileAsLastUsed(Profile* last_active) {
 #if !BUILDFLAG(IS_ANDROID)
   // The profile may incorrectly become "active" during its destruction, caused
@@ -2185,15 +2261,16 @@ void ProfileManager::UnblockAsyncLoading() {
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-void ProfileManager::OnBrowserOpened(Browser* browser) {
+void ProfileManager::OnBrowserOpened(BrowserWindowInterface* browser) {
   DCHECK(browser);
-  Profile* profile = browser->profile();
+  Profile* profile = browser->GetProfile();
   DCHECK(profile);
 
   if (!profile->IsOffTheRecord() &&
       !IsRegisteredAsEphemeral(&GetProfileAttributesStorage(),
                                profile->GetPath()) &&
-      !browser->is_type_app() && ++browser_counts_[profile] == 1) {
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_APP &&
+      ++browser_counts_[profile] == 1) {
     active_profiles_.push_back(profile);
     SaveActiveProfiles();
   }
@@ -2204,10 +2281,11 @@ void ProfileManager::OnBrowserOpened(Browser* browser) {
   closing_all_browsers_ = false;
 }
 
-void ProfileManager::OnBrowserClosed(Browser* browser) {
-  Profile* profile = browser->profile();
+void ProfileManager::OnBrowserClosed(BrowserWindowInterface* browser) {
+  Profile* profile = browser->GetProfile();
   DCHECK(profile);
-  if (!profile->IsOffTheRecord() && !browser->is_type_app() &&
+  if (!profile->IsOffTheRecord() &&
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_APP &&
       --browser_counts_[profile] == 0) {
     active_profiles_.erase(std::ranges::find(active_profiles_, profile));
     if (!closing_all_browsers_)
@@ -2258,26 +2336,27 @@ void ProfileManager::OnBrowserClosed(Browser* browser) {
   }
 }
 
-ProfileManager::BrowserListObserver::BrowserListObserver(
+ProfileManager::BrowserCollectionObserver::BrowserCollectionObserver(
     ProfileManager* manager)
     : profile_manager_(manager) {
-  BrowserList::AddObserver(this);
+  browser_collection_observer_.Observe(GlobalBrowserCollection::GetInstance());
 }
 
-ProfileManager::BrowserListObserver::~BrowserListObserver() {
-  BrowserList::RemoveObserver(this);
-}
+ProfileManager::BrowserCollectionObserver::~BrowserCollectionObserver() =
+    default;
 
-void ProfileManager::BrowserListObserver::OnBrowserAdded(Browser* browser) {
+void ProfileManager::BrowserCollectionObserver::OnBrowserCreated(
+    BrowserWindowInterface* browser) {
   profile_manager_->OnBrowserOpened(browser);
 }
 
-void ProfileManager::BrowserListObserver::OnBrowserRemoved(Browser* browser) {
+void ProfileManager::BrowserCollectionObserver::OnBrowserClosed(
+    BrowserWindowInterface* browser) {
   profile_manager_->OnBrowserClosed(browser);
 }
 
-void ProfileManager::BrowserListObserver::OnBrowserSetLastActive(
-    Browser* browser) {
+void ProfileManager::BrowserCollectionObserver::OnBrowserActivated(
+    BrowserWindowInterface* browser) {
   // If all browsers are being closed (e.g. the user is in the process of
   // shutting down), this event will be fired after each browser is
   // closed. This does not represent a user intention to change the active
@@ -2286,7 +2365,7 @@ void ProfileManager::BrowserListObserver::OnBrowserSetLastActive(
     return;
   }
 
-  profile_manager_->SetProfileAsLastUsed(browser->profile());
+  profile_manager_->SetProfileAsLastUsed(browser->GetProfile());
 }
 
 void ProfileManager::OnClosingAllBrowsersChanged(bool closing) {

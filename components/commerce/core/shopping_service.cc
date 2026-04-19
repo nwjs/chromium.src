@@ -13,7 +13,6 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -80,8 +79,7 @@ using UrlProductInfoTuple =
 // This function can be deleted once the Sync feature is removed.
 signin::ConsentLevel GetConsentLevelForEndpointFetchers(
     PrefService* pref_service) {
-  return base::FeatureList::IsEnabled(
-             syncer::kReplaceSyncPromosWithSignInPromos)
+  return syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
              ? signin::ConsentLevel::kSignin
              : signin::ConsentLevel::kSync;
 }
@@ -129,8 +127,8 @@ ShoppingService::ShoppingService(
           unified_consent::UrlKeyedDataCollectionConsentHelper::
               NewPersonalizedBookmarksDataCollectionConsentHelper(
                   sync_service,
-                  /*require_sync_feature_enabled=*/!base::FeatureList::
-                      IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos))),
+                  /*require_sync_feature_enabled=*/!syncer::
+                      IsReplaceSyncPromosWithSignInPromosEnabled())),
       web_extractor_(std::move(web_extractor)),
       tab_restore_service_(tab_restore_service),
       weak_ptr_factory_(this) {
@@ -1658,6 +1656,11 @@ base::WeakPtr<ShoppingService> ShoppingService::AsWeakPtr() {
 
 void ShoppingService::Shutdown() {
   DETACH_FROM_SEQUENCE(sequence_checker_);
+
+  // The KeyedService API recommends dropping references to other services in
+  // the Shutdown() method. HistoryService enforces this by preventing calling
+  // RemoveObserver(...) after shutdown, so explicitly remove the observation.
+  history_service_observation_.Reset();
 }
 
 ShoppingService::~ShoppingService() = default;

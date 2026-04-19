@@ -19,6 +19,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/callback_tags.h"
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_functions.h"
@@ -37,7 +38,6 @@
 #include "content/browser/indexed_db/indexed_db_reporting.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
 #include "content/browser/indexed_db/instance/bucket_context.h"
-#include "content/browser/indexed_db/instance/bucket_context_handle.h"
 #include "content/browser/indexed_db/instance/callback_helpers.h"
 #include "content/browser/indexed_db/instance/connection.h"
 #include "content/browser/indexed_db/instance/database.h"
@@ -65,17 +65,21 @@ enum class RequestState {
 // This represents what script calls an 'IDBOpenDBRequest' - either a database
 // open or delete call. These may be blocked on other connections. After every
 // callback, the request must call
-// ConnectionCoordinator::RequestComplete() or be expecting a further
+// connection_coordinator_->RequestComplete() or be expecting a further
 // callback.
 class ConnectionCoordinator::ConnectionRequest {
+  // TODO(crbug.com/498738402): Remove this macro.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   ConnectionRequest(
+
       BucketContext& bucket_context,
       Database* db,
       ConnectionCoordinator* connection_coordinator,
       mojo::AssociatedRemote<blink::mojom::IDBFactoryClient> factory_client,
       base::TimeDelta synchronous_duration)
-      : bucket_context_handle_(bucket_context),
+      : bucket_context_(bucket_context),
         db_(db),
         connection_coordinator_(connection_coordinator),
         tasks_available_callback_(
@@ -144,7 +148,7 @@ class ConnectionCoordinator::ConnectionRequest {
 
   StatusOr<RequestState> state_ = RequestState::kNotStarted;
 
-  BucketContextHandle bucket_context_handle_;
+  raw_ref<BucketContext> bucket_context_;
   // This is safe because Database owns this object.
   raw_ptr<Database> db_;
 
@@ -173,6 +177,9 @@ class ConnectionCoordinator::ConnectionRequest {
 
 class ConnectionCoordinator::OpenRequest
     : public ConnectionCoordinator::ConnectionRequest {
+  // TODO(crbug.com/498738402): Remove this macro.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   OpenRequest(BucketContext& bucket_context,
               Database* db,
@@ -232,7 +239,7 @@ class ConnectionCoordinator::OpenRequest
     base::ElapsedTimer timer;
     Status open_status = db_->OpenInternal();
     if (open_status.ok()) {
-      if (bucket_context_handle_->IsUsingSqlite()) {
+      if (bucket_context_->IsUsingSqlite()) {
         // The SQLite backing store itself surfaces data loss info only at the
         // database level, but `pending_->data_loss_info` will already contain
         // backing-store-level data loss info in some cases such as when a
@@ -252,6 +259,8 @@ class ConnectionCoordinator::OpenRequest
             absl::StrFormat("Internal error opening database with version %i",
                             pending_->version));
       }
+      Log(DatabaseConnectionOpenResult::kErrorDatabaseOpenFailed,
+          bucket_context_->GetHistogramSuffix());
       TakeFactoryClient()->Error(blink::mojom::IDBException::kUnknownError,
                                  message);
       state_ = base::unexpected(open_status);
@@ -263,7 +272,7 @@ class ConnectionCoordinator::OpenRequest
                 db_->version() == IndexedDBDatabaseMetadata::NO_VERSION
                     ? "IndexedDB.BackendDuration.CreateDatabase"
                     : "IndexedDB.BackendDuration.OpenDatabase",
-                bucket_context_handle_->GetHistogramSuffix());
+                bucket_context_->GetHistogramSuffix());
     ContinueOpening(has_connections);
   }
 
@@ -278,12 +287,13 @@ class ConnectionCoordinator::OpenRequest
     if (!is_new_database &&
         (new_version == old_version ||
          new_version == IndexedDBDatabaseMetadata::NO_VERSION)) {
+      Log(DatabaseConnectionOpenResult::kSuccessDirectOpen,
+          bucket_context_->GetHistogramSuffix());
       OnOpenSuccess(db_->CreateConnection(
           std::move(pending_->database_callbacks),
           std::move(pending_->client_state_checker), pending_->client_token,
           pending_->scheduling_priority));
       state_ = RequestState::kDone;
-      bucket_context_handle_.Release();
       return;
     }
 
@@ -295,6 +305,8 @@ class ConnectionCoordinator::OpenRequest
     } else if (new_version < old_version) {
       // Requested version is lower than current version - fail the request.
       CHECK(!is_new_database);
+      Log(DatabaseConnectionOpenResult::kErrorVersionTooLow,
+          bucket_context_->GetHistogramSuffix());
       TakeFactoryClient()->Error(blink::mojom::IDBException::kVersionError,
                                  base::ASCIIToUTF16(absl::StrFormat(
                                      "The requested version (%i) is less than "
@@ -306,6 +318,10 @@ class ConnectionCoordinator::OpenRequest
 
     // Requested version is higher than current version - upgrade needed.
     CHECK_GT(new_version, old_version);
+    Log(pending_->data_loss_info.status == blink::mojom::IDBDataLoss::None
+            ? DatabaseConnectionOpenResult::kSuccessUpgradeNeeded
+            : DatabaseConnectionOpenResult::kSuccessUpgradeNeededWithDataLoss,
+        bucket_context_->GetHistogramSuffix());
 
     if (!has_connections) {
       OnNoConnections();
@@ -375,7 +391,6 @@ class ConnectionCoordinator::OpenRequest
         pending_->scheduling_priority,
         base::BindOnce(&OpenRequest::OnConnectionClosedDuringUpgrade,
                        weak_factory_.GetWeakPtr()));
-    bucket_context_handle_.Release();
 
     std::vector<int64_t> object_store_ids;
 
@@ -480,6 +495,9 @@ class ConnectionCoordinator::OpenRequest
 
 class ConnectionCoordinator::DeleteRequest
     : public ConnectionCoordinator::ConnectionRequest {
+  // TODO(crbug.com/498738402): Remove this macro.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   DeleteRequest(
       BucketContext& bucket_context,
@@ -514,7 +532,7 @@ class ConnectionCoordinator::DeleteRequest
                                  base::ASCIIToUTF16(error_message));
       state_ = base::unexpected(exists.error());
       if (exists.error().IsCorruption()) {
-        bucket_context_handle_->HandleBackingStoreCorruption(error_message);
+        bucket_context_->HandleBackingStoreCorruption(error_message);
       }
       return;
     }
@@ -585,7 +603,7 @@ class ConnectionCoordinator::DeleteRequest
       state_ = RequestState::kDone;
       LogDuration(synchronous_duration_ += timer.Elapsed(),
                   "IndexedDB.BackendDuration.DeleteDatabase",
-                  bucket_context_handle_->GetHistogramSuffix());
+                  bucket_context_->GetHistogramSuffix());
     } else {
       // TODO(jsbell): Consider including sanitized leveldb status
       // message.

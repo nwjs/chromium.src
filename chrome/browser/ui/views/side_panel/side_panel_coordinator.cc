@@ -29,8 +29,8 @@
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_header.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_header_controller.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_helper.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_toolbar_pinning_controller.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -59,8 +59,8 @@ SidePanelCoordinator* SidePanelCoordinator::From(
 }
 
 void SidePanelCoordinator::Init(Browser* browser) {
-  SidePanelUtil::PopulateGlobalEntries(browser,
-                                       SidePanelRegistry::From(browser));
+  SidePanelHelper::PopulateGlobalEntries(browser,
+                                         SidePanelRegistry::From(browser));
 }
 
 void SidePanelCoordinator::TearDownPreBrowserWindowDestruction() {
@@ -192,7 +192,7 @@ void SidePanelCoordinator::Show(
     CHECK(side_panel);
     // If the side panel is in the process of closing, show it instead.
     if (side_panel->state() == SidePanel::State::kClosing) {
-      side_panel->Open(/*animated=*/true);
+      side_panel->Open(/*animated=*/!suppress_animations);
       side_panel_toolbar_pinning_controller_->UpdateActiveState(
           entry->key(), entry->should_show_ephemerally_in_toolbar());
       entry->OnEntryHideCancelled();
@@ -243,7 +243,7 @@ void SidePanelCoordinator::Close(SidePanelEntry::PanelType panel_type,
   // hidden.
   side_panel->ResetSidePanelAnimationContent();
 
-  if (browser_view_->toolbar()->pinned_toolbar_actions_container()) {
+  if (browser_view_->toolbar()->pinned_toolbar_actions()) {
     side_panel_toolbar_pinning_controller_->UpdateActiveState(
         current_key(panel_type)->key, false);
   }
@@ -335,7 +335,7 @@ void SidePanelCoordinator::PopulateSidePanel(
   }
   side_panel->Open(/*animated=*/!suppress_animations);
   SetCurrentKey(entry->type(), unique_key);
-  if (browser_view_->toolbar()->pinned_toolbar_actions_container()) {
+  if (browser_view_->toolbar()->pinned_toolbar_actions()) {
     side_panel_toolbar_pinning_controller_->UpdateActiveState(
         entry->key(), entry->should_show_ephemerally_in_toolbar());
     // Notify active state change only if the entry ids for the side panel are
@@ -364,7 +364,8 @@ void SidePanelCoordinator::ClearCachedEntryViews(
   SidePanelRegistry::From(browser())->ClearCachedEntryViews(type);
   TabStripModel* model = browser_view_->browser()->tab_strip_model();
   for (tabs::TabInterface* tab : *model) {
-    tab->GetTabFeatures()->side_panel_registry()->ClearCachedEntryViews(type);
+    auto* registry = SidePanelRegistry::From(tab);
+    registry->ClearCachedEntryViews(type);
   }
 }
 

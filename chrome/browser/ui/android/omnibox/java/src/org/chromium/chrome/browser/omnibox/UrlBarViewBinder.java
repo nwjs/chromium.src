@@ -39,8 +39,8 @@ class UrlBarViewBinder {
             view.setCustomSelectionActionModeCallback(callback);
         } else if (UrlBarProperties.ALLOW_FOCUS.equals(propertyKey)) {
             view.setAllowFocus(model.get(UrlBarProperties.ALLOW_FOCUS));
-        } else if (UrlBarProperties.IS_IN_CCT.equals(propertyKey)) {
-            view.setIsInCct(model.get(UrlBarProperties.IS_IN_CCT));
+        } else if (UrlBarProperties.ALLOW_MULTILINE_INPUT.equals(propertyKey)) {
+            view.setAllowMultilineInput(model.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
         } else if (UrlBarProperties.AUTOCOMPLETE_TEXT.equals(propertyKey)) {
             AutocompleteText autocomplete = model.get(UrlBarProperties.AUTOCOMPLETE_TEXT);
             boolean shouldAutocomplete = view.shouldAutocomplete();
@@ -72,7 +72,7 @@ class UrlBarViewBinder {
             view.setIgnoreTextChangesForAutocomplete(true);
             view.setTextWithTruncation(state.text, state.scrollType, state.scrollToIndex);
             view.setTextForAutofillServices(state.textForAutofillServices);
-            view.setScrollState(state.scrollType, state.scrollToIndex);
+            view.setScrollState(state.scrollType, state.scrollToIndex, state.originChanged);
             view.setIgnoreTextChangesForAutocomplete(false);
             if (view.hasFocus()) {
                 // NOTE: Selection applied from here MAY be overridden by the OS if the focus came
@@ -133,6 +133,8 @@ class UrlBarViewBinder {
             view.setUrlDirectionListener(model.get(UrlBarProperties.URL_DIRECTION_LISTENER));
         } else if (UrlBarProperties.TEXT_CHANGE_LISTENER.equals(propertyKey)) {
             view.setTextChangeListener(model.get(UrlBarProperties.TEXT_CHANGE_LISTENER));
+        } else if (UrlBarProperties.RICH_TEXT_CHANGE_LISTENER.equals(propertyKey)) {
+            view.setRichTextChangeListener(model.get(UrlBarProperties.RICH_TEXT_CHANGE_LISTENER));
         } else if (UrlBarProperties.TEXT_WRAPPED_CALLBACK.equals(propertyKey)) {
             view.setUrlTextWrappingChangeListener(
                     model.get(UrlBarProperties.TEXT_WRAPPED_CALLBACK));

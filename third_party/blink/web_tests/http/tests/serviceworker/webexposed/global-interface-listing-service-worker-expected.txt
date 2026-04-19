@@ -433,6 +433,12 @@ interface DisposableStack
     method dispose
     method move
     method use
+interface ElementImage
+    attribute @@toStringTag
+    getter height
+    getter width
+    method close
+    method constructor
 interface ErrorEvent : Event
     attribute @@toStringTag
     getter colno
@@ -1367,6 +1373,7 @@ interface OffscreenCanvas : EventTarget
     method constructor
     method convertToBlob
     method getContext
+    method getElementTransform
     method transferToImageBitmap
     setter height
     setter oncontextlost
@@ -1420,6 +1427,7 @@ interface OffscreenCanvasRenderingContext2D
     method createMesh2DVertexBuffer
     method createPattern
     method createRadialGradient
+    method drawElementImage
     method drawImage
     method drawMesh
     method ellipse
@@ -1858,6 +1866,7 @@ interface SecurityPolicyViolationEvent : Event
     getter sample
     getter sourceFile
     getter statusCode
+    getter urlHash
     getter violatedDirective
     method constructor
 interface ServiceWorker : EventTarget
@@ -3517,6 +3526,7 @@ interface WebTransport
     method close
     method constructor
     method createBidirectionalStream
+    method createSendGroup
     method createUnidirectionalStream
     method getStats
 interface WebTransportBidirectionalStream
@@ -3543,6 +3553,10 @@ interface WebTransportError : DOMException
     getter source
     getter streamErrorCode
     method constructor
+interface WebTransportSendGroup
+    attribute @@toStringTag
+    method constructor
+    method getStats
 interface WindowClient : Client
     attribute @@toStringTag
     getter focused

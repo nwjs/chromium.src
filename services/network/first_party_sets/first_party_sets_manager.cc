@@ -4,24 +4,18 @@
 
 #include "services/network/first_party_sets/first_party_sets_manager.h"
 
-#include <initializer_list>
 #include <memory>
 #include <optional>
-#include <set>
 #include <utility>
 
 #include "base/check.h"
 #include "base/containers/circular_deque.h"
-#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/sequence_checker.h"
-#include "base/time/time.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/types/optional_ref.h"
 #include "net/base/features.h"
 #include "net/base/schemeful_site.h"
-#include "net/first_party_sets/first_party_set_entry.h"
 #include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/first_party_sets/global_first_party_sets.h"
 
@@ -87,54 +81,9 @@ net::FirstPartySetMetadata FirstPartySetsManager::ComputeMetadataInternal(
   return sets_->ComputeMetadata(site, top_frame_site, fps_context_config);
 }
 
-std::optional<FirstPartySetsManager::EntriesResult>
-FirstPartySetsManager::FindEntries(
-    const base::flat_set<net::SchemefulSite>& sites,
-    const net::FirstPartySetsContextConfig& fps_context_config,
-    base::OnceCallback<void(FirstPartySetsManager::EntriesResult)> callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  if (!sets_.has_value()) {
-    if (!wait_for_init_) {
-      return FirstPartySetsManager::EntriesResult();
-    }
-    EnqueuePendingQuery(
-        base::BindOnce(&FirstPartySetsManager::FindEntriesAndInvoke,
-                       weak_factory_.GetWeakPtr(), sites,
-                       fps_context_config.Clone(), std::move(callback)));
-    return std::nullopt;
-  }
-
-  return FindEntriesInternal(sites, fps_context_config);
-}
-
-void FirstPartySetsManager::FindEntriesAndInvoke(
-    const base::flat_set<net::SchemefulSite>& sites,
-    const net::FirstPartySetsContextConfig& fps_context_config,
-    base::OnceCallback<void(FirstPartySetsManager::EntriesResult)> callback)
-    const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(sets_.has_value());
-
-  std::move(callback).Run(FindEntriesInternal(sites, fps_context_config));
-}
-
-FirstPartySetsManager::EntriesResult FirstPartySetsManager::FindEntriesInternal(
-    const base::flat_set<net::SchemefulSite>& sites,
-    const net::FirstPartySetsContextConfig& fps_context_config) const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(sets_.has_value());
-
-  return sets_->FindEntries(sites, fps_context_config);
-}
-
 void FirstPartySetsManager::InvokePendingQueries() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(sets_.has_value());
-
-  UmaHistogramTimes(
-      "Cookie.FirstPartySets.InitializationDuration.ReadyToServeQueries2",
-      construction_timer_.Elapsed());
 
   if (!pending_queries_) {
     return;

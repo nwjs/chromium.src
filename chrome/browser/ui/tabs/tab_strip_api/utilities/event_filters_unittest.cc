@@ -23,11 +23,11 @@ TEST(EventFiltersTest, FilterEvents) {
   events.push_back(tabs_api::mojom::TabsEvent::NewTabsCreatedEvent(
       std::move(tabs_created_event)));
 
-  auto tabs_closed_event = tabs_api::mojom::OnTabsClosedEvent::New();
-  tabs_closed_event->tabs.push_back(
+  auto nodes_closed_event = tabs_api::mojom::OnNodesClosedEvent::New();
+  nodes_closed_event->node_ids.push_back(
       tabs_api::NodeId(tabs_api::NodeId::Type::kContent, "111"));
-  events.push_back(tabs_api::mojom::TabsEvent::NewTabsClosedEvent(
-      std::move(tabs_closed_event)));
+  events.push_back(tabs_api::mojom::TabsEvent::NewNodesClosedEvent(
+      std::move(nodes_closed_event)));
 
   auto tab_moved_event = tabs_api::mojom::OnNodeMovedEvent::New();
   tab_moved_event->id =
@@ -35,29 +35,28 @@ TEST(EventFiltersTest, FilterEvents) {
   events.push_back(tabs_api::mojom::TabsEvent::NewNodeMovedEvent(
       std::move(tab_moved_event)));
 
-  auto tab_data_changed = tabs_api::mojom::OnDataChangedEvent::New();
-  auto changed_tab = tabs_api::mojom::Tab::New();
-  changed_tab->id = tabs_api::NodeId(tabs_api::NodeId::Type::kContent, "333");
-  tab_data_changed->data =
-      tabs_api::mojom::Data::NewTab(std::move(changed_tab));
+  auto tab_change = tabs_api::mojom::TabChange::New();
+  tab_change->data = tabs_api::mojom::Tab::New();
+  tab_change->data->id =
+      tabs_api::NodeId(tabs_api::NodeId::Type::kContent, "333");
+  tab_change->mask = tabs_api::mojom::TabFieldMask::New();
   events.push_back(tabs_api::mojom::TabsEvent::NewDataChangedEvent(
-      std::move(tab_data_changed)));
+      tabs_api::mojom::OnDataChangedEvent::NewTab(std::move(tab_change))));
 
-  auto group_data_changed = tabs_api::mojom::OnDataChangedEvent::New();
-  auto changed_group = tabs_api::mojom::TabGroup::New();
-  changed_group->id =
+  auto group_change = tabs_api::mojom::TabGroupChange::New();
+  group_change->data = tabs_api::mojom::TabGroup::New();
+  group_change->data->id =
       tabs_api::NodeId(tabs_api::NodeId::Type::kCollection, "444");
-  group_data_changed->data =
-      tabs_api::mojom::Data::NewTabGroup(std::move(changed_group));
   events.push_back(tabs_api::mojom::TabsEvent::NewDataChangedEvent(
-      std::move(group_data_changed)));
+      tabs_api::mojom::OnDataChangedEvent::NewTabGroup(
+          std::move(group_change))));
 
   auto created_event = tabs_api::mojom::OnCollectionCreatedEvent::New();
   events.push_back(tabs_api::mojom::TabsEvent::NewCollectionCreatedEvent(
       std::move(created_event)));
 
   auto created_tabs = FilterForTabsCreatedEvents(events);
-  auto closed_tabs = FilterForTabsClosedEvents(events);
+  auto closed_nodes = FilterForNodesClosedEvents(events);
   auto moved_tabs = FilterForNodeMovedEvents(events);
   auto created_groups = FilterForCollectionCreatedEvents(events);
   auto data_changed_events = FilterForDataChangedEvents(events);
@@ -65,8 +64,8 @@ TEST(EventFiltersTest, FilterEvents) {
   EXPECT_EQ(created_tabs.size(), 1u);
   EXPECT_EQ(created_tabs[0]->tabs.size(), 2u);
 
-  EXPECT_EQ(closed_tabs.size(), 1u);
-  EXPECT_EQ(closed_tabs[0]->tabs[0].Id(), "111");
+  EXPECT_EQ(closed_nodes.size(), 1u);
+  EXPECT_EQ(closed_nodes[0]->node_ids[0].Id(), "111");
 
   EXPECT_EQ(moved_tabs.size(), 1u);
   EXPECT_EQ(moved_tabs[0]->id.Id(), "222");
@@ -74,11 +73,11 @@ TEST(EventFiltersTest, FilterEvents) {
   EXPECT_EQ(created_groups.size(), 1u);
   EXPECT_NE(created_groups[0], nullptr);
 
-  ASSERT_TRUE(data_changed_events[0]->data->is_tab());
-  EXPECT_EQ(data_changed_events[0]->data->get_tab()->id.Id(), "333");
+  ASSERT_TRUE(data_changed_events[0]->is_tab());
+  EXPECT_EQ(data_changed_events[0]->get_tab()->data->id.Id(), "333");
 
-  ASSERT_TRUE(data_changed_events[1]->data->is_tab_group());
-  EXPECT_EQ(data_changed_events[1]->data->get_tab_group()->id.Id(), "444");
+  ASSERT_TRUE(data_changed_events[1]->is_tab_group());
+  EXPECT_EQ(data_changed_events[1]->get_tab_group()->data->id.Id(), "444");
 }
 
 }  // namespace

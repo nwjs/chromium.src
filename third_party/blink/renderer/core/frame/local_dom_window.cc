@@ -937,7 +937,7 @@ void LocalDOMWindow::DispatchWindowLoadEvent() {
   DispatchLoadEvent();
 }
 
-void LocalDOMWindow::DocumentWasClosed() {
+void LocalDOMWindow::DispatchLoadAndPageshowEvents() {
   DispatchWindowLoadEvent();
 
   // An extension to step 4.5. or a part of step 4.6.3. of
@@ -1013,7 +1013,7 @@ void LocalDOMWindow::DispatchPopstateEvent(
   DCHECK(GetFrame());
   auto* event = PopStateEvent::Create(std::move(state_object), history(),
                                       has_ua_visual_transition, involvement);
-  NavigationEventTiming event_timing_scope(GetFrame(), *event, this);
+  NavigationEventTiming event_timing_scope(GetFrame(), *event);
   DispatchEvent(*event);
 }
 LocalDOMWindow::~LocalDOMWindow() = default;
@@ -2098,6 +2098,7 @@ CustomElementRegistry* LocalDOMWindow::customElements(
 CustomElementRegistry* LocalDOMWindow::customElements() const {
   if (!custom_elements_ && document_) {
     custom_elements_ = MakeGarbageCollected<CustomElementRegistry>(this);
+    custom_elements_->MarkAsGlobalRegistry();
     custom_elements_->AssociatedWith(*document_);
     document_->SetCustomElementRegistry(custom_elements_);
   }
@@ -2747,20 +2748,9 @@ bool LocalDOMWindow::CheckGuardrailsPolicyForAssetSize(
 }
 
 void LocalDOMWindow::SetStorageAccessApiStatus(
-    net::StorageAccessApiStatus status,
-    StorageAccessApiNotifyEmbedder notify) {
+    net::StorageAccessApiStatus status) {
   CHECK_GE(status, storage_access_api_status_);
   storage_access_api_status_ = status;
-  switch (notify) {
-    case StorageAccessApiNotifyEmbedder::kNone:
-      break;
-    case StorageAccessApiNotifyEmbedder::kBrowserProcess: {
-      LocalFrame* frame = GetFrame();
-      CHECK(frame);
-      frame->SetStorageAccessApiStatus(status);
-      break;
-    }
-  }
 }
 
 void LocalDOMWindow::SetHasBeenRevealed(bool revealed) {

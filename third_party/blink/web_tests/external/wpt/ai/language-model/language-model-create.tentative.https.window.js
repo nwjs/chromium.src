@@ -23,9 +23,7 @@ promise_test(async t => {
 
   assert_equals(typeof session.contextUsage, 'number');
   assert_equals(typeof session.contextWindow, 'number');
-  assert_equals(typeof session.topK, 'undefined');  // topK is deprecated.
-  assert_equals(
-      typeof session.temperature, 'undefined');  // temperature is deprecated.
+
 
   assert_equals(typeof session.oncontextoverflow, 'object');
 }, 'LanguageModel.create() returns a valid object with default options');
@@ -37,13 +35,6 @@ promise_test(async t => {
 promise_test(async t => {
   await testCreateMonitorWithAbort(t, createLanguageModel);
 }, 'Progress events are not emitted after aborted.');
-
-promise_test(async t => {
-  let session = await createLanguageModel({ topK: 3, temperature: 0.6 });
-  assert_equals(typeof session.topK, 'undefined');
-  assert_equals(typeof session.temperature, 'undefined');
-  assert_true(!!session);
-}, 'Create with topK and temperature');
 
 promise_test(async t => {
   let session = await createLanguageModel({
@@ -70,13 +61,19 @@ promise_test(async t => {
 }, 'Create with initialPrompts without system role');
 
 promise_test(async t => {
-  let result = createLanguageModel({
+  let result1 = createLanguageModel({
     initialPrompts: [
       {role: 'user', content: 'hello'}, {role: 'assistant', content: 'hello'},
       {role: 'system', content: 'you are a robot'}
     ]
   });
-  await promise_rejects_js(t, TypeError, result);
+  await promise_rejects_js(t, TypeError, result1);
+
+  let result2 = createLanguageModel({
+    initialPrompts:
+        [{role: 'system', content: 'foo'}, {role: 'system', content: 'bar'}]
+  });
+  await promise_rejects_js(t, TypeError, result2);
 }, 'Create with system role not ordered first should fail');
 
 promise_test(async t => {

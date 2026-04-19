@@ -12,7 +12,6 @@
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -36,7 +35,8 @@ namespace {
 
 GlicInstanceCoordinatorImpl& GetInstanceCoordinator(GlicKeyedService& service) {
   CHECK(base::FeatureList::IsEnabled(features::kGlicMultiInstance));
-  return static_cast<GlicInstanceCoordinatorImpl&>(service.window_controller());
+  return static_cast<GlicInstanceCoordinatorImpl&>(
+      service.instance_coordinator());
 }
 
 }  // namespace
@@ -113,8 +113,8 @@ BrowserWindowInterface* GlicInstanceTracker::GetBrowser() {
 
 std::string GlicInstanceTracker::DescribeGlicTracking() {
   if (tracked_instance_id_) {
-    return base::StrCat({"Tracking glic instance with id ",
-                         tracked_instance_id_->AsLowercaseString()});
+    return base::StrCat(
+        {"Tracking glic instance with id ", tracked_instance_id_->value()});
   } else if (glic_instance_tab_index_) {
     return base::StrCat({"Tracking glic instance at tab index ",
                          base::NumberToString(*glic_instance_tab_index_)});
@@ -171,7 +171,7 @@ GlicInstance* GetOnlyGlicInstance(Profile* profile) {
   if (!service) {
     return nullptr;
   }
-  auto instances = service->window_controller().GetInstances();
+  auto instances = service->instance_coordinator().GetInstances();
   // Ignore the warming instance.
   if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
     auto iter = std::find(
@@ -206,7 +206,8 @@ GlicInstance* GetInstanceById(Profile* profile, InstanceId id) {
   if (!service) {
     return nullptr;
   }
-  for (GlicInstance* instance : service->window_controller().GetInstances()) {
+  for (GlicInstance* instance :
+       service->instance_coordinator().GetInstances()) {
     if (instance->id() == id) {
       return instance;
     }
@@ -248,10 +249,11 @@ void SetGlicCapability(Profile* profile, bool enabled) {
 }
 
 void SetGlicCapability(AccountCapabilitiesTestMutator& mutator, bool enabled) {
-  base::FeatureList::IsEnabled(
-      switches::kGlicEligibilitySeparateAccountCapability)
-      ? mutator.set_can_use_gemini_in_chrome(enabled)
-      : mutator.set_can_use_model_execution_features(enabled);
+  if (base::FeatureList::IsEnabled(
+          switches::kGlicEligibilitySeparateAccountCapability)) {
+    mutator.set_can_use_gemini_in_chrome(enabled);
+  }
+  mutator.set_can_use_model_execution_features(enabled);
 }
 
 void SetFRECompletion(Profile* profile, prefs::FreStatus fre_status) {
@@ -264,14 +266,14 @@ void InvalidateAccount(Profile* profile) {
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       identity_manager,
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   ASSERT_TRUE(
       identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
           identity_manager->GetPrimaryAccountId(
               signin::ConsentLevel::kSignin)));
-  if (!base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
+  if (!syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     ASSERT_FALSE(
         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
   }

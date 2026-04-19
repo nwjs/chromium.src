@@ -406,15 +406,19 @@ struct CC_EXPORT AnchorPositionScrollData {
 };
 
 struct CC_EXPORT StickyPositionNodeData {
-  int scroll_ancestor;
+  int x_scroll_ancestor = kInvalidPropertyNodeId;
+  int y_scroll_ancestor = kInvalidPropertyNodeId;
+
   StickyPositionConstraint constraints;
 
   // In order to properly compute the sticky offset, we need to know if we have
   // any sticky ancestors both between ourselves and our containing block and
   // between our containing block and the viewport. These ancestors are then
-  // used to correct the constraining rect locations.
-  int nearest_node_shifting_sticky_box;
-  int nearest_node_shifting_containing_block;
+  // used to correct the constraining rect locations. Whether they contribute in
+  // a given axis is determined by whether that ancestor shares the same scroll
+  // ancestor in that axis.
+  int nearest_node_shifting_sticky_box = kInvalidPropertyNodeId;
+  int nearest_node_shifting_containing_block = kInvalidPropertyNodeId;
 
   // For performance we cache our accumulated sticky offset to allow descendant
   // sticky elements to offset their constraint rects. Because we can either
@@ -423,10 +427,7 @@ struct CC_EXPORT StickyPositionNodeData {
   gfx::Vector2dF total_sticky_box_sticky_offset;
   gfx::Vector2dF total_containing_block_sticky_offset;
 
-  StickyPositionNodeData()
-      : scroll_ancestor(kInvalidPropertyNodeId),
-        nearest_node_shifting_sticky_box(kInvalidPropertyNodeId),
-        nearest_node_shifting_containing_block(kInvalidPropertyNodeId) {}
+  StickyPositionNodeData() = default;
 
   bool operator==(const StickyPositionNodeData&) const;
 };
@@ -852,7 +853,7 @@ struct CC_EXPORT PropertyTreesChangeState {
 
 class CC_EXPORT PropertyTrees final {
  public:
-  explicit PropertyTrees(const ProtectedSequenceSynchronizer& synchronizer);
+  PropertyTrees();
   PropertyTrees(const PropertyTrees& other) = delete;
   void* operator new(size_t) = delete;
   void* operator new(size_t, void*) = delete;
@@ -866,10 +867,6 @@ class CC_EXPORT PropertyTrees final {
   bool operator==(const PropertyTrees& other) const;
 #endif
 
-  const ProtectedSequenceSynchronizer& synchronizer() const {
-    return *synchronizer_;
-  }
-
   const ClipTree& clip_tree() const { return clip_tree_; }
   ClipTree& clip_tree_mutable() { return clip_tree_; }
   const EffectTree& effect_tree() const { return effect_tree_; }
@@ -879,34 +876,24 @@ class CC_EXPORT PropertyTrees final {
   const TransformTree& transform_tree() const { return transform_tree_; }
   TransformTree& transform_tree_mutable() { return transform_tree_; }
 
-  void set_needs_rebuild(bool value) {
-    needs_rebuild_.Write(synchronizer()) = value;
-  }
-  bool needs_rebuild() const { return needs_rebuild_.Read(synchronizer()); }
+  void set_needs_rebuild(bool value) { needs_rebuild_ = value; }
+  bool needs_rebuild() const { return needs_rebuild_; }
 
-  void set_changed(bool value) { changed_.Write(synchronizer()) = value; }
-  bool changed() const { return changed_.Read(synchronizer()); }
+  void set_changed(bool value) { changed_ = value; }
+  bool changed() const { return changed_; }
 
-  void set_full_tree_damaged(bool value) {
-    full_tree_damaged_.Write(synchronizer()) = value;
-  }
-  bool full_tree_damaged() const {
-    return full_tree_damaged_.Read(synchronizer());
-  }
+  void set_full_tree_damaged(bool value) { full_tree_damaged_ = value; }
+  bool full_tree_damaged() const { return full_tree_damaged_; }
 
-  void set_is_main_thread(bool value) {
-    is_main_thread_.Write(synchronizer()) = value;
-  }
-  bool is_main_thread() const { return is_main_thread_.Read(synchronizer()); }
+  void set_is_main_thread(bool value) { is_main_thread_ = value; }
+  bool is_main_thread() const { return is_main_thread_; }
 
-  void set_is_active(bool value) { is_active_.Write(synchronizer()) = value; }
-  bool is_active() const { return is_active_.Read(synchronizer()); }
+  void set_is_active(bool value) { is_active_ = value; }
+  bool is_active() const { return is_active_; }
 
-  void set_sequence_number(int n) {
-    sequence_number_.Write(synchronizer()) = n;
-  }
-  void increment_sequence_number() { sequence_number_.Write(synchronizer())++; }
-  int sequence_number() const { return sequence_number_.Read(synchronizer()); }
+  void set_sequence_number(int n) { sequence_number_ = n; }
+  void increment_sequence_number() { sequence_number_++; }
+  int sequence_number() const { return sequence_number_; }
 
   void clear();
 
@@ -931,7 +918,7 @@ class CC_EXPORT PropertyTrees final {
   void ResetAllChangeTracking();
 
   gfx::Vector2dF inner_viewport_container_bounds_delta() const {
-    return inner_viewport_container_bounds_delta_.Read(synchronizer());
+    return inner_viewport_container_bounds_delta_;
   }
   gfx::Vector2dF inner_viewport_scroll_bounds_delta() const {
     // Inner viewport scroll bounds are always the same as outer viewport
@@ -939,11 +926,11 @@ class CC_EXPORT PropertyTrees final {
     return outer_viewport_container_bounds_delta();
   }
   gfx::Vector2dF outer_viewport_container_bounds_delta() const {
-    return outer_viewport_container_bounds_delta_.Read(synchronizer());
+    return outer_viewport_container_bounds_delta_;
   }
 
   float transform_delta_by_safe_area_inset_bottom() const {
-    return transform_delta_by_safe_area_inset_bottom_.Read(synchronizer());
+    return transform_delta_by_safe_area_inset_bottom_;
   }
 
   std::unique_ptr<base::trace_event::TracedValue> AsTracedValue() const;
@@ -977,35 +964,31 @@ class CC_EXPORT PropertyTrees final {
   bool HasElement(ElementId element_id) const;
 
  private:
-  const raw_ref<const ProtectedSequenceSynchronizer> synchronizer_;
-
   TransformTree transform_tree_;
   EffectTree effect_tree_;
   ClipTree clip_tree_;
   ScrollTree scroll_tree_;
 
-  ProtectedSequenceReadable<bool> needs_rebuild_;
+  bool needs_rebuild_ = true;
   // Change tracking done on property trees needs to be preserved across commits
   // (when they are not rebuild). We cache a global bool which stores whether
   // we did any change tracking so that we can skip copying the change status
   // between property trees when this bool is false.
-  ProtectedSequenceReadable<bool> changed_;
+  bool changed_ = false;
   // We cache a global bool for full tree damages to avoid walking the entire
   // tree.
   // TODO(jaydasika): Changes to transform and effects that damage the entire
   // tree should be tracked by this bool. Currently, they are tracked by the
   // individual nodes.
-  ProtectedSequenceReadable<bool> full_tree_damaged_;
-  ProtectedSequenceReadable<bool> is_main_thread_;
-  ProtectedSequenceReadable<bool> is_active_;
+  bool full_tree_damaged_ = false;
+  bool is_main_thread_ = true;
+  bool is_active_ = false;
 
-  ProtectedSequenceReadable<int> sequence_number_;
+  int sequence_number_ = 0;
 
-  ProtectedSequenceReadable<gfx::Vector2dF>
-      inner_viewport_container_bounds_delta_;
-  ProtectedSequenceReadable<gfx::Vector2dF>
-      outer_viewport_container_bounds_delta_;
-  ProtectedSequenceReadable<float> transform_delta_by_safe_area_inset_bottom_;
+  gfx::Vector2dF inner_viewport_container_bounds_delta_;
+  gfx::Vector2dF outer_viewport_container_bounds_delta_;
+  float transform_delta_by_safe_area_inset_bottom_ = 0.f;
 
   const AnimationScaleData& GetAnimationScaleData(int transform_id);
 
@@ -1014,8 +997,7 @@ class CC_EXPORT PropertyTrees final {
   DrawTransformData& FetchDrawTransformsDataFromCache(int transform_id,
                                                       int effect_id) const;
 
-  // This can be mutable and not wrapped in ProtectedSequence* because it isn't
-  // copied by operator=().
+  // This can be mutable because it isn't copied by operator=().
   mutable PropertyTreesCachedData cached_data_;
 };
 

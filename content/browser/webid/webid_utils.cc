@@ -16,6 +16,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/federated_identity_api_permission_context_delegate.h"
 #include "content/public/browser/webid/federated_identity_permission_context_delegate.h"
 #include "content/public/common/web_identity.h"
@@ -51,12 +52,19 @@ bool IsSameSiteWithAncestors(const url::Origin& origin,
 }
 
 void SetIdpSigninStatus(content::BrowserContext* context,
+                        network::mojom::RequestDestination destination,
                         FrameTreeNodeId frame_tree_node_id,
                         const url::Origin& origin,
                         blink::mojom::IdpSigninStatus status) {
   FrameTreeNode* frame_tree_node = nullptr;
   // frame_tree_node_id may be invalid if we are loading the first frame
-  // of the tab.
+  // of the tab, but check the destination because we don't want to allow these
+  // requests in general. Without a frame tree node, we can't do same site
+  // checks.
+  if (!frame_tree_node_id &&
+      destination != network::mojom::RequestDestination::kFrame) {
+    return;
+  }
   if (frame_tree_node_id) {
     frame_tree_node = FrameTreeNode::GloballyFindByID(frame_tree_node_id);
     // If the id was valid, but the lookup failed, we ignore the load because we
@@ -457,6 +465,14 @@ bool DidNavigationHandleHaveActivation(NavigationHandle* handle) {
 perfetto::NamedTrack CreatePerfettoTrackForFedCM(void* class_pointer) {
   return perfetto::NamedTrack::ThreadScoped(
       "FedCM", reinterpret_cast<uintptr_t>(class_pointer));
+}
+
+bool HasEmbedderLoginRequest(RenderFrameHost* rfh) {
+  if (!rfh) {
+    return false;
+  }
+  return !!FederatedEmbedderLoginRequest::Get(
+      WebContents::FromRenderFrameHost(rfh));
 }
 
 }  // namespace content::webid

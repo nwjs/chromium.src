@@ -78,6 +78,11 @@
 
 #pragma mark - ComposeboxURLLoader
 
+- (void)prepareLoadForQueryText:(NSString*)queryText
+             clientToAimMessage:(const lens::ClientToAimMessage&)message {
+  // NO-OP
+}
+
 - (void)loadURLParams:(const UrlLoadParams&)URLLoadParams {
   if (_webState) {
     // Request an SRP without an input plate.

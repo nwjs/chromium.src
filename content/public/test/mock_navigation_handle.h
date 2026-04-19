@@ -30,6 +30,7 @@
 #include "net/http/http_response_headers.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom.h"
 #include "third_party/blink/public/mojom/navigation/renderer_content_settings.mojom.h"
@@ -67,6 +68,9 @@ class MockNavigationHandle : public NavigationHandle {
   MOCK_CONST_METHOD0(IsInPrerenderedMainFrame, bool());
   bool IsPrerenderedPageActivation() const override {
     return is_prerendered_page_activation_;
+  }
+  PrerenderHostId GetPrerenderHostId() const override {
+    return PrerenderHostId();
   }
   bool IsInFencedFrameTree() const override { return is_in_fenced_frame_tree_; }
   bool IsGuestViewMainFrame() const override {
@@ -178,7 +182,7 @@ class MockNavigationHandle : public NavigationHandle {
   }
   MOCK_METHOD1(
       SetLCPPNavigationHint,
-      void(const blink::mojom::LCPCriticalPathPredictorNavigationTimeHint&));
+      void(blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr));
   MOCK_METHOD0(
       GetLCPPNavigationHint,
       const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&());
@@ -286,6 +290,10 @@ class MockNavigationHandle : public NavigationHandle {
     return process_selection_user_data_;
   }
 
+  MOCK_METHOD(BeforeUnloadExecutionMode,
+              GetBeforeUnloadExecutionMode,
+              (),
+              (const, override));
   MOCK_METHOD(void, SetIsAdTagged, ());
 
   blink::RuntimeFeatureStateContext& GetMutableRuntimeFeatureStateContext()

@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 
+#include "base/containers/flat_map.h"
 #include "base/containers/heap_array.h"
 #include "device/gamepad/gamepad_export.h"
 #include "device/gamepad/gamepad_standard_mappings.h"
@@ -49,37 +50,37 @@ struct PadState {
   ~PadState();
 
   // Index of the slot occupied by this gamepad.
-  int pad_index;
+  int pad_index = 0;
 
   // Which data fetcher provided this gamepad's data.
-  GamepadSource source;
+  GamepadSource source = GamepadSource::kNone;
   // Data fetcher-specific identifier for this gamepad.
-  int source_id;
+  int source_id = 0;
 
   // Indicates whether this gamepad is actively receiving input. |is_active| is
   // initialized to false on each polling cycle and must is set to true when new
   // data is received.
-  bool is_active;
+  bool is_active = false;
 
   // True if the gamepad is newly connected but notifications have not yet been
   // sent.
-  bool is_newly_active;
+  bool is_newly_active = false;
 
   // Set by the data fetcher to indicate that one-time initialization for this
   // gamepad has been completed.
-  bool is_initialized;
+  bool is_initialized = false;
 
   // Set by the data fetcher to indicate whether this gamepad's ids are
   // recognized as a specific gamepad. It is then used to prioritize recognized
   // gamepads when finding an empty slot for any new gamepads when activated.
-  bool is_recognized;
+  bool is_recognized = false;
 
   // Gamepad data, unmapped.
   Gamepad data;
 
   // Functions to map from device data to standard layout, if available. May
   // be null if no mapping is available or needed.
-  GamepadStandardMappingFunction mapper;
+  GamepadStandardMappingFunction mapper = nullptr;
 
   // Sanitization masks
   // axis_mask and button_mask are bitfields that represent the reset state of
@@ -90,13 +91,13 @@ struct PadState {
   static_assert(Gamepad::kAxesLengthCap <=
                     std::numeric_limits<uint32_t>::digits,
                 "axis_mask is not large enough");
-  uint32_t axis_mask;
+  uint32_t axis_mask = 0;
 
   // If we ever increase the max button count this will need to be updated.
   static_assert(Gamepad::kButtonsLengthCap <=
                     std::numeric_limits<uint32_t>::digits,
                 "button_mask is not large enough");
-  uint32_t button_mask;
+  uint32_t button_mask = 0;
 };
 
 class DEVICE_GAMEPAD_EXPORT GamepadPadStateProvider {
@@ -109,9 +110,18 @@ class DEVICE_GAMEPAD_EXPORT GamepadPadStateProvider {
   // If no slots are available this returns nullptr. However, if one of those
   // slots contains an unrecognized gamepad and |new_gamepad_recognized| is true
   // that slot will be reset and returned.
+  //
+  // Returns nullptr if `product_identifier` is not nullopt and has been claimed
+  // by another source.
   PadState* GetPadState(GamepadSource source,
                         int source_id,
-                        bool new_gamepad_recognized);
+                        bool new_gamepad_recognized,
+                        std::optional<std::string_view> product_identifier);
+
+  // Claims `product_identifier` for a source if it is not already claimed for
+  // another source.
+  void ClaimProductIdentifierForSource(GamepadSource source,
+                                       std::string_view product_identifier);
 
   // Gets a PadState object for a connected gamepad by specifying its index in
   // the pad_states_ array. Returns NULL if there is no connected gamepad at
@@ -129,6 +139,10 @@ class DEVICE_GAMEPAD_EXPORT GamepadPadStateProvider {
 
   // Tracks the state of each gamepad slot.
   base::HeapArray<PadState> pad_states_;
+
+  // Tracks which product_identifier has been claimed for exclusive use
+  // by a specific source.
+  base::flat_map<std::string, GamepadSource> claimed_product_identifiers_;
 
  private:
   // Calls the DisconnectUnrecognizedGamepad method on the data fetcher

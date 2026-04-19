@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.settings.search;
 
+import static androidx.annotation.VisibleForTesting.PRIVATE;
+
 import static org.chromium.base.CallbackUtils.emptyRunnable;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
@@ -42,9 +44,14 @@ import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.slidingpanelayout.widget.SlidingPaneLayout;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.build.annotations.EnsuresNonNull;
@@ -53,8 +60,11 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.accessibility.settings.ChromeAccessibilitySettingsDelegate;
+import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.MainSettings;
 import org.chromium.chrome.browser.settings.MultiColumnSettings;
@@ -83,6 +93,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -153,8 +164,9 @@ public class SettingsSearchCoordinator
     private boolean mQueryEntered;
     private SettingsIndexData mIndexData;
 
-    // True if empty fragment is showing.
-    private boolean mShowingEmptyFragment;
+    // True if "Search performed" event should be logged. The event is logged when user newly
+    // taps into search box to perform the operation, not afterwards.
+    private boolean mShouldLogSearchPerformed;
 
     // True while local search (language, site settings) UI is enabled, so that settings search
     // should remain hidden across configuration changes.
@@ -194,6 +206,23 @@ public class SettingsSearchCoordinator
         }
     }
 
+    // Keeps the latest preference settings chosen by users from search results. Duplicated
+    // entries are removed, and the entries are ordered as they are inserted.
+    private static class RecentSearchQueue extends LinkedHashMap<String, SettingsIndexData.Entry> {
+        private static final int MAX_SIZE = 3;
+
+        private void add(SettingsIndexData.Entry entry) {
+            put(entry.key, entry);
+        }
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, SettingsIndexData.Entry> eldest) {
+            return size() > MAX_SIZE;
+        }
+    }
+
+    private final RecentSearchQueue mRecentSearches = new RecentSearchQueue();
+
     /**
      * @param activity {@link SettingsActivity} object
      * @param useMultiColumnSupplier Supplier telling us whether the multi-column mode is on
@@ -217,7 +246,7 @@ public class SettingsSearchCoordinator
         mActivity = activity;
         mUseMultiColumnSupplier = useMultiColumnSupplier;
         mMultiColumnSettings = multiColumnSettings;
-        mFragmentState = FS_SETTINGS;
+        setFragmentState(FS_SETTINGS);
         mItemDecorations = itemDecorations;
         mProfile = profile;
         mUpdateFirstVisibleTitle = updateFirstVisibleTitle;
@@ -296,11 +325,15 @@ public class SettingsSearchCoordinator
             mFirstUiEntered = savedState.getBoolean(KEY_FIRST_UI_ENTERED);
             mResultUpdated = savedState.getBoolean(KEY_RESULT_UPDATED);
             mSearchCompleted = savedState.getBoolean(KEY_SEARCH_COMPLETED);
-            mHandler.post(
-                    () ->
-                            assumeNonNull(ToolbarUtils.getTitleTextView(actionBar))
-                                    .setVisibility(View.VISIBLE));
+            mHandler.post(() -> showTitleTextView(true));
         }
+        mHandler.post(this::restoreRecentSearches);
+    }
+
+    private void showTitleTextView(boolean show) {
+        Toolbar actionBar = mActivity.findViewById(R.id.action_bar);
+        assumeNonNull(ToolbarUtils.getTitleTextView(actionBar))
+                .setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     private void onClickSearchBox(View view) {
@@ -318,10 +351,12 @@ public class SettingsSearchCoordinator
         var emptyFragment = (EmptyFragment) fm.findFragmentByTag(EMPTY_FRAGMENT);
         if (emptyFragment != null) emptyFragment.setOpenHelpCenter(this::openHelpCenter);
 
-        var resultFragment =
-                (SearchResultsPreferenceFragment) fm.findFragmentByTag(RESULT_FRAGMENT);
-        if (resultFragment != null) {
-            resultFragment.setSelectedCallback(this::onResultSelected);
+        var fragment = (SearchResultsPreferenceFragment) fm.findFragmentByTag(RESULT_FRAGMENT);
+        if (fragment != null) {
+            fragment.setSelectedCallback(this::onResultSelected);
+            if (fragment instanceof RecentSearchesFragment rsf) {
+                rsf.setDeleteCallback(this::deleteRecentSearches);
+            }
         }
         // The restored query text triggers the text listener to perform search, replaces
         // the restored fragment immediately with the same results, causing a flash. Removing
@@ -369,7 +404,7 @@ public class SettingsSearchCoordinator
 
         if (mMultiColumnSettings != null && mUseMultiColumn && mFragmentState == FS_RESULTS) {
             // If clicked while displaying search results, get out of FS_RESULTS state.
-            mFragmentState = FS_SEARCH;
+            setFragmentState(FS_SEARCH);
             mActivity.findViewById(R.id.search_query_container).setVisibility(View.VISIBLE);
             showBackArrowInSingleColumnMode(false);
             getSettingsFragmentManager()
@@ -378,7 +413,12 @@ public class SettingsSearchCoordinator
         }
         queryEdit.setText("");
         updateClearTextButton(queryEdit.getText());
-        clearFragment(R.drawable.settings_zero_state, /* addToBackStack= */ false, emptyRunnable());
+        if (mRecentSearches.isEmpty()) {
+            clearFragment(
+                    R.drawable.settings_zero_state, /* addToBackStack= */ false, emptyRunnable());
+        } else {
+            displayRecentSearches();
+        }
         queryEdit.requestFocus();
         KeyboardUtils.showKeyboard(queryEdit);
     }
@@ -570,23 +610,31 @@ public class SettingsSearchCoordinator
     }
 
     /**
+     * Ensures the Settings search index is built and ready to use. Safe to call multiple times; it
+     * will only build if necessary.
+     */
+    public static SettingsIndexData ensureIndexBuilt(Context context, Profile profile) {
+        SettingsIndexData indexData = SettingsIndexData.getInstance();
+        if (indexData == null) {
+            indexData = SettingsIndexData.createInstance();
+        }
+
+        if (indexData.needsIndexing()) {
+            buildIndexInternal(context, profile, indexData);
+            indexData.resetNeedsIndexing();
+        }
+
+        return indexData;
+    }
+
+    /**
      * Initializes the in-memory search index for all settings. It uses the providers found in
      * {@link SearchIndexProviderRegistry.ALL_PROVIDERS}.
      */
     @Initializer
     @EnsuresNonNull("mIndexData")
     private void initIndex() {
-        SettingsIndexData indexData = SettingsIndexData.getInstance();
-        if (indexData == null) {
-            mIndexData = SettingsIndexData.createInstance();
-        } else {
-            mIndexData = indexData;
-            if (!mIndexData.needsIndexing()) return;
-        }
-
-        buildIndexInternal(mActivity, mProfile, mIndexData);
-
-        mIndexData.resetNeedsIndexing();
+        mIndexData = ensureIndexBuilt(mActivity, mProfile);
     }
 
     @VisibleForTesting
@@ -651,7 +699,7 @@ public class SettingsSearchCoordinator
         return providerMap;
     }
 
-    private void enterSearchState(boolean isRestored) {
+    void enterSearchState(boolean isRestored) {
         initIndex();
 
         if (mMultiColumnSettings != null && !mMultiColumnSettingsBackActionHandlerSet) {
@@ -686,7 +734,7 @@ public class SettingsSearchCoordinator
                     });
         }
         KeyboardUtils.showKeyboard(queryEdit);
-        mFragmentState = FS_SEARCH;
+        setFragmentState(FS_SEARCH);
         mBackActionCallback.setEnabled(true);
         if (mUseMultiColumn) {
             // When being restored, MultiColumnTitleUpdater restores the first-visible title index
@@ -701,6 +749,11 @@ public class SettingsSearchCoordinator
 
         updateHelpMenuVisibility();
         adjustTalkbackTraversalOrder(queryContainer);
+    }
+
+    private void setFragmentState(int state) {
+        mFragmentState = state;
+        if (!mUseMultiColumn) showTitleTextView(state != FS_SEARCH);
     }
 
     private void showBackArrowInSingleColumnMode(boolean show) {
@@ -740,10 +793,10 @@ public class SettingsSearchCoordinator
             mPaneOpenedBySearch = false;
         }
 
-        mFragmentState = FS_SETTINGS;
+        setFragmentState(FS_SETTINGS);
         mBackActionCallback.setEnabled(false);
         if (mUseMultiColumn) mUpdateFirstVisibleTitle.onResult(0);
-        mShowingEmptyFragment = false;
+        mShouldLogSearchPerformed = false;
 
         updateHelpMenuVisibility();
         adjustTalkbackTraversalOrder(searchBox);
@@ -783,7 +836,7 @@ public class SettingsSearchCoordinator
             // where we display the search results.
             String topStackEntry = fragmentManager.getBackStackEntryAt(stackCount - 1).getName();
             if (TextUtils.equals(RESULT_BACKSTACK, topStackEntry)) {
-                mFragmentState = FS_SEARCH;
+                setFragmentState(FS_SEARCH);
                 mActivity.findViewById(R.id.search_query_container).setVisibility(View.VISIBLE);
                 EditText queryEdit = mActivity.findViewById(R.id.search_query);
                 queryEdit.requestFocus();
@@ -813,13 +866,18 @@ public class SettingsSearchCoordinator
     @SuppressWarnings("ReferenceEquality")
     private void clearFragmentWithCallback(
             int imageId, boolean addToBackStack, Runnable openHelpCenter, Runnable callback) {
-        Fragment emptyFragment = clearFragment(imageId, addToBackStack, openHelpCenter);
+        Fragment fragment;
+        if (mRecentSearches.isEmpty()) {
+            fragment = clearFragment(imageId, addToBackStack, openHelpCenter);
+        } else {
+            fragment = displayRecentSearches();
+        }
         var fragmentManager = getSettingsFragmentManager();
         fragmentManager.registerFragmentLifecycleCallbacks(
                 new FragmentManager.FragmentLifecycleCallbacks() {
                     @Override
                     public void onFragmentResumed(FragmentManager fm, Fragment f) {
-                        if (f == emptyFragment) {
+                        if (f == fragment) {
                             fm.unregisterFragmentLifecycleCallbacks(this);
                             callback.run();
                         }
@@ -856,13 +914,37 @@ public class SettingsSearchCoordinator
                     },
                     false);
         }
-        mShowingEmptyFragment = true;
+        mShouldLogSearchPerformed = true;
         return emptyFragment;
     }
 
     private void openHelpCenter() {
         HelpAndFeedbackLauncherImpl.getForProfile(mProfile)
                 .show(mActivity, mActivity.getString(R.string.help_context_settings), null);
+    }
+
+    private Fragment displayRecentSearches() {
+        var fragment = new RecentSearchesFragment();
+        fragment.setPreferenceData(new ArrayList<>(mRecentSearches.values()));
+        fragment.setDeleteCallback(this::deleteRecentSearches);
+        fragment.setSelectedCallback(this::onResultSelected);
+
+        // Get the FragmentManager and replace the current fragment in the container
+        FragmentManager fragmentManager = getSettingsFragmentManager();
+        fragmentManager
+                .beginTransaction()
+                .replace(getViewIdForSearchDisplay(), fragment, RESULT_FRAGMENT)
+                .addToBackStack(null)
+                .setReorderingAllowed(true)
+                .commit();
+        mShouldLogSearchPerformed = true;
+        return fragment;
+    }
+
+    private void deleteRecentSearches() {
+        // TODO(crbug.com/444475553): Support deletion via 'Clear Browsing Data' settings as well.
+        mRecentSearches.clear();
+        clearFragment(R.drawable.settings_zero_state, /* addToBackStack= */ false, emptyRunnable());
     }
 
     /** Returns the view ID where search results will be displayed. */
@@ -993,16 +1075,16 @@ public class SettingsSearchCoordinator
     public void onConfigurationChanged(Configuration newConfig) {
         // mUseMultiColumnSupplier doesn't return the right, updated value immediately.
         // Observe the content view enclosing the PreferenceFragment for view tree update.
-        var contentViewObserver = mActivity.findViewById(R.id.content).getViewTreeObserver();
+        var contentView = mActivity.findViewById(R.id.content);
         var listener =
                 new OnGlobalLayoutListener() {
                     @Override
                     public void onGlobalLayout() {
-                        contentViewObserver.removeOnGlobalLayoutListener(this);
+                        contentView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                         onConfigurationChangedInternal();
                     }
                 };
-        contentViewObserver.addOnGlobalLayoutListener(listener);
+        contentView.getViewTreeObserver().addOnGlobalLayoutListener(listener);
     }
 
     private void onConfigurationChangedInternal() {
@@ -1170,7 +1252,7 @@ public class SettingsSearchCoordinator
                             FragmentManager fragmentManager = getSettingsFragmentManager();
                             fragmentManager.popBackStack(
                                     RESULT_BACKSTACK, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-                            mFragmentState = FS_SEARCH;
+                            setFragmentState(FS_SEARCH);
                         }
                     }
                 });
@@ -1180,10 +1262,9 @@ public class SettingsSearchCoordinator
                     public void onInitializeAccessibilityNodeInfo(
                             View host, AccessibilityNodeInfo info) {
                         super.onInitializeAccessibilityNodeInfo(host, info);
+                        String orgText = info.getText() == null ? "" : info.getText().toString();
                         info.setText(
-                                info.getText() == null
-                                        ? mActivity.getString(R.string.search_in_settings_hint)
-                                        : info.getText().toString());
+                                mActivity.getString(R.string.search_in_settings_hint, orgText));
                     }
                 });
     }
@@ -1196,7 +1277,7 @@ public class SettingsSearchCoordinator
 
     public void onTitleTapped(@Nullable String entryName) {
         // Tap on the title 'Search results' should set the state to 'SEARCH'.
-        if (RESULT_BACKSTACK.equals(entryName)) mFragmentState = FS_SEARCH;
+        if (RESULT_BACKSTACK.equals(entryName)) setFragmentState(FS_SEARCH);
     }
 
     /**
@@ -1205,7 +1286,7 @@ public class SettingsSearchCoordinator
      * @param query The search query the user entered.
      * @param callback The callback function to be executed when results are available.
      */
-    private void performSearch(String query, SearchCallback callback) {
+    void performSearch(String query, SearchCallback callback) {
         if (mSearchRunnable != null) {
             // Debouncing to avoid initiating search for each keystroke entered fast.
             // We sets some delay before initiating search (see postDelayed() below) so that
@@ -1216,7 +1297,7 @@ public class SettingsSearchCoordinator
             mQueryEntered = true;
             mSearchRunnable =
                     () -> {
-                        if (mShowingEmptyFragment) {
+                        if (mShouldLogSearchPerformed) {
                             RecordUserAction.record("Android.Settings.Search.Performed");
                         }
                         callback.onSearchResults(mIndexData.search(query));
@@ -1235,7 +1316,8 @@ public class SettingsSearchCoordinator
      *
      * @param results search results to display.
      */
-    private void displayResultsFragment(SearchResults results) {
+    @VisibleForTesting(otherwise = PRIVATE)
+    void displayResultsFragment(SearchResults results) {
         mSearchRunnable = null;
 
         if (results.getItems().isEmpty()) {
@@ -1258,7 +1340,7 @@ public class SettingsSearchCoordinator
                 .replace(getViewIdForSearchDisplay(), resultsFragment, RESULT_FRAGMENT)
                 .setReorderingAllowed(true)
                 .commit();
-        mShowingEmptyFragment = false;
+        mShouldLogSearchPerformed = false;
         mResultUpdated = true;
     }
 
@@ -1266,33 +1348,26 @@ public class SettingsSearchCoordinator
      * Called when a preference is chosen from search results. Open the associated fragment or
      * activity, and if possible, scrolls to the chosen item and highlights it.
      *
-     * @param preferenceFragment Settings fragment to show.
-     * @param key The key of the chosen preference in the fragment.
-     * @param extras The additional args required to launch the pref.
-     * @param highlight Whether or not to scroll and highlight the item.
-     * @param highlightKey The key to highlight if it is different from {@code key}.
-     * @param subViewPos Position of the view to highlight among the child views.
+     * @param preferenceFragment Package name of the Fragment containing the chosen setting.
+     * @param highlight Whether or not to highlight the item.
+     * @param entry Entry data from the index.
      */
     private void onResultSelected(
-            @Nullable String preferenceFragment,
-            String key,
-            Bundle extras,
-            boolean highlight,
-            @Nullable String highlightKey,
-            int subViewPos) {
+            @Nullable String preferenceFragment, boolean highlight, SettingsIndexData.Entry entry) {
         if (mResultUpdated) {
             RecordUserAction.record("Android.Settings.Search.ResultClicked");
             mResultUpdated = false;
             mSearchCompleted = true;
         }
+        mRecentSearches.add(entry);
         EditText queryEdit = mActivity.findViewById(R.id.search_query);
         KeyboardUtils.hideAndroidSoftKeyboard(queryEdit);
         if (preferenceFragment == null) {
             if (MainSettings.openSearchResult(
                     mActivity,
                     mProfile,
-                    key,
-                    extras,
+                    entry.key,
+                    entry.extras,
                     mModalDialogManagerSupplier.asNonNull().get())) {
                 enterResultState();
             }
@@ -1303,7 +1378,7 @@ public class SettingsSearchCoordinator
             Class fragment = Class.forName(preferenceFragment);
             Constructor constructor = fragment.getConstructor();
             var f = (Fragment) constructor.newInstance();
-            f.setArguments(extras);
+            f.setArguments(entry.extras);
             FragmentManager fragmentManager = getSettingsFragmentManager();
             fragmentManager
                     .beginTransaction()
@@ -1322,7 +1397,10 @@ public class SettingsSearchCoordinator
                                 mHandler.post(
                                         () ->
                                                 scrollAndHighlightItem(
-                                                        pf, key, highlightKey, subViewPos));
+                                                        pf,
+                                                        entry.key,
+                                                        entry.highlightKey,
+                                                        entry.subViewPos));
                                 fm.unregisterFragmentLifecycleCallbacks(this);
                             }
                         },
@@ -1346,7 +1424,7 @@ public class SettingsSearchCoordinator
     }
 
     private void enterResultState() {
-        mFragmentState = FS_RESULTS;
+        setFragmentState(FS_RESULTS);
         if (mUseMultiColumn) {
             mActivity.findViewById(R.id.search_query).clearFocus();
         } else {
@@ -1545,5 +1623,48 @@ public class SettingsSearchCoordinator
         }
         mHandler.removeCallbacksAndMessages(null);
         mContainmentController = null;
+
+        persistRecentSearches();
+    }
+
+    private void persistRecentSearches() {
+        SharedPreferencesManager preferencesManager = ChromeSharedPreferences.getInstance();
+        JSONArray jsonArray = new JSONArray();
+        for (SettingsIndexData.Entry entry : mRecentSearches.values()) {
+            var obj = entry.toJsonObject();
+            if (obj != null) jsonArray.put(obj);
+        }
+        preferencesManager.writeString(
+                ChromePreferenceKeys.SETTINGS_RECENT_SEARCH_ENTRIES, jsonArray.toString());
+    }
+
+    @VisibleForTesting(otherwise = PRIVATE)
+    void restoreRecentSearches() {
+        SharedPreferencesManager preferencesManager = ChromeSharedPreferences.getInstance();
+        String data =
+                preferencesManager.readString(
+                        ChromePreferenceKeys.SETTINGS_RECENT_SEARCH_ENTRIES, "");
+        JSONArray jsonArray;
+        try {
+            jsonArray = new JSONArray(data);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error restoring recent search from a disk file");
+            return;
+        }
+        for (int i = 0; i < jsonArray.length(); i++) {
+            try {
+                JSONObject obj = jsonArray.getJSONObject(i);
+                var entry = SettingsIndexData.Entry.fromJson(obj);
+                if (entry != null) mRecentSearches.add(entry);
+            } catch (JSONException e) {
+                Log.e(TAG, "Error restoring Entry from JSON object");
+            } catch (IllegalArgumentException e) {
+                ChromePureJavaExceptionReporter.reportJavaException(e);
+            }
+        }
+    }
+
+    boolean hasRecentSearchEntriesForTesting() {
+        return !mRecentSearches.isEmpty();
     }
 }

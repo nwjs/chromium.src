@@ -44,6 +44,10 @@ class CORE_EXPORT HTMLTableElement final : public HTMLElement {
   explicit HTMLTableElement(Document&);
   ~HTMLTableElement() override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLTableElement;
+  }
+
   HTMLTableCaptionElement* caption() const;
   void setCaption(HTMLTableCaptionElement*, ExceptionState&);
 

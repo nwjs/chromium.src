@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "base/strings/string_number_conversions.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "cc/layers/picture_layer.h"
 #include "cc/layers/solid_color_layer.h"
@@ -15,7 +14,6 @@
 #include "cc/test/layer_tree_pixel_test.h"
 #include "cc/test/pixel_comparator.h"
 #include "cc/test/solid_color_content_layer_client.h"
-#include "components/viz/common/features.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 
@@ -324,8 +322,12 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterQuality_0_33) {
   blur->SetBackdropFilters(filters);
   blur->SetBackdropFilterQuality(0.33);
 
-#if BUILDFLAG(IS_WIN) || defined(ARCH_CPU_ARM64)
-  // Windows and ARM64 have 436 pixels off by 1: crbug.com/259915
+#if BUILDFLAG(IS_IOS)
+  // iOS has imperceptible pixel differences (max error of 1 per channel).
+  pixel_comparator_ =
+      std::make_unique<AlphaDiscardingFuzzyPixelOffByOneComparator>();
+#elif BUILDFLAG(IS_WIN) || defined(ARCH_CPU_ARM64)
+  // Windows and ARM64 (non-iOS) have 436 pixels off by 1: crbug.com/259915
   pixel_comparator_ = std::make_unique<FuzzyPixelComparator>(
       FuzzyPixelComparator()
           .DiscardAlpha()
@@ -360,8 +362,12 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterQuality_1_0) {
   blur->SetBackdropFilters(filters);
   blur->SetBackdropFilterQuality(1.0);
 
-#if BUILDFLAG(IS_WIN) || defined(ARCH_CPU_ARM64)
-  // Windows and ARM64 have 436 pixels off by 1: crbug.com/259915
+#if BUILDFLAG(IS_IOS)
+  // iOS has imperceptible pixel differences (max error of 1 per channel).
+  pixel_comparator_ =
+      std::make_unique<AlphaDiscardingFuzzyPixelOffByOneComparator>();
+#elif BUILDFLAG(IS_WIN) || defined(ARCH_CPU_ARM64)
+  // Windows and ARM64 (non-iOS) have 436 pixels off by 1: crbug.com/259915
   pixel_comparator_ = std::make_unique<FuzzyPixelComparator>(
       FuzzyPixelComparator()
           .DiscardAlpha()
@@ -1274,7 +1280,6 @@ TEST_P(LayerTreeHostFiltersPixelTestGPU, FilterWithGiantCropRectNoClip) {
 class BackdropFilterOffsetTest : public LayerTreeHostFiltersPixelTest {
  protected:
   void RunPixelTestType(float device_scale_factor) {
-    feature_list_.InitAndEnableFeature(features::kBackdropFilterMirrorEdgeMode);
     scoped_refptr<Layer> root =
         CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorWHITE);
     scoped_refptr<SolidColorLayer> background =
@@ -1309,7 +1314,6 @@ class BackdropFilterOffsetTest : public LayerTreeHostFiltersPixelTest {
     LayerTreeHostFiltersPixelTest::SetupTree();
   }
 
-  base::test::ScopedFeatureList feature_list_;
   float device_scale_factor_ = 1;
 };
 
@@ -1322,6 +1326,13 @@ INSTANTIATE_TEST_SUITE_P(All,
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BackdropFilterOffsetTest);
 
 TEST_P(BackdropFilterOffsetTest, StandardDpi) {
+#if BUILDFLAG(IS_IOS)
+  // iOS has imperceptible pixel differences with SkiaGraphiteDawn.
+  if (renderer_type() == viz::RendererType::kSkiaGraphiteDawn) {
+    pixel_comparator_ =
+        std::make_unique<AlphaDiscardingFuzzyPixelOffByOneComparator>();
+  }
+#endif
   RunPixelTestType(1.f);
 }
 
@@ -1376,6 +1387,13 @@ INSTANTIATE_TEST_SUITE_P(All,
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BackdropFilterInvertTest);
 
 TEST_P(BackdropFilterInvertTest, StandardDpi) {
+#if BUILDFLAG(IS_IOS)
+  // iOS has imperceptible pixel differences with SkiaGraphiteDawn.
+  if (renderer_type() == viz::RendererType::kSkiaGraphiteDawn) {
+    pixel_comparator_ =
+        std::make_unique<AlphaDiscardingFuzzyPixelOffByOneComparator>();
+  }
+#endif
   RunPixelTestType(1.f);
 }
 

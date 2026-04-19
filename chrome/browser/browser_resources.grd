@@ -41,8 +41,10 @@
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_VEHICLE_LOTTIE" file="resources/autofill/autofill_save_vehicle.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_KNOWN_TRAVELER_NUMBER_AND_REDRESS_NUMBER_LOTTIE" file="resources/autofill/autofill_save_known_traveler_number_and_redress_number.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_IBAN_LOTTIE" file="resources/autofill/autofill_save_iban.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_AUTOFILL_SAVE_IBAN_TO_WALLET_LOTTIE" file="resources/autofill/autofill_save_iban_to_wallet.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_CARD_SECURE_LOTTIE" file="resources/autofill/autofill_save_card_secure.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_CARD_LOCAL_LOTTIE" file="resources/autofill/autofill_save_card_local.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_AUTOFILL_SAVE_CARD_TO_WALLET_LOTTIE" file="resources/autofill/autofill_save_card_to_wallet.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_SECURITY_CODE_LOTTIE" file="resources/autofill/autofill_save_security_code.json" compress="brotli"/>
 
         <!-- Shopping resources -->
@@ -59,13 +61,22 @@
         <!-- Wallet Pass Save Bubble resources -->
         <structure type="lottie" name="IDR_WALLET_PASS_SAVE_LOYALTY_CARD_LOTTIE" file="resources/wallet/wallet_save_loyalty_card.json" compress="brotli"/>
         <structure type="lottie" name="IDR_WALLET_PASS_SAVE_EVENT_TICKET_LOTTIE" file="resources/wallet/wallet_save_event_ticket.json" compress="brotli"/>
-        <structure type="lottie" name="IDR_WALLET_PASS_SAVE_BOARDING_PASS_LOTTIE" file="resources/wallet/wallet_save_boarding_pass.json" compress="brotli"/>
-        <structure type="lottie" name="IDR_WALLET_PASS_SAVE_TRANSPORT_TICKET_LOTTIE" file="resources/wallet/wallet_save_transport_ticket.json" compress="brotli"/>
-      </if>
-    </structures>
+        <structure type="lottie" name="IDR_WALLET_PASS_SAVE_BOARDING_PASS_LOTTIE" file="resources/wallet/wallet_save_boarding_pass.json" compress="brotli" />
+        <structure type="lottie" name="IDR_WALLET_PASS_SAVE_TRANSPORT_TICKET_LOTTIE" file="resources/wallet/wallet_save_transport_ticket.json" compress="brotli" />
+
+        <!-- Toolbar Lottie resources -->
+        <structure type="lottie" name="IDR_APP_MENU_BUTTON_HOVER_LOTTIE" file="resources/toolbar/app_menu_button_hover.json" compress="brotli" />
+
+        <!-- Search AI Mode Lottie resources -->
+        <structure type="lottie" name="IDR_SEARCH_AI_MODE_SIGNIN_PROMO_LOTTIE" file="resources/search_ai_mode/search_ai_mode_signin_promo.json" compress="brotli" />
+        </if>
+        </structures>
     <includes>
-      <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" compress="false" />
+      <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" compress="false" />
+      <if expr="enable_src_internal">
+        <include name="IDR_APC_PROMPTS_JSON" file="../../internal/password_manager/apc_prompts.json" type="BINDATA" />
+      </if>
       <if expr="is_win">
         <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" type="BINDATA" />
         <include name="IDR_ABOUT_CONFLICTS_JS" file="${root_gen_dir}\chrome\browser\resources\conflicts\tsc\about_conflicts.js" use_base_dir="false" type="BINDATA" />

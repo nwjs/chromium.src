@@ -13,7 +13,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "gin/converter.h"
@@ -338,7 +337,7 @@ void WebViewPlugin::WebViewHelper::UpdateTooltip(
     const std::u16string& tooltip_text) {
   if (plugin_->container_) {
     plugin_->container_->GetElement().SetAttribute(
-        "title", WebString::FromUTF16(tooltip_text));
+        "title", WebString::FromUtf16(tooltip_text));
   }
 }
 

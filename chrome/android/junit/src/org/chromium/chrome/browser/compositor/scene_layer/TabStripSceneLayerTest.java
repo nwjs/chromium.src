@@ -43,6 +43,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.ButtonType;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton.TooltipHandler;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
+import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorTextButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
@@ -74,7 +75,7 @@ public class TabStripSceneLayerTest {
 
     private static final float DP_TO_PX = 1.f;
 
-    private TintedCompositorButton mGlicButton;
+    private TintedCompositorTextButton mGlicButton;
     private CompositorButton mModelSelectorButton;
     private TintedCompositorButton mNewTabButton;
     private Context mContext;
@@ -105,7 +106,7 @@ public class TabStripSceneLayerTest {
         mTabStripSceneLayer = new TabStripSceneLayer(DP_TO_PX);
         when(mTabStripSceneMock.init(mTabStripSceneLayer)).thenReturn(1L);
         mGlicButton =
-                new TintedCompositorButton(
+                new TintedCompositorTextButton(
                         mContext,
                         ButtonType.GLIC,
                         null,
@@ -114,8 +115,10 @@ public class TabStripSceneLayerTest {
                         mTooltipHandler,
                         mOnClickHandler,
                         mKeyboardFocusHandler,
-                        R.drawable.ic_spark_24dp,
-                        8.f);
+                        R.drawable.ic_spark_16dp,
+                        8.f,
+                        /* hasLongClickAction= */ false,
+                        /* dismissButton= */ null);
         mModelSelectorButton =
                 new TintedCompositorButton(
                         mContext,
@@ -158,6 +161,7 @@ public class TabStripSceneLayerTest {
         when(mStripLayoutHelperManager.getNewTabButton()).thenReturn(mNewTabButton);
         when(mStripLayoutHelperManager.getGlicButton()).thenReturn(mGlicButton);
         when(mStripLayoutHelperManager.getModelSelectorButton()).thenReturn(mModelSelectorButton);
+        when(mStripLayoutHelperManager.getContext()).thenReturn(mContext);
         when(mStripLayoutTab.getCloseButton()).thenReturn(mCloseButton);
         when(mStripGroupTitle.getKeyboardFocusRingColor())
                 .thenReturn(
@@ -321,7 +325,10 @@ public class TabStripSceneLayerTest {
                         eq(
                                 FOLIO_FOOT_LENGTH_DP
                                         * mContext.getResources().getDisplayMetrics().density),
-                        anyBoolean());
+                        anyBoolean(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyInt());
     }
 
     @Test
@@ -389,7 +396,10 @@ public class TabStripSceneLayerTest {
                         eq(
                                 FOLIO_FOOT_LENGTH_DP
                                         * mContext.getResources().getDisplayMetrics().density),
-                        anyBoolean());
+                        anyBoolean(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyInt());
     }
 
     @Test
@@ -459,7 +469,10 @@ public class TabStripSceneLayerTest {
                         eq(
                                 FOLIO_FOOT_LENGTH_DP
                                         * mContext.getResources().getDisplayMetrics().density),
-                        anyBoolean());
+                        anyBoolean(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyInt());
     }
 
     @Test
@@ -528,7 +541,10 @@ public class TabStripSceneLayerTest {
                         eq(
                                 FOLIO_FOOT_LENGTH_DP
                                         * mContext.getResources().getDisplayMetrics().density),
-                        anyBoolean());
+                        anyBoolean(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyInt());
     }
 
     @Test

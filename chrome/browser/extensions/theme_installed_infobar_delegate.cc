@@ -18,6 +18,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -34,11 +35,11 @@ void ThemeInstalledInfoBarDelegate::CreateForLastActiveTab(
   // FindTabbedBrowser() is called with |match_original_profiles| true because
   // a theme install in either a normal or incognito window for a profile
   // affects all normal and incognito windows for that profile.
-  Browser* browser =
+  BrowserWindowInterface* browser =
       chrome::FindTabbedBrowser(profile, /*match_original_profiles=*/true);
   if (browser) {
     content::WebContents* web_contents =
-        browser->tab_strip_model()->GetActiveWebContents();
+        browser->GetTabStripModel()->GetActiveWebContents();
     if (web_contents) {
       ThemeInstalledInfoBarDelegate::Create(
           infobars::ContentInfoBarManager::FromWebContents(web_contents),
@@ -89,17 +90,13 @@ ThemeInstalledInfoBarDelegate::ThemeInstalledInfoBarDelegate(
     const std::string& theme_id,
     std::unique_ptr<ThemeService::ThemeReinstaller> prev_theme_reinstaller)
     : ConfirmInfoBarDelegate(),
-      theme_service_(theme_service),
       theme_name_(theme_name),
       theme_id_(theme_id),
       prev_theme_reinstaller_(std::move(prev_theme_reinstaller)) {
-  theme_service_->AddObserver(this);
+  theme_observation_.Observe(theme_service);
 }
 
-ThemeInstalledInfoBarDelegate::~ThemeInstalledInfoBarDelegate() {
-  // We don't want any notifications while we're running our destructor.
-  theme_service_->RemoveObserver(this);
-}
+ThemeInstalledInfoBarDelegate::~ThemeInstalledInfoBarDelegate() = default;
 
 infobars::InfoBarDelegate::InfoBarIdentifier
 ThemeInstalledInfoBarDelegate::GetIdentifier() const {
@@ -140,7 +137,8 @@ bool ThemeInstalledInfoBarDelegate::Cancel() {
 void ThemeInstalledInfoBarDelegate::OnThemeChanged() {
   // If the new theme is different from what this info bar is associated with,
   // close this info bar since it is no longer relevant.
-  if (theme_id_ != theme_service_->GetThemeID()) {
+  CHECK(theme_observation_.IsObserving());
+  if (theme_id_ != theme_observation_.GetSource()->GetThemeID()) {
     infobar()->RemoveSelf();
   }
 }

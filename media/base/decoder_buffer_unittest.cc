@@ -16,10 +16,12 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/strings/string_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "media/base/test_data_util.h"
 #include "media/base/test_helpers.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/switches.h"
 
 namespace media {
 
@@ -196,15 +198,14 @@ TEST(DecoderBufferTest, FromSharedMemoryRegion_ZeroSize) {
 }
 
 TEST(DecoderBufferTest, FromExternalMemory) {
-  constexpr uint8_t kData[] = "hello";
-  constexpr size_t kDataSize = std::size(kData);
+  static constexpr uint8_t kData[] = "hello";
+  static constexpr base::span<const uint8_t> kDataSpan(kData);
 
-  auto external_memory = std::make_unique<ExternalMemoryAdapterForTesting>(
-      UNSAFE_TODO(base::span(kData, kDataSize)));
-  auto buffer = DecoderBuffer::FromExternalMemory(std::move(external_memory));
+  const auto buffer = DecoderBuffer::FromExternalMemory(
+      std::make_unique<ExternalMemoryAdapterForTesting>(kDataSpan));
   ASSERT_TRUE(buffer.get());
-  EXPECT_EQ(buffer->size(), kDataSize);
-  EXPECT_EQ(base::span(*buffer), base::span(kData));
+  EXPECT_EQ(buffer->size(), kDataSpan.size());
+  EXPECT_EQ(base::span(*buffer), kDataSpan);
   EXPECT_FALSE(buffer->end_of_stream());
   EXPECT_FALSE(buffer->is_key_frame());
 }
@@ -258,26 +259,26 @@ TEST(DecoderBufferTest, IsKeyFrame) {
 }
 
 TEST(DecoderBufferTest, SideData) {
+  base::test::ScopedFeatureList scoped_feature_list(features::kHdrAgtm);
+
   auto buffer = base::MakeRefCounted<DecoderBuffer>(0);
   EXPECT_FALSE(buffer->side_data());
 
   constexpr uint64_t kSecureHandle = 42;
   const std::vector<uint32_t> kSpatialLayers = {1, 2, 3};
   const std::vector<uint8_t> kAlphaData = {9, 8, 7};
-  const std::vector<uint8_t> kItuT35Data = {5, 6, 7};
+  const std::vector<uint8_t> kAgtmData = {0x00, 0x80, 0x07, 0xd0};
 
   buffer->WritableSideData().secure_handle = kSecureHandle;
   buffer->WritableSideData().spatial_layers = kSpatialLayers;
   buffer->WritableSideData().alpha_data =
       base::HeapArray<uint8_t>::CopiedFrom(kAlphaData);
-  buffer->WritableSideData().itu_t35_data =
-      base::HeapArray<uint8_t>::CopiedFrom(kItuT35Data);
+  buffer->WritableSideData().hdr_metadata.SetSerializedAgtm(kAgtmData);
   EXPECT_TRUE(buffer->side_data());
   EXPECT_EQ(buffer->side_data()->secure_handle, kSecureHandle);
   EXPECT_EQ(buffer->side_data()->spatial_layers, kSpatialLayers);
   EXPECT_EQ(buffer->side_data()->alpha_data.as_span(), base::span(kAlphaData));
-  EXPECT_EQ(buffer->side_data()->itu_t35_data.as_span(),
-            base::span(kItuT35Data));
+  EXPECT_TRUE(buffer->side_data()->hdr_metadata.HasAgtm());
 
   auto cloned_side_data = buffer->side_data()->Clone();
 
@@ -287,8 +288,9 @@ TEST(DecoderBufferTest, SideData) {
             cloned_side_data->spatial_layers);
   EXPECT_EQ(buffer->side_data()->alpha_data.as_span(),
             cloned_side_data->alpha_data.as_span());
-  EXPECT_EQ(buffer->side_data()->itu_t35_data.as_span(),
-            cloned_side_data->itu_t35_data.as_span());
+  ASSERT_TRUE(buffer->side_data()->hdr_metadata.HasAgtm());
+  EXPECT_EQ(buffer->side_data()->hdr_metadata.GetAgtm().fHdrReferenceWhite,
+            400.f);
 
   buffer->set_side_data(nullptr);
   EXPECT_FALSE(buffer->side_data());

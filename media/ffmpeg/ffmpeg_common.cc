@@ -812,9 +812,9 @@ bool AVStreamToVideoDecoderConfig(const AVStream* stream,
       case AV_PKT_DATA_MASTERING_DISPLAY_METADATA: {
         AVMasteringDisplayMetadata* mdcv =
             reinterpret_cast<AVMasteringDisplayMetadata*>(side_data.data);
-        gfx::HdrMetadataSmpteSt2086 smpte_st_2086;
+        skhdr::MasteringDisplayColorVolume sk_mdcv;
         if (mdcv->has_primaries) {
-          smpte_st_2086.primaries = {
+          sk_mdcv.fDisplayPrimaries = {
               static_cast<float>(av_q2d(mdcv->display_primaries[0][0])),
               static_cast<float>(av_q2d(mdcv->display_primaries[0][1])),
               static_cast<float>(av_q2d(mdcv->display_primaries[1][0])),
@@ -826,22 +826,25 @@ bool AVStreamToVideoDecoderConfig(const AVStream* stream,
           };
         }
         if (mdcv->has_luminance) {
-          smpte_st_2086.luminance_max = av_q2d(mdcv->max_luminance);
-          smpte_st_2086.luminance_min = av_q2d(mdcv->min_luminance);
+          sk_mdcv.fMaximumDisplayMasteringLuminance =
+              av_q2d(mdcv->max_luminance);
+          sk_mdcv.fMinimumDisplayMasteringLuminance =
+              av_q2d(mdcv->min_luminance);
         }
 
         // TODO(crbug.com/40268540): Consider rejecting metadata that
         // does not specify all values.
         if (mdcv->has_primaries || mdcv->has_luminance) {
-          hdr_metadata.smpte_st_2086 = smpte_st_2086;
+          hdr_metadata.SetMDCV(sk_mdcv);
         }
         break;
       }
       case AV_PKT_DATA_CONTENT_LIGHT_LEVEL: {
         AVContentLightMetadata* clli =
             reinterpret_cast<AVContentLightMetadata*>(side_data.data);
-        hdr_metadata.cta_861_3 =
-            gfx::HdrMetadataCta861_3(clli->MaxCLL, clli->MaxFALL);
+        hdr_metadata.SetCLLI(skhdr::ContentLightLevelInformation::MakeUint16(
+            /*maxCLL=*/clli->MaxCLL,
+            /*maxFALL=*/clli->MaxFALL));
         break;
       }
 #if BUILDFLAG(ENABLE_PLATFORM_DOLBY_VISION)
@@ -1000,6 +1003,10 @@ ChannelLayout ChannelLayoutToChromeChannelLayout(
     case AV_CH_FRONT_LEFT | AV_CH_FRONT_RIGHT | AV_CH_LOW_FREQUENCY |
         AV_CH_BACK_CENTER:
       return CHANNEL_LAYOUT_3_1_BACK;
+    case AV_CH_LAYOUT_5POINT1POINT4_BACK:
+      return CHANNEL_LAYOUT_5_1_4;
+    case AV_CH_LAYOUT_7POINT1POINT4_BACK:
+      return CHANNEL_LAYOUT_7_1_4;
     default:
       // FFmpeg channel_layout is 0 for .wav and .mp3.  Attempt to guess layout
       // based on the channel count.

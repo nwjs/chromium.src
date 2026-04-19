@@ -47,6 +47,7 @@ enum NavigationPolicy {
   kNavigationPolicyNewWindow,
   kNavigationPolicyNewPopup,
   kNavigationPolicyPictureInPicture,
+  kNavigationPolicySplitView,
   kNavigationPolicyLinkPreview,
 };
 

@@ -179,9 +179,9 @@ class SpdySessionTest : public PlatformTest, public WithTaskEnvironment {
                                base::test::TaskEnvironment::TimeSource::DEFAULT)
       : WithTaskEnvironment(time_source),
         old_max_group_sockets_(ClientSocketPoolManager::max_sockets_per_group(
-            HttpNetworkSession::NORMAL_SOCKET_POOL)),
+            HttpNetworkSession::SocketPoolType::kNormal)),
         old_socket_soft_cap_(ClientSocketPoolManager::socket_soft_cap_per_pool(
-            HttpNetworkSession::NORMAL_SOCKET_POOL)),
+            HttpNetworkSession::SocketPoolType::kNormal)),
         test_url_(kDefaultUrl),
         test_server_(test_url_),
         key_(HostPortPair::FromURL(test_url_),
@@ -201,9 +201,9 @@ class SpdySessionTest : public PlatformTest, public WithTaskEnvironment {
     // Important to restore the per-pool limit first, since the pool limit must
     // always be greater than group limit, and the tests reduce both limits.
     ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, old_socket_soft_cap_);
+        HttpNetworkSession::SocketPoolType::kNormal, old_socket_soft_cap_);
     ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-        HttpNetworkSession::NORMAL_SOCKET_POOL, old_max_group_sockets_);
+        HttpNetworkSession::SocketPoolType::kNormal, old_max_group_sockets_);
   }
 
   void SetUp() override {
@@ -980,10 +980,14 @@ TEST_F(SpdySessionTest, CreateStreamAfterGoAway) {
   EXPECT_TRUE(session_->IsStreamActive(1));
 
   SpdyStreamRequest stream_request;
+  // Note that `can_send_early` is needed to bypass confirming the handshake. If
+  // this regresses, may need to do what other tests to, and use
+  // CreateStreamSynchronously() to create an initial SpdyStream and set up the
+  // socket.
   int rv = stream_request.StartRequest(
-      SPDY_REQUEST_RESPONSE_STREAM, session_, test_url_, false, MEDIUM,
-      SocketTag(), NetLogWithSource(), CompletionOnceCallback(),
-      TRAFFIC_ANNOTATION_FOR_TESTS);
+      SPDY_REQUEST_RESPONSE_STREAM, session_, test_url_,
+      /*can_send_early=*/true, MEDIUM, SocketTag(), NetLogWithSource(),
+      CompletionOnceCallback(), TRAFFIC_ANNOTATION_FOR_TESTS);
   EXPECT_THAT(rv, IsError(ERR_FAILED));
 
   EXPECT_TRUE(session_);
@@ -2930,6 +2934,62 @@ TEST_F(SpdySessionTest, CancelTwoStalledCreateStream) {
   EXPECT_EQ(0u, pending_create_stream_queue_size(LOWEST));
 }
 
+// Check that SpdyStreamRequest::StartRequest() does not synchronously notify
+// live streams of their destruction when it notices the socket has been closed.
+// This can racily happen when a new request occurs before a read error from the
+// socket is processed. This synchronously informing other streams of their
+// destruction could result in modifying objects that are on the top of the
+// callstack due to shared state, which can lead to bugs.
+TEST_F(SpdySessionTest,
+       SpdyStreamRequestStartRequestAsynchronouslyNotifiesOtherStreams) {
+  StaticSocketDataProvider data;
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  AddSSLSocketData();
+
+  CreateNetworkSession();
+  CreateSpdySession();
+
+  // Create a stream on the session, and set up a delegate to watch it.
+  base::WeakPtr<SpdyStream> spdy_stream =
+      CreateStreamSynchronously(SPDY_REQUEST_RESPONSE_STREAM, session_,
+                                test_url_, MEDIUM, NetLogWithSource());
+  test::StreamDelegateDoNothing delegate(spdy_stream);
+  spdy_stream->SetDelegate(&delegate);
+
+  // Close the socket, without a read/write event, to simulate the
+  // StartRequest() being the first call to notice the socket is closed.
+  data.set_silently_closed();
+
+  // Start a StreamRequest request. Note that `can_send_early` must be true to
+  // avoid calling MockSSLClientSocket::ConfirmHandshake(), will cause the
+  // request not to check the state of the connection, while it waits for the
+  // SSL handshake to be confirmed (that handshake confirmation check will also
+  // cause the MockSSLClientSocket to CHECK, if it happens, as the socket is
+  // closed).
+  SpdyStreamRequest request;
+  int rv = request.StartRequest(
+      SPDY_REQUEST_RESPONSE_STREAM, session_, test_url_,
+      /*can_send_early=*/true, LOWEST, SocketTag(), NetLogWithSource(),
+      base::BindOnce([](int result) {
+        ADD_FAILURE()
+            << "Callback should not be invoked on synchronous completion";
+      }),
+      TRAFFIC_ANNOTATION_FOR_TESTS);
+  // The request should synchronously fail.
+  EXPECT_THAT(rv, IsError(ERR_CONNECTION_CLOSED));
+
+  // The session should be flagged as going away, and should no longer be
+  // available but should still exist.
+  EXPECT_TRUE(session_->IsGoingAway());
+  EXPECT_FALSE(HasSpdySession(spdy_session_pool_, key_));
+  // The first stream should not have been closed synchronously. Instead, a task
+  // should have been posted to close it.
+  EXPECT_FALSE(delegate.StreamIsClosed());
+
+  // Wait for the stream to be closed.
+  EXPECT_THAT(delegate.WaitForClose(), IsError(ERR_CONNECTION_CLOSED));
+}
+
 // Test that SpdySession::DoReadLoop reads data from the socket
 // without yielding.  This test makes 32k - 1 bytes of data available
 // on the socket for reading. It then verifies that it has read all
@@ -3401,9 +3461,9 @@ TEST_F(SpdySessionTest, ProtocolNegotiation) {
 // pointers to the idle session are currently held.
 TEST_F(SpdySessionTest, CloseOneIdleConnection) {
   ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
   ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
 
   MockRead reads[] = {
     MockRead(SYNCHRONOUS, ERR_IO_PENDING)  // Stall forever.
@@ -3417,7 +3477,7 @@ TEST_F(SpdySessionTest, CloseOneIdleConnection) {
   CreateNetworkSession();
 
   ClientSocketPool* pool = http_session_->GetSocketPool(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+      HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
 
   // Create an idle SPDY session.
   CreateSpdySession();
@@ -3433,7 +3493,8 @@ TEST_F(SpdySessionTest, CloseOneIdleConnection) {
           ClientSocketPool::GroupId(
               url::SchemeHostPort(url::kHttpScheme, "2.com", 80),
               PrivacyMode::PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
-              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false),
+              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false,
+              handles::kInvalidNetworkHandle),
           ClientSocketPool::SocketParams::CreateForHttpForTesting(),
           std::nullopt /* proxy_annotation_tag */, DEFAULT_PRIORITY,
           SocketTag(), ClientSocketPool::RespectLimits::ENABLED,
@@ -3453,9 +3514,9 @@ TEST_F(SpdySessionTest, CloseOneIdleConnection) {
 // has an alias.
 TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
   ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
   ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
 
   MockRead reads[] = {
     MockRead(SYNCHRONOUS, ERR_IO_PENDING)  // Stall forever.
@@ -3472,7 +3533,7 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
   CreateNetworkSession();
 
   ClientSocketPool* pool = http_session_->GetSocketPool(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+      HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
 
   SpdySessionKey key1(HostPortPair("www.example.org", 80),
                       PRIVACY_MODE_DISABLED, ProxyChain::Direct(),
@@ -3540,7 +3601,8 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
           ClientSocketPool::GroupId(
               url::SchemeHostPort(url::kHttpScheme, "3.com", 80),
               PrivacyMode::PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
-              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false),
+              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false,
+              handles::kInvalidNetworkHandle),
           ClientSocketPool::SocketParams::CreateForHttpForTesting(),
           std::nullopt /* proxy_annotation_tag */, DEFAULT_PRIORITY,
           SocketTag(), ClientSocketPool::RespectLimits::ENABLED,
@@ -3566,9 +3628,9 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
 // a lower layer pool stalled on the per-pool socket limit.
 TEST_F(SpdySessionTest, CloseSessionOnIdleWhenPoolStalled) {
   ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
   ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+      HttpNetworkSession::SocketPoolType::kNormal, 1);
 
   MockRead reads[] = {
     MockRead(SYNCHRONOUS, ERR_IO_PENDING)  // Stall forever.
@@ -3594,7 +3656,7 @@ TEST_F(SpdySessionTest, CloseSessionOnIdleWhenPoolStalled) {
   CreateNetworkSession();
 
   ClientSocketPool* pool = http_session_->GetSocketPool(
-      HttpNetworkSession::NORMAL_SOCKET_POOL, ProxyChain::Direct());
+      HttpNetworkSession::SocketPoolType::kNormal, ProxyChain::Direct());
 
   // Create a SPDY session.
   CreateSpdySession();
@@ -3627,7 +3689,8 @@ TEST_F(SpdySessionTest, CloseSessionOnIdleWhenPoolStalled) {
           ClientSocketPool::GroupId(
               url::SchemeHostPort(url::kHttpScheme, "2.com", 80),
               PrivacyMode::PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
-              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false),
+              SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false,
+              handles::kInvalidNetworkHandle),
           ClientSocketPool::SocketParams::CreateForHttpForTesting(),
           std::nullopt /* proxy_annotation_tag */, DEFAULT_PRIORITY,
           SocketTag(), ClientSocketPool::RespectLimits::ENABLED,
@@ -3937,6 +4000,52 @@ TEST_F(SpdySessionTestWithMockTime, FlowControlSlowReads) {
   IncreaseRecvWindowSize(delta_window_size);
   EXPECT_EQ(initial_window_size, session_recv_window_size());
   EXPECT_EQ(0, session_unacked_recv_window_bytes());
+}
+
+TEST_F(SpdySessionTestWithMockTime, PendingStreamRequestQueueWaitTime) {
+  MockRead reads[] = {
+      MockRead(SYNCHRONOUS, ERR_IO_PENDING, 0)  // Stall forever.
+  };
+  StaticSocketDataProvider data(reads, base::span<MockWrite>());
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+
+  AddSSLSocketData();
+
+  CreateNetworkSession();
+  CreateSpdySession();
+
+  // Create kInitialMaxConcurrentStreams streams.
+  std::vector<base::WeakPtr<SpdyStream>> streams;
+  for (size_t i = 0; i < kInitialMaxConcurrentStreams; ++i) {
+    base::WeakPtr<SpdyStream> spdy_stream =
+        CreateStreamSynchronously(SPDY_BIDIRECTIONAL_STREAM, session_,
+                                  test_url_, MEDIUM, NetLogWithSource());
+    ASSERT_TRUE(spdy_stream);
+    streams.push_back(spdy_stream);
+  }
+
+  // This request should be stalled.
+  TestCompletionCallback callback;
+  SpdyStreamRequest request;
+  int rv =
+      request.StartRequest(SPDY_BIDIRECTIONAL_STREAM, session_, test_url_,
+                           false, MEDIUM, SocketTag(), NetLogWithSource(),
+                           callback.callback(), TRAFFIC_ANNOTATION_FOR_TESTS);
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+
+  // Advance time by 100ms.
+  constexpr base::TimeDelta kWaitTime = base::Milliseconds(100);
+  FastForwardBy(kWaitTime);
+
+  // Close one of the active streams.
+  streams[0]->Close();
+
+  // The stalled request should now be satisfied.
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  // Check the queue wait time.
+  EXPECT_GE(request.max_stream_limit_pending_delay(), kWaitTime);
 }
 
 // SpdySession::{Increase,Decrease}SendWindowSize should properly

@@ -762,7 +762,7 @@ web::WebState* WebStateWithSnapshotID(WebStateList& web_state_list,
       GridItemIdentifier* groupItemIdentifier =
           [GridItemIdentifier groupIdentifier:currentGroup];
       CHECK(groupItemIdentifier.tabGroupItem.tabGroup);
-      if (IsTabGridDragAndDropEnabled() && _destinationItemForGroupCreation) {
+      if (_destinationItemForGroupCreation) {
         [self.consumer replaceItem:_destinationItemForGroupCreation
                withReplacementItem:groupItemIdentifier];
         _destinationItemForGroupCreation = nil;
@@ -853,6 +853,10 @@ web::WebState* WebStateWithSnapshotID(WebStateList& web_state_list,
 #pragma mark - SnapshotStorageObserver
 
 - (void)didUpdateSnapshotStorageWithSnapshotID:(SnapshotIDWrapper*)snapshotID {
+  if (IsGridMediatorSnapshotUpdateBatchGuardEnabled() && self.webStateList &&
+      self.webStateList->IsBatchInProgress()) {
+    return;
+  }
   web::WebState* webState = WebStateWithSnapshotID(
       CHECK_DEREF(self.webStateList), snapshotID.snapshot_id);
   if (webState) {
@@ -1006,7 +1010,6 @@ web::WebState* WebStateWithSnapshotID(WebStateList& web_state_list,
 }
 
 - (void)closeTabsExceptID:(web::WebStateID)itemID {
-  CHECK(IsCloseOtherTabsEnabled());
   if (!self.webStateList) {
     return;
   }

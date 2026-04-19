@@ -25,6 +25,7 @@
 <translation id="3115238746683532089">來自供應商 <ph name="VENDOR_ID" /> 的不明產品 <ph name="PRODUCT_ID" /> (序號：<ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">無法取代 crx 檔案，請檢查檔案是否正在使用中。</translation>
 <translation id="3163201441334626963">來自供應商 <ph name="VENDOR_ID" /> 的不明產品 <ph name="PRODUCT_ID" /></translation>
+<translation id="3174723475300476613">你的機構已封鎖此擴充程式的存取權。</translation>
 <translation id="3242289508736283383">含有「kiosk_only」資訊清單屬性的應用程式必須在 Chrome OS Kiosk 模式中安裝</translation>
 <translation id="3393440416772303020"><ph name="PRODUCT_NAME" /> (序號：<ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3466070586188012397">來自供應商 <ph name="VENDOR_ID" /> 的 <ph name="PRODUCT_NAME" /> (序號：<ph name="SERIAL_NUMBER" />)</translation>
@@ -32,6 +33,7 @@
 <translation id="3834775135533257713">「<ph name="TO_INSTALL_APP_NAME" />」應用程式和「<ph name="INSTALLED_APP_NAME" />」發生衝突，因此無法新增。</translation>
 <translation id="388442998277590542">無法載入「<ph name="OPTIONS_PAGE" />」選項頁面。</translation>
 <translation id="3984413272403535372">簽署擴充功能時發生錯誤。</translation>
+<translation id="4094452115117798451">你的機構已封鎖此擴充程式類別的存取權。</translation>
 <translation id="4233778200880751280">無法載入網頁「<ph name="ABOUT_PAGE" />」。</translation>
 <translation id="424963718355121712">應用程式的安裝來源必須與受影響的主機相同</translation>
 <translation id="4306119971288449206">應用程式的內容類型應設為「<ph name="CONTENT_TYPE" />」</translation>
@@ -64,6 +66,7 @@
 <translation id="7003844668372540529">來自 <ph name="VENDOR_NAME" /> 的不明產品 <ph name="PRODUCT_ID" /></translation>
 <translation id="7068383018033524534">資訊清單檔案無效</translation>
 <translation id="7217838517480956708">這部電腦的管理員要求安裝 <ph name="EXTENSION_NAME" />，因此您無法移除或修改。</translation>
+<translation id="7287143125007575591">拒絕存取。</translation>
 <translation id="7612608473764576263">私人密鑰的輸入值必須是有效格式 (須採用 PKCS#8 格式和 PEM 編碼的 RSA 密鑰)。</translation>
 <translation id="765293928828334535">無法從這個網站新增應用程式、擴充程式及使用者指令碼</translation>
 <translation id="7876803335449432072">無法載入「<ph name="RELATIVE_PATH" />」檔案的內容指令碼，內容指令碼樣式表只能從支援的樣式表檔案 (例如 .css 檔案) 載入。</translation>

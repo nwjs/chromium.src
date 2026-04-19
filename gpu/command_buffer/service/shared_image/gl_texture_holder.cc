@@ -206,10 +206,11 @@ void GLTextureHolder::Initialize(
   } else {
     ScopedUnpackState scoped_unpack_state(!pixel_data.empty());
     gl::ScopedProgressReporter scoped_progress_reporter(progress_reporter_);
+    const void* data = pixel_data.empty() ? nullptr : pixel_data.data();
     api->glTexImage2DFn(
         format_desc_.target, /*level=*/0, format_desc_.image_internal_format,
         size_.width(), size_.height(), /*border=*/0,
-        format_info.adjusted_format, format_desc_.data_type, pixel_data.data());
+        format_info.adjusted_format, format_desc_.data_type, data);
   }
 
   if (!is_passthrough_) {
@@ -283,7 +284,7 @@ bool GLTextureHolder::UploadFromMemory(const SkPixmap& pixmap) {
   bool result = gles2::GLES2Util::ComputeImageDataSizes(
       size_.width(), size_.height(), /*depth=*/1, gl_format, gl_type,
       gl_unpack_alignment, &expected_total_bytes, nullptr, &expected_stride);
-  DCHECK(result);
+  CHECK(result);
   DCHECK_GE(src_total_bytes, expected_total_bytes);
   DCHECK_GE(src_stride, expected_stride);
 
@@ -392,7 +393,7 @@ bool GLTextureHolder::ReadbackToMemory(const SkPixmap& pixmap) {
   bool result = gles2::GLES2Util::ComputeImageDataSizes(
       size_.width(), size_.height(), /*depth=*/1, gl_format, gl_type,
       gl_pack_alignment, &expected_total_bytes, nullptr, &expected_stride);
-  DCHECK(result);
+  CHECK(result);
   DCHECK_GE(pixmap.computeByteSize(), expected_total_bytes);
   DCHECK_GE(dst_stride, expected_stride);
 

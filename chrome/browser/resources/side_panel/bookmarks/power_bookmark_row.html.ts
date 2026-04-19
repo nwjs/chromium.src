@@ -51,13 +51,13 @@ ${this.shouldExpand_() ? html`
           .renamingId="${this.renamingId}"
           .imageUrls="${this.imageUrls}"
           .shoppingCollectionFolderId="${this.shoppingCollectionFolderId}"
-          .draggable="${String(this.canDrag)}"
+          ?draggable="${this.canDrag}"
           ?can-drag="${this.canDrag}"
           ?has-active-drag="${this.hasActiveDrag}"
           .activeFolderPath="${this.activeFolderPath}"
           .contextMenuBookmark="${this.contextMenuBookmark}"
           .activeSortIndex="${this.activeSortIndex}"
-          ?has-folders="${true}">
+          has-folders>
       </power-bookmark-row>
     `)}
   `: ''}

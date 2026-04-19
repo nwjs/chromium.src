@@ -23,7 +23,7 @@ Image::ImageDecodingMode ImageElementBase::ParseImageDecodingMode(
   if (async_attr_value.IsNull())
     return Image::kUnspecifiedDecode;
 
-  const auto& value = async_attr_value.LowerASCII();
+  const auto& value = async_attr_value.ToAsciiLower();
   if (value == "async")
     return Image::kAsyncDecode;
   if (value == "sync")
@@ -69,6 +69,10 @@ scoped_refptr<Image> ImageElementBase::GetSourceImageForCanvas(
 
   if (auto* svg_image = DynamicTo<SVGImage>(source_image.get())) {
     UseCounter::Count(GetElement().GetDocument(), WebFeature::kSVGInCanvas2D);
+    if (svg_image->HasSVGForeignObject()) {
+      UseCounter::Count(GetElement().GetDocument(),
+                        WebFeature::kSVGForeignObjectDrawnIntoCanvas);
+    }
     const SVGImageViewInfo* view_info =
         SVGImageForContainer::CreateViewInfo(*svg_image, GetElement());
     const gfx::SizeF image_size = SVGImageForContainer::ConcreteObjectSize(

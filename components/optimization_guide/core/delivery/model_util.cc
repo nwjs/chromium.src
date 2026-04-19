@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
@@ -23,7 +24,7 @@
 namespace optimization_guide {
 
 // These names are persisted to histograms, so don't change them.
-std::string GetStringNameForOptimizationTarget(
+std::string_view GetStringNameForOptimizationTarget(
     optimization_guide::proto::OptimizationTarget optimization_target) {
   switch (optimization_target) {
     case proto::OPTIMIZATION_TARGET_UNKNOWN:
@@ -174,6 +175,10 @@ std::string GetStringNameForOptimizationTarget(
       return "WebRTCNeuralResidualEchoEstimator";
     case proto::OPTIMIZATION_TARGET_MODEL_EXECUTION_FEATURE_CLASSIFIER:
       return "ModelExecutionFeatureClassifier";
+    case proto::OPTIMIZATION_TARGET_CONTEXTUAL_TASKS_TAB_RELEVANCE:
+      return "ContextualTasksTabRelevance";
+    case proto::OPTIMIZATION_TARGET_SHOPPING_CLASSIFIER:
+      return "ShoppingClassifier";
       // Whenever a new value is added, make sure to add it to the OptTarget
       // variant list in
       // //tools/metrics/histograms/metadata/optimization/histograms.xml.
@@ -249,8 +254,9 @@ void RecordPredictionModelStoreModelRemovalVersionHistogram(
       "OptimizationGuide.PredictionModelStore.ModelRemovalReason",
       model_removal_reason);
   base::UmaHistogramEnumeration(
-      "OptimizationGuide.PredictionModelStore.ModelRemovalReason." +
-          GetStringNameForOptimizationTarget(optimization_target),
+      base::StrCat(
+          {"OptimizationGuide.PredictionModelStore.ModelRemovalReason.",
+           GetStringNameForOptimizationTarget(optimization_target)}),
       model_removal_reason);
 }
 

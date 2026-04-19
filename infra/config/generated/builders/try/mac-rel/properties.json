@@ -13,8 +13,8 @@
           {
             "builder_id": {
               "bucket": "ci",
-              "builder": "GPU Mac Builder",
-              "project": "chromium-m147"
+              "builder": "GPU Mac arm64 Builder",
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -25,7 +25,7 @@
                 ],
                 "build_config": "Release",
                 "config": "chromium",
-                "target_arch": "intel",
+                "target_arch": "arm",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -41,8 +41,37 @@
           {
             "builder_id": {
               "bucket": "ci",
-              "builder": "Mac Builder",
-              "project": "chromium-m147"
+              "builder": "Mac Retina Release (Apple M2)",
+              "project": "chromium"
+            },
+            "builder_spec": {
+              "builder_group": "chromium.gpu",
+              "execution_mode": "TEST",
+              "legacy_chromium_config": {
+                "apply_configs": [
+                  "mb"
+                ],
+                "build_config": "Release",
+                "config": "chromium",
+                "target_arch": "arm",
+                "target_bits": 64,
+                "target_platform": "mac"
+              },
+              "legacy_gclient_config": {
+                "config": "chromium"
+              },
+              "parent": {
+                "bucket": "ci",
+                "builder": "GPU Mac arm64 Builder",
+                "project": "chromium"
+              }
+            }
+          },
+          {
+            "builder_id": {
+              "bucket": "ci",
+              "builder": "mac-arm64-rel",
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -53,7 +82,7 @@
                 ],
                 "build_config": "Release",
                 "config": "chromium",
-                "target_arch": "intel",
+                "target_arch": "arm",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -69,64 +98,8 @@
           {
             "builder_id": {
               "bucket": "ci",
-              "builder": "Mac Release (Intel)",
-              "project": "chromium-m147"
-            },
-            "builder_spec": {
-              "builder_group": "chromium.gpu",
-              "execution_mode": "TEST",
-              "legacy_chromium_config": {
-                "apply_configs": [
-                  "mb"
-                ],
-                "build_config": "Release",
-                "config": "chromium",
-                "target_bits": 64,
-                "target_platform": "mac"
-              },
-              "legacy_gclient_config": {
-                "config": "chromium"
-              },
-              "parent": {
-                "bucket": "ci",
-                "builder": "GPU Mac Builder",
-                "project": "chromium-m147"
-              }
-            }
-          },
-          {
-            "builder_id": {
-              "bucket": "ci",
-              "builder": "Mac Retina Release (AMD)",
-              "project": "chromium-m147"
-            },
-            "builder_spec": {
-              "builder_group": "chromium.gpu",
-              "execution_mode": "TEST",
-              "legacy_chromium_config": {
-                "apply_configs": [
-                  "mb"
-                ],
-                "build_config": "Release",
-                "config": "chromium",
-                "target_bits": 64,
-                "target_platform": "mac"
-              },
-              "legacy_gclient_config": {
-                "config": "chromium"
-              },
-              "parent": {
-                "bucket": "ci",
-                "builder": "GPU Mac Builder",
-                "project": "chromium-m147"
-              }
-            }
-          },
-          {
-            "builder_id": {
-              "bucket": "ci",
-              "builder": "mac15-x64-rel-tests",
-              "project": "chromium-m147"
+              "builder": "mac15-arm64-rel-tests",
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -137,6 +110,7 @@
                 ],
                 "build_config": "Release",
                 "config": "chromium",
+                "target_arch": "arm",
                 "target_bits": 64,
                 "target_platform": "mac"
               },
@@ -145,8 +119,8 @@
               },
               "parent": {
                 "bucket": "ci",
-                "builder": "Mac Builder",
-                "project": "chromium-m147"
+                "builder": "mac-arm64-rel",
+                "project": "chromium"
               }
             }
           }
@@ -155,30 +129,25 @@
       "builder_ids": [
         {
           "bucket": "ci",
-          "builder": "GPU Mac Builder",
-          "project": "chromium-m147"
+          "builder": "GPU Mac arm64 Builder",
+          "project": "chromium"
         },
         {
           "bucket": "ci",
-          "builder": "Mac Builder",
-          "project": "chromium-m147"
+          "builder": "mac-arm64-rel",
+          "project": "chromium"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
-          "builder": "Mac Release (Intel)",
-          "project": "chromium-m147"
+          "builder": "Mac Retina Release (Apple M2)",
+          "project": "chromium"
         },
         {
           "bucket": "ci",
-          "builder": "Mac Retina Release (AMD)",
-          "project": "chromium-m147"
-        },
-        {
-          "bucket": "ci",
-          "builder": "mac15-x64-rel-tests",
-          "project": "chromium-m147"
+          "builder": "mac15-arm64-rel-tests",
+          "project": "chromium"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/mac-rel/targets"

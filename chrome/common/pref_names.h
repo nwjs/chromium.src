@@ -526,38 +526,6 @@ inline constexpr char kNoteTakingAppId[] = "settings.note_taking_app_id";
 inline constexpr char kLockScreenAutoStartOnlineReauth[] =
     "lock_screen_auto_start_online_reauth";
 
-// A boolean pref indicating whether user activity has been observed in the
-// current session already. The pref is used to restore information about user
-// activity after browser crashes.
-inline constexpr char kSessionUserActivitySeen[] = "session.user_activity_seen";
-
-// A preference to keep track of the session start time. If the session length
-// limit is configured to start running after initial user activity has been
-// observed, the pref is set after the first user activity in a session.
-// Otherwise, it is set immediately after session start. The pref is used to
-// restore the session start time after browser crashes. The time is expressed
-// as the serialization obtained from base::Time::ToInternalValue().
-inline constexpr char kSessionStartTime[] = "session.start_time";
-
-// Holds the maximum session time in milliseconds. If this pref is set, the
-// user is logged out when the maximum session time is reached. The user is
-// informed about the remaining time by a countdown timer shown in the ash
-// system tray.
-inline constexpr char kSessionLengthLimit[] = "session.length_limit";
-
-// Whether the session length limit should start running only after the first
-// user activity has been observed in a session.
-inline constexpr char kSessionWaitForInitialUserActivity[] =
-    "session.wait_for_initial_user_activity";
-
-// A preference of the last user session type. It is used with the
-// kLastSessionLength pref below to store the last user session info
-// on shutdown so that it could be reported on the next run.
-inline constexpr char kLastSessionType[] = "session.last_session_type";
-
-// A preference of the last user session length.
-inline constexpr char kLastSessionLength[] = "session.last_session_length";
-
 // The URL from which the Terms of Service can be downloaded. The value is only
 // honored for public accounts.
 inline constexpr char kTermsOfServiceURL[] = "terms_of_service.url";
@@ -613,252 +581,6 @@ inline constexpr char kUnifiedDesktopEnabledByDefault[] =
 inline constexpr char kAllowExcludeDisplayInMirrorMode[] =
     "settings.display.allow_exclude_display_in_mirror_mode";
 
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Bluetooth revamp experience survey.
-inline constexpr char kHatsBluetoothRevampCycleEndTs[] =
-    "hats_bluetooth_revamp_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Bluetooth
-// revamp experience survey.
-inline constexpr char kHatsBluetoothRevampIsSelected[] =
-    "hats_bluetooth_revamp_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Battery life experience survey.
-inline constexpr char kHatsBatteryLifeCycleEndTs[] =
-    "hats_battery_life_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Battery
-// life experience survey.
-inline constexpr char kHatsBatteryLifeIsSelected[] =
-    "hats_battery_life_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Peripherals experience survey.
-inline constexpr char kHatsPeripheralsCycleEndTs[] =
-    "hats_peripherals_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Peripherals
-// experience survey.
-inline constexpr char kHatsPeripheralsIsSelected[] =
-    "hats_peripherals_is_selected";
-
-// An int64 pref. This is a timestamp, microseconds after epoch, of the most
-// recent time the profile took or dismissed HaTS (happiness-tracking) survey.
-inline constexpr char kHatsLastInteractionTimestamp[] =
-    "hats_last_interaction_timestamp";
-
-// An int64 pref. This is a timestamp, microseconds after epoch, of the most
-// recent time the profile took or dismissed prioritized HaTS survey.
-inline constexpr char kHatsPrioritizedLastInteractionTimestamp[] =
-    "hats_prioritized_last_interaction_timestamp";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent survey cycle (general survey).
-inline constexpr char kHatsSurveyCycleEndTimestamp[] =
-    "hats_survey_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for HaTS in the current
-// survey cycle (general survey).
-inline constexpr char kHatsDeviceIsSelected[] = "hats_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the ENT survey
-inline constexpr char kHatsEntSurveyCycleEndTs[] =
-    "hats_ent_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS ENT
-// survey
-inline constexpr char kHatsEntDeviceIsSelected[] =
-    "hats_ent_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Stability survey
-inline constexpr char kHatsStabilitySurveyCycleEndTs[] =
-    "hats_stability_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Stability
-// survey
-inline constexpr char kHatsStabilityDeviceIsSelected[] =
-    "hats_stability_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the HaTS Performance survey
-inline constexpr char kHatsPerformanceSurveyCycleEndTs[] =
-    "hats_performance_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Performance
-// survey
-inline constexpr char kHatsPerformanceDeviceIsSelected[] =
-    "hats_performance_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the Onboarding Experience survey
-inline constexpr char kHatsOnboardingSurveyCycleEndTs[] =
-    "hats_onboarding_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the HaTS Onboarding
-// Experience survey
-inline constexpr char kHatsOnboardingDeviceIsSelected[] =
-    "hats_onboarding_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent ARC Games survey cycle.
-inline constexpr char kHatsArcGamesSurveyCycleEndTs[] =
-    "hats_arc_games_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the ARC Games survey
-inline constexpr char kHatsArcGamesDeviceIsSelected[] =
-    "hats_arc_games_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Audio survey cycle.
-inline constexpr char kHatsAudioSurveyCycleEndTs[] =
-    "hats_audio_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Audio survey
-inline constexpr char kHatsAudioDeviceIsSelected[] =
-    "hats_audio_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Audio Output Processing survey cycle.
-inline constexpr char kHatsAudioOutputProcSurveyCycleEndTs[] =
-    "hats_audio_output_proc_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Audio Output
-// Processing survey
-inline constexpr char kHatsAudioOutputProcDeviceIsSelected[] =
-    "hats_audio_output_proc_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Bluetooth Audio survey cycle.
-inline constexpr char kHatsBluetoothAudioSurveyCycleEndTs[] =
-    "hats_bluetooth_audio_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Bluetooth Audio
-// survey
-inline constexpr char kHatsBluetoothAudioDeviceIsSelected[] =
-    "hats_bluetooth_audio_device_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Avatar survey cycle.
-inline constexpr char kHatsPersonalizationAvatarSurveyCycleEndTs[] =
-    "hats_personalization_avatar_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Avatar survey.
-inline constexpr char kHatsPersonalizationAvatarSurveyIsSelected[] =
-    "hats_personalization_avatar_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Screensaver survey
-// cycle.
-inline constexpr char kHatsPersonalizationScreensaverSurveyCycleEndTs[] =
-    "hats_personalization_screensaver_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Screensaver survey.
-inline constexpr char kHatsPersonalizationScreensaverSurveyIsSelected[] =
-    "hats_personalization_screensaver_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Personalization Wallpaper survey cycle.
-inline constexpr char kHatsPersonalizationWallpaperSurveyCycleEndTs[] =
-    "hats_personalization_wallpaper_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Personalization
-// Wallpaper survey.
-inline constexpr char kHatsPersonalizationWallpaperSurveyIsSelected[] =
-    "hats_personalization_wallpaper_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Media App PDF survey cycle.
-inline constexpr char kHatsMediaAppPdfCycleEndTs[] =
-    "hats_media_app_pdf_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Media App PDF
-// survey.
-inline constexpr char kHatsMediaAppPdfIsSelected[] =
-    "hats_media_app_pdf_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent Camera App survey cycle.
-inline constexpr char kHatsCameraAppSurveyCycleEndTs[] =
-    "hats_camera_app_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Camera App
-// survey.
-inline constexpr char kHatsCameraAppDeviceIsSelected[] =
-    "hats_camera_app_device_is_selected";
-
-// indicates the end of the most recent Photos Experience survey cycle.
-inline constexpr char kHatsPhotosExperienceCycleEndTs[] =
-    "hats_photos_experience_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the Photos Experience
-// survey.
-inline constexpr char kHatsPhotosExperienceIsSelected[] =
-    "hats_photos_experience_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent general camera survey cycle.
-inline constexpr char kHatsGeneralCameraSurveyCycleEndTs[] =
-    "hats_general_camera_cycle_end_timestamp";
-
-// A boolean pref. Indicated if the device is selected for the general camera
-// survey.
-inline constexpr char kHatsGeneralCameraIsSelected[] =
-    "hats_general_camera_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent prioritized general camera survey cycle.
-inline constexpr char kHatsGeneralCameraPrioritizedSurveyCycleEndTs[] =
-    "hats_general_camera_prioritized_cycle_end_timestamp";
-
-// A boolean pref. Indicated if the device is selected for the prioritized
-// general camera survey.
-inline constexpr char kHatsGeneralCameraPrioritizedIsSelected[] =
-    "hats_general_camera_prioritized_is_selected";
-
-// An base::Time pref. This is the timestamp that indicates the end of the
-// most recent prioritized general camera survey.
-inline constexpr char kHatsGeneralCameraPrioritizedLastInteractionTimestamp[] =
-    "hats_general_camera_prioritized_last_interaction_timestamp";
-
-// A boolean pref. Indicated if the device is selected for the Borealis games
-// survey.
-inline constexpr char kHatsBorealisGamesSurveyIsSelected[] =
-    "hats_borealis_games_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent Borealis games survey cycle.
-inline constexpr char kHatsBorealisGamesSurveyCycleEndTs[] =
-    "hats_borealis_games_end_timestamp";
-
-// An base::Time pref. This is the timestamp that indicates the end of the
-// most recent Borealis games survey interaction.
-inline constexpr char kHatsBorealisGamesLastInteractionTimestamp[] =
-    "hats_borealis_games_last_interaction_timestamp";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the OS Launcher Apps satisfaction survey cycle.
-inline constexpr char kHatsLauncherAppsSurveyCycleEndTs[] =
-    "hats_launcher_apps_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the OS Launcher
-// Apps satisfaction survey.
-inline constexpr char kHatsLauncherAppsSurveyIsSelected[] =
-    "hats_launcher_apps_is_selected";
-
-// A boolean pref. Indicated if the device is selected for the Office
-// integration survey.
-inline constexpr char kHatsOfficeSurveyIsSelected[] = "hats_office_is_selected";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicated the end of the most recent Office integration survey cycle.
-inline constexpr char kHatsOfficeSurveyCycleEndTs[] =
-    "hats_office_end_timestamp";
-
 // A boolean pref. Indicates if we've already shown a notification to inform the
 // current user about the quick unlock feature.
 inline constexpr char kPinUnlockFeatureNotificationShown[] =
@@ -867,33 +589,6 @@ inline constexpr char kPinUnlockFeatureNotificationShown[] =
 // current user about the fingerprint unlock feature.
 inline constexpr char kFingerprintUnlockFeatureNotificationShown[] =
     "fingerprint_unlock_feature_notification_shown";
-
-// Deprecated (crbug/998983) in favor of kEndOfLifeDate.
-// An integer pref. Holds one of several values:
-// 0: Supported. Device is in supported state.
-// 1: Security Only. Device is in Security-Only update (after initial 5 years).
-// 2: EOL. Device is End of Life(No more updates expected).
-// This value needs to be consistent with EndOfLifeStatus enum.
-inline constexpr char kEolStatus[] = "eol_status";
-
-// A Time pref.  Holds the last used Eol Date and is compared to the latest Eol
-// Date received to make changes to Eol notifications accordingly.
-inline constexpr char kEndOfLifeDate[] = "eol_date";
-
-// Boolean pref indicating that the first warning End Of Life month and year
-// notification was dismissed by the user.
-inline constexpr char kFirstEolWarningDismissed[] =
-    "first_eol_warning_dismissed";
-
-// Boolean pref indicating that the second warning End Of Life month and year
-// notification was dismissed by the user.
-inline constexpr char kSecondEolWarningDismissed[] =
-    "second_eol_warning_dismissed";
-
-// Boolean pref indicating that the End Of Life final update notification was
-// dismissed by the user.
-inline constexpr char kEolNotificationDismissed[] =
-    "eol_notification_dismissed";
 
 // A boolean pref that controls whether the PIN autosubmit feature is enabled.
 // This feature, when enabled, exposes the user's PIN length by showing how many
@@ -940,16 +635,6 @@ inline constexpr char kTextToSpeechPitch[] = "settings.tts.speech_pitch";
 // system volume, and higher than 1.0 is louder.
 inline constexpr char kTextToSpeechVolume[] = "settings.tts.speech_volume";
 
-// A dictionary containing the latest Time Limits override authorized by parent
-// access code.
-inline constexpr char kTimeLimitLocalOverride[] = "screen_time.local_override";
-
-// A dictionary preference holding the usage time limit definitions for a user.
-inline constexpr char kUsageTimeLimit[] = "screen_time.limit";
-
-// Last state of the screen time limit.
-inline constexpr char kScreenTimeLastState[] = "screen_time.last_state";
-
 // Boolean pref indicating whether the message displayed on the login screen for
 // the managed guest session should be the full warning or not.
 // True means the full warning should be displayed.
@@ -982,9 +667,6 @@ inline constexpr char kTPMUpdateOnNextRebootNotificationShown[] =
 inline constexpr char kNetBiosShareDiscoveryEnabled[] =
     "network_file_shares.netbios_discovery.enabled";
 
-// Amount of screen time that a child user has used in the current day.
-inline constexpr char kChildScreenTimeMilliseconds[] = "child_screen_time";
-
 // Last time the kChildScreenTimeMilliseconds was saved.
 inline constexpr char kLastChildScreenTimeSaved[] =
     "last_child_screen_time_saved";
@@ -1008,52 +690,6 @@ inline constexpr char kReleaseNotesSuggestionChipTimesLeftToShow[] =
 inline constexpr char kNTLMShareAuthenticationEnabled[] =
     "network_file_shares.ntlm_share_authentication.enabled";
 
-// Dictionary pref containing configuration used to verify Parent Access Code.
-// Controlled by ParentAccessCodeConfig policy.
-inline constexpr char kParentAccessCodeConfig[] =
-    "child_user.parent_access_code.config";
-
-// List pref containing app activity and state for each application.
-inline constexpr char kPerAppTimeLimitsAppActivities[] =
-    "child_user.per_app_time_limits.app_activities";
-
-// Int64 to specify the last timestamp the AppActivityRegistry was reset.
-inline constexpr char kPerAppTimeLimitsLastResetTime[] =
-    "child_user.per_app_time_limits.last_reset_time";
-
-// Int64 to specify the last timestamp the app activity has been successfully
-// reported.
-inline constexpr char kPerAppTimeLimitsLastSuccessfulReportTime[] =
-    "child_user.per_app_time_limits.last_successful_report_time";
-
-// Int64 to specify the latest AppLimit update timestamp from.
-inline constexpr char kPerAppTimeLimitsLatestLimitUpdateTime[] =
-    "child_user.per_app_time_limits.latest_limit_update_time";
-
-// Dictionary pref containing the per-app time limits configuration for
-// child user. Controlled by PerAppTimeLimits policy.
-inline constexpr char kPerAppTimeLimitsPolicy[] =
-    "child_user.per_app_time_limits.policy";
-
-// Dictionary pref containing the allowed urls, schemes and applications
-// that would not be blocked by per app time limits.
-inline constexpr char kPerAppTimeLimitsAllowlistPolicy[] =
-    "child_user.per_app_time_limits.allowlist";
-
-// Integer pref to record the day id (number of days since origin of time) when
-// family user metrics were last recorded.
-inline constexpr char kFamilyUserMetricsDayId[] = "family_user.metrics.day_id";
-
-// TimeDelta pref to record the accumulated user session duration for family
-// user metrics.
-inline constexpr char kFamilyUserMetricsSessionEngagementDuration[] =
-    "family_user.metrics.session_engagement_duration";
-
-// TimeDelta pref to record the accumulated Chrome browser app usage for family
-// user metrics.
-inline constexpr char kFamilyUserMetricsChromeBrowserEngagementDuration[] =
-    "family_user.metrics.chrome_browser_engagement_duration";
-
 // List of preconfigured network file shares.
 inline constexpr char kNetworkFileSharesPreconfiguredShares[] =
     "network_file_shares.preconfigured_shares";
@@ -1069,38 +705,6 @@ inline constexpr char kNetworkFileSharesSavedShares[] =
 // A string pref storing the path of device wallpaper image file.
 inline constexpr char kDeviceWallpaperImageFilePath[] =
     "policy.device_wallpaper_image_file_path";
-
-// Boolean whether Kerberos daemon supports remembering passwords.
-// Tied to KerberosRememberPasswordEnabled policy.
-inline constexpr char kKerberosRememberPasswordEnabled[] =
-    "kerberos.remember_password_enabled";
-// Boolean whether users may add new Kerberos accounts.
-// Tied to KerberosAddAccountsAllowed policy.
-inline constexpr char kKerberosAddAccountsAllowed[] =
-    "kerberos.add_accounts_allowed";
-// Dictionary specifying a pre-set list of Kerberos accounts.
-// Tied to KerberosAccounts policy.
-inline constexpr char kKerberosAccounts[] = "kerberos.accounts";
-// Used by KerberosCredentialsManager to remember which account is currently
-// active (empty if none) and to determine whether to wake up the Kerberos
-// daemon on session startup.
-inline constexpr char kKerberosActivePrincipalName[] =
-    "kerberos.active_principal_name";
-// Used by KerberosAccountsHandler to prefill kerberos domain in
-// username field of "Add a ticket" UI window.
-// Tied to KerberosDomainAutocomplete policy.
-inline constexpr char kKerberosDomainAutocomplete[] =
-    "kerberos.domain_autocomplete";
-// Used by KerberosAccountsHandler to decide if the custom default configuration
-// should be prefilled.
-// Tied to KerberosUseCustomPrefilledConfig policy.
-inline constexpr char kKerberosUseCustomPrefilledConfig[] =
-    "kerberos.use_custom_prefilled_config";
-// Used by KerberosAccountsHandler to prefill kerberos krb5 config for
-// manually creating new tickets.
-// Tied to KerberosCustomPrefilledConfig policy.
-inline constexpr char kKerberosCustomPrefilledConfig[] =
-    "kerberos.custom_prefilled_config";
 
 // A boolean pref for enabling/disabling App reinstall recommendations in Zero
 // State Launcher by policy.
@@ -1143,16 +747,6 @@ inline constexpr char kSystemProxyUserTrafficHostAndPort[] =
 // secondary account to ARC++.
 inline constexpr char kEduCoexistenceArcMigrationCompleted[] =
     "account_manager.edu_coexistence_arc_migration_completed";
-
-// An int64 pref. This is the timestamp, microseconds after epoch, that
-// indicates the end of the most recent OS Settings Search survey cycle.
-inline constexpr char kHatsOsSettingsSearchSurveyCycleEndTs[] =
-    "hats_os_settings_search_cycle_end_timestamp";
-
-// A boolean pref. Indicates if the device is selected for the OS Settings
-// Search survey.
-inline constexpr char kHatsOsSettingsSearchSurveyIsSelected[] =
-    "hats_os_settings_search_is_selected";
 
 // A dictionary storing the string representation of
 // chromeos::settings::mojom::Setting IDs for the unique OS Settings changed.
@@ -1233,6 +827,15 @@ inline constexpr char kShowHomeButton[] = "browser.show_home_button";
 // A boolean pref set to true if the Forward button should be visible on the
 // toolbar.
 inline constexpr char kShowForwardButton[] = "browser.show_forward_button";
+
+// An integer pref that records how many times a user hovers on a bookmark bar
+// button.
+inline constexpr char kBookmarkBarHoverCount[] = "bookmark_bar.hover_count";
+
+// An integer pref that records how many times a user navigates to a bookmark
+// bar link.
+inline constexpr char kBookmarkBarNavigationCount[] =
+    "bookmark_bar.navigation_count";
 
 // A boolean pref set to true if the Split Tab button should be pinned to the
 // toolbar.
@@ -1327,6 +930,13 @@ inline constexpr char kGrayscaleThemeEnabled[] = "browser.theme.is_grayscale2";
 // (showing developer packing tools and extensions details)
 inline constexpr char kExtensionsUIDeveloperMode[] =
     "extensions.ui.developer_mode";
+
+#if BUILDFLAG(IS_ANDROID) && BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+// A boolean pref set to true if the extensions menu button should be pinned to
+// the toolbar.
+inline constexpr char kPinExtensionsMenuButton[] =
+    "extensions.pin_extensions_menu_button";
+#endif
 
 // Dictionary pref that tracks which command belongs to which
 // extension + named command pair.
@@ -1836,10 +1446,24 @@ inline constexpr char kEverythingMenuPinnedToTabstrip[] =
 // Boolean determining whether vertical tabs are enabled.
 inline constexpr char kVerticalTabsEnabled[] = "vertical_tabs.enabled";
 
+// Boolean determining whether expand on hover for vertical tabs is enabled.
+inline constexpr char kVerticalTabsExpandOnHoverEnabled[] =
+    "vertical_tabs.expand_on_hover";
+
 // Records whether the user has enabled vertical tabs for the first time. Only
 // used for metrics reporting purposes.
 inline constexpr char kVerticalTabsEnabledFirstTime[] =
     "vertical_tabs.enabled_first_time";
+
+// Boolean representing the most recently used vertical tab strip collapse
+// state. Only used during startup when session restore is not used.
+inline constexpr char kVerticalTabsCollapsedState[] =
+    "vertical_tabs.collapsed_state";
+
+// Integer representing the most recently used vertical tab strip uncollapsed
+// width. Only used during startup when session restore is not used.
+inline constexpr char kVerticalTabsUncollapsedWidth[] =
+    "vertical_tabs.uncollapsed_width";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_COMPOSE)
@@ -1907,6 +1531,10 @@ inline constexpr char kStaticStorageQuotaEnabled[] =
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
+
+// A time pref storing the last time an audio input stream was created.
+inline constexpr char kAudioInputStreamLastTimeCreated[] =
+    "media.audio_input_stream_last_time_created";
 
 // Used to store the value of the SerialAllowAllPortsForUrls policy.
 inline constexpr char kManagedSerialAllowAllPortsForUrls[] =
@@ -2643,8 +2271,6 @@ inline constexpr char kNtlmV2Enabled[] = "auth.ntlm_v2_enabled";
 #endif  // BUILDFLAG(IS_POSIX)
 
 #if BUILDFLAG(IS_CHROMEOS)
-// Boolean whether Kerberos functionality is enabled.
-inline constexpr char kKerberosEnabled[] = "kerberos.enabled";
 
 // Holds URL patterns that specify origins that will be allowed to call
 // `subApps.{add|remove|list}())` without prior user gesture and that will skip
@@ -2659,6 +2285,12 @@ inline constexpr char
 // The integer value of the CloudAPAuthEnabled policy.
 inline constexpr char kCloudApAuthEnabled[] = "auth.cloud_ap_auth.enabled";
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_ANDROID)
+// The integer value of the AndroidEntraSSOEnabled policy.
+inline constexpr char kAndroidEntraSSOEnabled[] =
+    "auth.android_entra_sso_enabled";
+#endif
 
 // Boolean that specifies whether to enable revocation checking (best effort)
 // by default.
@@ -2829,17 +2461,6 @@ inline constexpr char kSameOriginTabCaptureAllowedByOrigins[] =
 // "xkb:us::eng".
 inline constexpr char kHardwareKeyboardLayout[] = "intl.hardware_keyboard";
 
-// An integer pref. Its valid values are defined in
-// enterprise_management::DeviceRegisterRequest::PsmExecutionResult enum which
-// indicates all possible PSM execution results in the Chrome OS enrollment
-// flow.
-inline constexpr char kEnrollmentPsmResult[] = "EnrollmentPsmResult";
-
-// An int64 pref to record the timestamp of PSM retrieving the device's
-// determination successfully in the Chrome OS enrollment flow.
-inline constexpr char kEnrollmentPsmDeterminationTime[] =
-    "EnrollmentPsmDeterminationTime";
-
 // The local state pref that stores device activity times before reporting
 // them to the policy server.
 inline constexpr char kDeviceActivityTimes[] = "device_status.activity_times";
@@ -2874,40 +2495,8 @@ inline constexpr char kDeviceRobotAnyApiRefreshTokenV2[] =
 inline constexpr char kDeviceRefreshTokenAnyApiIsV3Used[] =
     "device_refresh_token_is_v3_used.any-api";
 
-// Device requisition for enterprise enrollment.
-inline constexpr char kDeviceEnrollmentRequisition[] =
-    "enrollment.device_requisition";
-
-// Sub organization for enterprise enrollment.
-inline constexpr char kDeviceEnrollmentSubOrganization[] =
-    "enrollment.sub_organization";
-
-// Whether to automatically start the enterprise enrollment step during OOBE.
-inline constexpr char kDeviceEnrollmentAutoStart[] = "enrollment.auto_start";
-
-// Whether the user may exit enrollment.
-inline constexpr char kDeviceEnrollmentCanExit[] = "enrollment.can_exit";
-
 // A string pref with initial locale set in VPD or manifest.
 inline constexpr char kInitialLocale[] = "intl.initial_locale";
-
-// A boolean pref of the device registered flag (second part after first login).
-inline constexpr char kDeviceRegistered[] = "DeviceRegistered";
-
-// Boolean pref to signal corrupted enrollment to force the device through
-// enrollment recovery flow upon next boot.
-inline constexpr char kEnrollmentRecoveryRequired[] =
-    "EnrollmentRecoveryRequired";
-
-// String pref with the data about the OS version and browser version at the
-// time of enrollment. The format is established by release management team.
-// The Chrome OS version format is
-// [Milestone.]TIP_BUILD.BRANCH_BUILD.BRANCH_BRANCH_BUILD.
-// Example: 15711.0.0
-// For browser version the format is MAJOR.MINOR.BRANCH.BUILD.
-// Example: 122.0.6252.0
-inline constexpr char kEnrollmentVersionOS[] = "EnrollmentVersionOS";
-inline constexpr char kEnrollmentVersionBrowser[] = "EnrollmentVersionBrowser";
 
 // Pref name for whether we should show the Getting Started module in the Help
 // app.
@@ -2964,11 +2553,6 @@ inline constexpr char kArcAppInstallEventLoggingEnabled[] =
 inline constexpr char kRemoveUsersRemoteCommand[] =
     "remove_users_remote_command";
 
-// Dictionary pref containing the configuration used to verify Parent Access
-// Code. The data is sent through the ParentAccessCodeConfig policy, which is
-// set for child users only, and kept on the known user storage.
-inline constexpr char kKnownUserParentAccessCodeConfig[] =
-    "child_user.parent_access_code.config";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // String which specifies where to store the disk cache.
@@ -3105,6 +2689,8 @@ inline constexpr char kToastAlertLevel[] = "settings.toast.alert_level";
 // Preference to store proxy settings.
 inline constexpr char kMaxConnectionsPerProxy[] =
     "net.max_connections_per_proxy";
+inline constexpr char kMaxConnectionsPerProxyForWebSocket[] =
+    "net.max_connections_per_proxy_for_websocket";
 
 #if BUILDFLAG(IS_MAC)
 // A boolean that tracks whether to show a notification when trying to quit
@@ -3119,6 +2705,11 @@ inline constexpr char kBackgroundModeEnabled[] = "background_mode.enabled";
 // Set to true if hardware acceleration mode is enabled on this browser.
 inline constexpr char kHardwareAccelerationModeEnabled[] =
     "hardware_acceleration_mode.enabled";
+
+// Set to true if process isolation mode is enabled.
+#if BUILDFLAG(IS_WIN)
+inline constexpr char kProcessIsolationEnabled[] = "isolation_state.enabled";
+#endif  // BUILDFLAG(IS_WIN)
 
 // Hardware acceleration mode from previous browser launch.
 inline constexpr char kHardwareAccelerationModePrevious[] =
@@ -3323,15 +2914,6 @@ inline constexpr char kSecurityKeyPermitAttestation[] =
 inline constexpr char kCreatePasskeysInICloudKeychain[] =
     "webauthn.create_in_icloud_keychain";
 #endif
-
-// Records the last time the CWS Info Service downloaded information about
-// currently installed extensions from the Chrome Web Store, successfully
-// compared it with the information stored in extension_prefs and updated the
-// latter if necessary. The timestamp therefore represents the "freshness" of
-// the CWS information saved.
-inline constexpr char kCWSInfoTimestamp[] = "extensions.cws_info_timestamp";
-inline constexpr char kCWSInfoFetchErrorTimestamp[] =
-    "extensions.cws_info_fetch_error_timestamp";
 
 // A bool value for running GarbageCollectStoragePartitionCommand.
 inline constexpr char kShouldGarbageCollectStoragePartitions[] =
@@ -4015,6 +3597,10 @@ inline constexpr char kServiceWorkerToControlSrcdocIframeEnabled[] =
 inline constexpr char kSharedWorkerBlobURLFixEnabled[] =
     "worker.shared_worker_blob_url_fix_enabled";
 
+// Boolean that specifies whether the shared worker has extended lifetime.
+inline constexpr char kSharedWorkerExtendedLifetimeEnabled[] =
+    "worker.shared_worker_extended_lifetime_enabled";
+
 // Boolean indicating whether clearing window.name when the navigation is
 // top-level, cross-site and swaps BrowsingContextGroup is allowed or not.
 inline constexpr char kClearWindowNameForNewBrowsingContextGroup[] =
@@ -4082,6 +3668,9 @@ inline constexpr char kAndroidTipNotificationShownRecentTabs[] =
 // history entry that is donated to AppSearch.
 inline constexpr char kAuxiliarySearchLastDonatedHistoryEntryVisitTime[] =
     "auxiliary_search.last_donated_history_entry_visit_time";
+
+// Boolean pref indicating whether the app rating prompt has been shown.
+inline constexpr char kAppRatingPromptShown[] = "app_rating_prompt_shown";
 #endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace prefs

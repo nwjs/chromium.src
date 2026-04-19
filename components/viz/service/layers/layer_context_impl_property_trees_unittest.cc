@@ -715,7 +715,8 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
 
   auto tree_props = mojom::TransformTreeUpdate::New();
   auto sticky_data = mojom::StickyPositionNodeData::New();
-  sticky_data->scroll_ancestor = scroll_node_id;
+  sticky_data->x_scroll_ancestor = scroll_node_id;
+  sticky_data->y_scroll_ancestor = scroll_node_id;
   sticky_data->is_anchored_top = true;
   sticky_data->top_offset = 10.f;
   tree_props->sticky_position_data.push_back(std::move(sticky_data));
@@ -737,7 +738,9 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
                                    ->property_trees()
                                    ->transform_tree();
   ASSERT_EQ(transform_tree.sticky_position_data().size(), 1u);
-  EXPECT_EQ(transform_tree.sticky_position_data()[0].scroll_ancestor,
+  EXPECT_EQ(transform_tree.sticky_position_data()[0].x_scroll_ancestor,
+            scroll_node_id);
+  EXPECT_EQ(transform_tree.sticky_position_data()[0].y_scroll_ancestor,
             scroll_node_id);
   EXPECT_TRUE(
       transform_tree.sticky_position_data()[0].constraints.is_anchored_top);
@@ -750,7 +753,8 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
   auto update = CreateDefaultUpdate();
   auto tree_props = mojom::TransformTreeUpdate::New();
   auto sticky_data = mojom::StickyPositionNodeData::New();
-  sticky_data->scroll_ancestor = 99;  // Invalid scroll node ID
+  sticky_data->x_scroll_ancestor = 99;  // Invalid scroll node ID
+  sticky_data->y_scroll_ancestor = 99;  // Invalid scroll node ID
   tree_props->sticky_position_data.push_back(std::move(sticky_data));
   update->transform_tree_update = std::move(tree_props);
 
@@ -892,7 +896,8 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
   // AddScrollNode to update1 to make scroll_ancestor valid for
   // DeserializeStickyPositionData.
   int scroll_node_id = AddScrollNode(update1.get(), cc::kRootPropertyNodeId);
-  sticky_data->scroll_ancestor = scroll_node_id;
+  sticky_data->x_scroll_ancestor = scroll_node_id;
+  sticky_data->y_scroll_ancestor = scroll_node_id;
   tree_props->sticky_position_data.push_back(std::move(sticky_data));
   update1->transform_tree_update = std::move(tree_props);
 
@@ -907,6 +912,42 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
   auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update1));
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error(), "Invalid sticky_position_constraint_id");
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
+       StickyPositionDataInvalidNearestNodeShiftingStickyBox) {
+  auto update = CreateDefaultUpdate();
+  int scroll_node_id = AddScrollNode(update.get(), cc::kRootPropertyNodeId);
+
+  auto tree_props = mojom::TransformTreeUpdate::New();
+  auto sticky_data = mojom::StickyPositionNodeData::New();
+  sticky_data->x_scroll_ancestor = scroll_node_id;
+  sticky_data->y_scroll_ancestor = scroll_node_id;
+  sticky_data->nearest_node_shifting_sticky_box = 99;  // Invalid transform ID
+  tree_props->sticky_position_data.push_back(std::move(sticky_data));
+  update->transform_tree_update = std::move(tree_props);
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid nearest_node_shifting_sticky_box");
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
+       StickyPositionDataInvalidNearestNodeShiftingContainingBlock) {
+  auto update = CreateDefaultUpdate();
+  int scroll_node_id = AddScrollNode(update.get(), cc::kRootPropertyNodeId);
+
+  auto tree_props = mojom::TransformTreeUpdate::New();
+  auto sticky_data = mojom::StickyPositionNodeData::New();
+  sticky_data->x_scroll_ancestor = scroll_node_id;
+  sticky_data->y_scroll_ancestor = scroll_node_id;
+  sticky_data->nearest_node_shifting_containing_block = 99;  // Invalid ID
+  tree_props->sticky_position_data.push_back(std::move(sticky_data));
+  update->transform_tree_update = std::move(tree_props);
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid nearest_node_shifting_containing_block");
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
@@ -1442,6 +1483,31 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
+       InvalidEffectNodeViewTransitionTargetId) {
+  auto update = CreateDefaultUpdate();
+  auto node_update = mojom::EffectNode::New();
+  node_update->id = cc::kSecondaryRootPropertyNodeId;
+  node_update->view_transition_target_id = next_effect_id_;
+  update->effect_nodes.push_back(std::move(node_update));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(),
+            "Invalid view_transition_target_id for effect node");
+
+  auto update_neg = CreateDefaultUpdate();
+  auto node_update_neg = mojom::EffectNode::New();
+  node_update_neg->id = cc::kSecondaryRootPropertyNodeId;
+  node_update_neg->view_transition_target_id = -2;
+  update_neg->effect_nodes.push_back(std::move(node_update_neg));
+
+  result = layer_context_impl_->DoUpdateDisplayTree(std::move(update_neg));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(),
+            "Invalid view_transition_target_id for effect node");
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
        BackdropMaskElementIdValid) {
   auto update = CreateDefaultUpdate();
   // Create a TileDisplayLayer to serve as the mask.
@@ -1475,8 +1541,14 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
 
   auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error(),
-            "Invalid backdrop_mask_element_id: layer not found");
+  EXPECT_EQ(
+      result.error(),
+      base::StrCat(
+          {"Invalid backdrop_mask_element_id (",
+           base::NumberToString(non_existent_element_id.GetInternalValue()),
+           ") on effect node ",
+           base::NumberToString(cc::kSecondaryRootPropertyNodeId),
+           ": layer not found. Total layers: 1"}));
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
@@ -1494,9 +1566,13 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
 
   auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error(),
-            "Invalid backdrop_mask_element_id: layer is not a "
-            "TileDisplayLayer");
+  EXPECT_EQ(
+      result.error(),
+      base::StrCat({"Invalid backdrop_mask_element_id (",
+                    base::NumberToString(mask_element_id.GetInternalValue()),
+                    ") on effect node ",
+                    base::NumberToString(cc::kSecondaryRootPropertyNodeId),
+                    ": layer is not a TileDisplayLayer"}));
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
@@ -1563,7 +1639,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
        ViewTransitionTargetId) {
   auto update = CreateDefaultUpdate();
   auto node_update = CreateDefaultSecondaryRootEffectNode();
-  const int32_t view_transition_target_id = 5;
+  const int32_t view_transition_target_id = cc::kRootPropertyNodeId;
   node_update->view_transition_target_id = view_transition_target_id;
   update->effect_nodes.push_back(std::move(node_update));
 

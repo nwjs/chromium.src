@@ -19,8 +19,10 @@ import static org.mockito.Mockito.when;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.net.Network;
 import android.os.Build;
 
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
@@ -31,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 
 import org.chromium.base.test.util.Batch;
 import org.chromium.net.BidirectionalStream;
+import org.chromium.net.ConnectivityManagerWrapper;
 import org.chromium.net.CronetException;
 import org.chromium.net.UrlResponseInfo;
 
@@ -46,6 +49,8 @@ public class CronetAdaptiveNetworkBidirectionalStreamTest {
     private CronetBidirectionalStream mPrimaryStream;
     private CronetBidirectionalStream mFallbackStream;
     private CronetAdaptiveNetworkBidirectionalStream mAdaptiveStream;
+    private CronetAdaptiveRequestContext mMockAdaptiveRequestContext;
+    private static final String TEST_URL = "https://example.com/path";
 
     @Before
     public void setUp() throws Exception {
@@ -53,9 +58,18 @@ public class CronetAdaptiveNetworkBidirectionalStreamTest {
         mMockCallback = mock(BidirectionalStream.Callback.class);
         mPrimaryStream = mock(CronetBidirectionalStream.class);
         mFallbackStream = mock(CronetBidirectionalStream.class);
+        when(mPrimaryStream.getTargetNetworkHandle())
+                .thenReturn(CronetEngineBase.DEFAULT_NETWORK_HANDLE);
+        when(mFallbackStream.getTargetNetworkHandle())
+                .thenReturn(CronetEngineBase.DEFAULT_NETWORK_HANDLE);
+        mMockAdaptiveRequestContext = mock(CronetAdaptiveRequestContext.class);
+        when(mMockAdaptiveRequestContext.getReadyFailoverMs()).thenReturn(3000L);
         mAdaptiveStream =
                 new CronetAdaptiveNetworkBidirectionalStream(
-                        mMockCallback, mMockScheduledExecutorService);
+                        mMockCallback,
+                        mMockScheduledExecutorService,
+                        mMockAdaptiveRequestContext,
+                        TEST_URL);
     }
 
     @Test
@@ -183,6 +197,22 @@ public class CronetAdaptiveNetworkBidirectionalStreamTest {
         mAdaptiveStream.read(buffer);
         verify(mPrimaryStream).read(buffer);
         verify(mFallbackStream, never()).read(any());
+    }
+
+    @Test
+    @SmallTest
+    public void onStreamReady_onFallback_reportsFallbackUsed() {
+        // We need java.util.stream.Stream to be available for these tests.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+        mAdaptiveStream.setPrimaryStream(mPrimaryStream);
+        mAdaptiveStream.setFallbackStream(mFallbackStream);
+
+        long networkHandle = 123456789L;
+        when(mFallbackStream.getTargetNetworkHandle()).thenReturn(networkHandle);
+
+        mAdaptiveStream.getCallback().onStreamReady(mFallbackStream);
+
+        verify(mMockAdaptiveRequestContext).reportFallbackUsed(eq(TEST_URL), eq(networkHandle));
     }
 
     @Test
@@ -494,5 +524,64 @@ public class CronetAdaptiveNetworkBidirectionalStreamTest {
         // Active stream failed, so we give up.
         verify(mMockCallback).onFailed(mAdaptiveStream, info, error);
         assertTrue(mAdaptiveStream.isDone());
+    }
+
+    @Test
+    @SmallTest
+    public void testComputeAlternativeNetwork_noNetworks_returnsNull() {
+        // We need java.util.stream.Stream to be available for these tests.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+        ConnectivityManagerWrapper mockConnectivityManagerWrapper =
+                mock(ConnectivityManagerWrapper.class);
+        when(mockConnectivityManagerWrapper.getAllNetworks(null)).thenReturn(new Network[0]);
+
+        CronetAdaptiveRequestContext adaptiveRequestContext =
+                new CronetAdaptiveRequestContext(ApplicationProvider.getApplicationContext());
+        adaptiveRequestContext.setConnectivityManagerWrapperForTest(mockConnectivityManagerWrapper);
+
+        assertEquals(null, adaptiveRequestContext.computeAlternativeNetworkHandle());
+    }
+
+    @Test
+    @SmallTest
+    public void testComputeAlternativeNetwork_onlyDefaultNetwork_returnsNull() {
+        // We need java.util.stream.Stream to be available for these tests.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+        ConnectivityManagerWrapper mockConnectivityManagerWrapper =
+                mock(ConnectivityManagerWrapper.class);
+        Network defaultNetwork = mock(Network.class);
+        when(mockConnectivityManagerWrapper.getDefaultNetwork()).thenReturn(defaultNetwork);
+        when(mockConnectivityManagerWrapper.getAllNetworks(null))
+                .thenReturn(new Network[] {defaultNetwork});
+
+        CronetAdaptiveRequestContext adaptiveRequestContext =
+                new CronetAdaptiveRequestContext(ApplicationProvider.getApplicationContext());
+        adaptiveRequestContext.setConnectivityManagerWrapperForTest(mockConnectivityManagerWrapper);
+
+        assertEquals(null, adaptiveRequestContext.computeAlternativeNetworkHandle());
+    }
+
+    @Test
+    @SmallTest
+    public void testComputeAlternativeNetwork_alternativeNetworkAvailable_returnsAlternative() {
+        // We need java.util.stream.Stream to be available for these tests.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+        ConnectivityManagerWrapper mockConnectivityManagerWrapper =
+                mock(ConnectivityManagerWrapper.class);
+        Network defaultNetwork = mock(Network.class);
+        Network alternativeNetwork = mock(Network.class);
+        long alternativeHandle = 987654321L;
+        when(alternativeNetwork.getNetworkHandle()).thenReturn(alternativeHandle);
+
+        when(mockConnectivityManagerWrapper.getDefaultNetwork()).thenReturn(defaultNetwork);
+        when(mockConnectivityManagerWrapper.getAllNetworks(null))
+                .thenReturn(new Network[] {defaultNetwork, alternativeNetwork});
+
+        CronetAdaptiveRequestContext adaptiveRequestContext =
+                new CronetAdaptiveRequestContext(ApplicationProvider.getApplicationContext());
+        adaptiveRequestContext.setConnectivityManagerWrapperForTest(mockConnectivityManagerWrapper);
+
+        assertEquals(
+                alternativeHandle, (long) adaptiveRequestContext.computeAlternativeNetworkHandle());
     }
 }

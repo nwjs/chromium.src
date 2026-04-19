@@ -216,21 +216,22 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
 }
 
 // Test to ensure the dialog goes away once the cancel button is clicked.
-// TODO(crbug.com/444093961): Test is flaky.
-- (void)FLAKY_testOtpInputDialogCancel {
+- (void)testOtpInputDialogCancel {
   [self showOtpInputDialog];
 
+  // Wait for the card unmask OTP input dialog view to appear.
+  [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:
+                      CardUnmaskPromptNavigationBarTitle()];
   // Tap the cancel button.
   [[EarlGrey selectElementWithMatcher:CancelButton()] performAction:grey_tap()];
 
-  // Expect the card unmask OTP inpud dialog view to disappear.
+  // Expect the card unmask OTP input dialog view to disappear.
   [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
                       CardUnmaskPromptNavigationBarTitle()];
 }
 
 // Test to ensure the dialog's confirm button works correctly.
-// TODO(crbug.com/444045960): Test is flaky.
-- (void)DISABLED_testOtpInputDialogConfirm {
+- (void)testOtpInputDialogConfirm {
   [self showOtpInputDialog];
 
   [[EarlGrey selectElementWithMatcher:OtpInputDialogConfirmButton()]
@@ -242,9 +243,8 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
   [[EarlGrey selectElementWithMatcher:OtpTextfield()]
       performAction:grey_replaceText(@"123456")];
   [[EarlGrey selectElementWithMatcher:OtpInputDialogConfirmButton()]
-      assertWithMatcher:grey_allOf(grey_not(grey_accessibilityTrait(
-                                       UIAccessibilityTraitNotEnabled)),
-                                   grey_sufficientlyVisible(), nil)];
+      assertWithMatcher:grey_allOf(grey_enabled(), grey_sufficientlyVisible(),
+                                   nil)];
 
   [AutofillAppInterface setAccessToken];
   // Reset payments response so that outdated unmask card response is not used.
@@ -252,10 +252,10 @@ id<GREYMatcher> ActivityIndicatorMatcher() {
   // Tap the confirm button, it should be updated to an activity indicator.
   [[EarlGrey selectElementWithMatcher:OtpInputDialogConfirmButton()]
       performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:OtpInputDialogConfirmButton()]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
-  [[EarlGrey selectElementWithMatcher:OtpInputDialogPendingButton()]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:OtpInputDialogConfirmButton()];
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:OtpInputDialogPendingButton()];
   [[EarlGrey selectElementWithMatcher:ActivityIndicatorMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }

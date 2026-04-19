@@ -48,10 +48,10 @@
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/scoped_web_ui_controller_factory_registration.h"
 #include "content/public/test/test_browser_context.h"
+#include "content/public/test/test_content_browser_client.h"
+#include "content/public/test/test_content_client.h"
 #include "content/public/test/test_utils.h"
 #include "content/test/storage_partition_test_helpers.h"
-#include "content/test/test_content_browser_client.h"
-#include "content/test/test_content_client.h"
 #include "content/test/test_render_view_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
@@ -851,7 +851,7 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
 
   // Check that there is a serialized nonce in the site URL. The nonce is
   // different each time, but has length 32.
-  EXPECT_EQ(32u, site_url.GetContent().length());
+  EXPECT_EQ(32u, site_url.GetContentPiece().length());
   EXPECT_FALSE(site_url.EqualsIgnoringRef(test_url));
   EXPECT_FALSE(site_url.has_host());
   test_url = GURL("data:text/html,foo#bar");

@@ -4,6 +4,7 @@
 
 #include "services/webnn/webnn_tensor_impl.h"
 
+#include "base/logging.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/threading/thread_restrictions.h"
@@ -117,7 +118,8 @@ void WebNNTensorImpl::WriteTensor(mojo_base::BigBuffer src_buffer) {
       GetMojoReceiver().GetBadMessageCallback()));
 }
 
-void WebNNTensorImpl::ImportTensor(const gpu::SyncToken& fence) {
+void WebNNTensorImpl::ImportTensor(uint64_t flow_id,
+                                   const gpu::SyncToken& fence) {
   ScopedTrace scoped_trace("WebNNTensorImpl::ImportTensor");
 
   if (!usage().Has(MLTensorUsageFlags::kWebGpuInterop)) {
@@ -129,7 +131,7 @@ void WebNNTensorImpl::ImportTensor(const gpu::SyncToken& fence) {
   // tasks run.
   context_->gpu_sequence()->ScheduleGpuTask(
       base::BindOnce(
-          [](WebNNTensorImpl* self, ScopedTrace scoped_trace,
+          [](WebNNTensorImpl* self, ScopedTrace scoped_trace, uint64_t flow_id,
              mojo::ReportBadMessageCallback bad_message_cb) {
             if (!self->is_exported()) {
               LOG(ERROR)
@@ -139,6 +141,9 @@ void WebNNTensorImpl::ImportTensor(const gpu::SyncToken& fence) {
               return;
             }
 
+            TRACE_EVENT("webnn", "WebNNTensorImpl::ImportTensorImpl",
+                        perfetto::TerminatingFlow::Global(flow_id));
+
             if (!self->ImportTensorInternal()) {
               LOG(ERROR)
                   << "[WebNN] Failed to import tensor from shared image.";
@@ -146,12 +151,13 @@ void WebNNTensorImpl::ImportTensor(const gpu::SyncToken& fence) {
               return;
             }
           },
-          base::RetainedRef(this), std::move(scoped_trace),
+          base::RetainedRef(this), std::move(scoped_trace), flow_id,
           GetMojoReceiver().GetBadMessageCallback()),
       {fence});
 }
 
-void WebNNTensorImpl::ExportTensor(ExportTensorCallback callback) {
+void WebNNTensorImpl::ExportTensor(uint64_t flow_id,
+                                   ExportTensorCallback callback) {
   ScopedTrace scoped_trace("WebNNTensorImpl::ExportTensor");
 
   if (!usage().Has(MLTensorUsageFlags::kWebGpuInterop)) {
@@ -159,17 +165,9 @@ void WebNNTensorImpl::ExportTensor(ExportTensorCallback callback) {
     return;
   }
 
-  // Ensure the Mojo callback is posted back to the task runner. Running
-  // it directly on the GPU sequence can violate Mojo's sequence checks,
-  // even if executing on the same thread.
-  auto mojo_callback_wrapper = base::BindPostTask(
-      context_->scheduler_task_runner(), std::move(callback));
-
-  // TODO(crbug.com/462489691): run the Mojo callback with a returned SyncToken.
-  context_->gpu_sequence()->ScheduleGpuTask(
-      base::BindOnce(
-          [](WebNNTensorImpl* self, ExportTensorCallback callback,
-             ScopedTrace scoped_trace,
+  gpu::SyncToken release =
+      context_->gpu_sequence()->ScheduleGpuTask(base::BindOnce(
+          [](WebNNTensorImpl* self, ScopedTrace scoped_trace, uint64_t flow_id,
              mojo::ReportBadMessageCallback bad_message_cb) {
             if (self->is_exported()) {
               LOG(ERROR)
@@ -178,12 +176,20 @@ void WebNNTensorImpl::ExportTensor(ExportTensorCallback callback) {
               return;
             }
 
+            TRACE_EVENT("webnn", "WebNNTensorImpl::ExportTensorImpl",
+                        perfetto::TerminatingFlow::Global(flow_id));
+
             // End WebNN access which makes the tensor be exported.
-            self->ExportTensorImpl(std::move(self->representation_access_),
-                                   std::move(callback));
+            self->ExportTensorImpl(std::move(self->representation_access_));
           },
-          base::RetainedRef(this), std::move(mojo_callback_wrapper),
-          std::move(scoped_trace), GetMojoReceiver().GetBadMessageCallback()));
+          base::RetainedRef(this), std::move(scoped_trace), flow_id,
+          GetMojoReceiver().GetBadMessageCallback()));
+
+  // Verify the release since the sync token could be passed to another Mojo
+  // interface which requires verification.
+  release.SetVerifyFlush();
+
+  std::move(callback).Run(std::move(release));
 }
 
 void WebNNTensorImpl::OnDisconnect() {

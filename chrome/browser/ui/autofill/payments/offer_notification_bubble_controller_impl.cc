@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -231,8 +232,9 @@ void OfferNotificationBubbleControllerImpl::DoShowBubble() {
     return;
   }
 
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
-  SetBubbleView(*browser->window()
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
+  SetBubbleView(*browser->GetBrowserForMigrationOnly()
+                     ->window()
                      ->GetAutofillBubbleHandler()
                      ->ShowOfferNotificationBubble(web_contents(), this,
                                                    is_user_gesture_));
@@ -261,12 +263,13 @@ OfferNotificationBubbleControllerImpl::GetBubbleControllerBaseWeakPtr() {
 }
 
 bool OfferNotificationBubbleControllerImpl::IsWebContentsActive() {
-  Browser* active_browser = chrome::FindBrowserWithActiveWindow();
+  BrowserWindowInterface* active_browser =
+      chrome::FindBrowserWithActiveWindow();
   if (!active_browser) {
     return false;
   }
 
-  return active_browser->tab_strip_model()->GetActiveWebContents() ==
+  return active_browser->GetTabStripModel()->GetActiveWebContents() ==
          web_contents();
 }
 

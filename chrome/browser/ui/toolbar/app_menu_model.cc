@@ -17,7 +17,6 @@
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -29,6 +28,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/feedback/report_unsafe_site_dialog.h"
+#include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
@@ -73,10 +73,9 @@
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
 #include "chrome/browser/ui/tab_search_feature.h"
 #include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
-#include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
@@ -85,7 +84,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
-#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_metrics.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
@@ -171,6 +169,7 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "base/time/time.h"
 #include "base/win/shortcut.h"
 #include "base/win/windows_version.h"
 #include "content/public/browser/gpu_data_manager.h"
@@ -505,18 +504,22 @@ ProfileSubMenuModel::ProfileSubMenuModel(
     // If the profile is being deleted, profile_attributes may be null.
     if (profile_attributes) {
       AccountInfo account_info = GetAccountInfoFromProfile(profile);
-      gfx::Image avatar_image =
+      auto [avatar_image, icon_type] =
           account_info.IsEmpty()
-              ? profile_attributes->GetAvatarIcon(
+              ? profile_attributes->GetAvatarIconWithType(
                     avatar_icon_size, /*use_high_res_file=*/true,
                     GetPlaceholderAvatarIconParamsDependingOnTheme(
                         ThemeServiceFactory::GetForProfile(profile),
                         /*background_color_id=*/ui::kColorMenuBackground,
                         *color_provider))
-              : account_info.account_image;
+              : std::make_pair(account_info.account_image,
+                               AvatarIconType::kNonPlaceholder);
       // The avatar image can be empty if the account image hasn't been
       // fetched yet, if there is no image, or in tests.
-      if (!avatar_image.IsEmpty()) {
+      // Keep the default vector icon for placeholder avatars so that
+      // MenuItemView can re-color it on hover in forced-colors mode.
+      if (!avatar_image.IsEmpty() &&
+          icon_type != AvatarIconType::kPlaceholder) {
         avatar_image_model_ =
             ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
                 avatar_image, avatar_icon_size, avatar_icon_size,
@@ -700,8 +703,7 @@ bool ProfileSubMenuModel::BuildSyncSection() {
                                      IDS_PROFILE_ROW_SYNC_IS_ON,
                                      vector_icons::kSyncChromeRefreshIcon);
   } else {
-    if (base::FeatureList::IsEnabled(
-            syncer::kReplaceSyncPromosWithSignInPromos)) {
+    if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
       if (!identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
         AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_SIGNIN,
                                          IDS_PROFILE_MENU_SIGNIN_PROMO_BUTTON,
@@ -951,8 +953,7 @@ void HelpMenuModel::Build(Browser* browser) {
       SetCommandIcon(this, IDC_HELP_PAGE_VIA_MENU, kHelpMenuIcon);
     }
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-    PrefService* pref_service = browser->profile()->GetPrefs();
-    if (pref_service->GetBoolean(prefs::kUserFeedbackAllowed)) {
+    if (chrome::CanShowFeedback(browser->profile())) {
       AddItemWithStringIdAndVectorIcon(this, IDC_FEEDBACK, IDS_FEEDBACK,
                                        kReportIcon);
 
@@ -986,9 +987,8 @@ ToolsMenuModel::~ToolsMenuModel() = default;
 // - Developer tools.
 // - Option to enable profiling.
 void ToolsMenuModel::Build(Browser* browser) {
-  // Tablet mode does not have a Tab Search button, so tab organization is
-  // unavailable. We should not show tablet mode users these menu
-  // items.
+  // Tablet mode does not have a Tab Search button. We should not show tablet
+  // mode users these menu items.
   bool is_tablet_mode = false;
 #if BUILDFLAG(IS_CHROMEOS)
   is_tablet_mode = display::Screen::Get()->InTabletMode();
@@ -1001,16 +1001,6 @@ void ToolsMenuModel::Build(Browser* browser) {
           base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton)
               ? kTabSearchTabStripIcon
               : kTabSearchToolbarIcon);
-    }
-
-    if (base::FeatureList::IsEnabled(features::kTabOrganizationAppMenuItem) &&
-        TabOrganizationUtils::GetInstance()->IsEnabled(browser->profile())) {
-      auto* const tab_organization_service =
-          TabOrganizationServiceFactory::GetForProfile(browser->profile());
-      if (tab_organization_service) {
-        AddItemWithStringIdAndVectorIcon(
-            this, IDC_ORGANIZE_TABS, IDS_TAB_ORGANIZE_MENU, kAutoTabGroupsIcon);
-      }
     }
   }
 

@@ -202,7 +202,7 @@ scoped_refptr<StringImpl> CaseMap::TryFastToLowerInvariant(StringImpl* source) {
     size_t first_index_to_be_lowered = source8.size();
     for (size_t i = 0; i < source8.size(); ++i) {
       const LChar ch = source8[i];
-      if (IsASCIIUpper(ch) || ch & ~0x7F) [[unlikely]] {
+      if (IsAsciiUpper(ch) || ch & ~0x7F) [[unlikely]] {
         first_index_to_be_lowered = i;
         break;
       }
@@ -230,7 +230,7 @@ scoped_refptr<StringImpl> CaseMap::TryFastToLowerInvariant(StringImpl* source) {
       if (ch & ~0x7F) [[unlikely]] {
         lowered_ch = static_cast<LChar>(blink::unicode::ToLower(ch));
       } else {
-        lowered_ch = ToASCIILower(ch);
+        lowered_ch = ToAsciiLower(ch);
       }
       data8_tail[i] = lowered_ch;
     }
@@ -243,7 +243,7 @@ scoped_refptr<StringImpl> CaseMap::TryFastToLowerInvariant(StringImpl* source) {
   const base::span<const UChar> source16 = source->Span16();
   for (size_t i = 0; i < source16.size(); ++i) {
     const UChar ch = source16[i];
-    if (IsASCIIUpper(ch)) [[unlikely]] {
+    if (IsAsciiUpper(ch)) [[unlikely]] {
       no_upper = false;
     }
     ored |= ch;
@@ -261,7 +261,7 @@ scoped_refptr<StringImpl> CaseMap::TryFastToLowerInvariant(StringImpl* source) {
         StringImpl::CreateUninitialized(source16.size(), data16);
 
     for (size_t i = 0; i < source16.size(); ++i) {
-      data16[i] = ToASCIILower(source16[i]);
+      data16[i] = ToAsciiLower(source16[i]);
     }
     return new_impl;
   }
@@ -312,7 +312,7 @@ scoped_refptr<StringImpl> CaseMap::ToUpperInvariant(StringImpl* source,
     for (size_t i = 0; i < source8.size(); ++i) {
       const LChar c = source8[i];
       ored |= c;
-      data8[i] = ToASCIIUpper(c);
+      data8[i] = ToAsciiUpper(c);
     }
     if (!(ored & ~0x7F))
       return new_impl;
@@ -376,7 +376,7 @@ upconvert:
   for (size_t i = 0; i < source16.size(); ++i) {
     const UChar c = source16[i];
     ored |= c;
-    data16[i] = ToASCIIUpper(c);
+    data16[i] = ToAsciiUpper(c);
   }
   if (!(ored & ~0x7F))
     return new_impl;

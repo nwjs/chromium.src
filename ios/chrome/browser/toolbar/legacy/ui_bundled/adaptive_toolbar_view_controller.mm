@@ -8,10 +8,11 @@
 #import "base/notreached.h"
 #import "base/time/time.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_reason.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_metrics.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
+#import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/animation_util.h"
@@ -520,24 +521,51 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   }
 
   if (sender == self.view.backButton) {
+    if (self.isNTP) {
+      base::RecordAction(base::UserMetricsAction("MobileToolbarBackOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarBack"));
   } else if (sender == self.view.forwardButton) {
+    if (self.isNTP) {
+      base::RecordAction(base::UserMetricsAction("MobileToolbarForwardOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarForward"));
   } else if (sender == self.view.reloadButton) {
+    if (self.isNTP) {
+      base::RecordAction(base::UserMetricsAction("MobileToolbarReloadOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarReload"));
   } else if (sender == self.view.stopButton) {
+    if (self.isNTP) {
+      base::RecordAction(base::UserMetricsAction("MobileToolbarStopOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarStop"));
   } else if (sender == self.view.toolsMenuButton) {
+    if (self.isNTP) {
+      base::RecordAction(base::UserMetricsAction("MobileToolbarShowMenuOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarShowMenu"));
     if (self.adaptiveDelegate.isReaderModeActive) {
       base::RecordAction(
           base::UserMetricsAction("MobileToolbarShowMenuFromReaderMode"));
     }
   } else if (sender == self.view.tabGridButton) {
+    if (self.isNTP) {
+      base::RecordAction(
+          base::UserMetricsAction("MobileToolbarShowStackViewOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarShowStackView"));
   } else if (sender == self.view.shareButton) {
+    if (self.isNTP) {
+      base::RecordAction(
+          base::UserMetricsAction("MobileToolbarShareMenuOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarShareMenu"));
   } else if (sender == self.view.openNewTabButton) {
+    if (self.isNTP) {
+      base::RecordAction(
+          base::UserMetricsAction("MobileToolbarNewTabShortcutOnNTP"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileToolbarNewTabShortcut"));
     base::RecordAction(base::UserMetricsAction("MobileTabNewTab"));
   } else {
@@ -554,9 +582,9 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   UIMenu* emptyMenu = [UIMenu menuWithChildren:@[]];
   button.menu = emptyMenu;
 
-  // Fix the order of the New Tab button menu to ensure the menu and child menus
-  // are displayed in the correct visual order.
-  if (buttonType == AdaptiveToolbarButtonTypeNewTab) {
+  // Fix the order of the Tab Grid button menu to ensure the menu and child
+  // menus are displayed in the correct visual order.
+  if (buttonType == AdaptiveToolbarButtonTypeTabGrid) {
     button.preferredMenuElementOrder =
         UIContextMenuConfigurationElementOrderFixed;
   }
@@ -591,7 +619,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
 // Exits fullscreen.
 - (void)exitFullscreen {
-  [self.adaptiveDelegate exitFullscreen:FullscreenExitReason::kUserTapped];
+  [self.adaptiveDelegate
+      exitFullscreen:FullscreenModeTransitionTrigger::kForcedByUser];
 }
 
 // Modifies the UI based on the UITraits that changed on the device.

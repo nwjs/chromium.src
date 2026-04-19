@@ -6,9 +6,13 @@ package org.chromium.chrome.browser.settings;
 
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.content.Context;
 import android.graphics.text.LineBreaker;
+import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,15 +21,23 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.appcompat.widget.AppCompatTextView;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import org.chromium.base.Callback;
+import org.chromium.base.Log;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.ui.base.LocalizationUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Observes MultiColumnSettings events, and updates the SettingsActivity's title and its detailed
@@ -36,7 +48,10 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
 
     private static final LinearLayout.LayoutParams LAYOUT_CENTER_VERTICAL;
 
+    private static final String TAG = "MultiColTitleUpdater";
+
     private static final String KEY_FIRST_VISIBLE_INDEX = "first_visible_index";
+    private static final String KEY_CACHED_DEEP_LINK_PATH = "cached_deep_link_path";
 
     static {
         LAYOUT_CENTER_VERTICAL = new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
@@ -109,21 +124,26 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
      */
     private @Nullable MonotonicObservableSupplier<String> mCurrentPageTitle;
 
+    private final @Nullable List<SettingsIndexData.Entry> mInitialBreadcrumbPath;
+    private @Nullable List<SettingsIndexData.Entry> mCachedDeepLinkPath;
+
     MultiColumnTitleUpdater(
             @Nullable Bundle savedInstanceState,
             MultiColumnSettings multiColumnSettings,
             Context context,
             LinearLayout container,
             Callback<String> mainTitleSetter,
-            Callback<@Nullable String> titleTapCallback) {
+            Callback<@Nullable String> titleTapCallback,
+            @Nullable List<SettingsIndexData.Entry> initialBreadcrumbPath) {
         mMultiColumnSettings = multiColumnSettings;
         mContext = context;
         mContainer = container;
         mMainTitleSetter = mainTitleSetter;
         mTitleTapCallback = titleTapCallback;
-        if (savedInstanceState != null) {
-            mFirstVisibleTitleIndex = savedInstanceState.getInt(KEY_FIRST_VISIBLE_INDEX);
-        }
+        mInitialBreadcrumbPath = initialBreadcrumbPath;
+
+        restoreInstanceState(savedInstanceState);
+
         final int originalHeight =
                 mContainer
                         .getResources()
@@ -200,6 +220,27 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         }
     }
 
+    private void restoreInstanceState(@Nullable Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            mFirstVisibleTitleIndex = savedInstanceState.getInt(KEY_FIRST_VISIBLE_INDEX);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                mCachedDeepLinkPath =
+                        savedInstanceState.getParcelableArrayList(
+                                KEY_CACHED_DEEP_LINK_PATH, SettingsIndexData.Entry.class);
+            } else {
+                @SuppressWarnings("deprecation")
+                ArrayList<SettingsIndexData.Entry> legacyList =
+                        savedInstanceState.getParcelableArrayList(KEY_CACHED_DEEP_LINK_PATH);
+                mCachedDeepLinkPath = legacyList;
+            }
+        } else {
+            if (mInitialBreadcrumbPath != null) {
+                mCachedDeepLinkPath = new ArrayList<>(mInitialBreadcrumbPath);
+            }
+        }
+    }
+
     private void updateMainTitle() {
         // Unset if needed, first.
         if (mCurrentPageTitle != null) {
@@ -223,6 +264,57 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         mFirstVisibleTitleIndex = i;
     }
 
+    private List<MultiColumnSettings.Title> initTitlesList() {
+        List<MultiColumnSettings.Title> navigatedTitles = mMultiColumnSettings.getTitles();
+
+        if (mFirstVisibleTitleIndex == 0) {
+            if (navigatedTitles.isEmpty()) {
+                mCachedDeepLinkPath = null;
+            } else if (navigatedTitles.size() == 1) {
+                Fragment currentFragment =
+                        mMultiColumnSettings
+                                .getChildFragmentManager()
+                                .findFragmentById(R.id.preferences_detail);
+
+                assertNonNull(currentFragment);
+
+                boolean isMatch = false;
+                if (mInitialBreadcrumbPath != null && !mInitialBreadcrumbPath.isEmpty()) {
+                    String targetClass =
+                            mInitialBreadcrumbPath.get(mInitialBreadcrumbPath.size() - 1).fragment;
+                    isMatch = TextUtils.equals(currentFragment.getClass().getName(), targetClass);
+                }
+
+                mCachedDeepLinkPath = isMatch ? new ArrayList<>(mInitialBreadcrumbPath) : null;
+            }
+
+            if (mCachedDeepLinkPath != null && mCachedDeepLinkPath.size() > 1) {
+                List<MultiColumnSettings.Title> splicedTitles = new ArrayList<>();
+
+                // We are only looking for the ancestors, excluding the current page title.
+                int numAncestors = mCachedDeepLinkPath.size() - 1;
+
+                for (int i = 0; i < numAncestors; i++) {
+                    SettingsIndexData.Entry entry = mCachedDeepLinkPath.get(i);
+                    SettableMonotonicObservableSupplier<String> titleSupplier =
+                            ObservableSuppliers.createMonotonic();
+                    assertNonNull(entry.title);
+                    titleSupplier.set(entry.title);
+
+                    MultiColumnSettings.Title syntheticTitle =
+                            new MultiColumnSettings.Title(entry.id, titleSupplier, -1, null);
+
+                    splicedTitles.add(syntheticTitle);
+                }
+
+                splicedTitles.addAll(navigatedTitles);
+                return splicedTitles;
+            }
+        }
+
+        return navigatedTitles;
+    }
+
     private void updateDetailedPageTitle() {
         // Reset the current title items if exists.
         for (int i = 0; i < mContainer.getChildCount(); ++i) {
@@ -233,13 +325,14 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         }
         mContainer.removeAllViews();
 
+        List<MultiColumnSettings.Title> titles = initTitlesList();
+
         // Padding for the chevron separator.
         int paddingPx =
                 mContext.getResources()
                         .getDimensionPixelSize(R.dimen.settings_detailed_title_padding);
 
         float scaleX = LocalizationUtils.isLayoutRtl() ? -1f : 1f;
-        var titles = mMultiColumnSettings.getTitles();
 
         for (int i = 0; i < titles.size(); ++i) {
             if (i < mFirstVisibleTitleIndex) continue;
@@ -263,24 +356,34 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
             view.setBreakStrategy(LineBreaker.BREAK_STRATEGY_BALANCED);
 
             final int backStackCount = title.backStackCount;
+            final int finalIndex = i;
             view.setOnClickListener(
                     (View v) -> {
                         assert mMultiColumnSettings != null;
                         // Note: The current getBackStackEntryCount and recorded backStackCount
                         // can be same, e.g., if the user tabs the last component of the
                         // detailed title.
-                        if (mMultiColumnSettings.getChildFragmentManager().getBackStackEntryCount()
-                                > backStackCount) {
-                            var entry =
-                                    mMultiColumnSettings
+                        if (backStackCount >= 0) {
+                            if (mMultiColumnSettings
                                             .getChildFragmentManager()
-                                            .getBackStackEntryAt(backStackCount);
-                            mMultiColumnSettings
-                                    .getChildFragmentManager()
-                                    .popBackStack(
-                                            entry.getId(),
-                                            FragmentManager.POP_BACK_STACK_INCLUSIVE);
-                            mTitleTapCallback.onResult(entry.getName());
+                                            .getBackStackEntryCount()
+                                    > backStackCount) {
+                                var entry =
+                                        mMultiColumnSettings
+                                                .getChildFragmentManager()
+                                                .getBackStackEntryAt(backStackCount);
+                                mMultiColumnSettings
+                                        .getChildFragmentManager()
+                                        .popBackStack(
+                                                entry.getId(),
+                                                FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                                mTitleTapCallback.onResult(entry.getName());
+                            }
+                        } else {
+                            if (mCachedDeepLinkPath != null) {
+                                SettingsIndexData.Entry entry = mCachedDeepLinkPath.get(finalIndex);
+                                launchFragment(entry);
+                            }
                         }
                     });
             mContainer.addView(view);
@@ -292,9 +395,44 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         }
     }
 
+    /**
+     * Navigates to a specific parent fragment when its synthetic breadcrumb is clicked.
+     *
+     * <p>Instantiates the target fragment using the args stored in the {@link
+     * SettingsIndexData.Entry}, and replaces the current detail pane.
+     *
+     * @param entry The index entry containing the fragment class and arguments.
+     */
+    private void launchFragment(SettingsIndexData.Entry entry) {
+        if (entry.fragment == null) return;
+
+        try {
+            FragmentManager fm = mMultiColumnSettings.getChildFragmentManager();
+
+            if (fm.getBackStackEntryCount() > 0) {
+                fm.popBackStackImmediate(
+                        fm.getBackStackEntryAt(0).getId(),
+                        FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            }
+
+            mCachedDeepLinkPath = null;
+
+            Fragment f = Fragment.instantiate(mContext, entry.fragment, entry.extras);
+            fm.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .replace(R.id.preferences_detail, f)
+                    .commitNow();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch breadcrumb fragment: " + entry.fragment, e);
+        }
+    }
+
     @Override
     public void onHeaderLayoutUpdated() {
         updateMainTitle();
+
+        updateDetailedPageTitle();
 
         if (!mMultiColumnSettings.isTwoColumn()) {
             // In the single pane mode, do not show the detailed title.
@@ -337,5 +475,9 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
 
     public void onSaveInstanceState(Bundle outState) {
         outState.putInt(KEY_FIRST_VISIBLE_INDEX, mFirstVisibleTitleIndex);
+        if (mCachedDeepLinkPath != null) {
+            outState.putParcelableArrayList(
+                    KEY_CACHED_DEEP_LINK_PATH, new ArrayList<>(mCachedDeepLinkPath));
+        }
     }
 }

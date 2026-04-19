@@ -585,7 +585,7 @@ class PreinstalledWebAppManagerExtensionAlwaysMigrateBrowserTest
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
-      features::kPreinstalledWebAppAlwaysMigrate};
+      features::kPreinstalledWebAppAlwaysMigrateForTesting};
 };
 
 IN_PROC_BROWSER_TEST_F(
@@ -1965,6 +1965,7 @@ class PreinstalledWebAppManagerSimpleBrowserTest
   }
 
   void SetUp() override {
+    embedded_https_test_server().AddDefaultHandlers(GetChromeTestDataDir());
     embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(
         &PreinstalledWebAppManagerSimpleBrowserTest::SetRedirectHandler,
         base::Unretained(this)));

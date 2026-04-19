@@ -4,6 +4,7 @@
 
 #include "chrome/browser/actor/execution_engine.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -18,10 +19,10 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/state_transitions.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "base/types/id_type.h"
@@ -38,6 +39,7 @@
 #include "chrome/browser/actor/origin_checker.h"
 #include "chrome/browser/actor/safety_list_manager.h"
 #include "chrome/browser/actor/site_policy.h"
+#include "chrome/browser/actor/tools/attempt_login_tool.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_request.h"
@@ -65,6 +67,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "ui/event_dispatcher.h"
@@ -90,21 +93,17 @@ static constexpr std::string_view kActionNavigationsApprovedByServerHistogram =
 
 BASE_FEATURE(kActorReloadCrashedTabBeforeAct, base::FEATURE_ENABLED_BY_DEFAULT);
 
-const RenderFrameHost* GetPrimaryMainFrame(
+RenderFrameHost* GetPrimaryMainFrame(
     content::NavigationHandle& navigation_handle) {
   return navigation_handle.GetWebContents()->GetPrimaryMainFrame();
 }
 
 void PostTaskForActCallback(
     ActorTask::ActCallback callback,
-    mojom::ActionResultPtr result,
-    std::optional<size_t> index_of_failed_action,
     std::vector<ActionResultWithLatencyInfo> action_results) {
-  RecordActionResultCode(result->code);
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
-      base::BindOnce(std::move(callback), std::move(result),
-                     index_of_failed_action, std::move(action_results)));
+      base::BindOnce(std::move(callback), std::move(action_results)));
 }
 
 // When operating on an opaque site, we choose to use the precursor's origin
@@ -306,7 +305,9 @@ ExecutionEngine::ShouldDeferNavigation(
           base::BindOnce(
               &ExecutionEngine::CheckNavigationSensitiveUrlList, GetWeakPtr(),
               source_origin, navigation_handle.GetInitiatorOrigin(),
-              navigation_handle.GetURL(), skip_prompt, std::move(timer),
+              navigation_handle.GetURL(),
+              GetPrimaryMainFrame(navigation_handle)->GetPageUkmSourceId(),
+              skip_prompt, std::move(timer),
               std::move(callback).Then(base::BindOnce(
                   &ExecutionEngine::MaybeRecordNavigationConfirmationMetrics,
                   GetWeakPtr(), state(),
@@ -343,35 +344,20 @@ void ExecutionEngine::LogNavigationGating(
 ExecutionEngine::GatingDecision ExecutionEngine::DetermineGatingDecision(
     const GURL& source_url,
     const GURL& destination_url) const {
-  // If enterprise policy allows the destination, do not gate.
-  // Note that it is not necessary to have an equivalent check for the
-  // enterprise policy blocklist, as we would already have blocked the
-  // navigation before reaching this gating logic.
-  const EnterprisePolicyBlockReason enterprise_reason =
-      task_->policy_checker().Evaluate(destination_url);
-  if (enterprise_reason == EnterprisePolicyBlockReason::kExplicitlyAllowed) {
-    return GatingDecision::kAllowByStaticList;
-  }
-  DCHECK_NE(enterprise_reason, EnterprisePolicyBlockReason::kExplicitlyBlocked);
-
-  url::Origin destination_origin = url::Origin::Create(destination_url);
-  const SafetyListManager& safety_list_manager =
-      *SafetyListManager::GetInstance();
-
-  auto manager_decision = safety_list_manager.Find(source_url, destination_url);
-  if (url::IsSameOriginWith(source_url, destination_url)) {
-    // Same-origin navigations are generally allowed unless the origin is on the
-    // static blocklist. Normally, the actor cannot interact with pages on this
-    // list, but we need to account for page-initiated navigations on blocked
-    // pages while the actor is deliberating the task.
-    return manager_decision == SafetyListManager::Decision::kBlock
-               ? GatingDecision::kBlockByStaticList
-               : GatingDecision::kAllowSameOrigin;
+  switch (task_->policy_checker().Evaluate(destination_url)) {
+    case EnterprisePolicyBlockReason::kNotBlocked:
+      break;
+    case EnterprisePolicyBlockReason::kExplicitlyAllowed:
+      return GatingDecision::kAllowByStaticList;
+    case EnterprisePolicyBlockReason::kExplicitlyBlocked:
+      return GatingDecision::kBlockByStaticList;
   }
 
-  switch (manager_decision) {
+  switch (SafetyListManager::GetInstance()->Find(source_url, destination_url)) {
     case SafetyListManager::Decision::kNone:
-      return GatingDecision::kNeedsAsyncCheck;
+      return url::IsSameOriginWith(source_url, destination_url)
+                 ? GatingDecision::kAllowSameOrigin
+                 : GatingDecision::kNeedsAsyncCheck;
     case SafetyListManager::Decision::kAllow:
       return GatingDecision::kAllowByStaticList;
     case SafetyListManager::Decision::kBlock:
@@ -384,6 +370,7 @@ void ExecutionEngine::CheckNavigationSensitiveUrlList(
     const url::Origin& source,
     const std::optional<url::Origin>& initiator,
     const GURL& destination_url,
+    ukm::SourceId ukm_source_id,
     bool skip_prompt,
     base::ScopedUmaHistogramTimer timer,
     ExecutionEngine::NavigationDecisionCallback callback) {
@@ -392,8 +379,8 @@ void ExecutionEngine::CheckNavigationSensitiveUrlList(
   // the origin is allowed, we should proceed and not double prompt.
   if (origin_checker_.IsNavigationConfirmedByUser(destination_origin)) {
     OnNavigationSensitiveUrlListChecked(source, initiator, destination_origin,
-                                        skip_prompt, std::move(timer),
-                                        std::move(callback),
+                                        ukm_source_id, skip_prompt,
+                                        std::move(timer), std::move(callback),
                                         /*not_sensitive=*/true);
     return;
   }
@@ -402,7 +389,8 @@ void ExecutionEngine::CheckNavigationSensitiveUrlList(
           destination_url, task_->GetProfile(),
           base::BindOnce(&ExecutionEngine::OnNavigationSensitiveUrlListChecked,
                          GetWeakPtr(), source, initiator, destination_origin,
-                         skip_prompt, std::move(timer), std::move(callback)));
+                         ukm_source_id, skip_prompt, std::move(timer),
+                         std::move(callback)));
   if (!sensitive_check_result.has_value()) {
     std::move(sensitive_check_result).error().Run(/*not_sensitive=*/true);
   }
@@ -412,6 +400,7 @@ void ExecutionEngine::OnNavigationSensitiveUrlListChecked(
     const url::Origin& source,
     const std::optional<url::Origin>& initiator,
     const url::Origin& destination,
+    ukm::SourceId ukm_source_id,
     bool skip_prompt,
     base::ScopedUmaHistogramTimer timer,
     ExecutionEngine::NavigationDecisionCallback callback,
@@ -422,6 +411,12 @@ void ExecutionEngine::OnNavigationSensitiveUrlListChecked(
       origin_checker_.IsNavigationAllowed(initiator, destination)) {
     LogNavigationGating(source, initiator, destination,
                         /*applied_gate=*/false);
+    ukm::builders::Actor_OriginGating builder(ukm_source_id);
+    builder
+        .SetServerConfirmationResult(static_cast<int64_t>(
+            ExecutionEngine::ActorServerConfirmationResult::kNotRequired))
+        .SetEngineState(static_cast<int64_t>(state_));
+    builder.Record(ukm::UkmRecorder::Get());
     std::move(callback).Run(/*may_continue=*/true);
     return;
   }
@@ -439,7 +434,7 @@ void ExecutionEngine::OnNavigationSensitiveUrlListChecked(
   // origin and we should either confirm the navigation with the web client or
   // prompt the user depending on the feature state.
   if (not_sensitive) {
-    HandleNavigationToNewOrigin(destination, std::move(timer),
+    HandleNavigationToNewOrigin(destination, ukm_source_id, std::move(timer),
                                 std::move(callback));
     return;
   }
@@ -458,6 +453,7 @@ void ExecutionEngine::OnNavigationSensitiveUrlListChecked(
 
 void ExecutionEngine::HandleNavigationToNewOrigin(
     const url::Origin& destination,
+    ukm::SourceId ukm_source_id,
     base::ScopedUmaHistogramTimer timer,
     ExecutionEngine::NavigationDecisionCallback callback) {
   if (!kGlicConfirmNavigationToNewOrigins.Get()) {
@@ -470,12 +466,13 @@ void ExecutionEngine::HandleNavigationToNewOrigin(
                                       std::move(timer), std::move(callback));
     return;
   }
-  SendNavigationConfirmationRequest(destination, std::move(timer),
-                                    std::move(callback));
+  SendNavigationConfirmationRequest(destination, ukm_source_id,
+                                    std::move(timer), std::move(callback));
 }
 
 void ExecutionEngine::SendNavigationConfirmationRequest(
     const url::Origin& destination,
+    ukm::SourceId ukm_source_id,
     base::ScopedUmaHistogramTimer timer,
     ExecutionEngine::NavigationDecisionCallback callback) {
   if (!task_->delegate()) {
@@ -485,7 +482,7 @@ void ExecutionEngine::SendNavigationConfirmationRequest(
   task_->delegate()->RequestToConfirmNavigation(
       task_->id(), destination,
       base::BindOnce(&ExecutionEngine::OnNavigationConfirmationDecision,
-                     GetWeakPtr(), destination, std::move(timer),
+                     GetWeakPtr(), destination, ukm_source_id, std::move(timer),
                      std::move(callback)));
 }
 
@@ -528,6 +525,7 @@ void ExecutionEngine::MaybeRecordNavigationConfirmationMetrics(
 
 void ExecutionEngine::OnNavigationConfirmationDecision(
     const url::Origin& destination,
+    ukm::SourceId ukm_source_id,
     base::ScopedUmaHistogramTimer timer,
     ExecutionEngine::NavigationDecisionCallback callback,
     webui::mojom::NavigationConfirmationResponsePtr response) {
@@ -536,8 +534,18 @@ void ExecutionEngine::OnNavigationConfirmationDecision(
     // TODO(dylancutler): Separate Actor.NavigationGating.PermissionGranted into
     // separate histograms for different confirmation types.
     base::UmaHistogramBoolean(kPermissionGrantedHistogram, permission_granted);
+    ukm::builders::Actor_OriginGating builder(ukm_source_id);
+    builder
+        .SetServerConfirmationResult(static_cast<int64_t>(
+            permission_granted
+                ? ExecutionEngine::ActorServerConfirmationResult::kAccepted
+                : ExecutionEngine::ActorServerConfirmationResult::kRejected))
+        .SetEngineState(static_cast<int64_t>(state_));
+    builder.Record(ukm::UkmRecorder::Get());
+    permission_granted = permission_granted ||
+                         kGlicConfirmNavigationToNewOriginsDarkLaunch.Get();
     if (permission_granted) {
-      origin_checker_.AllowNavigationTo(std::move(destination),
+      origin_checker_.AllowNavigationTo(destination,
                                         /*is_user_confirmed=*/false);
     }
     std::move(callback).Run(permission_granted);
@@ -680,8 +688,8 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
             .Build());
     PostTaskForActCallback(
         std::move(callback),
-        MakeResult(mojom::ActionResultCode::kExecutionEngineExistingAction),
-        std::nullopt, {});
+        MakeResultVector(
+            mojom::ActionResultCode::kExecutionEngineExistingAction));
     return;
   }
 
@@ -718,7 +726,9 @@ void ExecutionEngine::KickOffNextAction() {
   CHECK_LT(next_action_index_, action_sequence_.size());
 
   SetState(State::kStartAction);
-  action_start_time_ = base::TimeTicks::Now();
+  if (!GetNextAction().IsFollowup()) {
+    action_start_time_ = base::TimeTicks::Now();
+  }
 
   // TODO(b/467984847): ActorTask::AddTab isn't the best way to track a crashed
   // tab here. We should refactor this to be more explicit.
@@ -965,7 +975,17 @@ void ExecutionEngine::FinishedToolInvoke(mojom::ActionResultPtr result) {
   base::TimeTicks end_time = base::TimeTicks::Now();
   RecordToolTimings(GetInProgressAction().Name(), end_time - action_start_time_,
                     end_time - *result->execution_end_time);
-  action_results_.emplace_back(action_start_time_, end_time, std::move(result));
+
+  if (GetInProgressAction().IsFollowup()) {
+    CHECK(!action_results_.empty());
+    ActionResultWithLatencyInfo& action_result = action_results_.back();
+    action_result.result = std::move(result);
+    action_result.end_time = end_time;
+  } else {
+    action_results_.emplace_back(action_start_time_, end_time,
+                                 std::move(result));
+  }
+
   SetState(State::kUiPostInvoke);
   ui_event_dispatcher_->OnPostTool(
       GetInProgressAction(),
@@ -999,12 +1019,32 @@ void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
 
   // If we have not yet appended the action_results for the failed index,
   // append it now.
-  if (action_index && action_results_.size() == *action_index) {
+  if (action_index) {
+    size_t result_index = GetResultIndexForAction(*action_index);
+    if (action_results_.size() == result_index) {
+      action_results_.emplace_back(action_start_time_, base::TimeTicks::Now(),
+                                   result->Clone());
+    } else if (action_results_.size() > result_index &&
+               (!IsOk(*result) ||
+                action_sequence_[*action_index]->IsFollowup())) {
+      // If we already have a result for this action, and the new result is an
+      // error, overwrite it. This can happen if a tool invocation succeeds
+      // but a subsequent UI post-invoke stage fails, or for follow up tools
+      // that fail.
+      ActionResultWithLatencyInfo& action_result =
+          action_results_[result_index];
+      action_result.result = result->Clone();
+      action_result.end_time = base::TimeTicks::Now();
+    }
+  } else if (!IsOk(*result)) {
+    // If it's a general error, we still want it in action_results.
     action_results_.emplace_back(action_start_time_, base::TimeTicks::Now(),
                                  result->Clone());
   }
 
   SetState(State::kComplete);
+
+  action_sequence_ended_callbacks_.Notify(IsOk(*result));
 
   if (!IsOk(*result)) {
     GURL url;
@@ -1016,8 +1056,8 @@ void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
         JournalDetailsBuilder().AddError(ToDebugString(*result)).Build());
   }
 
-  PostTaskForActCallback(std::move(act_callback_), std::move(result),
-                         action_index, std::move(action_results_));
+  RecordActionResultCode(result->code);
+  PostTaskForActCallback(std::move(act_callback_), std::move(action_results_));
 
   action_sequence_.clear();
   next_action_index_ = 0;
@@ -1067,6 +1107,14 @@ void ExecutionEngine::PromptToSelectCredential(
     ToolDelegate::CredentialSelectedCallback callback) {
   TRACE_EVENT0("actor", "ExecutionEngine::PromptToSelectCredential");
   CHECK(!credentials.empty());
+
+  if (credential_selection_override_callback_ &&
+      base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordCheckupPrototype)) {
+    std::move(credential_selection_override_callback_)
+        .Run(credentials, std::move(callback));
+    return;
+  }
 
   if (!task_->delegate()) {
     // TODO(crbug.com/427817882): Explicit error reason (kNewLonginAttempt).
@@ -1183,12 +1231,44 @@ void ExecutionEngine::UninterruptFromTool() {
   task_->Uninterrupt(ActorTask::State::kActing);
 }
 
+void ExecutionEngine::EnqueueFollowupAction(
+    std::unique_ptr<ToolRequest> action) {
+  action->SetAsFollowup(base::PassKey<ExecutionEngine>());
+  action_sequence_.insert(action_sequence_.begin() + next_action_index_,
+                          std::move(action));
+}
+
+base::WeakPtr<actor_login::ActionSequenceDelegate>
+ExecutionEngine::GetActionSequenceDelegate() {
+  return actions_weak_ptr_factory_.GetWeakPtr();
+}
+
+base::CallbackListSubscription ExecutionEngine::RegisterActionSequenceEnded(
+    base::OnceCallback<void(bool)> callback) {
+  return action_sequence_ended_callbacks_.Add(std::move(callback));
+}
+
+void ExecutionEngine::OnFederatedLoginOutcome(
+    actor_login::LoginStatusResult result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  mojom::ActionResultCode code =
+      AttemptLoginTool::LoginResultToActorResult(result);
+  if (!IsOk(code)) {
+    FailCurrentTool(code);
+  }
+}
+
 void ExecutionEngine::AddWritableMainframeOrigins(
     const absl::flat_hash_set<url::Origin>& added_writable_mainframe_origins) {
   if (!IsNavigationGatingEnabled()) {
     return;
   }
   origin_checker_.AllowNavigationTo(added_writable_mainframe_origins);
+}
+
+void ExecutionEngine::PreHandleCredentialSelectionDialog(
+    CredentialSelectionOverrideCallback callback) {
+  credential_selection_override_callback_ = std::move(callback);
 }
 
 const ToolRequest& ExecutionEngine::GetNextAction() const {
@@ -1206,6 +1286,20 @@ size_t ExecutionEngine::InProgressActionIndex() const {
 
 const ToolRequest& ExecutionEngine::GetInProgressAction() const {
   return *action_sequence_.at(InProgressActionIndex()).get();
+}
+
+size_t ExecutionEngine::GetResultIndexForAction(size_t action_index) const {
+  CHECK_LT(action_index, action_sequence_.size());
+  size_t original_count = std::count_if(
+      action_sequence_.begin(), action_sequence_.begin() + action_index + 1,
+      [](const std::unique_ptr<ToolRequest>& action) {
+        return !action->IsFollowup();
+      });
+
+  // At least the first action could not be a follow up.
+  CHECK_GT(original_count, 0ul);
+
+  return original_count - 1;
 }
 
 std::ostream& operator<<(std::ostream& o, const ExecutionEngine::State& s) {

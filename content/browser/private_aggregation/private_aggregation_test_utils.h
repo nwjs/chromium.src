@@ -24,7 +24,7 @@
 #include "content/browser/private_aggregation/private_aggregation_pending_contributions.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/test_browser_context.h"
-#include "content/test/test_content_browser_client.h"
+#include "content/public/test/test_content_browser_client.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom-forward.h"
@@ -176,13 +176,6 @@ class MockPrivateAggregationContentBrowserClientBase : public SuperClass {
                const url::Origin& accessing_origin,
                std::string* out_debug_message,
                bool* out_block_is_site_setting_specific),
-              (override));
-  MOCK_METHOD(bool,
-              IsFencedStorageReadAllowed,
-              (content::BrowserContext * browser_context,
-               content::RenderFrameHost* rfh,
-               const url::Origin& top_frame_origin,
-               const url::Origin& accessing_origin),
               (override));
   MOCK_METHOD(bool,
               IsPrivacySandboxReportingDestinationAttested,

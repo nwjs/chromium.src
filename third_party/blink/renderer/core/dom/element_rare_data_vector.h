@@ -20,6 +20,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/type_traits.h"
 
+namespace viz {
+enum class TrackedElementFeature;
+}  // namespace viz
+
 namespace blink {
 
 class CSSStyleDeclaration;
@@ -202,6 +206,7 @@ class CORE_EXPORT ElementRareDataVector final
   PseudoElement* GetPseudoElement(
       PseudoId,
       const AtomicString& document_transition_tag = g_null_atom) const;
+  bool HasAnyPseudos() const;
   bool HasScrollButtonOrMarkerGroupPseudos() const;
   PseudoElementData::PseudoElementVector GetPseudoElements() const;
 
@@ -266,9 +271,6 @@ class CORE_EXPORT ElementRareDataVector final
   [[nodiscard]] ElementRareDataVector* SetPart(DOMTokenList* part);
   DOMTokenList* GetPart() const;
 
-  [[nodiscard]] ElementRareDataVector* SetMarker(DOMTokenList* marker);
-  DOMTokenList* GetMarker() const;
-
   [[nodiscard]] ElementRareDataVector* SetPartNamesMap(
       const AtomicString part_names);
   const NamesMap* PartNamesMap() const;
@@ -307,10 +309,14 @@ class CORE_EXPORT ElementRareDataVector final
   [[nodiscard]] ElementRareDataVector* SetRegionCaptureCropId(
       std::unique_ptr<RegionCaptureCropId> crop_id);
 
-  const TrackedElementRect* GetTrackedElementRect() const;
-  [[nodiscard]] ElementRareDataVector* SetTrackedElementRect(
-      std::unique_ptr<TrackedElementRect> rect);
-  void ClearTrackedElementRect();
+  const TrackedElementSubRect* GetTrackedElementSubRect(
+      viz::TrackedElementFeature feature) const;
+  [[nodiscard]] ElementRareDataVector* SetTrackedElementSubRect(
+      viz::TrackedElementFeature feature,
+      const TrackedElementSubRect& rect);
+  void ClearTrackedElementSubRect(viz::TrackedElementFeature feature);
+
+  const TrackedElementSubRects* GetTrackedElementSubRects() const;
 
   // Returns the ID backing a RestrictionTarget if one was set on the Element,
   // or nullptr otherwise.
@@ -384,9 +390,9 @@ class CORE_EXPORT ElementRareDataVector final
       ScrollMarkerGroupData*);
   ScrollMarkerGroupData* GetScrollMarkerGroupContainerData() const;
 
-  [[nodiscard]] ElementRareDataVector* CacheCSSPseudoElement(PseudoId,
-                                                             CSSPseudoElement&);
-  CSSPseudoElement* GetCSSPseudoElement(PseudoId) const;
+  [[nodiscard]] ElementRareDataVector*
+  CacheCSSPseudoElement(PseudoId, const AtomicString&, CSSPseudoElement&);
+  CSSPseudoElement* GetCSSPseudoElement(PseudoId, const AtomicString&) const;
 
   ExplicitlySetAttrElementsMap* GetExplicitlySetElementsForAttr() const;
   std::pair<std::reference_wrapper<ExplicitlySetAttrElementsMap>,
@@ -413,7 +419,7 @@ class CORE_EXPORT ElementRareDataVector final
   DisplayAdElementMonitor* GetDisplayAdElementMonitor() const;
   std::pair<std::reference_wrapper<DisplayAdElementMonitor>,
             ElementRareDataVector*>
-  EnsureDisplayAdElementMonitor(Element*);
+  EnsureDisplayAdElementMonitor(Element*, AdProvenance);
 
   void SetDidAttachInternals() { flags_.did_attach_internals = true; }
   bool DidAttachInternals() const { return flags_.did_attach_internals; }
@@ -537,6 +543,13 @@ class CORE_EXPORT ElementRareDataVector final
   }
   void SetAffectedByMultipleHas() { flags_.affected_by_multiple_has_ = true; }
 
+  bool HasBeenHeuristicCustomPasswordCSS() const {
+    return flags_.has_been_heuristic_custom_password_css_;
+  }
+  void SetHasBeenHeuristicCustomPasswordCSS() {
+    flags_.has_been_heuristic_custom_password_css_ = true;
+  }
+
   ContentData* GetAltContentData() const;
   [[nodiscard]] ElementRareDataVector* SetAltContentData(
       ContentData* content_data);
@@ -624,8 +637,7 @@ class CORE_EXPORT ElementRareDataVector final
     kFlatTreeNodeData = 46,
     kScrollTimelines = 47,
     kDOMNodeId = 49,
-    kMarker = 50,
-    kNumFields = 51,
+    kNumFields = 50,
   };
 
   inline const Member<ElementRareDataField>* ArrayBase() const {
@@ -814,6 +826,11 @@ class CORE_EXPORT ElementRareDataVector final
     // We need to be able to distinguish between unset CustomElementRegistry
     // and explicitly nullptr CustomElementRegistry.
     unsigned has_custom_element_registry_ : 1 = false;
+
+    // Whether this element is or has ever been identified as a custom
+    // password field via CSS -webkit-text-security heuristics.
+    // This is distinct from native passwords (<input type=password>).
+    unsigned has_been_heuristic_custom_password_css_ : 1 = false;
 
     // Currently no free bits left.
   };

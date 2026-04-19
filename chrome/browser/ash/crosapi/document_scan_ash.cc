@@ -62,21 +62,6 @@ void OpenScannerAdapter(
       mojom::OpenScannerResponse::From(response_in.value()));
 }
 
-void CloseScannerAdapter(
-    const std::string& scanner_handle,
-    DocumentScanAsh::CloseScannerCallback callback,
-    const std::optional<lorgnette::CloseScannerResponse>& response_in) {
-  if (!response_in) {
-    auto response_out = mojom::CloseScannerResponse::New();
-    response_out->scanner_handle = scanner_handle;
-    response_out->result = mojom::ScannerOperationResult::kInternalError;
-    std::move(callback).Run(std::move(response_out));
-    return;
-  }
-  std::move(callback).Run(
-      mojom::CloseScannerResponse::From(response_in.value()));
-}
-
 void StartPreparedScanAdapter(
     const std::string& scanner_handle,
     DocumentScanAsh::StartPreparedScanCallback callback,
@@ -133,35 +118,6 @@ void SetOptionsAdapter(
   std::move(callback).Run(mojom::SetOptionsResponse::From(response));
 }
 
-void GetOptionGroupsAdapter(
-    const std::string& scanner_handle,
-    DocumentScanAsh::GetOptionGroupsCallback callback,
-    const std::optional<lorgnette::GetCurrentConfigResponse>& response_in) {
-  if (!response_in) {
-    auto response = mojom::GetOptionGroupsResponse::New();
-    response->result = mojom::ScannerOperationResult::kInternalError;
-    response->scanner_handle = scanner_handle;
-    std::move(callback).Run(std::move(response));
-    return;
-  }
-  std::move(callback).Run(
-      mojom::GetOptionGroupsResponse::From(response_in.value()));
-}
-
-void CancelScanAdapter(
-    const std::string& job_handle,
-    DocumentScanAsh::CancelScanCallback callback,
-    const std::optional<lorgnette::CancelScanResponse>& response_in) {
-  if (!response_in) {
-    auto response = mojom::CancelScanResponse::New();
-    response->job_handle = job_handle;
-    response->result = mojom::ScannerOperationResult::kInternalError;
-    std::move(callback).Run(std::move(response));
-    return;
-  }
-  std::move(callback).Run(mojom::CancelScanResponse::From(response_in.value()));
-}
-
 }  // namespace
 
 DocumentScanAsh::DocumentScanAsh() = default;
@@ -183,16 +139,6 @@ void DocumentScanAsh::OpenScanner(const std::string& client_id,
       ->OpenScanner(
           std::move(request),
           base::BindOnce(&OpenScannerAdapter, scanner_id, std::move(callback)));
-}
-
-void DocumentScanAsh::CloseScanner(const std::string& scanner_handle,
-                                   CloseScannerCallback callback) {
-  lorgnette::CloseScannerRequest request;
-  request.mutable_scanner()->set_token(scanner_handle);
-  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(GetProfile())
-      ->CloseScanner(std::move(request),
-                     base::BindOnce(&CloseScannerAdapter, scanner_handle,
-                                    std::move(callback)));
 }
 
 void DocumentScanAsh::StartPreparedScan(const std::string& scanner_handle,
@@ -249,27 +195,6 @@ void DocumentScanAsh::SetOptions(const std::string& scanner_handle,
   ash::LorgnetteScannerManagerFactory::GetForBrowserContext(GetProfile())
       ->SetOptions(request, base::BindOnce(&SetOptionsAdapter, scanner_handle,
                                            option_names, invalid_option_names,
-                                           std::move(callback)));
-}
-
-void DocumentScanAsh::GetOptionGroups(const std::string& scanner_handle,
-                                      GetOptionGroupsCallback callback) {
-  lorgnette::GetCurrentConfigRequest request;
-  request.mutable_scanner()->set_token(scanner_handle);
-
-  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(GetProfile())
-      ->GetCurrentConfig(request,
-                         base::BindOnce(&GetOptionGroupsAdapter, scanner_handle,
-                                        std::move(callback)));
-}
-
-void DocumentScanAsh::CancelScan(const std::string& job_handle,
-                                 CancelScanCallback callback) {
-  lorgnette::CancelScanRequest request;
-  request.mutable_job_handle()->set_token(job_handle);
-
-  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(GetProfile())
-      ->CancelScan(request, base::BindOnce(&CancelScanAdapter, job_handle,
                                            std::move(callback)));
 }
 

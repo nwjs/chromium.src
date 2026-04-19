@@ -234,6 +234,7 @@ class Dispatcher : public content::RenderThreadObserver,
   // mojom::Renderer implementation:
   void ActivateExtension(const ExtensionId& extension_id) override;
   void SetActivityLoggingEnabled(bool enabled) override;
+  void SetPolicyActivityLoggingEnabled(bool enabled) override;
   void LoadExtensions(
       std::vector<mojom::ExtensionLoadedParamsPtr> loaded_extensions) override;
   void UnloadExtension(const ExtensionId& extension_id) override;
@@ -296,6 +297,9 @@ class Dispatcher : public content::RenderThreadObserver,
 
   // NativeExtensionBindingsSystem::Delegate implementation.
   ScriptContextSetIterable* GetScriptContextSet() override;
+
+  // Updates the DOM activity logging state for all active extensions.
+  void UpdateDOMActivityLogging();
 
   void UpdateActiveExtensions();
 

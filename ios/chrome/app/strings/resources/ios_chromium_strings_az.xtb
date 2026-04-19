@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="az">
 <translation id="1000436330784933699">Linzanı burada aça bilərsiniz.</translation>
+<translation id="1005291068154454184">Chromium-u defolt kimi ayarlamaq qaydası ilə bağlı tam ekran video</translation>
 <translation id="1042296835509784301">Chromium-da Parol menecerini açır.</translation>
 <translation id="1047130070405668746">Chromium seçin</translation>
 <translation id="1091252999271033193">Yəni, Chromium hər dəfə mobil saytı tələb edəcək.</translation>
@@ -70,9 +71,6 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="2313870531055795960">URL'ləri Chromium'da saxlanılan təhlükəli saytların siyahısı ilə yoxlayır Sayt parolunuzu oğurlamağa çalışdıqda və ya zərərli fayl endirdiyinizdə Chromium səhifə məzmunundan kiçik nümunələr də daxil olmaqla, URL'ləri Təhlükəsiz Baxışa göndərə bilər.</translation>
 <translation id="2314220608288760290">Chromium YouTube Anonim keçidlərini avtomatik olaraq Anonim rejimdə açır.</translation>
 <translation id="231828342043114302">Maraqlarınıza əsasən fərdiləşdirilmiş kontent qəbul etmək üçün Chromium-a daxil olun.</translation>
-<translation id="2326738825692478496">Müəyyən Chromium datası Google Hesabında yadda saxlanılmayıb.
-
-Çıxmazdan əvvəl bir neçə dəqiqə gözləyin. İndi çıxsanız, bu data silinəcək.</translation>
 <translation id="2334943301233020675">Aşağıdakı giriş açarları tələblərə uyğun olmadığı üçün Parol Menecerinə import edilmədi.</translation>
 <translation id="2337722506862731008">Chromium-u paylaşın</translation>
 <translation id="2340423701577464731">Oxu siyahısı elementini Chromium-a əlavə edin</translation>
@@ -103,7 +101,6 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 Chromium təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən digər ayarlar üçün <ph name="BEGIN_LINK" />Google Xidmətlərinə<ph name="END_LINK" /> keçin.</translation>
 <translation id="2832168932648876507">Chromium-da səs ilə axtarın.</translation>
 <translation id="2843571538056574338">Avtodoldurma üçün Chromium istifadə edin</translation>
-<translation id="2899085719655668655">Chromium-u defolt kimi ayarlamaq qaydası ilə bağlı şəkildə şəkil formatında video təlimatlar</translation>
 <translation id="2918709798697875261">Təşkilatınız Chromium'dan çıxmış vəziyyətdə qalmağınızı tələb edir.</translation>
 <translation id="2942241131342758843">Defolt olaraq keçidləri açmaq, vidcetlərdən axtarış etmək və digər tətbiqlərdə parolları avtomatik doldurmaq üçün Chromium istifadə edin</translation>
 <translation id="2977470724722393594">Chromium güncəldir</translation>

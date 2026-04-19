@@ -688,6 +688,7 @@ void LocalFrameMojoHandler::RenderFallbackContent() {
 }
 
 void LocalFrameMojoHandler::BeforeUnload(bool is_reload,
+                                         bool force_to_proceed,
                                          BeforeUnloadCallback callback) {
   base::TimeTicks before_unload_start_time = base::TimeTicks::Now();
   base::TimeTicks before_unload_dialog_opened_time;
@@ -696,9 +697,9 @@ void LocalFrameMojoHandler::BeforeUnload(bool is_reload,
   // local descendant frames, including children of remote frames.  The browser
   // process will send separate IPCs to dispatch beforeunload in any
   // out-of-process child frames.
-  bool proceed =
-      frame_->Loader().ShouldClose(is_reload, before_unload_dialog_opened_time,
-                                   before_unload_dialog_closed_time);
+  bool proceed = frame_->Loader().ShouldClose(is_reload, force_to_proceed,
+                                              before_unload_dialog_opened_time,
+                                              before_unload_dialog_closed_time);
 
   DCHECK(!callback.is_null());
   base::TimeTicks before_unload_end_time = base::TimeTicks::Now();
@@ -754,8 +755,8 @@ void LocalFrameMojoHandler::AdvanceFocusForIME(
     return;
 
   Element* next_element =
-      GetPage()->GetFocusController().NextFocusableElementForImeAndAutofill(
-          element, focus_type);
+      GetPage()->GetFocusController().NextFocusableElementForIme(element,
+                                                                 focus_type);
   if (!next_element)
     return;
 

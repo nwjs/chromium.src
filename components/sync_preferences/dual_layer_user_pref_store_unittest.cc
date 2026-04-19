@@ -17,7 +17,9 @@
 #include "components/prefs/testing_pref_store.h"
 #include "components/sync/base/features.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/sync_preferences/features.h"
 #include "components/sync_preferences/pref_model_associator_client.h"
+#include "components/sync_preferences/syncable_prefs_database.h"
 #include "components/sync_preferences/test_syncable_prefs_database.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,6 +42,7 @@ constexpr char kMergeableDictPref2[] = "mergeable.dict.pref2";
 constexpr char kCustomMergePref[] = "custom.merge.pref";
 constexpr char kAlwaysSyncingPriorityPrefName[] =
     "always.syncing.priority.pref";
+constexpr char kAccountScopedPref[] = "account_scoped.pref";
 #if BUILDFLAG(IS_CHROMEOS)
 constexpr char kOsPrefName[] = "os.pref";
 constexpr char kOsPriorityPrefName[] = "os.priority.pref";
@@ -76,6 +79,9 @@ const TestSyncablePrefsDatabase::PrefsMap kSyncablePrefsDatabase = {
      {0, syncer::PRIORITY_PREFERENCES,
       PrefSensitivity::kExemptFromUserControlWhileSignedIn,
       MergeBehavior::kNone}},
+    {kAccountScopedPref,
+     {0, syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone,
+      WriteBehavior::kWriteToAccountOnly}},
 #if BUILDFLAG(IS_CHROMEOS)
     {kOsPrefName,
      {0, syncer::OS_PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -3195,6 +3201,216 @@ TEST_F(DualLayerUserPrefStorePriorityPrefDecoupleTest,
 #endif
   EXPECT_TRUE(ValueInStoreIs(*local_store(), kUserSelectedTypesPrefName,
                              base::Value(base::ListValue())));
+}
+
+class DualLayerUserPrefStoreAccountScopedTest
+    : public DualLayerUserPrefStoreTest {
+  base::test::ScopedFeatureList feature_list_{features::kAccountScopedPrefs};
+};
+
+TEST_F(DualLayerUserPrefStoreAccountScopedTest,
+       ShouldWriteOnlyToAccountStoreWhenSyncing) {
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+
+  // Check SetValue().
+  store()->SetValue(kAccountScopedPref, base::Value("value1"), 0);
+  ASSERT_TRUE(
+      ValueInStoreIs(*store(), kAccountScopedPref, base::Value("value1")));
+  // Should be in account store.
+  EXPECT_TRUE(ValueInStoreIs(*account_store(), kAccountScopedPref,
+                             base::Value("value1")));
+  // Should NOT be in local store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // Check SetValueSilently().
+  store()->SetValueSilently(kAccountScopedPref, base::Value("value2"), 0);
+  ASSERT_TRUE(
+      ValueInStoreIs(*store(), kAccountScopedPref, base::Value("value2")));
+  // Should be in account store.
+  EXPECT_TRUE(ValueInStoreIs(*account_store(), kAccountScopedPref,
+                             base::Value("value2")));
+  // Should NOT be in local store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // Check ReportValueChanged().
+  base::Value* value = nullptr;
+  ASSERT_TRUE(store()->GetMutableValue(kAccountScopedPref, &value));
+  *value = base::Value("value3");
+  store()->ReportValueChanged(kAccountScopedPref, 0);
+  // Should be in account store.
+  EXPECT_TRUE(ValueInStoreIs(*account_store(), kAccountScopedPref,
+                             base::Value("value3")));
+  // Should NOT be in local store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // Check RemoveValue().
+  // Set a value in the local store to verify that it is not removed - note that
+  // can only happen in a buggy scenario since account-scoped prefs should not
+  // be in the local store.
+  local_store()->SetValueSilently(kAccountScopedPref, base::Value("value4"), 0);
+  store()->RemoveValue(kAccountScopedPref, 0);
+  // Should NOT be in account store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
+  // Should still be in local store.
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kAccountScopedPref,
+                             base::Value("value4")));
+}
+
+TEST_F(DualLayerUserPrefStoreAccountScopedTest, ShouldNotReadFromLocalStore) {
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+
+  // Set a value in the local store.
+  local_store()->SetValueSilently(kAccountScopedPref,
+                                  base::Value("local_value"), 0);
+
+  // Check GetValue().
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store(), kAccountScopedPref));
+
+  // Check GetMutableValue().
+  EXPECT_FALSE(store()->GetMutableValue(kAccountScopedPref, nullptr));
+
+  // Check GetValues().
+  base::DictValue values = store()->GetValues();
+  EXPECT_FALSE(values.FindByDottedPath(kAccountScopedPref));
+
+  // Now set a value in the account store as well.
+  account_store()->SetValueSilently(kAccountScopedPref,
+                                    base::Value("account_value"), 0);
+
+  // Check GetValue().
+  EXPECT_TRUE(ValueInStoreIs(*store(), kAccountScopedPref, "account_value"));
+
+  // Check GetMutableValue().
+  base::Value* value = nullptr;
+  ASSERT_TRUE(store()->GetMutableValue(kAccountScopedPref, &value));
+  EXPECT_EQ(*value, base::Value("account_value"));
+
+  // Check GetValues().
+  values = store()->GetValues();
+  base::Value* dict_value = values.FindByDottedPath(kAccountScopedPref);
+  ASSERT_TRUE(dict_value);
+  EXPECT_EQ(*dict_value, base::Value("account_value"));
+}
+
+TEST_F(DualLayerUserPrefStoreAccountScopedTest, ShouldNotWriteWhenNotSyncing) {
+  // No types are selected.
+  store()->SetUserSelectedTypesForTest(syncer::UserSelectableTypeSet());
+
+  // Check SetValue().
+  store()->SetValue(kAccountScopedPref, base::Value("value"), 0);
+  // Should not be in any store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // Check SetValueSilently().
+  store()->SetValueSilently(kAccountScopedPref, base::Value("value"), 0);
+  // Should not be in any store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // Check ReportValueChanged().
+  store()->ReportValueChanged(kAccountScopedPref, 0);
+  // Should not be in any store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+}
+
+TEST_F(DualLayerUserPrefStoreAccountScopedTest,
+       ShouldClearAccountScopedPrefWhenSyncStops) {
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+
+  store()->SetValue(kAccountScopedPref, base::Value("value"), 0);
+  // Should only be in account store.
+  ASSERT_TRUE(ValueInStoreIs(*account_store(), kAccountScopedPref,
+                             base::Value("value")));
+  ASSERT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  store()->DisableTypeAndClearAccountStore(syncer::PREFERENCES);
+  // Value should be cleared from the account store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store(), kAccountScopedPref));
+}
+
+TEST_F(DualLayerUserPrefStoreAccountScopedTest,
+       ClearAccountScopedPrefsFromLocalStore) {
+  // Directly write account-scoped pref to the local store (simulating a bug or
+  // old state).
+  local_store()->SetValueSilently(kAccountScopedPref,
+                                  base::Value("account_scoped_value"), 0);
+
+  // Directly write a regular pref to the local store to ensure it's NOT
+  // cleared.
+  local_store()->SetValueSilently(kPrefName, base::Value("local_value"), 0);
+
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kAccountScopedPref,
+                             "account_scoped_value"));
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kPrefName, "local_value"));
+
+  store()->DisableTypeAndClearAccountStore(syncer::PREFERENCES);
+
+  // The account-scoped pref is cleared only after all data types are disabled.
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kAccountScopedPref,
+                             "account_scoped_value"));
+
+  store()->DisableTypeAndClearAccountStore(syncer::PRIORITY_PREFERENCES);
+#if BUILDFLAG(IS_CHROMEOS)
+  store()->DisableTypeAndClearAccountStore(syncer::OS_PREFERENCES);
+  store()->DisableTypeAndClearAccountStore(syncer::OS_PRIORITY_PREFERENCES);
+#endif
+
+  // The account-scoped pref should have been cleared from the local store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*local_store(), kAccountScopedPref));
+
+  // The regular pref should still be there.
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kPrefName, "local_value"));
+}
+
+class DualLayerUserPrefStoreAccountScopedDisabledTest
+    : public DualLayerUserPrefStoreTest {
+ public:
+  DualLayerUserPrefStoreAccountScopedDisabledTest() {
+    feature_list_.InitAndDisableFeature(features::kAccountScopedPrefs);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(DualLayerUserPrefStoreAccountScopedDisabledTest,
+       ShouldDualWriteToBothStoresWhenSyncing) {
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+
+  // When flag is DISABLED, should dual-write to both stores.
+  store()->SetValue(kAccountScopedPref, base::Value("value"), 0);
+
+  ASSERT_TRUE(
+      ValueInStoreIs(*store(), kAccountScopedPref, base::Value("value")));
+  EXPECT_TRUE(
+      ValueInStoreIs(*local_store(), kAccountScopedPref, base::Value("value")));
+  EXPECT_TRUE(ValueInStoreIs(*account_store(), kAccountScopedPref,
+                             base::Value("value")));
+}
+
+TEST_F(DualLayerUserPrefStoreAccountScopedDisabledTest,
+       ShouldWriteToLocalStoreWhenNotSyncing) {
+  // No types are selected.
+  store()->SetUserSelectedTypesForTest(syncer::UserSelectableTypeSet());
+
+  // When flag is DISABLED, should write to local store only.
+  store()->SetValue(kAccountScopedPref, base::Value("value"), 0);
+
+  ASSERT_TRUE(
+      ValueInStoreIs(*store(), kAccountScopedPref, base::Value("value")));
+  EXPECT_TRUE(
+      ValueInStoreIs(*local_store(), kAccountScopedPref, base::Value("value")));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kAccountScopedPref));
 }
 
 }  // namespace

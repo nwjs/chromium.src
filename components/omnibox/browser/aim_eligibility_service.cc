@@ -207,80 +207,27 @@ bool GetResponseFromPrefs(const PrefService* prefs,
 }
 
 // Determines whether the specified tool mode is permitted based on the
-// allowed tools list within the `SearchboxConfig` rule set.
+// allowed tools list within the `SearchboxConfig`.
 bool IsToolAllowed(const omnibox::SearchboxConfig& config,
                    omnibox::ToolMode tool_mode) {
-  if (config.has_rule_set()) {
-    for (const auto& allowed_tool : config.rule_set().allowed_tools()) {
-      if (allowed_tool == tool_mode) {
-        return true;
-      }
+  for (const auto& tool_config : config.tool_configs()) {
+    if (tool_config.tool() == tool_mode) {
+      return true;
     }
   }
   return false;
 }
 
 // Determines whether the specified input type is permitted based on the
-// allowed input types list within the `SearchboxConfig` rule set.
+// allowed input types list within the `SearchboxConfig`.
 bool IsInputTypeAllowed(const omnibox::SearchboxConfig& config,
                         omnibox::InputType input_type) {
-  if (config.has_rule_set()) {
-    for (const auto& allowed_type : config.rule_set().allowed_input_types()) {
-      if (allowed_type == input_type) {
-        return true;
-      }
+  for (const auto& type_config : config.input_type_configs()) {
+    if (type_config.input_type() == input_type) {
+      return true;
     }
   }
   return false;
-}
-
-// Builds a fallback `SearchboxConfig` from the legacy eligibility fields in
-// `response`.
-void BuildFallbackConfig(const omnibox::AimEligibilityResponse& response,
-                         omnibox::SearchboxConfig& fallback_config) {
-  fallback_config.Clear();
-  auto* rule_set = fallback_config.mutable_rule_set();
-  rule_set->set_max_total_inputs(10);
-
-  auto* lens_image_rule = rule_set->add_input_type_rules();
-  lens_image_rule->set_input_type(omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
-  lens_image_rule->set_max_instance(10);
-
-  auto* lens_file_rule = rule_set->add_input_type_rules();
-  lens_file_rule->set_input_type(omnibox::InputType::INPUT_TYPE_LENS_FILE);
-  lens_file_rule->set_max_instance(10);
-
-  auto* browser_tab_rule = rule_set->add_input_type_rules();
-  browser_tab_rule->set_input_type(omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
-  browser_tab_rule->set_max_instance(10);
-
-  if (response.is_deep_search_eligible()) {
-    rule_set->add_allowed_tools(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
-    auto* tool_config = fallback_config.add_tool_configs();
-    tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
-    auto* deep_search_rule = rule_set->add_tool_rules();
-    deep_search_rule->set_tool(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
-    deep_search_rule->set_allow_all_input_types(false);
-  }
-  if (response.is_canvas_eligible()) {
-    rule_set->add_allowed_tools(omnibox::ToolMode::TOOL_MODE_CANVAS);
-  }
-  if (response.is_image_generation_eligible()) {
-    rule_set->add_allowed_tools(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
-    auto* tool_config = fallback_config.add_tool_configs();
-    tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
-    auto* image_gen_rule = rule_set->add_tool_rules();
-    image_gen_rule->set_tool(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
-    image_gen_rule->add_allowed_input_types(
-        omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
-  }
-  if (response.is_pdf_upload_eligible()) {
-    rule_set->add_allowed_input_types(omnibox::InputType::INPUT_TYPE_LENS_FILE);
-    rule_set->add_allowed_input_types(
-        omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
-    rule_set->add_allowed_input_types(
-        omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
-  }
 }
 
 }  // namespace
@@ -403,7 +350,6 @@ AimEligibilityService::AimEligibilityService(
   template_url_service_->AddObserver(this);
 
   LoadMostRecentResponse();
-  UpdateFallbackConfig();
 
   bool startup_request_enabled =
       base::FeatureList::IsEnabled(omnibox::kAimServerRequestOnStartupEnabled);
@@ -433,6 +379,20 @@ AimEligibilityService::~AimEligibilityService() {
           omnibox::kAimStartupRequestDelayedUntilNetworkAvailableEnabled)) {
     net::NetworkChangeNotifier::RemoveNetworkChangeObserver(this);
   }
+}
+
+// static
+bool AimEligibilityService::IsIetfBcp47(const std::string& locale) {
+  return locale.find('_') == std::string::npos;
+}
+
+std::string AimEligibilityService::GetLocale() const {
+  std::string locale = GetLocaleImpl();
+  DCHECK(IsIetfBcp47(locale))
+      << "GetLocaleImpl() must return a BCP 47 formatted locale with hyphens, "
+         "not underscores: "
+      << locale;
+  return locale;
 }
 
 bool AimEligibilityService::IsCountry(const std::string& country) const {
@@ -665,7 +625,7 @@ const omnibox::SearchboxConfig* AimEligibilityService::GetSearchboxConfig()
     return &most_recent_response_.searchbox_config();
   }
 
-  return &fallback_config_;
+  return &omnibox::SearchboxConfig::default_instance();
 }
 
 AimEligibilityService::AuthenticationMethod
@@ -892,7 +852,6 @@ void AimEligibilityService::UpdateMostRecentResponse(
   most_recent_response_ = response_proto;
   most_recent_response_source_ = response_source;
   most_recent_response_auth_method_ = auth_method;
-  UpdateFallbackConfig();
 
   // Update the prefs.
   std::string response_string;
@@ -912,22 +871,6 @@ void AimEligibilityService::LoadMostRecentResponse() {
 
   most_recent_response_ = prefs_response;
   most_recent_response_source_ = EligibilityResponseSource::kPrefs;
-}
-
-void AimEligibilityService::UpdateFallbackConfig() {
-  if (IsServerEligibilityEnabled()) {
-    BuildFallbackConfig(most_recent_response_, fallback_config_);
-  } else {
-    // If server check is disabled, assume full eligibility. Prevents an empty
-    // config from hiding tools.
-    omnibox::AimEligibilityResponse full_response;
-    full_response.set_is_eligible(true);
-    full_response.set_is_pdf_upload_eligible(true);
-    full_response.set_is_deep_search_eligible(true);
-    full_response.set_is_canvas_eligible(true);
-    full_response.set_is_image_generation_eligible(true);
-    BuildFallbackConfig(full_response, fallback_config_);
-  }
 }
 
 GURL AimEligibilityService::GetRequestUrl(

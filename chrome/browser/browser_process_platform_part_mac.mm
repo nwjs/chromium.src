@@ -8,7 +8,6 @@
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 
 #include "base/apple/foundation_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #import "chrome/browser/app_controller_mac.h"
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
@@ -77,6 +76,10 @@ void BrowserProcessPlatformPart::PreMainMessageLoopRun() {
         device::SystemGeolocationSourceApple::
             CreateGeolocationSystemPermissionManager());
   }
+}
+
+void BrowserProcessPlatformPart::PostDestroyThreads() {
+  app_shim_manager_.reset();
 }
 
 apps::AppShimManager* BrowserProcessPlatformPart::app_shim_manager() {

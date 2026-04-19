@@ -198,6 +198,8 @@ class CORE_EXPORT HTMLCapabilityElementBase
                            DataErrorMakesElementInvalid);
   FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
                            InvalidUrlMakesElementInvalid);
+  FRIEND_TEST_ALL_PREFIXES(HTMLInstallElementTestBase,
+                           InvalidManifestIdMakesElementInvalid);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseClickingEnabledTest,
                            UnclickableBeforeRegistered);
   FRIEND_TEST_ALL_PREFIXES(HTMLCapabilityElementBaseIntersectionTest,
@@ -373,6 +375,8 @@ class CORE_EXPORT HTMLCapabilityElementBase
   // process.
  protected:
   bool MaybeRegisterPageEmbeddedPermissionControl();
+
+  void MaybeRegisterCacheClient();
 
   // Ensure we reset the PEPC IPC endpoint.
   void EnsureUnregisterPageEmbeddedPermissionControl();

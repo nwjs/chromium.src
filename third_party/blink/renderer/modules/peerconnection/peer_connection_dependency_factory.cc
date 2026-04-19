@@ -44,7 +44,7 @@
 #include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"
 #include "third_party/blink/public/mojom/peerconnection/webrtc_ip_handling_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
-#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -296,7 +296,6 @@ class LocalNetworkAccessPermission final
     callback_ = std::move(callback);
     permission_service_->RequestPermission(
         CreatePermissionDescriptor(permission_name),
-        /*user_gesture=*/false,
         BindRepeating(
             &LocalNetworkAccessPermission::OnPermissionRequested,
             // This is safe because this class owns `permission_service_` which
@@ -304,10 +303,11 @@ class LocalNetworkAccessPermission final
             base::Unretained(this)));
   }
 
-  void OnPermissionRequested(mojom::blink::PermissionStatus status) {
+  void OnPermissionRequested(
+      mojom::blink::PermissionStatusWithDetailsPtr status) {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-    switch (status) {
+    switch (status->status) {
       case mojom::blink::PermissionStatus::GRANTED:
         callback_(webrtc::LocalNetworkAccessPermissionStatus::kGranted);
         break;

@@ -105,8 +105,7 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
   // platform-specific tensor as a shared image.
   // Backend subclasses implement this to perform any necessary
   // device synchronization.
-  virtual void ExportTensorImpl(ScopedAccessPtr access,
-                                ExportTensorCallback callback) = 0;
+  virtual void ExportTensorImpl(ScopedAccessPtr access) = 0;
 
   // Called by `ImportTensorInternal()` after WebNN begins access of the
   // platform-specific tensor as a shared image.
@@ -131,8 +130,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
   // mojom::WebNNTensor
   void ReadTensor(ReadTensorCallback callback) override;
   void WriteTensor(mojo_base::BigBuffer src_buffer) override;
-  void ImportTensor(const gpu::SyncToken& fence) override;
-  void ExportTensor(ExportTensorCallback callback) override;
+  void ImportTensor(uint64_t flow_id, const gpu::SyncToken& fence) override;
+  void ExportTensor(uint64_t flow_id, ExportTensorCallback callback) override;
 
   // `OnDisconnect` is called from two places.
   //  - When the tensor is explicitly destroyed by the WebNN

@@ -6,8 +6,6 @@
 #define CHROME_BROWSER_DEVICE_REAUTH_CHROMEOS_DEVICE_AUTHENTICATOR_CHROMEOS_H_
 
 #include "base/functional/callback.h"
-#include "base/sequence_checker.h"
-#include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/device_reauth/chromeos/authenticator_chromeos.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/device_reauth/device_authenticator_common.h"
@@ -41,6 +39,11 @@ class DeviceAuthenticatorChromeOS : public DeviceAuthenticatorCommon {
 
   // Callback to be executed after the authentication completes.
   AuthenticateCallback callback_;
+
+  // Indicates the feature requesting the authentication (e.g., Autofill,
+  // Password Manager). This is used to determine the correct context and UI for
+  // the Ash in-session auth dialog.
+  const device_reauth::DeviceAuthSource source_;
 
   // Factory for weak pointers to this class.
   base::WeakPtrFactory<DeviceAuthenticatorChromeOS> weak_ptr_factory_{this};

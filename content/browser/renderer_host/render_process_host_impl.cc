@@ -1680,8 +1680,7 @@ RenderProcessHostImpl::RenderProcessHostImpl(
   widget_helper_ = new RenderWidgetHelper();
   resolve_proxy_helper_ = new ResolveProxyHelper(GetDeprecatedID());
 
-  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetDeprecatedID(),
-                                                     browser_context);
+  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID(), browser_context);
 
   CHECK(!BrowserMainRunner::ExitedMainMessageLoop());
   RegisterHost(GetID(), this);
@@ -1784,7 +1783,7 @@ RenderProcessHostImpl::~RenderProcessHostImpl() {
   in_process_renderer_.reset();
   g_in_process_thread = nullptr;
 
-  ChildProcessSecurityPolicyImpl::GetInstance()->Remove(GetDeprecatedID());
+  ChildProcessSecurityPolicyImpl::GetInstance()->Remove(GetID());
 
   is_dead_ = true;
 
@@ -2013,11 +2012,13 @@ bool RenderProcessHostImpl::Init() {
     NotifyRendererOfLockedStateUpdate();
     // Send the initial system color info to the renderer.
     ThemeHelper::GetInstance()->SendSystemColorInfo(GetRendererInterface());
-    for (auto* observer : GetAllCreationObservers()) {
-      observer->OnRenderProcessHostCreated(this);
-    }
 
     if (ShouldPauseChannelUntilProcessLaunched()) {
+      // We pause the mojo channel to the renderer when launching the process
+      // until we get the OnProcessLaunched signal, where we flush and unpause
+      // the channel. Note that this delays any message sent before the
+      // OnProcessLaunched signal is run on the main thread.
+      // TODO(crbug.com/448511116): Remove this path.
       TRACE_EVENT_BEGIN(
           "ipc", "RenderProcessHostImpl.Channel.ProcessLaunchPauseToUnpause",
           tracing_track_, ChromeTrackEvent::kRenderProcessHost, *this);
@@ -2026,6 +2027,14 @@ bool RenderProcessHostImpl::Init() {
           tracing_track_, ChromeTrackEvent::kRenderProcessHost, *this);
       pause_channel_on_process_launch_time_ = base::TimeTicks::Now();
       channel_->Pause();
+    } else {
+      // Since we're not pausing the mojo channel, trigger
+      // `OnRenderProcessHostCreated()` so that messages that need to be sent
+      // early to a newly created renderer, before e.g. navigation commits,
+      // get sent as soon as possible / not wait for `OnProcessLaunched()`.
+      for (auto* observer : GetAllCreationObservers()) {
+        observer->OnRenderProcessHostCreated(this);
+      }
     }
 
     // In single process mode, browser-side tracing and memory will cover the
@@ -3061,8 +3070,7 @@ RenderProcessHostImpl::GetJavaScriptCallStackGeneratorInterface() {
 }
 
 ProcessLock RenderProcessHostImpl::GetProcessLock() const {
-  return ChildProcessSecurityPolicyImpl::GetInstance()->GetProcessLock(
-      GetDeprecatedID());
+  return ChildProcessSecurityPolicyImpl::GetInstance()->GetProcessLock(GetID());
 }
 
 bool RenderProcessHostImpl::MayReuseHost() {
@@ -3600,6 +3608,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   command_line->AppendSwitchASCII(switches::kProcessType,
                                   switches::kRendererProcess);
 
+  if (IsForTopChromeWebUI()) {
+    command_line->AppendSwitch(switches::kTopChromeWebUI);
+  }
+
   // Call this as early as possible so that --extension-process will show early
   // in process listings. See https://crbug.com/1211558 for details.
   GetContentClient()->browser()->AppendExtraCommandLineSwitches(
@@ -3675,7 +3687,7 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   AppendCompositorCommandLineFlags(command_line);
 
   command_line->AppendSwitchASCII(switches::kRendererClientId,
-                                  base::NumberToString(GetDeprecatedID()));
+                                  base::NumberToString(GetID().value()));
 
   // Synchronize unix/monotonic clocks across consistent processes.
   if (base::TimeTicks::IsConsistentAcrossProcesses()) {
@@ -3826,7 +3838,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       blink::switches::kEnablePreferCompositingToLCDText,
       blink::switches::kEnableRGBA4444Textures,
       blink::switches::kEnableRasterSideDarkModeForImages,
-      blink::switches::kEnableWebGLImageChromium,
+#if BUILDFLAG(IS_CHROMEOS)
+      blink::switches::kEnableOverlaysAndLowLatencyUsageForWebGL,
+#endif
       blink::switches::kForceGpuMemAvailableMb,
       blink::switches::
           kGpuMemoryBufferReadbackFromTextureForceDisabledForDebugging,
@@ -4740,7 +4754,7 @@ RenderProcessHost::FilterURLResult RenderProcessHostImpl::FilterURL(
     // navigation to the home page. This is often a privileged page
     // (chrome://newtab/) which is exactly what we don't want.
     TRACE_EVENT1("navigation", "RenderProcessHost::FilterURL - invalid URL",
-                 "process_id", rph->GetDeprecatedID());
+                 "process_id", rph->GetID().value());
     VLOG(1) << "Blocked invalid URL";
     base::UmaHistogramEnumeration("BrowserRenderProcessHost.BlockedByFilterURL",
                                   BlockedURLReason::kInvalidURL);
@@ -4757,7 +4771,7 @@ RenderProcessHost::FilterURLResult RenderProcessHostImpl::FilterURL(
     // confused later.
     TRACE_EVENT2("navigation",
                  "RenderProcessHost::FilterURL - failed CanRequestURL",
-                 "process_id", rph->GetDeprecatedID(), "url", url->spec());
+                 "process_id", rph->GetID().value(), "url", url->spec());
     if (nw::gRphGuestFilterURLHook && nw::gRphGuestFilterURLHook(rph, url))
       return FilterURLResult::kAllowed;
     VLOG(1) << "Blocked URL " << url->spec();
@@ -4775,6 +4789,8 @@ bool RenderProcessHostImpl::IsSuitableHost(
     RenderProcessHost* host,
     const IsolationContext& isolation_context,
     const SiteInfo& site_info) {
+  TRACE_EVENT("navigation", "RenderProcessHostImpl::IsSuitableHost",
+              ChromeTrackEvent::kRenderProcessHost, *host);
   BrowserContext* browser_context = isolation_context.browser_context();
   DCHECK(browser_context);
   if (run_renderer_in_process()) {
@@ -4783,8 +4799,13 @@ bool RenderProcessHostImpl::IsSuitableHost(
     return true;
   }
 
-  if (host->GetBrowserContext() != browser_context)
+  if (host->GetBrowserContext() != browser_context) {
+    TRACE_EVENT_INSTANT(
+        "navigation", "NotSuitableHost: BrowserContext diff",
+        ChromeTrackEvent::kChromeBrowserContext, *host->GetBrowserContext(),
+        ChromeTrackEvent::kChromeBrowserContext, *browser_context);
     return false;
+  }
 
   // Do not allow sharing of guest and non-guest hosts.  Note that we also
   // enforce that `host` and `site_info` must belong to the same
@@ -4814,8 +4835,10 @@ bool RenderProcessHostImpl::IsSuitableHost(
   // single StoragePartition.  This is relevant for packaged apps.
   StoragePartition* dest_partition = browser_context->GetStoragePartition(
       site_info.GetStoragePartitionConfig());
-  if (!host->InSameStoragePartition(dest_partition))
+  if (!host->InSameStoragePartition(dest_partition)) {
+    TRACE_EVENT_INSTANT("navigation", "NotSuitableHost: StoragePartition diff");
     return false;
+  }
 
   // If this process has a different v8 feature flag override policy then it
   // can't be reused.
@@ -4853,8 +4876,12 @@ bool RenderProcessHostImpl::IsSuitableHost(
     bool url_is_for_web_ui =
         WebUIControllerFactoryRegistry::GetInstance()->UseWebUIForURL(
             browser_context, site_info.site_url());
-    if (host_has_web_ui_bindings && !url_is_for_web_ui)
+    if (host_has_web_ui_bindings && !url_is_for_web_ui) {
+      TRACE_EVENT_INSTANT(
+          "navigation",
+          "NotSuitableHost: has WebUI bindings, url is non-WebUI");
       return false;
+    }
     // A host with no bindings is not necessarily unsuitable for a WebUI, but we
     // incorrectly return false here. For example, some WebUIs, like
     // chrome://process-internals, don't have bindings, so this method would
@@ -4869,6 +4896,8 @@ bool RenderProcessHostImpl::IsSuitableHost(
     // see its implementation for more details.
     if (!host_has_web_ui_bindings && url_is_for_web_ui &&
         !IsUnusedAndTiedToBrowsingInstance(host, isolation_context)) {
+      TRACE_EVENT_INSTANT("navigation",
+                          "NotSuitableHost: no WebUI bindings, url is WebUI");
       return false;
     }
 
@@ -4877,13 +4906,18 @@ bool RenderProcessHostImpl::IsSuitableHost(
       // destination that doesn't require a dedicated process, even for the
       // same site. This can happen with dynamic isolated origins (see
       // https://crbug.com/950453).
-      if (!site_info.ShouldLockProcessToSite(isolation_context))
+      if (!site_info.ShouldLockProcessToSite(isolation_context)) {
+        TRACE_EVENT_INSTANT("navigation",
+                            "NotSuitableHost: locked, site should not lock");
         return false;
+      }
 
       // If the destination requires a different process lock, this process
       // cannot be used.
-      if (process_lock != ProcessLock::FromSiteInfo(site_info))
+      if (process_lock != ProcessLock::FromSiteInfo(site_info)) {
+        TRACE_EVENT_INSTANT("navigation", "NotSuitableHost: ProcessLock diff");
         return false;
+      }
     } else {
       // Even when this process is not locked to a site, it is still associated
       // with a particular isolation configuration.  Ensure that it cannot be
@@ -4892,6 +4926,8 @@ bool RenderProcessHostImpl::IsSuitableHost(
 #if 0 //NWJS#8205: keep sites in a single process
       if (process_lock.AllowsAnySite() &&
           !process_lock.IsCompatibleWithWebExposedIsolation(site_info)) {
+        TRACE_EVENT_INSTANT("navigation",
+                            "NotSuitableHost: WebExposedIsolation diff");
         return false;
       }
 #endif
@@ -4900,6 +4936,8 @@ bool RenderProcessHostImpl::IsSuitableHost(
         // If this process has been used to host any other content, it cannot
         // be reused if the destination site requires a dedicated process and
         // should use a process locked to just that site.
+        TRACE_EVENT_INSTANT("navigation",
+                            "NotSuitableHost: unused, site needs lock");
         return false;
       }
     }
@@ -4918,8 +4956,11 @@ bool RenderProcessHostImpl::IsSuitableHost(
         static_cast<SiteProcessCountTracker*>(
             browser_context->GetUserData(kPendingSiteProcessCountTrackerKey));
     if (pending_tracker &&
-        pending_tracker->ContainsNonReusableSiteForHost(host))
+        pending_tracker->ContainsNonReusableSiteForHost(host)) {
+      TRACE_EVENT_INSTANT("navigation",
+                          "NotSuitableHost: contains non-reusable site");
       return false;
+    }
   }
 
   // Finally, let the embedder decide if there are any last reasons to consider
@@ -4934,6 +4975,8 @@ bool RenderProcessHostImpl::MayReuseAndIsSuitable(
     RenderProcessHost* host,
     const IsolationContext& isolation_context,
     const SiteInfo& site_info) {
+  TRACE_EVENT("navigation", "RenderProcessHostImpl::MayReuseAndIsSuitable",
+              ChromeTrackEvent::kRenderProcessHost, *host);
   // Don't check for renderer responsiveness in single-process mode - even if
   // it's unresponsive we can't create another one and trying will crash us.
   return host->MayReuseHost() &&
@@ -5081,6 +5124,8 @@ bool RenderProcessHost::IsProcessLimitReached() {
 // static
 RenderProcessHost* RenderProcessHostImpl::GetExistingProcessHost(
     SiteInstanceImpl* site_instance) {
+  TRACE_EVENT("navigation", "RenderProcessHostImpl::GetExistingProcessHost",
+              ChromeTrackEvent::kSiteInstance, site_instance);
   // First figure out which existing renderers we can use.
   std::vector<RenderProcessHost*> suitable_renderers;
   suitable_renderers.reserve(RenderProcessHostImpl::GetCount());
@@ -5165,6 +5210,9 @@ void RenderProcessHostImpl::RegisterSoleProcessHostForSite(
 RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
     SiteInstanceImpl* site_instance,
     const ProcessAllocationContext& allocation_context) {
+  TRACE_EVENT("navigation",
+              "RenderProcessHostImpl::GetProcessHostForSiteInstance",
+              ChromeTrackEvent::kSiteInstance, site_instance);
   const SiteInfo& site_info = site_instance->GetSiteInfo();
   ProcessReusePolicy process_reuse_policy =
       site_instance->process_reuse_policy();
@@ -5352,8 +5400,7 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
         process_reuse_policy);
   }
   MAYBEVLOG(2) << __func__ << "(" << site_info << ") selected process host "
-               << render_process_host->GetDeprecatedID()
-               << " using assignment \""
+               << render_process_host->GetID().value() << " using assignment \""
                << site_instance->GetLastProcessAssignmentOutcome() << "\""
                << std::endl
                << GetCurrentHostMapDebugString(
@@ -5579,7 +5626,7 @@ size_t RenderProcessHost::GetActiveViewCount() {
       RenderWidgetHost::GetRenderWidgetHosts());
   while (RenderWidgetHost* widget = widgets->GetNextHost()) {
     // Count only RenderWidgetHosts in this process.
-    if (widget->GetProcess()->GetDeprecatedID() == GetDeprecatedID()) {
+    if (widget->GetProcess()->GetID() == GetID()) {
       num_active_views++;
     }
   }
@@ -5859,7 +5906,7 @@ void RenderProcessHostImpl::UpdateControllerServiceWorkerProcessPriority() {
     // TODO(crbug.com/40805534): It appears that some times `version` is
     // nullptr here, but we don't know why.  Once that is solved revert this
     // runtime check back to a DCHECK.
-    if (version && version->IsControlleeProcessID(GetDeprecatedID())) {
+    if (version && version->IsControlleeProcessID(GetID())) {
       version->UpdateForegroundPriority();
       break;
     }
@@ -5957,13 +6004,22 @@ void RenderProcessHostImpl::OnProcessLaunched() {
   // creation failed events to the observers.
   sent_process_launched_ = true;
 
-  // NOTE: This needs to be before flushing queued messages, because
-  // ExtensionService uses this notification to initialize the renderer
-  // process with state that must be there before any JavaScript executes.
-  //
-  // The queued messages contain such things as "navigate". If this
-  // notification was after, we can end up executing JavaScript before the
-  // initialization happens.
+  if (ShouldPauseChannelUntilProcessLaunched() && !run_renderer_in_process()) {
+    // If we're pausing the mojo channel and the renderer does not run
+    // in-process, OnRenderProcessHostCreated() is not triggered yet, so trigger
+    // it now before we flush and unpause the channel.
+    // NOTE: This needs to be before flushing queued messages, because
+    // ExtensionService uses this notification to initialize the renderer
+    // process with state that must be there before any JavaScript executes.
+    //
+    // The queued messages contain such things as "navigate". If this
+    // notification was after, we can end up executing JavaScript before the
+    // initialization happens.
+    // TODO(crbug.com/448511116): Remove this path.
+    for (auto* observer : GetAllCreationObservers()) {
+      observer->OnRenderProcessHostCreated(this);
+    }
+  }
   for (auto* observer : GetAllCreationObservers()) {
     observer->OnRenderProcessLaunched(this);
   }

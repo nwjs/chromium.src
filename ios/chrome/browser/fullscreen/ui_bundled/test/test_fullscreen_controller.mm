@@ -6,9 +6,9 @@
 
 #import "ios/chrome/browser/broadcaster/ui_bundled/chrome_broadcaster.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller_observer.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_metrics.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model_observer.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_reason.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
 
 TestFullscreenController::TestFullscreenController(Browser* browser)
@@ -119,7 +119,7 @@ void TestFullscreenController::ExitFullscreen() {
 }
 
 void TestFullscreenController::ExitFullscreen(
-    FullscreenExitReason fullscreen_exit_reason) {
+    FullscreenModeTransitionTrigger fullscreen_exit_trigger) {
   if (model_) {
     model_->ResetForNavigation();
   }
@@ -136,7 +136,8 @@ bool TestFullscreenController::IsForceFullscreenMode() const {
 }
 
 void TestFullscreenController::EnterForceFullscreenMode(
-    bool insets_update_enabled) {
+    bool insets_update_enabled,
+    FullscreenModeTransitionTrigger trigger) {
   if (model_ && !model_->IsForceFullscreenMode()) {
     model_->SetForceFullscreenMode(true);
     model_->SetInsetsUpdateEnabled(insets_update_enabled);
@@ -145,7 +146,8 @@ void TestFullscreenController::EnterForceFullscreenMode(
   }
 }
 
-void TestFullscreenController::ExitForceFullscreenMode() {
+void TestFullscreenController::ExitForceFullscreenMode(
+    FullscreenModeTransitionTrigger trigger) {
   if (model_ && model_->IsForceFullscreenMode()) {
     model_->DecrementDisabledCounter();
     model_->SetForceFullscreenMode(false);

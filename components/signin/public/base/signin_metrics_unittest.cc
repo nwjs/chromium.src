@@ -8,6 +8,7 @@
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace signin_metrics {
@@ -39,7 +40,6 @@ const AccessPoint kAccessPointsThatSupportUserAction[] = {
     AccessPoint::kReadingList,
     AccessPoint::kSetUpList,
     AccessPoint::kChromeSigninInterceptBubble,
-    AccessPoint::kTabOrganization,
     AccessPoint::kNotificationsOptInScreenContentToggle,
     AccessPoint::kAvatarBubbleSignInWithSyncPromo,
     AccessPoint::kProductSpecifications,
@@ -50,6 +50,7 @@ const AccessPoint kAccessPointsThatSupportUserAction[] = {
     AccessPoint::kUserManagerWithPrefilledEmail,
     AccessPoint::kEnterpriseDialogAfterSigninInterception,
     AccessPoint::kCredentialExchangeImport,
+    AccessPoint::kIosPageActionMenu,
 };
 
 const AccessPoint kAccessPointsThatSupportImpression[] = {
@@ -162,8 +163,6 @@ class SigninMetricsTest : public ::testing::Test {
         return "ChromeSigninInterceptBubble";
       case AccessPoint::kRestorePrimaryAccountOnProfileLoad:
         return "RestorePrimaryAccountinfoOnProfileLoad";
-      case AccessPoint::kTabOrganization:
-        return "TabOrganization";
       case AccessPoint::kTipsNotification:
         return "TipsNotification";
       case AccessPoint::kNotificationsOptInScreenContentToggle:
@@ -240,6 +239,10 @@ class SigninMetricsTest : public ::testing::Test {
         return "AvatarPillExpandPromo";
       case AccessPoint::kSearchAIModeBubble:
         return "SearchAIModeBubble";
+      case AccessPoint::kIosAppBar:
+        return "IOSAppBar";
+      case AccessPoint::kIosPageActionMenu:
+        return "PageActionMenu";
     }
   }
 };
@@ -277,6 +280,56 @@ TEST(LogSyncOptInOfferedTest, RecordsHistogram) {
   LogSyncOptInOffered(access_point);
   histogram_tester.ExpectUniqueSample("Signin.SyncOptIn.Offered", access_point,
                                       /*expected_bucket_count=*/2);
+}
+
+TEST(LogSignInStarted, RecordWithNoProfileContext) {
+  base::HistogramTester histogram_tester;
+  const AccessPoint access_point = AccessPoint::kUserManager;
+
+  metrics::ProfileMetricsService metrics_service;
+  LogSignInStarted(access_point, metrics_service);
+
+  histogram_tester.ExpectUniqueSample("Signin.SignIn.Started", access_point,
+                                      /*expected_bucket_count=*/1);
+  EXPECT_EQ(1,
+            histogram_tester.GetTotalCountForPrefix("Signin.SignIn.Started"));
+}
+
+TEST(LogSignInStarted, RecordWithProfileContext) {
+  base::HistogramTester histogram_tester;
+  const AccessPoint access_point = AccessPoint::kUserManager;
+
+  // Recording for first context.
+  {
+    metrics::ProfileMetricsService metrics_service{1};
+    LogSignInStarted(access_point, metrics_service);
+
+    histogram_tester.ExpectUniqueSample("Signin.SignIn.Started", access_point,
+                                        /*expected_bucket_count=*/1);
+    // Logs separate profile as well.
+    histogram_tester.ExpectUniqueSample("Signin.SignIn.Started.Profile1",
+                                        access_point,
+                                        /*expected_bucket_count=*/1);
+    EXPECT_EQ(2,
+              histogram_tester.GetTotalCountForPrefix("Signin.SignIn.Started"));
+  }
+
+  // Recording for second context.
+  {
+    metrics::ProfileMetricsService metrics_service{2};
+    LogSignInStarted(access_point, metrics_service);
+
+    // Contains previous context logging.
+    histogram_tester.ExpectUniqueSample("Signin.SignIn.Started", access_point,
+                                        /*expected_bucket_count=*/2);
+    // Logs separate profile as well.
+    histogram_tester.ExpectUniqueSample("Signin.SignIn.Started.Profile2",
+                                        access_point,
+                                        /*expected_bucket_count=*/1);
+    // Contains previous context logging.
+    EXPECT_EQ(4,
+              histogram_tester.GetTotalCountForPrefix("Signin.SignIn.Started"));
+  }
 }
 
 }  // namespace

@@ -10,6 +10,8 @@
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
 
+class TemplateURLService;
+
 @protocol SceneCommands;
 
 // Tab helper that listens for new tabs to triggers or not the cobrowse view.
@@ -20,6 +22,14 @@ class CobrowseTabHelper : public web::WebStateObserver,
    public:
     virtual ~Delegate() = default;
     virtual bool CanShowAssistantForWebState(web::WebState* web_state) = 0;
+    virtual void ConfigureAssistantContextForWebState(
+        web::WebState* web_state) = 0;
+
+    // Returns whether a cobrowse session is currently active.
+    virtual bool IsSessionActive() = 0;
+
+    // Sets whether a cobrowse session is currently active.
+    virtual void SetSessionActive(bool active) = 0;
   };
 
   CobrowseTabHelper(const CobrowseTabHelper&) = delete;
@@ -34,6 +44,7 @@ class CobrowseTabHelper : public web::WebStateObserver,
   void SetDelegate(Delegate* delegate);
 
   // WebStateObserver:
+  void WasShown(web::WebState* web_state) override;
   void DidStartNavigation(web::WebState* web_state,
                           web::NavigationContext* navigation_context) override;
   void WebStateDestroyed(web::WebState* web_state) override;
@@ -41,13 +52,20 @@ class CobrowseTabHelper : public web::WebStateObserver,
  private:
   friend class web::WebStateUserData<CobrowseTabHelper>;
 
-  explicit CobrowseTabHelper(web::WebState* web_state);
+  explicit CobrowseTabHelper(web::WebState* web_state,
+                             TemplateURLService* template_url_service);
+
+  // Returns whether the assistant should be hidden for `url`.
+  bool ShouldHideAssistantForURL(const GURL& url);
 
   // The delegate for this tab helper.
   raw_ptr<Delegate> delegate_ = nullptr;
 
+  // The template URL service used to check for search URLs.
+  raw_ptr<TemplateURLService> template_url_service_;
+
   // The handler for scene commands.
-  __weak id<SceneCommands> scene_commands_handler_ = nil;
+  __weak id<SceneCommands> scene_handler_ = nil;
 
   // Scoped observation for the WebState.
   base::ScopedObservation<web::WebState, web::WebStateObserver> observation_{

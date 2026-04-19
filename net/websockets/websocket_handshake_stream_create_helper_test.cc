@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
@@ -77,11 +78,14 @@
 #include "net/third_party/quiche/src/quiche/http2/core/spdy_protocol.h"
 #include "net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.h"
 #include "net/third_party/quiche/src/quiche/quic/core/http/http_constants.h"
+#include "net/third_party/quiche/src/quiche/quic/core/http/http_encoder.h"
+#include "net/third_party/quiche/src/quiche/quic/core/http/http_frames.h"
 #include "net/third_party/quiche/src/quiche/quic/core/qpack/qpack_decoder.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_connection.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_connection_id.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_error_codes.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_packets.h"
+#include "net/third_party/quiche/src/quiche/quic/core/quic_stream_priority.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_time.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_types.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_utils.h"
@@ -174,7 +178,8 @@ class MockClientSocketHandleFactory {
         ClientSocketPool::GroupId(
             url::SchemeHostPort(url::kHttpScheme, "a", 80),
             PrivacyMode::PRIVACY_MODE_DISABLED, NetworkAnonymizationKey(),
-            SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false),
+            SecureDnsPolicy::kAllow, /*disable_cert_network_fetches=*/false,
+            handles::kInvalidNetworkHandle),
         scoped_refptr<ClientSocketPool::SocketParams>(),
         std::nullopt /* proxy_annotation_tag */, MEDIUM, SocketTag(),
         ClientSocketPool::RespectLimits::ENABLED, CompletionOnceCallback(),
@@ -248,7 +253,8 @@ class WebSocketHandshakeStreamCreateHelperTest
   std::unique_ptr<WebSocketStream> CreateAndInitializeStream(
       const std::vector<std::string>& sub_protocols,
       const WebSocketExtraHeaders& extra_request_headers,
-      const WebSocketExtraHeaders& extra_response_headers) {
+      const WebSocketExtraHeaders& extra_response_headers,
+      std::optional<RequestPriority> request_priority = std::nullopt) {
     constexpr char kPath[] = "/";
     constexpr char kOrigin[] = "http://origin.example.org";
     const GURL url("wss://www.example.org/");
@@ -323,6 +329,9 @@ class WebSocketHandshakeStreamCreateHelperTest
         EXPECT_EQ(101, response.headers->response_code());
         EXPECT_TRUE(response.headers->HasHeaderValue("Connection", "Upgrade"));
         EXPECT_TRUE(response.headers->HasHeaderValue("Upgrade", "websocket"));
+        if (request_priority.has_value()) {
+          handshake->SetPriority(*request_priority);
+        }
         return handshake->Upgrade();
       }
       case HTTP2_HANDSHAKE_STREAM: {
@@ -385,6 +394,9 @@ class WebSocketHandshakeStreamCreateHelperTest
         EXPECT_THAT(rv, IsOk());
 
         EXPECT_EQ(200, response.headers->response_code());
+        if (request_priority.has_value()) {
+          handshake->SetPriority(*request_priority);
+        }
         return handshake->Upgrade();
       }
       case HTTP3_HANDSHAKE_STREAM: {
@@ -444,16 +456,45 @@ class WebSocketHandshakeStreamCreateHelperTest
 
         mock_quic_data_.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
 
-        mock_quic_data_.AddWrite(
-            SYNCHRONOUS,
-            client_maker.Packet(packet_number++)
-                .AddAckFrame(/*first_received=*/1, /*largest_received=*/1,
-                             /*smallest_received=*/0)
-                .AddStopSendingFrame(client_data_stream_id,
+        if (request_priority.has_value()) {
+          // `SetPriority()` sends a PRIORITY_UPDATE frame bundled with the
+          // ACK, followed by a separate cleanup packet.
+          quic::PriorityUpdateFrame priority_update;
+          priority_update.prioritized_element_id = client_data_stream_id;
+          priority_update.priority_field_value =
+              quic::SerializePriorityFieldValue(
+                  {ConvertRequestPriorityToQuicPriority(*request_priority),
+                   quic::HttpStreamPriority::kDefaultIncremental});
+          std::string priority_data =
+              quic::HttpEncoder::SerializePriorityUpdateFrame(priority_update);
+          mock_quic_data_.AddWrite(
+              SYNCHRONOUS,
+              client_maker.Packet(packet_number++)
+                  .AddAckFrame(/*first_received=*/1, /*largest_received=*/1,
+                               /*smallest_received=*/0)
+                  .AddStreamFrame(2, false, priority_data)
+                  .Build());
+
+          mock_quic_data_.AddWrite(
+              SYNCHRONOUS, client_maker.Packet(packet_number++)
+                               .AddStopSendingFrame(client_data_stream_id,
+                                                    quic::QUIC_STREAM_CANCELLED)
+                               .AddRstStreamFrame(client_data_stream_id,
+                                                  quic::QUIC_STREAM_CANCELLED)
+                               .Build());
+        } else {
+          // ACK and cleanup are sent in a single packet.
+          mock_quic_data_.AddWrite(
+              SYNCHRONOUS,
+              client_maker.Packet(packet_number++)
+                  .AddAckFrame(/*first_received=*/1, /*largest_received=*/1,
+                               /*smallest_received=*/0)
+                  .AddStopSendingFrame(client_data_stream_id,
+                                       quic::QUIC_STREAM_CANCELLED)
+                  .AddRstStreamFrame(client_data_stream_id,
                                      quic::QUIC_STREAM_CANCELLED)
-                .AddRstStreamFrame(client_data_stream_id,
-                                   quic::QUIC_STREAM_CANCELLED)
-                .Build());
+                  .Build());
+        }
         auto socket = std::make_unique<MockUDPClientSocket>(
             mock_quic_data_.InitializeAndGetSequencedSocketData(),
             NetLog::Get());
@@ -521,6 +562,7 @@ class WebSocketHandshakeStreamCreateHelperTest
             /*cert_verify_flags=*/0, quic::test::DefaultQuicConfig(),
             std::make_unique<TestQuicCryptoClientConfigHandle>(&crypto_config),
             "CONNECTION_UNKNOWN", dns_start, dns_end,
+            /*resolution_details=*/std::nullopt,
             base::DefaultTickClock::GetInstance(),
             base::SingleThreadTaskRunner::GetCurrentDefault().get(),
             /*socket_performance_watcher=*/nullptr,
@@ -572,8 +614,12 @@ class WebSocketHandshakeStreamCreateHelperTest
 
         // After the handshake, byte counts should reflect the HEADERS
         // frames exchanged over the QUIC stream.
-        EXPECT_GT(handshake->GetTotalReceivedBytes(), 0);
-        EXPECT_GT(handshake->GetTotalSentBytes(), 0);
+        EXPECT_GT(handshake->GetTotalReceivedBytes().InBytes(), 0);
+        EXPECT_GT(handshake->GetTotalSentBytes().InBytes(), 0);
+
+        if (request_priority.has_value()) {
+          handshake->SetPriority(*request_priority);
+        }
 
         return handshake->Upgrade();
       }
@@ -644,6 +690,15 @@ TEST_P(WebSocketHandshakeStreamCreateHelperTest, ExtensionParameters) {
       " client_max_window_bits=14; server_max_window_bits=14;"
       " server_no_context_takeover; client_no_context_takeover",
       stream->GetExtensions());
+}
+
+// Verify that `SetPriority()` propagates to the underlying stream.
+TEST_P(WebSocketHandshakeStreamCreateHelperTest, BasicStreamWithPriority) {
+  std::unique_ptr<WebSocketStream> stream =
+      CreateAndInitializeStream({}, {}, {}, MEDIUM);
+  EXPECT_EQ("", stream->GetExtensions());
+  EXPECT_EQ("", stream->GetSubProtocol());
+  EXPECT_TRUE(stream);
 }
 
 }  // namespace

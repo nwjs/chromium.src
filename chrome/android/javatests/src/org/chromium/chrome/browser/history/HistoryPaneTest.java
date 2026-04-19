@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.history;
 
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
 import static org.chromium.base.test.transit.Triggers.noopTo;
 
@@ -17,6 +20,8 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
@@ -34,7 +39,6 @@ import org.chromium.chrome.test.transit.hub.HistoryPaneStation.HistoryWithEntrie
 import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.test.transit.SoftKeyboardCondition;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,38 +51,39 @@ import java.util.concurrent.atomic.AtomicBoolean;
     ChromeFeatureList.HISTORY_PANE_ANDROID,
     ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES
 })
+@DisableFeatures(ChromeFeatureList.ANDROID_HISTORY_CLUSTERING)
 public class HistoryPaneTest {
     @Rule
     public AutoResetCtaTransitTestRule mCtaTestRule =
             ChromeTransitTestRules.autoResetCtaActivityRule();
 
     private WebPageStation mStartingPage;
-    private boolean mIsLLFDevice;
+    private boolean mIsLargeFormFactorDevice;
 
     @Before
     public void setUp() {
         mStartingPage = mCtaTestRule.startOnBlankPage();
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();
-        final AtomicBoolean supportsKeyboard = new AtomicBoolean();
         final AtomicBoolean isTablet = new AtomicBoolean();
         runOnUiThreadBlocking(
                 () -> {
                     clearHistory(cta.getProfileProviderSupplier().get().getOriginalProfile());
-                    supportsKeyboard.set(DeviceInput.supportsKeyboard());
                     isTablet.set(DeviceFormFactor.isNonMultiDisplayContextOnTablet(cta));
                 });
-        mIsLLFDevice = supportsKeyboard.get() && isTablet.get();
+        mIsLargeFormFactorDevice = isTablet.get();
     }
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/494280678")
     public void testEmptyView() {
         RegularTabSwitcherStation tabSwitcher = mStartingPage.openRegularTabSwitcher();
-        tabSwitcher.selectHistoryPane().expectEmptyState(mIsLLFDevice);
+        tabSwitcher.selectHistoryPane().expectEmptyState(mIsLargeFormFactorDevice);
     }
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/494280678")
     public void testOpenedHistoryItem_HistoryItemsAreDisplayed() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
@@ -90,13 +95,14 @@ public class HistoryPaneTest {
                         .loadWebPageProgrammatically(urlTwo)
                         .openRegularTabSwitcher();
         HistoryWithEntriesFacility history =
-                tabSwitcher.selectHistoryPane().expectEntries(mIsLLFDevice);
+                tabSwitcher.selectHistoryPane().expectEntries(mIsLargeFormFactorDevice);
         history.expectEntry("One");
         history.expectEntry("Two");
     }
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/494280678")
     public void testOpenedHistoryItem_SearchMatch() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
@@ -108,12 +114,13 @@ public class HistoryPaneTest {
                         .loadWebPageProgrammatically(urlTwo)
                         .openRegularTabSwitcher();
         HistoryPaneStation historyPaneStation = tabSwitcher.selectHistoryPane();
-        HistoryWithEntriesFacility history = historyPaneStation.expectEntries(mIsLLFDevice);
+        HistoryWithEntriesFacility history =
+                historyPaneStation.expectEntries(mIsLargeFormFactorDevice);
         history.expectEntry("One");
         history.expectEntry("Two");
 
         // Search for "One" in the history search box.
-        HistorySearchFacility search = history.openSearch(mIsLLFDevice);
+        HistorySearchFacility search = history.openSearch(mIsLargeFormFactorDevice);
         search.typeSearchTerm("One");
 
         // Verify that "One" is displayed as a match.
@@ -139,8 +146,56 @@ public class HistoryPaneTest {
                         .loadWebPageProgrammatically(urlOne)
                         .loadWebPageProgrammatically(urlTwo);
         HistoryWithEntriesFacility history =
-                page.openRegularTabSwitcher().selectHistoryPane().expectEntries(mIsLLFDevice);
+                page.openRegularTabSwitcher()
+                        .selectHistoryPane()
+                        .expectEntries(mIsLargeFormFactorDevice);
         history.expectEntry("One").selectToOpenWebPage(page, urlOne);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.ANDROID_HISTORY_CLUSTERING)
+    @DisabledTest(message = "https://crbug.com/494280678")
+    public void testHistoryClustering_ExpandCollapse() {
+        String urlOne =
+                mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
+        String urlTwo =
+                mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/two.html");
+
+        // urlOne and urlTwo are from the same host. In tests, the test server usually runs on
+        // 127.0.0.1.
+        String domain = new org.chromium.url.GURL(urlOne).getHost();
+
+        RegularTabSwitcherStation tabSwitcher =
+                mStartingPage
+                        .loadWebPageProgrammatically(urlOne)
+                        .loadWebPageProgrammatically(urlTwo)
+                        .openRegularTabSwitcher();
+        HistoryWithEntriesFacility history =
+                tabSwitcher.selectHistoryPane().expectEntries(mIsLargeFormFactorDevice);
+
+        // Before expansion, only the cluster head is visible. "One" and "Two" are hidden.
+        history.expectEntry(domain);
+        history.expectNoEntry("One");
+        history.expectNoEntry("Two");
+
+        // Expand the cluster.
+        org.chromium.chrome.test.transit.hub.HistoryPaneStation.HistoryEntryFacility clusterHead =
+                history.expectEntry(domain);
+        onView(clusterHead.removeButtonElement.getViewSpec().getViewMatcher()).perform(click());
+
+        // After expansion, the items should be visible alongside the cluster head.
+        history.expectEntry(domain);
+        history.expectEntry("One");
+        history.expectEntry("Two");
+
+        // Collapse the cluster.
+        onView(clusterHead.removeButtonElement.getViewSpec().getViewMatcher()).perform(click());
+
+        // The items should be hidden again.
+        history.expectEntry(domain);
+        history.expectNoEntry("One");
+        history.expectNoEntry("Two");
     }
 
     private void clearHistory(Profile profile) {

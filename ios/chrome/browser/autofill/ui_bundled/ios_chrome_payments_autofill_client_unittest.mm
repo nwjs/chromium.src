@@ -19,6 +19,7 @@
 #import "components/autofill/ios/browser/autofill_agent.h"
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/autofill_ai/error_dialog/model/autofill_ai_error_dialog_context.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/save_entity_params.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
@@ -107,6 +108,9 @@
 - (void)dismissEditAddressBottomSheet {
 }
 
+- (void)resetAutofillSuggestionsLoadingStates {
+}
+
 - (void)showAutofillErrorDialog:
     (autofill::AutofillErrorDialogContext)errorContext {
   _errorContext = std::move(errorContext);
@@ -114,6 +118,14 @@
 
 - (void)dismissAutofillErrorDialog {
 }
+
+- (void)showAutofillAiErrorDialog:
+    (autofill::AutofillAiErrorDialogContext)errorContext {
+}
+
+- (void)dismissAutofillAiErrorDialog {
+}
+
 - (void)showAutofillProgressDialog {
 }
 - (void)dismissAutofillProgressDialog {
@@ -121,7 +133,7 @@
 
 - (void)showSaveEntityDialog:(autofill::SaveEntityParams)params {
   std::move(params.callback)
-      .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown);
+      .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown, {});
 }
 
 - (void)dismissSaveEntityDialog {
@@ -340,8 +352,6 @@ TEST_F(
 TEST_F(IOSChromePaymentsAutofillClientTest,
        UsesSaveCvcInfobarTypeForUploadSaveCvc) {
   // Set up the save options for a CVC-only save.
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   payments::PaymentsAutofillClient::SaveCreditCardOptions options;
   options.card_save_type =
       payments::PaymentsAutofillClient::CardSaveType::kCvcSaveOnly;
@@ -365,8 +375,6 @@ TEST_F(IOSChromePaymentsAutofillClientTest,
 // save.
 TEST_F(IOSChromePaymentsAutofillClientTest,
        UsesSaveCvcInfobarTypeForLocalSaveCvc) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
   // Set up the save options for a CVC-only save.
   payments::PaymentsAutofillClient::SaveCreditCardOptions options;
   options.card_save_type =
@@ -620,8 +628,6 @@ TEST_F(IOSChromePaymentsAutofillClientTest,
 TEST_F(IOSChromePaymentsAutofillClientTest,
        DoesNotLogNotShownForCvcOnlySave_WhenBottomSheetNotShown) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      autofill::features::kAutofillEnableCvcStorageAndFilling);
 
   payments::PaymentsAutofillClient::SaveCreditCardOptions options;
   options.card_save_type =
@@ -647,8 +653,6 @@ TEST_F(IOSChromePaymentsAutofillClientTest,
 TEST_F(IOSChromePaymentsAutofillClientTest,
        LogsNotShownForCardSaveWithCvc_WhenBottomSheetNotShown) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      autofill::features::kAutofillEnableCvcStorageAndFilling);
 
   payments::PaymentsAutofillClient::SaveCreditCardOptions options;
   options.card_save_type =

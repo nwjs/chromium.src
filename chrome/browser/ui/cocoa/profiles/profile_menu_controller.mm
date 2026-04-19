@@ -11,7 +11,6 @@
 #include <optional>
 
 #include "base/feature_list.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/avatar_menu.h"
@@ -24,8 +23,9 @@
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -49,22 +49,22 @@ NSString* GetProfileMenuTitle() {
 
 namespace ProfileMenuControllerInternal {
 
-class Observer : public BrowserListObserver, public AvatarMenuObserver {
+class Observer : public BrowserCollectionObserver, public AvatarMenuObserver {
  public:
   explicit Observer(ProfileMenuController* controller)
       : controller_(controller) {
-    BrowserList::AddObserver(this);
+    browser_collection_observation_.Observe(
+        GlobalBrowserCollection::GetInstance());
   }
 
-  ~Observer() override { BrowserList::RemoveObserver(this); }
+  ~Observer() override = default;
 
-  // BrowserListObserver:
-  void OnBrowserAdded(Browser* browser) override {}
-  void OnBrowserRemoved(Browser* browser) override {
+  // BrowserCollectionObserver:
+  void OnBrowserClosed(BrowserWindowInterface* browser) override {
     [controller_ activeBrowserChangedTo:chrome::FindLastActive()];
   }
-  void OnBrowserSetLastActive(Browser* browser) override {
-    [controller_ activeBrowserChangedTo:browser];
+  void OnBrowserActivated(BrowserWindowInterface* browser) override {
+    [controller_ activeBrowserChangedTo:browser->GetBrowserForMigrationOnly()];
   }
 
   // AvatarMenuObserver:
@@ -74,6 +74,12 @@ class Observer : public BrowserListObserver, public AvatarMenuObserver {
 
  private:
   ProfileMenuController* controller_;  // Weak; owns this.
+
+  // TODO(crbug.com/495683109): remove when the Observer is no
+  // longer outliving the GlobalBrowserCollection it observes.
+  base::ScopedObservation<GlobalBrowserCollection,
+                          BrowserCollectionObserver>::LeakedDanglingUntriaged
+      browser_collection_observation_{this};
 };
 
 }  // namespace ProfileMenuControllerInternal

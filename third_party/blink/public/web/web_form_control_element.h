@@ -31,6 +31,11 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FORM_CONTROL_ELEMENT_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FORM_CONTROL_ELEMENT_H_
 
+#include <stdint.h>
+
+#include <optional>
+#include <vector>
+
 #include "base/i18n/rtl.h"
 #include "third_party/blink/public/mojom/forms/form_control_type.mojom-shared.h"
 #include "third_party/blink/public/platform/web_common.h"
@@ -38,6 +43,10 @@
 #include "third_party/blink/public/web/web_autofill_state.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_form_element.h"
+#include "third_party/skia/include/core/SkRefCnt.h"
+#include "third_party/skia/include/core/SkTypeface.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 
 namespace blink {
 
@@ -47,6 +56,28 @@ class HTMLFormControlElement;
 // node.
 class BLINK_EXPORT WebFormControlElement : public WebElement {
  public:
+  struct GlyphInfo {
+    uint16_t glyph;
+    gfx::Vector2dF offset;
+    float total_advance;
+  };
+
+  struct TypefaceRunInfo {
+    sk_sp<SkTypeface> typeface;
+    std::vector<GlyphInfo> glyphs;
+    bool is_horizontal;
+  };
+
+  struct TextRunInfo {
+    std::vector<TypefaceRunInfo> typeface_runs;
+    gfx::RectF location;
+  };
+
+  struct TextInfo {
+    std::vector<TextRunInfo> text_runs;
+    float effective_zoom;
+  };
+
   explicit WebFormControlElement(
       cppgc::SourceLocation loc = BLINK_WEB_NODE_LOCATION_FROM_HERE)
       : WebElement(loc) {}
@@ -79,18 +110,20 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
   // select element it finds the option with value matches the given parameter
   // and make the option as the current selection.
   void SetValue(const WebString&, bool send_events = false);
-  // Sets the autofilled value for input element, textarea element and select
-  // element and sends a sequence of events to the element. The default
-  // parameter for the WebAutofillState will do the right thing (setting
-  // kAutofilled state if the value is non-null) except in two situations:
-  // - When resetting the state of <select> elements the state at page load, the
-  //   passed value parameter is non-null and yet the select element should be
-  //   in non-autofilled state. This is why the autofill state is only
-  //   considered for <select> elements.
-  // - When filling a value from a <datalist> the field should not be labeled
-  //   as autofilled.
-  void SetAutofillValue(const WebString&,
-                        WebAutofillState = WebAutofillState::kAutofilled);
+  // Sets the value of a form element with `value` and updates the
+  // `WebAutofillState` of the field accordingly.
+  //
+  // Also simulates a user's keyboard interaction:
+  // - Input/TextArea: (Focus -> KeyDown -> Value Change -> KeyUp -> Blur).
+  // - Select:         (Focus            -> Value Change          -> Blur).
+  //
+  // NOTE: For WebSelectElement, this will search for the FIRST option matching
+  // `value` in the element's list of options and select it if found. Otherwise,
+  // the value/state are left unchanged and no "Value Change" event is
+  // dispatched.
+  void SetAutofillValue(
+      const WebString& value,
+      WebAutofillState autofill_state = WebAutofillState::kAutofilled);
   // Triggers the emission of a focus event.
   void DispatchFocusEvent();
   // Triggers the emission of a blur event.
@@ -102,10 +135,9 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
   // is returned. If element doesn't fall into input element, textarea element
   // and select element categories, a null string is returned.
   WebString Value() const;
-  // Sets suggested value for element. For select element it finds the option
-  // with value matches the given parameter and make the option as the suggested
-  // selection. The goal of introducing suggested value is to not leak any
-  // information to JavaScript.
+  // Sets suggested value for element. For select element it finds the FIRST
+  // option with value matches the given parameter and make the option as the
+  // suggested selection.
   // A null value indicates that the suggested value should be hidden.
   void SetSuggestedValue(const WebString&);
   // Returns suggested value of element. If element doesn't fall into input
@@ -114,8 +146,8 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
   WebString SuggestedValue() const;
 
   // Returns the non-sanitized, exact value inside the text input field
-  // or insisde the textarea. If neither input element nor textarea element,
-  // a null string is returned.
+  // or inside the textarea. If neither input element nor textarea element, a
+  // null string is returned.
   WebString EditingValue() const;
 
   // The maximum length in terms of text length the form control can hold. Like
@@ -164,6 +196,11 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
   // Returns the ax node id of the form control element in the accessibility
   // tree. The ax node id is consistent across renderer and browser processes.
   int32_t GetAxId() const;
+
+  // If this element is a <textarea>, then returns a list with information (such
+  // as typeface and glyphs) for the text inside. Otherwise returns
+  // std::nullopt.
+  std::optional<TextInfo> GetTextInfo() const;
 
 #if INSIDE_BLINK
   WebFormControlElement(HTMLFormControlElement*);

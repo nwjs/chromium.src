@@ -11,6 +11,7 @@
 
 #include "base/time/time.h"
 #include "net/base/net_export.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/http/alternate_protocol_usage.h"
 
 namespace net {
@@ -37,6 +38,11 @@ struct NET_EXPORT LoadTimingInternalInfo {
   bool operator==(const LoadTimingInternalInfo& other) const;
   ~LoadTimingInternalInfo();
 
+  // The time taken for a SPDY/QUIC session to create an active stream for this
+  // request. Measures pending time due to max stream limits. This is only set
+  // when SPDY/QUIC is used.
+  std::optional<base::TimeDelta> max_stream_limit_pending_delay;
+
   // The time taken for HTTP stream creating to finish.
   base::TimeDelta create_stream_delay;
 
@@ -62,6 +68,11 @@ struct NET_EXPORT LoadTimingInternalInfo {
 
   // Whether QUIC is enabled.
   bool http_network_session_quic_enabled = false;
+
+  // The details of the DNS resolution that established the connection used by
+  // this request. Can be nullopt when no resolution was performed, or
+  // resolution failed.
+  std::optional<ResolutionDetails> resolution_details;
 };
 
 }  // namespace net

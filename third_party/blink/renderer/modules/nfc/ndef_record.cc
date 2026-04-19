@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/compiler_specific.h"
 #include "base/notreached.h"
 #include "services/device/public/mojom/nfc.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
@@ -117,8 +118,9 @@ bool IsValidExternalType(const String& input) {
 
   static constexpr std::string_view kOtherCharsForCustomType(":!()+,-=@;$_*'.");
   for (wtf_size_t i = 0; i < type.length(); i++) {
-    if (!IsASCIIAlphanumeric(type[i]) &&
-        !kOtherCharsForCustomType.contains(type[i])) {
+    // SAFETY: index checked against length in loop body.
+    if (!IsAsciiAlphanumeric(UNSAFE_BUFFERS(type[i])) &&
+        !kOtherCharsForCustomType.contains(UNSAFE_BUFFERS(type[i]))) {
       return false;
     }
   }
@@ -141,8 +143,9 @@ bool IsValidLocalType(const String& input) {
     return false;
   if (input[0] != ':')
     return false;
-  if (!IsASCIILower(input[1]) && !IsASCIIDigit(input[1]))
+  if (!IsAsciiLower(input[1]) && !IsAsciiDigit(input[1])) {
     return false;
+  }
 
   // TODO(https://crbug.com/520391): Validate |input| is not equal to the record
   // type of any NDEF record defined in its containing NDEF message.

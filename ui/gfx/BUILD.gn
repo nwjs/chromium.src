@@ -397,7 +397,7 @@ component("gfx") {
     ]
 
     public_deps += [ "//cc/paint" ]
-    deps += [ "//third_party/harfbuzz-ng" ]
+    deps += [ "//third_party/harfbuzz" ]
 
     if (is_android || is_fuchsia || is_ios) {
       sources += [
@@ -735,7 +735,7 @@ static_library("test_support") {
   if (use_blink) {
     sources += [ "render_text_test_api.h" ]
 
-    deps += [ "//third_party/harfbuzz-ng" ]
+    deps += [ "//third_party/harfbuzz" ]
   }
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
@@ -902,7 +902,7 @@ test("gfx_unittests") {
   ]
 
   if (use_blink) {
-    deps += [ "//third_party/harfbuzz-ng" ]
+    deps += [ "//third_party/harfbuzz" ]
   }
 
   data_deps = [ "//ui/resources:ui_test_pak_data" ]

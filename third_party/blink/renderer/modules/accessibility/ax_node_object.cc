@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
+#include "third_party/blink/renderer/core/dom/popover_data.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/dom/range.h"
@@ -77,9 +78,7 @@
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
-#include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -2329,14 +2328,6 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
     return ax::mojom::blink::Role::kButton;
   }
 
-  if (IsA<HTMLMenuBarElement>(node)) {
-    return ax::mojom::blink::Role::kMenuBar;
-  }
-
-  if (IsA<HTMLMenuListElement>(node)) {
-    return ax::mojom::blink::Role::kMenu;
-  }
-
   // Anything that needs to be exposed but doesn't have a more specific role
   // should be considered a generic container. Examples are layout blocks with
   // no node, in-page link targets, and plain elements such as a <span> with
@@ -2562,6 +2553,14 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
       return ax::mojom::blink::Role::kMenuItemCheckBox;
     }
     return ax::mojom::blink::Role::kMenuItem;
+  }
+
+  if (IsA<HTMLMenuBarElement>(GetNode())) {
+    return ax::mojom::blink::Role::kMenuBar;
+  }
+
+  if (IsA<HTMLMenuListElement>(GetNode())) {
+    return ax::mojom::blink::Role::kMenu;
   }
 
   if (IsA<HTMLOptGroupElement>(GetNode())) {
@@ -3115,8 +3114,8 @@ bool AXNodeObject::IsLinked() const {
 }
 
 bool AXNodeObject::IsVisited() const {
-  return GetLayoutObject() && GetLayoutObject()->Style()->IsLink() &&
-         GetLayoutObject()->Style()->InsideLink() ==
+  return GetLayoutObject() && GetLayoutObject()->StyleRef().IsLink() &&
+         GetLayoutObject()->StyleRef().InsideLink() ==
              EInsideLink::kInsideVisitedLink;
 }
 
@@ -3638,7 +3637,7 @@ String AXNodeObject::AutoComplete() const {
     // Illegal values must be passed through, according to CORE-AAM.
     if (aria_auto_complete) {
       return aria_auto_complete == "none" ? String()
-                                          : aria_auto_complete.LowerASCII();
+                                          : aria_auto_complete.ToAsciiLower();
       ;
     }
   }
@@ -5622,7 +5621,7 @@ bool AXNodeObject::IsRedundantLabel(HTMLLabelElement* label) {
     return false;
 
   if (!input->GetLayoutObject() ||
-      input->GetLayoutObject()->Style()->Visibility() !=
+      input->GetLayoutObject()->StyleRef().Visibility() !=
           EVisibility::kVisible) {
     return false;
   }
@@ -6136,18 +6135,43 @@ void AXNodeObject::AddNodeChildren() {
   // reading-flow container, and not for the case where the element is a
   // reading-flow item.
   HeapVector<Member<Node>> reading_flow_children;
-  if (Element* element = GetElement()) {
+  Element* element = GetElement();
+  if (element) {
     reading_flow_children = element->ReadingFlowChildren();
   }
   if (!reading_flow_children.empty()) {
+    CHECK(element);
     HeapHashSet<Member<Node>> ax_children_added;
     // Add reading flow siblings in order.
     for (Node* reading_flow_item : reading_flow_children) {
-      if (IsAddedOnlyViaSpecialTraversal(reading_flow_item)) {
+      // Walk up the flat tree to find the direct child of `element`, since
+      // `reading_flow_item` may be a slotted node whose flat tree parent is
+      // a `<slot>` rather than `element` itself.
+      Node* child_of_element = reading_flow_item;
+      if (RuntimeEnabledFeatures::ReadingFlowWithSlotsEnabled()) {
+        while (true) {
+          Element* parent = FlatTreeTraversal::ParentElement(*child_of_element);
+          // `parent` should never become null here: `ReadingFlowChildren`
+          // only returns flat-tree descendants of `element`, so walking up
+          // flat-tree parents must reach a direct child of `element` before
+          // reaching the root.
+          CHECK(parent);
+          if (parent == element) {
+            break;
+          }
+          child_of_element = parent;
+        }
+      }
+      // `child_of_element` should never become null here: `ReadingFlowChildren`
+      // only returns flat-tree descendants of `element`, so walking up
+      // flat-tree parents must reach a direct child of `element` before
+      // reaching null.
+      DCHECK(child_of_element);
+      if (IsAddedOnlyViaSpecialTraversal(child_of_element)) {
         continue;
       }
-      if (ax_children_added.insert(reading_flow_item).is_new_entry) {
-        AddNodeChild(reading_flow_item);
+      if (ax_children_added.insert(child_of_element).is_new_entry) {
+        AddNodeChild(child_of_element);
       }
     }
 #if DCHECK_IS_ON()
@@ -7054,6 +7078,33 @@ String AXNodeObject::NativeTextAlternative(
   String text_alternative;
   AXRelatedObjectVector local_related_objects;
 
+  if (auto* menulist = DynamicTo<HTMLMenuListElement>(GetNode());
+      menulist && menulist->GetPopoverData()) {
+    if (Element* invoker = menulist->GetPopoverData()->invoker()) {
+      if (AXObject* ax_invoker = AXObjectCache().Get(invoker)) {
+        name_from = ax::mojom::blink::NameFrom::kRelatedElement;
+        text_alternative = RecursiveTextAlternative(
+            *ax_invoker, /*aria_label_or_description_root=*/nullptr, visited);
+        if (!text_alternative.empty()) {
+          if (related_objects) {
+            local_related_objects.push_back(
+                MakeGarbageCollected<NameSourceRelatedObject>(
+                    ax_invoker, text_alternative));
+            *related_objects = local_related_objects;
+          }
+          if (name_sources) {
+            name_sources->push_back(NameSource(*found_text_alternative));
+            name_sources->back().type = name_from;
+            name_sources->back().related_objects = local_related_objects;
+            name_sources->back().text = text_alternative;
+            *found_text_alternative = true;
+          }
+          return text_alternative;
+        }
+      }
+    }
+  }
+
   if (auto* option_element = DynamicTo<HTMLOptionElement>(GetNode())) {
     if (option_element->HasOneTextChild()) {
       // Use the DisplayLabel() method if there are no interesting children.
@@ -7420,16 +7471,15 @@ String AXNodeObject::NativeTextAlternative(
   }
 
   // Per SVG AAM 1.0's modifications to 2D of this algorithm.
-  if (GetNode()->IsSVGElement()) {
+  if (auto* svg_element = DynamicTo<SVGElement>(*GetNode())) {
     name_from = ax::mojom::blink::NameFrom::kRelatedElement;
     if (name_sources) {
       name_sources->push_back(NameSource(*found_text_alternative));
       name_sources->back().type = name_from;
       name_sources->back().native_source = kAXTextFromNativeTitleElement;
     }
-    auto* container_node = To<ContainerNode>(GetNode());
     Element* title = ElementTraversal::FirstChild(
-        *container_node, HasTagName(svg_names::kTitleTag));
+        *svg_element, HasTagName(svg_names::kTitleTag));
 
     if (title) {
       // TODO(accessibility): In most cases <desc> and <title> can
@@ -7457,7 +7507,7 @@ String AXNodeObject::NativeTextAlternative(
     }
     // The SVG-AAM says that the xlink:title participates as a name source
     // for links.
-    if (IsA<SVGAElement>(GetNode())) {
+    if (IsA<SVGAElement>(*svg_element)) {
       name_from = ax::mojom::blink::NameFrom::kAttribute;
       if (name_sources) {
         name_sources->push_back(
@@ -7466,8 +7516,7 @@ String AXNodeObject::NativeTextAlternative(
       }
 
       const AtomicString& title_attr =
-          DynamicTo<Element>(GetNode())->FastGetAttribute(
-              xlink_names::kTitleAttr);
+          svg_element->FastGetAttribute(xlink_names::kTitleAttr);
       if (!title_attr.empty()) {
         text_alternative = title_attr;
         if (name_sources) {
@@ -8113,12 +8162,11 @@ String AXNodeObject::SVGDescription(
 
   // In the case of an SVG <a>, the last description source is the xlink:title
   // attribute, if it didn't serve as the name source.
-  if (IsA<SVGAElement>(GetNode()) &&
+  if (IsA<SVGAElement>(*element) &&
       name_from != ax::mojom::blink::NameFrom::kAttribute) {
     description_from = ax::mojom::blink::DescriptionFrom::kTitle;
     const AtomicString& title_attr =
-        DynamicTo<Element>(GetNode())->FastGetAttribute(
-            xlink_names::kTitleAttr);
+        element->FastGetAttribute(xlink_names::kTitleAttr);
     if (!title_attr.empty()) {
       description = title_attr;
       if (description_sources) {

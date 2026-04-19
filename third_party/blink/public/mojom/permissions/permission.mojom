@@ -95,7 +95,7 @@ struct PermissionDescriptor {
 
 // Interface a client can implement to observe permission changes.
 interface PermissionObserver {
-  OnPermissionStatusChange(PermissionStatus status);
+  OnPermissionStatusChange(PermissionStatusWithDetails status);
 };
 
 // Interface that is implemented in the renderer and receives change events
@@ -173,7 +173,7 @@ struct EmbeddedPermissionRequestDescriptor {
 // methods to check, request, and revoke permissions. It also allows a client to
 // start listening to permission changes.
 interface PermissionService {
-  HasPermission(PermissionDescriptor permission) => (PermissionStatus status);
+  HasPermission(PermissionDescriptor permission) => (PermissionStatusWithDetails status);
 
   // Calling this method to register a capability element. Provide a pending
   // remote `EmbeddedPermissionControlClient` so that it can receive
@@ -193,16 +193,16 @@ interface PermissionService {
       => (EmbeddedPermissionControlResult status);
   // Request permission for the given `PermissionDescriptor`, and returns
   // permission status result.
-  RequestPermission(PermissionDescriptor permission, bool user_gesture)
-      => (PermissionStatus status);
-  RequestPermissions(array<PermissionDescriptor> permission, bool user_gesture)
-      => (array<PermissionStatus> statuses);
+  RequestPermission(PermissionDescriptor permission)
+      => (PermissionStatusWithDetails status);
+  RequestPermissions(array<PermissionDescriptor> permission)
+      => (array<PermissionStatusWithDetails> statuses);
   RevokePermission(PermissionDescriptor permission)
-      => (PermissionStatus status);
+      => (PermissionStatusWithDetails status);
   // Subscribes |observer| to updates about changes to the current origin's
   // access to |permission|. Closing the pipe will cancel the subscription.
   AddPermissionObserver(PermissionDescriptor permission,
-                        PermissionStatus last_known_status,
+                        PermissionStatusWithDetails last_known_status,
                         pending_remote<PermissionObserver> observer);
   // Calling this method indicates that a `HTMLCapabilityElementBase` subscribes
   // |observer| to updates about changes to the current origin's access to

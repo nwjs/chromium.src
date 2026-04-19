@@ -325,10 +325,6 @@ class RestrictedCookieManagerMetrics
 
 }  // namespace
 
-// static
-const base::TimeDelta NetworkService::kInitialDohProbeTimeout =
-    base::Seconds(5);
-
 // Handler of delaying calls to NetworkContext::ActivateDohProbes() until after
 // an initial service startup delay.
 class NetworkService::DelayedDohProbeActivator {
@@ -337,11 +333,17 @@ class NetworkService::DelayedDohProbeActivator {
       : network_service_(network_service) {
     DCHECK(network_service_);
 
-    // Delay initial DoH probes to prevent interference with startup tasks.
-    doh_probes_timer_.Start(
-        FROM_HERE, NetworkService::kInitialDohProbeTimeout,
-        base::BindOnce(&DelayedDohProbeActivator::ActivateAllDohProbes,
-                       base::Unretained(this)));
+    base::TimeDelta delay = features::kDelayInitialDohProbeTimeoutParam.Get();
+    // If we don't start the timer here, DoH probes are activated immediately
+    // upon NetworkContext registration in RegisterNetworkContext().
+    if (base::FeatureList::IsEnabled(features::kDelayInitialDohProbeTimeout) &&
+        !delay.is_zero()) {
+      // Delay initial DoH probes to prevent interference with startup tasks.
+      doh_probes_timer_.Start(
+          FROM_HERE, delay,
+          base::BindOnce(&DelayedDohProbeActivator::ActivateAllDohProbes,
+                         base::Unretained(this)));
+    }
   }
 
   DelayedDohProbeActivator(const DelayedDohProbeActivator&) = delete;
@@ -638,8 +640,13 @@ void NetworkService::CreateNetLogEntriesForActiveObjects(
   std::set<net::URLRequestContext*> contexts;
   for (NetworkContext* nc : network_contexts_) {
     contexts.insert(nc->url_request_context());
+#if BUILDFLAG(ENABLE_WEBSOCKETS)
+    nc->CreateNetLogEntriesForActiveWebSockets(observer);
+#endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
   }
-  return net::CreateNetLogEntriesForActiveObjects(contexts, observer);
+
+  // Log active URLRequests
+  net::CreateNetLogEntriesForActiveObjects(contexts, observer);
 }
 
 void NetworkService::SetParams(mojom::NetworkServiceParamsPtr params) {
@@ -817,17 +824,25 @@ void NetworkService::SetRawHeadersAccess(
   }
 }
 
-void NetworkService::SetMaxConnectionsPerProxyChain(uint32_t max_connections) {
-  // Clamp the value between min_limit and max_limit.
-  size_t max_limit = 99;
-  size_t min_limit = net::ClientSocketPoolManager::max_sockets_per_group(
-      net::HttpNetworkSession::NORMAL_SOCKET_POOL);
-  size_t new_limit = std::clamp(base::saturated_cast<size_t>(max_connections),
-                                min_limit, max_limit);
-
-  // Assign the global limit.
-  net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
-      net::HttpNetworkSession::NORMAL_SOCKET_POOL, new_limit);
+void NetworkService::SetMaxConnectionsPerProxyChain(
+    std::optional<uint32_t> max_connection_normal,
+    std::optional<uint32_t> max_connection_websocket) {
+  // LINT.IfChange(SetMaxConnectionsPerProxyChain)
+  // We set out explicit limits here because they are hard coded in the
+  // enterprise policy MaxConnectionsPerProxy(ForWebSocket).
+  if (max_connection_normal) {
+    size_t new_limit = base::saturated_cast<size_t>(
+        std::clamp(*max_connection_normal, 6u, 256u));
+    net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
+        net::HttpNetworkSession::SocketPoolType::kNormal, new_limit);
+  }
+  if (max_connection_websocket) {
+    size_t new_limit = base::saturated_cast<size_t>(
+        std::clamp(*max_connection_websocket, 6u, 256u));
+    net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
+        net::HttpNetworkSession::SocketPoolType::kWebSocket, new_limit);
+  }
+  // LINT.ThenChange(/net/socket/client_socket_pool_manager.cc:set_max_sockets_per_proxy_chain)
 }
 
 bool NetworkService::HasRawHeadersAccess(

@@ -53,6 +53,7 @@
 <translation id="1399511500114202393">بدون گواهینامه کاربر</translation>
 <translation id="1403008701842173542">همه‌جا</translation>
 <translation id="1404323374378969387">نروژی</translation>
+<translation id="1412476183660741812">بسته وب امضاشده</translation>
 <translation id="1433628812591023318">‏برای رها کردن فایل‌ها در Parallels Desktop، فایل موردنظر باید به فایل‌های Windows منتقل شود.</translation>
 <translation id="1435838927755162558">‏هم‌رسانی پوشه با Parallels Desktop</translation>
 <translation id="1439919885608649279">شخصی میان گل‌ها</translation>
@@ -220,6 +221,7 @@
 <translation id="2708477391501452176">‏BÉPO فرانسوی</translation>
 <translation id="2719020180254996569">شبکه <ph name="NETWORK_INDEX" /> از <ph name="NETWORK_COUNT" />، <ph name="NETWORK_NAME" />، <ph name="CONNECTION_STATUS" />، جزئیات</translation>
 <translation id="2724954091494693138">‏ترکی با صفحه‌کلید F</translation>
+<translation id="2727633948226935816">دوباره به من یادآوری نشود</translation>
 <translation id="2728450421877450246">فرانسوی</translation>
 <translation id="2732288874651063549">مدیریت هم‌رسانی با <ph name="VM_NAME" /></translation>
 <translation id="2732839045120506979">‏ویتنامی (VNI)</translation>
@@ -470,6 +472,7 @@
 <translation id="4788401404269709922"><ph name="NUMBER_OF_KB" /> کیلوبایت</translation>
 <translation id="4789067489790477934">‏به Parallels Desktop اجازه دهید به فایل‌های Google Drive شما دسترسی داشته باشد. تغییرات در دیگر دستگاه‌هایتان همگام‌سازی خواهد شد.</translation>
 <translation id="4790766916287588578">هندی با صفحه‌کلید هندی</translation>
+<translation id="4798645114741131062">‏دستگاه ChromeOS Flex شما به‌زودی دیگر به‌روزرسانی دریافت نخواهد کرد. توصیه می‌شود به دستگاه ChromeOS ارتقا دهید.</translation>
 <translation id="4801956050125744859">حفظ هر دو</translation>
 <translation id="4802185962157240723">مجاری</translation>
 <translation id="4804827417948292437">آووکادو</translation>
@@ -619,6 +622,7 @@
 <translation id="5819442873484330149">مجموعه هانگول ۳ (نهایی)</translation>
 <translation id="5832976493438355584">قفل شده است</translation>
 <translation id="5833610766403489739">این فایل در جایی سرگردان شده است. لطفاً تنظیم محل دانلودتان را بررسی کنید و دوباره امتحان کنید.</translation>
+<translation id="5833859326857395309">به‌روزرسانی نهایی</translation>
 <translation id="5838451609423551646">همه ورودی‌ها از موارد انتخابی برداشته شد.</translation>
 <translation id="5845721951356578987">پرستار</translation>
 <translation id="5858478190805449225">«بهینه‌سازی باتری» روشن است. وقتی «بهینه‌سازی باتری» خاموش شد، دوباره امتحان کنید.</translation>
@@ -986,7 +990,7 @@
 <translation id="853494022971700746">فرانسوی (فرانسه)</translation>
 <translation id="8540608333167683902">شبکه <ph name="NETWORK_INDEX" /> از <ph name="NETWORK_COUNT" />، <ph name="NETWORK_NAME" />، <ph name="CONNECTION_STATUS" />، قدرت سیگنال <ph name="SIGNAL_STRENGTH" />٪، جزئیات</translation>
 <translation id="8543218582821188600">انگلیسی کانادا</translation>
-<translation id="8545476925160229291">انگلیسی (آمریکا)</translation>
+<translation id="8545476925160229291">انگلیسی (امریکا)</translation>
 <translation id="854655314928502177">نشانی وب «اکتشاف» خودکار پروکسی وب:</translation>
 <translation id="8547747809824590510">سرپرستتان قوانین ملغی کردن پراکسی را تنظیم کرده است</translation>
 <translation id="8549186985808798022">ایتالیایی</translation>

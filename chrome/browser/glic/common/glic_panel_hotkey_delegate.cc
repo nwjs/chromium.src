@@ -11,7 +11,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -87,9 +86,16 @@ bool GlicPanelHotkeyDelegate::AcceleratorPressed(
   }
 
   switch (hotkey) {
-    case LocalHotkeyManager::Hotkey::kClose:
+    case LocalHotkeyManager::Hotkey::kClose: {
+#if !BUILDFLAG(IS_ANDROID)
+      if (panel_->HasSelectionOverlay()) {
+        panel_->CloseSelectionOverlay();
+        return true;
+      }
+#endif
       panel_->Close(CloseOptions());
       return true;
+    }
     case glic::LocalHotkeyManager::Hotkey::kFocusToggle:
       if (panel_->ActivateBrowser()) {
         base::RecordAction(base::UserMetricsAction("Glic.FocusHotKey"));

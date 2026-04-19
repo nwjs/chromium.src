@@ -1613,10 +1613,6 @@ TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, Init) {
   EXPECT_DCHECK_DEATH(widget()->Init(std::move(params)));
 }
 
-TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, is_secondary_widget) {
-  widget()->is_secondary_widget();
-}
-
 TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, IsActive) {
   widget()->IsActive();
 }
@@ -1884,10 +1880,10 @@ TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, RunMoveLoop) {
                         Widget::MoveLoopEscapeBehavior::kHide);
 }
 
-TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, RunShellDrag) {
+TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, RunDragDropLoop) {
   std::unique_ptr<OSExchangeData> data(std::make_unique<OSExchangeData>());
-  widget()->RunShellDrag(nullptr, std::move(data), gfx::Point(), 0,
-                         ui::mojom::DragEventSource::kMouse);
+  widget()->RunDragDropLoop(nullptr, std::move(data), gfx::Point(), 0,
+                            ui::mojom::DragEventSource::kMouse);
 }
 
 TEST_P(WidgetWithDestroyedNativeViewOrNativeWidgetTest, ScheduleLayout) {
@@ -6454,6 +6450,18 @@ TEST_F(WidgetTest, ClosingChildWidgetUnregisterAccelerators) {
   ASSERT_TRUE(focus_manager->IsAcceleratorRegistered(accelerator));
   child_widget.reset();
   EXPECT_FALSE(focus_manager->IsAcceleratorRegistered(accelerator));
+}
+
+TEST_F(WidgetTest, IsDragging) {
+  std::unique_ptr<Widget> widget =
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  EXPECT_FALSE(widget->is_dragging());
+  static_cast<internal::NativeWidgetDelegate*>(widget.get())
+      ->OnNativeWidgetUserDragStarted();
+  EXPECT_TRUE(widget->is_dragging());
+  static_cast<internal::NativeWidgetDelegate*>(widget.get())
+      ->OnNativeWidgetUserDragEnded();
+  EXPECT_FALSE(widget->is_dragging());
 }
 
 }  // namespace views::test

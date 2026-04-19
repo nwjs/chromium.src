@@ -25,7 +25,7 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
     private static final long SNAP_SCROLL_DELAY_MS = 30;
 
     private final NewTabPageManager mManager;
-    private final NewTabPageLayout mNewTabPageLayout;
+    private final NewTabPageCoordinator mNewTabPageCoordinator;
     private final Runnable mSnapScrollRunnable;
     private final Runnable mUpdateSearchBoxOnScrollRunnable;
     private final int mToolbarHeight;
@@ -38,19 +38,23 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
 
     /**
      * @param manager The {@link NewTabPageManager} to get information about user interactions on
-     *                the {@link NewTabPage}.
-     * @param newTabPageLayout The {@link NewTabPageLayout} associated with the {@link NewTabPage}.
+     *     the {@link NewTabPage}.
+     * @param newTabPageCoordinator The {@link NewTabPageCoordinator} associated with the {@link
+     *     NewTabPage}.
      */
-    public SnapScrollHelperImpl(NewTabPageManager manager, NewTabPageLayout newTabPageLayout) {
+    public SnapScrollHelperImpl(
+            NewTabPageManager manager, NewTabPageCoordinator newTabPageCoordinator) {
         mManager = manager;
-        mNewTabPageLayout = newTabPageLayout;
+        mNewTabPageCoordinator = newTabPageCoordinator;
         mSnapScrollRunnable = new SnapScrollRunnable();
-        mUpdateSearchBoxOnScrollRunnable = mNewTabPageLayout::updateSearchBoxOnScroll;
+        mUpdateSearchBoxOnScrollRunnable = mNewTabPageCoordinator::updateSearchBoxOnScroll;
 
-        Resources res = newTabPageLayout.getResources();
+        Resources res = newTabPageCoordinator.getNewTabPageLayout().getResources();
         if (ChromeFeatureList.sAndroidProgressBarVisualUpdate.isEnabled()) {
-            mToolbarHeight = res.getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
-                    + res.getDimensionPixelSize(R.dimen.toolbar_progress_bar_increased_height);
+            mToolbarHeight =
+                    res.getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
+                            + res.getDimensionPixelSize(
+                                    R.dimen.toolbar_progress_bar_increased_height);
         } else {
             mToolbarHeight =
                     res.getDimensionPixelSize(R.dimen.toolbar_height_no_shadow)
@@ -97,16 +101,20 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
     /** Update scroll offset and perform snap scroll if necessary. */
     @Override
     public void handleScroll() {
-        int scrollY = mNewTabPageLayout.getScrollDelegate().getVerticalScrollOffset();
+        if (mView == null) return;
+
+        var scrollDelegate = mNewTabPageCoordinator.getScrollDelegate();
+        if (scrollDelegate == null) return;
+
+        int scrollY = scrollDelegate.getVerticalScrollOffset();
         if (mLastScrollY == scrollY) return;
 
         mLastScrollY = scrollY;
         if (mPendingSnapScroll) {
-            assumeNonNull(mView);
             mView.removeCallbacks(mSnapScrollRunnable);
             mView.postDelayed(mSnapScrollRunnable, SNAP_SCROLL_DELAY_MS);
         }
-        mNewTabPageLayout.updateSearchBoxOnScroll();
+        mNewTabPageCoordinator.updateSearchBoxOnScroll();
     }
 
     /**
@@ -136,7 +144,7 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
             scrollPosition = calculateSnapPositionForRegion(scrollPosition, 0, mToolbarHeight);
 
             // Snap scroll to prevent resting in the middle of the omnibox transition.
-            View fakeBox = mNewTabPageLayout.getSearchBoxView();
+            View fakeBox = mNewTabPageCoordinator.getSearchBoxView();
             int fakeBoxUpperBound = fakeBox.getTop() + fakeBox.getPaddingTop();
             scrollPosition =
                     calculateSnapPositionForRegion(
@@ -148,9 +156,20 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
         return scrollPosition;
     }
 
+    @Override
+    public void destroy() {
+        if (mView != null) {
+            mView.setOnTouchListener(null);
+            mView.removeCallbacks(mSnapScrollRunnable);
+            mView.removeCallbacks(mUpdateSearchBoxOnScrollRunnable);
+            mView = null;
+        }
+    }
+
     /**
      * Calculates the position to scroll to in order to move out of a region where {@code mView}
      * should not stay at rest.
+     *
      * @param currentScroll the current scroll position.
      * @param regionStart the beginning of the region to scroll out of.
      * @param regionEnd the end of the region to scroll out of.
@@ -187,7 +206,10 @@ public class SnapScrollHelperImpl implements SnapScrollHelper {
             assert mPendingSnapScroll;
             mPendingSnapScroll = false;
 
-            mNewTabPageLayout.getScrollDelegate().snapScroll();
+            var scrollDelegate = mNewTabPageCoordinator.getScrollDelegate();
+            if (scrollDelegate != null) {
+                scrollDelegate.snapScroll();
+            }
         }
     }
 }

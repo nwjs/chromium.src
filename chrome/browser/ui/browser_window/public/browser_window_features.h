@@ -15,6 +15,7 @@
 namespace glic {
 class GlicButtonController;
 class GlicIphController;
+class GlicNudgeController;
 }  // namespace glic
 
 namespace tabs {
@@ -31,6 +32,7 @@ class BookmarksSidePanelCoordinator;
 class BreadcrumbManagerBrowserAgent;
 class Browser;
 class BrowserActions;
+class BrowserAnimationController;
 class BrowserContentSettingBubbleModelDelegate;
 class BrowserElements;
 class BrowserInstantController;
@@ -40,6 +42,7 @@ class BrowserSyncedWindowDelegate;
 class BrowserUserEducationInterface;
 class BrowserView;
 class BrowserWindowInterface;
+class BrowserWindowThemeObserver;
 class CallToActionLock;
 class ChromeLabsCoordinator;
 class ColorProviderBrowserHelper;
@@ -68,7 +71,7 @@ class InitialWebUIManager;
 class InitialWebUIWindowMetricsManager;
 class LocationBarModel;
 class MemorySaverOptInIPHController;
-class PinnedToolbarActionsController;
+class PinnedToolbarActions;
 class ProfileMenuCoordinator;
 class ProjectsPanelStateController;
 class ReadingListSidePanelCoordinator;
@@ -83,6 +86,7 @@ class SigninViewController;
 class SplitViewIphController;
 class TabMenuModelDelegate;
 class TabSearchToolbarButtonController;
+class TabsFromOtherDevicesSidePanelCoordinator;
 class TabListBridge;
 class TabStripModel;
 class TabStripServiceFeature;
@@ -150,15 +154,15 @@ namespace chrome {
 class BrowserCommandController;
 }  // namespace chrome
 
+namespace contextual_cueing {
+class ContextualCueingController;
+}  // namespace contextual_cueing
+
 namespace contextual_tasks {
 class ActiveTaskContextProvider;
 class ContextualTasksSidePanelCoordinator;
 class EntryPointEligibilityManager;
 }  // namespace contextual_tasks
-
-namespace tabs {
-class GlicNudgeController;
-}  // namespace tabs
 
 namespace enterprise_data_protection {
 class DataProtectionUIController;
@@ -215,6 +219,10 @@ class OmniboxPopupCloser;
 namespace skills {
 class SkillsUiWindowController;
 }  // namespace skills
+
+namespace ttc {
+class AiOverlayDialogController;
+}  // namespace ttc
 
 // This class owns the core controllers for features that are scoped to a given
 // browser window on desktop.
@@ -274,18 +282,6 @@ class BrowserWindowFeatures {
     return cast_browser_controller_.get();
   }
 
-  HistorySidePanelCoordinator* history_side_panel_coordinator() {
-    return history_side_panel_coordinator_.get();
-  }
-
-  BookmarksSidePanelCoordinator* bookmarks_side_panel_coordinator() {
-    return bookmarks_side_panel_coordinator_.get();
-  }
-
-  CommentsSidePanelCoordinator* comments_side_panel_coordinator() {
-    return comments_side_panel_coordinator_.get();
-  }
-
   ExtensionInstalledWatcher* extension_installed_watcher() {
     return extension_installed_watcher_.get();
   }
@@ -294,18 +290,9 @@ class BrowserWindowFeatures {
     return glic_iph_controller_.get();
   }
 
-  PinnedToolbarActionsController* pinned_toolbar_actions_controller() {
-    return pinned_toolbar_actions_controller_.get();
+  PinnedToolbarActions* pinned_toolbar_actions() {
+    return pinned_toolbar_actions_;
   }
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-  pdf::infobar::PdfInfoBarController* pdf_infobar_controller() {
-    return pdf_infobar_controller_.get();
-  }
-  default_browser::PinInfoBarController* pin_infobar_controller() {
-    return pin_infobar_controller_.get();
-  }
-#endif
 
   // TODO(crbug.com/346158959): For historical reasons, side_panel_ui is an
   // abstract base class that contains some, but not all of the public interface
@@ -323,7 +310,7 @@ class BrowserWindowFeatures {
     return lens_region_search_controller_.get();
   }
 
-  tabs::GlicNudgeController* glic_nudge_controller() {
+  glic::GlicNudgeController* glic_nudge_controller() {
     return glic_nudge_controller_.get();
   }
 
@@ -414,8 +401,9 @@ class BrowserWindowFeatures {
   LocationBar* location_bar();
   const LocationBar* location_bar() const;
 
-  ReadingListSidePanelCoordinator* reading_list_side_panel_coordinator() {
-    return reading_list_side_panel_coordinator_.get();
+  TabsFromOtherDevicesSidePanelCoordinator*
+  tabs_from_other_devices_side_panel_coordinator() {
+    return tabs_from_other_devices_side_panel_coordinator_.get();
   }
 
   new_tab_footer::NewTabFooterController* new_tab_footer_controller() {
@@ -485,10 +473,6 @@ class BrowserWindowFeatures {
     return history_clusters_side_panel_coordinator_.get();
   }
 
-  UpgradeNotificationController* upgrade_notification_controller() {
-    return upgrade_notification_controller_.get();
-  }
-
   BrowserContentSettingBubbleModelDelegate*
   content_setting_bubble_model_delegate() {
     return content_setting_bubble_model_delegate_.get();
@@ -508,6 +492,11 @@ class BrowserWindowFeatures {
 
   omnibox::OmniboxPopupCloser* omnibox_popup_closer() {
     return omnibox_popup_closer_.get();
+  }
+
+  contextual_cueing::ContextualCueingController*
+  contextual_cueing_controller() {
+    return contextual_cueing_controller_.get();
   }
 
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
@@ -536,6 +525,9 @@ class BrowserWindowFeatures {
   std::unique_ptr<BrowserElements> browser_elements_;
 
   std::unique_ptr<BookmarkBarController> bookmark_bar_controller_;
+
+  raw_ptr<TabStripModel> tab_strip_model_;
+  std::unique_ptr<TabListBridge> tab_list_bridge_;
 
   std::unique_ptr<BrowserInstantController> instant_controller_;
 
@@ -585,9 +577,7 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<CommentsSidePanelCoordinator>
       comments_side_panel_coordinator_;
-
-  std::unique_ptr<PinnedToolbarActionsController>
-      pinned_toolbar_actions_controller_;
+  raw_ptr<PinnedToolbarActions> pinned_toolbar_actions_ = nullptr;
 
   std::unique_ptr<ExtensionInstalledWatcher> extension_installed_watcher_;
 
@@ -609,7 +599,8 @@ class BrowserWindowFeatures {
   std::unique_ptr<tab_groups::SessionServiceTabGroupSyncObserver>
       session_service_tab_group_sync_observer_;
 
-  raw_ptr<TabStripModel> tab_strip_model_;
+  std::unique_ptr<ttc::AiOverlayDialogController> ai_overlay_dialog_controller_;
+
   std::unique_ptr<ToastService> toast_service_;
 
   // The window-scoped extension side-panel manager. There is a separate
@@ -634,6 +625,8 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<ActorBorderViewController> actor_border_view_controller_;
 
+  std::unique_ptr<BrowserAnimationController> browser_animation_controller_;
+
   std::unique_ptr<CallToActionLock> call_to_action_lock_;
 
   std::unique_ptr<BrowserSelectFileDialogController>
@@ -656,7 +649,7 @@ class BrowserWindowFeatures {
   std::unique_ptr<ContextualTasksCloseButtonController>
       contextual_tasks_close_button_controller_;
 
-  std::unique_ptr<tabs::GlicNudgeController> glic_nudge_controller_;
+  std::unique_ptr<glic::GlicNudgeController> glic_nudge_controller_;
 
   std::unique_ptr<tabs::GlicActorNudgeController> glic_actor_nudge_controller_;
   std::unique_ptr<ActorTaskListBubbleController>
@@ -713,6 +706,9 @@ class BrowserWindowFeatures {
   std::unique_ptr<ReadingListSidePanelCoordinator>
       reading_list_side_panel_coordinator_;
 
+  std::unique_ptr<TabsFromOtherDevicesSidePanelCoordinator>
+      tabs_from_other_devices_side_panel_coordinator_;
+
   std::unique_ptr<ProfileMenuCoordinator> profile_menu_coordinator_;
 
   std::unique_ptr<IncognitoClearBrowsingDataDialogCoordinator>
@@ -732,8 +728,6 @@ class BrowserWindowFeatures {
   std::unique_ptr<FindBarController> find_bar_controller_;
 
   std::unique_ptr<DataSharingBubbleController> data_sharing_bubble_controller_;
-
-  std::unique_ptr<TabListBridge> tab_list_bridge_;
 
   // Note: Depends on TabListBridge, so should come after it in the member list.
   std::unique_ptr<extensions::BrowserExtensionWindowController>
@@ -810,6 +804,11 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<ContextHighlightWindowFeature>
       context_highlight_window_feature_;
+
+  std::unique_ptr<contextual_cueing::ContextualCueingController>
+      contextual_cueing_controller_;
+
+  std::unique_ptr<BrowserWindowThemeObserver> browser_window_theme_observer_;
 
   // Keep this member last to ensure embedder features are torn down first, in
   // reverse order of initialization.

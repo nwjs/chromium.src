@@ -9,6 +9,7 @@
 
 #include "components/accessibility_annotator/core/annotation_reducer/query_intent_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/from_accessibility_annotator.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -18,6 +19,7 @@ namespace {
 
 using accessibility_annotator::QueryIntentType;
 using testing::Eq;
+using testing::IsEmpty;
 using testing::Optional;
 using testing::VariantWith;
 
@@ -44,6 +46,15 @@ TEST(AtMemoryDataTypeTest, ToAtMemoryDataType) {
               Optional(VariantWith<FieldType>(COMPANY_NAME)));
   EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kIban),
               Optional(VariantWith<FieldType>(IBAN_VALUE)));
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kCreditCardNumber),
+              Optional(VariantWith<FieldType>(CREDIT_CARD_NUMBER)));
+  EXPECT_THAT(
+      ToAtMemoryDataType(QueryIntentType::kCreditCardExpirationDate),
+      Optional(VariantWith<FieldType>(CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR)));
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kCreditCardSecurityCode),
+              Optional(VariantWith<FieldType>(CREDIT_CARD_VERIFICATION_CODE)));
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kCreditCardNameOnCard),
+              Optional(VariantWith<FieldType>(CREDIT_CARD_NAME_FULL)));
 
   EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kVehicle),
               Optional(VariantWith<autofill::EntityType>(
@@ -105,7 +116,44 @@ TEST(AtMemoryDataTypeTest, ToAtMemoryDataType) {
               Optional(VariantWith<AttributeType>(
                   AttributeType(AttributeTypeName::kOrderId))));
 
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kShipmentFull),
+              Optional(VariantWith<autofill::EntityType>(
+                  autofill::EntityType(EntityTypeName::kShipment))));
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kShipmentTrackingNumber),
+              Optional(VariantWith<AttributeType>(
+                  AttributeType(AttributeTypeName::kShipmentTrackingNumber))));
+  EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kShipmentAssociatedOrderId),
+              Optional(VariantWith<AttributeType>(
+                  AttributeType(AttributeTypeName::kShipmentOrderIds))));
+
   EXPECT_THAT(ToAtMemoryDataType(QueryIntentType::kUnknown), Eq(std::nullopt));
+}
+
+TEST(AtMemoryDataTypeTest, AttributeTypeToQueryIntentType) {
+  EXPECT_THAT(AttributeTypeToQueryIntentType(
+                  AttributeType(AttributeTypeName::kVehicleMake)),
+              Eq(accessibility_annotator::QueryIntentType::kVehicleMake));
+  EXPECT_THAT(AttributeTypeToQueryIntentType(
+                  AttributeType(AttributeTypeName::kPassportNumber)),
+              Eq(accessibility_annotator::QueryIntentType::kPassportNumber));
+  EXPECT_THAT(
+      AttributeTypeToQueryIntentType(
+          AttributeType(AttributeTypeName::kShipmentTrackingNumber)),
+      Eq(accessibility_annotator::QueryIntentType::kShipmentTrackingNumber));
+  EXPECT_THAT(
+      AttributeTypeToQueryIntentType(
+          AttributeType(AttributeTypeName::kShipmentOrderIds)),
+      Eq(accessibility_annotator::QueryIntentType::kShipmentAssociatedOrderId));
+}
+
+TEST(AtMemoryDataTypeTest, GetEntryTypeNameForI18n) {
+  EXPECT_THAT(GetEntryTypeNameForI18n(QueryIntentType::kNameFull), Eq(u"Name"));
+  EXPECT_THAT(GetEntryTypeNameForI18n(QueryIntentType::kPhone), Eq(u"Phone"));
+  EXPECT_THAT(GetEntryTypeNameForI18n(QueryIntentType::kVehicle),
+              Eq(u"Vehicle"));
+  EXPECT_THAT(GetEntryTypeNameForI18n(QueryIntentType::kVehicleOwner),
+              Eq(u"Owner"));
+  EXPECT_THAT(GetEntryTypeNameForI18n(QueryIntentType::kUnknown), IsEmpty());
 }
 
 }  // namespace

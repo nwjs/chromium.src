@@ -34,6 +34,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_run_loop_timeout.h"
@@ -41,6 +42,7 @@
 #include "base/test/test_timeouts.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/branding_buildflags.h"
@@ -102,6 +104,8 @@
 #include "base/win/com_init_util.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_bstr.h"
+#include "base/win/security_util.h"
+#include "base/win/sid.h"
 #include "chrome/updater/app/server/win/updater_idl.h"
 #include "chrome/updater/app/server/win/updater_internal_idl.h"
 #include "chrome/updater/app/server/win/updater_legacy_idl.h"
@@ -243,6 +247,20 @@ void ExpectUninstallPingPreviousVersion(ScopedServer& test_server,
                          kUpdaterAppId));
 }
 #endif  // BUILDFLAG(IS_WIN)
+
+// Expects that the file at `path` is readable by other users.
+void ExpectUserReadable(const base::FilePath& path) {
+#if BUILDFLAG(IS_POSIX)
+  int mode = 0;
+  ASSERT_TRUE(base::GetPosixFilePermissions(path, &mode));
+  EXPECT_TRUE(mode & base::FILE_PERMISSION_READ_BY_OTHERS);
+#else
+  std::vector<base::win::Sid> sids;
+  sids.push_back(base::win::Sid(base::win::WellKnownSid::kBuiltinUsers));
+  EXPECT_TRUE(base::win::HasAccessToPath(path, sids, FILE_GENERIC_READ,
+                                         /*inheritance=*/0));
+#endif
+}
 
 base::FilePath GetInstallerPath(const std::string& installer) {
   return base::FilePath::FromUTF8Unsafe("test_installer").AppendUTF8(installer);
@@ -2888,6 +2906,20 @@ TEST_F(IntegrationTest, CrashUsageStatsEnabled) {
 #endif
 }
 
+TEST_F(IntegrationTest, CreatesUserReadablePrefs) {
+  if (!IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+  ASSERT_NO_FATAL_FAILURE(ExpectVersionActive(kUpdaterVersion));
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectUserReadable(GetInstallDirectory(GetUpdaterScopeForTesting())
+                             ->AppendASCII("prefs.json")));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
 class IntegrationTestDeviceManagement : public IntegrationTest {
  protected:
   void SetUp() override {
@@ -3691,12 +3723,6 @@ class IntegrationTestUserInSystem : public IntegrationTest {
     IntegrationTest::SetUp();
 
     for (auto commands : {test_commands_, user_test_commands_}) {
-      commands->EnterTestMode(
-          test_server_->update_url(), test_server_->crash_upload_url(),
-          /*app_logo_url=*/{},
-          /*event_logging_url=*/{}, base::Minutes(5), base::Seconds(2),
-          base::Seconds(10),
-          /*event_logging_permission_provider=*/std::nullopt);
       commands->EnterTestMode(
           test_server_->update_url(), test_server_->crash_upload_url(),
           /*app_logo_url=*/{},

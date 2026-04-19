@@ -15,6 +15,7 @@
 #include "base/task/thread_pool.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/file_opening_job.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/enterprise/obfuscation/core/download_obfuscator.h"
@@ -33,6 +34,7 @@ namespace {
 
 constexpr size_t kReadFileChunkSize = 4096;
 constexpr size_t kMaxUploadSizeMetricsKB = 500 * 1024;
+constexpr uint64_t kMaxHashComputeSizeBytes = 25ull * 1024 * 1024 * 1024;
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 bool IsZipFile(const base::FilePath::StringType& extension,
@@ -92,6 +94,9 @@ std::string GetFileMimeType(const base::FilePath& path,
 // computation can occur after RunCallback to unblock the user faster, make it
 // the last operation which uses the file and release the associated scoped file
 // access at the end of this function.
+// Both parameters are moved into this function as this should be the last
+// function to use the file, and are released by going out of scope.
+// scoped_file_access will not do anything outside of ChromeOS.
 std::string ComputeHashBlocking(
     base::File file,
     std::unique_ptr<file_access::ScopedFileAccess> scoped_file_access) {
@@ -204,9 +209,13 @@ GetFileDataBlocking(
       return {enterprise_connectors::ScanRequestUploadResult::kUnknown,
               file_data};
     }
+  } else if (file_data.size > kMaxHashComputeSizeBytes) {
+    // When none of the above conditions are true and the file is very large,
+    // avoid excessive compute time by not computing the hash.
+    file_data.hash = "";
   } else {
-    // When all three conditions are false, set the function parameter reference
-    // to a callback that computes the hash.
+    // Otherwise, set the function parameter reference to a callback that
+    // computes the hash.
     output_compute_hash_callback = base::BindOnce(
         &ComputeHashBlocking, std::move(file), std::move(scoped_file_access));
   }
@@ -256,8 +265,13 @@ FileAnalysisRequestBase::~FileAnalysisRequestBase() {
   // If the object is going to be gone but there are still callbacks waiting for
   // hash, let them know some error occurred.
   if (!hash_notify_callbacks_.empty()) {
-    OnGotHash(std::string());
+    OnGotHash(cached_data_.hash);
   }
+}
+
+void FileAnalysisRequestBase::set_file_opening_job(
+    scoped_refptr<safe_browsing::FileOpeningJob> file_opening_job) {
+  file_opening_job_ = std::move(file_opening_job);
 }
 
 void FileAnalysisRequestBase::GetRequestData(DataCallback callback) {
@@ -319,9 +333,9 @@ void FileAnalysisRequestBase::RegisterOnGotHashCallback(
        enterprise_connectors::ScanRequestUploadResult::kUnknown)) {
     std::move(callback).Run(cached_data_.hash);
   } else {
-    // TODO(alxchn): Test that call_last will only be ever called once through
-    // an upload.
     if (call_last) {
+      CHECK(!register_cb_called_last);
+      register_cb_called_last = true;
       hash_notify_callbacks_.push_back(std::move(callback));
     } else {
       hash_notify_callbacks_.push_front(std::move(callback));
@@ -345,6 +359,7 @@ void FileAnalysisRequestBase::OnGotHash(std::string hash) {
     std::move(hash_notify_callbacks_.front()).Run(hash);
     hash_notify_callbacks_.pop_front();
   }
+  file_opening_job_.reset();
 }
 
 bool FileAnalysisRequestBase::HasMalwareRequest() const {
@@ -363,6 +378,9 @@ void FileAnalysisRequestBase::OnGotFileData(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   scoped_file_access_.reset();
+  if (!register_on_got_hash_callback_) {
+    file_opening_job_.reset();
+  }
   if (result_and_data.first != ScanRequestUploadResult::kSuccess) {
     CacheResultAndData(result_and_data.first,
                        std::move(result_and_data.second));

@@ -48,6 +48,10 @@ class CORE_EXPORT HTMLSlotElement final : public HTMLElement {
  public:
   HTMLSlotElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLSlotElement;
+  }
+
   const HeapVector<Member<Node>>& AssignedNodes() const;
   const HeapVector<Member<Node>> AssignedNodesForBinding(
       const AssignedNodesOptions*);

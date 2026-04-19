@@ -33,7 +33,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
@@ -117,7 +116,11 @@
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/experiences/arc/test/arc_util_test_support.h"
+#include "components/account_id/account_id.h"
+#include "components/account_id/account_id_literal.h"  // nogncheck
 #include "components/account_manager_core/chromeos/account_manager.h"
+#include "components/session_manager/core/session_manager.h"
+#include "components/user_manager/test_helper.h"
 #include "components/user_manager/user_manager.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -126,6 +129,7 @@
 #else  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -170,6 +174,14 @@ int GetNumClients(SyncTest::TestType test_type) {
   NOTREACHED();
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+constexpr auto kAccountId1 =
+    AccountId::Literal::FromUserEmailGaiaId("user1@gmail.com",
+                                            GaiaId::Literal("11111111"));
+constexpr auto kAccountId2 =
+    AccountId::Literal::FromUserEmailGaiaId("user2@gmail.com",
+                                            GaiaId::Literal("22222222"));
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }  // namespace
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -276,6 +288,16 @@ void SyncTest::CreatedBrowserMainParts(content::BrowserMainParts* parts) {
   PlatformBrowserTest::CreatedBrowserMainParts(parts);
 }
 
+void SyncTest::SetUpLocalStatePrefService(PrefService* local_state) {
+  PlatformBrowserTest::SetUpLocalStatePrefService(local_state);
+#if BUILDFLAG(IS_CHROMEOS)
+  // For multi-user sign-in, users need to be pre registered on starting
+  // Chrome. This class uses at most two profiles, so register them.
+  user_manager::TestHelper::RegisterPersistedUser(*local_state, kAccountId1);
+  user_manager::TestHelper::RegisterPersistedUser(*local_state, kAccountId2);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+}
+
 void SyncTest::SetUpCommandLine(base::CommandLine* cl) {
   // Disable non-essential access of external network resources.
   if (!cl->HasSwitch(switches::kDisableBackgroundNetworking)) {
@@ -323,12 +345,16 @@ void SyncTest::SetUpCommandLine(base::CommandLine* cl) {
 #endif
 }
 
-void SyncTest::BeforeSetupClient(int index,
-                                 const base::FilePath& profile_path) {}
-
 base::FilePath SyncTest::GetProfileBaseName(int index) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // In ChromeOS platform, user profile path is expected to start with "u-",
+  // followed by username hash. This follows the format.
+  return base::FilePath::FromASCII("u-SyncIntegrationTestClient" +
+                                   base::NumberToString(index));
+#else
   return base::FilePath::FromASCII("SyncIntegrationTestClient" +
                                    base::NumberToString(index));
+#endif
 }
 
 void SyncTest::PostCreateThreads() {
@@ -397,8 +423,6 @@ bool SyncTest::CreateProfile(int index) {
   profile_path = user_data_dir.Append(GetProfileBaseName(index));
 #endif
 
-  BeforeSetupClient(index, profile_path);
-
 #if BUILDFLAG(IS_ANDROID)
   DCHECK_EQ(index, 0);
   Profile* profile = ProfileManager::GetLastUsedProfile();
@@ -410,6 +434,23 @@ bool SyncTest::CreateProfile(int index) {
     profile = Profile::FromBrowserContext(
         ash::BrowserContextHelper::Get()->GetBrowserContextByUser(
             user_manager::UserManager::Get()->GetPrimaryUser()));
+  } else {
+    // Create a fake user session.
+    CHECK(index == 0 || index == 1);
+    AccountId account_id = index == 0 ? kAccountId1 : kAccountId2;
+    session_manager::SessionManager::Get()->CreateSession(
+        account_id,
+        // Use profile path base for a fake username_hash here.
+        // In production, the profile base name in ChromeOS is in "u-${hash}"
+        // format, where ${hash} is actually user hash maintained in the
+        // ChromeOS system side, and extracts the hash from the path on
+        // initialization. This trick allows Chrome to tie the user and
+        // a Profile being created just below.
+        /*username_hash=*/
+        ash::BrowserContextHelper::GetUsernameHashFromBrowserContextDirName(
+            GetProfileBaseName(index)),
+        /*new_user=*/false,
+        /*has_active_session=*/false);
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
   if (!profile) {
@@ -472,12 +513,13 @@ Browser* SyncTest::AddBrowser(int profile_index) {
   profiles_.push_back(profile);
   DCHECK_EQ(browsers_.size(), profiles_.size());
 
+  Browser* browser = browsers_.back();
+  chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
+                                ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   // Show the browser window. Otherwise, the rendering pipeline might not
   // initialize or produce frames (e.g., on Wayland headless bots), which
   // can cause tests relying on hit test data or visual state to time out.
-  Browser* browser = browsers_.back();
   browser->window()->Show();
-
   return browser;
 }
 
@@ -525,6 +567,10 @@ syncer::UserSelectableTypeSet SyncTest::GetRegisteredSelectableTypes(
 
 SyncTest::SetupSyncMode SyncTest::GetSetupSyncMode() const {
   return SetupSyncMode::kSyncTheFeature;
+}
+
+GURL SyncTest::GetInitialURL() const {
+  return GURL(url::kAboutBlankURL);
 }
 
 std::vector<raw_ptr<SyncServiceImpl, VectorExperimental>>
@@ -653,10 +699,15 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
 #if !BUILDFLAG(IS_ANDROID)
   browsers_.push_back(Browser::Create(Browser::CreateParams(profile, true)));
   DCHECK_EQ(static_cast<size_t>(index), browsers_.size() - 1);
+
+  Browser* browser = browsers_.back();
+  chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
+                                ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
+
   // Show the browser window. Otherwise, the rendering pipeline might not
   // initialize or produce frames (e.g., on Wayland headless bots), which
   // can cause tests relying on hit test data or visual state to time out.
-  browsers_.back()->window()->Show();
+  browser->window()->Show();
 #endif
 
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
@@ -978,10 +1029,9 @@ void SyncTest::OnProfileAdded(Profile* profile) {
   // early, and ProfileImpl's constructor would override it once again when
   // invoking ash::InitializeAccountManager().
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    ash::AccountManagerFactory* factory =
-        g_browser_process->platform_part()->GetAccountManagerFactory();
     account_manager::AccountManager* account_manager =
-        factory->GetAccountManager(profile->GetPath().value());
+        ash::AccountManagerFactory::Get()->GetAccountManager(
+            profile->GetPath().value());
     account_manager->SetUrlLoaderFactoryForTests(
         test_url_loader_factory_.GetSafeWeakWrapper());
   }
@@ -1250,8 +1300,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 #if BUILDFLAG(IS_ANDROID)
   // On Android, `kReplaceSyncPromosWithSignInPromos` has been enabled by
   // default for a long time, so it is not expected to be exercised in tests.
-  CHECK(
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  CHECK(syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // Only some types will run by default in transport mode (i.e. without their
@@ -1296,8 +1345,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
   if (syncer::IsReadingListAccountStorageEnabled()) {
     allowed_types.Put(syncer::READING_LIST);
   }
-  if (base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
+  if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     allowed_types.Put(syncer::AUTOFILL_WALLET_METADATA);
     allowed_types.Put(syncer::AUTOFILL_WALLET_OFFER);
     allowed_types.Put(syncer::HISTORY);
@@ -1331,9 +1379,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   }
-  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
-    allowed_types.Put(syncer::AUTOFILL_VALUABLE);
-  }
+  allowed_types.Put(syncer::AUTOFILL_VALUABLE);
 
   if (base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata)) {
     allowed_types.Put(syncer::AUTOFILL_VALUABLE_METADATA);

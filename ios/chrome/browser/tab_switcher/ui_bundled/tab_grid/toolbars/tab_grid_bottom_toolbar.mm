@@ -101,8 +101,15 @@ CGFloat CompactButtonHorizontalPadding() {
 
   NSArray<UITrait>* traits = TraitCollectionSetForTraits(
       @[ UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class ]);
-  [self registerForTraitChanges:traits withAction:@selector(updateLayout)];
+  [self registerForTraitChanges:traits withAction:@selector(setNeedsLayout)];
   [super didMoveToSuperview];
+}
+
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  // Perform updates during the layout phase to avoid re-entrancy issues
+  // during trait collection changes.
+  [self updateLayout];
 }
 
 // Returns intrinsicContentSize based on the content of the toolbar.
@@ -112,6 +119,11 @@ CGFloat CompactButtonHorizontalPadding() {
 - (CGSize)intrinsicContentSize {
   if (!_largeNewTabButton.hidden) {
     return CGSizeZero;
+  }
+  if (IsChromeNextIaEnabled()) {
+    if (self.mode != TabGridMode::kSelection) {
+      return CGSizeZero;
+    }
   }
   return _containerToolbar.intrinsicContentSize;
 }
@@ -519,6 +531,15 @@ CGFloat CompactButtonHorizontalPadding() {
     hideToolbar = self.mode == TabGridMode::kSearch ||
                   (!useCompactLayout && (self.page == TabGridPageTabGroups));
   }
+
+  if (IsChromeNextIaEnabled() &&
+      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+    // If the App Bar is available (iPhone), the bottom toolbar buttons should
+    // be hidden in the Tab Grid's non-selection states.
+    hideToolbar =
+        self.mode == TabGridMode::kSearch || self.mode == TabGridMode::kNormal;
+  }
+
   if (hideToolbar) {
     self.hidden = YES;
     [self updateBackgroundVisibility];
@@ -541,10 +562,6 @@ CGFloat CompactButtonHorizontalPadding() {
   }
 
   if (useCompactLayout) {
-    if (IsChromeNextIaEnabled()) {
-      // If ChromeNext is enabled, there is no toolbar in normal mode compact.
-      return;
-    }
     if (self.page == TabGridPageTabGroups) {
       _doneButton.hidden = NO;
 

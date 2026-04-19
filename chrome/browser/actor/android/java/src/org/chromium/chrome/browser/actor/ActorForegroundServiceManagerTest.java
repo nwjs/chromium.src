@@ -19,6 +19,8 @@ import static org.robolectric.Shadows.shadowOf;
 import android.app.Notification;
 import android.os.Looper;
 
+import androidx.core.app.ServiceCompat;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,6 +52,8 @@ public class ActorForegroundServiceManagerTest {
     @Mock private Profile mProfile;
     @Mock private Notification mNotification;
 
+    private static final long sWaitTimeMs = TimeUnit.HOURS.toMillis(1);
+
     private ActorForegroundServiceManager mManager;
 
     private static class TestActorForegroundServiceManager extends ActorForegroundServiceManager {
@@ -77,6 +81,7 @@ public class ActorForegroundServiceManagerTest {
         when(mKeyedService.getTask(1)).thenReturn(mTask);
         when(mKeyedService.getActiveTasksCount()).thenReturn(1);
         when(mKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mTask));
+        when(mKeyedService.getCurrentActiveTask()).thenReturn(mTask);
         when(mNotificationService.getForegroundNotification(any())).thenReturn(mNotification);
 
         when(mProfile.isOffTheRecord()).thenReturn(false);
@@ -148,8 +153,84 @@ public class ActorForegroundServiceManagerTest {
         stopCallback.waitForOnly();
 
         assertFalse("Service should be unbound after delay.", mManager.isServiceBoundForTesting());
-        verify(mServiceController).stopActorForegroundService(anyInt());
+        verify(mServiceController).stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_DETACH);
         verify(mServiceController).unbindService();
+    }
+
+    @Test
+    public void testTaskCompleted_StopsServiceAfterOneHourDelay() throws Exception {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+        CallbackHelper stopCallback = new CallbackHelper();
+        mManager.setStopCallbackForTesting(stopCallback::notifyCalled);
+
+        // Override wait time to 1 hour
+        ActorForegroundServiceManager.setWaitTimeForTesting(sWaitTimeMs);
+
+        // Start service
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        assertTrue("Service should be bound.", mManager.isServiceBoundForTesting());
+        ShadowLooper.idleMainLooper();
+
+        // Complete task
+        when(mTask.isCompleted()).thenReturn(true);
+        when(mKeyedService.getActiveTasksCount()).thenReturn(0);
+        mManager.onTaskStateChanged(1, ActorTaskState.FINISHED);
+
+        // Service shouldn't stop immediately
+        assertTrue(
+                "Service should still be bound before delay.", mManager.isServiceBoundForTesting());
+
+        // Idle for 30 minutes, should still be bound
+        shadowOf(Looper.getMainLooper()).idleFor(30, TimeUnit.MINUTES);
+        assertTrue(
+                "Service should still be bound after 30 minutes.",
+                mManager.isServiceBoundForTesting());
+
+        // Idle for another 31 minutes, should stop
+        shadowOf(Looper.getMainLooper()).idleFor(31, TimeUnit.MINUTES);
+        stopCallback.waitForOnly();
+
+        assertFalse(
+                "Service should be unbound after 1 hour delay.",
+                mManager.isServiceBoundForTesting());
+    }
+
+    @Test
+    public void testTaskCompleted_NewTaskStartedWithinHour_ServiceStaysAlive() throws Exception {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+
+        // Override wait time to 1 hour
+        ActorForegroundServiceManager.setWaitTimeForTesting(sWaitTimeMs);
+
+        // Start task 1
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        assertTrue("Service should be bound.", mManager.isServiceBoundForTesting());
+        ShadowLooper.idleMainLooper();
+
+        // Complete task 1
+        when(mTask.isCompleted()).thenReturn(true);
+        when(mKeyedService.getActiveTasksCount()).thenReturn(0);
+        mManager.onTaskStateChanged(1, ActorTaskState.FINISHED);
+
+        // Idle for 30 minutes
+        shadowOf(Looper.getMainLooper()).idleFor(30, TimeUnit.MINUTES);
+        assertTrue(
+                "Service should still be bound after 30 minutes.",
+                mManager.isServiceBoundForTesting());
+
+        // Start task 2
+        ActorTask task2 = org.mockito.Mockito.mock(ActorTask.class);
+        when(task2.getId()).thenReturn(2);
+        when(task2.isCompleted()).thenReturn(false);
+        when(mKeyedService.getTask(2)).thenReturn(task2);
+        when(mKeyedService.getActiveTasksCount()).thenReturn(1);
+        mManager.onTaskStateChanged(2, ActorTaskState.ACTING);
+
+        // Idle for another hour, service should still be bound because of task 2
+        shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.HOURS);
+        assertTrue(
+                "Service should stay alive because task 2 started within the hour.",
+                mManager.isServiceBoundForTesting());
     }
 
     @Test
@@ -168,8 +249,8 @@ public class ActorForegroundServiceManagerTest {
 
         ShadowLooper.idleMainLooper();
 
-        // Verify service is not bounded.
-        assertFalse(
+        // Verify service is still bounded.
+        assertTrue(
                 "Service should remain bound for paused tasks in MVP.",
                 mManager.isServiceBoundForTesting());
 

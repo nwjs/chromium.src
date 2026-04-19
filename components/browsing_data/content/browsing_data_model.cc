@@ -11,7 +11,6 @@
 
 #include "base/barrier_closure.h"
 #include "base/check.h"
-#include "base/containers/enum_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -513,7 +512,7 @@ void OnPrivateAggregationLoaded(
 void OnQuotaStorageLoaded(
     BrowsingDataModel* model,
     base::OnceClosure loaded_callback,
-    const std::list<BrowsingDataQuotaHelper::QuotaInfo>& quota_info) {
+    std::vector<BrowsingDataQuotaHelper::QuotaInfo> quota_info) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   for (const auto& entry : quota_info) {
     model->AddBrowsingData(entry.storage_key,

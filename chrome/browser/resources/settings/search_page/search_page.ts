@@ -30,7 +30,7 @@ import {routes} from '../route.js';
 import {Router} from '../router.js';
 import {SettingsViewMixin} from '../settings_page/settings_view_mixin.js';
 
-import type {SearchEngine, SearchEnginesBrowserProxy, SearchEnginesInfo} from './search_engines_browser_proxy.js';
+import type {CategorizedTemplateUrls, SearchEngine, SearchEnginesBrowserProxy, SearchEnginesInfo} from './search_engines_browser_proxy.js';
 import {SearchEnginesBrowserProxyImpl} from './search_engines_browser_proxy.js';
 import {getTemplate} from './search_page.html.js';
 
@@ -51,7 +51,7 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
       prefs: Object,
 
       /**
-       * List of search engines available.
+       * List of search engines available in the search engine list dialog.
        */
       searchEngines_: Array,
 
@@ -61,12 +61,25 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
         computed: 'computeDefaultSearchEngine_(searchEngines_)',
       },
 
+      // The title of the page and the default search engine card.
+      searchPageTitle_: {
+        type: String,
+        computed: 'computeSearchPageTitle_()',
+      },
+
       // Boolean to check whether we need to show the dialog or not.
       showSearchEngineListDialog_: Boolean,
 
       // The label of the confirmation toast that is displayed when the user
       // chooses a default search engine.
       confirmationToastLabel_: String,
+
+      // With this enabled, the shortcuts settings are present on this page
+      // rather than the search engines subpage.
+      searchSettingsUpdateEnabled_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('searchSettingsUpdate'),
+      },
     };
   }
 
@@ -81,23 +94,38 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
   // in the binary or smaller because we get them from the favicon service.
   private isEeaChoiceCountry_: boolean =
       loadTimeData.getBoolean('isEeaChoiceCountry');
+  declare private searchSettingsUpdateEnabled_: boolean;
 
+  declare private searchPageTitle_: string;
   declare private confirmationToastLabel_: string;
 
-  override ready() {
-    super.ready();
+  override connectedCallback() {
+    super.connectedCallback();
 
-    // Omnibox search engine
+    this.setFaviconSize_();
+
+    if (this.searchSettingsUpdateEnabled_) {
+      // Only regional search engines and the default engine should be visible
+      // in the search engine list dialog. No need to sort these since the
+      // `activeSiteShortcuts` are already in the expected order (sorted
+      // regional search engines first, then default engine if it is not in the
+      // list).
+      const updateSearchEngines =
+          (categorizedTemplateUrls: CategorizedTemplateUrls) => {
+            this.searchEngines_ =
+                categorizedTemplateUrls.activeSiteShortcuts.filter(
+                    engine => engine.isPrepopulated || engine.default);
+          };
+      this.browserProxy_.getCategorizedTemplateUrls().then(updateSearchEngines);
+      this.addWebUiListener('search-engines-changed', updateSearchEngines);
+      return;
+    }
+
     const updateSearchEngines = (searchEngines: SearchEnginesInfo) => {
       this.searchEngines_ = searchEngines.defaults;
     };
     this.browserProxy_.getSearchEnginesList().then(updateSearchEngines);
     this.addWebUiListener('search-engines-changed', updateSearchEngines);
-  }
-
-  override connectedCallback() {
-    super.connectedCallback();
-    this.setFaviconSize_();
   }
 
   private onDisableExtension_() {
@@ -121,6 +149,12 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
   private isDefaultSearchEngineEnforced_(
       pref: chrome.settingsPrivate.PrefObject): boolean {
     return pref.enforcement === chrome.settingsPrivate.Enforcement.ENFORCED;
+  }
+
+  private computeSearchPageTitle_(): string {
+    return this.i18n(
+        this.searchSettingsUpdateEnabled_ ? 'defaultSearch' :
+                                            'searchPageTitle');
   }
 
   private computeDefaultSearchEngine_() {
@@ -154,13 +188,17 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
 
   // SettingsViewMixin implementation.
   override getFocusConfig() {
-    return new Map([
-      [routes.SEARCH_ENGINES.path, '#enginesSubpageTrigger'],
-    ]);
+    const map = new Map();
+
+    if (!this.searchSettingsUpdateEnabled_) {
+      map.set(routes.SEARCH_ENGINES.path, '#enginesSubpageTrigger');
+    }
+    return map;
   }
 
   // SettingsViewMixin implementation.
   override getAssociatedControlFor(childViewId: string): HTMLElement {
+    assert(!this.searchSettingsUpdateEnabled_);
     assert(childViewId === 'searchEngines');
     const control =
         this.shadowRoot!.querySelector<HTMLElement>('#enginesSubpageTrigger');

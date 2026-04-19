@@ -324,6 +324,12 @@ inline constexpr char16_t kMemorySaverModeTabDiscardingHelpUrl[] =
 inline constexpr char16_t kIncognitoHelpCenterURL[] =
     u"https://support.google.com/chrome?p=incognito";
 
+// TODO(crbug.com/498632327): Replace this URL with P-link.
+// "Learn more" URL for the web app installation flow, linked from installation
+// dialog and options view.
+inline constexpr char kInstallDialogFlowLearnMoreURL[] =
+    "https://support.google.com/chrome/answer/9658361";
+
 // The URL for the "Learn more" page for the usage/crash reporting option in the
 // first run dialog.
 inline constexpr char kLearnMoreReportingURL[] =
@@ -358,7 +364,7 @@ inline constexpr char16_t kMyActivityUrlInHistory[] =
 
 // The URL for the Gemini Personal Context page.
 inline constexpr char16_t kGeminiPersonalContextUrl[] =
-    u"https://gemini.google.com/saved-info";
+    u"https://gemini.google.com/personalization-settings";
 
 // The URL for "Your Gemini Apps Activity" page.
 inline constexpr char16_t kMyActivityGeminiAppsUrl[] =
@@ -611,13 +617,9 @@ inline constexpr char kWallpaperSearchLearnMorePageURL[] =
 inline constexpr char kWalletPassesPageURL[] =
     "https://wallet.google.com/wallet/passes";
 
-// The URL for the "Learn more" page for Tab Organization.
-inline constexpr char kTabOrganizationLearnMorePageURL[] =
-    "https://support.google.com/chrome?p=auto_tab_group";
-
-// The URL for the "Learn more" page for Tab Organization for managed users.
-inline constexpr char kTabOrganizationLearnMorePageManagedURL[] =
-    "https://support.google.com/chrome/a?p=tab_organizer_settings";
+// The help center article URL on using Wallet private passes across Google.
+inline constexpr char kWalletPrivatePassHelpCenterURL[] =
+    "https://support.google.com/wallet?p=private_use_across_google";
 
 // The URL for the "Learn more" link in the enterprise disclaimer for managed
 // profile in the Signin Intercept bubble.
@@ -642,10 +644,6 @@ inline constexpr char16_t kUserBypassHelpCenterURL[] =
 inline constexpr char kUpgradeHelpCenterBaseURL[] =
     "https://support.google.com/installer/?product="
     "{8A69D345-D564-463c-AFF1-A69D9E530F96}&error=";
-
-// The URL for the "Learn more" link for nearby share.
-inline constexpr char16_t kNearbyShareLearnMoreURL[] =
-    u"https://support.google.com/chromebook?p=nearby_share";
 
 // Help center URL for who the account administrator is.
 inline constexpr char16_t kWhoIsMyAdministratorHelpURL[] =
@@ -694,58 +692,9 @@ inline constexpr char kChromeOSDefaultWebcalHandler[] =
 inline constexpr char kAccountRecoveryURL[] =
     "https://accounts.google.com/signin/recovery";
 
-// The URL for the "How to add a new user account on a Chromebook" page.
-inline constexpr char16_t kAddNewUserURL[] =
-    u"https://www.google.com/chromebook/howto/add-another-account";
-
-// Help center URL for ARC ADB sideloading.
-inline constexpr char16_t kArcAdbSideloadingLearnMoreURL[] =
-    u"https://support.google.com/chromebook?p=develop_android_apps";
-
-// The path format to the localized offline ARC++ Privacy Policy.
-// Relative to |kChromeOSAssetPath|.
-inline constexpr char kArcPrivacyPolicyPathFormat[] =
-    "arc_tos/%s/privacy_policy.pdf";
-
-// The path format to the localized offline ARC++ Terms of Service.
-// Relative to |kChromeOSAssetPath|.
-inline constexpr char kArcTermsPathFormat[] = "arc_tos/%s/terms.html";
-
-// Source for chrome://os-credits. On some devices, this will be compressed.
-// Check both.
-inline constexpr char kChromeOSCreditsPath[] =
-    "/opt/google/chrome/resources/about_os_credits.html";
-
-inline constexpr char kChromeOSCreditsCompressedPath[] =
-    "/opt/google/chrome/resources/about_os_credits.html.gz";
-
-// The URL for the help center article about redeeming Chromebook offers.
-inline constexpr char kEchoLearnMoreURL[] =
-    "chrome://help-app/help/sub/3399709/id/2703646";
-
 // The URL for the Learn More page about enterprise enrolled devices.
 inline constexpr char kLearnMoreEnterpriseURL[] =
     "https://support.google.com/chromebook?p=managed";
-
-// The URL path to offline OEM EULA.
-inline constexpr char kOemEulaURLPath[] = "oem";
-
-inline constexpr char kOrcaSuggestionLearnMoreURL[] =
-    "https://support.google.com/chromebook?p=copyeditor";
-
-// Help URL for the OS settings page's search feature.
-inline constexpr char kOsSettingsSearchHelpURL[] =
-    "https://support.google.com/chromebook?p=settings_search_help";
-
-// The URL path to offline ARC++ Terms of Service.
-inline constexpr char kArcTermsURLPath[] = "arc/terms";
-
-// The URL path to offline ARC++ Privacy Policy.
-inline constexpr char kArcPrivacyPolicyURLPath[] = "arc/privacy_policy";
-
-// The URL for contacts management in Nearby Share feature.
-inline constexpr char16_t kNearbyShareManageContactsURL[] =
-    u"https://contacts.google.com";
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -768,6 +717,10 @@ inline constexpr char kWindowsXPVistaDeprecationURL[] =
 // The URL for the Windows 7/8.1 deprecation help center article.
 inline constexpr char kWindows78DeprecationURL[] =
     "https://support.google.com/chrome?p=unsupported_windows";
+
+// The URL for the "Learn more" page for process isolation.
+inline constexpr char kProcessIsolationLearnMoreUrl[] =
+    "https://support.google.com/chrome?p=process_isolation";
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)

@@ -8,6 +8,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/skills/skills_glic_mojom_util.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_delegate.h"
@@ -32,25 +33,6 @@ constexpr base::TimeDelta kGlicPanelPollIntervalMilliseconds =
     base::Milliseconds(60);
 
 using glic::mojom::SkillSource;
-
-glic::mojom::SkillPreviewPtr GetPreviewFromSkill(const skills::Skill& skill) {
-  auto skill_preview = glic::mojom::SkillPreview::New();
-  skill_preview->id = skill.id;
-  skill_preview->name = skill.name;
-  skill_preview->icon = skill.icon;
-
-  switch (skill.source) {
-    case sync_pb::SkillSource::SKILL_SOURCE_FIRST_PARTY:
-      skill_preview->source = SkillSource::kFirstParty;
-      break;
-    case sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED:
-      skill_preview->source = SkillSource::kUserCreated;
-      break;
-    default:
-      skill_preview->source = SkillSource::kUnknown;
-  }
-  return skill_preview;
-}
 
 }  // namespace
 
@@ -159,7 +141,10 @@ void SkillsUiTabController::OnSkillSaved(const std::string& skill_id) {
     // Delegate the global toast action to the Window Controller.
     auto* window_controller = SkillsUiWindowController::From(window_interface);
     if (window_controller) {
-      window_controller->OnSkillSaved(skill_id);
+      bool hide_toast_button =
+          tab_->GetContents()->GetVisibleURL().spec().starts_with(
+              chrome::kChromeUISkillsURL);
+      window_controller->OnSkillSaved(skill_id, hide_toast_button);
     }
   }
 }
@@ -201,6 +186,11 @@ glic::GlicKeyedService* SkillsUiTabController::GetGlicService() {
 
 void SkillsUiTabController::ShowGlicPanel() {
   if (auto* service = GetGlicService()) {
+    if (auto* instance = service->GetInstanceForTab(&tab_.get())) {
+      if (instance->IsShowing()) {
+        return;
+      }
+    }
     service->ToggleUI(tab_->GetBrowserWindowInterface(),
                       /*prevent_close=*/true,
                       glic::mojom::InvocationSource::kSkills);
@@ -270,7 +260,7 @@ void SkillsUiTabController::NotifySkillToInvokeChanged() {
 
   auto mojo_skill = glic::mojom::Skill::New();
   mojo_skill->prompt = skill->prompt;
-  mojo_skill->preview = GetPreviewFromSkill(*skill);
+  mojo_skill->preview = SkillToGlicMojomSkillPreview(skill);
 
   if (auto* service = GetGlicService()) {
     if (auto* instance = service->GetInstanceForTab(&tab_.get())) {

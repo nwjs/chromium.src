@@ -3,11 +3,40 @@
 // found in the LICENSE file.
 
 import {ComposeboxContextAddedMethod} from '//resources/cr_components/search/constants.js';
+import {assertNotReachedCase} from '//resources/js/assert.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {ContextUploadErrorType, ContextUploadStatus, InputType} from './composebox_query.mojom-webui.js';
-import type {ModelMode, ToolMode} from './composebox_query.mojom-webui.js';
+import type {InputState, ModelMode, ToolMode} from './composebox_query.mojom-webui.js';
+
+// LINT.IfChange(FileValidationError)
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+export enum ComposeboxFileValidationError {
+  NONE = 0,
+  TOO_MANY_FILES = 1,
+  FILE_EMPTY = 2,
+  FILE_SIZE_TOO_LARGE = 3,
+  MAX_VALUE = FILE_SIZE_TOO_LARGE,
+}
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:FileValidationError)
+
+// These values are sorted by precedence. The error with the highest value
+// will be the one shown to the user if multiple errors apply.
+export enum ProcessFilesError {
+  NONE = 0,
+  INVALID_TYPE = 1,
+  FILE_TOO_LARGE = 2,
+  FILE_EMPTY = 3,
+  MAX_FILES_EXCEEDED = 4,
+  MAX_IMAGES_EXCEEDED = 5,
+  MAX_PDFS_EXCEEDED = 6,
+  FILE_UPLOAD_NOT_ALLOWED = 7,
+}
 
 export const FILE_VALIDATION_ERRORS_MAP =
     new Map<ContextUploadErrorType, string>([
@@ -132,6 +161,15 @@ export enum GlifAnimationState {
   FINISHED = 'finished',
 }
 
+// LINT.IfChange(ContextualSearchInputStateDeletionType)
+export enum ContextualSearchInputStateDeletionType {
+  FILE = 0,
+  TAB = 1,
+  TOOL = 2,
+  MAX_VALUE = 2,
+}
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:ContextualSearchInputStateDeletionType)
+
 export function recordEnumerationValue(
     metricName: string, value: number, enumSize: number) {
   chrome.histograms.recordEnumerationValue(metricName, value, enumSize);
@@ -152,4 +190,48 @@ export function recordContextAdditionMethod(
   recordEnumerationValue(
       'ContextualSearch.ContextAdded.ContextAddedMethod.' + composeboxSource,
       additionMethod, ComposeboxContextAddedMethod.MAX_VALUE + 1);
+}
+
+export function hasAllowedInputs(
+    inputState: InputState|null, usePecApi: boolean): boolean {
+  if (!usePecApi) {
+    return true;
+  }
+  return !!inputState &&
+      (inputState.allowedModels.length > 0 ||
+       inputState.allowedTools.length > 0 ||
+       inputState.allowedInputTypes.length > 0);
+}
+
+/**
+ * Helper to retrieve a boolean from loadTimeData with a fallback if the
+ * value hasn't been set.
+ */
+// TODO(b/474406096): As part of componentization, the use of
+// `loadTimeData.valueExists` in this file should be removed and the
+// per-embedder behavior migrated into the relevant embedder. If a feature does
+// still need to exist in the base component, it should become a property
+// instead.
+export function getLoadTimeBoolean(id: string, defaultValue: boolean): boolean {
+  return loadTimeData.valueExists(id) ? loadTimeData.getBoolean(id) :
+                                        defaultValue;
+}
+
+export function isContextUploadStatusTerminal(status: ContextUploadStatus):
+    boolean {
+  switch (status) {
+    case ContextUploadStatus.kUploadSuccessful:
+    case ContextUploadStatus.kUploadFailed:
+    case ContextUploadStatus.kValidationFailed:
+    case ContextUploadStatus.kUploadExpired:
+    case ContextUploadStatus.kUploadReplaced:
+      return true;
+    case ContextUploadStatus.kNotUploaded:
+    case ContextUploadStatus.kProcessing:
+    case ContextUploadStatus.kUploadStarted:
+    case ContextUploadStatus.kProcessingSuggestSignalsReady:
+      return false;
+    default:
+      assertNotReachedCase(status, 'Unknown enum value');
+  }
 }

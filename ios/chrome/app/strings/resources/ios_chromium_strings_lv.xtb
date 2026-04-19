@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="lv">
 <translation id="1000436330784933699">Šeit varat atvērt funkciju Lens.</translation>
+<translation id="1005291068154454184">Pilnekrāna video par to, kā iestatīt Chromium par noklusējuma pārlūku</translation>
 <translation id="1042296835509784301">Atver paroļu pārvaldnieku pārlūkā Chromium</translation>
 <translation id="1047130070405668746">Atlasiet Chromium</translation>
 <translation id="1091252999271033193">Tas nozīmē, ka Chromium katru reizi pieprasīs mobilajām ierīcēm paredzēto vietni.</translation>
@@ -70,9 +71,6 @@ Jaunas grāmatzīmes nevarēs saglabāt jūsu kontā, kamēr neizdzēsīsiet da�
 <translation id="2313870531055795960">Vietrāži URL tiek pārbaudīti, salīdzinot ar nedrošo vietņu sarakstu, kas ir saglabāts pārlūkprogrammā Chromium. Ja kādā vietnē tiek mēģināts nozagt jūsu paroli vai ja jūs lejupielādējat kaitīgu failu, Chromium var arī nosūtīt attiecīgos URL, tostarp lapas satura fragmentus, uz funkciju Droša pārlūkošana.</translation>
 <translation id="2314220608288760290">Pārlūkā Chromium YouTube inkognito saites tiek automātiski atvērtas inkognito režīmā.</translation>
 <translation id="231828342043114302">Lai saņemtu atbilstoši jūsu interesēm personalizētu saturu, pierakstieties pārlūkā Chromium.</translation>
-<translation id="2326738825692478496">Noteikti jūsu Chromium dati vēl nav saglabāti jūsu Google kontā.
-
-Pirms izrakstāties, uzgaidiet dažas minūtes. Ja izrakstīsieties tūlīt, šie dati tiks dzēsti.</translation>
 <translation id="2334943301233020675">Tālāk norādītās piekļuves atslēgas netika importētas paroļu pārvaldniekā, jo tās neatbilst prasībām.</translation>
 <translation id="2337722506862731008">Kopīgot pārlūku Chromium</translation>
 <translation id="2340423701577464731">Lasīšanas saraksta vienuma pievienošana pārlūkam Chromium</translation>
@@ -103,7 +101,6 @@ Pirms izrakstāties, uzgaidiet dažas minūtes. Ja izrakstīsieties tūlīt, ši
 Lai skatītu citus iestatījumus, kuros dati tiek izmantoti Chromium lietošanas iespēju uzlabošanai, pārejiet uz sadaļu <ph name="BEGIN_LINK" />Google pakalpojumi<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Meklējiet ar balsi pārlūkā Chromium.</translation>
 <translation id="2843571538056574338">Izmantojiet pārlūku Chromium automātiskajai aizpildei</translation>
-<translation id="2899085719655668655">Režīma “attēls attēlā” video norādījumi par to, kā iestatīt Chromium par noklusējuma pārlūku</translation>
 <translation id="2918709798697875261">Saskaņā ar jūsu organizācijas politiku ir atspējota pierakstīšanās pārlūkā Chromium.</translation>
 <translation id="2942241131342758843">Lai atvērtu saites, veiktu meklēšanu logrīkos un automātiski aizpildītu paroles citās lietotnēs, izmantojiet pārlūku Chromium kā noklusējuma pārlūku</translation>
 <translation id="2977470724722393594">Chromium ir atjaunināts</translation>

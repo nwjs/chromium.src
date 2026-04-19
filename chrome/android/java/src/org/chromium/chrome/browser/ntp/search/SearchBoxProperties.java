@@ -47,8 +47,9 @@ interface SearchBoxProperties {
     WritableIntPropertyKey SEARCH_BOX_TEXT_STYLE_RES_ID = new WritableIntPropertyKey();
     WritableBooleanPropertyKey ENABLE_SEARCH_BOX_EDIT_TEXT = new WritableBooleanPropertyKey();
     WritableObjectPropertyKey<String> SEARCH_BOX_HINT_TEXT = new WritableObjectPropertyKey<>();
-    WritableBooleanPropertyKey APPLY_WHITE_BACKGROUND_WITH_SHADOW =
-            new WritableBooleanPropertyKey();
+    WritableBooleanPropertyKey APPLY_WHITE_BACKGROUND = new WritableBooleanPropertyKey();
+    WritableIntPropertyKey DSE_ICON_RESOURCE_ID = new WritableIntPropertyKey();
+    WritableObjectPropertyKey<Drawable> DSE_ICON_DRAWABLE = new WritableObjectPropertyKey<>();
 
     PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
@@ -71,6 +72,8 @@ interface SearchBoxProperties {
                 SEARCH_BOX_TEXT_STYLE_RES_ID,
                 ENABLE_SEARCH_BOX_EDIT_TEXT,
                 SEARCH_BOX_HINT_TEXT,
-                APPLY_WHITE_BACKGROUND_WITH_SHADOW,
+                APPLY_WHITE_BACKGROUND,
+                DSE_ICON_RESOURCE_ID,
+                DSE_ICON_DRAWABLE,
             };
 }

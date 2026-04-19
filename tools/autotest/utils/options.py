@@ -14,8 +14,10 @@ class AutotestConfig:
   name: list[str] | None
   run_all: bool | None
   target_index: str | None
+  target: tuple[str, ...] | None
   path_index: str | None
   run_changed: bool | None
+  run_related: bool | None
   line: int | None
   gtest_filter: str | None
   test_policy_to_pref_mappings_filter: str | None
@@ -25,6 +27,7 @@ class AutotestConfig:
   no_fast_local_dev: bool | None
   no_single_variant: bool | None
   no_build: bool | None
+  suite: bool | None
   files: tuple[str, ...]
   extras: list[str] | None = None  # To hold ctx.args
 
@@ -112,6 +115,12 @@ def autotest_options(f):
           type=int,
           help='When the target is ambiguous, choose the one with this index.'),
       click.option(
+          '--target',
+          multiple=True,
+          help=('Disable the logic to find targets in favor of using the given'
+                ' target(s). If no files are given, runs the entire test suite.'
+                )),
+      click.option(
           '--path-index',
           '--path_index',
           type=int,
@@ -122,6 +131,13 @@ def autotest_options(f):
           '--run_changed',
           is_flag=True,
           help='Run tests files modified since this branch diverged from main.'
+      ),
+      click.option(
+          '--run-related',
+          '--run_related',
+          is_flag=True,
+          help=
+          'Run tests related to files modified since this branch diverged from main.'
       ),
       click.option('--line',
                    type=int,
@@ -163,6 +179,9 @@ def autotest_options(f):
                    '--no_build',
                    is_flag=True,
                    help='Do not build before running tests.'),
+      click.option('--suite',
+                   is_flag=True,
+                   help='Run entire test suites instead of individual tests.'),
   ]
   # Apply in reverse so the first item in the list appears first in --help
   for option in reversed(options):

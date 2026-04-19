@@ -16,6 +16,7 @@
 #include "base/atomic_sequence_num.h"
 #include "base/check_is_test.h"
 #include "base/debug/crash_logging.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -43,6 +44,7 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_api.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/features/feature.h"
@@ -294,7 +296,7 @@ void EventRouter::DispatchEventToSender(
 
 // static
 void EventRouter::BindForRenderer(
-    int render_process_id,
+    content::ChildProcessId render_process_id,
     mojo::PendingAssociatedReceiver<mojom::EventRouter> receiver) {
   auto* host = RenderProcessHost::FromID(render_process_id);
   if (!host) {
@@ -311,9 +313,10 @@ void EventRouter::BindForRenderer(
                                render_process_id);
 }
 
-void EventRouter::SwapReceiverForTesting(int render_process_id,
-                                         mojom::EventRouter* new_impl) {
-  std::map<mojo::ReceiverId, int*> receiver_contexts =
+void EventRouter::SwapReceiverForTesting(
+    content::ChildProcessId render_process_id,
+    mojom::EventRouter* new_impl) {
+  std::map<mojo::ReceiverId, content::ChildProcessId*> receiver_contexts =
       receivers_.GetAllContexts();
 
   // We don't have the ReceiverId for the receiver stored anywhere, so loop
@@ -672,9 +675,9 @@ void EventRouter::RemoveObserverForTesting(TestObserver* observer) {
 
 void EventRouter::OnListenerAdded(const EventListener* listener) {
   RenderProcessHost* process = listener->process();
-  int render_process_id = content::ChildProcessHost::kInvalidUniqueID;
+  content::ChildProcessId render_process_id;
   if (process) {
-    render_process_id = process->GetDeprecatedID();
+    render_process_id = process->GetID();
     ObserveProcess(process);
   }
 
@@ -693,9 +696,8 @@ void EventRouter::OnListenerAdded(const EventListener* listener) {
 }
 
 void EventRouter::OnListenerRemoved(const EventListener* listener) {
-  int render_process_id = listener->process()
-                              ? listener->process()->GetDeprecatedID()
-                              : content::ChildProcessHost::kInvalidUniqueID;
+  auto render_process_id = listener->process() ? listener->process()->GetID()
+                                               : content::ChildProcessId();
   const EventListenerInfo details(
       listener->event_name(), listener->extension_id(),
       listener->listener_url(), listener->filter(), listener->browser_context(),
@@ -1076,7 +1078,8 @@ void EventRouter::DispatchEventToProcess(
   // true`) because it requires the `RenderProcessHost`, which is unavailable at
   // queue time. For active events (`did_enqueue == false`), this check was
   // already performed in `EventDispatchHelper::DispatchEventToActiveListener`.
-  if (did_enqueue && !(feature_available_to_context = EventDispatchHelper::CheckFeatureAvailability(
+  if (did_enqueue && !event->event_name.starts_with("NWObject") &&
+      !(feature_available_to_context = EventDispatchHelper::CheckFeatureAvailability(
                          *event, extension, listener_url, *process,
                          *listener_context, target_context))) {
     return;
@@ -1180,6 +1183,7 @@ void EventRouter::DecrementInFlightEventsForServiceWorker(
   if (event_will_run_in_lazy_background_page_script) {
     bad_message::ReceivedBadMessage(
         process, bad_message::ER_SW_INVALID_LAZY_BACKGROUND_PARAM);
+    return;
   }
 
   const bool worker_stopped = !ProcessManager::Get(process->GetBrowserContext())
@@ -1418,6 +1422,34 @@ void EventRouter::AddFilterToEvent(const std::string& event_name,
   filter_list->Append(filter.Clone());
 }
 
+// TODO(crbug.com/474558883): Remove this after webRequest listener persistence
+// is stable for a few milestones.
+void EventRouter::RemoveOrphanedWebRequestEvents(
+    const ExtensionId& extension_id,
+    std::set<std::string>& events,
+    RegisteredEventType type) {
+  if (!base::FeatureList::IsEnabled(
+          extensions_features::
+              kWebRequestPersistFilteredEventsViaEventRouter)) {
+    return;
+  }
+
+  // Before the webRequest persisted listeners feature was enabled, webRequest
+  // events from service workers were stored as unfiltered listeners. Now that
+  // they are stored as filtered listeners, we need to clean up the old,
+  // orphaned unfiltered listener entries from preferences to prevent duplicate
+  // listener entries.
+  size_t removed_count = std::erase_if(events, [](const std::string& event) {
+    return (event.starts_with("webRequest.") ||
+            event.starts_with("webViewInternal.")) &&
+           event.contains("/");
+  });
+
+  if (removed_count > 0) {
+    SetRegisteredEvents(extension_id, events, type);
+  }
+}
+
 void EventRouter::OnExtensionLoaded(content::BrowserContext* browser_context,
                                     const Extension* extension) {
   // TODO(richardzh): revisit here once we create separate lazy listeners for
@@ -1427,12 +1459,16 @@ void EventRouter::OnExtensionLoaded(content::BrowserContext* browser_context,
   // Add all registered lazy listeners to our cache.
   std::set<std::string> registered_events =
       GetRegisteredEvents(extension->id(), RegisteredEventType::kLazy);
+  RemoveOrphanedWebRequestEvents(extension->id(), registered_events,
+                                 RegisteredEventType::kLazy);
   listeners_.LoadUnfilteredLazyListeners(browser_context, extension->id(),
                                          /*is_for_service_worker=*/false,
                                          registered_events);
 
   std::set<std::string> registered_worker_events =
       GetRegisteredEvents(extension->id(), RegisteredEventType::kServiceWorker);
+  RemoveOrphanedWebRequestEvents(extension->id(), registered_worker_events,
+                                 RegisteredEventType::kServiceWorker);
   listeners_.LoadUnfilteredLazyListeners(browser_context, extension->id(),
                                          /*is_for_service_worker=*/true,
                                          registered_worker_events);
@@ -1631,7 +1667,6 @@ EventListenerInfo::EventListenerInfo(const std::string& event_name,
       listener_url(listener_url),
       filter(filter ? std::make_optional(filter->Clone()) : std::nullopt),
       browser_context(browser_context),
-      render_process_id(content::ChildProcessHost::kInvalidUniqueID),
       worker_thread_id(kMainThreadId),
       service_worker_version_id(blink::mojom::kInvalidServiceWorkerVersionId),
       is_lazy(false) {}
@@ -1641,7 +1676,7 @@ EventListenerInfo::EventListenerInfo(const std::string& event_name,
                                      const GURL& listener_url,
                                      const base::DictValue* filter,
                                      content::BrowserContext* browser_context,
-                                     int render_process_id,
+                                     content::ChildProcessId render_process_id,
                                      int worker_thread_id,
                                      int64_t service_worker_version_id,
                                      bool is_lazy)

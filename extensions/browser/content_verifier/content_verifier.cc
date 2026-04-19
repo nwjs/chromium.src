@@ -16,7 +16,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
@@ -84,6 +83,7 @@ base::FilePath NormalizeRelativePath(const base::FilePath& relative_path) {
 std::unique_ptr<ContentVerifierIOData::ExtensionData> CreateIOData(
     const Extension* extension,
     ContentVerifierDelegate* delegate) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   ContentVerifierDelegate::VerifierSourceType source_type =
       delegate->GetVerifierSourceType(*extension);
   if (source_type == ContentVerifierDelegate::VerifierSourceType::NONE)
@@ -911,11 +911,8 @@ void ContentVerifier::StartJob(const scoped_refptr<ContentVerifyJob>& job) {
   auto callback =
       base::BindOnce(&ContentVerifier::VerifyFailed, this, job->extension_id(),
                      file_types, data->manifest_version);
-
   const base::Version& current_extension_version = data->version;
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kContentVerifyJobUseJobVersionForHashing) &&
-      current_extension_version != job->extension_version()) {
+  if (current_extension_version != job->extension_version()) {
     // This verify job must've started after a newer version of the extension
     // has been loaded so let's not start the job since it'll try to check for a
     // non-existent `ContentHash` and/or create a `ContentHash` for an unloaded
@@ -1043,12 +1040,22 @@ ContentVerifier::HashHelper* ContentVerifier::GetOrCreateHashHelper() {
   return hash_helper_.get();
 }
 
-void ContentVerifier::ResetIODataForTesting(const Extension* extension) {
+void ContentVerifier::ResetIODataForTesting(const Extension* extension,
+                                            base::OnceClosure callback) {
   std::unique_ptr<ContentVerifierIOData::ExtensionData> data =
       CreateIOData(extension, delegate_.get());
   // This is only used in testing; `data` must always be successfully created.
   CHECK(data);
-  io_data_.AddData(extension->id(), std::move(*data));
+  content::GetIOThreadTaskRunner({})->PostTaskAndReply(
+      FROM_HERE,
+      base::BindOnce(
+          [](scoped_refptr<ContentVerifier> verifier,
+             const ExtensionId& extension_id,
+             std::unique_ptr<ContentVerifierIOData::ExtensionData> data) {
+            verifier->io_data_.AddData(extension_id, std::move(*data));
+          },
+          base::WrapRefCounted(this), extension->id(), std::move(data)),
+      std::move(callback));
 }
 
 base::FilePath ContentVerifier::NormalizeRelativePathForTesting(

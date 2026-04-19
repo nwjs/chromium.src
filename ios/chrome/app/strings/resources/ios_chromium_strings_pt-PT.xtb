@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-PT">
 <translation id="1000436330784933699">Pode abrir o Lens aqui.</translation>
+<translation id="1005291068154454184">Vídeo em ecrã inteiro sobre como definir o Chromium como predefinição</translation>
 <translation id="1042296835509784301">Abre o Gestor de Palavras-passe no Chromium.</translation>
 <translation id="1047130070405668746">Selecione o Chromium</translation>
 <translation id="1091252999271033193">Isto significa que o Chromium irá pedir sempre o site para dispositivos móveis.</translation>
@@ -70,9 +71,6 @@ Não é possível guardar novos marcadores na sua conta até eliminar alguns. Se
 <translation id="2313870531055795960">Verifica os URLs com base numa lista de sites inseguros armazenada no Chromium. Se um site tentar roubar a sua palavra-passe, ou quando transferir um ficheiro prejudicial, o Chromium também pode enviar URLs, incluindo bits de conteúdo das páginas, para a Navegação segura.</translation>
 <translation id="2314220608288760290">O Chromium abre automaticamente links de Navegação anónima do YouTube na Navegação anónima.</translation>
 <translation id="231828342043114302">Para receber conteúdo personalizado com base nos seus interesses, inicie sessão no Chromium.</translation>
-<translation id="2326738825692478496">Alguns dos seus dados do Chromium ainda não foram guardados na sua Conta Google.
-
-Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sessão agora, estes dados vão ser eliminados.</translation>
 <translation id="2334943301233020675">As seguintes chaves de acesso não foram importadas para o Gestor de Palavras-passe porque não correspondem aos requisitos.</translation>
 <translation id="2337722506862731008">Partilhar Chromium</translation>
 <translation id="2340423701577464731">Adicione o item da Lista de leitura ao Chromium</translation>
@@ -103,7 +101,6 @@ Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sess�
 Para ver mais definições que usam dados para melhorar a sua experiência do Chromium, aceda aos <ph name="BEGIN_LINK" />serviços Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Pesquise com a voz no Chromium.</translation>
 <translation id="2843571538056574338">Use o Chromium para o preenchimento automático</translation>
-<translation id="2899085719655668655">Instruções de vídeo no modo ecrã no ecrã sobre como definir o Chromium como predefinição</translation>
 <translation id="2918709798697875261">A sua entidade requer que se mantenha sem sessão iniciada no Chromium.</translation>
 <translation id="2942241131342758843">Utilize o Chromium por predefinição para abrir links, pesquisar a partir de widgets e preencher automaticamente palavras-passe noutras apps</translation>
 <translation id="2977470724722393594">O Chromium está atualizado</translation>

@@ -44,6 +44,7 @@ extern const char kChromeConnectedHeader[];
 extern const char kChromeManageAccountsHeader[];
 extern const char kDiceRequestHeader[];
 extern const char kDiceResponseHeader[];
+extern const char kDiceLinkedAccountsMetaHeader[];
 
 // The X-Auto-Login header detects when a user is prompted to enter their
 // credentials on the Gaia sign-in page. It is sent with an empty email if the
@@ -130,12 +131,6 @@ class SigninHeaderHelper {
                                    const char* header_name,
                                    const std::string& header_value);
 
-  // Returns wether an account consistency header should be built for this
-  // request.
-  virtual bool ShouldBuildRequestHeader(
-      const GURL& url,
-      const content_settings::CookieSettings* cookie_settings) = 0;
-
   // Dictionary of fields in a account consistency response header.
   using ResponseHeaderDictionary = std::multimap<std::string, std::string>;
 
@@ -182,38 +177,9 @@ void AppendOrRemoveMirrorRequestHeader(
     const std::string& source,
     bool force_account_consistency);
 
-// Adds the Dice to all Gaia requests from a connected profile, with the
-// exception of requests from gaia webview.
-// Removes the header in case it should not be transfered to a redirected url.
-// Returns whether the request has the Dice request header.
-bool AppendOrRemoveDiceRequestHeader(
-    RequestAdapter* request,
-    const GURL& redirect_url,
-    const GaiaId& gaia_id,
-    bool sync_enabled,
-    AccountConsistencyMethod account_consistency,
-    const content_settings::CookieSettings* cookie_settings,
-    const std::string& device_id);
-
 // Returns the parameters contained in the X-Chrome-Manage-Accounts response
 // header.
 ManageAccountsParams BuildManageAccountsParams(const std::string& header_value);
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// Returns the parameters contained in the X-Chrome-ID-Consistency-Response
-// response header.
-// Returns DiceAction::NONE in case of error (such as missing or malformed
-// parameters).
-DiceResponseParams BuildDiceSigninResponseParams(
-    const std::string& header_value);
-
-// Returns the parameters contained in the Google-Accounts-SignOut response
-// header.
-// Returns DiceAction::NONE in case of error (such as missing or malformed
-// parameters).
-DiceResponseParams BuildDiceSignoutResponseParams(
-    const std::string& header_value);
-#endif
 
 }  // namespace signin
 

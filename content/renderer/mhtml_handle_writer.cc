@@ -5,7 +5,7 @@
 #include "content/renderer/mhtml_handle_writer.h"
 
 #include "base/containers/span.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/logging.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"

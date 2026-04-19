@@ -46,6 +46,8 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
   void HandleLensButtonClick() override;
   void HandleFileUpload(bool is_image) override;
   void NavigateUrl(const GURL& url) override;
+  void CloseLensOverlayFromWebUI(
+      composebox::mojom::LensOverlayDismissalSource dismissal_source) override;
 
   // searchbox::mojom::PageHandler:
   void ExecuteAction(uint8_t line,
@@ -76,9 +78,6 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
                    WindowOpenDisposition disposition,
                    omnibox::ChromeAimEntryPoint aim_entrypoint,
                    std::map<std::string, std::string> additional_params);
-  // SearchboxHandler:
-  std::string AutocompleteIconToResourceName(
-      const gfx::VectorIcon& icon) const override;
 
   virtual void ClearSessionHandle();
 

@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/testing/blink_fuzzer_test_support.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -108,9 +109,9 @@ void AddDecodingSpecificConfiguration(const mc_fuzzer::MediaConfigProto& proto,
     config->setKeySystemConfiguration(
         MediaCapabilitiesKeySystemConfiguration::Create());
     config->keySystemConfiguration()->setKeySystem(
-        String::FromUTF8(proto.key_system_config().key_system().c_str()));
+        String::FromUtf8(proto.key_system_config().key_system()));
     config->keySystemConfiguration()->setInitDataType(
-        String::FromUTF8(proto.key_system_config().init_data_type().c_str()));
+        String::FromUtf8(proto.key_system_config().init_data_type()));
     config->keySystemConfiguration()->setDistinctiveIdentifier(
         MediaKeysRequirementToIdlEnum(
             proto.key_system_config().distinctive_identifier()));
@@ -123,20 +124,34 @@ void AddDecodingSpecificConfiguration(const mc_fuzzer::MediaConfigProto& proto,
     if (proto.key_system_config().has_key_system_audio_config()) {
       config->keySystemConfiguration()->setAudio(
           KeySystemTrackConfiguration::Create());
-      config->keySystemConfiguration()->audio()->setRobustness(
-          String::FromUTF8(proto.key_system_config()
-                               .key_system_audio_config()
-                               .robustness()
-                               .c_str()));
+      config->keySystemConfiguration()->audio()->setRobustness(String::FromUtf8(
+          proto.key_system_config().key_system_audio_config().robustness()));
+      if (RuntimeEnabledFeatures::
+              KeySystemTrackConfigurationEncryptionSchemeEnabled() &&
+          proto.key_system_config()
+              .key_system_audio_config()
+              .has_encryption_scheme()) {
+        config->keySystemConfiguration()->audio()->setEncryptionScheme(
+            String::FromUtf8(proto.key_system_config()
+                                 .key_system_audio_config()
+                                 .encryption_scheme()));
+      }
     }
     if (proto.key_system_config().has_key_system_video_config()) {
       config->keySystemConfiguration()->setVideo(
           KeySystemTrackConfiguration::Create());
-      config->keySystemConfiguration()->video()->setRobustness(
-          String::FromUTF8(proto.key_system_config()
-                               .key_system_video_config()
-                               .robustness()
-                               .c_str()));
+      config->keySystemConfiguration()->video()->setRobustness(String::FromUtf8(
+          proto.key_system_config().key_system_video_config().robustness()));
+      if (RuntimeEnabledFeatures::
+              KeySystemTrackConfigurationEncryptionSchemeEnabled() &&
+          proto.key_system_config()
+              .key_system_video_config()
+              .has_encryption_scheme()) {
+        config->keySystemConfiguration()->video()->setEncryptionScheme(
+            String::FromUtf8(proto.key_system_config()
+                                 .key_system_video_config()
+                                 .encryption_scheme()));
+      }
     }
   }
 }

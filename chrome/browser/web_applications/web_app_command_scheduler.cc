@@ -16,6 +16,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/web_applications/commands/add_validated_origin_associations_command.h"
 #include "chrome/browser/web_applications/commands/app_migration_data_read_command.h"
 #include "chrome/browser/web_applications/commands/app_update_data_read_command.h"
 #include "chrome/browser/web_applications/commands/apply_manifest_migration_command.h"
@@ -46,8 +48,6 @@
 #include "chrome/browser/web_applications/commands/internal/callback_command.h"
 #include "chrome/browser/web_applications/commands/launch_web_app_command.h"
 #include "chrome/browser/web_applications/commands/manifest_silent_update_command.h"
-#include "chrome/browser/web_applications/commands/manifest_update_check_command.h"
-#include "chrome/browser/web_applications/commands/manifest_update_finalize_command.h"
 #include "chrome/browser/web_applications/commands/navigate_and_trigger_install_dialog_command.h"
 #include "chrome/browser/web_applications/commands/os_integration_synchronize_command.h"
 #include "chrome/browser/web_applications/commands/resolve_web_app_pending_migration_info_command.h"
@@ -80,6 +80,7 @@
 #include "chrome/browser/web_applications/os_integration/os_integration_sub_manager.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
+#include "chrome/browser/web_applications/scheduler/add_validated_origin_associations_result.h"
 #include "chrome/browser/web_applications/scheduler/apply_pending_manifest_update_result.h"
 #include "chrome/browser/web_applications/scheduler/fetch_install_info_from_install_url_result.h"
 #include "chrome/browser/web_applications/scheduler/manifest_silent_update_result.h"
@@ -115,6 +116,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/web_applications/commands/rewrite_diy_icons_command.h"
+#include "chrome/browser/web_applications/scheduler/rewrite_diy_icons_result.h"
 #endif  // BUILDFLAG(IS_MAC)
 
 namespace web_app {
@@ -227,21 +229,6 @@ void WebAppCommandScheduler::PersistFileHandlersUserChoice(
       location);
 }
 
-void WebAppCommandScheduler::ScheduleManifestUpdateCheck(
-    const GURL& url,
-    const webapps::AppId& app_id,
-    base::Time check_time,
-    base::WeakPtr<content::WebContents> contents,
-    ManifestUpdateCheckCommand::CompletedCallback callback,
-    const base::Location& location) {
-  provider_->command_manager().ScheduleCommand(
-      std::make_unique<ManifestUpdateCheckCommand>(
-          url, app_id, check_time, contents, std::move(callback),
-          provider_->web_contents_manager().CreateDataRetriever(),
-          provider_->web_contents_manager().CreateIconDownloader()),
-      location);
-}
-
 void WebAppCommandScheduler::ScheduleManifestSilentUpdate(
     content::WebContents& contents,
     std::optional<base::Time> previous_time_for_silent_icon_update,
@@ -263,23 +250,6 @@ void WebAppCommandScheduler::ScheduleApplyPendingManifestUpdate(
       std::make_unique<ApplyPendingManifestUpdateCommand>(
           app_id, std::move(keep_alive), std::move(profile_keep_alive),
           std::move(callback)),
-      location);
-}
-
-void WebAppCommandScheduler::ScheduleManifestUpdateFinalize(
-    const GURL& url,
-    const webapps::AppId& app_id,
-    std::unique_ptr<WebAppInstallInfo> install_info,
-    std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
-    std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
-    ManifestWriteCallback callback,
-    const base::Location& location) {
-  CHECK(install_info);
-  provider_->command_manager().ScheduleCommand(
-      std::make_unique<ManifestUpdateFinalizeCommand>(
-          url, app_id, std::move(install_info), std::move(callback),
-          std::move(optional_keep_alive),
-          std::move(optional_profile_keep_alive)),
       location);
 }
 
@@ -717,10 +687,9 @@ void WebAppCommandScheduler::SetUserDisplayMode(
 }
 
 #if BUILDFLAG(IS_MAC)
-void WebAppCommandScheduler::RewriteDiyIcons(
-    const webapps::AppId& app_id,
-    base::OnceCallback<void(RewriteIconResult)> callback,
-    const base::Location& from_here) {
+void WebAppCommandScheduler::RewriteDiyIcons(const webapps::AppId& app_id,
+                                             RewriteIconResultCallback callback,
+                                             const base::Location& from_here) {
   provider_->command_manager().ScheduleCommand(
       std::make_unique<RewriteDiyIconsCommand>(app_id, std::move(callback)),
       from_here);
@@ -887,12 +856,33 @@ void WebAppCommandScheduler::MarkAppPendingUpdateAsIgnored(
       std::move(done), location);
 }
 
+void WebAppCommandScheduler::MarkAppPendingMigrationAsIgnored(
+    const webapps::AppId& app_id,
+    base::OnceClosure done,
+    const base::Location& location) {
+  ScheduleCallback(
+      "MarkAppPendingMigrationAsIgnored", AppLockDescription(app_id),
+      base::BindOnce(::web_app::SetWebAppPendingMigrationAsIgnored,
+                     base::PassKey<WebAppCommandScheduler>(), app_id),
+      std::move(done), location);
+}
+
 void WebAppCommandScheduler::ScheduleResolveWebAppPendingMigrationInfo(
     base::OnceClosure callback,
     const base::Location& location) {
   provider_->command_manager().ScheduleCommand(
       std::make_unique<ResolveWebAppPendingMigrationInfoCommand>(
           std::move(callback)),
+      location);
+}
+
+void WebAppCommandScheduler::ScheduleAddValidatedOriginAssociations(
+    const webapps::AppId& app_id,
+    base::OnceCallback<void(AddValidatedOriginAssociationsResult)> callback,
+    const base::Location& location) {
+  provider_->command_manager().ScheduleCommand(
+      std::make_unique<AddValidatedOriginAssociationsCommand>(
+          app_id, std::move(callback)),
       location);
 }
 

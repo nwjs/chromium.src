@@ -9,15 +9,15 @@
 
 #import "ios/chrome/browser/toolbar/ui/toolbar_mutator.h"
 
+@class BrowserActionFactory;
 class FullscreenController;
 @protocol ToolbarConsumer;
 @protocol ToolbarHeightDelegate;
 class WebNavigationBrowserAgent;
-class WebStateList;
-
 namespace web {
 class WebState;
-}
+}  // namespace web
+class WebStateList;
 
 // Mediator for the toolbar.
 @interface ToolbarMediator : NSObject <ToolbarMutator>
@@ -31,8 +31,12 @@ class WebState;
 // Delegate that handles the toolbars height.
 @property(nonatomic, weak) id<ToolbarHeightDelegate> toolbarHeightDelegate;
 
+// Whether the toolbar is being shown in incognito or not.
+@property(nonatomic, assign, getter=isIncognito) BOOL incognito;
+
 // Initializer.
 - (instancetype)initWithWebStateList:(WebStateList*)webStateList
+                       actionFactory:(BrowserActionFactory*)actionFactory
                 fullscreenController:(FullscreenController*)fullscreenController
                          topPosition:(BOOL)topPosition
     NS_DESIGNATED_INITIALIZER;

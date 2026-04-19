@@ -28,6 +28,7 @@ class ActorLoginService {
   // `Credential`s or an `ActorLoginError`.
   virtual void GetCredentials(
       tabs::TabInterface* tab,
+      bool has_sign_in_with_google_button,
       base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
       CredentialsOrErrorReply callback) = 0;
 
@@ -36,15 +37,18 @@ class ActorLoginService {
   // the permission to use it in actor login.
   // The `mqls_logger` is owned by the caller to ensure the same instance is
   // used to log both `GetCredentials` and `AttemptLogin`.
-  // The `callback` will be invoked with a `base::expected` containing either
-  // a `LoginStatusResult` or an `ActorLoginError`.
+  // The `done_callback` will be invoked with a `base::expected` containing
+  // either a `LoginStatusResult` or an `ActorLoginError`.
+  // The `action_sequence_delegate` allows for communicating outcomes of a login
+  // when additional steps are involved after AttemptLogin has completed.
   virtual void AttemptLogin(
       tabs::TabInterface* tab,
       const Credential& credential,
       bool should_store_permission,
       base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
       base::TimeTicks attempt_login_tool_start_time,
-      LoginStatusResultOrErrorReply callback) = 0;
+      LoginStatusResultOrErrorReply done_callback,
+      base::WeakPtr<ActionSequenceDelegate> action_sequence_delegate) = 0;
 };
 
 }  // namespace actor_login

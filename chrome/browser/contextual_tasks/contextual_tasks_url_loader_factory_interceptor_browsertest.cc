@@ -38,6 +38,7 @@ namespace {
 const char kTestEmail[] = "test@example.com";
 const char kTestHost[] = "www.google.com";
 const char kTestSubHost[] = "sub.google.com";
+const char kDenylistHost[] = "lh3.google.com";
 
 }  // namespace
 
@@ -104,6 +105,7 @@ class ContextualTasksUrlLoaderFactoryInterceptorBrowserTest
     InProcessBrowserTest::SetUpOnMainThread();
     host_resolver()->AddRule(kTestHost, "127.0.0.1");
     host_resolver()->AddRule(kTestSubHost, "127.0.0.1");
+    host_resolver()->AddRule(kDenylistHost, "127.0.0.1");
     https_server_.StartAcceptingConnections();
 
     // Sign in.
@@ -139,6 +141,14 @@ class ContextualTasksUrlLoaderFactoryInterceptorBrowserTest
       const net::test_server::HttpRequest& request) {
     if (request.relative_url.find("/echoheader?Authorization") !=
         std::string::npos) {
+      if (request.method == net::test_server::METHOD_OPTIONS) {
+        auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+        response->AddCustomHeader("Access-Control-Allow-Origin", "*");
+        response->AddCustomHeader("Access-Control-Allow-Headers",
+                                  "Authorization");
+        return response;
+      }
+
       auto it = request.headers.find("Authorization");
       std::string auth_header_value;
       if (it != request.headers.end()) {
@@ -152,7 +162,8 @@ class ContextualTasksUrlLoaderFactoryInterceptorBrowserTest
       }
 
       if (!auth_header_value.empty() || !ua_header_value.empty() ||
-          request.relative_url.find("onegoogle") != std::string::npos) {
+          request.relative_url.find("onegoogle") != std::string::npos ||
+          request.relative_url.find("denylist") != std::string::npos) {
         content::GetUIThreadTaskRunner({})->PostTask(
             FROM_HERE,
             base::BindOnce(
@@ -270,6 +281,86 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUrlLoaderFactoryInterceptorBrowserTest,
   // "access_token_...".
   EXPECT_THAT(captured_auth_header_,
               testing::StartsWith("Bearer access_token"));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUrlLoaderFactoryInterceptorBrowserTest,
+                       AuthorizationHeaderNotAppendedWhenAlreadyExists) {
+  base::RunLoop run_loop;
+  header_capture_quit_closure_ = run_loop.QuitClosure();
+
+  // Navigate to the Contextual Tasks WebUI.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL(chrome::kChromeUIContextualTasksURL)));
+
+  // Wait for the WebUI to load and create the webview.
+  content::WebContents* web_ui_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+
+  // Script to find the webview and perform a cross-origin fetch.
+  // We navigate the webview to about:blank (no interception), then
+  // fetch from kTestHost (interception enabled).
+  GURL fetch_url = https_server_.GetURL(kTestHost, "/echoheader?Authorization");
+
+  std::string script = content::JsReplace(
+      R"(
+    (async () => {
+      const waitFor = (selector, scope = document) => {
+        return new Promise(resolve => {
+          if (scope.querySelector(selector)) {
+            return resolve(scope.querySelector(selector));
+          }
+          const observer = new MutationObserver(() => {
+            if (scope.querySelector(selector)) {
+              observer.disconnect();
+              resolve(scope.querySelector(selector));
+            }
+          });
+          observer.observe(scope, {childList: true, subtree: true});
+        });
+      };
+
+      const app = await waitFor('contextual-tasks-app');
+      if (!app.shadowRoot) {
+        await customElements.whenDefined('contextual-tasks-app');
+      }
+      const webview = await waitFor('#threadFrame', app.shadowRoot);
+
+      // Navigate webview first
+      const targetUrl = 'data:text/html,<html><body></body></html>';
+      webview.src = targetUrl;
+
+      // Wait for load
+      await new Promise((resolve, reject) => {
+        const stop = () => {
+            webview.removeEventListener('loadstop', stop);
+            webview.removeEventListener('loadabort', abort);
+            resolve();
+        };
+        const abort = (e) => {
+            if (e.url === targetUrl) {
+                webview.removeEventListener('loadstop', stop);
+                webview.removeEventListener('loadabort', abort);
+                reject('Load aborted for ' + e.url + ': ' + e.reason);
+            }
+        };
+        webview.addEventListener('loadstop', stop);
+        webview.addEventListener('loadabort', abort);
+      });
+
+      // Execute fetch inside webview
+      webview.executeScript({code: `fetch($1, {headers: {'Authorization': 'Custom foo'}});`});
+    })();
+  )",
+      fetch_url.spec());
+
+  EXPECT_TRUE(content::ExecJs(web_ui_contents, script));
+
+  // Wait for the request to reach the server.
+  run_loop.Run();
+
+  // Verify the header. The existing header should be preserved and NOT appended
+  // to.
+  EXPECT_EQ(captured_auth_header_, "Custom foo");
 }
 
 class
@@ -502,6 +593,46 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUrlLoaderFactoryInterceptorBrowserTest,
   run_loop.Run();
 
   // Verify the header.
+  EXPECT_TRUE(captured_auth_header_.empty());
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUrlLoaderFactoryInterceptorBrowserTest,
+                       DenylistUrlDoesNotHaveAuthToken) {
+  base::RunLoop run_loop;
+  header_capture_quit_closure_ = run_loop.QuitClosure();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL(chrome::kChromeUIContextualTasksURL)));
+
+  content::WebContents* web_ui_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+
+  std::string script = content::JsReplace(
+      R"(
+        (async () => {
+          let app = document.querySelector('contextual-tasks-app');
+          while (!app) {
+            await new Promise(r => setTimeout(r, 100));
+            app = document.querySelector('contextual-tasks-app');
+          }
+          while (!app.shadowRoot) {
+            await new Promise(r => setTimeout(r, 100));
+          }
+          let webview = app.shadowRoot.querySelector('#threadFrame');
+          while (!webview) {
+            await new Promise(r => setTimeout(r, 100));
+            webview = app.shadowRoot.querySelector('#threadFrame');
+          }
+          webview.src = $1;
+        })();
+      )",
+      https_server_.GetURL(kDenylistHost, "/denylist/echoheader?Authorization")
+          .spec());
+
+  EXPECT_TRUE(content::ExecJs(web_ui_contents, script));
+
+  run_loop.Run();
+
   EXPECT_TRUE(captured_auth_header_.empty());
 }
 

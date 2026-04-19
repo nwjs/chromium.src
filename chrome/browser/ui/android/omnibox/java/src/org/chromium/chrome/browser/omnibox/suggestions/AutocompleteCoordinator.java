@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.ui.base.KeyNavigationUtil.isTabNavigation;
 
+import android.animation.Animator;
 import android.content.Context;
 import android.os.Handler;
 import android.view.KeyEvent;
@@ -282,6 +283,14 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
     }
 
     /**
+     * Setup the animation for showing the suggestions list. If the animation exists and can be
+     * synchronized, it is returned in an unstarted state; otherwise null is returned.
+     */
+    public @Nullable Animator setupSuggestionsListShowAnimation() {
+        return mMediator.setupSuggestionsListShowAnimation();
+    }
+
+    /**
      * Updates the profile used for generating autocomplete suggestions.
      *
      * @param profile The profile to be used.
@@ -400,6 +409,12 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
             return false;
         }
 
+        if (keyCode == KeyEvent.KEYCODE_TAB && event.hasNoModifiers()) {
+            if (triggerSiteSearch(SiteSearchActivationSource.TAB)) {
+                return true;
+            }
+        }
+
         // Do not attempt to interpret non-navigaton keys.
         // There are cases where the SPACE key may gen inappropriately routed to the
         // Suggestion, simulating press/long press of the UI element.
@@ -414,9 +429,14 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         return false;
     }
 
+    /** Site search was successfully triggered. */
+    public boolean triggerSiteSearch(@SiteSearchActivationSource int source) {
+        return mMediator.triggerSiteSearch(source);
+    }
+
     /** Notify the Autocomplete about Omnibox text change. */
-    public void onTextChanged(String textWithoutAutocomplete) {
-        mMediator.onTextChanged(textWithoutAutocomplete, false);
+    public void onInputChanged() {
+        mMediator.onInputChanged(false);
     }
 
     /** Trigger autocomplete for the given query. */

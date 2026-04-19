@@ -118,7 +118,7 @@ namespace {
   DO_FIELD(prefetch_token) __VA_ARGS__                             \
   DO_FIELD(socket_tag) __VA_ARGS__                                 \
   DO_FIELD(keepalive_token) __VA_ARGS__                            \
-  DO_FIELD(allows_device_bound_session_registration) __VA_ARGS__   \
+  DO_FIELD(allows_device_bound_sessions) __VA_ARGS__   \
   DO_FIELD(permissions_policy) __VA_ARGS__   \
   DO_FIELD(fetch_retry_options)
 
@@ -176,7 +176,6 @@ enum class FieldsForUma {
   kRequiredIpAddressSpace = 20,
   kCredentialsMode = 21,
   kRedirectMode = 22,
-  // DEPRECATED: kAllowUnsafeRedirectSchemes = 67,
   kFetchIntegrity = 23,
   kDestination = 24,
   kOriginalDestination = 25,

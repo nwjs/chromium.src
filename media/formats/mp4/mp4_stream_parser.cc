@@ -23,6 +23,7 @@
 #include "media/base/encryption_pattern.h"
 #include "media/base/encryption_scheme.h"
 #include "media/base/media_client.h"
+#include "media/base/media_switches.h"
 #include "media/base/media_tracks.h"
 #include "media/base/media_util.h"
 #include "media/base/stream_parser.h"
@@ -34,6 +35,7 @@
 #include "media/formats/mp4/box_definitions.h"
 #include "media/formats/mp4/box_reader.h"
 #include "media/formats/mp4/es_descriptor.h"
+#include "media/formats/mp4/hdr_metadata_track.h"
 #include "media/formats/mp4/rcheck.h"
 #include "media/formats/mpeg/adts_constants.h"
 
@@ -127,6 +129,45 @@ base::HeapArray<uint8_t> PrependIADescriptors(
 }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
 
+// Create a HdrMetadataTrack for attaching metadata to track samples. Returns
+// nullptr on failure.
+std::unique_ptr<HdrMetadataTrack> MakeMetadataTrack(
+    StreamParser::TrackId metadata_track_id,
+    const MetadataIT35SampleEntry& it35_sample_entry,
+    const TrackReference& track_references) {
+  if (!base::FeatureList::IsEnabled(kMP4TimedMetadataTrack)) {
+    return nullptr;
+  }
+
+  switch (it35_sample_entry.it35_prefix_type) {
+    case MetadataIT35SampleEntry::IT35PrefixType::kUnknown:
+      return nullptr;
+    case MetadataIT35SampleEntry::IT35PrefixType::kSmpteSt2094App5:
+      break;
+  }
+
+  // Extract the list of tracks that this metadata is to refer to for
+  // rendering. Skip metadata tracks that do not refer to any tracks.
+  std::vector<StreamParser::TrackId> render_track_ids;
+  for (const auto& track_reference_type : track_references.types) {
+    if (track_reference_type.reference_type == FOURCC_RNDR) {
+      for (uint32_t ref_track_id : track_reference_type.track_ids) {
+        render_track_ids.push_back(
+            static_cast<StreamParser::TrackId>(ref_track_id));
+      }
+    }
+  }
+
+  // Don't bother creating a metadata track that doesn't indicate the track
+  // it references.
+  if (render_track_ids.empty()) {
+    return nullptr;
+  }
+
+  return std::make_unique<HdrMetadataTrack>(
+      metadata_track_id, it35_sample_entry.it35_prefix_type, render_track_ids);
+}
+
 }  // namespace
 
 MP4StreamParser::MP4StreamParser(
@@ -185,6 +226,9 @@ void MP4StreamParser::Reset() {
   runs_.reset();
   moof_head_ = 0;
   mdat_tail_ = 0;
+  for (auto& [track_id, metadata_track] : metadata_tracks_) {
+    metadata_track->Reset();
+  }
 }
 
 void MP4StreamParser::Flush() {
@@ -284,8 +328,10 @@ StreamParser::ParseStatus MP4StreamParser::Parse(
     }
   } while (result && !err);
 
-  if (!err)
-    err = !SendAndFlushSamples(&buffers);
+  if (!err) {
+    err = !SendAndFlushSamples(&buffers,
+                               /*all_samples_in_segment_received=*/false);
+  }
 
   if (err) {
     DLOG(ERROR) << "Error while parsing MP4";
@@ -428,6 +474,7 @@ bool MP4StreamParser::ParseMoov(BoxReader* reader) {
   VideoDecoderConfig video_config;
   int detected_audio_track_count = 0;
   int detected_video_track_count = 0;
+  int detected_metadata_track_count = 0;
 
   for (std::vector<Track>::const_iterator track = moov_->tracks.begin();
        track != moov_->tracks.end(); ++track) {
@@ -729,11 +776,11 @@ bool MP4StreamParser::ParseMoov(BoxReader* reader) {
           MediaTrack::Label(track->media.handler.name),
           MediaTrack::Language(track->media.header.language()));
       continue;
-    }
-
-    if (track->media.handler.type == kVideo) {
+    } else if (track->media.handler.type == kVideo) {
       detected_video_track_count++;
 
+      // It is not uncommon to find otherwise-valid files with incorrect sample
+      // description indices, so we fail gracefully in that case.
       RCHECK(!samp_descr.video_entries.empty());
       if (desc_idx >= samp_descr.video_entries.size())
         desc_idx = 0;
@@ -834,6 +881,26 @@ bool MP4StreamParser::ParseMoov(BoxReader* reader) {
           MediaTrack::Label(track->media.handler.name),
           MediaTrack::Language(track->media.header.language()));
       continue;
+    } else if (track->media.handler.type == kMetadata) {
+      const StreamParser::TrackId metadata_track_id = track->header.track_id;
+      if (metadata_tracks_.find(metadata_track_id) != metadata_tracks_.end()) {
+        MEDIA_LOG(ERROR, media_log_)
+            << "Metadata track with track_id=" << metadata_track_id
+            << " already present.";
+        return false;
+      }
+
+      std::unique_ptr<HdrMetadataTrack> metadata_track;
+      if (desc_idx < samp_descr.metadata_t35_entries.size()) {
+        metadata_track = MakeMetadataTrack(
+            track->header.track_id, samp_descr.metadata_t35_entries[desc_idx],
+            track->references);
+      }
+      if (metadata_track) {
+        metadata_tracks_[metadata_track_id] = std::move(metadata_track);
+        ++detected_metadata_track_count;
+      }
+      continue;
     }
   }
 
@@ -891,6 +958,7 @@ bool MP4StreamParser::ParseMoov(BoxReader* reader) {
   if (init_cb_) {
     params.detected_audio_track_count = detected_audio_track_count;
     params.detected_video_track_count = detected_video_track_count;
+    params.detected_metadata_track_count = detected_metadata_track_count;
     std::move(init_cb_).Run(params);
   }
 
@@ -939,8 +1007,10 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
   if (!runs_->IsRunValid()) {
     // Flush any buffers we've gotten in this chunk so that buffers don't
     // cross |new_segment_cb_| calls
-    if (!SendAndFlushSamples(buffers))
+    if (!SendAndFlushSamples(buffers,
+                             /*all_samples_in_segment_received=*/true)) {
       return ParseResult::kError;
+    }
 
     // Remain in kEmittingSamples state, discarding data, until the end of
     // the current 'mdat' box has been appended to the queue.
@@ -968,15 +1038,18 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
     return ParseResult::kNeedMoreData;
   }
 
-  bool audio =
-      audio_track_ids_.find(runs_->track_id()) != audio_track_ids_.end();
-  bool video =
-      video_track_ids_.find(runs_->track_id()) != video_track_ids_.end();
+  DemuxerStream::Type buffer_type = DemuxerStream::UNKNOWN;
+  if (audio_track_ids_.count(runs_->track_id())) {
+    buffer_type = DemuxerStream::AUDIO;
+  } else if (video_track_ids_.count(runs_->track_id())) {
+    buffer_type = DemuxerStream::VIDEO;
+  }
 
   // Skip this entire track if it's not one we're interested in
-  if (!audio && !video) {
-    if (!runs_->AdvanceRun())
+  if (buffer_type == DemuxerStream::UNKNOWN) {
+    if (!runs_->AdvanceRun()) {
       return ParseResult::kError;
+    }
     return ParseResult::kOk;
   }
 
@@ -1044,7 +1117,7 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
   // being put in a StreamParserBuffer. Prefer `heap_frame_buf` where possible.
   std::vector<uint8_t> frame_buf;
   base::HeapArray<uint8_t> heap_frame_buf;
-  if (video) {
+  if (buffer_type == DemuxerStream::VIDEO) {
     if (runs_->video_description().video_info.codec == VideoCodec::kH264 ||
         runs_->video_description().video_info.codec == VideoCodec::kHEVC ||
         (runs_->video_description().video_info.codec ==
@@ -1096,9 +1169,7 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
         is_keyframe = analysis.is_keyframe.value();
       }
     }
-  }
-
-  if (audio) {
+  } else if (buffer_type == DemuxerStream::AUDIO) {
     if (ESDescriptor::IsAAC(runs_->audio_description().esds.object_type)) {
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
       heap_frame_buf = PrepareAACBuffer(runs_->audio_description().esds.aac,
@@ -1140,7 +1211,6 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
   // Either both buffers should be empty or only one should be filled.
   CHECK(frame_buf.empty() || heap_frame_buf.empty());
 
-  const auto buffer_type = audio ? DemuxerStream::AUDIO : DemuxerStream::VIDEO;
   scoped_refptr<StreamParserBuffer> stream_buf;
 
   if (auto* media_client = GetMediaClient()) {
@@ -1196,7 +1266,7 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
     return ParseResult::kError;
   }
 
-  DVLOG(3) << "Emit " << (audio ? "audio" : "video") << " frame: "
+  DVLOG(3) << "Emit " << DemuxerStream::GetTypeName(buffer_type) << " frame: "
            << " track_id=" << runs_->track_id() << ", key=" << is_keyframe
            << ", dur=" << runs_->duration().InMilliseconds()
            << ", dts=" << runs_->dts().InMilliseconds()
@@ -1209,7 +1279,13 @@ ParseResult MP4StreamParser::EnqueueSample(BufferQueueMap* buffers) {
   return ParseResult::kOk;
 }
 
-bool MP4StreamParser::SendAndFlushSamples(BufferQueueMap* buffers) {
+bool MP4StreamParser::SendAndFlushSamples(
+    BufferQueueMap* buffers,
+    bool all_samples_in_segment_received) {
+  for (auto& [track_id, metadata_track] : metadata_tracks_) {
+    metadata_track->AttachMetadataOrHoldBuffers(
+        buffers, all_samples_in_segment_received);
+  }
   if (buffers->empty())
     return true;
   bool success = new_buffers_cb_.Run(*buffers);

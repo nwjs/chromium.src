@@ -103,21 +103,20 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Both"/>
 </enum>
 
-<enum name="FamilyLinkUserLocalWebApprovalOutcome">
+<!-- LINT.IfChange(FamilyLinkUserLocalApprovalOutcome) -->
+
+<enum name="FamilyLinkUserLocalApprovalOutcome">
   <int value="0" label="Approved by parent">
-    Request to allow visiting a host was approved by the parent i.e. the parent
-    completed the verification flow and selected the (&quot;Approve&quot;
-    button). Available on Android.
+    Request was approved by the parent i.e. the parent completed the
+    verification flow and approved the request. Available on Android.
   </int>
   <int value="1" label="Denied by parent">
-    Request to allow visiting a host was denied by the parent, i.e. the parent
-    completed the verification flow and selected the (&quot;Don't approve&quot;
-    button).
+    Request was denied by the parent, i.e. the parent completed the verification
+    flow and denied the request.
   </int>
   <int value="2" label="Parent approval cancelled">
-    The user cancelled the local website parent approval, i.e. the parent
-    navigated away from the approval widget and did not complete the
-    verification flow.
+    The user cancelled the local parent approval, i.e. the parent navigated away
+    from the approval widget and did not complete the verification flow.
   </int>
   <int value="3" label="Verification widget unsupported API call exception">
     Feature to support parent verification is missing.
@@ -127,12 +126,14 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
-<!-- LINT.IfChange(FamilyLinkUserLocalWebApprovalResult) -->
+<!-- LINT.ThenChange(//chrome/browser/supervised_user/android/java/src/org/chromium/chrome/browser/supervised_user/ParentApprovalMetrics.java:FamilyLinkUserLocalApprovalOutcome) -->
 
-<enum name="FamilyLinkUserLocalWebApprovalResult">
+<!-- LINT.IfChange(FamilyLinkUserLocalApprovalResult) -->
+
+<enum name="FamilyLinkUserLocalApprovalResult">
   <summary>
-    The result of local web approval request. Reported by the browser once
-    platform specific approval flow finishes and returns the result.
+    The result of local approval request. Reported by the browser once platform
+    specific approval flow finishes and returns the result.
   </summary>
   <int value="0" label="Approved">
     Request was explicitely approved after parent verification.
@@ -346,6 +347,22 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Access declined"/>
   <int value="5" label="Error"/>
   <int value="6" label="Requests Disabled"/>
+</enum>
+
+<enum name="SupervisedUserAskParentDialog">
+  <summary>Tracks the actions on the Ask Parent Dialog.</summary>
+  <int value="0" label="Opened">
+    Recorded when the Ask Parent Dialog is opened.
+  </int>
+  <int value="1" label="Canceled">
+    Recorded when the Ask Parent Dialog is canceled (either by pressing the
+    cancel button, hitting escape, or navigating away), denying the supervised
+    user's attempt to request approval for the extension install.
+  </int>
+  <int value="2" label="Approved">
+    Recorded when the Ask Parent Dialog is approved and we proceed to requesting
+    parent auth.
+  </int>
 </enum>
 
 <!-- LINT.IfChange(SupervisedUserExtension2) -->

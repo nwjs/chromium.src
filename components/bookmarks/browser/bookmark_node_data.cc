@@ -23,7 +23,7 @@ namespace bookmarks {
 namespace {
 
 #if !BUILDFLAG(IS_APPLE)
-std::unique_ptr<BookmarkNodeData> FromClipboardBookmarkReadResult(
+std::unique_ptr<BookmarkNodeData> FromClipboardUrlReadResult(
     std::unique_ptr<BookmarkNodeData> data,
     std::u16string title,
     GURL url) {
@@ -41,13 +41,12 @@ std::unique_ptr<BookmarkNodeData> FromClipboardBookmarkReadResult(
   return nullptr;
 }
 
-void OnReadBookmarkFromClipboardComplete(
+void OnReadUrlFromClipboardComplete(
     base::OnceCallback<void(std::unique_ptr<BookmarkNodeData>)> callback,
     std::unique_ptr<BookmarkNodeData> data,
-    std::u16string title,
-    GURL url) {
-  std::move(callback).Run(
-      FromClipboardBookmarkReadResult(std::move(data), title, url));
+    ui::ClipboardUrlInfo url_info) {
+  std::move(callback).Run(FromClipboardUrlReadResult(
+      std::move(data), url_info.title, url_info.url));
 }
 
 void OnReadDataFromClipboardComplete(
@@ -64,10 +63,10 @@ void OnReadDataFromClipboardComplete(
 
   // If `ReadFromPickle` failed, `data` might have `profile_path_` set (see
   // `BookmarkNodeData::ReadFromPickle`). We want to preserve it when falling
-  // back to `ReadBookmark`.
-  ui::Clipboard::GetForCurrentThread()->ReadBookmark(
+  // back to `ReadURL`.
+  ui::Clipboard::GetForCurrentThread()->ReadURL(
       /*data_dst=*/std::nullopt,
-      base::BindOnce(&OnReadBookmarkFromClipboardComplete, std::move(callback),
+      base::BindOnce(&OnReadUrlFromClipboardComplete, std::move(callback),
                      std::move(data)));
 }
 #endif  // !BUILDFLAG(IS_APPLE)
@@ -78,9 +77,6 @@ void OnReadDataFromClipboardComplete(
 namespace {
 constexpr size_t kMaxVectorPreallocateSize = 10000;
 }  // namespace
-
-const char BookmarkNodeData::kClipboardFormatString[] =
-    "chromium/x-bookmark-entries";
 #endif
 
 BookmarkNodeData::Element::Element() : is_url(false), id_(0) {}
@@ -277,12 +273,19 @@ BookmarkNodeData::~BookmarkNodeData() {}
 
 #if !BUILDFLAG(IS_APPLE)
 // static
-bool BookmarkNodeData::ClipboardContainsBookmarks() {
+void BookmarkNodeData::ClipboardContainsBookmarks(
+    base::OnceCallback<void(bool)> callback) {
   ui::DataTransferEndpoint data_dst = ui::DataTransferEndpoint(
       ui::EndpointType::kDefault, {.notify_if_restricted = false});
-  return ui::Clipboard::GetForCurrentThread()->IsFormatAvailable(
-      ui::ClipboardFormatType::CustomPlatformType(kClipboardFormatString),
-      ui::ClipboardBuffer::kCopyPaste, &data_dst);
+  ui::Clipboard::GetForCurrentThread()->GetAllAvailableFormats(
+      ui::ClipboardBuffer::kCopyPaste, data_dst,
+      base::BindOnce(
+          [](base::OnceCallback<void(bool)> callback,
+             base::flat_set<ui::ClipboardFormatType> formats) {
+            std::move(callback).Run(formats.contains(
+                ui::ClipboardFormatType::BookmarkEntriesType()));
+          },
+          std::move(callback)));
 }
 #endif
 
@@ -342,7 +345,7 @@ void BookmarkNodeData::WriteToClipboard(bool is_off_the_record) {
     const std::u16string& title = elements[0].title;
     const std::string url = elements[0].url.spec();
 
-    scw.WriteBookmark(title, url);
+    scw.WriteURL(ui::ClipboardUrlInfo{.url = GURL(url), .title = title});
     scw.WriteHyperlink(title, url);
     scw.WriteText(base::UTF8ToUTF16(url));
   } else {
@@ -365,8 +368,7 @@ void BookmarkNodeData::WriteToClipboard(bool is_off_the_record) {
 
   base::Pickle pickle;
   WriteToPickle(base::FilePath(), &pickle);
-  scw.WritePickledData(pickle, ui::ClipboardFormatType::CustomPlatformType(
-                                   kClipboardFormatString));
+  scw.WritePickledData(pickle, ui::ClipboardFormatType::BookmarkEntriesType());
 }
 
 // static
@@ -376,7 +378,7 @@ void BookmarkNodeData::ReadFromClipboard(
   DCHECK_EQ(buffer, ui::ClipboardBuffer::kCopyPaste);
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   clipboard->ReadData(
-      ui::ClipboardFormatType::CustomPlatformType(kClipboardFormatString),
+      ui::ClipboardFormatType::BookmarkEntriesType(),
       /*data_dst=*/std::nullopt,
       base::BindOnce(&OnReadDataFromClipboardComplete, std::move(callback)));
 }

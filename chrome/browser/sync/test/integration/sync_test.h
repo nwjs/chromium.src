@@ -34,6 +34,7 @@
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/test/test_url_loader_factory.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/app_list/app_list_syncable_service.h"
@@ -152,6 +153,7 @@ class SyncTest : public PlatformBrowserTest,
   void TearDown() override;
   void PostRunTestOnMainThread() override;
   void CreatedBrowserMainParts(content::BrowserMainParts* parts) override;
+  void SetUpLocalStatePrefService(PrefService* local_state) override;
 
   // Sets up command line flags required for sync tests.
   void SetUpCommandLine(base::CommandLine* cl) override;
@@ -210,6 +212,10 @@ class SyncTest : public PlatformBrowserTest,
   // Subclasses should override this method to specify the desired mode, often
   // in conjunction with test parameterization.
   virtual SetupSyncMode GetSetupSyncMode() const;
+
+  // Returns the URL to be opened in the initial tab of each profile's browser
+  // window.
+  virtual GURL GetInitialURL() const;
 
   // Returns a pointer to the sync profile that is used to verify changes to
   // individual sync profiles. Callee owns the object and manages its lifetime.
@@ -301,9 +307,6 @@ class SyncTest : public PlatformBrowserTest,
   void OnProfileAdded(Profile* profile) override;
   void OnProfileManagerDestroying() override;
   void OnProfileCreationStarted(Profile* profile) override;
-
-  // Invoked immediately before creating profile |index| under |profile_path|.
-  virtual void BeforeSetupClient(int index, const base::FilePath& profile_path);
 
   // The name for a directory under chrome::DIR_USER_DATA.
   virtual base::FilePath GetProfileBaseName(int index);

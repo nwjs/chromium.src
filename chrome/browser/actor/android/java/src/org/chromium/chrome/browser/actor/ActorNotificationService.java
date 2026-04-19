@@ -5,21 +5,12 @@
 package org.chromium.chrome.browser.actor;
 
 import android.app.Notification;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Icon;
-
-import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.notifications.NotificationUmaTracker.SystemNotificationType;
-import org.chromium.chrome.browser.notifications.NotificationWrapperBuilderFactory;
-import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxy;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
-import org.chromium.components.browser_ui.notifications.NotificationMetadata;
 import org.chromium.components.browser_ui.notifications.NotificationWrapper;
-import org.chromium.components.browser_ui.notifications.NotificationWrapperBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +22,9 @@ import java.util.Map;
  */
 @NullMarked
 public class ActorNotificationService {
+    private final Map<Integer, ActorTask> mTaskCache = new HashMap<>();
     private final Map<Integer, NotificationWrapper> mNotificationCache = new HashMap<>();
+    private final Map<Integer, Integer> mTaskStates = new HashMap<>();
     private static final String TAG = "ActNotification";
     private final BaseNotificationManagerProxy mNotificationManager;
     private final ActorKeyedService mKeyedService;
@@ -50,15 +43,15 @@ public class ActorNotificationService {
     /**
      * Returns the notification that should be pinned to the {@link ActorForegroundService}.
      *
-     * @param primaryTask The task to show the notification for.
+     * @param task The task to show the notification for.
      * @return The notification to be used for the foreground service, or null if the task is null.
      */
-    public @Nullable Notification getForegroundNotification(@Nullable ActorTask primaryTask) {
-        if (primaryTask == null) return null;
+    public @Nullable Notification getForegroundNotification(@Nullable ActorTask task) {
+        if (task == null) return null;
 
         // Currently, we only support pinning one task's notification.
         // In the future, this can be extended to return a grouped summary notification.
-        return getCachedNotification(primaryTask.getId());
+        return getCachedNotification(task.getId());
     }
 
     /**
@@ -69,16 +62,32 @@ public class ActorNotificationService {
      */
     public void updateNotificationForTask(int taskId, @ActorTaskState int newState) {
         ActorTask task = mKeyedService.getTask(taskId);
+        if (task != null) {
+            mTaskCache.put(taskId, task);
+        } else {
+            task = mTaskCache.get(taskId);
+        }
+
         if (task == null) {
             mNotificationManager.cancel(taskId);
             mNotificationCache.remove(taskId);
+            mTaskStates.remove(taskId);
+            mTaskCache.remove(taskId);
             return;
         }
 
-        // TODO(487671227): Use ActorNotificationFactory to build real notifications.
-        // For now, we use a stub notification to establish the pipeline.
-        NotificationWrapper notification = createStubNotification(task);
+        Integer oldState = mTaskStates.get(taskId);
+        if (oldState != null
+                && !ActorNotificationFactory.shouldUpdateNotification(oldState, newState)) {
+            mTaskStates.put(taskId, newState);
+            return;
+        }
+
+        NotificationWrapper notification =
+                ActorNotificationFactory.buildNotification(task, newState);
+        mNotificationManager.notify(notification);
         mNotificationCache.put(taskId, notification);
+        mTaskStates.put(taskId, newState);
     }
 
     /**
@@ -92,35 +101,24 @@ public class ActorNotificationService {
         NotificationWrapper notification = mNotificationCache.get(taskId);
         if (notification == null) {
             ActorTask task = mKeyedService.getTask(taskId);
+            if (task == null) {
+                task = mTaskCache.get(taskId);
+            }
             if (task != null) {
-                notification = createStubNotification(task);
+                int state = task.getState();
+                notification = ActorNotificationFactory.buildNotification(task, state);
                 mNotificationCache.put(taskId, notification);
+                mTaskStates.put(taskId, state);
+                mTaskCache.put(taskId, task);
             }
         }
         return notification != null ? notification.getNotification() : null;
     }
 
-    /** Cancels all active actor notifications and clears the local cache. */
+    /** Clears local cache for all actor notifications. */
     public void clearAll() {
-        mNotificationManager.cancelAll();
         mNotificationCache.clear();
-    }
-
-    @VisibleForTesting
-    protected NotificationWrapperBuilder getNotificationBuilder(int notificationId) {
-        // TODO(487982067): Create new channel for Actor.
-        return NotificationWrapperBuilderFactory.createNotificationWrapperBuilder(
-                ChromeChannelDefinitions.ChannelId.BROWSER,
-                new NotificationMetadata(SystemNotificationType.ACTOR, TAG, notificationId));
-    }
-
-    private NotificationWrapper createStubNotification(ActorTask task) {
-        // TODO(487671227) : Set correct icon and string.
-        NotificationWrapperBuilder builder = getNotificationBuilder(task.getId());
-        builder.setContentTitle(task.getTitle())
-                .setContentText("Gemini is performing task.")
-                .setSmallIcon(
-                        Icon.createWithBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)));
-        return builder.buildNotificationWrapper();
+        mTaskStates.clear();
+        mTaskCache.clear();
     }
 }

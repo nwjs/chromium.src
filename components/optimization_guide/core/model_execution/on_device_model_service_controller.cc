@@ -13,6 +13,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -306,6 +307,9 @@ void OnDeviceModelServiceController::UpdateSolutionProviders() {
 
 void OnDeviceModelServiceController::UpdateSolutionProvider(
     mojom::OnDeviceFeature feature) {
+  if (GetOnDeviceModelType(feature) != kModelType) {
+    return;
+  }
   // Note: This always constructs the Solution, even if the provider was not
   // constructed yet, to update supported_adaptation_ranks_ on the base model.
   model_broker_impl_->GetSolutionProvider(feature).Update(GetSolution(feature));
@@ -499,7 +503,8 @@ void OnDeviceModelServiceController::BaseModelController::OnDisconnect(
   if (is_idle) {
     return;
   }
-  LOG(ERROR) << "Base model disconnected unexpectedly.";
+  LOG(ERROR) << "Base model disconnected unexpectedly; reason: " << reason
+             << ", description: " << description;
   base::TimeDelta delay =
       access_controller().OnDisconnectedFromRemote() - base::Time::Now();
   if (delay.is_positive()) {
@@ -572,15 +577,10 @@ OnDeviceModelServiceController::Solution::MakeConfig() const {
       GetModelVersions(*controller_->base_model_controller_->model_metadata(),
                        controller_->safety_client_,
                        controller_->GetFeatureMetadata(feature_)->version()));
-  config->max_tokens = adapter_->GetTokenLimits().max_tokens;
   config->text_safety_config =
       mojo_base::ProtoWrapper(safety_checker_->safety_cfg().proto());
+  config->model_capabilities = controller_->GetCapabilities();
   return config;
-}
-
-const OnDeviceModelFeatureAdapter*
-OnDeviceModelServiceController::Solution::GetAdapter() const {
-  return adapter_.get();
 }
 
 void OnDeviceModelServiceController::Solution::CreateSession(

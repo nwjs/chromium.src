@@ -12,6 +12,8 @@
 
 #include "base/check_is_test.h"
 #include "base/debug/crash_logging.h"
+#include "base/feature_list.h"
+#include "base/logging.h"
 #include "base/notreached.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
@@ -27,6 +29,7 @@
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "third_party/dawn/include/dawn/wire/client/webgpu_cpp.h"
 #include "ui/gfx/buffer_types.h"
@@ -332,11 +335,15 @@ ClientSharedImage::ClientSharedImage(
       metadata_(info.meta),
       debug_label_(info.debug_label),
       creation_sync_token_(sync_token),
-      sii_holder_(std::move(sii_holder)) {
+      sii_holder_(std::move(sii_holder)),
+      sii_(base::FeatureList::IsEnabled(
+               features::kUseStrongRefToSharedImageInterface)
+               ? sii_holder_->Get()
+               : nullptr) {
   CHECK(!mailbox.IsZero());
   CHECK(sii_holder_);
-  texture_target_ = ComputeTextureTargetForSharedImage(metadata_, gmb_type,
-                                                       sii_holder_->Get());
+  texture_target_ = ComputeTextureTargetForSharedImage(
+      metadata_, gmb_type, GetSharedImageInterface());
 }
 
 ClientSharedImage::ClientSharedImage(
@@ -366,6 +373,10 @@ ClientSharedImage::ClientSharedImage(
       debug_label_(info.debug_label),
       creation_sync_token_(sync_token),
       sii_holder_(std::move(sii_holder)),
+      sii_(base::FeatureList::IsEnabled(
+               features::kUseStrongRefToSharedImageInterface)
+               ? sii_holder_->Get()
+               : nullptr),
       texture_target_(texture_target) {
   // TODO(crbug.com/391788839): Create GpuMemoryBuffer from handle.
   CHECK(!mailbox.IsZero());
@@ -384,6 +395,10 @@ ClientSharedImage::ClientSharedImage(
       creation_sync_token_(exported_si.creation_sync_token_),
       buffer_usage_(exported_si.buffer_usage_),
       sii_holder_(std::move(sii_holder)),
+      sii_(base::FeatureList::IsEnabled(
+               features::kUseStrongRefToSharedImageInterface)
+               ? sii_holder_->Get()
+               : nullptr),
       texture_target_(exported_si.texture_target_),
       is_software_(exported_si.is_software_) {
   if (exported_si.buffer_handle_) {
@@ -428,20 +443,24 @@ ClientSharedImage::ClientSharedImage(
       metadata_(info.meta),
       debug_label_(info.debug_label),
       creation_sync_token_(sync_token),
-      mappable_buffer_(CreateMappableBufferFromHandle(
-          std::move(handle_info.handle),
-          metadata_.size,
-          metadata_.format,
-          handle_info.buffer_usage,
-          info.meta.usage,
-          std::move(shared_memory_pool))),
+      mappable_buffer_(
+          CreateMappableBufferFromHandle(std::move(handle_info.handle),
+                                         metadata_.size,
+                                         metadata_.format,
+                                         handle_info.buffer_usage,
+                                         info.meta.usage,
+                                         std::move(shared_memory_pool))),
       buffer_usage_(handle_info.buffer_usage),
-      sii_holder_(std::move(sii_holder)) {
+      sii_holder_(std::move(sii_holder)),
+      sii_(base::FeatureList::IsEnabled(
+               features::kUseStrongRefToSharedImageInterface)
+               ? sii_holder_->Get()
+               : nullptr) {
   CHECK(!mailbox.IsZero());
   CHECK(sii_holder_);
   CHECK(mappable_buffer_);
   texture_target_ = ComputeTextureTargetForSharedImage(
-      metadata_, mappable_buffer_->GetType(), sii_holder_->Get());
+      metadata_, mappable_buffer_->GetType(), GetSharedImageInterface());
 }
 
 ClientSharedImage::ClientSharedImage(const Mailbox& mailbox,
@@ -456,7 +475,7 @@ ClientSharedImage::~ClientSharedImage() {
     return;
   }
 
-  auto sii = sii_holder_->Get();
+  auto sii = GetSharedImageInterface();
   if (sii) {
     sii->DestroySharedImage(destruction_sync_token_, mailbox_);
   }
@@ -562,7 +581,7 @@ scoped_refptr<ClientSharedImage> ClientSharedImage::MakeUnowned() {
 ExportedSharedImage ClientSharedImage::Export(bool with_buffer_handle) {
   if (creation_sync_token_.HasData() &&
       !creation_sync_token_.verified_flush()) {
-    auto sii = sii_holder_->Get();
+    auto sii = GetSharedImageInterface();
     // TODO(crbug.com/40286368): We should let ClientSharedImage hold a strong
     // SharedImageInterface reference to ensure `sii` is always valid.
     if (sii) {
@@ -591,7 +610,7 @@ scoped_refptr<ClientSharedImage> ClientSharedImage::ImportUnowned(
 gpu::SyncToken ClientSharedImage::BackingWasExternallyUpdated(
     const gpu::SyncToken& sync_token) {
   CHECK(sii_holder_);
-  auto sii = sii_holder_->Get();
+  auto sii = GetSharedImageInterface();
   if (!sii) {
     return gpu::SyncToken();
   }
@@ -607,6 +626,16 @@ void ClientSharedImage::OnMemoryDump(
   auto tracing_guid = GetGUIDForTracing();
   pmd->CreateSharedGlobalAllocatorDump(tracing_guid);
   pmd->AddOwnershipEdge(buffer_dump_guid, tracing_guid, importance);
+}
+
+scoped_refptr<SharedImageInterface>
+ClientSharedImage::GetSharedImageInterface() {
+  if (base::FeatureList::IsEnabled(
+          features::kUseStrongRefToSharedImageInterface)) {
+    return sii_;
+  } else {
+    return sii_holder_->Get();
+  }
 }
 
 void ClientSharedImage::BeginAccess(bool readonly) {
@@ -792,7 +821,7 @@ void ClientSharedImage::CopyNativeGmbToSharedMemoryAsync(
     gfx::GpuMemoryBufferHandle buffer_handle,
     base::UnsafeSharedMemoryRegion memory_region,
     base::OnceCallback<void(bool)> callback) {
-  auto sii = sii_holder_->Get();
+  auto sii = GetSharedImageInterface();
   if (!sii) {
     DLOG(WARNING) << "No SharedImageInterface.";
     std::move(callback).Run(false);
@@ -1071,6 +1100,11 @@ ClientSharedImage::BeginWebGPUBufferAccess(
     const wgpu::dawn::wire::client::BufferDescriptor& desc,
     uint64_t usage,
     webgpu::MailboxFlags mailbox_flags) {
+  SCOPED_CRASH_KEY_STRING64("ClientSharedImage", "DebugLabel", debug_label_);
+  SCOPED_CRASH_KEY_STRING256("ClientSharedImage", "Usage",
+                             metadata_.usage.ToString());
+  DUMP_WILL_BE_CHECK(
+      metadata_.usage.Has(SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER));
   return base::WrapUnique(new WebGPUBufferScopedAccess(
       webgpu, this, sync_token, device, desc, usage, mailbox_flags));
 }

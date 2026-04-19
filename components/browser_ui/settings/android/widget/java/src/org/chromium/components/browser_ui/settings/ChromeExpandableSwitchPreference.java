@@ -108,9 +108,12 @@ public class ChromeExpandableSwitchPreference extends ChromeSwitchPreference {
             switchView.setOnCheckedChangeListener(null);
             switchView.setChecked(isChecked());
             switchView.setOnCheckedChangeListener(
-                    (buttonView, isChecked) -> {
-                        callChangeListener(isChecked);
-                        setChecked(isChecked);
+                    (buttonView, isCheckedArg) -> {
+                        if (!callChangeListener(isCheckedArg)) {
+                            buttonView.setChecked(!isCheckedArg);
+                            return;
+                        }
+                        setChecked(isCheckedArg);
                     });
         }
         updatePreferenceContentDescription(holder.itemView);

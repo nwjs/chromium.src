@@ -76,6 +76,10 @@ api::tabs::WindowType GetTabsWindowType(const BrowserWindowInterface* browser) {
     case BrowserWindowInterface::TYPE_APP_POPUP:
     case BrowserWindowInterface::TYPE_POPUP:
       return api::tabs::WindowType::kPopup;
+#if BUILDFLAG(IS_ANDROID)
+    case BrowserWindowInterface::TYPE_CUSTOM_TAB:
+      return api::tabs::WindowType::kCustomTab;
+#endif
 #if !BUILDFLAG(IS_ANDROID)
     case BrowserWindowInterface::TYPE_DEVTOOLS:
       return api::tabs::WindowType::kDevtools;
@@ -282,7 +286,13 @@ bool BrowserExtensionWindowController::OpenOptionsPage(
   DCHECK(OptionsPageInfo::HasOptionsPage(extension));
 
 #if BUILDFLAG(IS_ANDROID)
-  NOTIMPLEMENTED();
+  // On Android, we just open the options page in a new tab.
+  content::OpenURLParams params(
+      url, content::Referrer(),
+      open_in_tab ? WindowOpenDisposition::NEW_FOREGROUND_TAB
+                  : WindowOpenDisposition::CURRENT_TAB,
+      ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false);
+  browser_->OpenURL(params, /*navigation_handle_callback=*/{});
 #else
   // Force the options page to open in non-OTR window if the extension is not
   // running in split mode, because it won't be able to save settings from OTR.

@@ -43,6 +43,8 @@ if (enable_devtools_frontend) {
     "protocol/storage.h",
     "protocol/system_info.cc",
     "protocol/system_info.h",
+    "protocol/web_mcp.cc",
+    "protocol/web_mcp.h",
   ]
 
   if (is_chromeos) {
@@ -114,8 +116,10 @@ static_library("devtools") {
     "//chrome/browser/search",
     "//chrome/browser/search_engines",
     "//chrome/browser/sync",
+    "//chrome/browser/tpcd/metadata",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/dialogs",
+    "//chrome/browser/ui/select_file_policy",
 
     # To prevent circular GN dependencies, this target does not depend on
     # //chrome/browser:browser, even though it has a real build dependency on
@@ -130,6 +134,7 @@ static_library("devtools") {
     # //chrome/browser:browser, we include indirect dependencies here.
     ":protocol_generated_sources",
     "//chrome/browser/autofill",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/ui:browser_navigator_params_headers",
     "//components/autofill/content/browser",
@@ -203,12 +208,14 @@ static_library("devtools") {
       ]
     }
     deps += [
+      "//chrome/browser:browser_features",
       "//chrome/browser:browser_process",
       "//chrome/browser:flags",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_util",
       "//chrome/browser/signin",
       "//chrome/browser/task_manager",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/hats",
       "//chrome/browser/ui/prefs",
       "//components/infobars/content",
@@ -375,7 +382,6 @@ static_library("devtools") {
       "//chrome/browser/badging",
       "//chrome/browser/custom_handlers",
       "//chrome/browser/first_party_sets",
-      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/media_router",
       "//chrome/browser/ui/startup",
       "//components/custom_handlers",
@@ -416,6 +422,8 @@ static_library("devtools") {
       "protocol/system_info_handler.h",
       "protocol/target_handler.cc",
       "protocol/target_handler.h",
+      "protocol/webmcp_handler.cc",
+      "protocol/webmcp_handler.h",
     ]
     if (is_chromeos) {
       deps += [
@@ -429,17 +437,10 @@ static_library("devtools") {
     }
     if (enable_printing) {
       deps += [
+        "//chrome/browser/printing",
         "//components/printing/browser/headless",
         "//components/printing/browser/print_to_pdf",
       ]
-      if (enable_oop_printing) {
-        # protocol/page_handler.cc directly includes
-        # chrome/browser/printing/print_view_manager.h, and thus is dependent
-        # upon some mojom files.  This could go away and have a cleaner dep on
-        # //chrome/browser/printing if the //chrome build layer could get
-        # sufficiently untangled.
-        deps += [ "//chrome/services/printing/public/mojom" ]
-      }
     }
   }
 
@@ -463,6 +464,7 @@ static_library("test_support") {
       ":devtools",
       "//base",
       "//chrome/browser",
+      "//chrome/browser:browser_features",
       "//chrome/browser/ui",
       "//content/public/browser",
       "//content/test:test_support",

@@ -11,13 +11,17 @@
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/contextual_search/contextual_search_service.h"
 #import "components/contextual_search/contextual_search_session_handle.h"
+#import "components/contextual_search/internal/ios/composebox_query_controller_ios.h"
+#import "components/lens/lens_features.h"
 #import "components/lens/lens_overlay_invocation_source.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/omnibox/browser/location_bar_model_impl.h"
-#import "components/omnibox/composebox/ios/composebox_query_controller_ios.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
+#import "ios/chrome/browser/cobrowse/model/cobrowse_browser_agent.h"
+#import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
+#import "ios/chrome/browser/composebox/coordinator/composebox_cobrowse_omnibox_client.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_input_plate_mediator.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
@@ -57,6 +61,7 @@
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
@@ -78,6 +83,21 @@
 namespace {
 const size_t kMaxURLDisplayChars = 32 * 1024;
 const CGFloat kSnackbarBottomMargin = 10;
+
+// Converts ComposeboxEntrypoint to ContextualSearchSource.
+contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
+    ComposeboxEntrypoint entrypoint) {
+  switch (entrypoint) {
+    case ComposeboxEntrypoint::kNTPAIMButton:
+      return contextual_search::ContextualSearchSource::kNewTabPage;
+    case ComposeboxEntrypoint::kNTPFakebox:
+    case ComposeboxEntrypoint::kOther:
+      return contextual_search::ContextualSearchSource::kOmnibox;
+    case ComposeboxEntrypoint::kCobrowse:
+      return contextual_search::ContextualSearchSource::kContextualTasks;
+  }
+}
+
 }  // namespace
 
 @interface ComposeboxInputPlateCoordinator () <
@@ -148,7 +168,6 @@ const CGFloat kSnackbarBottomMargin = 10;
   _viewController =
       [[ComposeboxInputPlateViewController alloc] initWithTheme:_theme];
   _viewController.delegate = self;
-  _viewController.metricsRecorder = _metricsRecorder;
 
   if (_entrypoint == ComposeboxEntrypoint::kNTPAIMButton) {
     [_metricsRecorder
@@ -173,7 +192,7 @@ const CGFloat kSnackbarBottomMargin = 10;
 
     contextualSearchSession = _contextualService->CreateSession(
         std::move(query_controller_config_params),
-        contextual_search::ContextualSearchSource::kOmnibox,
+        ContextualSearchSourceFromEntrypoint(_entrypoint),
         lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
   }
 
@@ -183,6 +202,9 @@ const CGFloat kSnackbarBottomMargin = 10;
       ios::TemplateURLServiceFactory::GetForProfile(self.profile);
   _aimEligibilityService =
       IOSChromeAimEligibilityServiceFactory::GetForProfile(self.profile);
+
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+
   _mediator = [[ComposeboxInputPlateMediator alloc]
       initWithContextualSearchSession:std::move(contextualSearchSession)
                          webStateList:self.browser->GetWebStateList()
@@ -193,7 +215,15 @@ const CGFloat kSnackbarBottomMargin = 10;
                            modeHolder:_modeHolder
                    templateURLService:templateURLService
                 aimEligibilityService:_aimEligibilityService
-                          prefService:self.profile->GetPrefs()];
+                          prefService:self.profile->GetPrefs()
+                 cobrowseBrowserAgent:CobrowseBrowserAgent::FromBrowser(
+                                          self.browser)
+            browserCoordinatorHandler:HandlerForProtocol(
+                                          dispatcher,
+                                          BrowserCoordinatorCommands)
+                         sceneHandler:HandlerForProtocol(dispatcher,
+                                                         SceneCommands)
+                           entrypoint:_entrypoint];
   _mediator.debugLogger = self.debugLogger;
   _mediator.URLLoader = _URLLoader;
   _mediator.consumer = _viewController;
@@ -213,16 +243,26 @@ const CGFloat kSnackbarBottomMargin = 10;
   _locationBarModel = std::make_unique<LocationBarModelImpl>(
       _locationBarModelDelegate.get(), kMaxURLDisplayChars);
 
-  auto omniboxClient = std::make_unique<ComposeboxOmniboxClient>(
-      _locationBar.get(), self.browser,
-      feature_engagement::TrackerFactory::GetForProfile(self.profile),
-      _mediator);
+  std::unique_ptr<OmniboxClientIOS> omniboxClient;
+  if (_entrypoint == ComposeboxEntrypoint::kCobrowse) {
+    omniboxClient = std::make_unique<ComposeboxCobrowseOmniboxClient>(
+        self.browser,
+        feature_engagement::TrackerFactory::GetForProfile(self.profile),
+        _mediator);
+  } else {
+    omniboxClient = std::make_unique<ComposeboxOmniboxClient>(
+        _locationBar.get(), self.browser,
+        feature_engagement::TrackerFactory::GetForProfile(self.profile),
+        _mediator);
+  }
 
   _omniboxCoordinator = [[OmniboxCoordinator alloc]
       initWithBaseViewController:nil
                          browser:self.browser
                    omniboxClient:std::move(omniboxClient)
-             presentationContext:OmniboxPresentationContext::kComposebox];
+             presentationContext:_entrypoint == ComposeboxEntrypoint::kCobrowse
+                                     ? OmniboxPresentationContext::kCobrowse
+                                     : OmniboxPresentationContext::kComposebox];
   _omniboxCoordinator.presenterDelegate = self.omniboxPopupPresenterDelegate;
   _omniboxCoordinator.focusDelegate = self;
   [_omniboxCoordinator start];
@@ -244,6 +284,7 @@ const CGFloat kSnackbarBottomMargin = 10;
   _aimEligibilitySubscription = {};
   _aimEligibilityService = nullptr;
   [_snackbarPresenter dismissAllSnackbars];
+  [_snackbarPresenter stop];
   _snackbarPresenter = nil;
   if (_tabPickerCoordinator.started) {
     [_tabPickerCoordinator stop];
@@ -281,6 +322,10 @@ const CGFloat kSnackbarBottomMargin = 10;
   [_omniboxCoordinator toggleOmniboxDebuggerView];
 }
 
+- (void)endEditing {
+  [_omniboxCoordinator endEditing];
+}
+
 #pragma mark - ComposeboxInputPlateViewControllerDelegate
 
 - (void)composeboxViewController:
@@ -309,7 +354,6 @@ const CGFloat kSnackbarBottomMargin = 10;
             (ComposeboxInputPlateViewController*)composeboxViewController
                 didTapLensButton:(UIButton*)lensButton {
   [_metricsRecorder recordLensSearchButtonUsed];
-
   OpenLensInputSelectionCommand* command = [[OpenLensInputSelectionCommand
       alloc]
           initWithEntryPoint:LensEntrypoint::Composebox
@@ -379,6 +423,15 @@ const CGFloat kSnackbarBottomMargin = 10;
   _picker.delegate = self;
 }
 
+- (void)composeboxViewController:
+            (ComposeboxInputPlateViewController*)composeboxViewController
+    didOpenPlusMenuWithVisibleInternalButtons:
+        (const std::vector<FuseboxAttachmentButtonType>&)
+            visibleInternalButtons {
+  [_mediator
+      recordPlusMenuOpenedWithVisibleInternalButtons:visibleInternalButtons];
+}
+
 - (void)composeboxViewControllerDidTapFileButton:
     (ComposeboxInputPlateViewController*)composeboxViewController {
   [_metricsRecorder
@@ -387,9 +440,15 @@ const CGFloat kSnackbarBottomMargin = 10;
     [self showMaxAttachmentSnackbarError];
     return;
   }
-  UIDocumentPickerViewController* picker =
-      [[UIDocumentPickerViewController alloc]
-          initForOpeningContentTypes:@[ UTTypePDF ]];
+  UIDocumentPickerViewController* picker;
+  if (lens::features::IsLensSendRawFileMediaTypesEnabled()) {
+    picker = [[UIDocumentPickerViewController alloc]
+        initForOpeningContentTypes:@[ UTTypeData ]];
+  } else {
+    picker = [[UIDocumentPickerViewController alloc]
+        initForOpeningContentTypes:@[ UTTypePDF ]];
+  }
+
   picker.allowsMultipleSelection = NO;
   picker.delegate = self;
   [_viewController presentViewController:picker animated:YES completion:nil];
@@ -512,6 +571,8 @@ const CGFloat kSnackbarBottomMargin = 10;
     return;
   }
 
+  [_metricsRecorder recordImagesAttached:results.count];
+
   for (PHPickerResult* result in results) {
     [_mediator processImageItemProvider:result.itemProvider
                                 assetID:result.assetIdentifier];
@@ -525,7 +586,52 @@ const CGFloat kSnackbarBottomMargin = 10;
   if (urls.count == 0) {
     return;
   }
-  [_mediator processPDFFileURL:net::GURLWithNSURL(urls.firstObject)];
+
+  [_metricsRecorder recordFilesAttached:urls.count];
+
+  NSURL* selectedURL = urls.firstObject;
+  if (!lens::features::IsLensSendRawFileMediaTypesEnabled()) {
+    [_mediator processFileURL:net::GURLWithNSURL(selectedURL) isPDF:YES];
+    return;
+  }
+
+  NSError* error = nil;
+  UTType* contentType = nil;
+
+  // Accessing the resource should be requested before using and relinquished
+  // when no longer needed.
+  // Revoking the access should be done once the resource is no longer needed,
+  // as requesting access again on a relinquished resource might fail.
+  BOOL accessing = [selectedURL startAccessingSecurityScopedResource];
+  [selectedURL getResourceValue:&contentType
+                         forKey:NSURLContentTypeKey
+                          error:&error];
+
+  auto stopAccessScopedResourcesIfNeeded = ^{
+    if (accessing) {
+      [selectedURL stopAccessingSecurityScopedResource];
+    }
+  };
+
+  if (contentType && !error) {
+    if ([contentType conformsToType:UTTypeImage]) {
+      NSItemProvider* provider =
+          [[NSItemProvider alloc] initWithContentsOfURL:selectedURL];
+      [_mediator processImageItemProvider:provider
+                                  assetID:selectedURL.absoluteString
+                               completion:stopAccessScopedResourcesIfNeeded];
+      return;
+    } else if ([contentType conformsToType:UTTypePDF]) {
+      [_mediator processFileURL:net::GURLWithNSURL(selectedURL)
+                          isPDF:YES
+                     completion:stopAccessScopedResourcesIfNeeded];
+      return;
+    }
+  }
+
+  [_mediator processFileURL:net::GURLWithNSURL(selectedURL)
+                      isPDF:NO
+                 completion:stopAccessScopedResourcesIfNeeded];
 }
 
 #pragma mark - UIImagePickerControllerDelegate
@@ -633,7 +739,6 @@ const CGFloat kSnackbarBottomMargin = 10;
 - (void)showComposeboxTabPicker {
   [_metricsRecorder
       recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kTabPicker];
-
   _tabPickerCoordinator = [[ComposeboxTabPickerCoordinator alloc]
       initWithBaseViewController:_viewController
                          browser:self.browser
@@ -659,9 +764,14 @@ const CGFloat kSnackbarBottomMargin = 10;
     [_omniboxCoordinator insertTextToOmnibox:_query];
     _query = nil;
   }
+  [_mediator setOmniboxFocused:YES];
 }
 
 - (void)omniboxDidResignFirstResponder {
+  [_mediator setOmniboxFocused:NO];
+}
+
+- (void)omniboxDidEndEditing {
 }
 
 #pragma mark - Private helpers

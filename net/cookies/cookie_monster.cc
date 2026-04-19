@@ -1720,17 +1720,6 @@ void CookieMonster::SetCanonicalCookie(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   bool collect_metrics =
       metrics_subsampler_.ShouldSample(kHistogramSampleProbability);
-// TODO(crbug.com/40281870): Fix macos specific issue with CHECK_IS_TEST
-// crashing network service process.
-#if !BUILDFLAG(IS_MAC)
-  // Only tests should be adding new cookies with source type kUnknown. If this
-  // line causes a fatal track down the callsite and have it correctly set the
-  // source type to kOther (or kHTTP/kScript where applicable). See
-  // CookieSourceType in net/cookies/cookie_constants.h for more.
-  if (cc->SourceType() == CookieSourceType::kUnknown) {
-    CHECK_IS_TEST();
-  }
-#endif
 
   bool delegate_treats_url_as_trustworthy =
       cookie_access_delegate() &&
@@ -2830,13 +2819,6 @@ bool CookieMonster::DoRecordPeriodicStats() {
             GURL(base::StrCat({url::kHttpsScheme, "://", domain})));
       }
     }
-    std::optional<base::flat_map<SchemefulSite, FirstPartySetEntry>>
-        maybe_sets = cookie_access_delegate()->FindFirstPartySetEntries(
-            sites,
-            base::BindOnce(&CookieMonster::RecordPeriodicFirstPartySetsStats,
-                           weak_ptr_factory_.GetWeakPtr()));
-    if (maybe_sets.has_value())
-      RecordPeriodicFirstPartySetsStats(maybe_sets.value());
   }
 
   std::map<std::string, size_t> n_same_site_none_cookies;
@@ -2898,26 +2880,6 @@ bool CookieMonster::DoRecordPeriodicStats() {
   }
 
   return true;
-}
-
-void CookieMonster::RecordPeriodicFirstPartySetsStats(
-    base::flat_map<SchemefulSite, FirstPartySetEntry> sets) const {
-  base::flat_map<SchemefulSite, std::set<SchemefulSite>> grouped_by_owner;
-  for (const auto& [site, entry] : sets) {
-    grouped_by_owner[entry.primary()].insert(site);
-  }
-  for (const auto& set : grouped_by_owner) {
-    int sample = std::accumulate(
-        set.second.begin(), set.second.end(), 0,
-        [this](int acc, const net::SchemefulSite& site) -> int {
-          DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-          if (!site.has_registrable_domain_or_host())
-            return acc;
-          return acc + cookies_.count(GetKey(site.GetURL().GetHost()));
-        });
-    base::UmaHistogramCustomCounts("Cookie.PerFirstPartySetCount", sample, 0,
-                                   4000, 50);
-  }
 }
 
 void CookieMonster::DoCookieCallback(base::OnceClosure callback) {

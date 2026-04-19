@@ -92,6 +92,10 @@ BASE_FEATURE(kBoundSessionCredentialsKillSwitch,
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
 #if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kBuildExternalPrivacyContext, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kCacheIdentityListInChrome, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableACPrefetch, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
@@ -220,15 +224,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kDisableU18FeedbackDesktop, base::FEATURE_DISABLED_BY_DEFAULT);
-constexpr base::FeatureParam<U18FeedbackDesktopState>::Option
-    kDisableU18FeedbackDesktopStates[] = {
-        {U18FeedbackDesktopState::kEnabled, "enabled"},
-        {U18FeedbackDesktopState::kForced, "forced"},
-};
-constexpr base::FeatureParam<U18FeedbackDesktopState>
-    kDisableU18FeedbackDesktopState{&kDisableU18FeedbackDesktop, "state",
-                                    U18FeedbackDesktopState::kEnabled,
-                                    &kDisableU18FeedbackDesktopStates};
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -294,6 +289,13 @@ BASE_FEATURE(kEnableFakeCapabilityForTesting,
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+// Enables mTLS token binding in the identity stack. This allows binding tokens
+// to an mTLS certificate upon receiving the `mtl_token_binding` indicator in
+// the Dice sigin header.
+BASE_FEATURE(kEnableMtlsTokenBinding, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables binding the OAuthMultilogin cookies to a device with DBSC prototype.
 //
 // If `kEnableOAuthMultiloginStandardCookiesBinding` is enabled, DBSC standard
@@ -344,12 +346,7 @@ BASE_FEATURE(kEnableOAuthMultiloginStandardCookiesBindingForGlicPartition,
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 BASE_FEATURE(kEnablePreferencesAccountStorage,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS)
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kEnableSeamlessSignin, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -378,6 +375,11 @@ constexpr base::FeatureParam<SeamlessSigninStringType>
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 BASE_FEATURE(kEnableSearchAIModeSigninPromo, base::FEATURE_DISABLED_BY_DEFAULT);
+// The delay we allow for the AIM search result to load before we display the
+// sign-in promo bubble.
+const base::FeatureParam<base::TimeDelta> kSearchAIModePromoPageLoadDelay{
+    &kEnableSearchAIModeSigninPromo, "SearchAIModePromoPageLoadDelay",
+    base::Seconds(4)};
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_IOS)
@@ -403,6 +405,8 @@ const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kFirstRunDesktopRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kFirstRunDesktopChoiceScreenRefresh,
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDisableFirstRunAnimationsForTesting,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsFirstRunDesktopRefreshEnabled(bool is_in_search_engine_choice_region) {
   if (is_in_search_engine_choice_region &&
       !base::FeatureList::IsEnabled(kFirstRunDesktopChoiceScreenRefresh)) {
@@ -426,6 +430,10 @@ constexpr base::FeatureParam<FirstRunDesktopSignInPromoVariation>
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kFirstRunDesktopRefreshSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kFirstRunDesktopRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
@@ -437,11 +445,6 @@ BASE_FEATURE(kForceHistoryOptInScreen, base::FEATURE_DISABLED_BY_DEFAULT);
 // Features to trigger the startup sign-in promo at boot.
 BASE_FEATURE(kForceStartupSigninPromo, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kFRESignInAlternativeSecondaryButtonText,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 BASE_FEATURE(kFullscreenSignInPromoUseDate, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -457,6 +460,11 @@ BASE_FEATURE(kHandleMdmErrorsForDasherAccounts,
 
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kIdentityInAuthErrorFollowUps, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag to ignore invalid grant errors in AuthenticationService.
+BASE_FEATURE(kIgnoreInvalidGrantError, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -641,13 +649,6 @@ BASE_FEATURE(kBookmarksMigrateUiChanges,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// When enabled, Chrome will always use the /IssueToken endpoint to fetch access
-// tokens, no matter if a refresh token is bound or not.
-BASE_FEATURE(kUseIssueTokenToFetchAccessTokens,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 BASE_FEATURE(kUsePrimaryAndTonalButtonsForPromos,
              base::FEATURE_DISABLED_BY_DEFAULT);

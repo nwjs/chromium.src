@@ -37,10 +37,10 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
@@ -295,7 +295,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
     public void testRenderGrid_PinnedTabs() throws IOException {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
 
@@ -323,7 +322,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
     public void testRenderGrid_PinnedTabs_Scrolled() throws IOException {
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();
         RegularNewTabPageStation pageStation =
@@ -399,7 +397,7 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @EnableAnimations
-    @Restriction(DeviceFormFactor.DESKTOP) // Flaky on desktop crbug.com/485611939
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // Flaky on desktop crbug.com/485611939
     public void testTabToGridAndBack_SoftCleanup() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();

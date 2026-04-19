@@ -35,7 +35,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1324107359134968521">Chromium behöver åtkomst till Bluetooth för att utforska 
  Bluetooth-enheter. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Identifiera språk</translation>
-<translation id="1330742950061766891">Använd rekommenderade webbläsarinställningar för Chromium</translation>
 <translation id="1342274909142618978">Radera även data från Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Fäst! Du kan komma åt Bildsökning igen från den nya knappen i verktygsfältet</translation>
 <translation id="1356661055722410047">Nyhet! Du kan översätta både text och bilder på skärmen</translation>
@@ -57,8 +56,10 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1594928384848033697">Chromium vill radera din data i Lösenordshantering. Skriv ditt Windows-lösenord om du vill tillåta detta.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{Administratören meddelar att du måste starta om Chromium så att en uppdatering tillämpas}=1{Administratören meddelar att du måste starta om Chromium så att en uppdatering tillämpas. Inkognitofönstret öppnas inte igen.}other{Administratören meddelar att du måste starta om Chromium så att en uppdatering tillämpas. De # inkognitofönstren öppnas inte igen.}}</translation>
 <translation id="1625909126243026060">Granska viktiga integritets- och säkerhetskontroller i Chromium</translation>
+<translation id="1639380494700489405">Logga in i Chromium om du vill fråga AI-läget om fliken utan att lämna sidan. Du får även dina lösenord med mera på alla dina enheter.</translation>
 <translation id="1640672724030957280">Hämtar ...</translation>
 <translation id="1680687534629375545">Fråga bildsökning om den här sidan</translation>
+<translation id="1708414395296835197">Du kan använda Chromium varje gång du klickar på länkar i meddelanden, dokument och andra appar. Det fästs även i aktivitetsfältet.</translation>
 <translation id="1709772298389099340">Ger förhöjd behörighet för <ph name="BROWSER_NAME" />.</translation>
 <translation id="1715127912119967311">Din interaktion med dessa funktioner skickas till Google i syfte att förbättra dem. Denna data kan läsas, bearbetas och kommenteras av mänskliga granskare.</translation>
 <translation id="1722488837206509557">Detta gör att du kan välja bland tillgängliga enheter och visa innehåll på dem.</translation>
@@ -198,6 +199,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3045032126857188731">Översatt språk: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Stäng dialogrutan för feedback</translation>
 <translation id="3068187312562070417">Andra Chromium-profiler</translation>
+<translation id="3068290154869370196">Tillägg är add-ons som gör att du kan anpassa Chromium. Med tillägg kan du anpassa Chromium så att det passar dig, från att hålla ordning till att förenkla vardagssysslor.</translation>
 <translation id="3068515742935458733">Hjälp oss att göra Chromium bättre genom att skicka felrapporter och <ph name="UMA_LINK" /> till Google</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{Minst ett Chromium-tillägg har fått åtkomst till 1 USB-enhet}=1{Minst ett Chromium-tillägg har åtkomst till 1 USB-enhet}other{Minst ett Chromium-tillägg har åtkomst till # USB-enheter}}</translation>
 <translation id="3095811995836568724">Chromium-historik</translation>
@@ -228,7 +230,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3313189106987092621">Chromium varnar dig innan webbplatser med osäkra anslutningar läses in</translation>
 <translation id="3316771292331273802">Du loggas ut från de flesta webbplatser när du stänger alla fönster i Chromium, med undantag för Google-kontot om du är inloggad i Chromium. <ph name="SETTINGS_LINK" /> och gör så att webbplatser kommer ihåg dig.</translation>
 <translation id="3322413454779348750">Din standardsökmotor har ändrats utanför Chromium. Chromium har återställt den för att skydda dig.</translation>
-<translation id="3331557257666250900">Logga in i Chromium om du vill få dina lösenord, bokmärken med mera på alla dina enheter</translation>
 <translation id="3352986031709923790">övre högra hörnet av sökområdet: <ph name="RIGHT" /> % åt höger, <ph name="TOP" /> % uppåt</translation>
 <translation id="3366305173356742781">Chromium-data i ditt konto</translation>
 <translation id="3369405342922656244">Sök på den här sidan med bildsökning</translation>
@@ -439,6 +440,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="5895138241574237353">Starta om</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – nätverksinloggning</translation>
 <translation id="5924017743176219022">Ansluter till internet …</translation>
+<translation id="5939553720811388432">Nu förbereder vi Chromium</translation>
 <translation id="5941711191222866238">Minimera</translation>
 <translation id="5949225980829865667">Logga in i Chromium för att få tillgång till detta bokmärke med mera på alla dina enheter</translation>
 <translation id="5953657885167112863">Gör Chromium till din egen</translation>
@@ -592,6 +594,7 @@ Chromium kan inte återställa dina inställningar.</translation>
 <translation id="7352651011704765696">Något gick fel</translation>
 <translation id="7368826207863345663">Du behöver macOS 13 eller senare för att få framtida uppdateringar av Chromium. På den här datorn används macOS 12.</translation>
 <translation id="7376384068949534168">Du har inte besökt webbplatsen på sistone. Chromium har tagit bort <ph name="PERMISSION_1" /> och <ph name="PERMISSION_2" />.</translation>
+<translation id="73786666777299047">Öppna Chrome Web Store</translation>
 <translation id="7384121030444253939">Detta tillägg stöds inte längre. Vi rekommenderar att du tar bort det i stället.</translation>
 <translation id="7413153308467572558">Fortsätt där du slutade: Chromium återställer dina flikar varje gång du startar om. Inaktivera detta genom att öppna</translation>
 <translation id="7427879960656355200">Importera lösenord till Chromium</translation>

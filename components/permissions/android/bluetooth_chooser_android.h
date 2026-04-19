@@ -27,13 +27,13 @@ class BluetoothChooserAndroid : public content::BluetoothChooser {
  public:
   // The callback type for creating the java dialog object.
   using CreateJavaDialogCallback =
-      base::OnceCallback<base::android::ScopedJavaLocalRef<
-          JBluetoothChooserDialog>(JNIEnv*,
-                                   const base::android::JavaRef<jobject>&,
-                                   const base::android::JavaRef<jstring>&,
-                                   JniIntWrapper,
-                                   const base::android::JavaRef<jobject>&,
-                                   int64_t)>;
+      base::OnceCallback<base::android::ScopedJavaLocalRef<jobject>(
+          JNIEnv*,
+          const base::android::JavaRef<jobject>&,
+          const std::u16string&,
+          JniIntWrapper,
+          const base::android::JavaRef<jobject>&,
+          int64_t)>;
 
   // Both frame and event_handler must outlive the BluetoothChooserAndroid.
   BluetoothChooserAndroid(
@@ -54,18 +54,17 @@ class BluetoothChooserAndroid : public content::BluetoothChooser {
                          int signal_strength_level) override;
 
   // Report the dialog's result.
-  void OnDialogFinished(JNIEnv* env,
-                        int32_t event_type,
-                        const base::android::JavaRef<jstring>& device_id);
+  void OnDialogFinished(content::BluetoothChooserEvent event,
+                        const std::string& device_id);
 
   // Notify bluetooth stack that the search needs to be re-issued.
   void RestartSearch();
   // Calls RestartSearch(). Unused JNI parameters enable calls from Java.
   void RestartSearch(JNIEnv*);
 
-  void ShowBluetoothOverviewLink(JNIEnv* env);
-  void ShowBluetoothAdapterOffLink(JNIEnv* env);
-  void ShowNeedLocationPermissionLink(JNIEnv* env);
+  void ShowBluetoothOverviewLink();
+  void ShowBluetoothAdapterOffLink();
+  void ShowNeedLocationPermissionLink();
 
   static std::unique_ptr<BluetoothChooserAndroid> CreateForTesting(
       content::RenderFrameHost* frame,

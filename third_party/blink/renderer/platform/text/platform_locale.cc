@@ -247,17 +247,17 @@ String Locale::WeekFormatInLDML() {
   unsigned length = templ.length();
   for (unsigned i = 0; i + 1 < length; ++i) {
     if (templ[i] == '$' && (templ[i + 1] == '1' || templ[i + 1] == '2')) {
-      if (literal_start < i)
-        DateTimeFormat::QuoteAndappend(
-            templ.Substring(literal_start, i - literal_start), builder);
+      if (literal_start < i) {
+        DateTimeFormat::QuoteAndAppend(
+            templ.subview(literal_start, i - literal_start), builder);
+      }
       builder.Append(templ[++i] == '1' ? "yyyy" : "ww");
       literal_start = i + 1;
     }
   }
   if (literal_start < length)
-    DateTimeFormat::QuoteAndappend(
-        templ.Substring(literal_start, length - literal_start), builder);
-  return builder.ToString();
+    DateTimeFormat::QuoteAndAppend(templ.subview(literal_start), builder);
+  return builder.ReleaseString();
 }
 
 void Locale::SetLocaleData(const Vector<String, kDecimalSymbolsSize>& symbols,
@@ -320,7 +320,7 @@ String Locale::ConvertToLocalizedNumber(const String& input) {
 
   for (unsigned i = is_negative ? 1 : 0; i < input.length(); ++i) {
     const UChar c = input[i];
-    CHECK(c == '.' || (c >= '0' && c <= '9'));
+    CHECK(c == '.' || IsAsciiDigit(c));
     builder.Append(
         decimal_symbols_[c == '.' ? kDecimalSeparatorIndex : (c - '0')]);
   }
@@ -334,7 +334,7 @@ bool Locale::DetectSignAndGetDigitRange(const String& input,
                                         bool& is_negative,
                                         unsigned& start_index,
                                         unsigned& end_index) {
-  DCHECK_EQ(input.Find(IsASCIISpace), kNotFound);
+  DCHECK_EQ(input.Find(IsAsciiSpace), kNotFound);
   start_index = 0;
   end_index = input.length();
   const auto adjust_for_affixes = [&](const String& prefix,
@@ -386,7 +386,7 @@ unsigned Locale::MatchedDecimalSymbolIndex(const String& input,
 
 String Locale::ConvertFromLocalizedNumber(const String& localized) {
   InitializeLocaleData();
-  String input = localized.RemoveCharacters(IsASCIISpace);
+  String input = localized.RemoveCharacters(IsAsciiSpace);
   if (!has_locale_data_ || input.empty())
     return input;
 
@@ -418,12 +418,12 @@ String Locale::ConvertFromLocalizedNumber(const String& localized) {
       builder.Append(static_cast<UChar>('0' + symbol_index));
     }
   }
-  String converted = builder.ToString();
+  String converted = builder.ReleaseString();
   // Ignore trailing '.', but will reject '.'-only string later.
-  if (converted.length() >= 2 && converted[converted.length() - 1] == '.') {
+  if (converted.length() >= 2 && converted.ends_with('.')) {
     // Leave it if there are two decimal separators since that's invalid.
     if (num_decimal_separators < 2)
-      converted = converted.Left(converted.length() - 1);
+      converted = converted.substr(0, converted.length() - 1);
   }
   return converted;
 }
@@ -488,8 +488,9 @@ bool Locale::HasSignNotAfterE(const String& str) {
 
 bool Locale::IsDigit(UChar ch) {
   // Always allow 0 - 9.
-  if (ch >= '0' && ch <= '9')
+  if (IsAsciiDigit(ch)) {
     return true;
+  }
   // Check each digit otherwise
   String ch_str(base::span_from_ref(ch));
   return (ch_str == decimal_symbols_[0] || ch_str == decimal_symbols_[1] ||

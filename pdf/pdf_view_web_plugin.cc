@@ -74,7 +74,6 @@
 #include "pdf/ui/thumbnail.h"
 #include "printing/metafile_skia.h"
 #include "printing/units.h"
-#include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -1346,8 +1345,7 @@ void PdfViewWebPlugin::Print() {
 }
 
 void PdfViewWebPlugin::SubmitForm(const std::string& url,
-                                  const void* data,
-                                  int length) {
+                                  base::span<const uint8_t> data) {
   // `url` might be a relative URL. Resolve it against the document's URL.
   // TODO(crbug.com/40224475): Probably redundant with `Client::CompleteURL()`.
   GURL resolved_url = GURL(url_).Resolve(url);
@@ -1358,7 +1356,7 @@ void PdfViewWebPlugin::SubmitForm(const std::string& url,
   UrlRequest request;
   request.url = resolved_url.spec();
   request.method = "POST";
-  request.body.assign(static_cast<const char*>(data), length);
+  request.body.assign(base::as_string_view(data));
 
   form_loader_ = std::make_unique<UrlLoader>(weak_factory_.GetWeakPtr());
   form_loader_->Open(request, base::BindOnce(&PdfViewWebPlugin::DidFormOpen,
@@ -2349,7 +2347,7 @@ void PdfViewWebPlugin::SaveToFile(const std::string& token) {
   client_->PostMessage(
       base::DictValue().Set("type", "consumeSaveToken").Set("token", token));
 
-  pdf_host_->SaveUrlAs(GURL(url_), network::mojom::ReferrerPolicy::kDefault);
+  pdf_host_->SavePdf();
 }
 
 void PdfViewWebPlugin::SetPluginCanSave(bool can_save) {
@@ -2591,8 +2589,10 @@ void PdfViewWebPlugin::ClearDeferredInvalidates() {
   deferred_invalidates_.clear();
 }
 
-SkBitmap* PdfViewWebPlugin::InstallBuffer(SkImageInfo image_info, void* data) {
-  image_data_.installPixels(image_info, data, image_info.minRowBytes());
+SkBitmap* PdfViewWebPlugin::InstallBuffer(SkImageInfo image_info,
+                                          base::span<uint8_t> data) {
+  CHECK_GE(data.size(), image_info.computeMinByteSize());
+  image_data_.installPixels(image_info, data.data(), image_info.minRowBytes());
   first_paint_ = true;
   return &image_data_;
 }

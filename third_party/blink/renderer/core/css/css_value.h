@@ -22,6 +22,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_VALUE_H_
 
 #include <concepts>
+#include <initializer_list>
 
 #include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -86,6 +87,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   bool IsBorderImageSliceValue() const {
     return class_type_ == kBorderImageSliceClass;
   }
+  bool IsAlphaColorValue() const { return class_type_ == kAlphaColorClass; }
   bool IsColorValue() const { return class_type_ == kColorClass; }
   bool IsColorMixValue() const { return class_type_ == kColorMixClass; }
   bool IsContrastColorValue() const {
@@ -283,6 +285,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kColorClass,
     kUnresolvedColorClass,
     kColorMixClass,
+    kAlphaColorClass,
     kContrastColorClass,
     kCounterClass,
     kCounterContentClass,
@@ -373,6 +376,8 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
 
     kTriggerAttachmentClass,
 
+    kRepeatClass,
+
     // List class types must appear after ValueListClass.
     kValueListClass,
     kFunctionClass,
@@ -381,7 +386,6 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kGridAutoRepeatClass,
     kGridIntegerRepeatClass,
     kAxisClass,
-    kRepeatClass,
     // Do not append non-list class types here.
   };
 
@@ -446,6 +450,20 @@ inline bool CompareCSSValueVector(
     }
   }
   return true;
+}
+
+// Returns true if all provided CSSValue pointers are non-null and equal.
+inline bool AllCSSValuesEqual(
+    std::initializer_list<const CSSValue*> values) {
+  const CSSValue* first = nullptr;
+  for (const CSSValue* v : values) {
+    if (!first) {
+      first = v;
+    } else if (!base::ValuesEquivalent(first, v)) {
+      return false;
+    }
+  }
+  return first != nullptr;
 }
 
 }  // namespace blink

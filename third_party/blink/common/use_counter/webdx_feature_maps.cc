@@ -467,16 +467,18 @@ GetWebFeatureToWebDXFeatureMap() {
           {WebFeature::kLanguageDetector_Detect,
            WebDXFeature::kLanguageDetector},
           {WebFeature::kPartitionedCookies, WebDXFeature::kPartitionedCookies},
-          {WebFeature::kLanguageModel_Prompt, WebDXFeature::kPrompt},
-          {WebFeature::kLanguageModel_PromptStreaming, WebDXFeature::kPrompt},
+          {WebFeature::kLanguageModel_Prompt, WebDXFeature::kLanguageModel},
+          {WebFeature::kLanguageModel_PromptStreaming,
+           WebDXFeature::kLanguageModel},
           {WebFeature::kProofreader_Proofread, WebDXFeature::kProofreader},
           {WebFeature::kRewriter_Rewrite, WebDXFeature::kRewriter},
           {WebFeature::kRewriter_RewriteStreaming, WebDXFeature::kRewriter},
           {WebFeature::kWriter_Write, WebDXFeature::kWriter},
           {WebFeature::kWriter_WriteStreaming, WebDXFeature::kWriter},
-          {WebFeature::kModelContextRegisterTool, WebDXFeature::kDRAFT_WebMCP},
+          {WebFeature::kModelContextRegisterTool,
+           WebDXFeature::kNavigatorModelcontext},
           {WebFeature::kModelContextRegisterDeclarativeTool,
-           WebDXFeature::kDRAFT_WebMCP},
+           WebDXFeature::kDeclarativeWebmcp},
           // Add new features above this line.
       }};
 

@@ -4,6 +4,8 @@
 
 source_set("content") {
   sources = [
+    "filter_initiated_navigation_marker.cc",
+    "filter_initiated_navigation_marker.h",
     "filter_navigation_observer.cc",
     "filter_navigation_observer.h",
   ]
@@ -24,6 +26,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/multistep_filter/core",
+    "//components/multistep_filter/core/annotation_index:test_support",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",

@@ -9,6 +9,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_accelerators.h"
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
@@ -47,6 +48,7 @@
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_status.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
@@ -59,7 +61,6 @@
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/browser_process_platform_part_test_api_chromeos.h"
-#include "chrome/test/base/testing_browser_process.h"
 #include "chromeos/ash/components/dbus/shill/shill_service_client.h"
 #include "chromeos/ash/components/dbus/update_engine/fake_update_engine_client.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
@@ -534,14 +535,17 @@ class DemoSetupArcSupportedTest : public DemoSetupTestBase {
 
     // Verify the email corresponds to France.
     EXPECT_EQ("admin-fr@cros-demo-mode.com",
-              DemoSetupController::GetSubOrganizationEmail());
+              DemoSetupController::GetSubOrganizationEmail(
+                  CHECK_DEREF(g_browser_process->local_state())));
 
     // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
     // it's shown again when Demo setup completes.
     LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
 
-    EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-    EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+    EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+        CHECK_DEREF(g_browser_process->local_state())));
+    EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+        CHECK_DEREF(g_browser_process->local_state())));
   }
 };
 
@@ -633,14 +637,17 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest,
 
   // Verify the email corresponds to US.
   EXPECT_EQ("admin-us@cros-demo-mode.com",
-            DemoSetupController::GetSubOrganizationEmail());
+            DemoSetupController::GetSubOrganizationEmail(
+                CHECK_DEREF(g_browser_process->local_state())));
 
   // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
   // it's shown again when Demo setup completes.
   LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
 
-  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   // Both components were successfully loaded on the initial attempt.
   histogram_tester_.ExpectTotalCount(
@@ -735,7 +742,8 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest,
   AcceptTermsAndExpectDemoSetupProgress();
 
   EXPECT_EQ("admin-us@cros-demo-mode.com",
-            DemoSetupController::GetSubOrganizationEmail());
+            DemoSetupController::GetSubOrganizationEmail(
+                CHECK_DEREF(g_browser_process->local_state())));
   // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
   // it's shown again when Demo setup completes.
   LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
@@ -746,8 +754,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest,
   EXPECT_EQ("1234", g_browser_process->local_state()->GetString(
                         prefs::kDemoModeStoreId));
 
-  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   // Both components were successfully loaded on the initial attempt.
   histogram_tester_.ExpectTotalCount(
@@ -809,8 +819,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest,
   SetAndVerifyValidRetailerNameAndStoreNumber("ValidRetailer", "1234");
   SetAndVerifyInvalidRetailerNameAndStoreNumber("", "");
 
-  EXPECT_FALSE(StartupUtils::IsOobeCompleted());
-  EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
+  EXPECT_FALSE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_FALSE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 }
 
 IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest, OnlineSetupFlowErrorDefault) {
@@ -842,8 +854,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest, OnlineSetupFlowErrorDefault) {
   test::OobeJS().ExpectHiddenPath(kDemoSetupErrorDialogPowerwash);
   test::OobeJS().ExpectEnabledPath(kDemoSetupErrorDialogBack);
 
-  EXPECT_FALSE(StartupUtils::IsOobeCompleted());
-  EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
+  EXPECT_FALSE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_FALSE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   // The error occurred at the enrollment step. In the previous component
   // loading step, both components were still successfully loaded on the initial
@@ -888,8 +902,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest,
   test::OobeJS().ExpectVisiblePath(kDemoSetupErrorDialogPowerwash);
   test::OobeJS().ExpectDisabledPath(kDemoSetupErrorDialogBack);
 
-  EXPECT_FALSE(StartupUtils::IsOobeCompleted());
-  EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
+  EXPECT_FALSE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_FALSE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   // The error occurred at the enrollment step. In the previous component
   // loading step, both components were still successfully loaded on the initial
@@ -1045,8 +1061,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest, DISABLED_RetryOnErrorScreen) {
   // it's shown again when Demo setup completes.
   LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
 
-  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
   // The enum of success (no error) is recorded to DemoMode.Setup.Error on
   // success. There should have been two counts because of two tries.
   histogram_tester_.ExpectBucketCount(
@@ -1084,8 +1102,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupArcSupportedTest, ClickRetryOnErrorScreen) {
   test::OobeJS().ExpectHiddenPath(kDemoSetupErrorDialogPowerwash);
   test::OobeJS().ExpectEnabledPath(kDemoSetupErrorDialogBack);
 
-  EXPECT_FALSE(StartupUtils::IsOobeCompleted());
-  EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
+  EXPECT_FALSE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_FALSE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   test::LockDemoDeviceInstallAttributes();
 
@@ -1250,8 +1270,10 @@ IN_PROC_BROWSER_TEST_F(DemoSetupComponentLoadErrorTest,
   ExpectErrorMessage(IDS_DEMO_SETUP_COMPONENT_ERROR,
                      IDS_DEMO_SETUP_RECOVERY_CHECK_NETWORK);
 
-  EXPECT_FALSE(StartupUtils::IsOobeCompleted());
-  EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
+  EXPECT_FALSE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_FALSE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
 
   // DemoSetupComponentLoadErrorTest gives INSTALL_FAILURE to the demo mode app
   // component. So there should be app failure and resources success. There is
@@ -1300,14 +1322,17 @@ IN_PROC_BROWSER_TEST_F(DemoSetupVariantCountryCodeRegionTest,
 
   // Verify the email corresponds to France.
   EXPECT_EQ("admin-ca@cros-demo-mode.com",
-            DemoSetupController::GetSubOrganizationEmail());
+            DemoSetupController::GetSubOrganizationEmail(
+                CHECK_DEREF(g_browser_process->local_state())));
 
   // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
   // it's shown again when Demo setup completes.
   LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
 
-  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
   // The enum of success (no error) is recorded to DemoMode.Setup.Error on
   // success.
   histogram_tester_.ExpectBucketCount(
@@ -1453,14 +1478,17 @@ IN_PROC_BROWSER_TEST_F(DemoSetupBlazeyDeviceTest,
 
   // Verify the email corresponds to US.
   EXPECT_EQ("admin-us-blazey@cros-demo-mode.com",
-            DemoSetupController::GetSubOrganizationEmail());
+            DemoSetupController::GetSubOrganizationEmail(
+                CHECK_DEREF(g_browser_process->local_state())));
 
   // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
   // it's shown again when Demo setup completes.
   LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();
 
-  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
-  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state())));
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered(
+      CHECK_DEREF(g_browser_process->local_state())));
   // The enum of success (no error) is recorded to DemoMode.Setup.Error on
   // success.
   histogram_tester_.ExpectBucketCount(
@@ -1557,7 +1585,8 @@ class DemoSetupGrowthFrameworkEnabledTest : public DemoSetupArcSupportedTest {
     AcceptTermsAndExpectDemoSetupProgress();
 
     EXPECT_EQ("admin-us@cros-demo-mode.com",
-              DemoSetupController::GetSubOrganizationEmail());
+              DemoSetupController::GetSubOrganizationEmail(
+                  CHECK_DEREF(g_browser_process->local_state())));
     // LoginOrLockScreen is shown at beginning of OOBE, so we need to wait until
     // it's shown again when Demo setup completes.
     LoginOrLockScreenVisibleWaiter().WaitEvenIfShown();

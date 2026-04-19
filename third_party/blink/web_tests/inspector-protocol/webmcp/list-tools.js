@@ -17,11 +17,13 @@
           required: ["text"]
         };
         async function echo(obj) { return obj.text; }
-        navigator.modelContext.registerTool({
+        const initial_imperative_tool = {
           execute: echo,
           name: "initial_imperative_tool",
           description: "An imperative WebMCP tool",
-        });
+        };
+        window.initialController = new AbortController();
+        navigator.modelContext.registerTool(initial_imperative_tool, { signal: window.initialController.signal });
 
         window.registerNewTools = function() {
             navigator.modelContext.registerTool({
@@ -44,9 +46,17 @@
         };
 
         window.unregisterOneOfEach = function() {
-            navigator.modelContext.unregisterTool("initial_imperative_tool");
+            window.initialController.abort();
             const form = document.getElementById("initial_declarative");
             form.remove();
+        };
+
+        window.registerEvenMoreTools = function() {
+            navigator.modelContext.registerTool({
+              execute: echo,
+              name: "newer_imperative_tool",
+              description: "Another imperative tool",
+            });
         };
       </script>
       `,
@@ -63,6 +73,12 @@
 
   testRunner.log('Unregistering one of each...');
   await dp.Runtime.evaluate({expression: 'window.unregisterOneOfEach()'});
+
+  testRunner.log('Disabling WebMCP Domain...');
+  await dp.WebMCP.disable();
+
+  testRunner.log('Registering even more tools (should not be reported)...');
+  await dp.Runtime.evaluate({expression: 'window.registerEvenMoreTools()'});
 
   testRunner.completeTest();
 });

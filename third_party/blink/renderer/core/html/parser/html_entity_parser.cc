@@ -125,7 +125,7 @@ bool ConsumeNamedEntity(SegmentedString& source,
   }
   if (entity_search.MostRecentMatch()->LastCharacter() == ';' ||
       !additional_allowed_character ||
-      !(IsASCIIAlphanumeric(cc) || cc == '=')) {
+      !(IsAsciiAlphanumeric(cc) || cc == '=')) {
     AppendMatchToDecoded(*entity_search.MostRecentMatch(), decoded_entity);
     return true;
   }
@@ -184,7 +184,7 @@ bool ConsumeHTMLEntity(SegmentedString& source,
           entity_state = kNumber;
           break;
         }
-        if ((cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')) {
+        if (IsAsciiAlpha(cc)) {
           entity_state = kNamed;
           continue;
         }
@@ -199,7 +199,7 @@ bool ConsumeHTMLEntity(SegmentedString& source,
           entity_state = kMaybeHexUpperCaseX;
           break;
         }
-        if (cc >= '0' && cc <= '9') {
+        if (IsAsciiDigit(cc)) {
           entity_state = kDecimal;
           continue;
         }
@@ -207,7 +207,7 @@ bool ConsumeHTMLEntity(SegmentedString& source,
         return false;
       }
       case kMaybeHexLowerCaseX: {
-        if (IsASCIIHexDigit(cc)) {
+        if (IsAsciiHexDigit(cc)) {
           entity_state = kHex;
           continue;
         }
@@ -216,7 +216,7 @@ bool ConsumeHTMLEntity(SegmentedString& source,
         return false;
       }
       case kMaybeHexUpperCaseX: {
-        if (IsASCIIHexDigit(cc)) {
+        if (IsAsciiHexDigit(cc)) {
           entity_state = kHex;
           continue;
         }
@@ -225,9 +225,9 @@ bool ConsumeHTMLEntity(SegmentedString& source,
         return false;
       }
       case kHex: {
-        if (IsASCIIHexDigit(cc)) {
+        if (IsAsciiHexDigit(cc)) {
           if (result != kInvalidUnicode)
-            result = result * 16 + ToASCIIHexValue(cc);
+            result = result * 16 + ToAsciiHexValue(cc);
         } else if (cc == ';') {
           source.AdvanceAndASSERT(cc);
           AppendLegalEntityFor(result, decoded_entity);
@@ -239,7 +239,7 @@ bool ConsumeHTMLEntity(SegmentedString& source,
         break;
       }
       case kDecimal: {
-        if (cc >= '0' && cc <= '9') {
+        if (IsAsciiDigit(cc)) {
           if (result != kInvalidUnicode)
             result = result * 10 + cc - '0';
         } else if (cc == ';') {

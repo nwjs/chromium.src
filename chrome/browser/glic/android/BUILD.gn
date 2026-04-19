@@ -16,6 +16,7 @@ android_resources("java_resources") {
   sources = [
     "java/res/layout/glic_auto_browse.xml",
     "java/res/layout/glic_default_tab_access.xml",
+    "java/res/raw/glic_spinner.json",
     "java/res/values/dimens.xml",
     "java/res/xml/glic_settings.xml",
   ]
@@ -27,6 +28,7 @@ android_resources("java_resources") {
 
 android_library("java") {
   sources = [
+    "java/src/org/chromium/chrome/browser/glic/GlicHelper.java",
     "java/src/org/chromium/chrome/browser/glic/GlicKeyedServiceImpl.java",
     "java/src/org/chromium/chrome/browser/glic/GlicSettings.java",
     "java/src/org/chromium/chrome/browser/glic/GlicToolbarButtonController.java",
@@ -40,6 +42,7 @@ android_library("java") {
     "//base:base_shared_preferences_java",
     "//build/android:build_java",
     "//chrome/android:chrome_app_java_resources",
+    "//chrome/browser/actor/android:java",
     "//chrome/browser/feature_engagement:java",
     "//chrome/browser/glic:public_java",
     "//chrome/browser/preferences:java",
@@ -48,17 +51,39 @@ android_library("java") {
     "//chrome/browser/tab:java",
     "//chrome/browser/ui/android/toolbar:java",
     "//chrome/browser/ui/browser_window/public/android:java",
+    "//chrome/browser/ui/messages/android:java",
     "//chrome/browser/user_education:java",
     "//components/browser_ui/settings/android:java",
     "//components/browser_ui/styles/android:java",
+    "//components/embedder_support/android:util_java",
     "//components/feature_engagement/public:public_java",
+    "//components/prefs/android:java",
+    "//components/user_prefs/android:java",
+    "//content/public/android:content_full_java",
+    "//third_party/android_deps:com_airbnb_android_lottie_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_appcompat_appcompat_resources_java",
+    "//third_party/androidx:androidx_core_core_java",
     "//third_party/androidx:androidx_fragment_fragment_java",
     "//third_party/androidx:androidx_preference_preference_java",
     "//third_party/androidx:androidx_recyclerview_recyclerview_java",
     "//third_party/jni_zero:jni_zero_java",
     "//ui/android:ui_no_recycler_view_java",
+    "//url:url_java",
+  ]
+}
+
+source_set("jni_bridges") {
+  sources = [
+    "co_browse_views_bridge.cc",
+    "co_browse_views_bridge.h",
+  ]
+  deps = [
+    "//base",
+    "//chrome/browser/context_sharing/tab_bottom_sheet/android:jni_headers",
+    "//components/tabs:public",
+    "//content/public/browser",
+    "//ui/android",
   ]
 }
 
@@ -82,20 +107,28 @@ source_set("android") {
 
 robolectric_library("junit") {
   sources = [
+    "java/src/org/chromium/chrome/browser/glic/GlicHelperUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicSettingsUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicToolbarButtonControllerTest.java",
   ]
   deps = [
     ":java",
     ":java_resources",
+    ":jni_headers_java",
     "//base:base_java",
+    "//base:base_java_test_support",
     "//base:base_junit_test_support",
     "//base:base_shared_preferences_java",
+    "//chrome/browser/actor/android:java",
+    "//chrome/browser/flags:java",
+    "//chrome/browser/glic:public_java",
     "//chrome/browser/preferences:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/tab:java",
     "//chrome/browser/ui/android/toolbar:java",
+    "//chrome/browser/ui/messages/android:java",
     "//components/browser_ui/settings/android:java",
+    "//components/feature_engagement/public:public_java",
     "//components/prefs/android:java",
     "//components/user_prefs/android:java",
     "//content/public/android:content_full_java",
@@ -107,5 +140,7 @@ robolectric_library("junit") {
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
     "//ui/android:ui_java_test_support",
+    "//url:gurl_junit_test_support",
+    "//url:url_java",
   ]
 }

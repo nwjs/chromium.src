@@ -711,10 +711,14 @@ class SSLErrorDelegate : public SSLErrorHandler::Delegate {
       : response_(std::move(response)) {}
   ~SSLErrorDelegate() override = default;
   void CancelSSLRequest(int error, const net::SSLInfo* ssl_info) override {
+    base::UmaHistogramTimes("Content.SslError.CallbackDuration",
+                            base::TimeTicks::Now() - startTime_);
     std::move(response_).Run(error);
     delete this;
   }
   void ContinueSSLRequest() override {
+    base::UmaHistogramTimes("Content.SslError.CallbackDuration",
+                            base::TimeTicks::Now() - startTime_);
     std::move(response_).Run(net::OK);
     delete this;
   }
@@ -723,6 +727,7 @@ class SSLErrorDelegate : public SSLErrorHandler::Delegate {
   }
 
  private:
+  base::TimeTicks startTime_ = base::TimeTicks::Now();
   network::mojom::URLLoaderNetworkServiceObserver::OnSSLCertificateErrorCallback
       response_;
   base::WeakPtrFactory<SSLErrorDelegate> weak_factory_{this};
@@ -1218,17 +1223,16 @@ void StoragePartitionImpl::RegisterKeepAliveHandle(
 }
 
 void StoragePartitionImpl::RevokeNetworkForNoncesInNetworkContext(
-    const std::map<base::UnguessableToken, std::set<std::string>>&
-        nonces_to_patterns,
+    const std::map<base::UnguessableToken, network::ConnectionAllowlists>&
+        nonces_to_allowlists,
     base::OnceClosure callback) {
   std::vector<network::mojom::NonceAndAllowlistedPatternsPtr> dest_vector;
-  for (const auto& pair : nonces_to_patterns) {
+  for (const auto& pair : nonces_to_allowlists) {
     // Create a new Mojo struct pointer for each map entry.
     auto nonce_and_patterns =
         network::mojom::NonceAndAllowlistedPatterns::New();
     nonce_and_patterns->nonce = pair.first;
-    nonce_and_patterns->allowlisted_patterns.assign(pair.second.begin(),
-                                                    pair.second.end());
+    nonce_and_patterns->allowlists = pair.second;
     dest_vector.push_back(std::move(nonce_and_patterns));
   }
   GetNetworkContext()->RevokeNetworkForNonces(std::move(dest_vector),
@@ -1237,8 +1241,9 @@ void StoragePartitionImpl::RevokeNetworkForNoncesInNetworkContext(
   // Save nonces and allowlisted URLs in `StoragePartitionImpl`. When there is a
   // crash of `NetworkService`, the network revocation nonces of
   // `NetworkContext` will be restored using this.
-  network_revocation_nonces_.insert(nonces_to_patterns.begin(),
-                                    nonces_to_patterns.end());
+  for (const auto& pair : nonces_to_allowlists) {
+    network_revocation_nonces_.insert_or_assign(pair.first, pair.second);
+  }
 }
 
 void StoragePartitionImpl::ClearNoncesInNetworkContextAfterDelay(
@@ -2514,7 +2519,8 @@ void StoragePartitionImpl::OnSSLCertificateError(
   bool is_primary_main_frame_request = context.IsPrimaryMainFrameRequest();
   SSLManager::OnSSLCertificateError(
       delegate->GetWeakPtr(), is_primary_main_frame_request, url,
-      context.navigation_or_document(), net_error, ssl_info, fatal);
+      context.navigation_or_document(), static_cast<net::Error>(net_error),
+      ssl_info, fatal);
 }
 
 void StoragePartitionImpl::OnLoadingStateUpdate(
@@ -3614,6 +3620,7 @@ void StoragePartitionImpl::InitNetworkContext() {
   context_params->cors_exempt_header_list.push_back(blink::kPurposeHeaderName);
   context_params->cors_exempt_header_list.push_back(
       GetCorsExemptRequestedWithHeaderName());
+  context_params->cors_exempt_header_list.push_back("Last-Event-ID");
   variations::UpdateCorsExemptHeaderForVariations(context_params.get());
   variations::UpdateCorsExemptHeaderForOmniboxAutofocus(context_params.get());
   cors_exempt_header_list_ = context_params->cors_exempt_header_list;
@@ -3648,14 +3655,9 @@ void StoragePartitionImpl::InitNetworkContext() {
   // Restore the saved network revocation nonces. This allows network access
   // states to be persisted in case of a `NetworkService` crash.
   std::vector<network::mojom::NonceAndAllowlistedPatternsPtr> dest_vector;
-  for (const auto& pair : network_revocation_nonces_) {
-    // Create a new Mojo struct pointer for each map entry.
-    auto nonce_and_patterns =
-        network::mojom::NonceAndAllowlistedPatterns::New();
-    nonce_and_patterns->nonce = pair.first;
-    nonce_and_patterns->allowlisted_patterns.assign(pair.second.begin(),
-                                                    pair.second.end());
-    dest_vector.push_back(std::move(nonce_and_patterns));
+  for (const auto& [nonce, allowlists] : network_revocation_nonces_) {
+    dest_vector.push_back(
+        network::mojom::NonceAndAllowlistedPatterns::New(nonce, allowlists));
   }
 
   network_context_owner_->network_context->RevokeNetworkForNonces(

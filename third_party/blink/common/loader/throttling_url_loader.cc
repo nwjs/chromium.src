@@ -27,7 +27,6 @@
 #include "services/network/public/cpp/record_ontransfersizeupdate_utils.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 
 namespace blink {
@@ -282,15 +281,13 @@ std::unique_ptr<ThrottlingURLLoader> ThrottlingURLLoader::CreateLoaderAndStart(
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     std::optional<std::vector<std::string>> cors_exempt_header_list,
-    ClientReceiverDelegate* client_receiver_delegate,
-    const std::vector<int>* initiator_origin_trial_features) {
+    ClientReceiverDelegate* client_receiver_delegate) {
   DCHECK(url_request);
   std::unique_ptr<ThrottlingURLLoader> loader =
       CreateLoader(std::move(throttles), client, traffic_annotation,
                    client_receiver_delegate);
   loader->Start(std::move(factory), request_id, options, url_request,
-                std::move(task_runner), std::move(cors_exempt_header_list),
-                initiator_origin_trial_features);
+                std::move(task_runner), std::move(cors_exempt_header_list));
   return loader;
 }
 
@@ -421,8 +418,7 @@ void ThrottlingURLLoader::Start(
     uint32_t options,
     network::ResourceRequest* url_request,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
-    std::optional<std::vector<std::string>> cors_exempt_header_list,
-    const std::vector<int>* initiator_origin_trial_features) {
+    std::optional<std::vector<std::string>> cors_exempt_header_list) {
   TRACE_EVENT("loading", "ThrottlingURLLoader::Start",
               perfetto::Flow::FromPointer(this), "request_id", request_id);
   DCHECK_EQ(DEFERRED_NONE, deferred_stage_);
@@ -482,18 +478,6 @@ void ThrottlingURLLoader::Start(
       if (!HandleThrottleResult(throttle, throttle_deferred, &deferred))
         return;
     }
-  }
-
-  if (initiator_origin_trial_features &&
-      (std::ranges::contains(
-           *initiator_origin_trial_features,
-           static_cast<int>(
-               mojom::OriginTrialFeature::kDeviceBoundSessionCredentials)) ||
-       std::ranges::contains(
-           *initiator_origin_trial_features,
-           static_cast<int>(
-               mojom::OriginTrialFeature::kDeviceBoundSessionCredentials2)))) {
-    url_request->allows_device_bound_session_registration = true;
   }
 
   start_info_ = std::make_unique<StartInfo>(factory, request_id, options,

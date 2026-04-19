@@ -153,8 +153,10 @@ inline string_size_t Find(const StringView& string,
 
   // Optimization: fast case for strings of length 1.
   if (match_length == 1) {
-    return string.Is8Bit() ? blink::Find(string.Span8(), match[0], index)
-                           : blink::Find(string.Span16(), match[0], index);
+    // SAFETY: length of one implies first element valid.
+    return string.Is8Bit()
+               ? blink::Find(string.Span8(), UNSAFE_BUFFERS(match[0]), index)
+               : blink::Find(string.Span16(), UNSAFE_BUFFERS(match[0]), index);
   }
 
   // Check index & matchLength are in range.
@@ -222,6 +224,47 @@ ReverseFind(base::span<const SearchCharacterType> search,
     search_hash += UNSAFE_BUFFERS(search_data[0]);
   }
   return delta;
+}
+
+// Search the `chars` span for `match_character` from the end of the span,
+// and returns the found index or kNotFound.
+//
+// This function searches from chars[min(index, chars.size()-1)] to chars[0].
+template <typename CharType>
+inline string_size_t ReverseFind(base::span<const CharType> chars,
+                                 CharType match_character,
+                                 string_size_t index) {
+  const size_t length = chars.size();
+  if (!length) {
+    return kNotFound;
+  }
+  if (index >= length) {
+    index = length - 1;
+  }
+  const CharType* data = chars.data();
+  // We don't use chars[index] for better performance.
+  // SAFETY: The above code ensures `index` is less than characters.size().
+  while (UNSAFE_BUFFERS(data[index]) != match_character) {
+    if (!index--) {
+      return kNotFound;
+    }
+  }
+  return index;
+}
+
+ALWAYS_INLINE string_size_t ReverseFind(base::span<const UChar> chars,
+                                        LChar match_character,
+                                        string_size_t index) {
+  return ReverseFind(chars, static_cast<UChar>(match_character), index);
+}
+
+inline string_size_t ReverseFind(base::span<const LChar> chars,
+                                 UChar match_character,
+                                 string_size_t index) {
+  if (match_character & ~0xFF) {
+    return kNotFound;
+  }
+  return ReverseFind(chars, static_cast<LChar>(match_character), index);
 }
 
 template <typename StringType, typename QueryType>

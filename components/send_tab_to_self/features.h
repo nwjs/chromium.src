@@ -28,6 +28,14 @@ BASE_DECLARE_FEATURE(kSendTabToSelfPropagateFormFields);
 // propagated to the target device using a text fragment selector.
 BASE_DECLARE_FEATURE(kSendTabToSelfPropagateScrollPosition);
 
+// If this feature is enabled, more granular "last active" timestamps will be
+// shown in the device picker.
+BASE_DECLARE_FEATURE(kSendTabToSelfImprovedLastActiveLabels);
+
+// If this feature is enabled, the back/forward history of the shared tab will
+// be captured and propagated to the target device.
+BASE_DECLARE_FEATURE(kSendTabToSelfPropagateNavigationHistory);
+
 #if BUILDFLAG(IS_IOS)
 // If this feature is enabled, users can schedule tab reminder iOS push
 // notifications.

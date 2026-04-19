@@ -22,13 +22,13 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/synchronization/lock.h"
 #include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/simple_thread.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_checker.h"
+#include "base/time/time.h"
 #include "cc/animation/animation_host.h"
 #include "cc/base/switches.h"
 #include "cc/input/input_handler.h"
@@ -116,7 +116,7 @@ void CreateContextProviderAfterGpuChannelEstablished(
 
   auto context_provider = viz::ContextProviderCommandBuffer::CreateForGL(
       std::move(gpu_channel_host), stream_id, stream_priority,
-      GURL(std::string("chrome://gpu/Compositor::CreateContextProvider")),
+      GURL("chrome://gpu/Compositor::CreateContextProvider"),
       viz::command_buffer_metrics::ContextType::UNKNOWN);
   std::move(callback).Run(std::move(context_provider));
 }
@@ -511,8 +511,7 @@ void CompositorImpl::OnGpuChannelEstablished(
 
   auto context_provider = viz::ContextProviderCommandBuffer::CreateForRaster(
       std::move(gpu_channel_host), stream_id, stream_priority,
-      GURL(std::string("chrome://gpu/CompositorImpl::") +
-           std::string("CompositorContextProvider")),
+      GURL("chrome://gpu/CompositorImpl::CompositorContextProvider"),
       automatic_flushes, support_locking,
       GetCompositorContextSharedMemoryLimits(root_window_),
       viz::command_buffer_metrics::ContextType::BROWSER_COMPOSITOR,

@@ -6,9 +6,11 @@
 
 #include <algorithm>
 
+#include "base/check.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
@@ -106,6 +108,14 @@ std::vector<DomStorageDatabase::MapMetadata> CloneMapMetadataVector(
     results.push_back(CloneMapMetadata(source));
   }
   return results;
+}
+
+DomStorageDatabase::Metadata CloneMetadata(
+    const DomStorageDatabase::Metadata& source) {
+  DomStorageDatabase::Metadata copy;
+  copy.next_map_id = source.next_map_id;
+  copy.map_metadata = CloneMapMetadataVector(source.map_metadata);
+  return copy;
 }
 
 void TestUpdateMaps(DomStorageDatabase& database,

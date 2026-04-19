@@ -29,6 +29,7 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/module_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_css_style_sheet.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_css_style_sheet_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_set_html_unsafe_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_shadow_root_mode.h"
@@ -56,7 +57,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
-#include "third_party/blink/renderer/core/html/parser/fragment_parser_options.h"
+#include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_creation_params.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_fetch_request.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
@@ -97,18 +98,15 @@ struct SameSizeAsShadowRoot : public DocumentFragment,
                               public ElementRareDataField {
   Member<void*> member[2];
   unsigned flags[1];
-  Vector<AtomicString> markers;
 };
 
 ASSERT_SIZE(ShadowRoot, SameSizeAsShadowRoot);
 
 ShadowRoot::ShadowRoot(Document& document,
                        ShadowRootMode mode,
-                       SlotAssignmentMode assignment_mode,
-                       const Vector<AtomicString>& initial_markers)
+                       SlotAssignmentMode assignment_mode)
     : DocumentFragment(nullptr, kCreateShadowRoot),
       TreeScope(*this, document),
-      markers_(initial_markers),
       child_shadow_root_count_(0),
       mode_(static_cast<unsigned>(mode)),
       registered_with_parent_shadow_root_(false),
@@ -244,15 +242,6 @@ void ShadowRoot::setHTML(const String& html,
       trusted_types_names::kSetHTML, exception_state);
 }
 
-void ShadowRoot::setHTML(const String& html,
-                         TrustedParserOptions* options,
-                         ExceptionState& exception_state) {
-  SetInnerHTMLInternal(
-      html, FragmentParserOptions(options), Sanitizer::Mode::kSafe,
-      FragmentParserConfig::ParseDeclarativeShadowRoots::kParse,
-      trusted_types_names::kSetHTML, exception_state);
-}
-
 void ShadowRoot::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
   DCHECK(!NeedsReattachLayoutTree());
   DCHECK(!ChildNeedsReattachLayoutTree());
@@ -337,8 +326,60 @@ V8SlotAssignmentMode ShadowRoot::slotAssignment() const {
                                   : V8SlotAssignmentMode::Enum::kNamed);
 }
 
-HeapVector<Member<CSSStyleSheet>>
-ShadowRoot::GetFetchedStyleSheetsFromModuleMap(
+class PendingModuleEntry final : public SingleModuleClient {
+ public:
+  PendingModuleEntry(ShadowRoot* shadow_root,
+                     Modulator* modulator,
+                     CSSStyleSheet* placeholder_sheet)
+      : shadow_root_(shadow_root),
+        modulator_(modulator),
+        placeholder_sheet_(placeholder_sheet) {}
+  ~PendingModuleEntry() override = default;
+
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(shadow_root_);
+    visitor->Trace(modulator_);
+    visitor->Trace(placeholder_sheet_);
+    SingleModuleClient::Trace(visitor);
+  }
+
+ private:
+  void NotifyModuleLoadFinished(ModuleScript* script,
+                                v8::ModuleImportPhase) override {
+    // The fetch may have failed, in which case script is null. Leave the empty
+    // placeholder unchanged.
+    if (!script) {
+      return;
+    }
+    // The context may have been destroyed (e.g. by navigation) before we get
+    // here.
+    ScriptState* script_state = modulator_->GetScriptState();
+    ScriptState::Scope scope(script_state);
+    if (!script_state->ContextIsValid()) {
+      return;
+    }
+    v8::Isolate* isolate = script_state->GetIsolate();
+    CHECK(isolate);
+    v8::HandleScope handle_scope(isolate);
+    CSSStyleSheet* fetched_sheet = V8CSSStyleSheet::ToWrappable(
+        isolate, static_cast<const ValueWrapperSyntheticModuleScript*>(script)
+                     ->GetExport(isolate));
+    // The CSS module may have failed to instantiate (e.g. parse error).
+    if (!fetched_sheet) {
+      return;
+    }
+    // Replace the empty placeholder sheet in adoptedStyleSheets with the
+    // fetched stylesheet. This preserves the ordering established at parse
+    // time.
+    shadow_root_->ReplaceAdoptedStyleSheet(*placeholder_sheet_, *fetched_sheet);
+  }
+
+  Member<ShadowRoot> shadow_root_;
+  Member<Modulator> modulator_;
+  Member<CSSStyleSheet> placeholder_sheet_;
+};
+
+HeapVector<Member<CSSStyleSheet>> ShadowRoot::ResolveAdoptedStyleSheets(
     const AtomicString& shadowrootadoptedstylesheets_attribute_value) {
   CHECK(RuntimeEnabledFeatures::ShadowRootAdoptedStyleSheetEnabled());
 
@@ -399,6 +440,27 @@ ShadowRoot::GetFetchedStyleSheetsFromModuleMap(
                 ->GetExport(isolate));
         CHECK_EQ(sheet->ConstructorDocument(), GetDocument());
         sheets.push_back(*sheet);
+      } else {
+        // Initiate a fetch if it's not already in the module map. First insert
+        // an empty placeholder into `sheets` to preserve the order, then fetch
+        // the module and replace the placeholder when it finishes.
+        CSSStyleSheetInit* init = CSSStyleSheetInit::Create();
+        CSSStyleSheet* placeholder_sheet =
+            CSSStyleSheet::Create(GetDocument(), init, ASSERT_NO_EXCEPTION);
+        sheets.push_back(*placeholder_sheet);
+
+        PendingModuleEntry* entry = MakeGarbageCollected<PendingModuleEntry>(
+            this, modulator, placeholder_sheet);
+        ScriptFetchOptions options;
+        ModuleScriptFetchRequest module_request(
+            resolved_url, ModuleType::kCSS,
+            mojom::blink::RequestContextType::STYLE,
+            network::mojom::RequestDestination::kStyle, options,
+            Referrer::ClientReferrerString(), TextPosition::MinimumPosition(),
+            ModuleImportPhase::kEvaluation);
+        modulator->FetchSingle(module_request, window->Fetcher(),
+                               ModuleGraphLevel::kTopLevelModuleFetch,
+                               ModuleScriptCustomFetchType::kNone, entry);
       }
     }
   }
@@ -409,7 +471,7 @@ void ShadowRoot::ProcessAdoptedStylesheetAttribute(
     AtomicString value) {
   CHECK(RuntimeEnabledFeatures::ShadowRootAdoptedStyleSheetEnabled());
   if (!value.empty()) {
-    AppendAdoptedStyleSheets(GetFetchedStyleSheetsFromModuleMap(value));
+    AppendAdoptedStyleSheets(ResolveAdoptedStyleSheets(value));
   }
 }
 

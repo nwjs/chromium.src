@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_coordinator.h"
+#import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_drs_view_controller.h"
@@ -21,6 +22,7 @@
 #import "ios/chrome/browser/overlays/model/public/overlay_presentation_context.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -153,7 +155,7 @@
   if (self.started) {
     return;
   }
-  // Set a default position, overriden by `setInitialOmniboxPosition` below.
+  // Set a default position, overridden by `setInitialOmniboxPosition` below.
   _omniboxPosition = ToolbarType::kPrimary;
 
   Browser* browser = self.browser;
@@ -369,13 +371,7 @@
   BOOL isOffTheRecord = self.isOffTheRecord;
   BOOL canShowTabStrip = CanShowTabStrip(self.traitEnvironment);
 
-  if (IsChromeNextIaEnabled()) {
-    // Hide the toolbar when on regular NTP on iPhone landscape.
-    BOOL hideToolbar = isNTP && !isOffTheRecord && !canShowTabStrip &&
-                       IsSplitToolbarMode(self.traitEnvironment);
-
-    self.primaryToolbarViewController.view.hidden = hideToolbar;
-  } else {
+  if (!IsChromeNextIaEnabled()) {
     // Hide the toolbar when displaying content suggestions without the tab
     // strip, without the focused omnibox, only when in split toolbar mode.
     BOOL hideToolbar = isNTP && !isOffTheRecord && ![self inEditState] &&
@@ -511,10 +507,13 @@
 
 - (CGFloat)collapsedSecondaryToolbarHeight {
   if (IsChromeNextIaEnabled()) {
+    if (self.secondaryToolbarViewController.view.hidden) {
+      return 0.0;
+    }
     if ([self isOmniboxInBottomPosition]) {
       return kToolbarHeightFullscreen;
     }
-    return 0;
+    return 0.0;
   }
   if (_omniboxPosition == ToolbarType::kSecondary) {
     return ToolbarCollapsedHeight(
@@ -525,10 +524,13 @@
 
 - (CGFloat)expandedSecondaryToolbarHeight {
   if (IsChromeNextIaEnabled()) {
+    if (self.secondaryToolbarViewController.view.hidden) {
+      return 0.0;
+    }
     if ([self isOmniboxInBottomPosition]) {
       return kToolbarHeight;
     }
-    return 0;
+    return 0.0;
   }
   if (!IsSplitToolbarMode(self.traitEnvironment)) {
     return 0.0;
@@ -599,7 +601,8 @@
 
 - (void)updateUIForOverflowMenuIPHDisplayed {
   if (IsChromeNextIaEnabled()) {
-    // TODO(crbug.com/483995532): implement this.
+    [_topToolbarViewController updateUIForOverflowMenuIPHDisplayed];
+    [_bottomToolbarViewController updateUIForOverflowMenuIPHDisplayed];
   }
   for (id<ToolbarCoordinatee> coordinator in self.coordinators) {
     [coordinator.popupMenuUIUpdater updateUIForOverflowMenuIPHDisplayed];
@@ -608,7 +611,8 @@
 
 - (void)updateUIForIPHDismissed {
   if (IsChromeNextIaEnabled()) {
-    // TODO(crbug.com/483995532): implement this.
+    [_topToolbarViewController updateUIForIPHDismissed];
+    [_bottomToolbarViewController updateUIForIPHDismissed];
   }
   for (id<ToolbarCoordinatee> coordinator in self.coordinators) {
     [coordinator.popupMenuUIUpdater updateUIForIPHDismissed];
@@ -617,7 +621,8 @@
 
 - (void)setOverflowMenuBlueDot:(BOOL)hasBlueDot {
   if (IsChromeNextIaEnabled()) {
-    // TODO(crbug.com/483995532): implement this.
+    [_topToolbarViewController setOverflowMenuBlueDot:hasBlueDot];
+    [_bottomToolbarViewController setOverflowMenuBlueDot:hasBlueDot];
   }
   for (id<ToolbarCoordinatee> coordinator in self.coordinators) {
     [coordinator.popupMenuUIUpdater setOverflowMenuBlueDot:hasBlueDot];
@@ -891,11 +896,12 @@
 
 - (void)indicateLensOverlayVisible:(BOOL)lensOverlayVisible {
   if (IsChromeNextIaEnabled()) {
-    // TODO(crbug.com/483994559): Implement this.
-    NOTREACHED();
+    [_topLocationBarCoordinator setLensOverlayVisible:lensOverlayVisible];
+    [_bottomLocationBarCoordinator setLensOverlayVisible:lensOverlayVisible];
+    return;
+  } else {
+    [self.locationBarCoordinator setLensOverlayVisible:lensOverlayVisible];
   }
-
-  [self.locationBarCoordinator setLensOverlayVisible:lensOverlayVisible];
 
   for (id<ToolbarCommands> coordinator in self.coordinators) {
     [coordinator indicateLensOverlayVisible:lensOverlayVisible];
@@ -1116,10 +1122,16 @@
   CHECK(IsChromeNextIaEnabled());
 
   Browser* browser = self.browser;
+  BrowserActionFactory* actionFactory = [[BrowserActionFactory alloc]
+      initWithBrowser:browser
+             scenario:kMenuScenarioHistogramToolbarMenu];
+
   ToolbarMediator* toolbarMediator = [[ToolbarMediator alloc]
       initWithWebStateList:browser->GetWebStateList()
+             actionFactory:actionFactory
       fullscreenController:FullscreenController::FromBrowser(browser)
                topPosition:topPosition];
+  toolbarMediator.incognito = self.profile->IsOffTheRecord();
   toolbarMediator.navigationBrowserAgent =
       WebNavigationBrowserAgent::FromBrowser(browser);
 

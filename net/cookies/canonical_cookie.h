@@ -252,19 +252,19 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
       bool httponly,
       CookieSameSite same_site,
       CookiePriority priority,
+      CookieSourceType source_type,
       std::optional<CookiePartitionKey> partition_key = std::nullopt,
-      CookieSourceScheme scheme_secure = CookieSourceScheme::kUnset,
-      int source_port = url::PORT_UNSPECIFIED,
-      CookieSourceType source_type = CookieSourceType::kUnknown);
+      CookieSourceScheme source_scheme = CookieSourceScheme::kUnset,
+      int source_port = url::PORT_UNSPECIFIED);
 
   // Like Create but with some more friendly defaults for use in tests.
   static std::unique_ptr<CanonicalCookie> CreateForTesting(
       const GURL& url,
-      const std::string& cookie_line,
+      std::string_view cookie_line,
       base::Time creation_time,
+      CookieSourceType source_type,
       std::optional<base::Time> server_time = std::nullopt,
       std::optional<CookiePartitionKey> cookie_partition_key = std::nullopt,
-      CookieSourceType source_type = CookieSourceType::kUnknown,
       CookieInclusionStatus* status = nullptr);
 
   friend auto operator<=>(const CanonicalCookie& left,
@@ -477,7 +477,7 @@ class NET_EXPORT CanonicalCookie : public CookieBase {
   base::Time last_access_date_;
   base::Time last_update_date_;
   CookiePriority priority_{COOKIE_PRIORITY_MEDIUM};
-  CookieSourceType source_type_{CookieSourceType::kUnknown};
+  CookieSourceType source_type_{CookieSourceType::kOther};
 };
 
 // Used to pass excluded cookie information when it's possible that the

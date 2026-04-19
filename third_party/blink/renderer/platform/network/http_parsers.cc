@@ -38,6 +38,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/compiler_specific.h"
 #include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
@@ -116,11 +117,11 @@ blink::LoadingMode ConvertToBlink(LoadingMode in) {
 
 // ===== Converters for other basic Blink types =====
 ::blink::String ConvertToBlink(const std::string& in) {
-  return ::blink::String::FromUTF8(in);
+  return ::blink::String::FromUtf8(in);
 }
 
 ::blink::String ConvertToBlink(const std::optional<std::string>& in) {
-  return in ? ::blink::String::FromUTF8(*in) : ::blink::String();
+  return in ? ::blink::String::FromUtf8(*in) : ::blink::String();
 }
 
 ::blink::KURL ConvertToBlink(const GURL& in) {
@@ -441,7 +442,7 @@ inline bool SkipWhiteSpace(const String& str,
 
 template <typename CharType>
 inline bool IsASCIILowerAlphaOrDigit(CharType c) {
-  return IsASCIILower(c) || IsASCIIDigit(c);
+  return IsAsciiLower(c) || IsAsciiDigit(c);
 }
 
 template <typename CharType>
@@ -455,11 +456,12 @@ bool ParseRefreshTime(const StringView& source, base::TimeDelta& delay) {
   int full_stop_count = 0;
   wtf_size_t number_end = source.length();
   for (wtf_size_t i = 0; i < source.length(); ++i) {
-    const UChar ch = source[i];
+    // SAFETY: index checked against length in loop body.
+    const UChar ch = UNSAFE_BUFFERS(source[i]);
     if (ch == uchar::kFullStop) {
       if (++full_stop_count == 2)
         number_end = i;
-    } else if (!IsASCIIDigit(ch)) {
+    } else if (!IsAsciiDigit(ch)) {
       return false;
     }
   }
@@ -486,7 +488,8 @@ bool IsValidHTTPToken(const StringView& characters) {
   if (characters.empty())
     return false;
   for (unsigned i = 0; i < characters.length(); ++i) {
-    UChar c = characters[i];
+    // SAFETY: index checked against length in loop body.
+    UChar c = UNSAFE_BUFFERS(characters[i]);
     if (c > 0x7F || !net::HttpUtil::IsTokenChar(c))
       return false;
   }
@@ -552,7 +555,8 @@ bool ParseHTTPRefresh(const String& refresh,
   }
 
   if (refresh_url.starts_with('"') || refresh_url.starts_with('\'')) {
-    const UChar quotation_mark = refresh_url[0];
+    // SAFETY: successful starts_with() implies non-empty string.
+    const UChar quotation_mark = UNSAFE_BUFFERS(refresh_url[0]);
     refresh_url.remove_prefix(1);
 
     const wtf_size_t url_end_pos = refresh_url.rfind(quotation_mark);
@@ -926,7 +930,7 @@ CacheControlHeader ParseCacheControlDirectives(
     // This is deprecated and equivalent to Cache-control: no-cache
     // Don't bother tokenizing the value, it is not important
     cache_control_header.contains_no_cache =
-        pragma_value.LowerASCII().contains(kNoCacheDirective);
+        pragma_value.ToAsciiLower().contains(kNoCacheDirective);
   }
   return cache_control_header;
 }
@@ -962,8 +966,8 @@ bool ParseMultipartHeadersFromBody(base::span<const uint8_t> bytes,
 
   std::string mime_type, charset;
   response_headers->GetMimeTypeAndCharset(&mime_type, &charset);
-  response->SetMimeType(AtomicString(String::FromUTF8(mime_type)));
-  response->SetTextEncodingName(AtomicString(String::FromUTF8(charset)));
+  response->SetMimeType(AtomicString(String::FromUtf8(mime_type)));
+  response->SetTextEncodingName(AtomicString(String::FromUtf8(charset)));
 
   // Copy headers listed in replaceHeaders to the response.
   for (const AtomicString& header : ReplaceHeaders()) {
@@ -1014,7 +1018,7 @@ bool ParseMultipartFormHeadersFromBody(base::span<const uint8_t> bytes,
     std::string value;
     while (response_headers->EnumerateHeader(
         &iterator, header_name_string_piece, &value)) {
-      header_fields->Add(*header_name, AtomicString(String::FromUTF8(value)));
+      header_fields->Add(*header_name, AtomicString(String::FromUtf8(value)));
     }
   }
 
@@ -1150,14 +1154,11 @@ network::mojom::blink::TimingAllowOriginPtr ParseTimingAllowOrigin(
 
 network::mojom::blink::NoVarySearchWithParseErrorPtr ParseNoVarySearch(
     const String& header_value) {
-  // Parse the No-Vary-Search hint value by making a header in order to
-  // reuse existing code.
-  auto headers =
-      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK\n");
-  headers->AddHeader("No-Vary-Search", header_value.Utf8());
-
-  auto parsed_nvs_with_error =
-      ConvertToBlink(network::ParseNoVarySearch(*headers));
+  // `header_value` is usually ASCII, so StringUtf8Adaptor avoids allocating a
+  // string.
+  StringUtf8Adaptor adaptor(header_value);
+  auto parsed_nvs_with_error = ConvertToBlink(
+      network::ParseNoVarySearchHeaderValue(adaptor.AsStringView()));
   // `parsed_nvs_with_error` cannot be null here. Because we know the header is
   // available, we will get a parse error or a No-Vary-Search.
   CHECK(parsed_nvs_with_error);

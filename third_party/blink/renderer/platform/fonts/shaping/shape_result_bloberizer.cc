@@ -8,6 +8,7 @@
 
 #include <algorithm>
 
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/strings/to_string.h"
 #include "cc/paint/paint_canvas.h"
@@ -230,7 +231,7 @@ inline bool ShapeResultBloberizer::IsSkipInkException(
   // For skip-ink: auto, skip CJK characters. For skip-ink: all, include all.
   return type_ == ShapeResultBloberizer::Type::kTextIntercepts &&
          !Character::CanTextDecorationSkipInk(
-             text.CodepointAt(character_index));
+             text.CodePointAt(character_index));
 }
 
 inline void ShapeResultBloberizer::AddEmphasisMark(
@@ -371,7 +372,7 @@ class ClusterCallbackContext {
   gfx::PointF glyph_center = parsed_context->glyph_center;
 
   if (text.Is8Bit()) {
-    if (Character::CanReceiveTextEmphasis(text[character_index])) {
+    if (Character::CanReceiveTextEmphasis(UNSAFE_TODO(text[character_index]))) {
       bloberizer->AddEmphasisMark(emphasis_data, canvas_rotation, glyph_center,
                                   advance_so_far + cluster_advance / 2,
                                   parsed_context->letter_spacing);
@@ -382,7 +383,7 @@ class ClusterCallbackContext {
       // Do not put emphasis marks on space, separator, and control
       // characters.
       if (Character::CanReceiveTextEmphasis(
-              text.CodepointAt(character_index))) {
+              text.CodePointAt(character_index))) {
         bloberizer->AddEmphasisMark(emphasis_data, canvas_rotation,
                                     glyph_center,
                                     advance_so_far + glyph_advance_x / 2,

@@ -30,6 +30,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_AUDIO_FFT_FRAME_H_
 
 #include <memory>
+
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/audio/audio_array.h"
@@ -98,7 +100,7 @@ class PLATFORM_EXPORT FFTFrame final {
       const FFTFrame& frame2,
       double x);
   // zero-padding with dataSize <= fftSize
-  void DoPaddedFFT(const float* data, unsigned data_size);
+  void DoPaddedFFT(base::span<const float> data);
   double ExtractAverageGroupDelay();
   void AddConstantGroupDelay(double sample_frame_delay);
   // multiplies ourself with frame : effectively operator*=()
@@ -113,9 +115,9 @@ class PLATFORM_EXPORT FFTFrame final {
 
   unsigned fft_size_ = 0;
 
-  // When using PFFFT, this slot is not irrelevant and not used because PFFFT
+  // When using PFFFT, this slot is irrelevant and unused because PFFFT
   // supports sizes that aren't a power of 2.
-  // TODO(https://crbug.com/988121) Look into whether Mac vDSP really needs
+  // TODO(https://crbug.com/40637820) Look into whether Mac vDSP really needs
   // this.
   unsigned log2fft_size_ = 0;
 
@@ -191,19 +193,19 @@ class PLATFORM_EXPORT FFTFrame final {
   // is created.
   static HashMap<unsigned, std::unique_ptr<FFTSetup>>& FFTSetups();
 
-  // Initialize an entry in FFTSetups for an FFT of order |fft_order|.  This can
+  // Initialize an entry in FFTSetups for an FFT of size `fft_size`. This can
   // be called from any thread, but if a new FFTSetup needs to be allocated,
   // then it MUST happen on the main thread.
-  static void InitializeFFTSetupForSize(wtf_size_t fft_order);
+  static void InitializeFFTSetupForSize(wtf_size_t fft_size);
 
-  // Get the PFFFT_Setup that is appropriate for an FFT of order
-  // |fft_order|. This can be called from any thread.
-  // |InitializeFFTSetupForSize()| must be called for this size before calling
-  // |FFTSetupForSize()|.
-  static PFFFT_Setup* FFTSetupForSize(wtf_size_t fft_order);
+  // Get the PFFFT_Setup that is appropriate for an FFT of size `fft_size`.
+  // This can be called from any thread.
+  // `InitializeFFTSetupForSize()` must be called for this size before calling
+  // `FFTSetupForSize()`.
+  static PFFFT_Setup* FFTSetupForSize(wtf_size_t fft_size);
 
   // Work array for converting PFFFT results to and from the format expected in
-  // |real_data_| and |imag_datra_|.
+  // `real_data_` and `imag_data_`.
   AudioFloatArray complex_data_;
 
   // Work array used by the PFFFT transform routines.  For real FFTs, this must

@@ -361,7 +361,7 @@ static unsigned FindLengthOfValidDouble(base::span<const LChar> chars) {
 #endif  // defined(__SSE2__) || defined(__ARM_NEON__)
 
   for (; valid_length < chars.size(); ++valid_length) {
-    if (!IsASCIIDigit(chars[valid_length])) {
+    if (!IsAsciiDigit(chars[valid_length])) {
       if (!decimal_mark_seen && chars[valid_length] == '.') {
         decimal_mark_seen = true;
       } else {
@@ -588,16 +588,16 @@ ALWAYS_INLINE static bool ParseFloatWithMaxValue(base::span<const LChar>& chars,
   } else {
     negative = false;
   }
-  if (current.empty() || !IsASCIIDigit(current.front())) {
+  if (current.empty() || !IsAsciiDigit(current.front())) {
     return false;
   }
-  while (!current.empty() && IsASCIIDigit(current.front())) {
+  while (!current.empty() && IsAsciiDigit(current.front())) {
     double new_value = value * 10 + (current.front() - '0');
     current = current.subspan(1u);
     if (new_value >= max_value) {
       // Clamp values at 255 or 100 (depending on the caller).
       value = max_value;
-      while (!current.empty() && IsASCIIDigit(current.front())) {
+      while (!current.empty() && IsAsciiDigit(current.front())) {
         current = current.subspan(1u);
       }
       break;
@@ -755,12 +755,12 @@ ALWAYS_INLINE static bool ParsePercentage(base::span<const LChar>& chars,
 static inline bool IsTenthAlpha(base::span<const LChar> chars) {
   // "0.X"
   if (chars.size() == 3 && chars[0] == '0' && chars[1] == '.' &&
-      IsASCIIDigit(chars[2])) {
+      IsAsciiDigit(chars[2])) {
     return true;
   }
 
   // ".X"
-  if (chars.size() == 2 && chars[0] == '.' && IsASCIIDigit(chars[1])) {
+  if (chars.size() == 2 && chars[0] == '.' && IsAsciiDigit(chars[1])) {
     return true;
   }
 
@@ -788,7 +788,7 @@ ALWAYS_INLINE static bool ParseAlphaValue(base::span<const LChar>& chars,
     return false;
   }
 
-  if (chars[length - 1] != terminator || !IsASCIIDigit(chars[length - 2])) {
+  if (chars[length - 1] != terminator || !IsAsciiDigit(chars[length - 2])) {
     return false;
   }
 
@@ -1216,7 +1216,7 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kIntersection;
     case CSSPropertyID::kColumnRuleVisibilityItems:
     case CSSPropertyID::kRowRuleVisibilityItems:
-      return value_id == CSSValueID::kAuto || value_id == CSSValueID::kAll ||
+      return value_id == CSSValueID::kNormal || value_id == CSSValueID::kAll ||
              value_id == CSSValueID::kAround ||
              value_id == CSSValueID::kBetween;
     case CSSPropertyID::kColumnSpan:
@@ -1252,11 +1252,14 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id == CSSValueID::kNormal || value_id == CSSValueID::kDense;
     case CSSPropertyID::kImageAnimation:
       return value_id == CSSValueID::kRunning ||
-             value_id == CSSValueID::kPaused || value_id == CSSValueID::kNormal;
+             value_id == CSSValueID::kPaused ||
+             value_id == CSSValueID::kNormal ||
+             value_id == CSSValueID::kStopped;
     case CSSPropertyID::kImageRendering:
       return value_id == CSSValueID::kAuto ||
              value_id == CSSValueID::kWebkitOptimizeContrast ||
-             value_id == CSSValueID::kPixelated;
+             value_id == CSSValueID::kPixelated ||
+             value_id == CSSValueID::kCrispEdges;
     case CSSPropertyID::kInterpolateSize:
       return value_id == CSSValueID::kNumericOnly ||
              value_id == CSSValueID::kAllowKeywords;
@@ -1718,6 +1721,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id == CSSValueID::kAuto ||
              value_id == CSSValueID::kNoEllipsis;
     case CSSPropertyID::kInternalOverscrollArea:
+      return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto ||
+             value_id == CSSValueID::kOverlay;
     case CSSPropertyID::kInternalOverscrollPosition:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto;
     default:
@@ -1890,7 +1895,7 @@ static inline CSSValue* ParseCSSWideKeywordValue(
     return CSSInheritedValue::Create();
   }
   if (length == 5 && MatchesCaseInsensitiveLiteral4(ptr, "unse") &&
-      IsASCIIAlphaCaselessEqual(UNSAFE_BUFFERS(ptr[4]), 't')) {
+      EqualIgnoringAsciiCase<'t'>(UNSAFE_BUFFERS(ptr[4]))) {
     return cssvalue::CSSUnsetValue::Create();
   }
   if (length == 6 && MatchesCaseInsensitiveLiteral4(ptr, "reve") &&
@@ -1905,7 +1910,7 @@ static inline CSSValue* ParseCSSWideKeywordValue(
   if (length == 11 && MatchesCaseInsensitiveLiteral4(ptr, "reve") &&
       MatchesCaseInsensitiveLiteral4(UNSAFE_BUFFERS(ptr + 4), "rt-r") &&
       MatchesCaseInsensitiveLiteral2(UNSAFE_BUFFERS(ptr + 8), "ul") &&
-      IsASCIIAlphaCaselessEqual(UNSAFE_BUFFERS(ptr[10]), 'e')) {
+      EqualIgnoringAsciiCase<'e'>(UNSAFE_BUFFERS(ptr[10]))) {
     if (RuntimeEnabledFeatures::CSSRevertRuleEnabled()) {
       return cssvalue::CSSRevertRuleValue::Create();
     }
@@ -2060,11 +2065,11 @@ static CSSFunctionValue* ParseSimpleTransformValue(
     CSSValueID transform_type;
     unsigned expected_argument_count = 1;
     unsigned argument_start = 11;
-    if (IsASCIIAlphaCaselessEqual(chars[9], 'x') && chars[10] == '(') {
+    if (EqualIgnoringAsciiCase<'x'>(chars[9]) && chars[10] == '(') {
       transform_type = CSSValueID::kTranslateX;
-    } else if (IsASCIIAlphaCaselessEqual(chars[9], 'y') && chars[10] == '(') {
+    } else if (EqualIgnoringAsciiCase<'y'>(chars[9]) && chars[10] == '(') {
       transform_type = CSSValueID::kTranslateY;
-    } else if (IsASCIIAlphaCaselessEqual(chars[9], 'z') && chars[10] == '(') {
+    } else if (EqualIgnoringAsciiCase<'z'>(chars[9]) && chars[10] == '(') {
       transform_type = CSSValueID::kTranslateZ;
     } else if (chars[9] == '(') {
       transform_type = CSSValueID::kTranslate;
@@ -2118,7 +2123,7 @@ static CSSFunctionValue* ParseSimpleTransformValue(
     if (chars[6] == '(') {
       chars = chars.subspan(7u);
       rotate_value_id = CSSValueID::kRotate;
-    } else if (IsASCIIAlphaCaselessEqual(chars[6], 'z') && chars[7] == '(') {
+    } else if (EqualIgnoringAsciiCase<'z'>(chars[6]) && chars[7] == '(') {
       chars = chars.subspan(8u);
       rotate_value_id = CSSValueID::kRotateZ;
     } else {

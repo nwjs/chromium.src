@@ -15,7 +15,6 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/glic/fre/fre_util.h"
 #include "chrome/browser/glic/fre/glic_fre_dialog_view.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -23,10 +22,11 @@
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/browser/glic/widget/glic_view.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/e2e_tests/live_test.h"
 #include "chrome/browser/signin/e2e_tests/signin_util.h"
@@ -58,7 +58,7 @@ namespace glic::test {
 namespace {
 
 using glic::test::internal::kGlicFreShowingDialogState;
-using glic::test::internal::kGlicWindowControllerState;
+using glic::test::internal::kGlicInstanceCoordinatorState;
 
 constexpr base::FilePath::StringViewType kRecordingDirectoryPath =
     FILE_PATH_LITERAL("chrome/browser/glic/e2e_test/internal/wpr_recordings");
@@ -86,8 +86,7 @@ GlicE2ETest::GlicE2ETest() {
   scoped_feature_list_.InitWithFeatures(
       /*enabled_features=*/{features::kGlic,
                             features::kGlicKeyboardShortcutNewBadge,
-                            features::kGlicRollout,
-                            contextual_cueing::kContextualCueing,
+                            features::kGlicRollout, kContextualCueing,
                             mojom::features::kZeroStateSuggestionsV2},
       /*disabled_features=*/{
           syncer::kReplaceSyncPromosWithSignInPromos,
@@ -261,15 +260,15 @@ GlicE2ETest::WaitForAndInstrumentGlic() {
       UninstrumentWebContents(kGlicContentsElementId, false),
       UninstrumentWebContents(kGlicHostElementId, false),
       InAnyContext(
-          ObserveState(kGlicWindowControllerState,
-                       std::ref(window_controller()), active_tab()),
-          WaitForState(kGlicWindowControllerState,
-                       GlicWindowController::State::kOpen),
+          ObserveState(kGlicInstanceCoordinatorState,
+                       std::ref(instance_coordinator()), active_tab()),
+          WaitForState(kGlicInstanceCoordinatorState,
+                       GlicInstanceCoordinator::State::kOpen),
           Steps(InstrumentNonTabWebView(kGlicHostElementId, kGlicViewElementId),
                 InstrumentInnerWebContents(kGlicContentsElementId,
                                            kGlicHostElementId, 0),
                 WaitForWebContentsReady(kGlicContentsElementId)),
-          StopObservingState(kGlicWindowControllerState))));
+          StopObservingState(kGlicInstanceCoordinatorState))));
 
   AddDescriptionPrefix(steps, "WaitForAndInstrumentGlic");
   return steps;
@@ -299,8 +298,8 @@ GlicKeyedService* GlicE2ETest::glic_service() {
   return GlicKeyedServiceFactory::GetGlicKeyedService(
       InProcessBrowserTest::browser()->GetProfile());
 }
-GlicWindowController& GlicE2ETest::window_controller() {
-  return glic_service()->window_controller();
+GlicInstanceCoordinator& GlicE2ETest::instance_coordinator() {
+  return glic_service()->instance_coordinator();
 }
 
 GlicFreController& GlicE2ETest::fre_controller() {

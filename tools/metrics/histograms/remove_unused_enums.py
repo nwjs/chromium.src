@@ -9,7 +9,7 @@ import logging
 import sys
 from xml.dom import minidom
 
-import setup_modules
+import setup_modules  # pylint: disable=unused-import
 
 import chromium_src.tools.metrics.common.enums as enums
 import chromium_src.tools.metrics.histograms.histogram_configuration_model as histogram_configuration_model
@@ -28,7 +28,9 @@ def _remove_enum_nodes_not_in_list(
       enum_nodes.append(enum_node)
 
   for node in enum_nodes:
-    node.parentNode.removeChild(node)
+    parent = node.parentNode
+    if parent:
+      parent.removeChild(node)
 
   xml_with_nodes_removed = histogram_configuration_model.PrettifyTree(document)
   return enum_nodes, xml_with_nodes_removed

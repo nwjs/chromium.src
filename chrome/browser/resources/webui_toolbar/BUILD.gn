@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//ui/webui/resources/tools/build_webui.gni")
+import("//ui/webui/webui_features.gni")
 
 assert(!is_android)
 
@@ -10,6 +11,10 @@ build_webui("build") {
   grd_prefix = "webui_toolbar"
 
   static_files = [
+    "browser_controls_icons/home_20.svg",
+    "browser_controls_icons/home_24.svg",
+    "rhs_icons/location_on_chrome_refresh.svg",
+    "rhs_icons/password_manager.svg",
     "webui_toolbar.html",
     "webui_toolbar.css",
   ]
@@ -20,24 +25,46 @@ build_webui("build") {
     "back_forward_button.html.ts",
     "back_forward_button.ts",
     "browser_proxy.ts",
+    "home_button.html.ts",
+    "home_button.ts",
+    "location_bar.ts",
+    "location_bar.html.ts",
     "metrics_recorder.ts",
+    "pinned_toolbar_action.html.ts",
+    "pinned_toolbar_action.ts",
+    "pinned_toolbar_action_icons.html.ts",
+    "pinned_toolbar_actions.html.ts",
+    "pinned_toolbar_actions.ts",
+    "readonly_omnibox.ts",
+    "readonly_omnibox.html.ts",
     "reload_button.html.ts",
     "reload_button.ts",
     "split_tabs_button.html.ts",
     "split_tabs_button.ts",
     "split_tabs_button_icons.html.ts",
     "toolbar_button.ts",
+    "toolbar_divider.html.ts",
+    "toolbar_divider.ts",
   ]
   css_files = [
     "app.css",
     "back_forward_button.css",
+    "home_button.css",
+    "location_bar.css",
+    "pinned_toolbar_action.css",
+    "pinned_toolbar_actions.css",
+    "readonly_omnibox.css",
     "reload_button.css",
     "split_tabs_button.css",
     "toolbar_button.css",
+    "toolbar_divider.css",
   ]
 
+  # ts_composite is needed for JS tests to depend on this.
+  ts_composite = true
   webui_context_type = "trusted"
   optimize = optimize_webui
+  generate_code_cache = enable_webui_generate_code_cache
   if (optimize) {
     optimize_webui_host = "webui-toolbar.top-chrome"
     optimize_webui_in_files = [
@@ -52,6 +79,7 @@ build_webui("build") {
   }
 
   ts_definitions = [
+    "//tools/typescript/definitions/chrome_histograms.d.ts",
     "//tools/typescript/definitions/chrome_send.d.ts",
     "//tools/typescript/definitions/chrome_timeticks.d.ts",
     "//tools/typescript/definitions/metrics_private.d.ts",
@@ -71,6 +99,7 @@ build_webui("build") {
     "//components/browser_apis/browser_controls:mojom_ts__generator",
     "//components/browser_apis/ui_controllers/toolbar:mojom_data_model_ts__generator",
     "//components/browser_apis/ui_controllers/toolbar:mojom_ts__generator",
+    "//components/content_settings/core/common:content_settings_types_ts__generator",
   ]
 
   mojo_files = [
@@ -78,5 +107,6 @@ build_webui("build") {
     "$root_gen_dir/components/browser_apis/browser_controls/browser_controls_api_data_model.mojom-webui.ts",
     "$root_gen_dir/components/browser_apis/ui_controllers/toolbar/toolbar_ui_api.mojom-webui.ts",
     "$root_gen_dir/components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom-webui.ts",
+    "$root_gen_dir/components/content_settings/core/common/content_settings_types.mojom-webui.ts",
   ]
 }

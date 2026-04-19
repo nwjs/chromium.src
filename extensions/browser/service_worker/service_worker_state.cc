@@ -6,6 +6,7 @@
 
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/child_process_id.h"
@@ -20,6 +21,29 @@ namespace {
 
 // Prevent check on multiple workers per extension for testing purposes.
 bool g_allow_multiple_workers_per_extension = false;
+
+// NOTE: These values are persisted to logs. Entries should not be renumbered
+// and numeric values should never be reused.
+enum class WorkerVersionIdState {
+  kNewVersionIsOlder = 0,  // The newly received `version_id` is older.
+  kNewVersionIsEqual = 1,  // The newly received `version_id` is equal.
+  kNewVersionIsNewer = 2,  // The newly received `version_id` is newer.
+  kMaxValue = kNewVersionIsNewer,
+};
+
+void RecordWorkerVersionIdStateHistogram(int64_t new_version_id,
+                                         int64_t preexisting_version_id) {
+  WorkerVersionIdState state = WorkerVersionIdState::kNewVersionIsEqual;
+  if (new_version_id < preexisting_version_id) {
+    state = WorkerVersionIdState::kNewVersionIsOlder;
+  } else if (new_version_id > preexisting_version_id) {
+    state = WorkerVersionIdState::kNewVersionIsNewer;
+  }
+  base::UmaHistogramEnumeration(
+      "Extensions.ServiceWorkerBackground.WorkerVersionIdState_OnInitialized_"
+      "NotActive",
+      state);
+}
 
 }  // namespace
 
@@ -121,7 +145,7 @@ void ServiceWorkerState::DidStartWorkerForScope(
     const SequencedContextId& context_id,
     base::Time start_time,
     int64_t version_id,
-    int process_id,
+    content::ChildProcessId process_id,
     int thread_id,
     const blink::ServiceWorkerToken& token) {
   UMA_HISTOGRAM_BOOLEAN("Extensions.ServiceWorkerBackground.StartWorkerStatus",
@@ -133,9 +157,14 @@ void ServiceWorkerState::DidStartWorkerForScope(
       << "Worker was already loaded";
 
   const ExtensionId& extension_id = context_id.extension_id;
-  const WorkerId worker_id = {
-      extension_id, content::ChildProcessId::FromUnsafeValue(process_id),
-      version_id, thread_id, token};
+  const WorkerId worker_id = {extension_id, process_id, version_id, thread_id,
+                              token};
+
+  if (!service_worker_context_->IsLiveServiceWorkerWithToken(version_id,
+                                                             token)) {
+    // Drop the IPC message. It is from a stale worker instance.
+    return;
+  }
 
   // HACK: The service worker layer might invoke this callback with an ID for a
   // RenderProcessHost that has already terminated. This isn't the right fix for
@@ -146,9 +175,9 @@ void ServiceWorkerState::DidStartWorkerForScope(
   // this callback with stale processes.
   // https://crbug.com/1335821.
   if (!content::RenderProcessHost::FromID(worker_id.render_process_id)) {
-    // This is definitely hit, and often enough that we can't NOTREACHED(),
-    // CHECK(), or DumpWithoutCrashing(). Instead, log an error and gracefully
-    // return.
+    // The IsLiveServiceWorkerWithToken() check above *should* have caught
+    // this instance.
+    base::debug::DumpWithoutCrashing();
     // TODO(crbug.com/40913640): Investigate and fix.
     LOG(ERROR) << "Received bad DidStartWorkerForScope() message. "
                   "No corresponding RenderProcessHost.";
@@ -184,8 +213,19 @@ void ServiceWorkerState::RendererDidInitializeServiceWorkerContext(
     // Must be set because the renderer state must have gone through
     // `kInitialized`, and set the `worker_id`.
     CHECK(worker_id_.has_value());
+
+    // For a given service worker instance, we can only see one
+    // `RendererDidInitializeServiceWorkerContext` and it will always come
+    // before the associated `RendererDidStartServiceWorkerContext`. So we
+    // can't see the same token twice here.
+    auto preexisting_token = *worker_id_->start_token;
+    auto new_token = *worker_id.start_token;
+    CHECK_NE(preexisting_token, new_token);
+
     auto preexisting_version_id = worker_id_->version_id;
     auto new_version_id = worker_id.version_id;
+    RecordWorkerVersionIdStateHistogram(new_version_id, preexisting_version_id);
+
     if (new_version_id < preexisting_version_id) {
       // Drop the IPC message. It is from a stale worker version.
       // TODO(andreaorru): we can also see a stale service worker instance with

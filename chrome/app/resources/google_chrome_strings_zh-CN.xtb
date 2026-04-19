@@ -65,7 +65,6 @@
 <translation id="1640672724030957280">正在下载...</translation>
 <translation id="1651617469580841801">当您使用 Google 智能镜头时，系统会将网页的标题、网址和内容（包括 PDF 文件）发送给 Google。<ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">ChromeOS Flex 简介</translation>
-<translation id="1665867022636014702">使用 Google 推荐的浏览器设置</translation>
 <translation id="1674870198290878346">在 Chrome 无痕式窗口中打开链接(&amp;G)</translation>
 <translation id="1682634494516646069">Google Chrome 无法对其数据目录 <ph name="USER_DATA_DIRECTORY" /> 执行读写操作</translation>
 <translation id="1688214853608504530">当您在地址栏或搜索框中输入内容时，Chrome 会将您输入的内容发送给组织的搜索、AI 和代理工具，以便获取建议。</translation>
@@ -183,6 +182,7 @@
 <translation id="2885378588091291677">任务管理器</translation>
 <translation id="2888126860611144412">关于 Chrome</translation>
 <translation id="2915996080311180594">暂不重启</translation>
+<translation id="2916983411556218750">立即开始设置您的 Chrome</translation>
 <translation id="2926676257163822632">安全系数低的密码容易被人猜到。不妨让 Chrome <ph name="BEGIN_LINK" />为您创建并记住安全系数高的密码<ph name="END_LINK" />。</translation>
 <translation id="2926952073016206995">Chrome 需要为此网站授予摄像头权限</translation>
 <translation id="2928420929544864228">安装完毕。</translation>
@@ -281,7 +281,6 @@
 <translation id="3889417619312448367">卸载 Google Chrome</translation>
 <translation id="3892148308691398805">复制文字</translation>
 <translation id="3893985792899396936">Chrome 提示：使用智能镜头搜索</translation>
-<translation id="3906096710440765802">登录 Chrome 即可在所有设备上获取密码、书签等信息</translation>
 <translation id="3941890832296813527">安装时出错：安装程序文件名无效或不受支持。</translation>
 <translation id="395904275706073188">无法读取受保护的页面，请尝试其他页面。</translation>
 <translation id="3968962723676998462">请输入您的口令，以便将 Chrome 数据保存在您的账号 <ph name="ACCOUNT_EMAIL" /> 中并使用这些数据</translation>
@@ -295,6 +294,7 @@
 <translation id="4053720452172726777">自定义及控制 Google Chrome</translation>
 <translation id="408393047846373801">如需将密码等信息同步到您的所有设备上，请登录 Chrome。登录后，这个密码将保存到您的 Google 账号。</translation>
 <translation id="409936259433005390">即将升级到 Windows 11？将 Chrome 安装程序下载到 OneDrive，预先准备即可随时开始。</translation>
+<translation id="4102173024714616627">扩展程序是可让您自定义 Chrome 的插件。从保持井然有序到简化日常任务，扩展程序可帮助您打造专属的 Chrome。</translation>
 <translation id="4110895483821904099">设置您的新 Chrome 个人资料</translation>
 <translation id="4111566860456076004">Chrome 无法验证此扩展程序的来源，它可能不安全。请将其从 Chrome 中移除，这样它便无法再查看和更改您在所访问的网站上的数据，包括个人信息。</translation>
 <translation id="4147555960264124640">您目前登录的账号是一个受管理账号，该账号的管理员将能够控制您的 Google Chrome 个人资料。您的 Chrome 数据（例如您的应用、书签、历史记录、密码和其他设置）将永远与 <ph name="USER_NAME" /> 相关联。您可以通过 Google 账号信息中心删除这些数据，但无法将这些数据与其他账号相关联。<ph name="LEARN_MORE" /></translation>
@@ -598,6 +598,7 @@
 <translation id="7161904924553537242">欢迎使用 Google Chrome</translation>
 <translation id="7193885263065350793">贵组织会在 Chrome 闲置 <ph name="TIMEOUT_DURATION" />后将其关闭。</translation>
 <translation id="7242029209006116544">您目前登录的账号是一个受管理账号，该账号的管理员将能够控制您的 Google Chrome 个人资料。您的 Chrome 数据（例如您的应用、书签、历史记录、密码和其他设置）将永远与 <ph name="USER_NAME" /> 相关联。您可以通过 Google 账号信息中心删除这些数据，但无法将这些数据与其他账号相关联。您可以选择创建新的个人资料来单独存储现有的 Chrome 数据。<ph name="LEARN_MORE" /></translation>
+<translation id="7274402351400635015">您可随时使用 Chrome 打开您在消息、文档和其他应用内点击的链接。Chromium 还将固定到任务栏。</translation>
 <translation id="7285616922384953075"><ph name="MANAGER" />负责管理 Chrome</translation>
 <translation id="7285990705317078173">在手机上下载 Chrome，即可跟踪价格并在有网站降价时收到提醒</translation>
 <translation id="7288567540154601580">标签页和扩展程序</translation>
@@ -607,6 +608,7 @@
 <translation id="7308322188646931570">Chrome 需要获得存储空间使用权限，才能下载文件</translation>
 <translation id="7339898014177206373">打开新的窗口</translation>
 <translation id="7352651011704765696">出了点问题</translation>
+<translation id="73786666777299047">打开 Chrome 应用商店</translation>
 <translation id="7386878009611068389">若要使用家长选择的设置更安全地上网，请切换到你已用 <ph name="USER_EMAIL_ADDRESS" /> 身份登录的 Chrome 资料</translation>
 <translation id="7398801000654795464">您之前登录 Chrome 时使用的账号为 <ph name="USER_EMAIL_ADDRESS" />，请使用同一账号再次登录。</translation>
 <translation id="7412494426921990001">点击 Chrome 菜单</translation>
@@ -771,6 +773,7 @@
 <translation id="8862326446509486874">您的权限不足，无法进行系统级安装。请尝试以管理员身份再次运行安装程序。</translation>
 <translation id="8865415417596392024">您账号中的 Chrome 数据</translation>
 <translation id="8883862939660515976">向 Google 智能镜头询问此图片</translation>
+<translation id="8892956691293410744">如需在不离开网页的情况下向 AI 模式询问有关标签页的问题，请登录 Chrome。登录后，您还可在自己的所有设备上同步保存的密码等信息。</translation>
 <translation id="8914504000324227558">重启 Chrome</translation>
 <translation id="8922193594870374009">若要从 <ph name="ORIGIN" /> 向您的 Android 手机发送电话号码，请在这两部设备上分别登录 Chrome。</translation>
 <translation id="8922998289262614701">从 Chrome 中移除此应用的数据</translation>
@@ -784,7 +787,6 @@
 <translation id="8999208279178790196">{0,plural, =0{有一项可用的 Chrome 更新}=1{有一项可用的 Chrome 更新}other{有一项可用的 Chrome 更新（已发布 # 天）}}</translation>
 <translation id="9010418943148193727">您的默认搜索引擎已在 Chrome 外部更改。为保护您的安全，Chrome 已将其重置。</translation>
 <translation id="9014771989710951291">多个组织负责管理 Chrome</translation>
-<translation id="9024318700713112071">将 Chrome 设为默认浏览器</translation>
 <translation id="9066987883552592250">关闭 Chrome Canary 版中的 Gemini</translation>
 <translation id="9090566250983691233">了解 Chrome 为何屏蔽某些文件</translation>
 <translation id="9106236359747881194">选择文字即可搜索</translation>

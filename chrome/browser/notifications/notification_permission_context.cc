@@ -15,7 +15,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/visibility_timer_tab_helper.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -23,6 +22,7 @@
 #include "components/permissions/permission_decision.h"
 #include "components/permissions/permission_prompt_decision.h"
 #include "components/permissions/permission_request_id.h"
+#include "components/visibility_timer/visibility_timer_tab_helper.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/permission_request_description.h"
@@ -39,7 +39,7 @@
 #include "chrome/browser/webapps/installable/installed_webapp_bridge.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/notifications/notifier_state_tracker.h"
 #include "chrome/browser/notifications/notifier_state_tracker_factory.h"
 #include "extensions/browser/extension_registry.h"
@@ -48,7 +48,7 @@
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "ui/message_center/public/cpp/notifier_id.h"
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 // static
 void NotificationPermissionContext::UpdatePermission(
@@ -88,7 +88,7 @@ ContentSetting NotificationPermissionContext::GetContentSettingStatusInternal(
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     const GURL& embedding_origin) const {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Extensions can declare the "notifications" permission in their manifest
   // that also grant permission to use the Web Notification API.
   ContentSetting extension_status =
@@ -110,7 +110,7 @@ ContentSetting NotificationPermissionContext::GetContentSettingStatusInternal(
   return setting;
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 ContentSetting NotificationPermissionContext::GetPermissionStatusForExtension(
     const GURL& origin) const {
   constexpr ContentSetting kDefaultSetting = CONTENT_SETTING_ASK;
@@ -176,8 +176,9 @@ void NotificationPermissionContext::DecidePermission(
   if (browser_context()->IsOffTheRecord()) {
     // Random number of seconds in the range [1.0, 2.0).
     double delay_seconds = 1.0 + 1.0 * base::RandDouble();
-    VisibilityTimerTabHelper::CreateForWebContents(web_contents);
-    VisibilityTimerTabHelper::FromWebContents(web_contents)
+    visibility_timer::VisibilityTimerTabHelper::CreateForWebContents(
+        web_contents);
+    visibility_timer::VisibilityTimerTabHelper::FromWebContents(web_contents)
         ->PostTaskAfterVisibleDelay(
             FROM_HERE,
             base::BindOnce(

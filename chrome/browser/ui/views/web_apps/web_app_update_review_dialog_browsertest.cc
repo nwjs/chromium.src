@@ -42,7 +42,6 @@
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/ui_manager/update_dialog_types.h"
-#include "chrome/browser/web_applications/web_app_callback_app_identity.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -128,7 +127,10 @@ class WebAppUpdateReviewDialog : public DialogBrowserTest {
           u"Definitely a longer title that is really really really really "
           u"long.";
     }
-    if (name.contains("IconChange")) {
+    if (name.contains("InsignificantIconChange")) {
+      update_.new_icon = gfx::Image::CreateFrom1xBitmap(new_icon_);
+      update_.icon_diff_is_insignificant = true;
+    } else if (name.contains("IconChange")) {
       update_.new_icon = gfx::Image::CreateFrom1xBitmap(new_icon_);
     }
     if (name.contains("UrlChange")) {
@@ -180,6 +182,11 @@ IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
+                       InvokeUi_NameChange_InsignificantIconChange) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
                        InvokeUi_NameChange_UrlChange) {
   ShowAndVerifyUi();
 }
@@ -199,6 +206,11 @@ IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog, InvokeUi_UrlChange) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
+                       InvokeUi_UrlChange_InsignificantIconChange) {
   ShowAndVerifyUi();
 }
 
@@ -314,7 +326,7 @@ class WebAppUpdateDialogBrowserTests : public WebAppBrowserTestBase {
   const webapps::AppId InstallAppAndTriggerAppUpdateDialog() {
     // Install the app and trigger a navigation.
     const GURL app_url =
-        https_server()->GetURL("/web_apps/updating/index.html");
+        embedded_https_test_server().GetURL("/web_apps/updating/index.html");
     const webapps::AppId app_id =
         InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
     Browser* app_browser = LaunchWebAppBrowser(app_id);
@@ -328,8 +340,8 @@ class WebAppUpdateDialogBrowserTests : public WebAppBrowserTestBase {
     provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
     // Trigger an update, verify pending update info stored.
-    const GURL update_url =
-        https_server()->GetURL("/web_apps/updating/new_icon_page_masking.html");
+    const GURL update_url = embedded_https_test_server().GetURL(
+        "/web_apps/updating/new_icon_page_masking.html");
     {
       UpdateAwaiter awaiter(provider().install_manager());
       EXPECT_TRUE(ui_test_utils::NavigateToURL(app_browser, update_url));
@@ -426,8 +438,6 @@ class WebAppUpdateDialogBrowserTests : public WebAppBrowserTestBase {
   }
 
   base::HistogramTester tester_;
-  base::test::ScopedFeatureList feature_list_{
-      features::kWebAppPredictableAppUpdating};
 };
 
 IN_PROC_BROWSER_TEST_F(WebAppUpdateDialogBrowserTests,
@@ -604,8 +614,8 @@ IN_PROC_BROWSER_TEST_F(WebAppUpdateDialogBrowserTests,
   // menu button is now in the expanded state with the label. The first update
   // was from index.html to new_icon_page_masking.html. Now, trigger an update
   // to new_icon_page.html.
-  const GURL update_url2 =
-      https_server()->GetURL("/web_apps/updating/new_icon_page.html");
+  const GURL update_url2 = embedded_https_test_server().GetURL(
+      "/web_apps/updating/new_icon_page.html");
   {
     base::test::TestFuture<void> update_future;
     UpdateAwaiter awaiter(provider().install_manager());

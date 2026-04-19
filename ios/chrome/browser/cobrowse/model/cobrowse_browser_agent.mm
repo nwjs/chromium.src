@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/cobrowse/model/cobrowse_browser_agent.h"
 
 #import "components/search_engines/util.h"
+#import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -24,6 +25,14 @@ CobrowseBrowserAgent::~CobrowseBrowserAgent() {
   StopObserving();
 }
 
+CobrowseContext* CobrowseBrowserAgent::GetCobrowseContext() {
+  return context_;
+}
+
+void CobrowseBrowserAgent::SetCobrowseContext(CobrowseContext* context) {
+  context_ = context;
+}
+
 #pragma mark - CobrowseTabHelper::Delegate
 
 bool CobrowseBrowserAgent::CanShowAssistantForWebState(
@@ -41,7 +50,25 @@ bool CobrowseBrowserAgent::CanShowAssistantForWebState(
   CHECK_NE(index, WebStateList::kInvalidIndex);
 
   web::WebState* opener = web_state_list->GetOpenerOfWebStateAt(index).opener;
-  return opener && IsAimURL(opener->GetLastCommittedURL());
+  return opener && opener->IsRealized() &&
+         IsAimURL(opener->GetLastCommittedURL());
+}
+
+void CobrowseBrowserAgent::ConfigureAssistantContextForWebState(
+    web::WebState* web_state) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  const int index = web_state_list->GetIndexOfWebState(web_state);
+  web::WebState* opener = web_state_list->GetOpenerOfWebStateAt(index).opener;
+  SetCobrowseContext(
+      [[CobrowseContext alloc] initWithURL:opener->GetLastCommittedURL()]);
+}
+
+bool CobrowseBrowserAgent::IsSessionActive() {
+  return is_session_active_;
+}
+
+void CobrowseBrowserAgent::SetSessionActive(bool active) {
+  is_session_active_ = active;
 }
 
 #pragma mark - TabsDependencyInstaller

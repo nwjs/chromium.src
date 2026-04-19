@@ -72,6 +72,7 @@ class MockGlicController : public GlicController {
 
 }  // namespace
 
+// TODO(b/489122337): Fix this test.
 class GlicStatusIconTest : public testing::Test {
  public:
   ~GlicStatusIconTest() override = default;
@@ -89,7 +90,7 @@ class GlicStatusIconTest : public testing::Test {
             features::kGlicShowStatusTrayIcon
 #endif
         },
-        /*disabled_features=*/{features::kGlicMultiInstance});
+        /*disabled_features=*/{});
     glic_status_icon_->Init();
   }
 
@@ -126,17 +127,18 @@ TEST_F(GlicStatusIconTest, OnStatusIconClicked) {
 #endif
 
 TEST_F(GlicStatusIconTest, ExecuteCommand) {
-  EXPECT_CALL(*glic_controller(), Show).Times(1);
+  EXPECT_CALL(*glic_controller(), Toggle).Times(1);
   base::UserActionTester user_action_tester;
   auto* context_menu = status_icon()->GetContextMenuForTesting();
-  context_menu->ExecuteCommand(IDC_GLIC_STATUS_ICON_MENU_SHOW, 0);
+  context_menu->ExecuteCommand(IDC_GLIC_STATUS_ICON_MENU_TOGGLE, 0);
   EXPECT_EQ(1, user_action_tester.GetActionCount(
-                   "GlicOsEntrypoint.ContextMenuSelection.OpenGlic"));
+                   "GlicOsEntrypoint.ContextMenuSelection.ToggleGlic"));
 }
 
 TEST_F(GlicStatusIconTest, ContextMenu) {
   auto* context_menu = status_icon()->GetContextMenuForTesting();
-  EXPECT_TRUE(context_menu->IsCommandIdVisible(IDC_GLIC_STATUS_ICON_MENU_SHOW));
+  EXPECT_TRUE(
+      context_menu->IsCommandIdVisible(IDC_GLIC_STATUS_ICON_MENU_TOGGLE));
   EXPECT_TRUE(context_menu->IsCommandIdVisible(
       IDC_GLIC_STATUS_ICON_MENU_CUSTOMIZE_KEYBOARD_SHORTCUT));
   EXPECT_TRUE(
@@ -150,9 +152,9 @@ TEST_F(GlicStatusIconTest, UpdateHotkey) {
   ui::Accelerator new_accelerator(ui::VKEY_A,
                                   ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN);
   glic_status_icon()->UpdateHotkey(new_accelerator);
-  ui::Accelerator show_accelerator;
+  ui::Accelerator toggle_accelerator;
   EXPECT_TRUE(context_menu->GetAcceleratorForCommandId(
-      IDC_GLIC_STATUS_ICON_MENU_SHOW, &show_accelerator));
-  EXPECT_EQ(show_accelerator, new_accelerator);
+      IDC_GLIC_STATUS_ICON_MENU_TOGGLE, &toggle_accelerator));
+  EXPECT_EQ(toggle_accelerator, new_accelerator);
 }
 }  // namespace glic

@@ -53,6 +53,7 @@ class SimpleOverlayWindowImageButton;
 class SkipAdLabelButton;
 class ToggleMicrophoneButton;
 class ToggleCameraButton;
+class ToggleMuteButton;
 
 // The Chrome desktop implementation of VideoOverlayWindow. This will only be
 // implemented in views, which will support all desktop platforms.
@@ -98,6 +99,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   void SetHidePictureInPictureButtonVisibility(bool is_visible) override {}
   void SetMicrophoneMuted(bool muted) override;
   void SetCameraState(bool turned_on) override;
+  void SetMediaMuted(bool muted) override;
   void SetToggleMicrophoneButtonVisibility(bool is_visible) override;
   void SetToggleCameraButtonVisibility(bool is_visible) override;
   void SetHangUpButtonVisibility(bool is_visible) override;
@@ -203,6 +205,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   gfx::Rect GetProgressViewBounds();
   gfx::Rect GetLiveCaptionButtonBounds();
   gfx::Rect GetLiveCaptionDialogBounds();
+  gfx::Rect GetToggleMuteButtonBounds();
 
   PlaybackImageButton* play_pause_controls_view_for_testing() const;
   SimpleOverlayWindowImageButton* replay_10_seconds_button_for_testing() const;
@@ -214,6 +217,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   ToggleMicrophoneButton* toggle_microphone_button_for_testing() const;
   ToggleCameraButton* toggle_camera_button_for_testing() const;
   HangUpButton* hang_up_button_for_testing() const;
+  ToggleMuteButton* toggle_mute_button_for_testing() const;
   global_media_controls::MediaProgressView* progress_view_for_testing() const;
   views::Label* timestamp_for_testing() const;
   views::Label* live_status_for_testing() const;
@@ -490,6 +494,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   raw_ptr<ToggleMicrophoneButton> toggle_microphone_button_ = nullptr;
   raw_ptr<ToggleCameraButton> toggle_camera_button_ = nullptr;
   raw_ptr<HangUpButton> hang_up_button_ = nullptr;
+  raw_ptr<ToggleMuteButton> toggle_mute_button_ = nullptr;
   raw_ptr<global_media_controls::MediaProgressView> progress_view_ = nullptr;
   raw_ptr<views::Label> timestamp_ = nullptr;
   raw_ptr<views::Label> live_status_ = nullptr;

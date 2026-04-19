@@ -9,6 +9,7 @@ import("//extensions/buildflags/buildflags.gni")
 import("//pdf/features.gni")
 import("//rlz/buildflags/buildflags.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
+import("//third_party/protobuf/proto_library.gni")
 
 if (enable_desktop_android_extensions) {
   import("//build/config/android/rules.gni")
@@ -242,6 +243,8 @@ source_set("browser_sources") {
     "content_hash_reader.h",
     "content_hash_tree.cc",
     "content_hash_tree.h",
+    "content_settings_extension_install_time_permission_provider.cc",
+    "content_settings_extension_install_time_permission_provider.h",
     "content_verifier/content_hash.cc",
     "content_verifier/content_hash.h",
     "content_verifier/content_verifier.cc",
@@ -259,6 +262,8 @@ source_set("browser_sources") {
     "convert_user_script.h",
     "crx_file_info.cc",
     "crx_file_info.h",
+    "cws_info_service.cc",
+    "cws_info_service.h",
     "deferred_start_render_host.h",
     "delayed_install_manager.cc",
     "delayed_install_manager.h",
@@ -535,6 +540,8 @@ source_set("browser_sources") {
     "service_worker/worker_id_set.h",
     "service_worker_manager.cc",
     "service_worker_manager.h",
+    "shared_module_service.cc",
+    "shared_module_service.h",
     "state_store.cc",
     "state_store.h",
     "state_store_test_observer.cc",
@@ -581,6 +588,7 @@ source_set("browser_sources") {
   ]
 
   deps = [
+    ":cws_item_service_proto",
     "//base",
     "//base:i18n",
     "//build:android_buildflags",
@@ -632,11 +640,13 @@ source_set("browser_sources") {
     "//extensions/browser/api/storage:settings_observer",
     "//extensions/browser/api/system_display:display_info_provider",
     "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
+    "//extensions/browser/mime_handler:stream_container",
     "//extensions/buildflags",
     "//extensions/common",
     "//extensions/common/api",
     "//extensions/strings",
     "//google_apis",
+    "//google_apis/common:request_util",
     "//net",
     "//pdf:buildflags",
     "//pdf:features",
@@ -865,6 +875,32 @@ source_set("crx_installer") {
     deps += [ "//components/user_manager" ]
   }
 }
+source_set("webstore_installer") {
+  sources = [
+    "webstore_data_fetcher.cc",
+    "webstore_data_fetcher.h",
+    "webstore_data_fetcher_delegate.cc",
+    "webstore_data_fetcher_delegate.h",
+    "webstore_installer.cc",
+    "webstore_installer.h",
+  ]
+  deps = [
+    ":browser_sources",
+    ":crx_installer",
+    ":cws_item_service_proto",
+    "//base",
+    "//components/download/public/common:public",
+    "//components/update_client",
+    "//content/public/browser",
+    "//extensions/buildflags",
+    "//extensions/common",
+    "//extensions/strings",
+    "//google_apis/common:request_util",
+    "//net/traffic_annotation",
+    "//ui/base",
+    "//url",
+  ]
+}
 
 source_set("test_support") {
   testonly = true
@@ -1018,6 +1054,7 @@ source_set("unit_tests") {
     "computed_hashes_unittest.cc",
     "content_hash_fetcher_unittest.cc",
     "content_hash_tree_unittest.cc",
+    "content_settings_extension_install_time_permission_provider_unittest.cc",
     "content_verifier/content_hash_unittest.cc",
     "content_verifier/content_verifier_unittest.cc",
     "content_verifier/content_verifier_utils_unittest.cc",
@@ -1107,6 +1144,7 @@ source_set("unit_tests") {
     "//extensions/browser/api/storage:settings_namespace",
     "//extensions/browser/api/system_display:display_info_provider",
     "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
+    "//extensions/browser/mime_handler:stream_container",
     "//extensions/browser/updater",
     "//extensions/buildflags",
     "//extensions/common",
@@ -1338,4 +1376,8 @@ if (enable_extensions) {
     # The fuzzed code needs more RAM that the default limit.
     libfuzzer_options = [ "rss_limit_mb=4096" ]
   }
+}
+
+proto_library("cws_item_service_proto") {
+  sources = [ "cws_item_service.proto" ]
 }

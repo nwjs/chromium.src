@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include <string>
+#include <string_view>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -24,6 +25,10 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 
 class PrefService;
+
+namespace metrics {
+class ProfileMetricsService;
+}
 
 namespace password_manager::metrics_util {
 
@@ -480,7 +485,7 @@ enum class PasswordNoteAction {
   kMaxValue = kNoteNotChanged,
 };
 
-std::string GetPasswordAccountStorageUserStateHistogramSuffix(
+std::string_view GetPasswordAccountStorageUserStateHistogramSuffix(
     password_manager::features_util::PasswordAccountStorageUserState
         user_state);
 
@@ -658,7 +663,7 @@ enum class BrowserAssistedLoginType {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/password/enums.xml:BrowserAssistedLoginType)
 
-std::string GetPasswordAccountStorageUsageLevelHistogramSuffix(
+std::string_view GetPasswordAccountStorageUsageLevelHistogramSuffix(
     password_manager::features_util::PasswordAccountStorageUsageLevel
         usage_level);
 
@@ -691,7 +696,7 @@ class LeakDialogMetricsRecorder {
   double ukm_sampling_rate_ = 0.1;
 
   // Helper method to determine the suffix for the UMA.
-  const char* GetUMASuffix() const;
+  std::string_view GetUMASuffix() const;
 
   // The source id associated with the navigation.
   ukm::SourceId source_id_;
@@ -716,11 +721,6 @@ void LogSaveUIDismissalReason(
 
 // Log the |reason| a user dismissed the update password bubble.
 void LogUpdateUIDismissalReason(UIDismissalReason reason);
-
-// Log the |reason| a user dismissed the move password bubble.
-void LogMoveUIDismissalReason(
-    UIDismissalReason reason,
-    features_util::PasswordAccountStorageUserState user_state);
 
 // Log the appropriate display disposition.
 void LogUIDisplayDisposition(UIDisplayDisposition disposition);
@@ -787,7 +787,8 @@ void LogIfSavedPasswordWasGenerated(
     bool is_generated_password,
     password_manager::features_util::PasswordAccountStorageUsageLevel
         account_storage_usage_level,
-    ukm::SourceId ukm_source_id);
+    ukm::SourceId ukm_source_id,
+    metrics::ProfileMetricsService* profile_metrics_service);
 
 // Log whether the generated password was accepted or rejected for generation of
 // |type| (automatic or manual).

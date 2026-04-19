@@ -411,7 +411,9 @@ void WebDocument::InitiatePreview(const WebURL& url) {
   }
 
   KURL kurl(url);
-  DocumentSpeculationRules::From(*document).InitiatePreview(kurl);
+  if (kurl.ProtocolIsInHttpFamily()) {
+    DocumentSpeculationRules::From(*document).InitiatePreview(kurl);
+  }
 }
 
 void WebDocument::SnapshotAccessibilityTree(
@@ -432,7 +434,7 @@ size_t WebDocument::ActiveResourceRequestCount() const {
   return ConstUnwrap<Document>()->Fetcher()->ActiveRequestCount();
 }
 
-std::optional<uint32_t> WebDocument::ExecuteScriptTool(
+std::optional<base::UnguessableToken> WebDocument::ExecuteScriptTool(
     const WebString& name,
     const WebString& input_arguments,
     WebScriptToolResultCallback tool_result_cb) {
@@ -472,7 +474,7 @@ std::optional<uint32_t> WebDocument::ExecuteScriptTool(
   return std::nullopt;
 }
 
-void WebDocument::CancelScriptTool(uint32_t execution_id) {
+void WebDocument::CancelScriptTool(const base::UnguessableToken& execution_id) {
   if (auto* model_context = ModelContextSupplement::modelContext(
           *Unwrap<Document>()->domWindow()->navigator())) {
     model_context->CancelTool(execution_id);

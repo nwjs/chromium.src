@@ -37,13 +37,12 @@ struct GlobalMemoryConsumerUpdate {
 };
 
 // Manages memory coordinator policies and aggregates their memory limit
-// requests for consumer groups, ensuring the most restrictive (lowest) limit is
-// always applied.
+// requests for consumer groups by multiplying them together.
 class CONTENT_EXPORT MemoryCoordinatorPolicyManager
     : public MemoryConsumerGroupController {
  public:
   // An interface for observing the lifecycle of memory consumers.
-  class Observer : public base::CheckedObserver {
+  class CONTENT_EXPORT Observer : public base::CheckedObserver {
    public:
     ~Observer() override = default;
 
@@ -62,7 +61,7 @@ class CONTENT_EXPORT MemoryCoordinatorPolicyManager
   // An interface for observing diagnostic-only events. This is separate from
   // `Observer` because producing memory limit changed events has an associated
   // runtime cost. This way that cost is paid only when needed.
-  class DiagnosticObserver : public base::CheckedObserver {
+  class CONTENT_EXPORT DiagnosticObserver : public base::CheckedObserver {
    public:
     ~DiagnosticObserver() override = default;
 
@@ -151,15 +150,11 @@ class CONTENT_EXPORT MemoryCoordinatorPolicyManager
                ProcessType process_type);
     ~GroupState();
 
-    // Updates the limit requested by `policy`. Returns the new aggregate limit
-    // if it changed, or std::nullopt otherwise.
+    // Updates the limit requested by `policy`. If `percentage` is 100, the
+    // policy's limit is cleared. Returns the new aggregate limit if it changed,
+    // or std::nullopt otherwise.
     std::optional<int> SetMemoryLimitForPolicy(MemoryCoordinatorPolicy* policy,
                                                int percentage);
-
-    // Removes the limit requested by `policy`. Returns the new aggregate limit
-    // if it changed, or std::nullopt otherwise.
-    std::optional<int> ClearMemoryLimitForPolicy(
-        MemoryCoordinatorPolicy* policy);
 
     const std::string& consumer_name() const { return consumer_name_; }
     std::optional<base::MemoryConsumerTraits> traits() const { return traits_; }

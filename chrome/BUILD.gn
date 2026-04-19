@@ -205,7 +205,6 @@ if (!is_android && !is_mac) {
         ":chrome_dll",
         ":chrome_exe_version",
         ":copy_first_run",
-        ":packed_resources_integrity_header",
         ":visual_elements_resources",
         "//base",
         "//build:branding_buildflags",
@@ -330,7 +329,9 @@ if (!is_android && !is_mac) {
         
       if (is_component_build) {
       public_deps = [
-        ":xdg_mime",  # Needs to be public for installer to consume files.
+        # Needs to be public for installer to consume files from
+        # linux_cros_extra_data.
+        ":linux_cros_extra_data",
         "//chrome/common:buildflags",
       ]
       }
@@ -1177,7 +1178,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//components/policy:generated",
       "//components/webapps/isolated_web_apps:scheme",
       "//content/public/app",
-      #"//third_party/cld_3/src/src:cld_3",
+      "//third_party/cld_3/src/src:cld_3",
       "//tools/v8_context_snapshot:buildflags",
       "//ui/events:dom_keycode_converter",
     ]
@@ -1647,24 +1648,6 @@ if (!is_android) {
     if (is_chrome_branded && !is_mac) {
       public_deps = [ ":preinstalled_apps" ]
     }
-
-    # This needs to be in-sync with //chrome/app/packed_resources_integrity.h.
-    files_to_hash = [
-      "resources.pak",
-      "nw_100_percent.pak",
-    ]
-    if (enable_hidpi) {
-      files_to_hash += [ "nw_200_percent.pak" ]
-    }
-  }
-
-  # This is extracted to deserialize build dependency around
-  # :packed_resources_integrity_hash and improve build parallelism.
-  source_set("packed_resources_integrity_header") {
-    sources = [ "app/packed_resources_integrity.h" ]
-
-    # chrome/app/packed_resources_integrity.cc file is generated in dependency.
-    deps = [ ":packed_resources_integrity" ]
   }
 }
 
@@ -1720,6 +1703,7 @@ if (is_android) {
     deps = [
       ":dependencies",
       "//chrome/browser/flags:flags_android",
+      "//chrome/browser/payments:impl",
       "//chrome/browser/ui",
       "//chrome/child",
       "//chrome/common",
@@ -1899,12 +1883,8 @@ if (is_linux || is_chromeos) {
   }
 
   # Copies some scripts and resources that are used for desktop integration.
-  copy("xdg_mime") {
-    sources = [
-      "//chrome/tools/build/linux/chrome-wrapper",
-      "//third_party/xdg-utils/scripts/xdg-mime",
-      "//third_party/xdg-utils/scripts/xdg-settings",
-    ]
+  copy("linux_cros_extra_data") {
+    sources = [ "//chrome/tools/build/linux/chrome-wrapper" ]
     if (is_linux) {
       sources += [
         "//chrome/app/theme/$branding_path_component/linux/product_logo_48.png",

@@ -36,6 +36,7 @@ inline constexpr char kChromeUIOnDeviceLlmInternalsURL[] =
 inline constexpr char kChromeUIPolicyURL[] = "chrome://policy/";
 inline constexpr char kChromeUIPolicyLogsURL[] = "chrome://policy/logs";
 inline constexpr char kChromeUIPolicyTestURL[] = "chrome://policy/test";
+inline constexpr char kChromeUISafeBrowsingURL[] = "chrome://safe-browsing";
 inline constexpr char kChromeUISettingsURL[] = "chrome://settings/";
 inline constexpr char kChromeUITermsURL[] = "chrome://terms/";
 inline constexpr char kChromeUIVersionURL[] = "chrome://version/";
@@ -75,6 +76,7 @@ inline constexpr char kChromeUIPasswordManagerInternalsHost[] =
 inline constexpr char kChromeUIPolicyHost[] = "policy";
 inline constexpr char kChromeUIPrefsInternalsHost[] = "prefs-internals";
 inline constexpr char kChromeUIProfileInternalsHost[] = "profile-internals";
+inline constexpr char kChromeUISafeBrowsingHost[] = "safe-browsing";
 inline constexpr char kChromeUISignInInternalsHost[] = "signin-internals";
 inline constexpr char kChromeUITermsHost[] = "terms";
 inline constexpr char kChromeUITranslateInternalsHost[] = "translate-internals";
@@ -203,20 +205,20 @@ inline constexpr char kBookmarksLimitExceededHelpCenter[] =
 inline constexpr char kLearnMoreLensURL[] =
     "https://support.google.com/chrome/?p=google_lens_ios";
 
-// URL for the BWG App Activity Settings row.
-inline constexpr char kBWGAppActivityURL[] =
+// URL for the Gemini App Activity Settings row.
+inline constexpr char kGeminiAppActivityURL[] =
     "https://myactivity.google.com/product/gemini?utm_source=gemini&pli=1";
 
-// URL for the BWG Precise Location Settings row.
-inline constexpr char kBWGPreciseLocationURL[] =
+// URL for the Gemini Precise Location Settings row.
+inline constexpr char kGeminiPreciseLocationURL[] =
     "http://support.google.com/gemini?p=gcr_location_info";
 
-// URL for the BWG Page Content Sharing Settings row.
-inline constexpr char kBWGPageContentSharingURL[] =
+// URL for the Gemini Page Content Sharing Settings row.
+inline constexpr char kGeminiPageContentSharingURL[] =
     "https://support.google.com/gemini?p=chrome_PH#topic=15280100";
 
-// URL for the BWG Extensions Settings row.
-inline constexpr char kBWGExtensionsURL[] = "https://gemini.google.com/apps";
+// URL for the Gemini Extensions Settings row.
+inline constexpr char kGeminiExtensionsURL[] = "https://gemini.google.com/apps";
 
 // Gets the hosts/domains that are shown in chrome://chrome-urls.
 inline constexpr std::array<std::string_view, 22> kChromeHostURLs = {

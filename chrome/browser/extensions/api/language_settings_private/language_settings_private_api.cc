@@ -210,10 +210,6 @@ LanguageSettingsPrivateGetLanguageListFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetLanguageListFunction::Run() {
-#if 1
-  base::ListValue language_list;
-  return RespondNow(WithArguments(std::move(language_list)));
-#else
   // Collect the language codes from the supported accept-languages.
   const std::string app_locale =
       ExtensionsBrowserClient::Get()->GetApplicationLocale();
@@ -292,7 +288,6 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
 #endif  // BUILDFLAG(IS_WIN)
 
   return RespondNow(WithArguments(std::move(language_list_)));
-#endif
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -329,7 +324,6 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
   const auto parameters =
       language_settings_private::EnableLanguage::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
-#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -342,7 +336,6 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
 
   translate_prefs->AddToLanguageList(language_code, /*force_blocked=*/false);
 
-#endif
   return RespondNow(NoArguments());
 }
 
@@ -357,7 +350,6 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
   const auto parameters =
       language_settings_private::DisableLanguage::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
-#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -370,7 +362,6 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
 
   translate_prefs->RemoveFromLanguageList(language_code);
 
-#endif
   return RespondNow(NoArguments());
 }
 
@@ -385,7 +376,6 @@ LanguageSettingsPrivateSetEnableTranslationForLanguageFunction::Run() {
   const auto parameters = language_settings_private::
       SetEnableTranslationForLanguage::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
-#if 0
   const std::string& language_code = parameters->language_code;
   // True if translation enabled, false if disabled.
   const bool enable = parameters->enable;
@@ -399,7 +389,6 @@ LanguageSettingsPrivateSetEnableTranslationForLanguageFunction::Run() {
     translate_prefs->BlockLanguage(language_code);
   }
 
-#endif
   return RespondNow(NoArguments());
 }
 
@@ -411,7 +400,6 @@ LanguageSettingsPrivateGetAlwaysTranslateLanguagesFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetAlwaysTranslateLanguagesFunction::Run() {
-#if 0
   const std::unique_ptr<translate::TranslatePrefs> translate_prefs =
       CreateTranslatePrefsForBrowserContext(browser_context());
 
@@ -424,8 +412,6 @@ LanguageSettingsPrivateGetAlwaysTranslateLanguagesFunction::Run() {
   }
 
   return RespondNow(WithArguments(std::move(always_translate_languages)));
-#endif
-  return RespondNow(NoArguments());
 }
 
 LanguageSettingsPrivateSetLanguageAlwaysTranslateStateFunction::
@@ -436,7 +422,6 @@ LanguageSettingsPrivateSetLanguageAlwaysTranslateStateFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateSetLanguageAlwaysTranslateStateFunction::Run() {
-#if 0
   const auto params = language_settings_private::
       SetLanguageAlwaysTranslateState::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
@@ -457,7 +442,6 @@ LanguageSettingsPrivateSetLanguageAlwaysTranslateStateFunction::Run() {
         params->language_code);
   }
 
-#endif
   return RespondNow(NoArguments());
 }
 
@@ -469,7 +453,6 @@ LanguageSettingsPrivateGetNeverTranslateLanguagesFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetNeverTranslateLanguagesFunction::Run() {
-#if 0
   const std::unique_ptr<translate::TranslatePrefs> translate_prefs =
       CreateTranslatePrefsForBrowserContext(browser_context());
 
@@ -481,8 +464,6 @@ LanguageSettingsPrivateGetNeverTranslateLanguagesFunction::Run() {
     never_translate_languages.Append(std::move(entry));
   }
   return RespondNow(WithArguments(std::move(never_translate_languages)));
-#endif
-  return RespondNow(NoArguments());
 }
 
 LanguageSettingsPrivateMoveLanguageFunction::
@@ -493,7 +474,6 @@ LanguageSettingsPrivateMoveLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateMoveLanguageFunction::Run() {
-#if 0
   const auto parameters =
       language_settings_private::MoveLanguage::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
@@ -534,7 +514,6 @@ LanguageSettingsPrivateMoveLanguageFunction::Run() {
   translate_prefs->RearrangeLanguage(language_code, where, offset,
                                      supported_language_codes);
 
-#endif
   return RespondNow(NoArguments());
 }
 
@@ -670,16 +649,12 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
-#if 0
   language::LanguageModel* language_model =
       LanguageModelManagerFactory::GetForBrowserContext(browser_context())
           ->GetPrimaryModel();
   return RespondNow(WithArguments(TranslateService::GetTargetLanguage(
       Profile::FromBrowserContext(browser_context())->GetPrefs(),
       language_model)));
-#else
-  return RespondNow(NoArguments());
-#endif
 }
 
 LanguageSettingsPrivateSetTranslateTargetLanguageFunction::
@@ -690,7 +665,6 @@ LanguageSettingsPrivateSetTranslateTargetLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateSetTranslateTargetLanguageFunction::Run() {
-#if 0
   const auto parameters =
       language_settings_private::SetTranslateTargetLanguage::Params::Create(
           args());
@@ -706,7 +680,7 @@ LanguageSettingsPrivateSetTranslateTargetLanguageFunction::Run() {
     return RespondNow(NoArguments());
   }
   translate_prefs->SetRecentTargetLanguage(language_code);
-#endif
+
   return RespondNow(NoArguments());
 }
 

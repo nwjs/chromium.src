@@ -14,10 +14,12 @@
 #import "base/uuid.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#import "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #import "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #import "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
+#import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #import "components/autofill/core/browser/field_types.h"
 #import "components/autofill/core/browser/form_import/form_data_importer.h"
 #import "components/autofill/core/browser/form_import/payments/payments_form_data_importer.h"
@@ -41,7 +43,6 @@
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
-#import "ios/chrome/browser/autofill/ui_bundled/scoped_autofill_payment_reauth_module_override.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -392,15 +393,7 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
 };
 }  // namespace autofill
 
-@implementation AutofillAppInterface {
-  std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
-      _scopedReauthModuleOverride;
-}
-
-+ (instancetype)sharedInstance {
-  static AutofillAppInterface* instance = [[AutofillAppInterface alloc] init];
-  return instance;
-}
+@implementation AutofillAppInterface
 
 + (void)clearProfilePasswordStore {
   ClearProfilePasswordStore();
@@ -669,39 +662,6 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
   return ios::provider::GetRiskData();
 }
 
-+ (void)setUpMockReauthenticationModule {
-  AutofillAppInterface* shared = [AutofillAppInterface sharedInstance];
-  MockReauthenticationModule* mock_reauthentication_module =
-      [[MockReauthenticationModule alloc] init];
-  shared->_scopedReauthModuleOverride =
-      ScopedAutofillPaymentReauthModuleOverride::MakeAndArmForTesting(
-          mock_reauthentication_module);
-}
-
-+ (void)clearMockReauthenticationModule {
-  AutofillAppInterface* shared = [AutofillAppInterface sharedInstance];
-  shared->_scopedReauthModuleOverride = nullptr;
-}
-
-+ (void)mockReauthenticationModuleCanAttempt:(BOOL)canAttempt {
-  AutofillAppInterface* shared = [AutofillAppInterface sharedInstance];
-  CHECK(shared->_scopedReauthModuleOverride);
-  MockReauthenticationModule* mockModule =
-      base::apple::ObjCCastStrict<MockReauthenticationModule>(
-          shared->_scopedReauthModuleOverride->module);
-  mockModule.canAttempt = canAttempt;
-}
-
-+ (void)mockReauthenticationModuleExpectedResult:
-    (ReauthenticationResult)expectedResult {
-  AutofillAppInterface* shared = [AutofillAppInterface sharedInstance];
-  CHECK(shared->_scopedReauthModuleOverride);
-  MockReauthenticationModule* mockModule =
-      base::apple::ObjCCastStrict<MockReauthenticationModule>(
-          shared->_scopedReauthModuleOverride->module);
-  mockModule.expectedResult = expectedResult;
-}
-
 + (void)setMandatoryReauthEnabled:(BOOL)enabled {
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
@@ -714,6 +674,51 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
       [self personalDataManager];
   personalDataManager->payments_data_manager().SetPaymentsCvcStorageEnabled(
       enabled);
+}
+
++ (NSString*)saveRedressNumberEntityWithName:(NSString*)name
+                                      number:(NSString*)number {
+  if (!name || !number) {
+    return nil;
+  }
+
+  autofill::EntityDataManager* entityDataManager = [self entityDataManager];
+  if (!entityDataManager) {
+    return nil;
+  }
+
+  autofill::test::RedressNumberOptions options = {};
+  std::u16string name_u16;
+  std::u16string number_u16;
+  base::Uuid uuid = base::Uuid::GenerateRandomV4();
+  name_u16 = base::SysNSStringToUTF16(name);
+  options.name = name_u16.c_str();
+  number_u16 = base::SysNSStringToUTF16(number);
+  options.number = number_u16.c_str();
+  std::string guid_str = uuid.AsLowercaseString();
+  options.guid = guid_str;
+  autofill::EntityInstance entity =
+      autofill::test::GetRedressNumberEntityInstance(options);
+  entityDataManager->AddOrUpdateEntityInstance(entity);
+  return base::SysUTF8ToNSString(guid_str);
+}
+
++ (void)removeEntityWithUUID:(NSString*)uuid {
+  autofill::EntityDataManager* entityDataManager = [self entityDataManager];
+  if (!entityDataManager) {
+    return;
+  }
+  entityDataManager->RemoveEntityInstance(
+      autofill::EntityInstance::EntityId(base::SysNSStringToUTF8(uuid)));
+}
+
++ (void)removeEntityModifiedSince:(NSDate*)time {
+  autofill::EntityDataManager* entityDataManager = [self entityDataManager];
+  if (!entityDataManager) {
+    return;
+  }
+  entityDataManager->RemoveEntityInstancesModifiedBetween(
+      base::Time::FromNSDate(time), base::Time::Now());
 }
 
 #pragma mark - Private
@@ -738,6 +743,27 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
                                    /*save_is_synchronous=*/true,
                                    base::DoNothing());
   }
+}
+
++ (autofill::EntityDataManager*)entityDataManager {
+  return autofill::FakeCreditCardServer::GetAutofillClient()
+      .GetEntityDataManager();
+}
+
++ (BOOL)savePassportEntity {
+  autofill::AutofillClient& client =
+      autofill::FakeCreditCardServer::GetAutofillClient();
+
+  autofill::EntityDataManager* entityDataManager =
+      client.GetEntityDataManager();
+
+  if (!entityDataManager) {
+    return NO;
+  }
+
+  autofill::EntityInstance entity = autofill::test::GetPassportEntityInstance();
+  entityDataManager->AddOrUpdateEntityInstance(entity);
+  return YES;
 }
 
 @end

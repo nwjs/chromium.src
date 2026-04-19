@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sv">
 <translation id="1000436330784933699">Du kan öppna Lens här.</translation>
+<translation id="1005291068154454184">Video i helskärmsläge om hur du ställer in Chromium som standardwebbläsare</translation>
 <translation id="1042296835509784301">Öppnar Lösenordshantering i Chromium.</translation>
 <translation id="1047130070405668746">Välj Chromium</translation>
 <translation id="1091252999271033193">Detta betyder att mobilversionen av webbplatsen begärs varje gång i Chromium.</translation>
@@ -70,9 +71,6 @@ Nya bokmärken kan inte sparas i ditt konto förrän du har raderat några. Om d
 <translation id="2313870531055795960">Kontrollera webbadresser mot en lista över osäkra webbplatser i Chromium. Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chromium till Säker webbsökning tillsammans med delar av sidinnehållet.</translation>
 <translation id="2314220608288760290">Chromium öppnar automatiskt inkognitolänkar till YouTube i inkognitoläget.</translation>
 <translation id="231828342043114302">Logga in i Chromium om du vill få anpassat innehåll utifrån dina intressen.</translation>
-<translation id="2326738825692478496">Viss Chromium-data har inte sparats i ditt Google-konto ännu.
-
-Testa att vänta några minuter innan du loggar ut. Om du loggar ut nu raderas denna data.</translation>
 <translation id="2334943301233020675">Följande nycklar importerades inte till Lösenordshantering eftersom de inte uppfyller kraven.</translation>
 <translation id="2337722506862731008">Dela Chromium</translation>
 <translation id="2340423701577464731">Lägg till ett objekt från läslistan i Chromium</translation>
@@ -103,7 +101,6 @@ Testa att vänta några minuter innan du loggar ut. Om du loggar ut nu raderas d
 Du hittar fler inställningar som använder data för att förbättra Chromium-upplevelsen under <ph name="BEGIN_LINK" />Googles tjänster<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Sök med rösten i Chromium.</translation>
 <translation id="2843571538056574338">Använd Chromium för autofyll</translation>
-<translation id="2899085719655668655">Instruktioner i bild-i-bild-video om hur du ställer in Chromium som standardwebbläsare.</translation>
 <translation id="2918709798697875261">Organisationen kräver att du inte loggar in i Chromium.</translation>
 <translation id="2942241131342758843">Använd Chromium som standard när du öppnar länkar och söker med en widget och få lösenord ifyllda i andra appar automatiskt</translation>
 <translation id="2977470724722393594">Chromium är uppdaterat</translation>

@@ -53,10 +53,8 @@ void FindBarOwnerViews::OnFindBarVisibilityChanged(gfx::Rect visible_bounds) {
 }
 
 void FindBarOwnerViews::CloseOverlappingBubbles() {
-#if 0
   if (TranslateBubbleController* controller =
       TranslateBubbleController::From(browser_view_->browser())) {
     controller->CloseBubble();
   }
-#endif
 }

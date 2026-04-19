@@ -473,13 +473,16 @@ void PassthroughResources::SharedImageData::EnsureClear(
     api->glDisableFn(GL_SCISSOR_TEST);
     api->glClearFn(GL_COLOR_BUFFER_BIT);
 
+    if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) ==
+        GL_FRAMEBUFFER_COMPLETE) {
+      // Mark the shared image as cleared.
+      representation_->SetCleared();
+    }
+
     // Delete the generated framebuffer.
     api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                      texture->target(), 0, 0);
     api->glDeleteFramebuffersEXTFn(1, &fbo);
-
-    // Mark the shared image as cleared.
-    representation_->SetCleared();
   }
 }
 
@@ -1848,6 +1851,28 @@ error::Error GLES2DecoderPassthroughImpl::
                                                          GLenum pname,
                                                          GLsizei length,
                                                          GLint* params) {
+  // Likely a gl error if no parameters were returned
+  if (length < 1) {
+    return error::kNoError;
+  }
+
+  switch (pname) {
+    case GL_PIXEL_LOCAL_TEXTURE_NAME_ANGLE:
+      if (*params != 0 &&
+          !GetClientID(&resources_->texture_id_map, *params, params)) {
+        return error::kInvalidArguments;
+      }
+      break;
+  }
+
+  return error::kNoError;
+}
+
+error::Error GLES2DecoderPassthroughImpl::
+    PatchGetFramebufferPixelLocalStorageParameteruivANGLE(GLint plane,
+                                                          GLenum pname,
+                                                          GLsizei length,
+                                                          GLuint* params) {
   // Likely a gl error if no parameters were returned
   if (length < 1) {
     return error::kNoError;

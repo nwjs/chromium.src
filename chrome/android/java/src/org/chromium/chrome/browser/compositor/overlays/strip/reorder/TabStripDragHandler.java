@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.compositor.overlays.strip.reorder;
 
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.isTabPinningFromStripEnabled;
 
 import android.app.Activity;
 import android.content.ClipDescription;
@@ -115,7 +114,6 @@ public class TabStripDragHandler extends TabDragHandlerBase {
      *     dimens.
      * @param activitySupplier Supplier for the current activity.
      * @param tabStripHeightSupplier Supplier of the tab strip height.
-     * @param isAppInDesktopWindowSupplier Supplier for the current window desktop state.
      */
     public TabStripDragHandler(
             Context context,
@@ -127,13 +125,8 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             DragAndDropDelegate dragAndDropDelegate,
             BrowserControlsStateProvider browserControlStateProvider,
             Supplier<@Nullable Activity> activitySupplier,
-            Supplier<Integer> tabStripHeightSupplier,
-            Supplier<Boolean> isAppInDesktopWindowSupplier) {
-        super(
-                activitySupplier,
-                multiInstanceManager,
-                dragAndDropDelegate,
-                isAppInDesktopWindowSupplier);
+            Supplier<Integer> tabStripHeightSupplier) {
+        super(activitySupplier, multiInstanceManager, dragAndDropDelegate);
         mPxToDp = 1.f / context.getResources().getDisplayMetrics().density;
         mTabStripHeightSupplier = tabStripHeightSupplier;
         mStripLayoutHelperSupplier = stripLayoutHelperSupplier;
@@ -419,10 +412,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             res = onDropInStrip(dropEvent);
         } else {
             DragDropMetricUtils.recordDragDropResult(
-                    DragDropResult.IGNORED_TOOLBAR,
-                    mIsAppInDesktopWindowSupplier.get(),
-                    isTabGroupDrop(),
-                    isMultiTabDrop());
+                    DragDropResult.IGNORED_TOOLBAR, isTabGroupDrop(), isMultiTabDrop());
             res = false;
         }
         if (res) DragDropGlobalState.notifyChromeHandledDrop(dropEvent);
@@ -475,22 +465,24 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+            mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
                     destWindowId,
                     Collections.singletonList(tabBeingDragged),
                     getTabModelSelector().getModel(tabBeingDragged.isIncognito()).getCount(),
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* bringToFront= */ true);
             showDroppedDifferentModelToast(getActivity());
         } else {
             // Reparent tab at drop index and merge to group on destination if needed.
             int tabIndex =
                     helper.getTabIndexForTabDrop(
                             dropEvent.getX() * mPxToDp, tabBeingDragged.getIsPinned());
-            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+            mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
                     destWindowId,
                     Collections.singletonList(tabBeingDragged),
                     tabIndex,
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* bringToFront= */ true);
             helper.maybeMergeToGroupOnDrop(
                     Collections.singletonList(tabBeingDragged.getId()),
                     tabIndex,
@@ -498,7 +490,6 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         }
         DragDropMetricUtils.recordDragDropType(
                 DragDropType.TAB_STRIP_TO_TAB_STRIP,
-                mIsAppInDesktopWindowSupplier.get(),
                 /* isTabGroup= */ false,
                 /* isMultiTab= */ false);
         return true;
@@ -519,24 +510,26 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+            mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
                     destWindowId,
                     tabsBeingDragged,
                     getTabModelSelector()
                             .getModel(tabsBeingDragged.get(0).isIncognito())
                             .getCount(),
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* bringToFront= */ true);
             showDroppedDifferentModelToast(getActivity());
         } else {
             // Reparent tabs at drop index.
             int tabIndex =
                     helper.getTabIndexForTabDrop(
                             dropEvent.getX() * mPxToDp, isDraggingPinnedItem());
-            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+            mMultiInstanceOrchestrator.moveTabsToWindowByIdChecked(
                     destWindowId,
                     tabsBeingDragged,
                     tabIndex,
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* bringToFront= */ true);
             List<Integer> tabsBeingDraggedIds = new ArrayList<>();
             for (Tab tab : tabsBeingDragged) {
                 tabsBeingDraggedIds.add(tab.getId());
@@ -545,7 +538,6 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         }
         DragDropMetricUtils.recordDragDropType(
                 DragDropType.TAB_STRIP_TO_TAB_STRIP,
-                mIsAppInDesktopWindowSupplier.get(),
                 /* isTabGroup= */ false,
                 /* isMultiTab= */ true);
         return true;
@@ -573,21 +565,21 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabGroupToWindowByIdChecked(
+            mMultiInstanceOrchestrator.moveTabGroupToWindowByIdChecked(
                     windowId,
                     tabGroupMetadata,
-                    getTabModelSelector().getModel(tabGroupMetadata.isIncognito).getCount());
+                    getTabModelSelector().getModel(tabGroupMetadata.isIncognito).getCount(),
+                    /* bringToFront= */ true);
             showDroppedDifferentModelToast(getActivity());
         } else {
             // Reparent tab group at drop index.
             int tabIndex =
                     helper.getTabIndexForTabDrop(dropEvent.getX() * mPxToDp, /* isPinned= */ false);
-            mMultiInstanceManager.moveTabGroupToWindowByIdChecked(
-                    windowId, tabGroupMetadata, tabIndex);
+            mMultiInstanceOrchestrator.moveTabGroupToWindowByIdChecked(
+                    windowId, tabGroupMetadata, tabIndex, /* bringToFront= */ true);
         }
         DragDropMetricUtils.recordDragDropType(
                 DragDropType.TAB_STRIP_TO_TAB_STRIP,
-                mIsAppInDesktopWindowSupplier.get(),
                 /* isTabGroup= */ true,
                 /* isMultiTab= */ false);
         return true;
@@ -689,7 +681,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     public static boolean isDraggingPinnedItem() {
         DragDropGlobalState globalState = getDragDropGlobalState(/* dragEvent= */ null);
-        if (!isTabPinningFromStripEnabled() || globalState == null) return false;
+        if (globalState == null) return false;
 
         Tab tab = ChromeDragDropUtils.getTabFromGlobalState(globalState);
         if (tab != null && tab.getIsPinned()) return true;
@@ -727,10 +719,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         String text = context.getString(R.string.tab_cannot_be_moved, tabTitle);
         Toast.makeText(context, text, Toast.LENGTH_LONG).show();
         DragDropMetricUtils.recordDragDropResult(
-                DragDropResult.IGNORED_MHTML_TAB,
-                mIsAppInDesktopWindowSupplier.get(),
-                /* isTabGroup= */ true,
-                /* isMultiTab= */ false);
+                DragDropResult.IGNORED_MHTML_TAB, /* isTabGroup= */ true, /* isMultiTab= */ false);
         return true;
     }
 

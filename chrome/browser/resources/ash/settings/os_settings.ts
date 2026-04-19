@@ -34,8 +34,10 @@ export type {ChromeSigninUserChoiceInfo, StoredAccount, SyncBrowserProxy, SyncPr
 export {ChromeSigninAccessPoint, ChromeSigninUserChoice, PageStatus, SignedInState, StatusAction, SyncBrowserProxyImpl} from '/shared/settings/people_page/sync_browser_proxy.js';
 export {SettingsPrefsElement} from '/shared/settings/prefs/prefs.js';
 export {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
-export type {MetricsReporting, PrivacyPageBrowserProxy, ResolverOption, SecureDnsSetting} from '/shared/settings/privacy_page/privacy_page_browser_proxy.js';
-export {PrivacyPageBrowserProxyImpl, SecureDnsMode, SecureDnsUiManagementMode} from '/shared/settings/privacy_page/privacy_page_browser_proxy.js';
+export type {MetricsReporting, PrivacyPageBrowserProxy} from '/shared/settings/privacy_page/privacy_page_browser_proxy.js';
+export {PrivacyPageBrowserProxyImpl} from '/shared/settings/privacy_page/privacy_page_browser_proxy.js';
+export type {ResolverOption, SecureDnsSetting, SecurityPageBrowserProxy} from '/shared/settings/security_page/security_page_browser_proxy.js';
+export {SecureDnsMode, SecureDnsUiManagementMode, SecurityPageBrowserProxyImpl} from '/shared/settings/security_page/security_page_browser_proxy.js';
 export {CrA11yAnnouncerElement} from 'chrome://resources/ash/common/cr_elements/cr_a11y_announcer/cr_a11y_announcer.js';
 export {CrActionMenuElement} from 'chrome://resources/ash/common/cr_elements/cr_action_menu/cr_action_menu.js';
 export {CrAutoImgElement} from 'chrome://resources/ash/common/cr_elements/cr_auto_img/cr_auto_img.js';
@@ -213,7 +215,7 @@ export type {OsResetBrowserProxy} from './os_reset_page/os_reset_browser_proxy.j
 export {OsResetBrowserProxyImpl} from './os_reset_page/os_reset_browser_proxy.js';
 export {SearchAndAssistantSettingsCardElement} from './os_search_page/search_and_assistant_settings_card.js';
 export {SettingsSearchEngineElement} from './os_search_page/search_engine.js';
-export type {SearchEngine, SearchEnginesBrowserProxy, SearchEnginesInfo} from './os_search_page/search_engines_browser_proxy.js';
+export type {CategorizedTemplateUrls, SearchEngine, SearchEnginesBrowserProxy, SearchEnginesInfo} from './os_search_page/search_engines_browser_proxy.js';
 export {SearchEnginesBrowserProxyImpl} from './os_search_page/search_engines_browser_proxy.js';
 export {ManagedFootnoteElement} from './os_settings_main/managed_footnote.js';
 export {OsSettingsMainElement} from './os_settings_main/os_settings_main.js';

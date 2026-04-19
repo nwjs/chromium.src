@@ -164,7 +164,7 @@ suite('WhatsNewAppTest', function() {
 
     const isAutoOpen =
         await proxy.handler.whenCalled('recordVersionPageLoaded');
-    assertEquals(false, isAutoOpen);
+    assertFalse(isAutoOpen);
 
     const contentLoadedCallCount =
         proxy.handler.getCallCount('recordTimeToLoadContent');
@@ -198,10 +198,10 @@ suite('WhatsNewAppTest', function() {
     document.body.appendChild(whatsNewApp);
 
     let expanded = await proxy.handler.whenCalled('recordExploreMoreToggled');
-    assertEquals(true, expanded);
+    assertTrue(expanded);
     proxy.handler.resetResolver('recordExploreMoreToggled');
     expanded = await proxy.handler.whenCalled('recordExploreMoreToggled');
-    assertEquals(false, expanded);
+    assertFalse(expanded);
   });
 
   test('with scroll_depth metrics from embedded page', async () => {
@@ -229,6 +229,25 @@ suite('WhatsNewAppTest', function() {
     // 3 million microseconds = 3 thousand milliseconds
     assertEquals(3n * 1000n * 1000n, timeOnPage.microseconds);
     assertFalse(isHeartbeat);
+  });
+
+  test('with time_on_page_heartbeat metrics from embedded page', async () => {
+    const proxy = new TestWhatsNewBrowserProxy(
+        getUrlForFixture('test_with_metrics_time_on_page_heartbeat'));
+    WhatsNewProxyImpl.setInstance(proxy);
+    window.history.replaceState({}, '', '/');
+    const whatsNewApp = document.createElement('whats-new-app');
+    document.body.appendChild(whatsNewApp);
+
+    await proxy.handler.whenCalled('recordCtaClick');
+
+    window.dispatchEvent(new Event('beforeunload'));
+
+    const [timeOnPage, isHeartbeat] =
+        await proxy.handler.whenCalled('recordTimeOnPage');
+    // 3 million microseconds = 3 thousand milliseconds
+    assertEquals(3n * 1000n * 1000n, timeOnPage.microseconds);
+    assertTrue(isHeartbeat);
   });
 
   test('with module_click metrics from embedded page', async () => {
@@ -305,10 +324,10 @@ suite('WhatsNewAppTest', function() {
     document.body.appendChild(whatsNewApp);
 
     let expanded = await proxy.handler.whenCalled('recordQrCodeToggled');
-    assertEquals(true, expanded);
+    assertTrue(expanded);
     proxy.handler.resetResolver('recordQrCodeToggled');
     expanded = await proxy.handler.whenCalled('recordQrCodeToggled');
-    assertEquals(false, expanded);
+    assertFalse(expanded);
   });
 
   test('with expand_media_toggled metrics from embedded page', async () => {
@@ -322,11 +341,11 @@ suite('WhatsNewAppTest', function() {
     let expandedMedia =
         await proxy.handler.whenCalled('recordExpandMediaToggled');
     assertEquals('ChromeFeature', expandedMedia[0]);
-    assertEquals(true, expandedMedia[1]);
+    assertTrue(expandedMedia[1]);
     proxy.handler.resetResolver('recordExpandMediaToggled');
     expandedMedia = await proxy.handler.whenCalled('recordExpandMediaToggled');
     assertEquals('ChromeFeature', expandedMedia[0]);
-    assertEquals(false, expandedMedia[1]);
+    assertFalse(expandedMedia[1]);
   });
 
   test('with next button click metric from embedded page', async () => {

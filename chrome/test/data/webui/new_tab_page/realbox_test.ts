@@ -4,21 +4,21 @@
 
 import 'chrome://new-tab-page/new_tab_page.js';
 
-import type {SearchboxElement} from 'chrome://new-tab-page/new_tab_page.js';
+import type {NtpSearchboxElement} from 'chrome://new-tab-page/new_tab_page.js';
 import {BrowserProxyImpl, MetricsReporterImpl, SearchboxBrowserProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageMetricsCallbackRouter} from 'chrome://resources/js/metrics_reporter.mojom-webui.js';
 import {InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {createInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
+import {assertStyle, MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {TestSearchboxBrowserProxy} from 'chrome://webui-test/cr_components/searchbox/test_searchbox_browser_proxy.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-const SAMPLE_INPUT_STATE = createInputState({
+const SAMPLE_INPUT_STATE = new MockInputState({
   allowedTools: [ToolMode.kDeepSearch, ToolMode.kImageGen],
   toolConfigs: [
     {
@@ -38,6 +38,7 @@ const SAMPLE_INPUT_STATE = createInputState({
       aimUrlParams: [],
     },
   ],
+  toolsSectionConfig: {header: ''},
   allowedModels: [ModelMode.kGeminiRegular, ModelMode.kGeminiPro],
   modelConfigs: [
     {
@@ -53,27 +54,27 @@ const SAMPLE_INPUT_STATE = createInputState({
       aimUrlParams: [],
     },
   ],
+  modelSectionConfig: {header: ''},
   allowedInputTypes:
       [InputType.kLensImage, InputType.kLensFile, InputType.kBrowserTab],
   maxTotalInputs: 10,
 });
 
-function createAndAppendRealbox(properties: Partial<SearchboxElement> = {}):
-    SearchboxElement {
+function createAndAppendRealbox(properties: Partial<NtpSearchboxElement> = {}):
+    NtpSearchboxElement {
   document.body.innerHTML = window.trustedTypes!.emptyHTML;
-  const realbox = document.createElement('cr-searchbox');
+  const realbox = document.createElement('ntp-searchbox');
   Object.assign(realbox, properties);
   document.body.appendChild(realbox);
   return realbox;
 }
 
 suite('NewTabPageRealboxTabsTest', () => {
-  let realbox: SearchboxElement;
+  let realbox: NtpSearchboxElement;
   let testProxy: TestSearchboxBrowserProxy;
 
   suiteSetup(() => {
     loadTimeData.overrideValues({
-      composeboxShowRecentTabChip: true,
       contextualMenuUsePecApi: true,
       isLensSearchbox: false,
       reportMetrics: true,
@@ -116,14 +117,12 @@ suite('NewTabPageRealboxTabsTest', () => {
         tabId: 1,
         title: 'Sample Tab 1',
         url: 'https://example.com/1',
-        showInRecentTabChip: true,
         lastActive: {internalValue: BigInt(1)},
       },
       {
         tabId: 2,
         title: 'Sample Tab 2',
         url: 'https://example.com/2',
-        showInRecentTabChip: true,
         lastActive: {internalValue: BigInt(2)},
       },
     ];
@@ -146,85 +145,10 @@ suite('NewTabPageRealboxTabsTest', () => {
     await microtasksFinished();
     assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 0);
   });
-
-  test('recent tab chip visibility depends on allowed input types', async () => {
-    const sampleTabs = [
-      {
-        tabId: 1,
-        title: 'Sample Tab 1',
-        url: 'https://example.com/1',
-        showInCurrentTabChip: true,
-        lastActive: {internalValue: BigInt(1)},
-      },
-    ];
-    testProxy.handler.setResultFor(
-        'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
-
-    // Case 1: Browser tab allowed
-    testProxy.handler.setResultFor('getInputState', {
-      state: createInputState({
-        allowedInputTypes: [InputType.kBrowserTab],
-      }),
-    });
-
-    realbox = await createAndAppendRealbox(
-        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
-
-    realbox.$.input.focus();
-    await microtasksFinished();
-    realbox.$.input.inputElement.dispatchEvent(
-        new MouseEvent('mousedown', {button: 0}));
-    await testProxy.handler.whenCalled('getRecentTabs');
-
-    // Show dropdown (required for chip visibility)
-    const matches = [createSearchMatchForTesting()];
-    testProxy.callbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResultForTesting({
-          input: '',
-          matches: matches,
-        }));
-    await testProxy.callbackRouterRemote.$.flushForTesting();
-    await microtasksFinished();
-
-    let chipContainer =
-        realbox.shadowRoot.querySelector('#recentTabChipContainer');
-    assertTrue(!!chipContainer);
-
-    // Case 2: Browser tab NOT allowed
-    testProxy.handler.reset();
-    testProxy.handler.setResultFor(
-        'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
-    testProxy.handler.setResultFor('getInputState', {
-      state: createInputState({
-        allowedInputTypes: [],  // No browser tab
-      }),
-    });
-
-    realbox = await createAndAppendRealbox(
-        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
-
-    realbox.$.input.focus();
-    await microtasksFinished();
-    realbox.$.input.inputElement.dispatchEvent(
-        new MouseEvent('mousedown', {button: 0}));
-    await testProxy.handler.whenCalled('getRecentTabs');
-
-    testProxy.callbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResultForTesting({
-          input: '',
-          matches: matches,
-        }));
-    await testProxy.callbackRouterRemote.$.flushForTesting();
-    await microtasksFinished();
-
-    chipContainer =
-        realbox.shadowRoot.querySelector('#recentTabChipContainer');
-    assertFalse(!!chipContainer);
-  });
 });
 
 suite('NewTabPageRealboxNextTest', () => {
-  let realbox: SearchboxElement;
+  let realbox: NtpSearchboxElement;
   let testProxy: TestSearchboxBrowserProxy;
   let metrics: MetricsTracker;
 
@@ -257,6 +181,7 @@ suite('NewTabPageRealboxNextTest', () => {
     BrowserProxyImpl.setInstance(testMetricsReporterProxy);
     MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
     metrics = fakeMetricsPrivate();
+    window.open = () => null;
     realbox = createAndAppendRealbox({
       composeButtonEnabled: true,
       composeboxEnabled: true,
@@ -353,26 +278,6 @@ suite('NewTabPageRealboxNextTest', () => {
     assertEquals(ToolMode.kImageGen, event.detail.mode);
   });
 
-  // TODO(crbug.com/453570027): Test is flaky.
-  test.skip(
-      'Contextual component empty area click focuses search input',
-      async () => {
-        // Arrange.
-        realbox = await createAndAppendRealbox({
-          composeButtonEnabled: true,
-          composeboxEnabled: true,
-          searchboxLayoutMode: 'TallTopContext',
-          ntpRealboxNextEnabled: true,
-        });
-        const contextElement = realbox.shadowRoot.querySelector<HTMLElement>(
-            'contextual-entrypoint-and-carousel');
-        assertTrue(!!contextElement);
-        contextElement.dispatchEvent(
-            new CustomEvent('context-menu-container-click'));
-        assertEquals(1, testProxy.handler.getCallCount('onFocusChanged'));
-        assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
-      });
-
   test('pasting files opens composebox', async () => {
     loadTimeData.overrideValues({composeboxFileMaxCount: 2});
     realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
@@ -430,5 +335,237 @@ suite('NewTabPageRealboxNextTest', () => {
     assertFalse(pasteEvent.defaultPrevented);
     assertFalse(openComposeboxCalled);
     assertTrue((realbox.$.input as any).pastedInInput_);
+  });
+
+  test('useWebKitSearchboxIcons with compose button enabled', async () => {
+    realbox = createAndAppendRealbox({
+      composeButtonEnabled: true,
+      searchboxChromeRefreshTheming: false,
+      colorSourceIsBaseline: false,
+    });
+    await microtasksFinished();
+
+    const buttonsToTest = [
+      {
+        selector: '#voiceSearchButton',
+        iconUrl:
+            'url("chrome://resources/cr_components/searchbox/icons/mic.svg")',
+      },
+      {
+        selector: '#lensSearchButton',
+        iconUrl: 'url("chrome://resources/cr_components/searchbox/icons/' +
+            'camera.svg")',
+      },
+    ];
+    for (const {selector, iconUrl} of buttonsToTest) {
+      const button = realbox.shadowRoot.querySelector<HTMLElement>(selector);
+      assertTrue(!!button);
+      assertStyle(button, '-webkit-mask-image', iconUrl);
+      assertStyle(button, 'background-image', 'none');
+    }
+  });
+
+  test('clicking composebox button emits an event.', async () => {
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+
+    const composeButton =
+        realbox.shadowRoot.querySelector<HTMLElement>('#composeButton');
+    assertTrue(!!composeButton);
+
+    composeButton.dispatchEvent(new CustomEvent('compose-click', {
+      detail: {
+        button: 0,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      },
+      bubbles: true,
+      composed: true,
+    }));
+
+    await whenOpenComposeBox;
+
+    const metricName = 'ContextualSearch.AiModeButtonClick.NtpRealbox';
+    assertEquals(2, metrics.count(metricName));
+    assertEquals(1, metrics.count(metricName, true));
+  });
+
+  test('clicking composebox button with text records user action', () => {
+    realbox.$.input.inputElement.value = 'hello';
+
+    const composeButton =
+        realbox.shadowRoot.querySelector<HTMLElement>('#composeButton');
+    assertTrue(!!composeButton);
+
+    composeButton.dispatchEvent(new CustomEvent('compose-click', {
+      detail: {
+        button: 0,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      },
+      bubbles: true,
+      composed: true,
+    }));
+
+    const submitUserActionName =
+        'ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.NewTabPage';
+    assertEquals(1, metrics.count(submitUserActionName));
+
+    const submitHistogramName =
+        'ContextualSearch.UserAction.SubmitQueryV2.NewTabPage';
+    assertEquals(1, metrics.count(submitHistogramName, /*WithoutContext*/ 0));
+
+    const buttonMetricName = 'ContextualSearch.AiModeButtonClick.NtpRealbox';
+    assertEquals(2, metrics.count(buttonMetricName));
+    assertEquals(1, metrics.count(buttonMetricName, true));
+  });
+
+  test('hovering on composebox button plays the animation.', async () => {
+    const composeButton =
+        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
+    assertTrue(!!composeButton);
+
+    await composeButton.updateComplete;
+
+    const glowAnimationWrapper =
+        composeButton.shadowRoot.querySelector<HTMLElement>(
+            '#glowAnimationWrapper');
+    assertTrue(!!glowAnimationWrapper);
+
+    glowAnimationWrapper.classList.remove('play');
+    assertFalse(glowAnimationWrapper.classList.contains('play'));
+
+    glowAnimationWrapper.dispatchEvent(new MouseEvent('mouseenter'));
+    await microtasksFinished();
+
+    const gradient = glowAnimationWrapper.querySelector('.gradient');
+    const mask = glowAnimationWrapper.querySelector('.mask');
+
+    const gradientBeforeStyle = getComputedStyle(gradient!, '::before');
+    const maskBeforeStyle = getComputedStyle(mask!, '::before');
+
+    assertEquals('running', gradientBeforeStyle.animationPlayState);
+    assertEquals('running', maskBeforeStyle.animationPlayState);
+  });
+
+  test('composeanimation plays on page load.', async () => {
+    loadTimeData.overrideValues({searchboxShowComposeAnimation: true});
+
+    realbox = createAndAppendRealbox({
+      composeButtonEnabled: true,
+      composeboxEnabled: true,
+      ntpRealboxNextEnabled: true,
+      searchboxLayoutMode: 'Compact',
+    });
+    await microtasksFinished();
+
+    const composeButton =
+        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
+    assertTrue(!!composeButton);
+    await composeButton.updateComplete;
+
+    const glowAnimationWrapper =
+        composeButton.shadowRoot.querySelector<HTMLElement>(
+            '#glowAnimationWrapper');
+    assertTrue(!!glowAnimationWrapper);
+    assertTrue(glowAnimationWrapper.classList.contains('play'));
+  });
+
+  test('compose animation does not play on page load.', async () => {
+    loadTimeData.overrideValues({searchboxShowComposeAnimation: false});
+
+    realbox = createAndAppendRealbox({
+      composeButtonEnabled: true,
+      composeboxEnabled: true,
+      ntpRealboxNextEnabled: true,
+      searchboxLayoutMode: 'Compact',
+    });
+    await microtasksFinished();
+
+    const composeButton =
+        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
+    assertTrue(!!composeButton);
+    await composeButton.updateComplete;
+
+    const glowAnimationWrapper =
+        composeButton.shadowRoot.querySelector<HTMLElement>(
+            '#glowAnimationWrapper');
+    assertTrue(!!glowAnimationWrapper);
+    assertFalse(glowAnimationWrapper.classList.contains('play'));
+  });
+
+  test('tabbing with inline autocompletion', async () => {
+    realbox.$.input.focus();
+    assertEquals(realbox.$.input, realbox.shadowRoot.activeElement);
+
+    realbox.$.input.inputElement.value = 'goo';
+    realbox.$.input.inputElement.dispatchEvent(new InputEvent('input'));
+    await microtasksFinished();
+
+    const matches = [createSearchMatchForTesting({
+      allowedToBeDefaultMatch: true,
+      inlineAutocompletion: 'gle',
+    })];
+
+    testProxy.callbackRouterRemote.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          input: realbox.$.input.inputElement.value.trimStart(),
+          matches: matches,
+        }));
+    await microtasksFinished();
+    assertEquals('google', realbox.$.input.inputElement.value, 'input value');
+
+    let start = realbox.$.input.inputElement.selectionStart!;
+    let end = realbox.$.input.inputElement.selectionEnd!;
+    assertEquals(
+        'gle', realbox.$.input.inputElement.value.substring(start, end));
+
+    // Tab key accepts the inline autocompletion, moves the cursor to the end,
+    // and re-queries the autocomplete with the full text.
+    const tabEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      key: 'Tab',
+    });
+    realbox.$.inputWrapper.dispatchEvent(tabEvent);
+    assertTrue(tabEvent.defaultPrevented, 'default prevented');
+
+    assertEquals('google', realbox.$.input.inputElement.value);
+    start = realbox.$.input.inputElement.selectionStart!;
+    end = realbox.$.input.inputElement.selectionEnd!;
+    assertEquals(start, end);
+    assertEquals(realbox.$.input.inputElement.value.length, start);
+
+    // Shift+Tab clears inline autocompletion without triggering a new query.
+    realbox.$.input.inputElement.value = 'goo';
+    realbox.$.input.inputElement.dispatchEvent(new InputEvent('input'));
+    await microtasksFinished();
+
+    testProxy.callbackRouterRemote.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          input: realbox.$.input.inputElement.value.trimStart(),
+          matches: matches,
+        }));
+    await microtasksFinished();
+    assertEquals('google', realbox.$.input.inputElement.value, 'input value');
+
+    const shiftTabEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      key: 'Tab',
+      shiftKey: true,
+    });
+    realbox.$.inputWrapper.dispatchEvent(shiftTabEvent);
+
+    assertEquals('goo', realbox.$.input.inputElement.value);
+    assertFalse(shiftTabEvent.defaultPrevented);
+
+    start = realbox.$.input.inputElement.selectionStart!;
+    end = realbox.$.input.inputElement.selectionEnd!;
+    assertEquals(start, end);
+    assertEquals('goo'.length, start);
   });
 });

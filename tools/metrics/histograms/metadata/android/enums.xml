@@ -46,6 +46,12 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Auto with add to bookmarks"/>
   <int value="11" label="Read Aloud (Listen to this page)"/>
   <int value="12" label="Auto with Read Aloud (Listen to this page)"/>
+  <int value="13" label="Page summary"/>
+  <int value="14" label="Auto with Page summary"/>
+  <int value="15" label="Open in browser"/>
+  <int value="16" label="Auto with Open in browser"/>
+  <int value="17" label="Glic"/>
+  <int value="18" label="Auto with Glic"/>
 </enum>
 
 <enum name="AgsaProcessName">
@@ -88,6 +94,16 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="App menu"/>
   <int value="3" label="Site settings exception list"/>
 </enum>
+
+<!-- LINT.IfChange(AndroidBookmarkAllTabsResult) -->
+
+<enum name="AndroidBookmarkAllTabsResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Failure: Tab model was null"/>
+  <int value="2" label="Failure: Tab list was empty"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/bookmarks/BookmarkAllTabsHandler.java:BookmarkAllTabsResult) -->
 
 <enum name="AndroidChildProcessConnectionEvents">
   <int value="0" label="SCHEDULE_TIMEOUT_SANDBOXED"/>
@@ -280,16 +296,6 @@ chromium-metrics-reviews@google.com.
     Failed to determine storage type by falling through all checks.
   </int>
 </enum>
-
-<!-- LINT.IfChange(AndroidTabStripBookmarkAllTabsResult) -->
-
-<enum name="AndroidTabStripBookmarkAllTabsResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="Failure: Tab model was null"/>
-  <int value="2" label="Failure: Tab list was empty"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/compositor/overlays/strip/StripLayoutHelper.java:BookmarkAllTabsResult) -->
 
 <enum name="AndroidThemeSettingsEntry">
   <summary>See Android.DarkTheme.ThemeSettingsEntry.</summary>
@@ -740,6 +746,15 @@ chromium-metrics-reviews@google.com.
   <int value="181" label="WebSettingsCompat.setPrefetchTtlSeconds"/>
   <int value="182" label="BackForwardCacheSettings.getKeepForwardEntries"/>
   <int value="183" label="BackForwardCacheSettings.setKeepForwardEntries"/>
+  <int value="184" label="WebSettingsCompat.setIgnoreDuplicateNavEnabled"/>
+  <int value="185" label="WebSettingsCompat.getIgnoreDuplicateNavEnabled"/>
+  <int value="186" label="WebSettingsCompat.setIgnoreDuplicateNavThreshold"/>
+  <int value="187" label="WebSettingsCompat.getIgnoreDuplicateNavThreshold"/>
+  <int value="188" label="WebSettingsCompat.getMaxPrerenders"/>
+  <int value="189" label="WebSettingsCompat.getMaxPrefetches"/>
+  <int value="190" label="WebSettingsCompat.getPrefetchTtlSeconds"/>
+  <int value="191" label="WebSettingsCompat.clearMaxPrefetches"/>
+  <int value="192" label="WebSettingsCompat.clearPrefetchTtl"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -878,30 +893,6 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Filtered weaker signals"/>
 </enum>
 
-<enum name="BiometricsAvailability">
-  <int value="0" label="Other error"/>
-  <int value="1" label="Available"/>
-  <int value="2" label="Available, but no fallback"/>
-  <int value="3" label="No hardware"/>
-  <int value="4" label="Hardware unavailable"/>
-  <int value="5" label="Not enrolled"/>
-  <int value="6" label="Security update required"/>
-  <int value="7" label="(obsolete) Android version not supported"/>
-  <int value="8" label="(obsolete) Biometric auth is mandatory"/>
-  <int value="9"
-      label="(obsolete) Biometric auth is mandatory, but has an error"/>
-</enum>
-
-<enum name="BooleanGranted">
-  <int value="0" label="Not granted"/>
-  <int value="1" label="Granted"/>
-</enum>
-
-<enum name="BooleanRetain">
-  <int value="0" label="Do not retain"/>
-  <int value="1" label="Retain"/>
-</enum>
-
 <enum name="BrowserControlsLockReason">
   <summary>The reason why browser controls were locked.</summary>
   <int value="0" label="CHROME_URL"/>
@@ -960,6 +951,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Instance retention period expiration"/>
   <int value="3" label="No tabs in window"/>
   <int value="4" label="Recent Tabs page"/>
+  <int value="5" label="Recently closed limit exceeded"/>
 </enum>
 
 <enum name="ContactsPickerDialogAction">
@@ -1386,7 +1378,8 @@ chromium-metrics-reviews@google.com.
   <int value="58" label="CctAccountMismatchNotice"/>
   <int value="59" label="DEPRECATED: PromptHatsClearBrowsingData"/>
   <int value="60" label="OsAdvancedProtectionSettingChangedMessage"/>
-  <int value="61" label="MultiInstanceRestorationOnDowngradedLimit"/>
+  <int value="61"
+      label="DEPRECATED: MultiInstanceRestorationOnDowngradedLimit"/>
   <int value="62" label="UpdateChromeForTabGroupShare"/>
   <int value="63" label="ModeBRollbackMessage"/>
   <int value="64" label="ReloadPage"/>
@@ -1432,6 +1425,8 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="HOVER_MOVE"/>
   <int value="10" label="BUTTON_PRESS"/>
   <int value="11" label="BUTTON_RELEASE"/>
+  <int value="12" label="OUTSIDE"/>
+  <int value="13" label="SCROLL"/>
 </enum>
 
 <enum name="MultipleUserProfilesState">
@@ -1482,12 +1477,11 @@ chromium-metrics-reviews@google.com.
       label="URL launch that may be triggered from a menu (eg. link context
              menu) or keyboard shortcut (eg. load omnibox search result via
              Shift + Enter)"/>
-  <int value="8" label="New tab launch for different profile type"/>
-  <int value="9" label="External navigation"/>
-  <int value="10" label="Dev tools"/>
-  <int value="11"
+  <int value="8" label="External navigation"/>
+  <int value="9" label="Dev tools"/>
+  <int value="10"
       label="Browser window creation from native feature (eg. extensions)"/>
-  <int value="12" label="Upgrade to Android S multi-instance support"/>
+  <int value="11" label="Upgrade to Android S multi-instance support"/>
 </enum>
 
 <enum name="NightMode">
@@ -1584,19 +1578,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Cancelled - timeout"/>
   <int value="4" label="Exception thrown"/>
   <int value="5" label="Task skipped"/>
-</enum>
-
-<enum name="PermissionResourceBitfield">
-<!-- The histogram that uses this enum is recorded as a sparse histogram, since it is recording bitfield values.
-      However, the most likely values are the individual resources mapped below.
-      Any combinations will hopefully just show up as unmapped numeric values.
-      -->
-
-  <int value="1" label="GELOLOCATION"/>
-  <int value="2" label="VIDEO_CAPTURE"/>
-  <int value="4" label="AUDIO_CAPTURE"/>
-  <int value="8" label="PROTECTED_MEDIA_ID"/>
-  <int value="16" label="MIDI_SYSEX"/>
 </enum>
 
 <!-- LINT.IfChange(persistent_state_id_verification) -->

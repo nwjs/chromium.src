@@ -6,17 +6,20 @@ package org.chromium.chrome.browser.omnibox.fusebox;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.app.Activity;
 import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 
 import androidx.annotation.IntDef;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.window.layout.WindowMetricsCalculator;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -29,8 +32,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -79,11 +81,11 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
             ObservableSuppliers.createNonNull(FuseboxState.DISABLED);
     private final SnackbarManager mSnackbarManager;
     private @Nullable ViewportRectProvider mViewportRectProvider;
+    private @Nullable FuseboxMetrics mMetrics;
 
     // Mediator is scoped to a particular profile. Can reuse as long as the profile does not change.
     private @Nullable FuseboxMediator mMediator;
     private @Nullable @BrandedColorScheme Integer mLastBrandedColorScheme;
-    private @Nullable Profile mLastProfile;
 
     /**
      * Creates a new instance of {@link FuseboxCoordinator}.
@@ -121,32 +123,52 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         if (mDeferredInitialized) return;
         mDeferredInitialized = true;
 
-        var contextButton = mParent.findViewById(R.id.location_bar_attachments_add);
-        var rectProvider = new ViewRectProvider(mParent);
-        Resources res = mContext.getResources();
-        rectProvider.setInsetPx(
-                0, res.getDimensionPixelSize(R.dimen.fusebox_vertical_space_above_popup), 0, 0);
+        RectProvider rectProvider;
+
+        if (OmniboxFeatures.sShowBottomSheetPopup.getValue()) {
+            Activity activity = assumeNonNull(ContextUtils.activityFromContext(mContext));
+            var windowMetrics =
+                    WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity);
+            var bounds = new Rect(windowMetrics.getBounds());
+            bounds.top = bounds.bottom; // Anchor popup to the bottom of the window.
+            rectProvider = new RectProvider(bounds);
+        } else {
+            var viewRectProvider = new ViewRectProvider(mParent);
+            Resources res = mContext.getResources();
+            viewRectProvider.setInsetPx(
+                    0, res.getDimensionPixelSize(R.dimen.fusebox_vertical_space_above_popup), 0, 0);
+            rectProvider = viewRectProvider;
+        }
+
         var popupView = LayoutInflater.from(mContext).inflate(R.layout.fusebox_context_popup, null);
         mViewportRectProvider = new ViewportRectProvider(mContext);
+        var contextButton = mParent.findViewById(R.id.location_bar_attachments_add);
 
         var popupWindowBuilder =
                 new AnchoredPopupWindow.Builder(
-                        mContext,
-                        contextButton.getRootView(),
-                        AppCompatResources.getDrawable(mContext, R.drawable.menu_bg_tinted),
-                        () -> popupView,
-                        rectProvider);
-        popupWindowBuilder.setOutsideTouchable(true);
-        popupWindowBuilder.setAnimateFromAnchor(true);
-        popupWindowBuilder.setPreferredHorizontalOrientation(
-                HorizontalOrientation.LAYOUT_DIRECTION);
-        popupWindowBuilder.setViewportRectProvider(mViewportRectProvider);
+                                mContext,
+                                contextButton.getRootView(),
+                                OmniboxResourceProvider.getPopupBackgroundDrawable(
+                                        mContext, BrandedColorScheme.APP_DEFAULT),
+                                () -> popupView,
+                                rectProvider)
+                        .setOutsideTouchable(true)
+                        .setAnimateFromAnchor(true)
+                        .setPreferredHorizontalOrientation(HorizontalOrientation.LAYOUT_DIRECTION)
+                        .setViewportRectProvider(mViewportRectProvider)
+                        .setDesiredContentWidth(
+                                OmniboxFeatures.sShowBottomSheetPopup.getValue()
+                                        ? rectProvider.getRect().width()
+                                        : mContext.getResources()
+                                                .getDimensionPixelSize(R.dimen.fusebox_popup_width))
+                        .setHorizontalOverlapAnchor(true)
+                        .setVerticalOverlapAnchor(true);
 
         var popup = new FuseboxPopup(mContext, popupWindowBuilder.build(), popupView);
         mViewHolder = new FuseboxViewHolder(mParent, popup);
         mModel =
                 new PropertyModel.Builder(FuseboxProperties.ALL_KEYS)
-                        .with(FuseboxProperties.ATTACHMENTS_TOOLBAR_VISIBLE, false)
+                        .with(FuseboxProperties.FUSEBOX_STATE, FuseboxState.DISABLED)
                         .with(
                                 FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE,
                                 AutocompleteRequestType.SEARCH)
@@ -162,21 +184,12 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     }
 
     @EnsuresNonNull("mMediator")
-    private void recreateMediatorIfProfileChanged(Profile profile) {
-        if (mLastProfile == profile) {
-            assumeNonNull(mMediator);
-            return;
-        }
+    private void ensureMediatorCreated() {
+        if (mMediator != null) return;
 
-        if (mMediator != null) {
-            mMediator.destroy();
-        }
-
-        mLastProfile = profile;
         mMediator =
                 new FuseboxMediator(
                         mContext,
-                        profile,
                         mWindowAndroid,
                         assumeNonNull(mModel),
                         assumeNonNull(mViewHolder),
@@ -222,9 +235,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
      */
     public void beginInput(FuseboxSessionState session) {
         var composeBox = session.getComposeboxQueryControllerBridge();
-        Profile profile = session.getProfile();
-        // Abort early if there is no composebox or profile.
-        if (composeBox == null || profile == null) return;
+        if (composeBox == null) return;
 
         if (!mDeferredInitialized) {
             ensureDeferredInitialized();
@@ -258,18 +269,14 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
             return;
         }
 
-        recreateMediatorIfProfileChanged(profile);
-
-        // TODO(crbug.com/474616308): move to FuseboxSessionState.
-        var controller = AutocompleteController.getForProfile(assumeNonNull(session.getProfile()));
-        if (controller != null) {
-            controller.setComposeboxQueryControllerBridge(
-                    session.getComposeboxQueryControllerBridge());
-        }
+        ensureMediatorCreated();
 
         mInput = session.getAutocompleteInput();
+        mMetrics = session.getMetrics();
         mMediator.beginInput(session);
-        FuseboxMetrics.notifyOmniboxSessionStarted();
+        if (mMetrics != null) {
+            mMetrics.notifyOmniboxSessionStarted();
+        }
     }
 
     /** Called when the user stops interacting with the Omnibox. */
@@ -278,6 +285,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
             mMediator.endInput();
         }
         mInput = null;
+        mMetrics = null;
     }
 
     // TemplateUrlServiceObserver
@@ -288,8 +296,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mDefaultSearchEngineIsGoogle = isDseGoogle;
 
         if (mInput != null && !mDefaultSearchEngineIsGoogle) {
-            mInput.setRequestType(AutocompleteRequestType.SEARCH);
-            assumeNonNull(mMediator).setToolbarVisible(false);
+            endInput();
         }
     }
 
@@ -301,9 +308,8 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         return mViewHolder;
     }
 
-    void setMediatorForTesting(FuseboxMediator mediator, Profile profile) {
+    void setMediatorForTesting(FuseboxMediator mediator) {
         mMediator = mediator;
-        mLastProfile = profile;
     }
 
     @Nullable FuseboxMediator getMediatorForTesting() {
@@ -318,23 +324,19 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     }
 
     /**
-     * Called when fusebox text wrapping changes.
-     *
-     * @param isWrapping true if text is wrapping (should show expanded UI), false for compact UI
+     * @param isTextWrapping Whether the text is wrapping or not.
      */
-    public void onFuseboxTextWrappingChanged(boolean isWrapping) {
-        // We only care about url bar wrapping state when compact variant is enabled. Guard against
-        // entering compact mode when the variant is disabled by returning early.
-        if (mInput == null || !OmniboxFeatures.sCompactFusebox.getValue()) return;
-        assumeNonNull(mMediator)
-                .setUseCompactUi(
-                        !isWrapping && mInput.getRequestType() == AutocompleteRequestType.SEARCH);
+    public void onFuseboxTextWrappingChanged(boolean isTextWrapping) {
+        if (mMediator != null) {
+            mMediator.setIsTextWrapping(isTextWrapping);
+        }
     }
 
     public void notifyOmniboxSessionEnded(boolean userDidNavigate) {
         // Skip cases where session should not be recorded (e.g. unsupported page class).
-        if (mInput == null) return;
-        FuseboxMetrics.notifyOmniboxSessionEnded(userDidNavigate, mInput.getRequestType());
+        if (mInput == null || mMetrics == null) return;
+        mMetrics.notifyOmniboxSessionEnded(
+                userDidNavigate, mInput.getRequestType(), mInput.getModelMode());
     }
 
     /**

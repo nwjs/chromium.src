@@ -15,9 +15,20 @@
 
 namespace content {
 
+network::mojom::URLLoaderFactoryParamsPtr
+CreatePrefetchURLLoaderFactoryParams() {
+  auto factory_params = network::mojom::URLLoaderFactoryParams::New();
+  factory_params->process_id = network::OriginatingProcessId::browser();
+  factory_params->is_trusted = true;
+  factory_params->is_orb_enabled = false;
+  return factory_params;
+}
+
 scoped_refptr<network::SharedURLLoaderFactory> CreatePrefetchURLLoaderFactory(
     network::mojom::NetworkContext* network_context,
-    const PrefetchRequest& prefetch_request) {
+    const PrefetchRequest& prefetch_request,
+    scoped_refptr<network::SharedURLLoaderFactory>
+        pre_prefetch_url_loader_factory) {
   CHECK(network_context);
 
   RenderFrameHost* referring_render_frame_host;
@@ -38,15 +49,19 @@ scoped_refptr<network::SharedURLLoaderFactory> CreatePrefetchURLLoaderFactory(
   }
 
   bool bypass_redirect_checks = false;
-  auto factory_params = network::mojom::URLLoaderFactoryParams::New();
-  factory_params->process_id = network::OriginatingProcessId::browser();
-  factory_params->is_trusted = true;
-  factory_params->is_orb_enabled = false;
+
+  url_loader_factory::TerminalParams terminal_params =
+      pre_prefetch_url_loader_factory
+          ? url_loader_factory::TerminalParams::ForNonNetwork(
+                std::move(pre_prefetch_url_loader_factory),
+                network::mojom::kBrowserProcessId)
+          : url_loader_factory::TerminalParams::ForNetworkContext(
+                network_context, CreatePrefetchURLLoaderFactoryParams(),
+                url_loader_factory::HeaderClientOption::kAllow);
+
   return url_loader_factory::Create(
       ContentBrowserClient::URLLoaderFactoryType::kPrefetch,
-      url_loader_factory::TerminalParams::ForNetworkContext(
-          network_context, std::move(factory_params),
-          url_loader_factory::HeaderClientOption::kAllow),
+      std::move(terminal_params),
       url_loader_factory::ContentClientParams(
           prefetch_request.browser_context(), referring_render_frame_host,
           referring_render_process_id,

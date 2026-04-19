@@ -129,26 +129,14 @@ bool ChromeDirectSocketsDelegate::ValidateRequestForServiceWorker(
          ValidateAddressAndPortForIwa(request);
 }
 
-void ChromeDirectSocketsDelegate::RequestPrivateNetworkAccess(
-    content::RenderFrameHost& rfh,
-    base::OnceCallback<void(bool)> callback) {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // No additional rules for Chrome Apps.
-  if (extensions::ProcessMap::Get(rfh.GetBrowserContext())
-          ->Contains(rfh.GetProcess()->GetDeprecatedID())) {
-    std::move(callback).Run(/*allow_access=*/true);
-    return;
-  }
-#endif
-
-  // TODO(crbug.com/368266657): Show a permission prompt for DS-PNA &
-  // ponder whether this requires transient activation.
-  std::move(callback).Run(IsContentSettingAllowedForUrl(
+bool ChromeDirectSocketsDelegate::RenderFrameHasDirectSocketsPNAContentSetting(
+    content::RenderFrameHost& rfh) {
+  return IsContentSettingAllowedForUrl(
       rfh.GetBrowserContext(), rfh.GetMainFrame()->GetLastCommittedURL(),
-      ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS));
+      ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
 }
 
-bool ChromeDirectSocketsDelegate::IsPrivateNetworkAccessAllowedForSharedWorker(
+bool ChromeDirectSocketsDelegate::SharedWorkerHasDirectSocketsPNAContentSetting(
     content::BrowserContext* browser_context,
     const GURL& shared_worker_url) {
   return IsContentSettingAllowedForUrl(
@@ -156,11 +144,24 @@ bool ChromeDirectSocketsDelegate::IsPrivateNetworkAccessAllowedForSharedWorker(
       ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
 }
 
-bool ChromeDirectSocketsDelegate::IsPrivateNetworkAccessAllowedForServiceWorker(
-    content::BrowserContext* browser_context,
-    const url::Origin& origin) {
+bool ChromeDirectSocketsDelegate::
+    ServiceWorkerHasDirectSocketsPNAContentSetting(
+        content::BrowserContext* browser_context,
+        const url::Origin& origin) {
   const GURL& url = origin.GetURL();
   return IsContentSettingAllowedForUrl(
       browser_context, url,
       ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
+}
+
+bool ChromeDirectSocketsDelegate::
+    ShouldAllowPrivateNetworkAccessUnconditionally(
+        content::RenderFrameHost& rfh) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  // Allowed unconditionally in chrome apps.
+  return extensions::ProcessMap::Get(rfh.GetBrowserContext())
+      ->Contains(rfh.GetProcess()->GetDeprecatedID());
+#else
+  return false;
+#endif
 }

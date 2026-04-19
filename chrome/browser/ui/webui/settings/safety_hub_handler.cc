@@ -17,7 +17,6 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/extensions/cws_info_service.h"
 #include "chrome/browser/extensions/cws_info_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -56,6 +55,7 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_engagement/content/site_engagement_service.h"
+#include "extensions/browser/cws_info_service.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/extension_registry.h"
@@ -96,13 +96,6 @@ PermissionsData GetUnusedSitePermissionsFromDict(
         << type_string << " is not expected to have a UI representation.";
     permissions_data.permission_types.insert(type);
   }
-
-  const base::DictValue* chooser_permissions_data =
-      unused_site_permissions.FindDict(
-          safety_hub::kSafetyHubChooserPermissionsData);
-  permissions_data.chooser_permissions_data =
-      chooser_permissions_data ? chooser_permissions_data->Clone()
-                               : base::DictValue();
 
   // Handle expiration and lifetime for revoked permission.
   const base::Value* js_expiration =
@@ -304,10 +297,6 @@ base::ListValue SafetyHubHandler::PopulateUnusedSitePermissionsData() {
     revoked_permission_value.Set(
         safety_hub::kLifetimeKey,
         base::TimeDeltaToValue(permissions_data.constraints.lifetime()));
-
-    revoked_permission_value.Set(
-        safety_hub::kSafetyHubChooserPermissionsData,
-        base::Value(permissions_data.chooser_permissions_data.Clone()));
 
     revoked_permission_value.Set(
         kRevocationTypeKey, static_cast<int>(permissions_data.revocation_type));

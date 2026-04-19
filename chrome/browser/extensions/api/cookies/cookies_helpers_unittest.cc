@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 
+#include "base/logging.h"
 #include "extensions/buildflags/buildflags.h"
 #include "net/cookies/canonical_cookie.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -49,7 +50,8 @@ TEST(CookiesHelperUnittest, CookieConversionWithInfiniteExpirationDate) {
   auto cookie = net::CanonicalCookie::CreateUnsafeCookieForTesting(
       "cookiename", "cookievalue", "example.com", "/", base::Time::Now(),
       kExpirationDate, base::Time(), base::Time(), false, false,
-      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT);
+      net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT,
+      net::CookieSourceType::kOther);
 
   // Serialize the cookie to JSON. We need to gracefully handle the infinite
   // expiration date, which should be converted to the maximum value.

@@ -27,9 +27,9 @@
 #include "content/public/test/prefetch_test_util.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_browser_context.h"
+#include "content/public/test/test_content_browser_client.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/shell/browser/shell.h"
-#include "content/test/test_content_browser_client.h"
 #include "content/test/test_web_contents.h"
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -59,13 +59,12 @@ class PrerendererImplBrowserTestBase : public ContentBrowserTest {
   ~PrerendererImplBrowserTestBase() override = default;
 
   void SetUp() override {
-    prerender_helper_ = std::make_unique<test::PrerenderTestHelper>(
-        base::BindRepeating(
+    prerender_helper_ =
+        std::make_unique<test::PrerenderTestHelper>(base::BindRepeating(
             [](PrerendererImplBrowserTestBase* that) {
               return &that->web_contents();
             },
-            base::Unretained(this)),
-        /*force_disable_prerender2_fallback=*/false);
+            base::Unretained(this)));
 
     ContentBrowserTest::SetUp();
   }

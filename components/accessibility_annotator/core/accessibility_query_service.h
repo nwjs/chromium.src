@@ -7,21 +7,31 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
+#include "components/accessibility_annotator/core/accessibility_query_service_delegate.h"
 #include "components/accessibility_annotator/core/annotation_reducer/memory_search_result.h"
+#include "components/accessibility_annotator/core/annotation_reducer/query_classifier.h"
 #include "components/keyed_service/core/keyed_service.h"
+
+namespace optimization_guide {
+class RemoteModelExecutor;
+}
 
 namespace accessibility_annotator {
 
-class AutofillDataProvider;
-class QueryClassifier;
+class MemoryDataProvider;
 
 // Service for querying @memory suggestions.
 class AccessibilityQueryService : public KeyedService {
  public:
-  explicit AccessibilityQueryService(
-      std::unique_ptr<AutofillDataProvider> data_provider);
+  AccessibilityQueryService(
+      std::unique_ptr<AccessibilityQueryServiceDelegate> delegate,
+      std::vector<std::unique_ptr<MemoryDataProvider>> data_providers,
+      optimization_guide::RemoteModelExecutor* remote_model_executor);
   AccessibilityQueryService(const AccessibilityQueryService&) = delete;
   AccessibilityQueryService& operator=(const AccessibilityQueryService&) =
       delete;
@@ -30,12 +40,32 @@ class AccessibilityQueryService : public KeyedService {
   // KeyedService:
   void Shutdown() override;
 
-  // Executes a query and returns suggestions.
-  virtual std::vector<MemorySearchResult> Query(const std::u16string& query);
+  // Executes a query and returns suggestions via `update_callback`.
+  // @param query The search string provided by the user.
+  // @param full_search True for an explicit, complete search (e.g., on Enter)
+  // or false for a quick search as the user types.
+  // @param update_callback Invoked with search results. May be called multiple
+  // times for streaming updates, providing results from different data sources.
+  virtual void Query(
+      std::u16string_view query,
+      bool full_search,
+      base::RepeatingCallback<void(MemorySearchResults)> update_callback);
 
  private:
-  std::unique_ptr<AutofillDataProvider> data_provider_;
-  std::unique_ptr<QueryClassifier> classifier_;
+  void OnClassificationComplete(
+      base::RepeatingCallback<void(MemorySearchResults)> update_callback,
+      ClassifiedQuery classified_query);
+
+  void OnDataRetrieved(
+      ClassifiedQuery classified_query,
+      base::RepeatingCallback<void(MemorySearchResults)> update_callback,
+      std::vector<std::vector<MemorySearchResult>> entries_list);
+
+  std::unique_ptr<AccessibilityQueryServiceDelegate> delegate_;
+  std::vector<std::unique_ptr<MemoryDataProvider>> data_providers_;
+  QueryClassifier classifier_;
+
+  base::WeakPtrFactory<AccessibilityQueryService> weak_ptr_factory_{this};
 };
 
 }  // namespace accessibility_annotator

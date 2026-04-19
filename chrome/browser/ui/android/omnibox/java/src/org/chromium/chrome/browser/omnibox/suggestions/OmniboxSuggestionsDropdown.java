@@ -112,8 +112,11 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         }
 
         @Override
+        @VisibleForTesting
         public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
-            scrollToPositionWithOffset(0, 0);
+            if (OmniboxFeatures.sResetSuggestionsScroll.isEnabled()) {
+                scrollToPositionWithOffset(0, 0);
+            }
             super.onLayoutChildren(recycler, state);
         }
 
@@ -282,11 +285,15 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         setItemAnimator(null);
         addItemDecoration(new SuggestionHorizontalDivider(context));
 
+        if (OmniboxFeatures.sOmniboxItemDecoration.isEnabled()) {
+            addItemDecoration(new GroupSeparatorDecoration(context));
+        }
+
         mLayoutScrollListener = suggestionLayoutScrollListener;
         setLayoutManager(mLayoutScrollListener);
         mSelectionController =
                 new RecyclerViewSelectionController(
-                        mLayoutScrollListener, SelectionController.Mode.SATURATING_WITH_SENTINEL);
+                        mLayoutScrollListener, SelectionController.Mode.WRAPPING_WITH_SENTINEL);
         addOnChildAttachStateChangeListener(mSelectionController);
 
         final Resources resources = context.getResources();
@@ -332,6 +339,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
 
     /** Resets selection typically in response to changes to the list. */
     public void resetSelection() {
+        mLayoutScrollListener.scrollToPositionWithOffset(0, 0);
         mSelectionController.reset();
     }
 

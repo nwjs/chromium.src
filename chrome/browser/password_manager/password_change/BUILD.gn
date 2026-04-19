@@ -24,18 +24,13 @@ source_set("password_change") {
     "login_state_checker.h",
     "model_quality_logs_uploader.cc",
     "model_quality_logs_uploader.h",
+    "password_change_page_stability_waiter.cc",
+    "password_change_page_stability_waiter.h",
     "password_change_submission_verifier.cc",
     "password_change_submission_verifier.h",
     "typing_helper.cc",
     "typing_helper.h",
   ]
-
-  if (!is_android) {
-    sources += [
-      "password_change_from_checkup_delegate.cc",
-      "password_change_from_checkup_delegate.h",
-    ]
-  }
 
   deps = [
     "//chrome/browser:browser_process",
@@ -58,16 +53,6 @@ source_set("password_change") {
     "//services/metrics/public/cpp:metrics_cpp",
     "//ui/accessibility:ax_base",
   ]
-
-  if (!is_android) {
-    deps += [
-      "//chrome/browser/actor",
-      "//chrome/browser/glic",
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/tabs:tab_strip",
-      "//components/tabs:public",
-    ]
-  }
 }
 
 source_set("unit_tests") {
@@ -86,7 +71,7 @@ source_set("unit_tests") {
   deps = [
     ":password_change",
     "//chrome/browser/optimization_guide:test_support",
-    "//chrome/browser/password_manager/factories:password_factory_headers",
+    "//chrome/browser/password_manager/factories",
     "//chrome/browser/sync",
     "//chrome/browser/ui/autofill",
     "//chrome/test:test_support",

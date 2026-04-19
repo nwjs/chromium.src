@@ -10,10 +10,9 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/memory/singleton.h"
 #include "base/values.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part_ash.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/webui/signin/ash/signin_helper.h"
@@ -66,9 +65,8 @@ class LegacyTokenHandleFetcherShutdownNotifierFactory
 };
 
 account_manager::AccountManager* GetAccountManager(Profile* profile) {
-  return g_browser_process->platform_part()
-      ->GetAccountManagerFactory()
-      ->GetAccountManager(profile->GetPath().value());
+  return AccountManagerFactory::Get()->GetAccountManager(
+      profile->GetPath().value());
 }
 
 }  // namespace

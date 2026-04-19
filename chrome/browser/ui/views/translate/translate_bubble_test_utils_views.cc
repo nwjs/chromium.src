@@ -27,14 +27,12 @@ const TranslateBubbleModel* GetCurrentModel(Browser* browser) {
 }
 
 void CloseCurrentBubble(Browser* browser) {
-#if 0
   DCHECK(browser);
   TranslateBubbleController* controller =
       TranslateBubbleController::From(browser);
   if (controller) {
     controller->CloseBubble();
   }
-#endif
 }
 
 void PressTranslate(Browser* browser) {

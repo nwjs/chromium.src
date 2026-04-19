@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.ntp.search;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -18,10 +17,10 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextWatcher;
@@ -47,6 +46,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.composeplate.ComposeplateUtils;
 import org.chromium.chrome.browser.feed.FeedSurfaceScrollDelegate;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.function.Supplier;
@@ -99,6 +99,7 @@ public class SearchBoxMediatorUnitTest {
         mPropertyModel.set(
                 SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK, mock(View.OnDragListener.class));
         mPropertyModel.set(SearchBoxProperties.SEARCH_BOX_TEXT_WATCHER, mock(TextWatcher.class));
+        mPropertyModel.set(SearchBoxProperties.DSE_ICON_DRAWABLE, new ColorDrawable(Color.RED));
 
         assertNotNull(mPropertyModel.get(SearchBoxProperties.LENS_CLICK_CALLBACK));
         assertNotNull(mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_CLICK_CALLBACK));
@@ -106,6 +107,7 @@ public class SearchBoxMediatorUnitTest {
         assertNotNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK));
         assertNotNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK));
         assertNotNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_WATCHER));
+        assertNotNull(mPropertyModel.get(SearchBoxProperties.DSE_ICON_DRAWABLE));
 
         mMediator.initialize(mActivityLifecycleDispatcher);
         mMediator.onDestroy();
@@ -118,6 +120,32 @@ public class SearchBoxMediatorUnitTest {
         assertNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK));
         assertNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK));
         assertNull(mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_WATCHER));
+        assertNull(mPropertyModel.get(SearchBoxProperties.DSE_ICON_DRAWABLE));
+    }
+
+    @Test
+    public void testSetSearchEngineIcon() {
+        Drawable drawable = new ColorDrawable(Color.RED);
+        StatusIconResource newIcon = new StatusIconResource(drawable);
+        mMediator.setSearchEngineIcon(newIcon);
+        assertEquals(drawable, mPropertyModel.get(SearchBoxProperties.DSE_ICON_DRAWABLE));
+    }
+
+    @Test
+    public void testSetSearchEngineIcon_Google() {
+        StatusIconResource googleIcon = new StatusIconResource(R.drawable.ic_logo_googleg_20dp, 0);
+        mMediator.setSearchEngineIcon(googleIcon);
+        assertEquals(
+                R.drawable.ic_logo_googleg_24dp,
+                mPropertyModel.get(SearchBoxProperties.DSE_ICON_RESOURCE_ID));
+    }
+
+    @Test
+    public void testSetSearchEngineIcon_Null() {
+        mMediator.setSearchEngineIcon(null);
+        assertEquals(
+                R.drawable.ic_search_24dp,
+                mPropertyModel.get(SearchBoxProperties.DSE_ICON_RESOURCE_ID));
     }
 
     @Test
@@ -159,15 +187,6 @@ public class SearchBoxMediatorUnitTest {
 
     @Test
     public void testApplyWhiteBackgroundWithShadow() {
-        Resources recources = mContext.getResources();
-        float expectedElevation = recources.getDimensionPixelSize(R.dimen.ntp_search_box_elevation);
-        int paddingForShadowLateralPx =
-                recources.getDimensionPixelSize(
-                        R.dimen.composeplate_view_button_padding_for_shadow_lateral);
-        int paddingForShadowBottomPx =
-                recources.getDimensionPixelSize(
-                        R.dimen.composeplate_view_button_padding_for_shadow_bottom);
-        assertNotEquals(0, Float.compare(0f, expectedElevation));
         Drawable defaultBackground =
                 mContext.getDrawable(R.drawable.home_surface_search_box_background);
         View searchBoxContainer = mView.findViewById(R.id.search_box_container);
@@ -177,34 +196,26 @@ public class SearchBoxMediatorUnitTest {
         ColorStateList colorStateList =
                 ComposeplateUtils.getSearchBoxIconColorTint(
                         mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ true);
-        mMediator.applyWhiteBackgroundWithShadow(true);
-        assertTrue(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW));
+        mMediator.applyWhiteBackground(true);
+        assertTrue(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND));
         assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
         assertEquals(
                 colorStateList,
                 mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
-        verifyApplyBackground(searchBoxContainer, expectedElevation);
-        assertEquals(paddingForShadowLateralPx, mView.getPaddingStart());
-        assertEquals(paddingForShadowLateralPx, mView.getPaddingEnd());
-        assertEquals(paddingForShadowBottomPx, mView.getPaddingTop());
-        assertEquals(paddingForShadowBottomPx, mView.getPaddingBottom());
+        verifyApplyBackground(searchBoxContainer);
 
         // Tests the case to remove the white background with shadow.
         resId = R.style.TextAppearance_FakeSearchBoxTextMedium;
         colorStateList =
                 ComposeplateUtils.getSearchBoxIconColorTint(
                         mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ false);
-        mMediator.applyWhiteBackgroundWithShadow(false);
-        assertFalse(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW));
+        mMediator.applyWhiteBackground(false);
+        assertFalse(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND));
         assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
         assertEquals(
                 colorStateList,
                 mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
         verifyResetBackground(searchBoxContainer, defaultBackground);
-        assertEquals(0, mView.getPaddingStart());
-        assertEquals(0, mView.getPaddingEnd());
-        assertEquals(0, mView.getPaddingTop());
-        assertEquals(0, mView.getPaddingBottom());
     }
 
     @Test
@@ -420,9 +431,7 @@ public class SearchBoxMediatorUnitTest {
         assertEquals(expectedBounds, bounds);
     }
 
-    private void verifyApplyBackground(View view, float elevation) {
-        assertEquals(0, Float.compare(elevation, view.getElevation()));
-        assertTrue(view.getClipToOutline());
+    private void verifyApplyBackground(View view) {
         // Verifies that the background is set to color white.
         Drawable whiteBackground = view.getBackground();
         assertTrue(whiteBackground instanceof GradientDrawable);
@@ -431,8 +440,6 @@ public class SearchBoxMediatorUnitTest {
     }
 
     private void verifyResetBackground(View view, Drawable defaultBackground) {
-        assertEquals(0, Float.compare(0f, view.getElevation()));
-        assertFalse(view.getClipToOutline());
         // Verifies that the background of the view is to reset.
         assertEquals(
                 ((GradientDrawable) defaultBackground).getColor().getDefaultColor(),

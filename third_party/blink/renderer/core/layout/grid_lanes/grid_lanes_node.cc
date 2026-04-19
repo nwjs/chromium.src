@@ -49,16 +49,9 @@ GridLanesItemGroups GridLanesNode::CollectItemGroups(
       continue;
     }
 
-    // Determine baseline-sharing group for this item.
-    std::optional<BaselineGroup> baseline_group = std::nullopt;
-    if (grid_lanes_item->IsBaselineAligned(grid_axis_direction)) {
-      baseline_group = grid_lanes_item->BaselineGroup(grid_axis_direction);
-    }
-
     const auto item_properties = GridLanesItemGroupProperties(
         /*item_span=*/line_resolver.ResolveGridPositionsFromStyle(
-            child.Style(), grid_axis_direction),
-        baseline_group);
+            child.Style(), grid_axis_direction));
 
     const auto& item_span = item_properties.Span();
     // Keep a running sum of unplaced item spans to determine where to
@@ -104,9 +97,10 @@ GridLanesItemGroups GridLanesNode::CollectItemGroups(
   return item_groups;
 }
 
-// TODO(almaher): Do something with `opt_has_nested_subgrid` and make sure that
-// subgridded items are incorporated here.
-GridItems GridLanesNode::ConstructGridItems(
+// TODO(almaher): Similar to grid, we should eventually create an overloaded
+// method that takes `must_consider_for_columns` and `must_consider_for_rows`
+// so that we can pass that in for grid lanes subgrids.
+GridItems* GridLanesNode::ConstructGridItems(
     const GridLineResolver& line_resolver,
     bool* must_invalidate_placement_cache,
     HeapVector<Member<LayoutBox>>* opt_oof_children,
@@ -115,7 +109,15 @@ GridItems GridLanesNode::ConstructGridItems(
   const GridTrackSizingDirection grid_axis_direction =
       style.GridLanesTrackSizingDirection();
 
-  GridItems grid_lanes_items;
+  // For grid-lanes, we only consider subgridding in the grid axis.
+  const bool must_consider_for_columns = (grid_axis_direction == kForColumns);
+  const bool must_consider_for_rows = (grid_axis_direction == kForRows);
+
+  if (opt_has_nested_subgrid) {
+    *opt_has_nested_subgrid = false;
+  }
+
+  GridItems* grid_lanes_items = MakeGarbageCollected<GridItems>();
   {
     bool should_sort_grid_lanes_items_by_order_property = false;
     const int initial_order = ComputedStyleInitialValues::InitialOrder();
@@ -130,38 +132,98 @@ GridItems GridLanesNode::ConstructGridItems(
       }
 
       GridItemData* grid_lanes_item = MakeGarbageCollected<GridItemData>(
-          To<BlockNode>(child), /*parent_style=*/style);
+          To<BlockNode>(child), /*parent_grid_style=*/style,
+          /*root_grid_style=*/style, must_consider_for_columns,
+          must_consider_for_rows);
 
       // We'll need to sort when we encounter a non-initial order property.
       should_sort_grid_lanes_items_by_order_property |=
           child.Style().Order() != initial_order;
 
+      // Check whether we'll need to further append subgridded items.
+      if (opt_has_nested_subgrid) {
+        *opt_has_nested_subgrid |= grid_lanes_item->IsSubgrid();
+      }
+
       AdjustGridItemSpan(*grid_lanes_item, line_resolver, grid_axis_direction);
-      grid_lanes_items.Append(grid_lanes_item);
+      grid_lanes_items->Append(grid_lanes_item);
     }
 
     // Sort items by order property if needed.
     if (should_sort_grid_lanes_items_by_order_property) {
-      grid_lanes_items.SortByOrderProperty();
+      grid_lanes_items->SortByOrderProperty();
     }
   }
   return grid_lanes_items;
 }
 
-void GridLanesNode::AppendSubgriddedItems(GridItems* grid_items) const {
-  CHECK(grid_items);
+void GridLanesNode::AdjustSubgriddedItemSpan(
+    const GridItemData& subgrid_item,
+    GridItemData& subgridded_item) const {
+  const auto grid_axis_direction = Style().GridLanesTrackSizingDirection();
 
-  // TODO(almaher): Actually implement this. Maybe we can reuse the same
-  // method between both grid/grid-lanes nodes?
+  // In grid lanes, subgridding only occurs in the grid axis.
+  CHECK(subgrid_item.MustConsiderGridItemsForSizing(grid_axis_direction));
+
+  auto& subgridded_span = (grid_axis_direction == kForColumns)
+                              ? subgridded_item.resolved_position.columns
+                              : subgridded_item.resolved_position.rows;
+
+  // If the subgrid is auto-placed or the subgridded item has an indefinite
+  // span, the item is treated as auto placed, contributing to every possible
+  // parent grid lanes track.
+  if (subgrid_item.is_auto_placed || subgridded_span.IsIndefinite()) {
+    subgridded_span = GridSpan::IndefiniteGridSpan(subgridded_span.SpanSize());
+    subgridded_item.is_auto_placed = true;
+  } else {
+    // Both the subgrid and the subgridded item have definite positions.
+    // Translate the subgridded item's span to the parent grid's coordinate
+    // space, constrained to the subgrid's actual track range.
+    if (subgrid_item.IsOppositeDirectionInRootGrid(grid_axis_direction)) {
+      // If a subgrid is in an opposite writing direction to the root
+      // grid, we should "reverse" the subgridded item's span.
+      const wtf_size_t subgrid_span_size =
+          subgrid_item.SpanSize(grid_axis_direction);
+      DCHECK_LE(subgridded_span.EndLine(), subgrid_span_size);
+      subgridded_span = GridSpan::TranslatedDefiniteGridSpan(
+          subgrid_span_size - subgridded_span.EndLine(),
+          subgrid_span_size - subgridded_span.StartLine());
+    }
+    subgridded_span.Translate(subgrid_item.StartLine(grid_axis_direction));
+  }
 }
 
-void GridLanesNode::AdjustGridItemSpans(
-    GridItems& grid_lanes_items,
-    const GridLineResolver& line_resolver) const {
-  const GridTrackSizingDirection grid_axis_direction =
-      Style().GridLanesTrackSizingDirection();
-  for (GridItemData& grid_lanes_item : grid_lanes_items) {
-    AdjustGridItemSpan(grid_lanes_item, line_resolver, grid_axis_direction);
+void GridLanesNode::ComputeSetIndicesForSubgrid(
+    GridItemData& subgrid_item,
+    GridLayoutData& layout_data) const {
+  // In grid lanes, placement happens after sizing, so the placement of subgrid
+  // items may not be known at this point. Translate definite spans using the
+  // `start_offset` cached by BuildSizingCollection. For items without a known
+  // position, assume they start at the beginning of the explicit grid.
+  //
+  // TODO(almaher): We may need to do an additional pass for row grid-lanes
+  // containers, or if items depend on the block size constraint in column
+  // grid-lanes, to ensure we get the correct position for these subgrids, as
+  // that can impact subgridded item contributions and thus track sizing.
+  const auto grid_axis = Style().GridLanesTrackSizingDirection();
+  const wtf_size_t start_offset = CachedPlacementData().StartOffset(grid_axis);
+
+  auto& span = (grid_axis == kForColumns)
+                   ? subgrid_item.resolved_position.columns
+                   : subgrid_item.resolved_position.rows;
+
+  if (span.IsUntranslatedDefinite()) {
+    span.Translate(start_offset);
+  } else if (span.IsIndefinite()) {
+    span = GridSpan::TranslatedDefiniteGridSpan(start_offset,
+                                                start_offset + span.SpanSize());
+  }
+
+  // Grid-lanes only has tracks in the grid axis.
+  if (grid_axis == kForColumns) {
+    subgrid_item.ComputeSetIndices(layout_data.Columns());
+  } else {
+    subgrid_item.ComputeSetIndices(layout_data.Rows());
   }
 }
 

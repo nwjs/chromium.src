@@ -4,9 +4,12 @@
 
 #include "net/ssl/ssl_client_session_cache.h"
 
-#include "base/memory/memory_pressure_listener_registry.h"
+#include "base/memory_coordinator/memory_coordinator_features.h"
+#include "base/memory_coordinator/test_memory_consumer_registry.h"
+#include "base/memory_coordinator/utils.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -77,8 +80,21 @@ class SSLClientSessionCacheTest : public testing::Test {
     return session;
   }
 
+  void SimulateMemoryLimitAndRelease(
+      base::test::TaskEnvironment& task_environment,
+      int percentage) {
+    test_memory_consumer_registry_.NotifyUpdateMemoryLimitAsync(
+        percentage, task_environment.QuitClosure());
+    task_environment.RunUntilQuit();
+
+    test_memory_consumer_registry_.NotifyReleaseMemoryAsync(
+        task_environment.QuitClosure());
+    task_environment.RunUntilQuit();
+  }
+
+  base::TestMemoryConsumerRegistry test_memory_consumer_registry_;
+
  private:
-  base::MemoryPressureListenerRegistry memory_pressure_listener_registry_;
   bssl::UniquePtr<SSL_CTX> ssl_ctx_;
 };
 
@@ -434,12 +450,75 @@ TEST_F(SSLClientSessionCacheTest, LookupExpirationCheck) {
 // instead of buildflags once the feature is exposed publicly or moved to base.
 // Currently, it is internal to components/memory_pressure.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#define MAYBE_TestFlushOnMemoryNotifications \
+  DISABLED_TestFlushOnMemoryNotifications
+#else
+#define MAYBE_TestFlushOnMemoryNotifications TestFlushOnMemoryNotifications
+#endif  // Test that SSL cache is flushed on low memory notifications
+TEST_F(SSLClientSessionCacheTest, MAYBE_TestFlushOnMemoryNotifications) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(base::kStatefulMemoryPressure);
+  base::test::TaskEnvironment task_environment;
+
+  // kExpirationCheckCount is set to a suitably large number so the automated
+  // pruning never triggers.
+  const size_t kExpirationCheckCount = 1000;
+  const base::TimeDelta kTimeout = base::Seconds(1000);
+
+  SSLClientSessionCache::Config config;
+  config.expiration_check_count = kExpirationCheckCount;
+  std::unique_ptr<base::SimpleTestClock> clock = MakeTestClock();
+  SSLClientSessionCache cache(config);
+  cache.SetClockForTesting(clock.get());
+
+  // Insert an entry into the session cache.
+  bssl::UniquePtr<SSL_SESSION> session1 =
+      MakeTestSession(clock->Now(), kTimeout);
+  cache.Insert(cache.generation_number(), MakeTestKey("key1"),
+               bssl::UpRef(session1));
+  EXPECT_EQ(session1.get(), cache.Lookup(MakeTestKey("key1")).get());
+  EXPECT_EQ(1u, cache.size());
+
+  // Expire the session.
+  clock->Advance(kTimeout * 2);
+  // Add one more session.
+  bssl::UniquePtr<SSL_SESSION> session2 =
+      MakeTestSession(clock->Now(), kTimeout);
+  cache.Insert(cache.generation_number(), MakeTestKey("key2"),
+               bssl::UpRef(session2));
+  EXPECT_EQ(2u, cache.size());
+
+  // Fire a notification that will flush expired sessions.
+  SimulateMemoryLimitAndRelease(task_environment,
+                                base::kModerateMemoryPressureThreshold);
+
+  // Expired session's cache should be flushed.
+  // Lookup returns nullptr, when cache entry not found.
+  EXPECT_FALSE(cache.Lookup(MakeTestKey("key1")));
+  EXPECT_TRUE(cache.Lookup(MakeTestKey("key2")));
+  EXPECT_EQ(1u, cache.size());
+
+  // Fire notification that will flush everything.
+  SimulateMemoryLimitAndRelease(task_environment,
+                                base::kCriticalMemoryPressureThreshold);
+  EXPECT_EQ(0u, cache.size());
+}
+
+// Memory pressure listeners are disabled on Windows and Mac, so this test
+// is disabled on those platforms as it relies on receiving notifications.
+//
+// TODO(crbug.com/483018445): Check the kSuppressMemoryMonitor feature flag
+// instead of buildflags once the feature is exposed publicly or moved to base.
+// Currently, it is internal to components/memory_pressure.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #define MAYBE_MemoryPressure DISABLED_MemoryPressure
 #else
 #define MAYBE_MemoryPressure MemoryPressure
 #endif
 // Tests that the session cache responds correctly to memory pressure events.
 TEST_F(SSLClientSessionCacheTest, MAYBE_MemoryPressure) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      base::kStatefulMemoryPressure);
   base::test::TaskEnvironment task_environment(
       base::test::TaskEnvironment::MainThreadType::IO);
 
@@ -460,9 +539,8 @@ TEST_F(SSLClientSessionCacheTest, MAYBE_MemoryPressure) {
   EXPECT_EQ(10u, cache.size());
 
   // Memory pressure moderate should halve the cache size.
-  base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_MODERATE, task_environment.QuitClosure());
-  task_environment.RunUntilQuit();
+  SimulateMemoryLimitAndRelease(task_environment,
+                                base::kModerateMemoryPressureThreshold);
   EXPECT_EQ(5u, cache.max_size());
   EXPECT_EQ(5u, cache.size());
 
@@ -477,9 +555,7 @@ TEST_F(SSLClientSessionCacheTest, MAYBE_MemoryPressure) {
   }
 
   // Memory pressure critical should clear the cache.
-  base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL, task_environment.QuitClosure());
-  task_environment.RunUntilQuit();
+  SimulateMemoryLimitAndRelease(task_environment, 0);
   EXPECT_EQ(0u, cache.max_size());
   EXPECT_EQ(0u, cache.size());
 
@@ -492,9 +568,7 @@ TEST_F(SSLClientSessionCacheTest, MAYBE_MemoryPressure) {
   }
 
   // Memory pressure none should restore the original size limit.
-  base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_NONE, task_environment.QuitClosure());
-  task_environment.RunUntilQuit();
+  SimulateMemoryLimitAndRelease(task_environment, 100);
   EXPECT_EQ(10u, cache.max_size());
   EXPECT_EQ(0u, cache.size());
 

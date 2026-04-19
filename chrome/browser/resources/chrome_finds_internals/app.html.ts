@@ -28,23 +28,30 @@ export function getHtml(this: ChromeFindsInternalsAppElement) {
   <div class="input-group">
     <label>
       Number of history entries:
-      <input type="number" id="history-count" .value="${this.historyCount_}"
+      <input type="number" id="history-count"
+          .value="${this.historyCount_.toString()}"
           @change="${this.onHistoryCountChange_}" min="0">
     </label>
   </div>
   <textarea id="prompt-input" rows="10" .value="${this.prompt_}"
       @input="${this.onPromptInput_}"
       placeholder="Paste prompt here..."></textarea>
-  <div class="button-row">
     <cr-button id="start-btn" class="action-button"
         @click="${this.onStartClick_}">Start</cr-button>
+    <cr-button id="run-finds-model-btn" class="action-button"
+        @click="${this.onRunFindsModelClick_}">
+      Run Model and Schedule Notification
+    </cr-button>
+    <cr-button id="finds-test-notification-btn" class="action-button"
+        @click="${this.onTriggerFindsTestNotificationClick_}">
+      Trigger Finds Test Notification
+    </cr-button>
     <cr-button id="reset-btn" @click="${this.onResetClick_}">
       Reset to Default Prompt
     </cr-button>
     <cr-button id="dump-history-btn" @click="${this.onDumpHistoryClick_}">
       Dump History to JSON
     </cr-button>
-  </div>
 </section>
 
 <section id="history-dump-section" ?hidden="${!this.historyJson_}">

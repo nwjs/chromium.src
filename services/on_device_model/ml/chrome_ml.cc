@@ -11,6 +11,7 @@
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/debug/crash_logging.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_functions.h"
@@ -79,7 +80,10 @@ void FatalGpuErrorFn(const char* msg) {
   } else if (msg_str.find("Failed to create device") != std::string::npos) {
     error_reason = GpuErrorReason::kDeviceCreationFailed;
   } else if (msg_str.find("VK_ERROR_OUT_OF_DEVICE_MEMORY") !=
-             std::string::npos) {
+                 std::string::npos ||
+             msg_str.find("E_OUTOFMEMORY") != std::string::npos ||
+             msg_str.find("VirtualAlloc 1455") != std::string::npos ||
+             msg_str.find("Out of memory") != std::string::npos) {
     error_reason = GpuErrorReason::kOutOfMemory;
   }
   base::UmaHistogramEnumeration("OnDeviceModel.GpuErrorReason", error_reason);
@@ -87,6 +91,7 @@ void FatalGpuErrorFn(const char* msg) {
     // Collect crash reports on unknown errors.
     NOTREACHED() << "ChromeML(GPU) Error: " << msg;
   } else {
+    LOG(ERROR) << "Terminating On-Device Model Service: " << msg_str;
     base::Process::TerminateCurrentProcessImmediately(0);
   }
 }

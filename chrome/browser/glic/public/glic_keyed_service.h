@@ -67,12 +67,12 @@ class GlicProfileManager;
 class GlicRegionCaptureController;
 class GlicShareImageHandler;
 class GlicTabDataObserver;
-class GlicWindowController;
+class GlicTabFaviconObserver;
+class GlicInstanceCoordinator;
 class HostManager;
 class GlicWebContentsWarmingPool;
 
 enum class GlicPrewarmingChecksResult;
-
 
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
 class GlicActorTaskManager;
@@ -87,9 +87,6 @@ class GlicActorTaskManager;
 class GlicKeyedService : public KeyedService,
                          public GlicSharingManagerProvider,
                          public base::SupportsUserData,
-#if !BUILDFLAG(IS_ANDROID)  // Single instance only
-                         public Host::InstanceDelegate,
-#endif
                          public base::MemoryPressureListener
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
     ,
@@ -97,13 +94,12 @@ class GlicKeyedService : public KeyedService,
 #endif
 {
  public:
-  explicit GlicKeyedService(
-      Profile* profile,
-      signin::IdentityManager* identity_manager,
-      ProfileManager* profile_manager,
-      GlicProfileManager* glic_profile_manager,
-      contextual_cueing::ContextualCueingService* contextual_cueing_service,
-      actor::ActorKeyedService* actor_keyed_service);
+  explicit GlicKeyedService(Profile* profile,
+                            signin::IdentityManager* identity_manager,
+                            ProfileManager* profile_manager,
+                            GlicProfileManager* glic_profile_manager,
+                            ContextualCueingService* contextual_cueing_service,
+                            actor::ActorKeyedService* actor_keyed_service);
   GlicKeyedService(const GlicKeyedService&) = delete;
   GlicKeyedService& operator=(const GlicKeyedService&) = delete;
   ~GlicKeyedService() override;
@@ -124,8 +120,6 @@ class GlicKeyedService : public KeyedService,
   // Show, summon or activate the panel, or close it if it's already active and
   // prevent_close is false. If `bwi` is non-null, attach the panel to its
   // Browser.
-  // If `auto_send` is true and `prompt_suggestion` is provided, the prompt will
-  // be automatically submitted after the panel opens.
   // TODO(b:448888544): remove `prevent_close` in favor of a Show method.
   virtual void ToggleUI(BrowserWindowInterface* bwi,
                         bool prevent_close,
@@ -141,25 +135,10 @@ class GlicKeyedService : public KeyedService,
                             tabs::TabInterface* tab,
                             GlicInvokeOptions options);
 
-  void Invoke(tabs::TabInterface* tab, GlicInvokeOptions options);
-
-  // Show the panel with the given conversation id. Used only by web continuity.
-  // Deprecated: See go/gic:invoke for full solution, this existing version will
-  // be removed in the future.
-  [[deprecated]] virtual void ShowUiWithConversationID(
-      BrowserWindowInterface* bwi,
-      mojom::InvocationSource source,
-      std::string conversation_id);
+  virtual void Invoke(tabs::TabInterface* tab, GlicInvokeOptions options);
 
   virtual void OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
                                      mojom::InvocationSource source);
-
-  // Forcibly close the UI. This is similar to Shutdown in that it causes the
-  // window controller to shutdown (and clear cached state), but unlike
-  // Shutdown, it doesn't unregister as the "active glic" with the profile
-  // manager.
-  // TODO(crbug.com/454112198): Remove when multi-instance launches.
-  void CloseAndShutdown();
 
   // Close the active embedder and clear contents for an instance associated
   // with this render frame host.
@@ -175,10 +154,8 @@ class GlicKeyedService : public KeyedService,
 
   GlicMetrics* metrics() { return metrics_.get(); }
   virtual GlicFreController& fre_controller();
-  virtual GlicWindowController& window_controller() const;
-#if !BUILDFLAG(IS_ANDROID)  // Single instance only
-  GlicWindowControllerInterface& GetSingleInstanceWindowController() const;
-#endif
+  virtual GlicInstanceCoordinator& instance_coordinator() const;
+
   GlicSharingManager& sharing_manager() override;
 
   bool IsTabPinnedToAnyInstance(const tabs::TabHandle& tab_handle) const;
@@ -228,7 +205,6 @@ class GlicKeyedService : public KeyedService,
     return is_context_access_indicator_enabled_;
   }
 
-  // Host::InstanceDelegate:
   // CreateTab is used by both the FRE page and the glic web client to open a
   // URL in a new tab. The source is the RenderFrameHost of the Glic
   // instance that is requesting the navigation - this gets set as the
@@ -237,67 +213,7 @@ class GlicKeyedService : public KeyedService,
       const ::GURL& url,
       bool open_in_background,
       const std::optional<int32_t>& window_id,
-      glic::mojom::WebClientHandler::CreateTabCallback callback)
-#if !BUILDFLAG(IS_ANDROID)
-      override;
-#else
-      ;  // multi instance doesn't use keyed service as an
-         // instance delegate, so it doesn't need the override keyword.
-#endif
-
-#if !BUILDFLAG(IS_ANDROID)  // multi instance doesn't use keyed service as an
-                            // instance delegate
-  void CreateTask(
-      base::WeakPtr<actor::ActorTaskDelegate> delegate,
-      actor::webui::mojom::TaskOptionsPtr options,
-      mojom::WebClientHandler::CreateTaskCallback callback) override;
-  void PerformActions(
-      const std::vector<uint8_t>& actions_proto,
-      mojom::WebClientHandler::PerformActionsCallback callback) override;
-  void CancelActions(
-      actor::TaskId task_id,
-      mojom::WebClientHandler::CancelActionsCallback callback) override;
-  void StopActorTask(actor::TaskId task_id,
-                     mojom::ActorTaskStopReason stop_reason) override;
-  void PauseActorTask(actor::TaskId task_id,
-                      mojom::ActorTaskPauseReason pause_reason,
-                      tabs::TabInterface::Handle tab_handle) override;
-  // TODO(crbug.com/446696379) - The ResumeActorTask Glic API should, like the
-  // rest of actor observations, operate in terms of TabObservation rather than
-  // TabContext.
-  void ResumeActorTask(
-      actor::TaskId task_id,
-      const mojom::GetTabContextOptions& context_options,
-      glic::mojom::WebClientHandler::ResumeActorTaskCallback callback) override;
-  void InterruptActorTask(actor::TaskId task_id) override;
-  void UninterruptActorTask(actor::TaskId task_id) override;
-  void CreateActorTab(
-      actor::TaskId task_id,
-      bool open_in_background,
-      const std::optional<int32_t>& initiator_tab_id,
-      const std::optional<int32_t>& initiator_window_id,
-      glic::mojom::WebClientHandler::CreateActorTabCallback callback) override;
-  void FetchZeroStateSuggestions(
-      bool is_first_run,
-      std::optional<std::vector<std::string>> supported_tools,
-      glic::mojom::WebClientHandler::
-          GetZeroStateSuggestionsForFocusedTabCallback callback) override;
-  void GetZeroStateSuggestionsAndSubscribe(
-      bool has_active_subscription,
-      const mojom::ZeroStateSuggestionsOptions& options,
-      mojom::WebClientHandler::GetZeroStateSuggestionsAndSubscribeCallback
-          callback) override;
-  void RegisterConversation(
-      glic::mojom::ConversationInfoPtr info,
-      mojom::WebClientHandler::RegisterConversationCallback callback) override;
-  void OnWebClientCleared() override;
-  void PrepareForOpen() override;
-  void OnInteractionModeChange(mojom::WebClientMode new_mode) override;
-  glic::GlicInstanceMetrics* instance_metrics() override;
-  glic::GlicInstanceMetricsBackwardsCompatibility&
-  instance_metrics_backwards_compatibility() override;
-  bool IsActive() override;
-#endif
+      glic::mojom::WebClientHandler::CreateTabCallback callback);
 
   void OnUserInputSubmitted(glic::mojom::WebClientMode mode);
 
@@ -387,6 +303,9 @@ class GlicKeyedService : public KeyedService,
                              mojom::AdditionalContextPtr context);
 
   GlicTabDataObserver& tab_data_observer() { return *tab_data_observer_; }
+  GlicTabFaviconObserver& tab_favicon_observer() {
+    return *tab_favicon_observer_;
+  }
 
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
   // ActorTaskDelegate:
@@ -440,6 +359,12 @@ class GlicKeyedService : public KeyedService,
                         bool auto_send,
                         std::optional<std::string> conversation_id);
 
+  bool MaybeInvoke(BrowserWindowInterface* bwi,
+                   mojom::InvocationSource source,
+                   const std::optional<std::string>& prompt_suggestion);
+
+  void InitializeAfterConstruction();
+
   void FinishPreload(GlicPrewarmingChecksResult reason);
 
   // List of callbacks to be notified when the client requests a change to the
@@ -456,15 +381,13 @@ class GlicKeyedService : public KeyedService,
 
   // Never null - GlicActorTaskManager and GlicInstanceCoordinatorImpl hold a
   // reference to this so it must be destroyed after them.
-  // NEEDS_ANDROID_IMPL: This is temporarily null on Android until
-  // ActorKeyedService stops crashing at runtime.
   std::unique_ptr<GlicActorPolicyChecker> actor_policy_checker_;
 
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<GlicFreController> fre_controller_;
-  // Is either a GlicWindowControllerImpl or GlicPanelCoordinatorImpl.
-  std::unique_ptr<GlicWindowController> window_controller_;
+  // Is a GlicInstanceCoordinatorImpl.
+  std::unique_ptr<GlicInstanceCoordinator> window_controller_;
   std::unique_ptr<GlicSharingManager> sharing_manager_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
@@ -485,11 +408,11 @@ class GlicKeyedService : public KeyedService,
   std::unique_ptr<GlicActorTaskManager> actor_task_manager_;
 #endif
   std::unique_ptr<GlicTabDataObserver> tab_data_observer_;
+  std::unique_ptr<GlicTabFaviconObserver> tab_favicon_observer_;
   std::unique_ptr<GlicWebContentsWarmingPool> web_contents_warming_pool_;
 
   // Unowned
-  raw_ptr<contextual_cueing::ContextualCueingService>
-      contextual_cueing_service_;
+  raw_ptr<ContextualCueingService> contextual_cueing_service_;
 
   base::WeakPtrFactory<GlicKeyedService> weak_ptr_factory_{this};
 };

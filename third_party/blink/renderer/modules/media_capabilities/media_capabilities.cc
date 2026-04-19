@@ -387,7 +387,7 @@ WebAudioConfiguration ToWebAudioConfiguration(
   DCHECK(parsed_content_type.IsValid());
   DCHECK(!parsed_content_type.GetParameters().HasDuplicatedNames());
 
-  web_configuration.mime_type = parsed_content_type.MimeType().LowerASCII();
+  web_configuration.mime_type = parsed_content_type.MimeType().ToAsciiLower();
   web_configuration.codec =
       parsed_content_type.ParameterValueForName(kCodecsMimeTypeParam);
 
@@ -414,7 +414,7 @@ WebVideoConfiguration ToWebVideoConfiguration(
   ParsedContentType parsed_content_type(configuration->contentType());
   DCHECK(parsed_content_type.IsValid());
   DCHECK(!parsed_content_type.GetParameters().HasDuplicatedNames());
-  web_configuration.mime_type = parsed_content_type.MimeType().LowerASCII();
+  web_configuration.mime_type = parsed_content_type.MimeType().ToAsciiLower();
   web_configuration.codec =
       parsed_content_type.ParameterValueForName(kCodecsMimeTypeParam);
 
@@ -723,7 +723,7 @@ bool ParseContentType(const String& content_type,
     return false;
   }
 
-  *mime_type = parsed_content_type.MimeType().LowerASCII();
+  *mime_type = parsed_content_type.MimeType().ToAsciiLower();
   *codec = parsed_content_type.ParameterValueForName(kCodecsMimeTypeParam);
   return true;
 }
@@ -1258,9 +1258,15 @@ ScriptPromise<MediaCapabilitiesDecodingInfo> MediaCapabilities::GetEmeSupport(
     audio_capability->setContentType(configuration->audio()->contentType());
     // If config.keySystemConfiguration.audio is present, set the robustness
     // attribute to config.keySystemConfiguration.audio.robustness.
-    if (key_system_config->hasAudio())
+    if (key_system_config->hasAudio()) {
       audio_capability->setRobustness(key_system_config->audio()->robustness());
-
+      if (RuntimeEnabledFeatures::
+              KeySystemTrackConfigurationEncryptionSchemeEnabled() &&
+          key_system_config->audio()->hasEncryptionScheme()) {
+        audio_capability->setEncryptionScheme(
+            key_system_config->audio()->encryptionScheme());
+      }
+    }
     eme_config->setAudioCapabilities(
         HeapVector<Member<MediaKeySystemMediaCapability>>(1, audio_capability));
   }
@@ -1275,9 +1281,15 @@ ScriptPromise<MediaCapabilitiesDecodingInfo> MediaCapabilities::GetEmeSupport(
     video_capability->setContentType(configuration->video()->contentType());
     // If config.keySystemConfiguration.video is present, set the robustness
     // attribute to config.keySystemConfiguration.video.robustness.
-    if (key_system_config->hasVideo())
+    if (key_system_config->hasVideo()) {
       video_capability->setRobustness(key_system_config->video()->robustness());
-
+      if (RuntimeEnabledFeatures::
+              KeySystemTrackConfigurationEncryptionSchemeEnabled() &&
+          key_system_config->video()->hasEncryptionScheme()) {
+        video_capability->setEncryptionScheme(
+            key_system_config->video()->encryptionScheme());
+      }
+    }
     eme_config->setVideoCapabilities(
         HeapVector<Member<MediaKeySystemMediaCapability>>(1, video_capability));
   }

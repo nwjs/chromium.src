@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/layout/anchor_position_scroll_data.h"
 #include "third_party/blink/renderer/core/layout/block_break_token.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
+#include "third_party/blink/renderer/core/layout/geometry/axis.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
 #include "third_party/blink/renderer/core/layout/geometry/writing_mode_converter.h"
 #include "third_party/blink/renderer/core/layout/inline/fragment_item.h"
@@ -52,6 +53,7 @@
 #include "third_party/blink/renderer/core/layout/table/layout_table_row.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_section.h"
 #include "third_party/blink/renderer/core/layout/transform_utils.h"
+#include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
 #include "third_party/blink/renderer/core/page/link_highlight.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/snap_coordinator.h"
@@ -73,6 +75,7 @@
 #include "third_party/blink/renderer/core/paint/pre_paint_disable_side_effects_scope.h"
 #include "third_party/blink/renderer/core/paint/svg_root_painter.h"
 #include "third_party/blink/renderer/core/paint/view_painter.h"
+#include "third_party/blink/renderer/core/resize_observer/resize_observer_utilities.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
@@ -90,8 +93,10 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/gfx/geometry/outsets_f.h"
+#include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 
@@ -118,6 +123,15 @@ bool AreSubtreeUpdateReasonsIsolationPiercing(unsigned reasons) {
   return reasons &
          ~(static_cast<unsigned>(
              SubtreePaintPropertyUpdateReason::kContainerChainMayChange));
+}
+
+CompositorElementId ShiftingStickyAncestorElementId(
+    const LayoutBoxModelObject* ancestor) {
+  if (!ancestor) {
+    return CompositorElementId();
+  }
+  return CompositorElementIdFromUniqueObjectId(
+      ancestor->UniqueId(), CompositorElementIdNamespace::kStickyTranslation);
 }
 
 }  // namespace
@@ -247,6 +261,9 @@ class FragmentPaintPropertyTreeBuilder {
   ALWAYS_INLINE void UpdateForObjectLocation(
       std::optional<gfx::Vector2d>& paint_offset_translation,
       PhysicalOffset& extra_sticky_offset);
+  CompositorElementId CompositorStickyScrollAncestorForAxis(
+      const LayoutBoxModelObject&,
+      PhysicalAxis) const;
   ALWAYS_INLINE void UpdateStickyTranslation(
       const PhysicalOffset& sticky_offset);
   ALWAYS_INLINE void UpdateAnchorPositionScrollTranslation();
@@ -296,6 +313,7 @@ class FragmentPaintPropertyTreeBuilder {
   ALWAYS_INLINE void UpdateReplacedContentTransform();
   ALWAYS_INLINE void UpdateScrollAndScrollTranslation();
   ALWAYS_INLINE void UpdateScrollNode();
+  ALWAYS_INLINE void UpdateContentTranslation();
   ALWAYS_INLINE void UpdateScrollTranslation();
   ALWAYS_INLINE void UpdateOverflowControlEffects();
   ALWAYS_INLINE void UpdateOutOfFlowContext();
@@ -376,7 +394,9 @@ class FragmentPaintPropertyTreeBuilder {
         context_.current.paint_offset - new_offset;
     context_.current.paint_offset = new_offset;
   }
-
+  void OnUpdateContentTranslation(PaintPropertyChangeType change) {
+    UpdatePropertyChange(properties_changed_.transform_changed, change);
+  }
   void OnUpdateTransform(PaintPropertyChangeType change) {
     if (change != PaintPropertyChangeType::kUnchanged) {
       UpdatePropertyChange(properties_changed_.transform_changed, change);
@@ -634,25 +654,17 @@ static bool NeedsPaintOffsetTranslation(
     // Don't let paint offset cross composited layer boundaries when possible,
     // to avoid unnecessary full layer paint/raster invalidation when paint
     // offset in ancestor transform node changes which should not affect the
-    // descendants of the composited layer. When
-    // PaintOffsetTranslationForBackdropFilterWithInlineElement is enabled,
-    // inline elements with backdrop-filter are also included to fix paint
-    // offset issue (see crbug.com/40716515). For now because of
-    // crbug.com/40547515, this is limited to LayoutBlocks and LayoutReplaceds
-    // that won't be escaped by floating objects and column spans when finding
-    // their containing blocks. TODO(crbug.com/40547515): This can be avoided if
-    // we have fully correct paint property tree states for floating objects
-    // and column spans.
+    // descendants of the composited layer.
     if (RuntimeEnabledFeatures::PaintOffsetTranslationForCompositedEnabled()) {
-      return true;
+      // For now a LayoutInline applies paint properties only if it has a
+      // self-painting layer. See https://crbug.com/495746269.
+      return !box_model.IsLayoutInline() || box_model.HasSelfPaintingLayer();
     }
-    bool include_inline_for_backdrop_filter =
-        RuntimeEnabledFeatures::
-            PaintOffsetTranslationForBackdropFilterWithInlineElementEnabled() &&
-        !object.StyleRef().BackdropFilter().IsEmpty() &&
-        object.IsLayoutInline();
     if (box_model.IsLayoutBlock() || object.IsLayoutReplaced() ||
-        include_inline_for_backdrop_filter ||
+        // Inline elements with backdrop-filter are also included to fix paint
+        // offset issue (see crbug.com/40716515).
+        (!object.StyleRef().BackdropFilter().IsEmpty() &&
+         object.IsLayoutInline()) ||
         (direct_compositing_reasons &
          CompositingReason::kViewTransitionElement) ||
         (direct_compositing_reasons & CompositingReason::kElementCapture)) {
@@ -797,17 +809,15 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
                     CompositorElementIdNamespace::kDOMNodeId)
               : cc::ElementId();
     }
-    // Skip the ScrollTranslation of the containing scroller for
-    // ::-internal-overscroll-area-parent.
-    bool skip_parent_scroll_translation =
-        object_.IsPseudoElement() &&
-        To<PseudoElement>(object_.GetNode())->GetPseudoId() ==
-            kPseudoIdOverscrollAreaParent;
-    const TransformPaintPropertyNodeOrAlias* parent =
-        skip_parent_scroll_translation ? context_.current.transform->Unalias()
-                                             .NearestScrollTranslationNode()
-                                             .Parent()
-                                       : context_.current.transform;
+
+    auto* parent = context_.current.transform;
+    if (PseudoElement* pseudo_element =
+            DynamicTo<PseudoElement>(object_.GetNode());
+        !NeedsPaintPropertyUpdate() && pseudo_element &&
+        pseudo_element->GetPseudoId() == kPseudoIdOverscrollAreaParent) {
+      CHECK(properties_->PaintOffsetTranslation());
+      parent = properties_->PaintOffsetTranslation()->Parent();
+    }
 
     OnUpdateTransform(
         properties_->UpdatePaintOffsetTranslation(*parent, std::move(state)));
@@ -825,6 +835,41 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
   } else {
     OnClearTransform(properties_->ClearPaintOffsetTranslation());
   }
+}
+
+CompositorElementId
+FragmentPaintPropertyTreeBuilder::CompositorStickyScrollAncestorForAxis(
+    const LayoutBoxModelObject& box_model,
+    PhysicalAxis axis) const {
+  const auto layout_constraint = box_model.StickyConstraints();
+  DCHECK(layout_constraint);
+  const auto* axis_layout_data = layout_constraint.AxisData(axis);
+  if (!axis_layout_data) {
+    return CompositorElementId();
+  }
+
+  const auto* scroll_container_layer =
+      axis_layout_data->containing_scroll_container_layer.Get();
+  if (!scroll_container_layer) {
+    return CompositorElementId();
+  }
+
+  const auto* scroll_container_properties =
+      scroll_container_layer->GetLayoutObject()
+          .FirstFragment()
+          .PaintProperties();
+  const auto* scroll_node = scroll_container_properties
+                                ? scroll_container_properties->Scroll()
+                                : nullptr;
+  if (!scroll_node) {
+    // Scroll nodes are created conditionally (see
+    // NeedsScrollAndScrollTranslation), while sticky position attaches to
+    // overflow clips. For overflow:hidden, for example, the clipping ancestor
+    // may exist before it gets a scroll node.
+    return CompositorElementId();
+  }
+
+  return scroll_node->GetCompositorElementId();
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation(
@@ -855,20 +900,18 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation(
       if (state.direct_compositing_reasons) {
         const auto layout_constraint = box_model.StickyConstraints();
         DCHECK(layout_constraint);
-        const auto* scroll_container_properties =
-            layout_constraint.ContainingScrollContainerLayer()
-                ->GetLayoutObject()
-                .FirstFragment()
-                .PaintProperties();
-        // A scroll node is created conditionally (see
-        // NeedsScrollAndScrollTranslation), while sticky position attaches to
-        // anything that clips overflow. No need to (actually can't) setup
-        // composited sticky constraint if the clipping ancestor we attach to
-        // doesn't have a scroll node.
-        bool scroll_container_scrolls =
-            scroll_container_properties &&
-            scroll_container_properties->Scroll() == context_.current.scroll;
-        if (scroll_container_scrolls) {
+        const CompositorElementId x_compositor_scroll_ancestor_id =
+            CompositorStickyScrollAncestorForAxis(box_model,
+                                                  PhysicalAxis::kHorizontal);
+        const CompositorElementId y_compositor_scroll_ancestor_id =
+            CompositorStickyScrollAncestorForAxis(box_model,
+                                                  PhysicalAxis::kVertical);
+
+        // If either axis has a valid scroll node associated with it, then we
+        // allow compositing of this sticky constraint by creating a
+        // `CompositorStickyConstraint`.
+        if (x_compositor_scroll_ancestor_id ||
+            y_compositor_scroll_ancestor_id) {
           auto constraint = std::make_unique<CompositorStickyConstraint>();
           constraint->is_anchored_left =
               layout_constraint.LeftInset().has_value();
@@ -915,20 +958,22 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation(
           constraint->pixel_snap_offset +=
               gfx::Vector2dF(adjustment_left, adjustment_top);
 
+          constraint->x_scroll_ancestor_element_id =
+              x_compositor_scroll_ancestor_id;
+          constraint->y_scroll_ancestor_element_id =
+              y_compositor_scroll_ancestor_id;
+
           if (const LayoutBoxModelObject* sticky_box_shifting_ancestor =
                   layout_constraint.NearestStickyLayerShiftingStickyBox()) {
             constraint->nearest_element_shifting_sticky_box =
-                CompositorElementIdFromUniqueObjectId(
-                    sticky_box_shifting_ancestor->UniqueId(),
-                    CompositorElementIdNamespace::kStickyTranslation);
+                ShiftingStickyAncestorElementId(sticky_box_shifting_ancestor);
           }
           if (const LayoutBoxModelObject* containing_block_shifting_ancestor =
                   layout_constraint
                       .NearestStickyLayerShiftingContainingBlock()) {
             constraint->nearest_element_shifting_containing_block =
-                CompositorElementIdFromUniqueObjectId(
-                    containing_block_shifting_ancestor->UniqueId(),
-                    CompositorElementIdNamespace::kStickyTranslation);
+                ShiftingStickyAncestorElementId(
+                    containing_block_shifting_ancestor);
           }
           state.sticky_constraint = std::move(constraint);
 
@@ -1643,7 +1688,7 @@ bool FragmentPaintPropertyTreeBuilder::NeedsEffectFor2DScaleTransform() const {
   if (object_.IsLayoutReplaced()) {
     return false;
   }
-  if (object_.StyleRef().HasWillChangeTransformHint() ||
+  if (object_.StyleRef().HasWillChangeTransformProperty() ||
       object_.StyleRef().IsRunningTransformAnimationOnCompositor()) {
     return false;
   }
@@ -1848,6 +1893,51 @@ FragmentPaintPropertyTreeBuilder::ParentForViewTransitionPseudoEffect() const {
   return scope_vt_effect->Parent();
 }
 
+static void PopulateCanvasChildPaintState(HTMLCanvasElement* canvas,
+                                          CanvasChildPaintState& paint_state) {
+  gfx::Size canvas_device_pixel_content_box =
+      ResizeObserverUtilities::ComputeSnappedDevicePixelContentBox(
+          LogicalSize(canvas->GetLayoutBox()->ContentLogicalWidth(),
+                      canvas->GetLayoutBox()->ContentLogicalHeight()),
+          *canvas->GetLayoutBox(), canvas->GetLayoutBox()->StyleRef());
+
+  PhysicalRect canvas_content_size;
+  if (auto* replaced = DynamicTo<LayoutReplaced>(canvas->GetLayoutBox())) {
+    canvas_content_size = replaced->ReplacedContentRect();
+  } else {
+    canvas_content_size = canvas->GetLayoutBox()->PhysicalContentBoxRect();
+  }
+
+  paint_state.canvas_content_size = gfx::SizeF(canvas_content_size.size);
+  paint_state.canvas_device_pixel_content_box = canvas_device_pixel_content_box;
+}
+static void PopulateCanvasChildState(const LayoutObject& object,
+                                     EffectPaintPropertyNode::State& state) {
+  CHECK(IsA<LayoutBox>(object));
+  auto& canvas_fragment = object.Parent()->FirstFragment();
+  gfx::RectF reference_box(To<LayoutBox>(object).PhysicalBorderBoxRect());
+  gfx::Point3F transform_origin(
+      FloatValueForLength(object.StyleRef().GetTransformOrigin().X(),
+                          reference_box.width()),
+      FloatValueForLength(object.StyleRef().GetTransformOrigin().Y(),
+                          reference_box.height()),
+      object.StyleRef().GetTransformOrigin().Z());
+  state.canvas_child_state =
+      MakeGarbageCollected<EffectPaintPropertyNode::CanvasChildState>();
+  state.canvas_child_state->id = object.GetNode()->GetDomNodeId();
+  state.canvas_child_state->paint_state.effective_zoom =
+      object.StyleRef().EffectiveZoom();
+  state.canvas_child_state->paint_state.transform_origin = gfx::ScalePoint(
+      transform_origin, 1.0f / object.StyleRef().EffectiveZoom());
+  state.canvas_child_state->paint_state.box_size =
+      gfx::SizeF(To<LayoutBox>(object).StitchedSize());
+  PopulateCanvasChildPaintState(
+      To<HTMLCanvasElement>(object.Parent()->GetNode()),
+      state.canvas_child_state->paint_state);
+  state.canvas_child_state->content_effect = canvas_fragment.ContentsEffect();
+  state.canvas_child_state->content_clip = canvas_fragment.ContentsClip();
+}
+
 void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
   DCHECK(properties_);
   // Since we're doing a full update, clear list of objects waiting for a
@@ -1944,13 +2034,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
 
         if (state.direct_compositing_reasons &
             CompositingReason::kCanvasChild) {
-          CHECK(IsA<LayoutBox>(object_));
-          auto& canvas_fragment = object_.Parent()->FirstFragment();
-          state.canvas_child_state = {
-              object_.GetNode()->GetDomNodeId(),
-              gfx::SizeF(DynamicTo<LayoutBox>(object_)->StitchedSize()),
-              object_.StyleRef().EffectiveZoom(),
-              canvas_fragment.ContentsEffect(), canvas_fragment.ContentsClip()};
+          PopulateCanvasChildState(object_, state);
         }
       } else {
         // The effect node CompositorElementId is used to uniquely identify
@@ -2880,8 +2964,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateInnerBorderShapeClip() {
                                            box);
       const PhysicalRect inner_reference_rect =
           border_shape_rects ? border_shape_rects->inner : expanded_box_rect;
-      const Path inner_path = BorderShapePainter::OverflowClipInnerPath(
-          box.StyleRef(), inner_reference_rect);
+      const Path inner_path =
+          BorderShapePainter::InnerPath(box.StyleRef(), inner_reference_rect);
       gfx::RectF layout_clip_rect(expanded_box_rect);
       PhysicalOffset offset = -OffsetInStitchedFragments(BoxFragment());
       layout_clip_rect.Offset(gfx::Vector2dF(offset));
@@ -2986,6 +3070,18 @@ void FragmentPaintPropertyTreeBuilder::UpdateOverflowClip() {
       }
       OnUpdateClip(properties_->UpdateOverflowClip(*context_.current.clip,
                                                    std::move(state)));
+      if (PseudoElement* pseudo_element =
+              DynamicTo<PseudoElement>(object_.GetNode());
+          pseudo_element &&
+          pseudo_element->GetPseudoId() == kPseudoIdOverscrollAreaParent) {
+        context_.current.SetOverscrollClipParent(
+            *properties_->OverflowClip(),
+            pseudo_element->UltimateOriginatingElement()
+                    .GetOverscrollContainer()
+                    ->GetComputedStyle()
+                    ->InternalOverscrollArea() ==
+                EInternalOverscrollArea::kOverlay);
+      }
     } else {
       OnClearClip(properties_->ClearOverflowClip());
     }
@@ -3110,6 +3206,60 @@ FragmentPaintPropertyTreeBuilder::GetMainThreadRepaintReasonsForScroll(
   return reasons;
 }
 
+void FragmentPaintPropertyTreeBuilder::UpdateContentTranslation() {
+  const LayoutBox* box = DynamicTo<LayoutBox>(object_);
+  if (NeedsPaintPropertyUpdate()) {
+    if (!box || !box->IsOverscrollContainer()) {
+      OnClearTransform(properties_->ClearContentTranslation());
+      return;
+    }
+    DCHECK(NeedsScrollAndScrollTranslation(
+        object_, full_context_.direct_compositing_reasons));
+
+    Element* overscroll_container = box->IsPseudoElement()
+                                        ? To<PseudoElement>(box->GetNode())
+                                              ->UltimateOriginatingElement()
+                                              .GetOverscrollContainer()
+                                        : To<Element>(box->GetNode());
+    OverscrollAreaTracker* overscroll_area_tracker =
+        overscroll_container->GetOverscrollAreaTracker();
+    if (!overscroll_area_tracker ||
+        overscroll_container->GetLayoutBox()->InternalOverscrollArea() !=
+            EInternalOverscrollArea::kAuto) {
+      OnClearTransform(properties_->ClearContentTranslation());
+      return;
+    }
+
+    wtf_size_t index =
+        box->IsPseudoElement()
+            ? overscroll_area_tracker->DOMSortedElements().Find(
+                  To<PseudoElement>(box->GetNode())
+                      ->UltimateOriginatingElement())
+            : overscroll_area_tracker->DOMSortedElements().size();
+    // Offset by nearest non-overlay area parent origin.
+    if (index == 0) {
+      OnClearTransform(properties_->ClearContentTranslation());
+      return;
+    }
+
+    gfx::Point scroll_origin =
+        overscroll_area_tracker->DOMSortedElements()[index - 1]
+            ->GetPseudoElement(kPseudoIdOverscrollAreaParent)
+            ->GetLayoutBox()
+            ->ScrollOrigin();
+
+    TransformPaintPropertyNode::State state{
+        {gfx::Transform::MakeTranslation(scroll_origin.OffsetFromOrigin())}};
+    auto effective_change_type = properties_->UpdateContentTranslation(
+        *context_.current.transform, std::move(state));
+    OnUpdateContentTranslation(effective_change_type);
+  }
+
+  if (const auto* transform = properties_->ContentTranslation()) {
+    context_.current.transform = transform;
+  }
+}
+
 void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
   DCHECK(properties_);
 
@@ -3119,6 +3269,19 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
       UpdateScrollNode();
       UpdateOverflowControlEffects();
       UpdateScrollTranslation();
+      if (PseudoElement* pseudo_element =
+              DynamicTo<PseudoElement>(object_.GetNode());
+          pseudo_element &&
+          pseudo_element->GetPseudoId() == kPseudoIdOverscrollAreaParent) {
+        context_.current.SetOverscrollParent(
+            *properties_->Scroll(), *properties_->PaintOffsetTranslation(),
+            *properties_->ScrollTranslation(),
+            pseudo_element->UltimateOriginatingElement()
+                    .GetOverscrollContainer()
+                    ->GetComputedStyle()
+                    ->InternalOverscrollArea() ==
+                EInternalOverscrollArea::kOverlay);
+      }
       object_.GetFrameView()->AddScrollableAreaWithScrollNode(
           *To<LayoutBox>(object_).GetScrollableArea());
     } else {
@@ -3209,11 +3372,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollNode() {
 
   OnUpdateScroll(
       properties_->UpdateScroll(*context_.current.scroll, std::move(state)));
-  if (object_.IsPseudoElement() &&
-      To<PseudoElement>(object_.GetNode())->GetPseudoId() ==
-          kPseudoIdOverscrollAreaParent) {
-    context_.current.SetOverscrollParent(*properties_->Scroll());
-  }
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateOverflowControlEffects() {
@@ -3568,6 +3726,16 @@ void FragmentPaintPropertyTreeBuilder::SetNeedsPaintPropertyUpdateIfNeeded() {
     layer->UpdateFilterReferenceBox();
   }
 
+  if (!ClipPathClipper::ClipPathStatusResolved(object_)) {
+    // Being here means we cleared the update flag without setting status. This
+    // is a bug, though as long as we re-set the flag it shouldn't result in
+    // painting artifacts as early outs of the tree walk usually imply the
+    // object isn't painted. Do this now so CC clip paths can function properly.
+    // TODO(crbug.com/495205055): Remove this.
+    object_.GetMutableForPainting().SetOnlyThisNeedsPaintPropertyUpdate();
+    return;
+  }
+
   if (!object_.IsBox()) {
     // We could check the change of the clip-path bounding box, but checking
     // layout change is much simpler and good enough for the rare cases of
@@ -3641,6 +3809,21 @@ void FragmentPaintPropertyTreeBuilder::SetNeedsPaintPropertyUpdateIfNeeded() {
     DCHECK(box.HasLayer());
     box.Layer()->SetFilterOnEffectNodeDirty();
     box.GetMutableForPainting().SetOnlyThisNeedsPaintPropertyUpdate();
+  }
+
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+    const auto* canvas = DynamicTo<HTMLCanvasElement>(object_.GetNode());
+    if (canvas && canvas->layoutSubtree()) {
+      // Invalidate the child's paint properties so that its cached
+      // CanvasChildPaintState is updated with the new canvas size.
+      for (LayoutObject* child = object_.SlowFirstChild(); child;
+           child = child->NextSibling()) {
+        if (auto* child_box = DynamicTo<LayoutBox>(child)) {
+          child_box->GetMutableForPainting()
+              .SetOnlyThisNeedsPaintPropertyUpdate();
+        }
+      }
+    }
   }
 }
 
@@ -3844,6 +4027,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateForChildren() {
   if (properties_) {
     UpdateInnerBorderRadiusClip();
     UpdateInnerBorderShapeClip();
+    UpdateContentTranslation();
     UpdateOverflowClip();
     UpdatePerspective();
     UpdateReplacedContentTransform();
@@ -4491,7 +4675,7 @@ bool PaintPropertyTreeBuilder::CanDoDeferredOpacityNodeUpdate(
   // Descendant state depends on opacity being zero, so we can't do a direct
   // update if it changes
   bool old_opacity_is_zero = properties->Effect()->Opacity() == 0;
-  bool new_opacity_is_zero = object.Style()->Opacity() == 0;
+  bool new_opacity_is_zero = object.StyleRef().Opacity() == 0;
   if (old_opacity_is_zero != new_opacity_is_zero) {
     return false;
   }

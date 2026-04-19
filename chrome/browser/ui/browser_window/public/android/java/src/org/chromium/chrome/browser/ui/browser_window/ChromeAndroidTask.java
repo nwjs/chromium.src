@@ -10,12 +10,12 @@ import android.graphics.Rect;
 import org.chromium.base.JniOnceCallback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.SupportedProfileType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.WindowResizePrecheckResult;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -58,22 +58,22 @@ public interface ChromeAndroidTask {
     final class ActivityScopedObjects {
         final ActivityWindowAndroid mActivityWindowAndroid;
         final TabModelSelector mTabModelSelector;
+        final @BrowserWindowType int mBrowserWindowType;
         final @SupportedProfileType int mSupportedProfileType;
         final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
-        final @Nullable MultiInstanceManager mMultiInstanceManager;
 
         public ActivityScopedObjects(
                 ActivityWindowAndroid activityWindowAndroid,
                 TabModelSelector tabModelSelector,
+                @BrowserWindowType int browserWindowType,
                 @SupportedProfileType int supportedProfileType,
-                @Nullable DesktopWindowStateManager desktopWindowStateManager,
-                @Nullable MultiInstanceManager multiInstanceManager) {
+                @Nullable DesktopWindowStateManager desktopWindowStateManager) {
             mActivityWindowAndroid = activityWindowAndroid;
             mTabModelSelector = tabModelSelector;
+            mBrowserWindowType = browserWindowType;
             assert supportedProfileType != SupportedProfileType.UNSET;
             mSupportedProfileType = supportedProfileType;
             mDesktopWindowStateManager = desktopWindowStateManager;
-            mMultiInstanceManager = multiInstanceManager;
         }
     }
 
@@ -147,14 +147,6 @@ public interface ChromeAndroidTask {
     @Nullable PendingTaskInfo getPendingTaskInfo();
 
     /**
-     * Returns the browser window type of this {@link ChromeAndroidTask}.
-     *
-     * <p>The types are defined in the native {@code BrowserWindowInterface::Type} enum.
-     */
-    @BrowserWindowType
-    int getBrowserWindowType();
-
-    /**
      * Adds an instance of {@link ActivityScopedObjects}.
      *
      * <p>As a {@link ChromeAndroidTask} is meant to track an Android Task, but {@link
@@ -224,15 +216,6 @@ public interface ChromeAndroidTask {
      * @see #addFeature
      */
     void removeAllFeaturesForActivity(ActivityWindowAndroid activityWindowAndroid);
-
-    /**
-     * Creates the {@link Intent} to open a new window of type {@link BrowserWindowType#NORMAL}.
-     *
-     * @param isIncognito Whether the new window should be in incognito mode.
-     * @return The {@link Intent} as described above, or {@code null} if a new window can't be
-     *     created.
-     */
-    @Nullable Intent createIntentForNormalBrowserWindow(boolean isIncognito);
 
     /**
      * Returns the address of the native {@code BrowserWindowInterface}.
@@ -333,6 +316,13 @@ public interface ChromeAndroidTask {
      * window.
      */
     void deactivate();
+
+    /**
+     * Determines whether the window can be resized. Returns WindowResizePrecheckResult.NONE if
+     * resizing is permitted, or a specific failure reason otherwise.
+     */
+    @WindowResizePrecheckResult
+    int canResize();
 
     /** Maximize this {@link ChromeAndroidTask}. */
     void maximize();

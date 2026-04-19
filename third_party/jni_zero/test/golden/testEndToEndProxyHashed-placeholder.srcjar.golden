@@ -11,8 +11,9 @@ package org.jni_zero;
 import javax.annotation.processing.Generated;
 
 @Generated("JNI Zero")
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface SampleForAnnotationProcessor {
+  public interface MultiLine {}
   public interface Natives {
     public org.jni_zero.SampleForAnnotationProcessor bar(org.jni_zero.SampleForAnnotationProcessor sample);
     public void foo();
@@ -52,7 +53,7 @@ package android.content;
 import javax.annotation.processing.Generated;
 
 @Generated("JNI Zero")
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface Context {
 }
 
@@ -68,7 +69,7 @@ package android.view;
 import javax.annotation.processing.Generated;
 
 @Generated("JNI Zero")
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface View {
 }
 
@@ -84,7 +85,7 @@ package org.stubs;
 import javax.annotation.processing.Generated;
 
 @Generated("JNI Zero")
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public interface MyClass {
   public interface SecondNestedInterface {}
 }

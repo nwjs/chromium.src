@@ -40,13 +40,10 @@ std::unique_ptr<LayerImpl> PictureLayer::CreateLayerImpl(
   return PictureLayerImpl::Create(tree_impl, id());
 }
 
-void PictureLayer::PushDirtyPropertiesTo(
-    LayerImpl* base_layer,
-    uint8_t dirty_flag,
-    const CommitState& commit_state,
-    const ThreadUnsafeCommitState& unsafe_state) {
-  Layer::PushDirtyPropertiesTo(base_layer, dirty_flag, commit_state,
-                               unsafe_state);
+void PictureLayer::PushDirtyPropertiesTo(LayerImpl* base_layer,
+                                         uint8_t dirty_flag,
+                                         CommitState& commit_state) {
+  Layer::PushDirtyPropertiesTo(base_layer, dirty_flag, commit_state);
 
   if (dirty_flag & kChangedGeneralProperty) {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
@@ -56,7 +53,9 @@ void PictureLayer::PushDirtyPropertiesTo(
 
     PictureLayerImpl* layer_impl = static_cast<PictureLayerImpl*>(base_layer);
 
-    if (!update_rect().IsEmpty()) {
+    auto iter = commit_state.layer_update_rects.find(id());
+    if (iter != commit_state.layer_update_rects.end() &&
+        !iter->second.IsEmpty()) {
       layer_impl->set_has_non_animated_image_update_rect();
     }
 
@@ -64,8 +63,10 @@ void PictureLayer::PushDirtyPropertiesTo(
         commit_state.device_viewport_rect.size());
     layer_impl->SetIsBackdropFilterMask(is_backdrop_filter_mask());
 
-    layer_impl->UpdateRasterSource(CreateRasterSource(),
-                                   &last_updated_invalidation_.Write(*this));
+    layer_impl->StageNewRasterSourceForCommit(
+        CreateRasterSource(),
+        std::move(last_updated_invalidation_.Write(*this)));
+    commit_state.picture_layer_ids_with_new_raster_source.insert(id());
     layer_impl->set_should_batch_updated_tiles();
   }
 

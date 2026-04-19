@@ -6,7 +6,10 @@
 
 #import "base/check.h"
 #import "base/functional/callback.h"
+#import "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#import "components/autofill/core/browser/payments/payments_autofill_client.h"
 #import "components/autofill/core/common/unique_ids.h"
+#import "components/autofill/ios/browser/autofill_client_ios.h"
 #import "components/optimization_guide/core/page_content_proto_serializer.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -34,10 +37,13 @@ constexpr char kImageInfoKey[] = "imageInfo";
 constexpr char kImageCaptionKey[] = "imageCaption";
 constexpr char kAnnotatedRolesKey[] = "annotatedRoles";
 constexpr char kIframeDataKey[] = "iframeData";
+constexpr char kTableDataKey[] = "tableData";
+constexpr char kTableNameKey[] = "tableName";
 constexpr char kTableRowDataKey[] = "tableRowData";
 constexpr char kRowTypeKey[] = "rowType";
 constexpr char kCanvasDataKey[] = "canvasData";
 constexpr char kVideoDataKey[] = "videoData";
+constexpr char kAriaRoleKey[] = "ariaRole";
 constexpr char kLayoutSizeKey[] = "layoutSize";
 constexpr char kWidthKey[] = "width";
 constexpr char kHeightKey[] = "height";
@@ -47,8 +53,10 @@ constexpr char kContentKey[] = "content";
 constexpr char kLocalFrameDataKey[] = "localFrameData";
 constexpr char kSourceURLKey[] = "sourceUrl";
 constexpr char kTitleKey[] = "title";
+constexpr char kContainsPaidContentKey[] = "containsPaidContent";
 constexpr char kChildrenNodesKey[] = "childrenNodes";
 constexpr char kDomNodeIdKey[] = "domNodeId";
+constexpr char kLabelForDomNodeIdKey[] = "labelForDomNodeId";
 constexpr char kFrameInteractionInfoKey[] = "frameInteractionInfo";
 constexpr char kSelectionKey[] = "selection";
 constexpr char kStartDomNodeIdKey[] = "startDomNodeId";
@@ -93,6 +101,7 @@ constexpr char kDurationMillisecondsKey[] = "durationMilliseconds";
 constexpr char kCurrentPositionMillisecondsKey[] =
     "currentPositionMilliseconds";
 constexpr char kIsPlayingKey[] = "isPlaying";
+constexpr char kLabelKey[] = "label";
 
 // Reads a JS number (double) from a `dict` stored under `key`.
 std::optional<int> ReadJsNumber(const base::DictValue& dict, const char* key) {
@@ -269,6 +278,13 @@ void PopulateFrameData(
     destination_frame_data->set_title(*title_ptr);
   }
 
+  std::optional<bool> contains_paid_content =
+      local_frame_data.FindBool(kContainsPaidContentKey);
+  if (contains_paid_content && *contains_paid_content) {
+    destination_frame_data->mutable_paid_content_metadata()
+        ->set_contains_paid_content(true);
+  }
+
   const base::DictValue* interaction_info_dict =
       local_frame_data.FindDict(kFrameInteractionInfoKey);
   if (interaction_info_dict) {
@@ -334,6 +350,18 @@ void PopulateIframeData(
               ->mutable_frame_data();
       PopulateFrameData(*local_frame_data, node_frame_data, origin);
     }
+  }
+}
+
+// Populates the table data of the `destination_node` from the
+// `table_data` content.
+void PopulateTableData(
+    const base::DictValue& table_data,
+    optimization_guide::proto::ContentNode* destination_node) {
+  if (const std::string* table_name = table_data.FindString(kTableNameKey)) {
+    destination_node->mutable_content_attributes()
+        ->mutable_table_data()
+        ->set_table_name(*table_name);
   }
 }
 
@@ -556,6 +584,12 @@ void PopulateAPCNodeFromContentTree(
         ->set_common_ancestor_dom_node_id(*dom_node_id);
   }
 
+  if (std::optional<int> label_for_id =
+          ReadJsNumber(*content_attributes, kLabelForDomNodeIdKey)) {
+    destination_node->mutable_content_attributes()->set_label_for_dom_node_id(
+        *label_for_id);
+  }
+
   // Populate the attribute type.
   std::optional<optimization_guide::proto::ContentAttributeType> type;
 
@@ -638,6 +672,14 @@ void PopulateAPCNodeFromContentTree(
       }
       break;
     }
+    case optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE: {
+      const base::DictValue* table_data =
+          content_attributes->FindDict(kTableDataKey);
+      if (table_data) {
+        PopulateTableData(*table_data, destination_node);
+      }
+      break;
+    }
     case optimization_guide::proto::CONTENT_ATTRIBUTE_TABLE_ROW: {
       const base::DictValue* table_row_data =
           content_attributes->FindDict(kTableRowDataKey);
@@ -673,6 +715,11 @@ void PopulateAPCNodeFromContentTree(
     PopulateNodeInteractionInfo(*interaction_info, destination_node);
   }
 
+  // Handle ARIA Label.
+  if (const std::string* label = content_attributes->FindString(kLabelKey)) {
+    destination_node->mutable_content_attributes()->set_label(*label);
+  }
+
   // Handle Annotated Role.
   if (const base::ListValue* annotated_roles =
           content_attributes->FindList(kAnnotatedRolesKey)) {
@@ -683,6 +730,15 @@ void PopulateAPCNodeFromContentTree(
         destination_node->mutable_content_attributes()->add_annotated_roles(
             static_cast<optimization_guide::proto::AnnotatedRole>(*role_value));
       }
+    }
+  }
+
+  // Handle ARIA Role.
+  if (std::optional<int> aria_role =
+          ReadJsNumber(*content_attributes, kAriaRoleKey)) {
+    if (optimization_guide::proto::AXRole_IsValid(*aria_role)) {
+      destination_node->mutable_content_attributes()->set_aria_role(
+          static_cast<optimization_guide::proto::AXRole>(*aria_role));
     }
   }
 
@@ -719,5 +775,60 @@ void PopulatePageInteractionInfoNode(
           ReadJsNumber(page_interaction_info_content, kFocusedDomNodeIdKey)) {
     destination_page_interaction_info_node->set_focused_node_id(
         *focused_node_id);
+  }
+}
+
+void PopulateViewportGeometryNode(
+    const base::DictValue& viewport_geometry_content,
+    optimization_guide::proto::BoundingRect*
+        destination_viewport_geometry_node) {
+  // Check that the destination node is only populated once.
+  CHECK_EQ(destination_viewport_geometry_node->ByteSizeLong(), 0u);
+
+  if (std::optional<int> x = ReadJsNumber(viewport_geometry_content, kXKey)) {
+    destination_viewport_geometry_node->set_x(*x);
+  }
+  if (std::optional<int> y = ReadJsNumber(viewport_geometry_content, kYKey)) {
+    destination_viewport_geometry_node->set_y(*y);
+  }
+  if (std::optional<int> width =
+          ReadJsNumber(viewport_geometry_content, kWidthKey)) {
+    destination_viewport_geometry_node->set_width(*width);
+  }
+  if (std::optional<int> height =
+          ReadJsNumber(viewport_geometry_content, kHeightKey)) {
+    destination_viewport_geometry_node->set_height(*height);
+  }
+}
+
+void PopulateAutofillInformation(
+    web::WebState* web_state,
+    optimization_guide::proto::AutofillInformation* autofill_information) {
+  autofill::AutofillClientIOS* client =
+      autofill::AutofillClientIOS::FromWebState(web_state);
+  if (!client || !client->HasPersonalDataManager()) {
+    return;
+  }
+
+  const autofill::PersonalDataManager& pdm = client->GetPersonalDataManager();
+
+  bool address_autofill_enabled = client->IsAutofillProfileEnabled();
+  bool has_address_profiles = !pdm.address_data_manager().GetProfiles().empty();
+  if (address_autofill_enabled && has_address_profiles) {
+    autofill_information->add_fillable_data(
+        optimization_guide::proto::AutofillInformation_FillableData_ADDRESS);
+  }
+
+  bool payment_autofill_enabled = false;
+  bool has_credit_cards = false;
+  if (auto* payments_client = client->GetPaymentsAutofillClient()) {
+    payment_autofill_enabled =
+        payments_client->IsAutofillPaymentMethodsEnabled();
+    has_credit_cards = !pdm.payments_data_manager().GetCreditCards().empty();
+  }
+  if (payment_autofill_enabled && has_credit_cards) {
+    autofill_information->add_fillable_data(
+        optimization_guide::proto::
+            AutofillInformation_FillableData_CREDIT_CARD);
   }
 }

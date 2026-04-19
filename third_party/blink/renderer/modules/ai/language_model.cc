@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_create_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_message.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_message_content.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_union_language_model_message_value.h"
@@ -55,6 +56,7 @@
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -133,10 +135,12 @@ void LogCreateOptionMetrics(
       base::StrCat({AIMetrics::GetAIAPIUsageMetricName(
                         AIMetrics::AISessionType::kLanguageModel),
                     ".", function_name});
+  // TODO(crbug.com/496663356): Only log when params are supported, not ignored?
   if (create_options.hasTopK()) {
     base::UmaHistogramCounts1000(base::StrCat({prefix, ".TopK"}),
                                  static_cast<int>(create_options.topK()));
   }
+  // TODO(crbug.com/496663356): Only log when params are supported, not ignored?
   if (create_options.hasTemperature()) {
     // Temperature is generally in the range of [0.0,2.0].
     base::UmaHistogramCustomCounts(
@@ -468,17 +472,15 @@ ScriptPromise<LanguageModel> LanguageModel::create(
     return promise;
   }
 
-  if (options->hasTopK()) {
-    Deprecation::CountDeprecation(
-        execution_context, mojom::blink::WebFeature::kLanguageModel_TopK);
-  }
-  if (options->hasTemperature()) {
-    Deprecation::CountDeprecation(
-        execution_context,
-        mojom::blink::WebFeature::kLanguageModel_Temperature);
-  }
-
   LogCreateOptionMetrics(*options, "create");
+  if (options->hasTemperature()) {
+    UseCounter::Count(execution_context,
+                      WebFeature::kLanguageModel_Create_Temperature);
+  }
+  if (options->hasTopK()) {
+    UseCounter::Count(execution_context,
+                      WebFeature::kLanguageModel_Create_TopK);
+  }
   HeapMojoRemote<mojom::blink::AIManager>& ai_manager_remote =
       AIInterfaceProxy::GetAIManagerRemote(execution_context);
   if (!ai_manager_remote.is_connected()) {
@@ -493,7 +495,8 @@ ScriptPromise<LanguageModel> LanguageModel::create(
     return promise;
   }
 
-  auto sampling_params_or_exception = ResolveSamplingParamsOption(options);
+  auto sampling_params_or_exception =
+      ResolveSamplingParamsOption(options, execution_context);
   if (!sampling_params_or_exception.has_value()) {
     switch (sampling_params_or_exception.error()) {
       case SamplingParamsOptionError::kOnlyOneOfTopKAndTemperatureIsProvided:
@@ -527,16 +530,6 @@ ScriptPromise<V8Availability> LanguageModel::availability(
   }
 
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
-  if (options->hasTopK()) {
-    Deprecation::CountDeprecation(
-        execution_context, mojom::blink::WebFeature::kLanguageModel_TopK);
-  }
-  if (options->hasTemperature()) {
-    Deprecation::CountDeprecation(
-        execution_context,
-        mojom::blink::WebFeature::kLanguageModel_Temperature);
-  }
-
   if (!ValidateAndCanonicalizeExpectedInputLanguages(script_state->GetIsolate(),
                                                      options)) {
     return EmptyPromise();
@@ -554,7 +547,8 @@ ScriptPromise<V8Availability> LanguageModel::availability(
   }
 
   LogCreateOptionMetrics(*options, "availability");
-  auto sampling_params_or_exception = ResolveSamplingParamsOption(options);
+  auto sampling_params_or_exception =
+      ResolveSamplingParamsOption(options, execution_context);
   if (!sampling_params_or_exception.has_value()) {
     resolver->Resolve(AvailabilityToV8(Availability::kUnavailable));
     return promise;
@@ -609,9 +603,16 @@ ScriptPromise<IDLNullable<LanguageModelParams>> LanguageModel::params(
     return EmptyPromise();
   }
 
+  // Count deprecation if only legacy params are enabled, i.e. for extensions.
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
-  Deprecation::CountDeprecation(
-      execution_context, mojom::blink::WebFeature::kLanguageModel_Params);
+  const bool count_deprecation =
+      RuntimeEnabledFeatures::AIPromptAPILegacyParamsEnabled(
+          execution_context) &&
+      !RuntimeEnabledFeatures::AIPromptAPIParamsEnabled(execution_context);
+  if (count_deprecation) {
+    Deprecation::CountDeprecation(
+        execution_context, mojom::blink::WebFeature::kLanguageModel_Params);
+  }
 
   auto* resolver = MakeGarbageCollected<
       ScriptPromiseResolver<IDLNullable<LanguageModelParams>>>(script_state);
@@ -785,27 +786,37 @@ void LanguageModel::ExecuteMeasureInputUsage(
           WrapPersistent(resolver), WrapPersistent(signal)));
 }
 
-std::optional<on_device_model::mojom::blink::ResponseConstraintPtr>
-LanguageModel::ValidateAndProcessPromptInput(
-    ScriptState* script_state,
-    const V8LanguageModelPrompt* input,
-    const LanguageModelPromptOptions* options,
-    ExceptionState& exception_state) {
+bool LanguageModel::ValidateInput(ScriptState* script_state,
+                                  const V8LanguageModelPrompt* input,
+                                  AbortSignal* signal,
+                                  ExceptionState& exception_state) {
   if (!script_state->ContextIsValid()) {
     ThrowInvalidContextException(exception_state);
-    return std::nullopt;
+    return false;
   }
 
-  AbortSignal* signal = options->getSignalOr(nullptr);
   if (HandleAbortSignal(signal, script_state, exception_state)) {
-    return std::nullopt;
+    return false;
   }
 
-  on_device_model::mojom::blink::ResponseConstraintPtr constraint;
-  if (!ParseConstraint(script_state, options, exception_state, constraint)) {
-    // ParseConstraint will throw an exception when false is returned.
-    return std::nullopt;
+  if (!language_model_remote_) {
+    ThrowSessionDestroyedException(exception_state);
+    return false;
   }
+
+  CHECK(input);
+  if (input->IsLanguageModelMessageSequence()) {
+    const auto& messages = input->GetAsLanguageModelMessageSequence();
+    for (const auto& message : messages) {
+      if (message->role() == V8LanguageModelMessageRole::Enum::kSystem &&
+          (message != messages.front() || has_context_)) {
+        exception_state.ThrowTypeError(
+            kExceptionMessagePromptWithSystemRoleIsNotTheFirst);
+        return false;
+      }
+    }
+  }
+  has_context_ = true;
 
   // TODO(crbug.com/411470034): Aggregate other input type sizes for UMA.
   if (input->IsString()) {
@@ -815,8 +826,23 @@ LanguageModel::ValidateAndProcessPromptInput(
         static_cast<int>(input->GetAsString().CharactersSizeInBytes()));
   }
 
-  if (!language_model_remote_) {
-    ThrowSessionDestroyedException(exception_state);
+  return true;
+}
+
+std::optional<on_device_model::mojom::blink::ResponseConstraintPtr>
+LanguageModel::ValidateAndProcessPromptInput(
+    ScriptState* script_state,
+    const V8LanguageModelPrompt* input,
+    const LanguageModelPromptOptions* options,
+    ExceptionState& exception_state) {
+  if (!ValidateInput(script_state, input, options->getSignalOr(nullptr),
+                     exception_state)) {
+    return std::nullopt;
+  }
+
+  on_device_model::mojom::blink::ResponseConstraintPtr constraint;
+  if (!ParseConstraint(script_state, options, exception_state, constraint)) {
+    // ParseConstraint will throw an exception when false is returned.
     return std::nullopt;
   }
 
@@ -828,18 +854,8 @@ ScriptPromise<IDLUndefined> LanguageModel::append(
     const V8LanguageModelPrompt* input,
     const LanguageModelAppendOptions* options,
     ExceptionState& exception_state) {
-  if (!script_state->ContextIsValid()) {
-    ThrowInvalidContextException(exception_state);
-    return EmptyPromise();
-  }
-
-  if (!language_model_remote_) {
-    ThrowSessionDestroyedException(exception_state);
-    return EmptyPromise();
-  }
-
   AbortSignal* signal = options->getSignalOr(nullptr);
-  if (HandleAbortSignal(signal, script_state, exception_state)) {
+  if (!ValidateInput(script_state, input, signal, exception_state)) {
     return EmptyPromise();
   }
 
@@ -848,8 +864,7 @@ ScriptPromise<IDLUndefined> LanguageModel::append(
   auto promise = resolver->Promise();
 
   ConvertPromptInputsToMojo(
-      script_state, options->getSignalOr(nullptr), input, info_,
-      /*json_schema=*/"",
+      script_state, signal, input, info_, /*json_schema=*/"",
       blink::BindOnce(&AppendClient::Create, WrapPersistent(script_state),
                       WrapPersistent(this), WrapPersistent(resolver),
                       WrapPersistent(signal),
@@ -1014,7 +1029,7 @@ void LanguageModel::OnContextOverflow() {
   ExecutionContext* execution_context = GetExecutionContext();
 
   if (execution_context &&
-      RuntimeEnabledFeatures::LanguageModelLegacyParamsAndAttributesEnabled(
+      RuntimeEnabledFeatures::AIPromptAPILegacyIdentifiersEnabled(
           execution_context)) {
     DispatchEvent(*Event::Create(event_type_names::kQuotaoverflow));
   }

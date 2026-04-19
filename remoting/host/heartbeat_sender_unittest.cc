@@ -14,6 +14,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -76,7 +77,7 @@ decltype(auto) DoValidateLegacyHeartbeatAndRespondOk(
     if (options.host_offline_reason.empty()) {
       ASSERT_FALSE(offline_reason);
     } else {
-      ASSERT_EQ(options.host_offline_reason, *offline_reason);
+      ASSERT_EQ(*offline_reason, options.host_offline_reason);
     }
 
     base::TimeDelta wait_interval = base::Seconds(kGoodIntervalSeconds);
@@ -352,14 +353,9 @@ TEST_F(HeartbeatSenderTest, SetHostOfflineReason) {
 
 TEST_F(HeartbeatSenderTest, UnknownHostId) {
   EXPECT_CALL(*mock_client_, SendFullHeartbeat(_, _, _, _))
-      .WillRepeatedly(
-          [](bool is_initial_heartbeat, std::optional<std::string> signaling_id,
-             std::optional<std::string> offline_reason,
-             HeartbeatServiceClient::HeartbeatResponseCallback callback) {
-            std::move(callback).Run(
-                HttpStatus(HttpStatus::Code::NOT_FOUND, "not found"),
-                std::nullopt, "", false, std::nullopt);
-          });
+      .WillRepeatedly(base::test::RunOnceCallbackRepeatedly<3>(
+          HttpStatus(HttpStatus::Code::NOT_FOUND, "not found"), std::nullopt,
+          "", false, std::nullopt));
 
   EXPECT_CALL(*mock_observer_, OnHeartbeatSent()).WillRepeatedly(Return());
 
@@ -397,13 +393,13 @@ TEST_F(HeartbeatSenderTest, FailedToHeartbeat_Backoff) {
 
   EXPECT_CALL(*mock_observer_, OnHeartbeatSent()).WillRepeatedly(Return());
 
-  ASSERT_EQ(0, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 0);
   signal_strategy_->Connect();
-  ASSERT_EQ(1, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 1);
   task_environment_.FastForwardBy(GetBackoff().GetTimeUntilRelease());
-  ASSERT_EQ(2, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 2);
   task_environment_.FastForwardBy(GetBackoff().GetTimeUntilRelease());
-  ASSERT_EQ(0, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 0);
 }
 
 TEST_F(HeartbeatSenderTest, HostComesBackOnlineAfterServiceOutage) {
@@ -437,15 +433,15 @@ TEST_F(HeartbeatSenderTest, HostComesBackOnlineAfterServiceOutage) {
 
   EXPECT_CALL(*mock_observer_, OnHeartbeatSent()).WillRepeatedly(Return());
 
-  ASSERT_EQ(0, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 0);
   signal_strategy_->Connect();
   for (int i = 1; i <= retry_attempts; i++) {
-    ASSERT_EQ(i, GetBackoff().failure_count());
+    ASSERT_EQ(GetBackoff().failure_count(), i);
     task_environment_.FastForwardBy(GetBackoff().GetTimeUntilRelease());
   }
 
   // Host successfully back online.
-  ASSERT_EQ(0, GetBackoff().failure_count());
+  ASSERT_EQ(GetBackoff().failure_count(), 0);
 }
 
 TEST_F(HeartbeatSenderTest, Unauthenticated) {

@@ -94,7 +94,8 @@ size_t AXNode::GetUnignoredChildCount() const {
 }
 
 size_t AXNode::GetUnignoredChildCountCrossingTreeBoundary() const {
-  // TODO(nektar): Should DCHECK that this node is not ignored.
+  // TODO(accessibility): Add DCHECK(!IsIgnored()) once all call sites
+  // (including BrowserAccessibility::PlatformChildCount) are audited.
   DCHECK(!tree_->GetTreeUpdateInProgressState());
 
   const AXTreeManager* child_tree_manager = AXTreeManager::ForChildTree(*this);
@@ -130,7 +131,8 @@ AXNode* AXNode::GetChildAtIndexCrossingTreeBoundary(size_t index) const {
 }
 
 AXNode* AXNode::GetUnignoredChildAtIndex(size_t index) const {
-  // TODO(nektar): Should DCHECK that this node is not ignored.
+  // TODO(accessibility): Add DCHECK(!IsIgnored()) once all call sites
+  // (including BrowserAccessibility::PlatformChildCount) are audited.
   DCHECK(!tree_->GetTreeUpdateInProgressState());
 
   for (auto it = UnignoredChildrenBegin(), end = UnignoredChildrenEnd();
@@ -145,7 +147,8 @@ AXNode* AXNode::GetUnignoredChildAtIndex(size_t index) const {
 
 AXNode* AXNode::GetUnignoredChildAtIndexCrossingTreeBoundary(
     size_t index) const {
-  // TODO(nektar): Should DCHECK that this node is not ignored.
+  // TODO(accessibility): Add DCHECK(!IsIgnored()) once all call sites
+  // (including BrowserAccessibility::PlatformChildCount) are audited.
   DCHECK(!tree_->GetTreeUpdateInProgressState());
 
   const AXTreeManager* child_tree_manager = AXTreeManager::ForChildTree(*this);
@@ -2471,6 +2474,21 @@ AXNode* AXNode::GetTextFieldAncestor() const {
        ancestor = ancestor->GetUnignoredParent()) {
     if (ancestor->data().IsTextField())
       return ancestor;
+  }
+  return nullptr;
+}
+
+AXNode* AXNode::GetParagraphContainerAncestor() const {
+  for (const AXNode* ancestor = this; ancestor;
+       ancestor = ancestor->GetParentCrossingTreeBoundary()) {
+    if (ancestor->GetBoolAttribute(
+            ax::mojom::BoolAttribute::kIsLineBreakingObject) &&
+        // Exclude `<br>` elements and their `kInlineTextBox` children —
+        // these have `kIsLineBreakingObject` but are not block containers.
+        ancestor->GetRole() != ax::mojom::Role::kLineBreak &&
+        ancestor->GetRole() != ax::mojom::Role::kInlineTextBox) {
+      return const_cast<AXNode*>(ancestor);
+    }
   }
   return nullptr;
 }

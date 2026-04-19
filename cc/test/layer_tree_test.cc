@@ -34,7 +34,6 @@
 #include "cc/test/fake_compositor_frame_reporting_controller.h"
 #include "cc/test/fake_layer_tree_host_client.h"
 #include "cc/test/test_layer_tree_frame_sink.h"
-#include "cc/test/test_ukm_recorder_factory.h"
 #include "cc/trees/layer_tree_host_client.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
@@ -441,7 +440,7 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
 
   void DidBeginMainFrame() override { test_hooks_->DidBeginMainFrame(); }
   void WillUpdateLayers() override {}
-  void DidUpdateLayers() override {}
+  void DidUpdateLayers() override { test_hooks_->DidUpdateLayers(); }
 
   void BeginMainFrame(const viz::BeginFrameArgs& args) override {
     test_hooks_->BeginMainFrame(args);
@@ -553,7 +552,6 @@ class LayerTreeHostForTesting : public LayerTreeHost {
     params.settings = &settings;
     params.mutator_host = mutator_host;
     params.image_worker_task_runner = std::move(image_worker_task_runner);
-    params.ukm_recorder_factory = std::make_unique<TestUkmRecorderFactory>();
     params.property_tree_delegate = property_tree_delegate;
 
     auto layer_tree_host = base::WrapUnique(
@@ -589,7 +587,6 @@ class LayerTreeHostForTesting : public LayerTreeHost {
       scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
       LayerTreeHostSchedulingClient* scheduling_client,
       RenderingStatsInstrumentation* rendering_stats_instrumentation,
-      std::unique_ptr<UkmRecorderFactory>& ukm_recorder_factory,
       base::WeakPtr<CompositorDelegateForInput>& compositor_delegate_weak_ptr)
       override {
     std::unique_ptr<LayerTreeHostImpl> host_impl =
@@ -598,7 +595,6 @@ class LayerTreeHostForTesting : public LayerTreeHost {
             task_runner_provider, task_graph_runner,
             rendering_stats_instrumentation, image_worker_task_runner);
 
-    host_impl->InitializeUkm(ukm_recorder_factory->CreateRecorder());
     compositor_delegate_weak_ptr = host_impl->AsWeakPtr();
 
     // Many tests using this class are specifically meant as input tests so

@@ -67,9 +67,11 @@ class ClipboardAndroid : public Clipboard {
   void GetStandardFormats(ClipboardBuffer buffer,
                           const std::optional<DataTransferEndpoint>& data_dst,
                           GetStandardFormatsCallback callback) const override;
-  bool IsFormatAvailable(const ClipboardFormatType& format,
-                         ClipboardBuffer buffer,
-                         const DataTransferEndpoint* data_dst) const override;
+  void GetAllAvailableFormats(
+      ClipboardBuffer buffer,
+      const std::optional<DataTransferEndpoint>& data_dst,
+      base::OnceCallback<void(base::flat_set<ClipboardFormatType>)> callback)
+      const override;
   void Clear(ClipboardBuffer buffer) override;
   void ReadAvailableTypes(ClipboardBuffer buffer,
                           const std::optional<DataTransferEndpoint>& data_dst,
@@ -100,8 +102,8 @@ class ClipboardAndroid : public Clipboard {
   void ReadFilenames(ClipboardBuffer buffer,
                      const std::optional<DataTransferEndpoint>& data_dst,
                      ReadFilenamesCallback callback) const override;
-  void ReadBookmark(const std::optional<DataTransferEndpoint>& data_dst,
-                    ReadBookmarkCallback callback) const override;
+  void ReadURL(const std::optional<DataTransferEndpoint>& data_dst,
+               ReadUrlCallback callback) const override;
   void ReadData(const ClipboardFormatType& format,
                 const std::optional<DataTransferEndpoint>& data_dst,
                 ReadDataCallback callback) const override;
@@ -120,7 +122,7 @@ class ClipboardAndroid : public Clipboard {
   void WriteSvg(std::string_view markup) override;
   void WriteRTF(std::string_view rtf) override;
   void WriteFilenames(std::vector<ui::FileInfo> filenames) override;
-  void WriteBookmark(std::string_view title, std::string_view url) override;
+  void WriteURL(const ClipboardUrlInfo& url_info) override;
   void WriteWebSmartPaste() override;
   void WriteBitmap(const SkBitmap& bitmap) override;
   void WriteData(const ClipboardFormatType& format,

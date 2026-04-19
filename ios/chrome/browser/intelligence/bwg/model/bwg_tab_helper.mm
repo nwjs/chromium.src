@@ -27,12 +27,13 @@
 #import "components/prefs/scoped_user_pref_update.h"
 #import "components/search_engines/util.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_snapshot_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_ui_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
@@ -50,7 +51,6 @@
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
 #import "ios/web/public/navigation/navigation_context.h"
@@ -192,20 +192,6 @@ void BwgTabHelper::ExecuteZeroStateSuggestions(
       std::move(service_callback));
 }
 
-void BwgTabHelper::SetBwgUiShowing(bool showing) {
-  is_bwg_ui_showing_ = showing;
-
-  // The UI was foregrounded, so it can no longer be active in the background.
-  if (is_bwg_ui_showing_) {
-    is_bwg_session_active_in_background_ = false;
-  }
-
-  // UI was hidden but the session is not active, so update the snapshot to
-  // remove the overlay from it.
-  if (!is_bwg_ui_showing_ && !is_bwg_session_active_in_background_) {
-    cached_snapshot_ = nil;
-  }
-}
 
 void BwgTabHelper::SetIsFirstRun(bool is_first_run) {
   is_first_run_ = is_first_run;
@@ -233,6 +219,8 @@ GeminiPageContext* BwgTabHelper::GetPartialPageContext() {
       IsGeminiFloatyAllPagesEnabled()) {
     gemini_page_context.geminiPageContextComputationState =
         ios::provider::GeminiPageContextComputationState::kBlocked;
+    gemini_page_context.geminiPageContextAttachmentState =
+        ios::provider::GetCurrentPageContextAttachmentState();
     return gemini_page_context;
   }
   gemini_page_context.geminiPageContextComputationState =
@@ -273,14 +261,8 @@ void BwgTabHelper::UpdatePresentedSource(gemini::FloatyUpdateSource source,
   }
 }
 
-bool BwgTabHelper::GetIsBwgSessionActiveInBackground() {
-  return is_bwg_session_active_in_background_;
-}
-
 void BwgTabHelper::DeactivateBWGSession() {
-  is_bwg_session_active_in_background_ = false;
-  is_bwg_ui_showing_ = false;
-  cached_snapshot_ = nil;
+  BwgTabHelper::DeleteBwgSessionInStorage();
 }
 
 bool BwgTabHelper::IsLastInteractionUrlDifferent() {
@@ -309,16 +291,6 @@ void BwgTabHelper::CreateOrUpdateBwgSessionInStorage(std::string server_id) {
 
 void BwgTabHelper::DeleteBwgSessionInStorage() {
   CleanupSessionFromPrefs();
-}
-
-void BwgTabHelper::PrepareBwgFreBackgrounding() {
-  if (!IsGeminiCopresenceEnabled()) {
-    // TODO(crbug.com/486134176) Clean up snapshot logic to rely on the default
-    // snapshot mechanism once copresence is launched.
-    cached_snapshot_ =
-        bwg_snapshot_utils::GetCroppedFullscreenSnapshot(web_state_->GetView());
-  }
-  is_bwg_session_active_in_background_ = true;
 }
 
 std::string BwgTabHelper::GetClientId() {
@@ -361,8 +333,7 @@ bool BwgTabHelper::IsGeminiAvailableForWebState() {
 
   if (IsGeminiCopresenceEnabled() || IsGeminiFloatyAllPagesEnabled()) {
     const GURL& url = web_state_->GetVisibleURL();
-    if (!url.SchemeIsHTTPOrHTTPS() || google_util::IsGoogleSearchUrl(url) ||
-        google_util::IsGoogleHomePageUrl(url) || IsAimZeroStateURL(url)) {
+    if (!IsUrlEligibleForGemini(url)) {
       return false;
     }
   }
@@ -371,46 +342,37 @@ bool BwgTabHelper::IsGeminiAvailableForWebState() {
          IsGeminiFloatyAllPagesEnabled();
 }
 
+bool BwgTabHelper::IsUrlEligibleForGemini(const GURL& url) {
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return false;
+  }
+
+  if (IsAimZeroStateURL(url) || IsAimURL(url) ||
+      google_util::IsGoogleHomePageUrl(url)) {
+    return false;
+  }
+
+  if (google_util::IsGoogleSearchUrl(url)) {
+    return !IsGeminiCopresenceSRPCheckEnabled();
+  }
+
+  return true;
+}
+
 #pragma mark - WebStateObserver
 
 void BwgTabHelper::WasShown(web::WebState* web_state) {
-  if (is_bwg_session_active_in_background_) {
-    if (!IsGeminiCopresenceEnabled()) {
-      [bwg_commands_handler_
-          startGeminiFlowWithStartupState:
-              [[GeminiStartupState alloc]
-                  initWithEntryPoint:gemini::EntryPoint::TabReopen]];
-    }
-    cached_snapshot_ = nil;
+  if (!IsGeminiCopresenceEnabled()) {
+    return;
   }
 
-  if (IsGeminiCopresenceEnabled()) {
-    [bwg_commands_handler_
-        updateFloatyVisibilityIfEligibleAnimated:NO
-                                      fromSource:gemini::FloatyUpdateSource::
-                                                     WebNavigation];
-  }
+  [bwg_commands_handler_
+      updateFloatyVisibilityIfEligibleAnimated:NO
+                                    fromSource:gemini::FloatyUpdateSource::
+                                                   WebNavigation];
 }
 
 void BwgTabHelper::WasHidden(web::WebState* web_state) {
-  if (is_bwg_ui_showing_) {
-    // Only capture the window snapshot if Copresence is disabled. This ensures
-    // Copresence uses the default snapshot mechanism to avoid UI corruption.
-    if (!IsGeminiCopresenceEnabled()) {
-      // TODO(crbug.com/486134176) Clean up snaoshot logic to rely on the
-      // default snapshot mechanism once copresence is launched.
-      cached_snapshot_ = bwg_snapshot_utils::GetCroppedFullscreenSnapshot(
-          web_state_->GetView());
-    }
-    is_bwg_session_active_in_background_ = true;
-
-    if (!IsGeminiCopresenceEnabled()) {
-      [bwg_commands_handler_ dismissGeminiFlowWithCompletion:nil];
-    }
-  }
-
-  UpdateWebStateSnapshotInStorage();
-
   if (!IsGeminiCopresenceEnabled()) {
     return;
   }
@@ -446,7 +408,7 @@ void BwgTabHelper::DidStartNavigation(
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  BwgService* gemini_service = BwgServiceFactory::GetForProfile(profile);
+  BwgService* gemini_service = GeminiServiceFactory::GetForProfile(profile);
   const bool gemini_available = IsGeminiAvailableForWebState() &&
                                 gemini_service &&
                                 gemini_service->IsProfileEligibleForGemini();
@@ -483,6 +445,16 @@ void BwgTabHelper::DidFinishNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {
   if (IsGeminiCopresenceEnabled()) {
+    if (IsGeminiAvailableForWebState()) {
+      RecordGeminiPageAvailability(IOSGeminiPageAvailability::kAvailable);
+    } else {
+      if (google_util::IsGoogleSearchUrl(web_state->GetVisibleURL())) {
+        RecordGeminiPageAvailability(
+            IOSGeminiPageAvailability::kSearchResultPage);
+      } else {
+        RecordGeminiPageAvailability(IOSGeminiPageAvailability::kUnavailable);
+      }
+    }
     [bwg_commands_handler_
         updateFloatyVisibilityIfEligibleAnimated:NO
                                       fromSource:gemini::FloatyUpdateSource::
@@ -588,6 +560,7 @@ void BwgTabHelper::PopulatePageContextFields() {
           .SetUseRefactoredExtractor(IsPageContextExtractorRefactoredEnabled())
           .SetGraftCrossOriginFrameContent(IsGeminiRichAPCExtractionEnabled())
           .SetUseRichExtraction(IsGeminiRichAPCExtractionEnabled())
+          .SetExtractPaidContent(IsGeminiRichAPCExtractionEnabled())
           .Build();
 
   // Create a new wrapper.
@@ -640,21 +613,6 @@ void BwgTabHelper::CleanupSessionFromPrefs() {
   pref_service->ClearPref(prefs::kGeminiConversationId);
 }
 
-void BwgTabHelper::UpdateWebStateSnapshotInStorage() {
-  if (!cached_snapshot_) {
-    return;
-  }
-
-  SnapshotTabHelper* snapshot_tab_helper =
-      SnapshotTabHelper::FromWebState(web_state_);
-
-  if (!snapshot_tab_helper) {
-    return;
-  }
-
-  snapshot_tab_helper->UpdateSnapshotStorageWithImage(cached_snapshot_);
-}
-
 void BwgTabHelper::OnCanApplyContextualCueingDecision(
     const GURL& main_frame_url,
     optimization_guide::OptimizationGuideDecision decision,
@@ -682,14 +640,12 @@ void BwgTabHelper::OnCanApplyContextualCueingDecision(
   // TODO(crbug.com/461595639): Remove pref checks to fully migrate logic to
   // FET.
   bool floaty_shown = profile->GetPrefs()->GetBoolean(prefs::kIOSBwgConsent);
-  bool bwg_promo_shown =
-      profile->GetPrefs()->GetInteger(prefs::kIOSBWGPromoImpressionCount) > 0;
   bool should_wait_for_new_user =
       !ShouldSkipBWGPromoNewUserDelay() && IsFirstRunRecent(base::Days(1));
 
   // Show promo if eligible.
   if (IsGeminiNavigationPromoEnabled() && !should_wait_for_new_user &&
-      !floaty_shown && !bwg_promo_shown &&
+      !floaty_shown && !gemini::DidUserSeeGeminiPromo(profile->GetPrefs()) &&
       feature_engagement::TrackerFactory::GetForProfile(profile)
           ->WouldTriggerHelpUI(
               feature_engagement::kIPHiOSGeminiFullscreenPromoFeature)) {

@@ -32,6 +32,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/compiler_specific.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_argument_context.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
@@ -207,8 +208,8 @@ static bool IsValidExtendedLanguageRange(const String& range) {
 
       // First subtag must be alphabetic, subsequent ones can be alphanumeric.
       for (wtf_size_t j = subtag_start; j < pos; ++j) {
-        const bool valid = is_first_subtag ? IsASCIIAlpha(range[j])
-                                           : IsASCIIAlphanumeric(range[j]);
+        const bool valid = is_first_subtag ? IsAsciiAlpha(range[j])
+                                           : IsAsciiAlphanumeric(range[j]);
         if (!valid) {
           return false;
         }
@@ -271,7 +272,8 @@ static bool MatchesLangPseudoClass(
     }
     bool MatchesWildcard() const {
       StringView subtag = CurrentSubtag();
-      return subtag.length() == 1 && subtag[0] == '*';
+      // SAFETY: empty string short-circuited in &&-expression.
+      return subtag.length() == 1 && UNSAFE_BUFFERS(subtag[0]) == '*';
     }
     bool IsSingleton() const {
       return (subtag_end_ - subtag_start_) == 1 && subtag_start_ > 0;
@@ -712,6 +714,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoEmpty:
     case CSSSelector::kPseudoEnabled:
     case CSSSelector::kPseudoEnd:
+    case CSSSelector::kPseudoExpandIcon:
     case CSSSelector::kPseudoFileSelectorButton:
     case CSSSelector::kPseudoFiltered:
     case CSSSelector::kPseudoFirstChild:
@@ -2339,7 +2342,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (IsTransitionPseudoElement(pseudo_id_to_check)) {
         ViewTransition* transition =
             ViewTransitionUtils::GetTransition(element);
-        CHECK(transition);
+        if (!transition) {
+          return false;
+        }
         DCHECK((transition->Scope() == &element && context.pseudo_id) ||
                element.IsPseudoElement());
         DCHECK(context.pseudo_argument || element.IsPseudoElement());

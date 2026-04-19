@@ -73,6 +73,7 @@
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/html/html_frame_set_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
+#include "third_party/blink/renderer/core/html/menu_safe_triangle.h"
 #include "third_party/blink/renderer/core/input/event_handling_util.h"
 #include "third_party/blink/renderer/core/input/input_device_capabilities.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
@@ -639,15 +640,6 @@ std::optional<ui::Cursor> EventHandler::SelectCursor(
       // one).
       CHECK(style_image->CachedImage());
 
-      // Compute the concrete object size in DIP based on the
-      // default cursor size obtained from the OS.
-      const gfx::SizeF size_in_css_pixels =
-          style_image->ImageSize(1,
-                                 gfx::SizeF(page->GetChromeClient()
-                                                .GetScreenInfos(*frame_)
-                                                .system_cursor_size),
-                                 kRespectImageOrientation);
-
       float scale = style_image->ImageScaleFactor();
       Image* image = style_image->CachedImage()->GetImage();
 
@@ -655,68 +647,39 @@ std::optional<ui::Cursor> EventHandler::SelectCursor(
           page->GetChromeClient().GetScreenInfo(*frame_).device_scale_factor;
 
       scoped_refptr<Image> svg_image_holder;
-      if (RuntimeEnabledFeatures::CSSCursorSizeCheckFixEnabled()) {
-        // If the image is an SVG, then adjust the scale to reflect the device
-        // scale factor so that the SVG can be rasterized in the native
-        // resolution and scaled down to the correct size for the cursor.
-        if (auto* svg_image = DynamicTo<SVGImage>(image)) {
-          // Adjust the total scale factor. The image scale factor doesn't
-          // really affect SVG images though (as is evident below), so this
-          // should probably be dropped (scale should be set to the DPR).
-          scale *= device_scale_factor;
+      // If the image is an SVG, then adjust the scale to reflect the device
+      // scale factor so that the SVG can be rasterized in the native
+      // resolution and scaled down to the correct size for the cursor.
+      if (auto* svg_image = DynamicTo<SVGImage>(image)) {
+        // Adjust the total scale factor. The image scale factor doesn't
+        // really affect SVG images though (as is evident below), so this
+        // should probably be dropped (scale should be set to the DPR).
+        scale *= device_scale_factor;
 
-          // Scale from DIP to device pixels.
-          const gfx::SizeF size_in_device_pixels =
-              gfx::ScaleSize(size_in_css_pixels, device_scale_factor);
+        // Get the default cursor size in DIP from the OS.
+        const gfx::SizeF default_cursor_size_in_dip(
+            page->GetChromeClient().GetScreenInfos(*frame_).system_cursor_size);
+        // Compute the concrete object size in device pixels.
+        const gfx::SizeF size_in_device_pixels = style_image->ImageSize(
+            device_scale_factor,
+            gfx::ScaleSize(default_cursor_size_in_dip, device_scale_factor),
+            kRespectImageOrientation);
 
-          // TODO(fs): Should pass proper URL. Use StyleImage::GetImage.
-          svg_image_holder = SVGImageForContainer::Create(
-              *svg_image, size_in_device_pixels, device_scale_factor, nullptr,
-              frame_->GetDocument()
-                  ->GetStyleEngine()
-                  .ResolveColorSchemeForEmbedding(&style));
-          image = svg_image_holder.get();
-        }
+        // TODO(fs): Should pass proper URL. Use StyleImage::GetImage.
+        svg_image_holder = SVGImageForContainer::Create(
+            *svg_image, size_in_device_pixels, device_scale_factor, nullptr,
+            frame_->GetDocument()
+                ->GetStyleEngine()
+                .ResolveColorSchemeForEmbedding(&style));
+        image = svg_image_holder.get();
+      }
 
-        // Reject empty and too large cursors.
-        const gfx::Size size_in_device_pixels =
-            image->Size(kRespectImageOrientation);
-        if (size_in_device_pixels.IsEmpty() ||
-            !ui::Cursor::AreDimensionsValidForWeb(size_in_device_pixels,
-                                                  scale)) {
-          continue;
-        }
-      } else {
-        gfx::SizeF size = size_in_css_pixels;
-        if (image->IsSVGImage()) {
-          // `StyleImage::ImageSize` does not take
-          // `StyleImage::ImageScaleFactor` into account when computing the size
-          // for SVG images.
-          size.Scale(1 / scale);
-        }
-
-        if (size.IsEmpty() ||
-            !ui::Cursor::AreDimensionsValidForWeb(
-                gfx::ToCeiledSize(gfx::ScaleSize(size, scale)), scale)) {
-          continue;
-        }
-
-        // If the image is an SVG, then adjust the scale to reflect the device
-        // scale factor so that the SVG can be rasterized in the native
-        // resolution and scaled down to the correct size for the cursor.
-        if (auto* svg_image = DynamicTo<SVGImage>(image)) {
-          scale *= device_scale_factor;
-          // Re-scale back from DIP to device pixels.
-          size.Scale(scale);
-
-          // TODO(fs): Should pass proper URL. Use StyleImage::GetImage.
-          svg_image_holder = SVGImageForContainer::Create(
-              *svg_image, size, device_scale_factor, nullptr,
-              frame_->GetDocument()
-                  ->GetStyleEngine()
-                  .ResolveColorSchemeForEmbedding(&style));
-          image = svg_image_holder.get();
-        }
+      // Reject empty and too large cursors.
+      const gfx::Size size_in_device_pixels =
+          image->Size(kRespectImageOrientation);
+      if (size_in_device_pixels.IsEmpty() ||
+          !ui::Cursor::AreDimensionsValidForWeb(size_in_device_pixels, scale)) {
+        continue;
       }
 
       // Convert from DIP to physical pixels.
@@ -1107,6 +1070,11 @@ WebInputEventResult EventHandler::HandleMouseMoveOrLeaveEvent(
     if (tracker) {
       tracker->OnMouseMoveEvent(mouse_event);
     }
+
+    if (MenuSafeTriangle* safe_triangle =
+            frame_->GetDocument()->GetMenuSafeTriangle()) {
+      safe_triangle->Recheck();
+    }
   }
 
   // Mouse states need to be reset when mouse move with no button down.
@@ -1368,11 +1336,9 @@ static LocalFrame* LocalFrameFromTargetNode(Node* target) {
     return DynamicTo<LocalFrame>(html_frame_base_element->ContentFrame());
   }
 
-  if (RuntimeEnabledFeatures::DragAndDropPluginElementSupportEnabled()) {
-    auto* html_plugin_element = DynamicTo<HTMLPlugInElement>(target);
-    if (html_plugin_element) {
-      return DynamicTo<LocalFrame>(html_plugin_element->ContentFrame());
-    }
+  auto* html_plugin_element = DynamicTo<HTMLPlugInElement>(target);
+  if (html_plugin_element) {
+    return DynamicTo<LocalFrame>(html_plugin_element->ContentFrame());
   }
 
   return nullptr;
@@ -2244,7 +2210,7 @@ static bool ShouldShowContextMenuAtSelection(const FrameSelection& selection) {
 
 WebInputEventResult EventHandler::ShowNonLocatedContextMenu(
     Element* override_target_element,
-    WebMenuSourceType source_type) {
+    ui::mojom::blink::MenuSourceType source_type) {
   LocalFrameView* view = frame_->View();
   if (!view)
     return WebInputEventResult::kNotHandled;

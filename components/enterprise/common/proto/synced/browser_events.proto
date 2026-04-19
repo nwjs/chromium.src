@@ -24,6 +24,7 @@ enum EventResult {
   EVENT_RESULT_DATA_MASKED = 6;
   EVENT_RESULT_DATA_UNMASKED = 7;
   EVENT_RESULT_FORCED_SAVE_TO_CLOUD = 8;
+  EVENT_RESULT_CANCELLED_BY_USER = 9;
 }
 
 // The reporting target of the events.
@@ -834,7 +835,7 @@ message DlpSensitiveDataEvent {
 
 // Event where a large file could not be scanned for analysis e.g. malware or
 // DLP.
-// Next ID: 25.
+// Next ID: 29.
 message UnscannedFileEvent {
   reserved 6, 9, 10, 11, 12, 14;
 
@@ -849,6 +850,10 @@ message UnscannedFileEvent {
 
   // SHA256 hash of large unscanned file.
   string download_digest_sha_256 = 4;
+
+  // The id of the scan. This will be shared by all events that are triggered
+  // from a single scan, and may be empty unless a metadata scan was performed.
+  string scan_id = 25;
 
   // Trigger category that generated this event.
   DataTransferEventTrigger trigger = 5;
@@ -889,6 +894,7 @@ message UnscannedFileEvent {
     SERVICE_UNAVAILABLE = 7;
     TOO_MANY_REQUESTS = 8;
     TIMEOUT = 9;
+    USER_CANCELLED = 10;
   }
 
   UnscannedReason unscanned_reason = 18;
@@ -919,6 +925,16 @@ message UnscannedFileEvent {
 
   // The user action led to a content transfer event.
   ContentTransferMethod content_transfer_method = 24;
+
+  // URL info of the URL that triggered the event.
+  UrlInfo url_info = 26;
+
+  // The referrers of the webpage that sent the user to the url that triggered
+  // the event.
+  repeated UrlInfo referrers = 27;
+
+  // URL info of the URL of the tab.
+  UrlInfo tab_url_info = 28;
 }
 
 // Event that indicates that content was transferred.

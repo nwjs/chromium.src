@@ -320,24 +320,24 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
-                       UpdatePageActionVisibility_ShowsPageAction) {
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
+                       UpdatePageActionVisibility_ShowsAndHidesPageAction) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url = embedded_test_server()->GetURL("/long_text_page.html");
   RegisterPageActionObserver();
-
-  ReadAnythingEntryPointController::UpdatePageActionVisibility(true, browser());
-
+  OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->GetProfile())
+      ->AddHintForTesting(
+          url, optimization_guide::proto::READER_MODE_ELIGIBLE,
+          std::optional<optimization_guide::OptimizationMetadata>());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   VerifyPageActionIsShowing(true);
-}
+  VerifyChipIsShowing(true);
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
-                       UpdatePageActionVisibility_ShowsChip) {
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  RegisterPageActionObserver();
+  ReadAnythingEntryPointController::UpdatePageActionVisibility(false,
+                                                               browser());
+  VerifyPageActionIsShowing(false);
+  VerifyChipIsShowing(false);
 
   ReadAnythingEntryPointController::UpdatePageActionVisibility(true, browser());
-
   VerifyPageActionIsShowing(true);
   VerifyChipIsShowing(true);
 }
@@ -345,22 +345,31 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
 IN_PROC_BROWSER_TEST_P(
     ReadAnythingEntryPointControllerOmniboxBrowserTest,
     UpdatePageActionVisibility_DoesNotShowChipIfIgnoredManyTimes) {
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  RegisterPageActionObserver();
   browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 10);
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url = embedded_test_server()->GetURL("/long_text_page.html");
+  RegisterPageActionObserver();
+  OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->GetProfile())
+      ->AddHintForTesting(
+          url, optimization_guide::proto::READER_MODE_ELIGIBLE,
+          std::optional<optimization_guide::OptimizationMetadata>());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  VerifyPageActionIsShowing(true);
+  VerifyChipIsShowing(false);
+
+  ReadAnythingEntryPointController::UpdatePageActionVisibility(false,
+                                                               browser());
+  VerifyPageActionIsShowing(false);
+  VerifyChipIsShowing(false);
 
   ReadAnythingEntryPointController::UpdatePageActionVisibility(true, browser());
-
   VerifyPageActionIsShowing(true);
   VerifyChipIsShowing(false);
 }
 
 IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
                        UpdatePageActionVisibility_ShowsPromo) {
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
   base::test::TestFuture<user_education::FeaturePromoResult> future;
 
   ReadAnythingEntryPointController::UpdatePageActionVisibility(
@@ -371,29 +380,8 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
-                       UpdatePageActionVisibility_HidesPageAction) {
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
-  RegisterPageActionObserver();
-  browser()
-      ->GetActiveTabInterface()
-      ->GetTabFeatures()
-      ->page_action_controller()
-      ->Show(kActionSidePanelShowReadAnything);
-  VerifyPageActionIsShowing(true);
-
-  ReadAnythingEntryPointController::UpdatePageActionVisibility(false,
-                                                               browser());
-
-  VerifyPageActionIsShowing(false);
-  VerifyChipIsShowing(false);
-}
-
-IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
                        UpdatePageActionVisibility_AbortsPromo) {
   base::HistogramTester histogram_tester;
-  EXPECT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://www.google.com")));
   auto* const user_ed = BrowserUserEducationInterface::From(browser());
   base::test::TestFuture<user_education::FeaturePromoResult> future;
   ReadAnythingEntryPointController::UpdatePageActionVisibility(
@@ -541,6 +529,29 @@ IN_PROC_BROWSER_TEST_P(
       ReadAnythingOmniboxChipDecision::kHideOptimizationGuide, 1);
 }
 
+IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
+                       CheckIfShouldSuggestReadingMode_LongerPdfIsCandidate) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL(
+          "/pdf/accessibility/paragraphs-and-heading-untagged.pdf")));
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(web_contents));
+  base::test::TestFuture<bool> future;
+
+  base::HistogramTester histogram_tester;
+  ReadAnythingEntryPointController::CheckIfShouldSuggestReadingMode(
+      browser(), future.GetCallback());
+
+  EXPECT_TRUE(future.Wait());
+  EXPECT_TRUE(future.Get());
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.OmniboxChipDecision",
+      ReadAnythingOmniboxChipDecision::kShowPdf, 1);
+}
+
 IN_PROC_BROWSER_TEST_P(
     ReadAnythingEntryPointControllerOmniboxBrowserTest,
     CheckIfShouldSuggestReadingMode_ShorterPdfIsNotCandidate) {
@@ -624,11 +635,6 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
                        OnPageActionIgnored_IncrementsIgnoredCount) {
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
-  ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
-  actions::ActionInvocationContext context;
-  context.SetProperty(page_actions::kPageActionTriggerKey, 1);
   browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 3);
 
@@ -636,6 +642,25 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
 
   EXPECT_EQ(4, browser()->GetProfile()->GetPrefs()->GetInteger(
                    prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount));
+}
+
+IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerOmniboxBrowserTest,
+                       OnPageActionIgnored_HidesChipAfterIgnoredThreshold) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url = embedded_test_server()->GetURL("/long_text_page.html");
+  RegisterPageActionObserver();
+  OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->GetProfile())
+      ->AddHintForTesting(
+          url, optimization_guide::proto::READER_MODE_ELIGIBLE,
+          std::optional<optimization_guide::OptimizationMetadata>());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  VerifyChipIsShowing(true);
+  browser()->GetProfile()->GetPrefs()->SetInteger(
+      prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 5);
+
+  ReadAnythingEntryPointController::OnPageActionIgnored(browser());
+
+  VerifyChipIsShowing(false);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

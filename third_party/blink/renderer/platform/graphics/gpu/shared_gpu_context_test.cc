@@ -8,13 +8,13 @@
 
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/null_task_runner.h"
-#include "base/threading/sequence_local_storage_map.h"
 #include "components/viz/test/test_raster_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/test/fake_gles2_interface.h"
@@ -52,9 +52,6 @@ class BadSharedGpuContextTest : public Test {
     auto factory = []() -> std::unique_ptr<WebGraphicsContext3DProvider> {
       return nullptr;
     };
-    scoped_sequence_local_storage_map_for_current_thread_ = std::make_unique<
-        base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>(
-        &sequence_local_storage_);
     SharedGpuContext::SetContextProviderFactoryForTesting(
         BindRepeating(factory));
   }
@@ -72,10 +69,6 @@ class BadSharedGpuContextTest : public Test {
   std::unique_ptr<
       ScopedTestingPlatformSupport<AcceleratedCompositingTestPlatform>>
       accelerated_compositing_scope_;
-  base::internal::SequenceLocalStorageMap sequence_local_storage_;
-  std::unique_ptr<
-      base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>
-      scoped_sequence_local_storage_map_for_current_thread_;
 };
 
 // Test fixure that simulate not using gpu compositing.
@@ -89,9 +82,6 @@ class SoftwareCompositingTest : public Test {
       gl->SetIsContextLost(false);
       return std::make_unique<FakeWebGraphicsContext3DProvider>(gl);
     };
-    scoped_sequence_local_storage_map_for_current_thread_ = std::make_unique<
-        base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>(
-        &sequence_local_storage_);
     SharedGpuContext::SetContextProviderFactoryForTesting(
         BindRepeating(factory, Unretained(&gl_)));
   }
@@ -99,10 +89,6 @@ class SoftwareCompositingTest : public Test {
   void TearDown() override { SharedGpuContext::Reset(); }
 
   FakeGLES2Interface gl_;
-  base::internal::SequenceLocalStorageMap sequence_local_storage_;
-  std::unique_ptr<
-      base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>
-      scoped_sequence_local_storage_map_for_current_thread_;
 };
 
 class SharedGpuContextTest : public Test {
@@ -115,9 +101,6 @@ class SharedGpuContextTest : public Test {
         std::make_unique<base::SingleThreadTaskRunner::CurrentDefaultHandle>(
             task_runner_);
     test_context_provider_ = viz::TestContextProvider::CreateRaster();
-    scoped_sequence_local_storage_map_for_current_thread_ = std::make_unique<
-        base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>(
-        &sequence_local_storage_);
 
     InitializeSharedGpuContext(test_context_provider_.get(),
                                /*cache = */ nullptr,
@@ -135,10 +118,6 @@ class SharedGpuContextTest : public Test {
   std::unique_ptr<
       ScopedTestingPlatformSupport<AcceleratedCompositingTestPlatform>>
       accelerated_compositing_scope_;
-  base::internal::SequenceLocalStorageMap sequence_local_storage_;
-  std::unique_ptr<
-      base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread>
-      scoped_sequence_local_storage_map_for_current_thread_;
 };
 
 TEST_F(SharedGpuContextTest, contextLossAutoRecovery) {
@@ -164,7 +143,8 @@ TEST_F(BadSharedGpuContextTest, IsValidWithoutRestoring) {
 }
 
 TEST_F(BadSharedGpuContextTest, AllowSoftwareToAcceleratedCanvasUpgrade) {
-  EXPECT_FALSE(SharedGpuContext::AllowSoftwareToAcceleratedCanvasUpgrade());
+  EXPECT_FALSE(AllowSoftwareToAcceleratedCanvasUpgrade(
+      SharedGpuContext::ContextProviderWrapper().get()));
 }
 
 TEST_F(BadSharedGpuContextTest, AccelerateImageBufferSurfaceCreationFails) {

@@ -64,7 +64,7 @@ namespace {
 String MaybeRemoveCSSImportant(String string) {
   const blink::StringView kImportantSuffix(" !important");
   return string.ends_with(kImportantSuffix)
-             ? string.Substring(0, string.length() - kImportantSuffix.length())
+             ? string.substr(0, string.length() - kImportantSuffix.length())
              : string;
 }
 }  // namespace
@@ -151,6 +151,7 @@ void CSSDefaultStyleSheets::Reset() {
   permission_element_style_sheet_.Clear();
   view_source_style_sheet_.Clear();
   json_style_sheet_.Clear();
+  default_view_transition_style_sheet_.Clear();
   // Recreate the default style sheet to clean up possible SVG resources.
   String default_rules =
       StrCat({UncompressResourceAsASCIIString(IDR_UASTYLE_HTML_CSS),
@@ -199,7 +200,7 @@ void CSSDefaultStyleSheets::VerifyUniversalRuleCount() {
   }
 
   if (marker_style_sheet_ || scroll_button_style_sheet_ ||
-      scroll_marker_style_sheet_) {
+      scroll_marker_style_sheet_ || overscroll_style_sheet_) {
     default_pseudo_element_style_->CompactRulesIfNeeded();
     size_t expected_rule_count = 0u;
     if (marker_style_sheet_) {
@@ -210,6 +211,12 @@ void CSSDefaultStyleSheets::VerifyUniversalRuleCount() {
     }
     if (scroll_marker_style_sheet_) {
       expected_rule_count += 6u;
+    }
+    if (overscroll_style_sheet_) {
+      expected_rule_count += 1u;
+    }
+    if (default_view_transition_style_sheet_) {
+      expected_rule_count += 11u;
     }
     DCHECK_EQ(default_pseudo_element_style_->UniversalRules().size(),
               expected_rule_count);
@@ -503,6 +510,25 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForPseudoElement(
       default_pseudo_element_style_->CompactRulesIfNeeded();
       return true;
     }
+    case kPseudoIdViewTransition:
+    case kPseudoIdViewTransitionGroup:
+    case kPseudoIdViewTransitionGroupChildren:
+    case kPseudoIdViewTransitionImagePair:
+    case kPseudoIdViewTransitionOld:
+    case kPseudoIdViewTransitionNew: {
+      if (default_view_transition_style_sheet_) {
+        return false;
+      }
+      default_view_transition_style_sheet_ = ParseUASheet(
+          UncompressResourceAsASCIIString(IDR_UASTYLE_TRANSITION_CSS));
+      if (!default_pseudo_element_style_) {
+        default_pseudo_element_style_ = MakeGarbageCollected<RuleSet>();
+      }
+      default_pseudo_element_style_->AddRulesFromSheet(
+          DefaultViewTransitionStyleSheet(), ScreenEval(), /*mixins=*/{});
+      default_pseudo_element_style_->CompactRulesIfNeeded();
+      return true;
+    }
     default:
       return false;
   }
@@ -669,6 +695,7 @@ void CSSDefaultStyleSheets::Trace(Visitor* visitor) const {
   visitor->Trace(overscroll_style_sheet_);
   visitor->Trace(view_source_style_sheet_);
   visitor->Trace(json_style_sheet_);
+  visitor->Trace(default_view_transition_style_sheet_);
 
   visitor->Trace(rule_set_group_cache_);
 }

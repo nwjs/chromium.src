@@ -3,8 +3,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
-#include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_string_resource.h"
+#include "third_party/blink/renderer/platform/bindings/to_blink_string.h"
 
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
 
@@ -15,10 +14,9 @@ using namespace html_names;
 void V8HTMLIFrameElement::NwUserAgentAttributeSetterCustom(v8::Local<v8::Value> value, const v8::FunctionCallbackInfo<v8::Value>& info)
 {
   HTMLIFrameElement* frame = V8HTMLIFrameElement::ToWrappableUnsafe(info.GetIsolate(), info.This());
-  // String agentValue = toCoreStringWithNullCheck(value);
-  V8StringResource<> agentValue (info.GetIsolate(), value);
+  String agentValue = ToBlinkString<String>(info.GetIsolate(), value.As<v8::String>(), kExternalize);
 
-  frame->setAttribute(html_names::kNwuseragentAttr, agentValue);
+  frame->setAttribute(html_names::kNwuseragentAttr, AtomicString(agentValue));
 
   if (frame->ContentFrame()->IsLocalFrame()) {
     LocalFrame* lframe = DynamicTo<LocalFrame>(frame->ContentFrame());

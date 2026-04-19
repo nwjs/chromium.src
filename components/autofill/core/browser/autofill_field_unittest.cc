@@ -119,24 +119,6 @@ TEST_F(AutofillFieldTest, IsFieldFillable) {
   EXPECT_TRUE(field.IsFieldFillable());
 }
 
-TEST_F(AutofillFieldTest, LoyaltyCardPredictionsIgnoredIfFlagIsDisabled) {
-  base::test::ScopedFeatureList feature_;
-  feature_.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{
-          features::kAutofillEnableLoyaltyCardsFilling,
-          features::kAutofillEnableEmailOrLoyaltyCardsFilling});
-
-  AutofillField field;
-  EXPECT_THAT(field.Type().GetTypes(), ElementsAre(UNKNOWN_TYPE));
-
-  // Both types set.
-  field.set_heuristic_type(GetActiveHeuristicSource(), NAME_FIRST);
-  field.set_server_predictions({CreateFieldPrediction(LOYALTY_MEMBERSHIP_ID)});
-
-  EXPECT_THAT(field.Type().GetTypes(), ElementsAre(NAME_FIRST));
-}
-
 TEST_F(AutofillFieldTest, NoPredictions) {
   AutofillField field;
   EXPECT_THAT(field.Type().GetTypes(), ElementsAre(UNKNOWN_TYPE));
@@ -178,7 +160,7 @@ TEST_F(AutofillFieldTest, UnionTypesFromServerTypes) {
 
   constexpr FieldType kInvalidFieldType =
       static_cast<FieldType>(15);  // nocheck
-  ASSERT_EQ(ToSafeFieldType(kInvalidFieldType, NO_SERVER_DATA), NO_SERVER_DATA);
+  ASSERT_FALSE(ToSafeFieldType(kInvalidFieldType));
 
   EXPECT_THAT(f(), ElementsAre(UNKNOWN_TYPE));
 
@@ -613,10 +595,6 @@ class AutofillPredictionPreferenceTest
     : public testing::TestWithParam<AutofillPredictionPreferenceTestParams> {
  public:
   AutofillPredictionPreferenceTest() = default;
-
- private:
-  base::test::ScopedFeatureList feature_{
-      features::kAutofillEnableEmailOrLoyaltyCardsFilling};
 };
 
 // Tests the correctness of local heuristic overrides while computing the
@@ -802,42 +780,6 @@ INSTANTIATE_TEST_SUITE_P(
             .server_type = NAME_LAST_SECOND,
             .heuristic_type = ALTERNATIVE_FAMILY_NAME,
             .expected_result = ALTERNATIVE_FAMILY_NAME,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kUnspecified,
-            .server_type = NAME_LAST_CORE,
-            .heuristic_type = ALTERNATIVE_FAMILY_NAME,
-            .expected_result = ALTERNATIVE_FAMILY_NAME,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kAdditionalName,
-            .server_type = NAME_LAST_PREFIX,
-            .heuristic_type = NAME_LAST_PREFIX,
-            .expected_result = NAME_LAST_PREFIX,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kAdditionalNameInitial,
-            .server_type = NAME_LAST_PREFIX,
-            .heuristic_type = NAME_LAST_PREFIX,
-            .expected_result = NAME_LAST_PREFIX,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kFamilyName,
-            .server_type = NAME_LAST_CORE,
-            .heuristic_type = NAME_LAST_CORE,
-            .expected_result = NAME_LAST_CORE,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kUnspecified,
-            .server_type = NAME_MIDDLE,
-            .heuristic_type = NAME_LAST_PREFIX,
-            .expected_result = NAME_LAST_PREFIX,
-            .expected_source = AutofillPredictionSource::kHeuristics},
-        AutofillPredictionPreferenceTestParams{
-            .html_field_type = HtmlFieldType::kUnspecified,
-            .server_type = NAME_LAST,
-            .heuristic_type = NAME_LAST_CORE,
-            .expected_result = NAME_LAST_CORE,
             .expected_source = AutofillPredictionSource::kHeuristics},
         AutofillPredictionPreferenceTestParams{
             .html_field_type = HtmlFieldType::kUnspecified,

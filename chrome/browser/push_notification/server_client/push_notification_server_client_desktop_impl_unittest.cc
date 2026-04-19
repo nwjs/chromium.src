@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -143,7 +142,7 @@ class PushNotificationServerClientDesktopImplTest : public testing::Test {
 
   void SetUp() override {
     signin::ConsentLevel consent_level =
-        base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
+        syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
             ? signin::ConsentLevel::kSignin
             : signin::ConsentLevel::kSync;
     identity_test_environment_.MakePrimaryAccountAvailable(kEmail,
@@ -303,7 +302,7 @@ TEST_F(PushNotificationServerClientDesktopImplTest, FetchAccessTokenFailure) {
       future.GetCallback());
   identity_test_environment_
       .WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
-          GoogleServiceAuthError(GoogleServiceAuthError::SERVICE_UNAVAILABLE));
+          GoogleServiceAuthError::FromServiceUnavailable(""));
   EXPECT_EQ(PushNotificationDesktopApiCallFlow::
                 PushNotificationApiCallFlowError::kAuthenticationError,
             future.Get());

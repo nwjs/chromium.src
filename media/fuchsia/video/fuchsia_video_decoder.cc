@@ -5,7 +5,6 @@
 #include "media/fuchsia/video/fuchsia_video_decoder.h"
 
 #include <fuchsia/sysmem/cpp/fidl.h>
-#include <inttypes.h>
 #include <lib/zx/eventpair.h>
 #include <vulkan/vulkan.h>
 
@@ -18,6 +17,8 @@
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
@@ -38,8 +39,6 @@
 #include "media/fuchsia/common/stream_processor_helper.h"
 #include "media/mojo/mojom/fuchsia_media.mojom.h"
 #include "ui/gfx/buffer_types.h"
-#include "ui/gfx/client_native_pixmap_factory.h"
-#include "ui/ozone/public/client_native_pixmap_factory_ozone.h"
 
 namespace media {
 
@@ -88,10 +87,13 @@ std::optional<gfx::Size> ParseMinBufferSize() {
           switches::kMinVideoDecoderOutputBufferSize);
   if (min_buffer_size_arg.empty())
     return std::nullopt;
+
+  auto parts = base::SplitStringPiece(
+      min_buffer_size_arg, "x", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
   size_t width;
   size_t height;
-  if (UNSAFE_TODO(sscanf(min_buffer_size_arg.c_str(), "%zux%zu" SCNu32, &width,
-                         &height)) != 2) {
+  if (parts.size() != 2 || !base::StringToSizeT(parts[0], &width) ||
+      !base::StringToSizeT(parts[1], &height)) {
     LOG(WARNING) << "Invalid value for --"
                  << switches::kMinVideoDecoderOutputBufferSize << ": '"
                  << min_buffer_size_arg << "'";
@@ -105,6 +107,11 @@ std::optional<gfx::Size> GetMinBufferSize() {
   return value;
 }
 
+// If this feature is enabled, we use the default color space
+// for SharedImage instead of passing an invalid color space.
+BASE_FEATURE(kUseDefaultColorSpaceInFuchsiaDecoder,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 }  // namespace
 
 // Helper used to hold mailboxes for the output textures. OutputMailbox may
@@ -116,10 +123,8 @@ class FuchsiaVideoDecoder::OutputMailbox {
       gfx::GpuMemoryBufferHandle gmb_handle,
       gfx::Size& size,
       viz::SharedImageFormat& format,
-      gfx::ClientNativePixmapFactory* pixmap_factory,
       const gfx::ColorSpace& color_space)
       : raster_context_provider_(raster_context_provider),
-        size_(size),
         weak_factory_(this) {
     gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                                      gpu::SHARED_IMAGE_USAGE_SCANOUT |
@@ -127,10 +132,19 @@ class FuchsiaVideoDecoder::OutputMailbox {
 
     // Note that the shared image prefers external sampler.
     format.SetPrefersExternalSampler();
+
+    auto si_color_space = color_space;
+    if (!si_color_space.IsValid() &&
+        base::FeatureList::IsEnabled(kUseDefaultColorSpaceInFuchsiaDecoder)) {
+      // Fuchsia decoder video frames are always multiplanar, so use BT.709
+      // color space as default.
+      si_color_space = gfx::ColorSpace::CreateREC709();
+    }
     shared_image_ =
         raster_context_provider_->SharedImageInterface()->CreateSharedImage(
-            {format, size, color_space, usage, "FuchsiaVideoDecoder"},
+            {format, size, si_color_space, usage, "FuchsiaVideoDecoder"},
             std::move(gmb_handle));
+    CHECK(shared_image_);
 
     create_sync_token_ = raster_context_provider_->SharedImageInterface()
                              ->GenVerifiedSyncToken();
@@ -144,13 +158,11 @@ class FuchsiaVideoDecoder::OutputMailbox {
   }
 
   const gpu::Mailbox& mailbox() { return shared_image_->mailbox(); }
-
-  const gfx::Size& size() { return size_; }
+  gfx::Size size() { return shared_image_->size(); }
 
   // Create a new video frame that wraps the mailbox. |reuse_callback| will be
   // called when the mailbox can be reused.
   scoped_refptr<VideoFrame> CreateFrame(VideoPixelFormat pixel_format,
-                                        const gfx::Size& coded_size,
                                         const gfx::Rect& visible_rect,
                                         const gfx::Size& natural_size,
                                         base::TimeDelta timestamp,
@@ -163,7 +175,7 @@ class FuchsiaVideoDecoder::OutputMailbox {
         pixel_format, shared_image_, create_sync_token_,
         base::BindPostTaskToCurrentDefault(base::BindOnce(
             &OutputMailbox::OnFrameDestroyed, base::Unretained(this))),
-        coded_size, visible_rect, natural_size, timestamp);
+        visible_rect, natural_size, timestamp);
     create_sync_token_.Clear();
 
     // Request a fence we'll wait on before reusing the buffer.
@@ -213,8 +225,6 @@ class FuchsiaVideoDecoder::OutputMailbox {
 
   const scoped_refptr<viz::RasterContextProvider> raster_context_provider_;
 
-  gfx::Size size_;
-
   scoped_refptr<gpu::ClientSharedImage> shared_image_;
 
   gpu::SyncToken create_sync_token_;
@@ -236,9 +246,7 @@ FuchsiaVideoDecoder::FuchsiaVideoDecoder(
     : raster_context_provider_(raster_context_provider),
       media_codec_provider_(media_codec_provider),
       use_overlays_for_video_(allow_overlays),
-      sysmem_allocator_("CrFuchsiaVideoDecoder"),
-      client_native_pixmap_factory_(
-          ui::CreateClientNativePixmapFactoryOzone()) {
+      sysmem_allocator_("CrFuchsiaVideoDecoder") {
   DETACH_FROM_SEQUENCE(sequence_checker_);
   DCHECK(raster_context_provider_);
 }
@@ -384,11 +392,6 @@ int FuchsiaVideoDecoder::GetMaxDecodeRequests() const {
   return max_decoder_requests_;
 }
 
-void FuchsiaVideoDecoder::SetClientNativePixmapFactoryForTests(
-    std::unique_ptr<gfx::ClientNativePixmapFactory> factory) {
-  client_native_pixmap_factory_ = std::move(factory);
-}
-
 DecoderStatus FuchsiaVideoDecoder::InitializeSysmemBufferStream(
     bool is_encrypted,
     CdmContext* cdm_context,
@@ -492,29 +495,22 @@ void FuchsiaVideoDecoder::OnStreamProcessorAllocateOutputBuffers(
   constraints.set_min_buffer_count_for_shared_slack(kMaxUsedOutputBuffers -
                                                     kOutputBuffersForCamping);
 
-  for (size_t pixel_format_index = 0;
-       pixel_format_index < std::size(kSupportedPixelFormats);
-       ++pixel_format_index) {
+  for (const auto& pixel_format : kSupportedPixelFormats) {
     auto& image_constraints =
         constraints.mutable_image_format_constraints()->emplace_back();
-    image_constraints.set_pixel_format(
-        UNSAFE_TODO(kSupportedPixelFormats[pixel_format_index]));
+    image_constraints.set_pixel_format(pixel_format);
     image_constraints.set_pixel_format_modifier(
         fuchsia::images2::PixelFormatModifier::LINEAR);
 
-    for (size_t i = 0; i < std::size(kSupportedColorSpaces); ++i) {
-      image_constraints.mutable_color_spaces()->emplace_back(
-          UNSAFE_TODO(kSupportedColorSpaces[i]));
+    for (const auto& color_space : kSupportedColorSpaces) {
+      image_constraints.mutable_color_spaces()->emplace_back(color_space);
     }
   }
 
   auto min_buffer_size = GetMinBufferSize();
   if (min_buffer_size) {
-    for (size_t pixel_format_index = 0;
-         pixel_format_index < std::size(kSupportedPixelFormats);
-         ++pixel_format_index) {
-      auto& image_constraints = constraints.mutable_image_format_constraints()->at(
-          pixel_format_index);
+    for (auto& image_constraints :
+         *constraints.mutable_image_format_constraints()) {
       image_constraints.set_required_max_size(fuchsia::math::SizeU{
           static_cast<uint32_t>(min_buffer_size->width()),
           static_cast<uint32_t>(min_buffer_size->height())});
@@ -603,8 +599,7 @@ void FuchsiaVideoDecoder::OnStreamProcessorOutputPacket(
     output_mailboxes_[buffer_index] = new OutputMailbox(
         raster_context_provider_,
         gfx::GpuMemoryBufferHandle(std::move(native_pixmap_handle)), coded_size,
-        si_format, client_native_pixmap_factory_.get(),
-        current_config_.color_space_info().ToGfxColorSpace());
+        si_format, current_config_.color_space_info().ToGfxColorSpace());
   } else {
     raster_context_provider_->SharedImageInterface()->UpdateSharedImage(
         gpu::SyncToken(), output_mailboxes_[buffer_index]->mailbox());
@@ -634,8 +629,8 @@ void FuchsiaVideoDecoder::OnStreamProcessorOutputPacket(
   num_used_output_buffers_++;
 
   auto frame = output_mailboxes_[buffer_index]->CreateFrame(
-      pixel_format, coded_size, display_rect,
-      aspect_ratio.GetNaturalSize(display_rect), timestamp,
+      pixel_format, display_rect, aspect_ratio.GetNaturalSize(display_rect),
+      timestamp,
       base::BindOnce(&FuchsiaVideoDecoder::ReleaseOutputPacket,
                      base::Unretained(this), std::move(output_packet)));
 

@@ -8,6 +8,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
@@ -15,6 +16,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_metadata.h"
@@ -74,17 +76,12 @@ class OnDeviceModelClassifierController::Solution
   // Hardcoded dummy config.
   mojom::ModelSolutionConfigPtr MakeConfig() const override {
     auto config = mojom::ModelSolutionConfig::New();
-    config->max_tokens = kOnDeviceModelMaxTokens;
     config->feature_config = mojo_base::ProtoWrapper(CreateFeatureConfig());
     config->text_safety_config =
         mojo_base::ProtoWrapper(proto::FeatureTextSafetyConfiguration());
     config->model_versions =
         mojo_base::ProtoWrapper(proto::OnDeviceModelVersions());
     return config;
-  }
-
-  const OnDeviceModelFeatureAdapter* GetAdapter() const override {
-    return adapter_.get();
   }
 
   void CreateSession(
@@ -155,7 +152,8 @@ OnDeviceModelClassifierController::OnDeviceModelClassifierController(
       component_state_manager_(&local_state,
                                performance_classifier,
                                usage_tracker,
-                               std::move(delegate)) {
+                               std::move(delegate),
+                               kModelType) {
   component_state_manager_.AddObserver(this);
 }
 

@@ -16,13 +16,6 @@ load("@chromium-luci//targets.star", "targets")
 # go/keep-sorted start newline_separated=yes numeric=yes skip_lines=1 group_prefixes=)
 
 targets.bundle(
-    name = "android_10_emulator_fyi_gtests",
-    targets = [
-        "android_content_browsertests_fyi",
-    ],
-)
-
-targets.bundle(
     name = "android_10_emulator_gtests",
     targets = [
         "android_emulator_specific_chrome_public_tests",
@@ -68,7 +61,7 @@ targets.bundle(
 targets.bundle(
     name = "android_11_emulator_fyi_gtests",
     targets = [
-        "android_content_browsertests_fyi",
+        "content_browsertests",
         "android_emulator_specific_chrome_public_tests",
     ],
 )
@@ -258,20 +251,6 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "android_15_emulator_fyi_gtests",
-    targets = [
-        targets.bundle(
-            targets = "webview_64_cts_tests_suite",
-            variants = [
-                "WEBVIEW_FULL_CTS_TESTS",
-                "WEBVIEW_INSTANT_CTS_TESTS",
-            ],
-        ),
-        "android_ci_only_fieldtrial_webview_tests",
-    ],
-)
-
-targets.bundle(
     name = "android_15_emulator_gtests",
     targets = [
         "android_specific_chromium_gtests",  # Already includes gl_gtests.
@@ -336,6 +315,18 @@ targets.bundle(
 )
 
 targets.bundle(
+    name = "android_16_webview_64_cts_tests",
+    targets = [
+        targets.bundle(
+            targets = "webview_64_cts_tests_suite",
+            variants = [
+                "WEBVIEW_FULL_CTS_TESTS",
+            ],
+        ),
+    ],
+)
+
+targets.bundle(
     name = "android_ar_gtests",
     targets = [
         "chrome_public_test_ar_apk",
@@ -359,38 +350,6 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "android_canary_emulator_fyi_gtests",
-    targets = [
-        "android_specific_chromium_gtests",  # Already includes gl_gtests.
-        "chrome_profile_generator_tests",
-        "chromium_gtests",
-        "android_emulator_specific_chrome_public_tests",
-        "android_trichrome_smoke_tests",
-        "android_smoke_tests",
-        "chromium_gtests_for_devices_with_graphical_output",
-        "fieldtrial_android_tests",
-        "jni_zero_sample_apk_test",
-        "linux_flavor_specific_chromium_gtests",
-        "minidump_uploader_test",
-        "system_webview_shell_instrumentation_tests",  # Not an experimental test
-        "webview_ui_instrumentation_tests",
-        "webview_ui_test_app_test_apk_no_field_trial",
-    ],
-)
-
-targets.bundle(
-    name = "android_canary_isolated_scripts",
-    targets = [
-        "android_isolated_scripts",
-        "android_rel_isolated_scripts",
-        "chromium_junit_tests_scripts",
-        "components_perftests_isolated_scripts",
-        "telemetry_android_minidump_unittests_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts_android",
-    ],
-)
-
-targets.bundle(
     name = "android_ci_only_fieldtrial_webview_tests",
     targets = [
         "webview_64_cts_tests_no_field_trial",
@@ -406,20 +365,6 @@ targets.bundle(
             ],
             swarming = targets.swarming(
                 shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.bundle(
-    name = "android_content_browsertests_fyi",
-    targets = [
-        "content_browsertests",
-    ],
-    per_test_modifications = {
-        "content_browsertests": targets.mixin(
-            android_swarming = targets.swarming(
-                shards = 15,
             ),
         ),
     },
@@ -577,6 +522,26 @@ targets.bundle(
 )
 
 targets.bundle(
+    name = "android_emulator_fyi_gtests",
+    targets = [
+        "android_specific_chromium_gtests",  # Already includes gl_gtests.
+        "chrome_profile_generator_tests",
+        "chromium_gtests",
+        "android_emulator_specific_chrome_public_tests",
+        "android_trichrome_smoke_tests",
+        "android_smoke_tests",
+        "chromium_gtests_for_devices_with_graphical_output",
+        "fieldtrial_android_tests",
+        "jni_zero_sample_apk_test",
+        "linux_flavor_specific_chromium_gtests",
+        "minidump_uploader_test",
+        "system_webview_shell_instrumentation_tests",  # Not an experimental test
+        "webview_ui_instrumentation_tests",
+        "webview_ui_test_app_test_apk_no_field_trial",
+    ],
+)
+
+targets.bundle(
     name = "android_emulator_specific_chrome_public_tests",
     targets = [
         "chrome_public_test_apk",
@@ -642,6 +607,17 @@ targets.bundle(
                 "SINGLE_GROUP_PER_STUDY_PREFER_NEW_BEHAVIOR",
             ],
         ),
+    ],
+)
+
+targets.bundle(
+    name = "android_fyi_isolated_scripts",
+    targets = [
+        "android_isolated_scripts",
+        "android_rel_isolated_scripts",
+        "components_perftests_isolated_scripts",
+        "telemetry_android_minidump_unittests_isolated_scripts",
+        "telemetry_perf_unittests_isolated_scripts_android",
     ],
 )
 
@@ -3364,6 +3340,8 @@ targets.bundle(
         "angle_end2end_tests": targets.mixin(
             args = [
                 "--release",
+                "--readline-timeout",
+                "600",
             ],
             use_isolated_scripts_api = True,
         ),
@@ -3397,6 +3375,8 @@ targets.bundle(
         "angle_white_box_tests": targets.mixin(
             args = [
                 "--release",
+                "--readline-timeout",
+                "600",
             ],
             use_isolated_scripts_api = True,
         ),
@@ -4173,6 +4153,25 @@ targets.bundle(
             targets.mixin(
                 swarming = targets.swarming(
                     shards = 8,
+                ),
+            ),
+            "gpu_integration_test_common_args",
+            "webgpu_telemetry_cts",
+            "linux_vulkan",
+        ],
+    },
+)
+
+targets.bundle(
+    name = "gpu_dawn_webgpu_cts_default_features",
+    targets = [
+        "webgpu_cts_default_features_tests",
+    ],
+    per_test_modifications = {
+        "webgpu_cts_default_features_tests": [
+            targets.mixin(
+                swarming = targets.swarming(
+                    shards = 14,
                 ),
             ),
             "gpu_integration_test_common_args",
@@ -5301,12 +5300,6 @@ targets.bundle(
     per_test_modifications = {
         "angle_unittests": targets.mixin(
             use_isolated_scripts_api = True,
-        ),
-        "base_unittests": targets.mixin(
-            args = [
-                "--test-launcher-bot-mode",
-                "--test-launcher-filter-file=testing/buildbot/filters/ios.base_unittests.filter",
-            ],
         ),
         "blink_platform_unittests": targets.mixin(
             args = [
@@ -6916,12 +6909,6 @@ targets.bundle(
         "media_unittests",
     ],
     per_test_modifications = {
-        "base_unittests": targets.mixin(
-            args = [
-                "--test-launcher-bot-mode",
-                "--test-launcher-filter-file=testing/buildbot/filters/ios.base_unittests.filter",
-            ],
-        ),
         "components_browsertests": targets.mixin(
             args = [
                 "--test-launcher-bot-mode",

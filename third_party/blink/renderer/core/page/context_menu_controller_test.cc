@@ -32,7 +32,6 @@
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
-#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom-blink.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
@@ -51,6 +50,7 @@
 #include "third_party/blink/renderer/core/html/html_area_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_embed_element.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/input/context_menu_allowed_scope.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
@@ -280,7 +280,7 @@ class ContextMenuControllerTest : public testing::Test {
   }
 
   bool ShowContextMenu(const PhysicalOffset& location,
-                       WebMenuSourceType source) {
+                       ui::mojom::blink::MenuSourceType source) {
     bool success =
         web_view_helper_.GetWebView()
             ->GetPage()
@@ -290,7 +290,8 @@ class ContextMenuControllerTest : public testing::Test {
     return success;
   }
 
-  bool ShowContextMenuForElement(Element* element, WebMenuSourceType source) {
+  bool ShowContextMenuForElement(Element* element,
+                                 ui::mojom::blink::MenuSourceType source) {
     const DOMRect* rect = element->GetBoundingClientRect();
     PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                             LayoutUnit((rect->top() + rect->bottom()) / 2));
@@ -360,7 +361,8 @@ TEST_F(ContextMenuControllerTest, CopyFromPlugin) {
   test_plugin->SetAttributesForTesting(
       {/*can_copy=*/true, /*selected_text=*/""});
 
-  ASSERT_TRUE(ShowContextMenuForElement(embed_element, kMenuSourceMouse));
+  ASSERT_TRUE(ShowContextMenuForElement(
+      embed_element, ui::mojom::blink::MenuSourceType::kMouse));
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
             mojom::blink::ContextMenuDataMediaType::kPlugin);
@@ -371,7 +373,8 @@ TEST_F(ContextMenuControllerTest, CopyFromPlugin) {
   // The plugin has copy permission and some text is selected.
   test_plugin->SetAttributesForTesting({/*can_copy=*/true,
                                         /*selected_text=*/"some text"});
-  ASSERT_TRUE(ShowContextMenuForElement(embed_element, kMenuSourceMouse));
+  ASSERT_TRUE(ShowContextMenuForElement(
+      embed_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
             mojom::blink::ContextMenuDataMediaType::kPlugin);
@@ -382,7 +385,8 @@ TEST_F(ContextMenuControllerTest, CopyFromPlugin) {
   // The plugin does not have copy permission and no text is selected.
   test_plugin->SetAttributesForTesting({/*can_copy=*/false,
                                         /*selected_text=*/""});
-  ASSERT_TRUE(ShowContextMenuForElement(embed_element, kMenuSourceMouse));
+  ASSERT_TRUE(ShowContextMenuForElement(
+      embed_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
             mojom::blink::ContextMenuDataMediaType::kPlugin);
@@ -393,7 +397,8 @@ TEST_F(ContextMenuControllerTest, CopyFromPlugin) {
   // The plugin does not have copy permission but some text is selected.
   test_plugin->SetAttributesForTesting({/*can_copy=*/false,
                                         /*selected_text=*/"some text"});
-  ASSERT_TRUE(ShowContextMenuForElement(embed_element, kMenuSourceMouse));
+  ASSERT_TRUE(ShowContextMenuForElement(
+      embed_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
             mojom::blink::ContextMenuDataMediaType::kPlugin);
@@ -427,7 +432,8 @@ TEST_F(ContextMenuControllerTest, VideoNotLoaded) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -488,7 +494,8 @@ TEST_F(ContextMenuControllerTest, VideoWithAudioOnly) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -545,7 +552,8 @@ TEST_F(ContextMenuControllerTest, PictureInPictureEnabledVideoLoaded) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -602,7 +610,8 @@ TEST_F(ContextMenuControllerTest, PictureInPictureDisabledVideoLoaded) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -661,7 +670,8 @@ TEST_F(ContextMenuControllerTest, MediaStreamVideoLoaded) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -723,7 +733,8 @@ TEST_F(ContextMenuControllerTest, InfiniteDurationVideoLoaded) {
   DOMRect* rect = video->GetBoundingClientRect();
   PhysicalOffset location(LayoutUnit((rect->left() + rect->right()) / 2),
                           LayoutUnit((rect->top() + rect->bottom()) / 2));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -777,7 +788,8 @@ TEST_F(ContextMenuControllerTest, HitTestVideoChildElements) {
   test::RunPendingTasks();
 
   auto check_location = [&](PhysicalOffset location) {
-    EXPECT_TRUE(ShowContextMenu(location, kMenuSourceMouse));
+    EXPECT_TRUE(
+        ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kMouse));
 
     ContextMenuData context_menu_data =
         GetWebFrameClient().GetContextMenuData();
@@ -821,7 +833,8 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInSVGDocument) {
 
   // <text> element
   selection.SelectSubString(*text_element, 4, 8);
-  EXPECT_TRUE(ShowContextMenuForElement(text_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      text_element, ui::mojom::blink::MenuSourceType::kMouse));
 
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
@@ -832,7 +845,8 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInSVGDocument) {
   // <div contenteditable=true>
   Element* editable_element = document->getElementById(AtomicString("e"));
   selection.SelectSubString(*editable_element, 0, 42);
-  EXPECT_TRUE(ShowContextMenuForElement(editable_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      editable_element, ui::mojom::blink::MenuSourceType::kMouse));
 
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
@@ -864,7 +878,8 @@ TEST_F(ContextMenuControllerTest, EditingActionsEnabledInXMLDocument) {
   FrameSelection& selection = document->GetFrame()->Selection();
 
   selection.SelectAll();
-  EXPECT_TRUE(ShowContextMenuForElement(text_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      text_element, ui::mojom::blink::MenuSourceType::kMouse));
 
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.media_type,
@@ -968,7 +983,8 @@ TEST_F(ContextMenuControllerTest, ContextMenuImageHitTestSVGImageElement) {
   url_test_helpers::ServeAsynchronousRequests();
 
   Element* image = document->getElementById(AtomicString("target"));
-  EXPECT_TRUE(ShowContextMenuForElement(image, kMenuSourceLongPress));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      image, ui::mojom::blink::MenuSourceType::kLongPress));
 
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ("http://test.png/", context_menu_data.src_url.spec());
@@ -1015,7 +1031,8 @@ TEST_F(ContextMenuControllerTest, SelectionRectClipped) {
 
   // Select all the content of |textarea|.
   selection.SelectAll();
-  EXPECT_TRUE(ShowContextMenuForElement(editable_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      editable_element, ui::mojom::blink::MenuSourceType::kMouse));
 
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.selected_text, "Sample editable text");
@@ -1070,7 +1087,8 @@ TEST_F(ContextMenuControllerTest,
   base::HistogramTester histograms;
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1131,7 +1149,8 @@ TEST_F(ContextMenuControllerTest, ContextMenuImageHitTestSucceededPenetrating) {
   base::HistogramTester histograms;
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1182,7 +1201,8 @@ TEST_F(ContextMenuControllerTest, ContextMenuImageHitTestStandardCanvas) {
   base::HistogramTester histograms;
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1253,7 +1273,8 @@ TEST_F(ContextMenuControllerTest, ContextMenuImageHitTestOpaqueNodeBlocking) {
   base::HistogramTester histograms;
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1330,7 +1351,8 @@ TEST_F(ContextMenuControllerTest,
                                  event_listener);
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1398,7 +1420,8 @@ TEST_F(ContextMenuControllerTest,
                                  event_listener);
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1464,7 +1487,8 @@ TEST_F(ContextMenuControllerTest,
   target_image->addEventListener(event_type_names::kClick, event_listener);
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1535,7 +1559,8 @@ TEST_F(ContextMenuControllerTest,
   // This hit test would miss the node with the listener if it was not an
   // ancestor.
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1613,7 +1638,8 @@ TEST_F(ContextMenuControllerTest,
                                     event_listener);
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Context menu info are sent to the WebLocalFrameClient.
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
@@ -1672,7 +1698,8 @@ TEST_F(ContextMenuControllerTest, ContextMenuImageRetrievalCachedImageFound) {
   base::HistogramTester histograms;
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceLongPress));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kLongPress));
 
   Node* image_node =
       web_view_helper_.GetWebView()
@@ -1783,10 +1810,12 @@ TEST_F(ContextMenuControllerTest,
   base::HistogramTester histograms;
 
   PhysicalOffset location_with_image(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location_with_image, kMenuSourceLongPress));
+  EXPECT_TRUE(ShowContextMenu(location_with_image,
+                              ui::mojom::blink::MenuSourceType::kLongPress));
 
   PhysicalOffset location_with_link(LayoutUnit(105), LayoutUnit(105));
-  ShowContextMenu(location_with_link, kMenuSourceLongPress);
+  ShowContextMenu(location_with_link,
+                  ui::mojom::blink::MenuSourceType::kLongPress);
 
   Node* image_node =
       web_view_helper_.GetWebView()
@@ -1842,7 +1871,8 @@ TEST_F(ContextMenuControllerTest,
   base::HistogramTester histograms;
 
   PhysicalOffset location_with_image(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location_with_image, kMenuSourceLongPress));
+  EXPECT_TRUE(ShowContextMenu(location_with_image,
+                              ui::mojom::blink::MenuSourceType::kLongPress));
 
   // Pass in nullptr for frame reference as a way of simulating a different
   // frame being passed in.
@@ -1907,33 +1937,38 @@ TEST_F(ContextMenuControllerTest, AnnotationType) {
 
   // Opening the context menu from the last <p> should not set
   // `annotation_type`.
-  EXPECT_TRUE(ShowContextMenuForElement(last_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      last_element, ui::mojom::blink::MenuSourceType::kMouse));
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.annotation_type, std::nullopt);
 
   // Opening the context menu from the second <p> should set `annotation_type`.
-  EXPECT_TRUE(ShowContextMenuForElement(second_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      second_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.annotation_type,
             mojom::AnnotationType::kSharedHighlight);
 
   // Opening the context menu from the middle of the third <p> should set
   // `annotation_type`.
-  EXPECT_TRUE(ShowContextMenuForElement(third_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      third_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.annotation_type,
             mojom::AnnotationType::kSharedHighlight);
 
   // Opening the context menu from fifth <p> should set `annotation_type` to
   // kGlic.
-  EXPECT_TRUE(ShowContextMenuForElement(fifth_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      fifth_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.annotation_type, mojom::AnnotationType::kGlic);
 
   // Opening the context menu from fourth <p> should set `annotation_type` to
   // kGlic (even though there's also an overlapping annotation of type
   // kSharedHighlight).
-  EXPECT_TRUE(ShowContextMenuForElement(fourth_element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      fourth_element, ui::mojom::blink::MenuSourceType::kMouse));
   context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.annotation_type, mojom::AnnotationType::kGlic);
 }
@@ -1953,7 +1988,8 @@ TEST_F(ContextMenuControllerTest, SelectAllEnabledForEditContext) {
   target->Focus();
 
   EXPECT_TRUE(target->editContext());
-  EXPECT_TRUE(ShowContextMenuForElement(target, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      target, ui::mojom::blink::MenuSourceType::kMouse));
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_TRUE(!!(context_menu_data.edit_flags &
                  ContextMenuDataEditFlags::kCanSelectAll));
@@ -1984,7 +2020,8 @@ TEST_F(ContextMenuControllerTest,
   EXPECT_EQ(GetDocument()->GetFrame()->Selection().SelectedText(), "is a");
 
   PhysicalOffset location(LayoutUnit(5), LayoutUnit(5));
-  EXPECT_TRUE(ShowContextMenu(location, kMenuSourceKeyboard));
+  EXPECT_TRUE(
+      ShowContextMenu(location, ui::mojom::blink::MenuSourceType::kKeyboard));
   EXPECT_EQ(GetDocument()->GetFrame()->Selection().SelectedText(), "is a");
 }
 
@@ -2034,7 +2071,8 @@ TEST_F(ContextMenuControllerTest, CheckRendererIdFromContextMenuOnTextField) {
     auto [field_id, is_form_renderer_id_present, is_field_renderer_id_present,
           form_control_type] = expectation;
     Element* form_element = document->getElementById(field_id);
-    EXPECT_TRUE(ShowContextMenuForElement(form_element, kMenuSourceMouse));
+    EXPECT_TRUE(ShowContextMenuForElement(
+        form_element, ui::mojom::blink::MenuSourceType::kMouse));
     ContextMenuData context_menu_data =
         GetWebFrameClient().GetContextMenuData();
     EXPECT_EQ(context_menu_data.form_renderer_id != 0,
@@ -2143,7 +2181,8 @@ TEST_F(ContextMenuControllerTest, AttributionSrc) {
           network::mojom::AttributionSupport::kWeb);
 
       GetDocument()->body()->AppendChild(anchor);
-      ASSERT_TRUE(ShowContextMenuForElement(anchor, kMenuSourceMouse));
+      ASSERT_TRUE(ShowContextMenuForElement(
+          anchor, ui::mojom::blink::MenuSourceType::kMouse));
 
       ContextMenuData context_menu_data =
           GetWebFrameClient().GetContextMenuData();
@@ -2187,7 +2226,8 @@ TEST_F(ContextMenuControllerTest, AttributionSrc_DataHostLifetime) {
     MockAttributionHost host(
         GetWebFrameClient().GetRemoteNavigationAssociatedInterfaces());
 
-    ASSERT_TRUE(ShowContextMenuForElement(anchor, kMenuSourceMouse));
+    ASSERT_TRUE(ShowContextMenuForElement(
+        anchor, ui::mojom::blink::MenuSourceType::kMouse));
 
     // https://b.com/ and https://c.com/ should share a single data host.
     host.WaitUntilDataHostsBound(/*expected=*/1);
@@ -2250,7 +2290,8 @@ TEST_F(ContextMenuControllerTest, SelectUnselectableContent) {
 
   // The context menu should omit the unselectable content from the selected
   // text.
-  EXPECT_TRUE(ShowContextMenuForElement(element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      element, ui::mojom::blink::MenuSourceType::kMouse));
   ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
   EXPECT_EQ(context_menu_data.selected_text, "A test_all B");
 }
@@ -2264,7 +2305,8 @@ TEST_F(ContextMenuControllerTest, FileInputSelectAllShowsContextMenuNoCrash) {
   document->GetFrame()->Selection().SelectAll();
   Element* element = document->getElementById(AtomicString("test"));
   // Passed without crashing.
-  EXPECT_TRUE(ShowContextMenuForElement(element, kMenuSourceMouse));
+  EXPECT_TRUE(ShowContextMenuForElement(
+      element, ui::mojom::blink::MenuSourceType::kMouse));
 }
 
 class ContextMenuControllerRemoteParentFrameTest : public testing::Test {
@@ -2392,7 +2434,7 @@ TEST_F(InterestForTouchscreenTest, ButtonWithInterestFor) {
   EXPECT_EQ(context_menu_data.link_text, "");
   EXPECT_EQ(context_menu_data.selected_text, "");
   EXPECT_EQ(context_menu_data.source_type,
-            WebMenuSourceType::kMenuSourceLongPress);
+            ui::mojom::MenuSourceType::kLongPress);
   // Interest is shown immediately for buttons.
   EXPECT_EQ(button->GetInterestState(),
             Element::InterestState::kExplicitInterest);
@@ -2438,7 +2480,7 @@ TEST_F(InterestForTouchscreenTest, LinkWithInterestFor) {
   EXPECT_EQ(context_menu_data.link_text, "Link");
   EXPECT_EQ(context_menu_data.selected_text, "");
   EXPECT_EQ(context_menu_data.source_type,
-            WebMenuSourceType::kMenuSourceLongPress);
+            ui::mojom::MenuSourceType::kLongPress);
   EXPECT_FALSE(context_menu_data.form_control_type.has_value());
   // Interest is *not* shown immediately for links, because the context menu
   // shows up.
@@ -2451,6 +2493,27 @@ TEST_F(InterestForTouchscreenTest, LinkWithInterestFor) {
   document->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   EXPECT_EQ(link->GetInterestState(),
             Element::InterestState::kExplicitInterest);
+}
+
+TEST_F(ContextMenuControllerTest, MixedContentImageAutoupgrade) {
+  RegisterMockedImageURLLoad("https://example.com/image.png");
+
+  frame_test_helpers::LoadHTMLString(
+      LocalMainFrame(), "<img id='target' src='http://example.com/image.png'>",
+      url_test_helpers::ToKURL("https://example.com/"));
+
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  Element* img_element = GetDocument()->getElementById(AtomicString("target"));
+  ASSERT_TRUE(IsA<HTMLImageElement>(img_element));
+
+  ASSERT_TRUE(ShowContextMenuForElement(
+      img_element, ui::mojom::blink::MenuSourceType::kMouse));
+
+  ContextMenuData context_menu_data = GetWebFrameClient().GetContextMenuData();
+  EXPECT_EQ(context_menu_data.media_type,
+            mojom::blink::ContextMenuDataMediaType::kImage);
+  EXPECT_EQ(context_menu_data.src_url.spec(), "https://example.com/image.png");
 }
 
 }  // namespace blink

@@ -3,11 +3,11 @@
 # found in the LICENSE file.
 """Helpers to parse content of xml files."""
 
-import typing
-
 from collections.abc import Iterator
 import html
+import typing
 from xml.dom import minidom
+
 
 # A minidom tree is represented by a Document or an Element. A generic Node is
 # not used because these functions are designed to traverse element containers.
@@ -57,7 +57,7 @@ def NormalizeString(text: str) -> str:
   return html.unescape(line)
 
 
-def NormalizeAllAttributeValues(node: DomTree) -> DomTree:
+def NormalizeAllAttributeValues(node: minidom.Node) -> minidom.Node:
   """Recursively normalizes all tag attribute values in the given tree.
 
   Args:
@@ -66,9 +66,11 @@ def NormalizeAllAttributeValues(node: DomTree) -> DomTree:
   Returns:
     The normalized minidom node.
   """
-  if node.nodeType == _ELEMENT_NODE:
-    for a in node.attributes.keys():
-      node.attributes[a].value = NormalizeString(node.attributes[a].value)
+  # Casting because only Element nodes have attributes.
+  elem = typing.cast(minidom.Element, node)
+  if elem.nodeType == _ELEMENT_NODE:
+    for a in elem.attributes.keys():
+      elem.attributes[a].value = NormalizeString(elem.attributes[a].value)
 
   for c in node.childNodes:
     NormalizeAllAttributeValues(c)
@@ -125,7 +127,7 @@ def GetTextFromChildNodes(node: DomTree) -> str:
   return ''.join(text_parts).strip()
 
 
-def IterElementsWithTag(root: minidom.Element,
+def IterElementsWithTag(root: minidom.Node,
                         tag: str,
                         depth: int = -1) -> Iterator[minidom.Element]:
   """Iterates over DOM tree and yields elements matching tag name.
@@ -145,8 +147,10 @@ def IterElementsWithTag(root: minidom.Element,
   Yields:
     xml.dom.minidom.Node: Element matching criteria.
   """
-  if depth == 0 and root.nodeType == _ELEMENT_NODE and root.tagName == tag:
-    yield root
+  # Casting because only Element nodes have attributes.
+  elem = typing.cast(minidom.Element, root)
+  if depth == 0 and elem.nodeType == _ELEMENT_NODE and elem.tagName == tag:
+    yield elem
     return
 
   had_tag = False
@@ -154,9 +158,10 @@ def IterElementsWithTag(root: minidom.Element,
   skipped = 0
 
   for child in root.childNodes:
-    if child.nodeType == _ELEMENT_NODE and child.tagName == tag:
+    child_elem = typing.cast(minidom.Element, child)
+    if child.nodeType == _ELEMENT_NODE and child_elem.tagName == tag:
       had_tag = True
-      yield child
+      yield child_elem
     else:
       skipped += 1
 

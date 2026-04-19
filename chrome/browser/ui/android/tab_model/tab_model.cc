@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "build/android_buildflags.h"
@@ -154,12 +155,21 @@ void TabModel::SetSessionId(SessionID session_id) {
   session_id_ = session_id;
 }
 
+bool TabModel::IsEmptyRegularModelForEphemeralOrIncognitoCct() const {
+  return !IsOffTheRecord() && custom_tab_profile_type_.has_value() &&
+         (custom_tab_profile_type_.value() ==
+              chrome::android::CustomTabProfileType::kEphemeral ||
+          custom_tab_profile_type_.value() ==
+              chrome::android::CustomTabProfileType::kIncognito);
+}
+
 // static
 // From //chrome/browser/tab_list/tab_list_interface.h
 bool TabListInterface::CanEditTabList(Profile& profile) {
   for (TabModel* model : TabModelList::models()) {
     if (model->GetProfile() != &profile ||
-        model->GetTabModelType() != TabModel::TabModelType::kStandard) {
+        model->GetTabModelType() != TabModel::TabModelType::kStandard ||
+        model->IsEmptyRegularModelForEphemeralOrIncognitoCct()) {
       continue;
     }
 

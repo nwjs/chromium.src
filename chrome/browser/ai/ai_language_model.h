@@ -39,7 +39,8 @@
 // for model execution.
 class AILanguageModel : public AIContextBoundObject,
                         public blink::mojom::AILanguageModel,
-                        public optimization_guide::TextSafetyClient {
+                        public optimization_guide::TextSafetyClient,
+                        public on_device_model::mojom::ContextClient {
  public:
   using PromptApiMetadata = optimization_guide::proto::PromptApiMetadata;
 
@@ -154,6 +155,7 @@ class AILanguageModel : public AIContextBoundObject,
   // and reports to `create_client`.
   void Initialize(
       std::vector<blink::mojom::AILanguageModelPromptPtr> initial_prompts,
+      std::vector<blink::mojom::AILanguageModelToolDeclarationPtr> tools,
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient>
           create_client);
 
@@ -180,6 +182,9 @@ class AILanguageModel : public AIContextBoundObject,
   void StartSession(
       mojo::PendingReceiver<on_device_model::mojom::TextSafetySession> session)
       override;
+
+  // on_device_model::mojom::ContextClient:
+  void OnComplete(uint32_t tokens_processed) override;
 
   blink::mojom::AILanguageModelInstanceInfoPtr GetLanguageModelInstanceInfo();
 
@@ -216,6 +221,11 @@ class AILanguageModel : public AIContextBoundObject,
                                   std::optional<uint32_t> result);
   void OnPromptOutputComplete();
 
+  // Called if the create client disconnects while appending initial prompts.
+  void OnCreateClientDisconnected();
+  // Called if the receiver for initial prompt appending is disconnected.
+  void OnInitialAppendDisconnected();
+
   void AppendInternal(
       std::vector<blink::mojom::AILanguageModelPromptPtr> prompts,
       mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
@@ -240,6 +250,8 @@ class AILanguageModel : public AIContextBoundObject,
   // remotes (e.g. a service crash).
   mojo::Remote<on_device_model::mojom::Session> initial_session_;
   on_device_model::mojom::InputPtr initial_input_;
+  // The tools declared for this session.
+  std::vector<blink::mojom::AILanguageModelToolDeclarationPtr> tools_;
 
   // Contains the current committed session state. This will be replaced after a
   // successful prompt with the latest session state.
@@ -269,6 +281,12 @@ class AILanguageModel : public AIContextBoundObject,
   base::WeakPtr<OptimizationGuideLogger> logger_;
 
   mojo::Receiver<blink::mojom::AILanguageModel> receiver_{this};
+
+  // Held while processing initial prompts, before resolving session creation.
+  mojo::Remote<blink::mojom::AIManagerCreateLanguageModelClient> create_client_;
+  // Handles results from appending initial prompts to the session.
+  mojo::Receiver<on_device_model::mojom::ContextClient>
+      initial_append_receiver_{this};
 
   base::WeakPtrFactory<AILanguageModel> weak_ptr_factory_{this};
 };

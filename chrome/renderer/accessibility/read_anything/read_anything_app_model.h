@@ -17,6 +17,7 @@
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/common/read_anything/read_anything.mojom-shared.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/common/read_anything/read_anything_util.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -94,6 +95,9 @@ class ReadAnythingAppModel {
     // Whether the latest tree is a reload of the previous tree. If false, the
     // latest tree is a new page.
     bool is_reload = false;
+
+    // Whether the latest tree is the "What's New" page.
+    bool is_whats_new = false;
 
     // TODO(41496290): Include any information that is associated with a
     // particular AXTree, namely is_pdf. Right now, this is set every time the
@@ -267,6 +271,36 @@ class ReadAnythingAppModel {
   bool is_readability_next_distillation_method() const {
     return next_distillation_method() == DistillationMethod::kReadability;
   }
+  bool is_readability_current_distillation_method() const {
+    return current_content_distillation_method_ ==
+           DistillationMethod::kReadability;
+  }
+  bool should_apply_accessibility_updates_for_readability_links() const {
+    // Accessibility updates for Readability shouldn't be applied outside
+    // of the regular accessibility update process if Readability is disabled
+    // or ReadAnythingWithReadabilityAllowLinksEnabled is disabled, as these
+    // updates are only needed when links are supported.
+    if (!features::IsReadAnythingWithReadabilityEnabled() ||
+        !features::IsReadAnythingWithReadabilityAllowLinksEnabled()) {
+      return false;
+    }
+
+    if (is_readability_next_distillation_method() &&
+        distillation_state_ ==
+            read_anything::mojom::ReadAnythingDistillationState::
+                kDistillationInProgress) {
+      return true;
+    }
+
+    if (is_readability_current_distillation_method() &&
+        distillation_state_ ==
+            read_anything::mojom::ReadAnythingDistillationState::
+                kDistillationWithContent) {
+      return true;
+    }
+
+    return false;
+  }
 
   read_anything::mojom::LetterSpacing letter_spacing() const {
     return letter_spacing_;
@@ -303,6 +337,10 @@ class ReadAnythingAppModel {
   // Sometimes iframes can return selection objects that have a valid id but
   // aren't in the tree.
   bool has_selection() const {
+    if (IsWhatsNew()) {
+      return start_.is_valid() && end_.is_valid() &&
+             GetAXNodeFromRoot(start_.id) && GetAXNodeFromRoot(end_.id);
+    }
     return start_.is_valid() && end_.is_valid() && GetAXNode(start_.id) &&
            GetAXNode(end_.id);
   }
@@ -401,6 +439,7 @@ class ReadAnythingAppModel {
   void SetUrlInformationCallback(base::OnceCallback<void()> callback);
   bool IsDocs() const;
   bool IsReload() const;
+  bool IsWhatsNew() const;
 
   const std::set<ui::AXNodeID>* GetCurrentlyVisibleNodes() const;
 
@@ -547,6 +586,8 @@ class ReadAnythingAppModel {
   };
 
   ui::AXSerializableTree* GetTreeFromId(const ui::AXTreeID& tree_id) const;
+
+  ui::AXNode* GetAXNodeFromRoot(const ui::AXNodeID& ax_node_id) const;
 
   void ResetSelection();
 

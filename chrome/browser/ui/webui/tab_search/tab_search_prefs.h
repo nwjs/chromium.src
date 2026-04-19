@@ -17,21 +17,9 @@ namespace tab_search_prefs {
 
 extern const char kTabSearchRecentlyClosedSectionExpanded[];
 
-extern const char kTabSearchTabIndex[];
-
 extern const char kTabSearchUsed[];
 
-extern const char kTabOrganizationShowFRE[];
-
-extern const char kTabOrganizationModelStrategy[];
-
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
-
-tab_search::mojom::TabSearchSection GetTabSearchSectionFromInt(
-    const int section);
-
-int GetIntFromTabSearchSection(
-    const tab_search::mojom::TabSearchSection section);
 
 }  // namespace tab_search_prefs
 

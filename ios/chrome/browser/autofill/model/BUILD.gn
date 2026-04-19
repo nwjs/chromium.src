@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//components/optimization_guide/features.gni")
-
 source_set("model") {
   sources = [
     "address_normalizer_factory.h",
@@ -25,8 +23,6 @@ source_set("model") {
     "form_suggestion_controller.mm",
     "form_suggestion_tab_helper.h",
     "form_suggestion_tab_helper.mm",
-    "ios_account_setting_service_factory.h",
-    "ios_account_setting_service_factory.mm",
     "ios_autofill_ai_model_cache_factory.h",
     "ios_autofill_ai_model_cache_factory.mm",
     "ios_autofill_ai_model_executor_factory.h",
@@ -35,6 +31,10 @@ source_set("model") {
     "ios_autofill_entity_data_manager_factory.mm",
     "ios_autofill_entity_data_manager_observer_bridge.h",
     "ios_autofill_entity_data_manager_observer_bridge.mm",
+    "ios_autofill_field_classification_model_handler_factory.h",
+    "ios_autofill_field_classification_model_handler_factory.mm",
+    "ios_wallet_pass_access_manager_factory.h",
+    "ios_wallet_pass_access_manager_factory.mm",
     "personal_data_manager_factory.h",
     "personal_data_manager_factory.mm",
     "strike_database_factory.h",
@@ -42,18 +42,12 @@ source_set("model") {
     "validation_rules_storage_factory.cc",
     "validation_rules_storage_factory.h",
   ]
-
-  if (build_with_tflite_lib) {
-    sources += [
-      "ios_autofill_field_classification_model_handler_factory.h",
-      "ios_autofill_field_classification_model_handler_factory.mm",
-    ]
-  }
   deps = [
     ":features",
     ":model_shared",
     "//base",
     "//base:i18n",
+    "//components/account_settings",
     "//components/application_locale_storage",
     "//components/autofill/core/browser",
     "//components/autofill/ios/browser",
@@ -68,7 +62,9 @@ source_set("model") {
     "//components/strings:components_strings__strings_grit",
     "//components/sync/service",
     "//components/variations/service",
+    "//components/wallet/core/browser",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/account_settings/model",
     "//ios/chrome/browser/autofill/autofill_ai/public",
     "//ios/chrome/browser/autofill/resources",
     "//ios/chrome/browser/history/model",
@@ -97,10 +93,6 @@ source_set("model") {
     "//ui/base",
     "//url",
   ]
-
-  if (build_with_tflite_lib) {
-    deps += [ "//ios/chrome/browser/optimization_guide/model" ]
-  }
   public_deps = [ ":constants" ]
   frameworks = [ "QuartzCore.framework" ]
 }

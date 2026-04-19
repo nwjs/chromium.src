@@ -15,7 +15,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/code_cache_host.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
-#include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
+#include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -63,7 +63,9 @@ class CodeCacheHostMockImpl : public mojom::blink::CodeCacheHost {
     sim_->CacheMetadata(cache_type, url, expected_response_time, data.data(),
                         data.size());
   }
-
+  void DidGenerateSourceKeyedCacheableMetadata(
+      const blink::Vector<uint8_t>& script_hash,
+      mojo_base::BigBuffer data) override {}
   void FetchCachedCode(mojom::blink::CodeCacheType cache_type,
                        const KURL& url,
                        FetchCachedCodeCallback) override {}

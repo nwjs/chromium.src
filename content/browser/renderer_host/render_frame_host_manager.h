@@ -266,8 +266,8 @@ class CONTENT_EXPORT RenderFrameHostManager {
 
     // Returns the (possibly cached) value of
     // render_frame_host->IsNavigationSameSite(url_info). (For cached results,
-    // this includes DCHECKs that the value hasn't changed, so the optimization
-    // only reduces the number of calls in release builds without DCHECKs.)
+    // this includes CHECKs that the value hasn't changed, so the optimization
+    // only reduces the number of calls in release builds without CHECKs.)
     bool Get(const RenderFrameHostImpl& render_frame_host,
              const UrlInfo& url_info);
 
@@ -717,6 +717,12 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // inner Delegate. During this phase new navigation requests are ignored.
   bool is_attaching_inner_delegate() const {
     return attach_to_inner_delegate_state_ != AttachToInnerDelegateState::NONE;
+  }
+
+  // Returns true if an inner delegate has been fully attached.
+  bool is_inner_delegate_attached() const {
+    return attach_to_inner_delegate_state_ ==
+           AttachToInnerDelegateState::ATTACHED;
   }
 
   // Called by the delegate at the end of the attaching process.

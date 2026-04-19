@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
@@ -57,8 +58,8 @@
 namespace {
 
 GURL GetThemeUrl(const std::string& path) {
-  return GURL(std::string(content::kChromeUIScheme) + "://" +
-              std::string(chrome::kChromeUIThemeHost) + "/" + path);
+  return GURL(base::StrCat({content::kChromeUIScheme, "://",
+                            chrome::kChromeUIThemeHost, "/", path}));
 }
 
 bool IsNewTabCssPath(const std::string& path) {

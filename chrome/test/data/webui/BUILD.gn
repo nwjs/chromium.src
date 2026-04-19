@@ -6,6 +6,7 @@ import("//build/config/ui.gni")
 import("//chrome/common/features.gni")
 import("//chrome/test/include_js_tests.gni")
 import("//components/compose/features.gni")
+import("//components/guest_view/buildflags/buildflags.gni")
 import("//crypto/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//pdf/features.gni")
@@ -33,6 +34,7 @@ source_set("browser_tests") {
   ]
 
   deps = [
+    "//chrome/browser:browser_features",
     "//chrome/browser/bookmarks",
     "//chrome/browser/ui/tabs/tab_group_home:constants",
     "//chrome/test:test_support",
@@ -40,6 +42,8 @@ source_set("browser_tests") {
     "//components/webui/chrome_urls/",
     "//ui/compositor",
   ]
+
+  data = []
 
   if (!is_android) {
     sources += [
@@ -90,6 +94,8 @@ source_set("browser_tests") {
       "side_panel/reading_list/reading_list_browsertest.cc",
       "tab_group_home/tab_group_home_browsertest.cc",
       "tab_search/tab_search_browsertest.cc",
+      "webnn_internals/webnn_internals_browsertest.cc",
+      "webui_toolbar/webui_toolbar_js_browsertest.cc",
       "webview/webui_webview_browsertest.cc",
     ]
 
@@ -200,6 +206,7 @@ source_set("browser_tests") {
 
   if (is_win || is_mac || is_linux || is_chromeos) {
     sources += [
+      "ai_overlay_dialog/ai_overlay_dialog_browsertest.cc",
       "discards/discards_browsertest.cc",
       "skills/skills_browsertest.cc",
     ]
@@ -319,6 +326,13 @@ source_set("browser_tests") {
       "unexportable_keys_internals/unexportable_keys_internals_browsertest.cc",
     ]
   }
+
+  if (!enable_extensions_core && enable_guest_view) {
+    sources += [ "guest_view_shared/slim_webview_browsertest.cc" ]
+    deps += [ "//chrome/browser/permissions" ]
+
+    data += [ "//chrome/test/data/" ]
+  }
 }
 
 source_set("interactive_ui_tests") {
@@ -343,6 +357,7 @@ source_set("interactive_ui_tests") {
       "support_tool/support_tool_focus_test.cc",
       "tab_search/split_new_tab_page_interactive_uitest.cc",
       "tab_search/tab_search_focus_test.cc",
+      "webui_toolbar/webui_toolbar_js_interactive_uitest.cc",
     ]
 
     deps += [ "//chrome/test/data/webui:composebox_pixel_test_support" ]
@@ -602,14 +617,17 @@ generate_grd("build_grd") {
       "support_tool:build_grdp",
       "tab_group_home:build_grdp",
       "tab_search:build_grdp",
+      "webnn_internals:build_grdp",
+      "webui_toolbar:build_grdp",
       "webview:build_grdp",
     ]
 
     grdp_files += [
       "$target_gen_dir/about_sys/resources.grdp",
       "$target_gen_dir/access_code_cast/resources.grdp",
-      "$target_gen_dir/chrome_apis/resources.grdp",
       "$target_gen_dir/actor_overlay/resources.grdp",
+      "$target_gen_dir/chrome_apis/resources.grdp",
+
       "$target_gen_dir/webview/resources.grdp",
       "$target_gen_dir/bookmarks/resources.grdp",
       "$target_gen_dir/contextual_tasks/resources.grdp",
@@ -657,6 +675,8 @@ generate_grd("build_grd") {
       "$target_gen_dir/support_tool/resources.grdp",
       "$target_gen_dir/tab_group_home/resources.grdp",
       "$target_gen_dir/tab_search/resources.grdp",
+      "$target_gen_dir/webnn_internals/resources.grdp",
+      "$target_gen_dir/webui_toolbar/resources.grdp",
     ]
 
     if (!is_chromeos) {
@@ -725,8 +745,14 @@ generate_grd("build_grd") {
   }
 
   if (is_win || is_mac || is_linux || is_chromeos) {
-    deps += [ "skills:build_grdp" ]
-    grdp_files += [ "$target_gen_dir/skills/resources.grdp" ]
+    deps += [
+      "ai_overlay_dialog:build_grdp",
+      "skills:build_grdp",
+    ]
+    grdp_files += [
+      "$target_gen_dir/skills/resources.grdp",
+      "$target_gen_dir/ai_overlay_dialog/resources.grdp",
+    ]
   }
 
   if (is_win || is_chromeos) {
@@ -738,13 +764,16 @@ generate_grd("build_grd") {
     deps += [
       "chromeos:build_grdp",
       "chromeos:build_web_ui_test_mojo_lite_grdp",
+      "chromeos/account_manager:build_grdp",
       "chromeos/ash_common:build_grdp",
       "chromeos/ash_common/cr_elements:build_grdp",
       "chromeos/ash_common/post_message_api:build_grdp",
       "chromeos/ash_common/sea_pen:build_grdp",
+      "chromeos/bluetooth:build_grdp",
       "chromeos/boca_receiver_app_ui:build_grdp",
       "chromeos/boca_ui:build_grdp",
       "chromeos/borealis_installer:build_grdp",
+      "chromeos/cellular_setup:build_grdp",
       "chromeos/cloud_upload:build_grdp",
       "chromeos/diagnostics:build_grdp",
       "chromeos/edu_coexistence:build_grdp",
@@ -757,7 +786,10 @@ generate_grd("build_grd") {
       "chromeos/healthd_internals:build_grdp",
       "chromeos/inline_login:build_grdp",
       "chromeos/manage_mirrorsync:build_grdp",
+      "chromeos/multidevice_setup:build_grdp",
       "chromeos/nearby_share:build_grdp",
+      "chromeos/network:build_grdp",
+      "chromeos/network_health:build_grdp",
       "chromeos/office_fallback:build_grdp",
       "chromeos/oobe:build_grdp",
       "chromeos/os_feedback_ui:build_grdp",
@@ -769,9 +801,12 @@ generate_grd("build_grd") {
       "chromeos/projector_app:build_grdp",
       "chromeos/sanitize_ui:build_grdp",
       "chromeos/scanning:build_grdp",
+      "chromeos/set_time_dialog:build_grdp",
       "chromeos/settings:build_grdp",
       "chromeos/shimless_rma:build_grdp",
       "chromeos/shortcut_customization:build_grdp",
+      "chromeos/sys_internals:build_grdp",
+      "chromeos/traffic_counters:build_grdp",
       "chromeos/vc_background_ui:build_grdp",
       "//ui/file_manager:build_tests_gen_grdp",
       "//ui/file_manager:build_tests_grdp",
@@ -781,10 +816,13 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/ash_common/cr_elements/resources.grdp",
       "$target_gen_dir/chromeos/ash_common/post_message_api/resources.grdp",
       "$target_gen_dir/chromeos/ash_common/sea_pen/resources.grdp",
+      "$target_gen_dir/chromeos/account_manager/resources.grdp",
+      "$target_gen_dir/chromeos/bluetooth/resources.grdp",
       "$target_gen_dir/chromeos/boca_ui/resources.grdp",
       "$target_gen_dir/chromeos/boca_receiver_app_ui/resources.grdp",
       "$target_gen_dir/chromeos/projector_app/resources.grdp",
       "$target_gen_dir/chromeos/borealis_installer/resources.grdp",
+      "$target_gen_dir/chromeos/cellular_setup/resources.grdp",
       "$target_gen_dir/chromeos/cloud_upload/resources.grdp",
       "$target_gen_dir/chromeos/diagnostics/resources.grdp",
       "$target_gen_dir/chromeos/edu_coexistence/resources.grdp",
@@ -797,7 +835,10 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/inline_login/resources.grdp",
       "$target_gen_dir/chromeos/gaia_action_buttons/resources.grdp",
       "$target_gen_dir/chromeos/manage_mirrorsync/resources.grdp",
+      "$target_gen_dir/chromeos/multidevice_setup/resources.grdp",
       "$target_gen_dir/chromeos/nearby_share/resources.grdp",
+      "$target_gen_dir/chromeos/network/resources.grdp",
+      "$target_gen_dir/chromeos/network_health/resources.grdp",
       "$target_gen_dir/chromeos/office_fallback/resources.grdp",
       "$target_gen_dir/chromeos/oobe/resources.grdp",
       "$target_gen_dir/chromeos/parent_access/resources.grdp",
@@ -809,10 +850,13 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/vc_background_ui/resources.grdp",
       "$target_gen_dir/chromeos/sanitize_ui/resources.grdp",
       "$target_gen_dir/chromeos/scanning/resources.grdp",
+      "$target_gen_dir/chromeos/set_time_dialog/resources.grdp",
       "$target_gen_dir/chromeos/settings/resources.grdp",
       "$target_gen_dir/chromeos/shimless_rma/resources.grdp",
       "$target_gen_dir/chromeos/os_feedback_ui/resources.grdp",
       "$target_gen_dir/chromeos/shortcut_customization/resources.grdp",
+      "$target_gen_dir/chromeos/sys_internals/resources.grdp",
+      "$target_gen_dir/chromeos/traffic_counters/resources.grdp",
       "$target_gen_dir/chromeos/web_ui_test_mojo_lite_resources.grdp",
       "$root_gen_dir/ui/file_manager/tests_resources.grdp",
       "$root_gen_dir/ui/file_manager/tests_gen_resources.grdp",
@@ -849,6 +893,11 @@ generate_grd("build_grd") {
     deps += [ "unexportable_keys_internals:build_grdp" ]
     grdp_files +=
         [ "$target_gen_dir/unexportable_keys_internals/resources.grdp" ]
+  }
+
+  if (!enable_extensions_core && enable_guest_view) {
+    deps += [ "guest_view_shared:build_grdp" ]
+    grdp_files += [ "$target_gen_dir/guest_view_shared/resources.grdp" ]
   }
 
   manifest_files =

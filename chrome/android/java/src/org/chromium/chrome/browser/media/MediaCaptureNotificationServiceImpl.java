@@ -180,9 +180,9 @@ public class MediaCaptureNotificationServiceImpl extends SplitCompatService.Impl
                 && !doesNotificationNeedUpdate(notificationId, mediaTypes)) {
             return;
         }
-        boolean hasNewMediaTypesToUpate = !mediaTypes.isEmpty();
-        destroyNotification(notificationId, hasNewMediaTypesToUpate);
-        if (hasNewMediaTypesToUpate) {
+        boolean hasNewMediaTypesToUpdate = !mediaTypes.isEmpty();
+        destroyNotification(notificationId, hasNewMediaTypesToUpdate);
+        if (hasNewMediaTypesToUpdate) {
             createNotification(notificationId, mediaTypes, url, isIncognito);
         }
         if (mNotificationsType.size() == 0) {
@@ -207,7 +207,7 @@ public class MediaCaptureNotificationServiceImpl extends SplitCompatService.Impl
      *
      * @param notificationId Unique id of the notification.
      */
-    private void destroyNotification(int notificationId, boolean hasNewMediaTypesToUpate) {
+    private void destroyNotification(int notificationId, boolean hasNewMediaTypesToUpdate) {
         if (doesNotificationExist(notificationId)) {
             final var oldMediaTypes = mNotificationsType.get(notificationId);
             if (hasCapturingMediaType(oldMediaTypes)) {
@@ -230,7 +230,7 @@ public class MediaCaptureNotificationServiceImpl extends SplitCompatService.Impl
                         lastIndex >= 0 && mNotifications.get(lastIndex).first == notificationId;
                 mNotifications.removeIf(
                         notificationEntry -> notificationEntry.first == notificationId);
-                if (!hasNewMediaTypesToUpate) {
+                if (!hasNewMediaTypesToUpdate) {
                     if (mNotifications.isEmpty()) {
                         stopForegroundService();
                     } else if (isRemovingLatestNotification
@@ -372,6 +372,7 @@ public class MediaCaptureNotificationServiceImpl extends SplitCompatService.Impl
         }
         if (allMediaTypes.contains(MediaType.TAB_CAPTURE)) {
             foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+            foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
         }
         if (allMediaTypes.contains(MediaType.SCREEN_CAPTURE)
                 || allMediaTypes.contains(MediaType.WINDOW_CAPTURE)) {

@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <string_view>
 
+#include "base/compiler_specific.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/checked_math.h"
@@ -62,7 +63,7 @@ namespace {
 void AssertProtocolIsGood(const StringView protocol) {
   DCHECK(protocol != "");
   DCHECK(std::ranges::all_of(protocol.Span8(), [](const LChar c) {
-    return c > ' ' && c < 0x7F && !(c >= 'A' && c <= 'Z');
+    return IsAsciiPrintable(c) && c != ' ' && !IsAsciiUpper(c);
   }));
 }
 #endif
@@ -88,12 +89,12 @@ std::string_view CharactersOrEmpty(const StringUtf8Adaptor& string) {
 }
 
 bool IsSchemeFirstChar(char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+  return IsAsciiAlpha(c);
 }
 
 bool IsSchemeChar(char c) {
-  return IsSchemeFirstChar(c) || (c >= '0' && c <= '9') || c == '.' ||
-         c == '-' || c == '+';
+  return IsSchemeFirstChar(c) || IsAsciiDigit(c) || c == '.' || c == '-' ||
+         c == '+';
 }
 
 bool IsUnicodeEncoding(const TextEncoding* encoding) {
@@ -126,12 +127,14 @@ bool IsValidProtocol(const StringView& protocol) {
   // RFC3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
   if (protocol.empty())
     return false;
-  if (!IsSchemeFirstChar(protocol[0]))
+  if (!IsSchemeFirstChar(UNSAFE_BUFFERS(protocol[0]))) {
     return false;
+  }
   unsigned protocol_length = protocol.length();
   for (unsigned i = 1; i < protocol_length; i++) {
-    if (!IsSchemeChar(protocol[i]))
+    if (!IsSchemeChar(UNSAFE_BUFFERS(protocol[i]))) {
       return false;
+    }
   }
   return true;
 }
@@ -471,15 +474,14 @@ String RemoveUrlWhitespace(const String& input) {
 
 }  // namespace
 
-bool KURL::SetProtocol(const String& protocol) {
+bool KURL::SetProtocol(const StringView& protocol) {
   // We should remove whitespace from |protocol| according to spec, but Firefox
   // and Safari don't do it.
   // - https://url.spec.whatwg.org/#dom-url-protocol
   // - https://github.com/whatwg/url/issues/609
 
   // Firefox and IE remove everything after the first ':'.
-  wtf_size_t separator_position = protocol.find(':');
-  String new_protocol = protocol.Substring(0, separator_position);
+  StringView new_protocol = protocol.substr(0, protocol.find(':'));
   StringUtf8Adaptor new_protocol_utf8(new_protocol);
 
   // If KURL is given an invalid scheme, it returns failure without modifying
@@ -493,13 +495,13 @@ bool KURL::SetProtocol(const String& protocol) {
     return false;
   }
 
-  DCHECK_EQ(protocol_component.begin, 0);
-  const wtf_size_t protocol_length =
-      base::checked_cast<wtf_size_t>(protocol_component.len);
-  const String new_protocol_canon =
-      String(base::span(canon_protocol.view()).first(protocol_length));
-
   if (SchemeRegistry::IsSpecialScheme(Protocol())) {
+    DCHECK_EQ(protocol_component.begin, 0);
+    const wtf_size_t protocol_length =
+        base::checked_cast<wtf_size_t>(protocol_component.len);
+    const String new_protocol_canon(
+        base::span(canon_protocol.view()).first(protocol_length));
+
     // https://url.spec.whatwg.org/#scheme-state
     // 2.1.1 If url’s scheme is a special scheme and buffer is not a special
     //       scheme, then return.
@@ -550,12 +552,12 @@ StringView ParsePortFromString(const StringView& value) {
   // "008080junk" needs to be treated as port "8080" and "000" as "0".
   wtf_size_t num_leading_digits = 0;
   while (num_leading_digits < value.length() &&
-         IsASCIIDigit(value[num_leading_digits])) {
+         IsAsciiDigit(UNSAFE_BUFFERS(value[num_leading_digits]))) {
     ++num_leading_digits;
   }
   wtf_size_t num_leading_zeros = 0;
   while (num_leading_zeros < num_leading_digits &&
-         value[num_leading_zeros] == '0') {
+         UNSAFE_BUFFERS(value[num_leading_zeros]) == '0') {
     ++num_leading_zeros;
   }
   // If all digits are zeros, consider the last one significant.
@@ -943,9 +945,9 @@ void KURL::InitInnerUrl() {
     return;
   }
   if (url::Parsed* inner_parsed = parsed_.inner_parsed()) {
-    inner_url_ = std::make_unique<KURL>(string_.GetString().Substring(
-        inner_parsed->scheme.begin,
-        inner_parsed->Length() - inner_parsed->scheme.begin));
+    auto scheme_begin = inner_parsed->scheme.begin;
+    inner_url_ = std::make_unique<KURL>(string_.GetString().substr(
+        scheme_begin, inner_parsed->Length() - scheme_begin));
   } else {
     inner_url_.reset();
   }
@@ -969,7 +971,7 @@ void KURL::InitProtocolMetadata() {
     protocol_ = protocol.ToAtomicString();
     protocol_is_in_http_family_ = false;
   }
-  DCHECK_EQ(protocol_, protocol_.DeprecatedLower());
+  DCHECK(protocol_.ContainsNoAsciiUpper());
 }
 
 void KURL::AssertStringSpecIsAscii() {

@@ -577,10 +577,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       [self.browserLayoutViewController removeFromParentViewController];
       self.browserLayoutViewController = viewController;
 
-      [_viewController addChildViewController:viewController];
       viewController.view.frame = frame;
       viewController.view.alpha = 1.0;
+      [_viewController addChildViewController:viewController];
       [_viewController.view addSubview:viewController.view];
+      [viewController.view layoutIfNeeded];
       [viewController didMoveToParentViewController:_viewController];
     }
     _viewController.childViewControllerForStatusBarStyle = viewController;
@@ -721,7 +722,10 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       appContentView);
 
   if (animationEnabled) {
-    if (UIAccessibilityIsReduceMotionEnabled()) {
+    // Use reduced animation on TabGroup panel to avoid weird animation where
+    // the tab comes from the side.
+    BOOL isOnTabGroup = _viewController.currentPage == TabGridPageTabGroups;
+    if (isOnTabGroup || UIAccessibilityIsReduceMotionEnabled()) {
       self.transitionHandler = [[TabGridTransitionHandler alloc]
           initWithReducedMotionCommonParams:std::move(params)];
     } else {
@@ -952,7 +956,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  _modeHolder = [[TabGridModeHolder alloc] init];
+  _modeHolder = [[TabGridModeHolder alloc]
+      initWithTabGridState:_regularBrowser->GetSceneState().tabGridState];
 
   [_regularBrowser->GetCommandDispatcher()
       startDispatchingToTarget:self
@@ -1573,7 +1578,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)closeTabsExceptIdentifier:(web::WebStateID)identifier
                         incognito:(BOOL)incognito {
-  CHECK(IsCloseOtherTabsEnabled());
   if (incognito) {
     [self.incognitoTabsMediator closeTabsExceptID:identifier];
     return;
@@ -1768,6 +1772,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 }
 
 - (void)exitTabGrid {
+  // Prevent exiting if a transition is currently in progress.
+  // `self.transitionHandler` is set to nil at the end of a transition.
+  if (self.transitionHandler) {
+    return;
+  }
+
   [_viewController updateActivePageToCurrent];
   TabGridPage targetPage = _viewController.activePage;
 

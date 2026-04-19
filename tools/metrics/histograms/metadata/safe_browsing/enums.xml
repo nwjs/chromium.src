@@ -144,6 +144,11 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Subsequent Response"/>
 </enum>
 
+<enum name="BooleanTabIsSplit">
+  <int value="0" label="Tab not split"/>
+  <int value="1" label="Tab is split"/>
+</enum>
+
 <enum name="BooleanTransferred">
   <int value="0" label="Did not transfer"/>
   <int value="1" label="Transferred"/>
@@ -310,16 +315,6 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="SUCCESS_REFERRER"/>
 </enum>
 
-<enum name="SafeBrowsingAuthenticatedEndpoint">
-  <int value="0" label="Deep scanning"/>
-  <int value="1" label="Download protection"/>
-  <int value="2" label="Extension telemetry"/>
-  <int value="3" label="Client side detection"/>
-  <int value="4" label="Password protection"/>
-  <int value="5" label="Threat details"/>
-  <int value="6" label="Realtime URL lookup"/>
-</enum>
-
 <enum name="SafeBrowsingBinaryUploadResult">
   <int value="0" label="Unknown"/>
   <int value="1" label="Success"/>
@@ -374,6 +369,14 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Blocked"/>
   <int value="1" label="Allowed"/>
   <int value="2" label="Blocked for unfamiliar sites"/>
+</enum>
+
+<enum name="SafeBrowsingKeyFetchOutcome">
+  <int value="0" label="Success"/>
+  <int value="1" label="Network error"/>
+  <int value="2" label="Empty response"/>
+  <int value="3" label="Invalid response"/>
+  <int value="4" label="No keys"/>
 </enum>
 
 <enum name="SafeBrowsingOhttpFetchKeyTriggerReason">

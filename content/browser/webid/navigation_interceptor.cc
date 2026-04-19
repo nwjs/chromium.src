@@ -36,7 +36,8 @@ namespace content::webid {
 // static
 void NavigationInterceptor::MaybeCreateAndAdd(
     NavigationThrottleRegistry& registry) {
-  if (!IsNavigationInterceptionEnabled()) {
+  if (!IsNavigationInterceptionEnabled() &&
+      !IsEmbedderInitiatedLoginEnabled()) {
     return;
   }
   registry.AddThrottle(std::make_unique<NavigationInterceptor>(registry));
@@ -107,8 +108,13 @@ NavigationInterceptor::ProcessRequest() {
     return PROCEED;
   }
 
+  // TODO(crbug.com/498095297): Use only one header name once it is finalized.
   std::optional<std::string> intercept_header =
-      headers->GetNormalizedHeader("FedCM-Intercept-Navigation");
+      headers->GetNormalizedHeader("Federation-Initiate-Request");
+  if (!intercept_header) {
+    intercept_header =
+        headers->GetNormalizedHeader("FedCM-Intercept-Navigation");
+  }
 
   std::optional<std::string> connection_status_header =
       headers->GetNormalizedHeader("Federation-RP-Connection-Status");
@@ -120,6 +126,13 @@ NavigationInterceptor::ProcessRequest() {
   content::RenderFrameHost* rfh = document_.AsRenderFrameHostIfValid();
 
   if (!rfh) {
+    return PROCEED;
+  }
+
+  // We intercept if the user explicitly enabled interception, or if there is
+  // an active embedder login request.
+  bool has_embedder_login_request = HasEmbedderLoginRequest(rfh);
+  if (!IsNavigationInterceptionEnabled() && !has_embedder_login_request) {
     return PROCEED;
   }
 
@@ -146,10 +159,16 @@ NavigationInterceptor::ProcessRequest() {
   }
 
   if (connection_status_header) {
-    data_decoder::DataDecoder::ParseStructuredHeaderDictionaryIsolated(
-        *connection_status_header,
-        base::BindOnce(&NavigationInterceptor::OnConnectionStatusHeaderParsed,
-                       weak_ptr_factory_.GetWeakPtr()));
+    // It's possible that both headers are present. In that case, if there's no
+    // embedder login request, we should just proceed.
+    if (has_embedder_login_request) {
+      data_decoder::DataDecoder::ParseStructuredHeaderDictionaryIsolated(
+          *connection_status_header,
+          base::BindOnce(&NavigationInterceptor::OnConnectionStatusHeaderParsed,
+                         weak_ptr_factory_.GetWeakPtr()));
+    } else {
+      return PROCEED;
+    }
   } else if (intercept_header) {
     data_decoder::DataDecoder::ParseStructuredHeaderDictionaryIsolated(
         *intercept_header,
@@ -178,6 +197,13 @@ void NavigationInterceptor::OnConnectionStatusHeaderParsed(
     return;
   }
 
+  FederatedEmbedderLoginRequest* embedder_login_request =
+      FederatedEmbedderLoginRequest::Get(WebContents::FromRenderFrameHost(rfh));
+  if (!embedder_login_request) {
+    Resume();
+    return;
+  }
+
   if (!result.has_value()) {
     // The header was available, but malformed.
     // Cancel the navigation because it is a developer error.
@@ -197,11 +223,10 @@ void NavigationInterceptor::OnConnectionStatusHeaderParsed(
       account_id = account_id_it->second.member[0].item.GetString();
     }
 
-    FederatedEmbedderLoginRequest* embedder_login_request =
-        FederatedEmbedderLoginRequest::Get(
-            WebContents::FromRenderFrameHost(rfh));
     // The server can send this header without embedder login request.
-    if (embedder_login_request) {
+    if (net::SchemefulSite::IsSameSite(
+            embedder_login_request->idp_origin(),
+            url::Origin::Create(navigation_handle()->GetURL()))) {
       if (account_id == embedder_login_request->account_id()) {
         embedder_login_request->OnFederatedResultReceived(
             FederatedLoginResult::kSuccess);
@@ -235,7 +260,8 @@ void NavigationInterceptor::OnHeaderParsed(
   }
 
   RequestBuilder request_builder;
-  auto idp_get_params_vector = request_builder.Build(*result);
+  auto idp_get_params_vector =
+      request_builder.Build(navigation_handle()->GetURL(), *result);
 
   if (!idp_get_params_vector) {
     // The header was available, parsed, but contained an invalid set of
@@ -273,6 +299,7 @@ const char* NavigationInterceptor::GetNameForLogging() {
 
 std::optional<std::vector<blink::mojom::IdentityProviderGetParametersPtr>>
 NavigationInterceptor::RequestBuilder::Build(
+    const GURL& base_url,
     const net::structured_headers::Dictionary& dictionary) {
   auto get_string =
       [&dictionary](const std::string& key) -> std::optional<std::string> {
@@ -284,8 +311,15 @@ NavigationInterceptor::RequestBuilder::Build(
     return it->second.member[0].item.GetString();
   };
 
-  auto config_url = get_string("config_url");
-  if (!config_url) {
+  auto config_url_str = get_string("config_url");
+  if (!config_url_str) {
+    return std::nullopt;
+  }
+  GURL config_url = base_url.Resolve(*config_url_str);
+  if (!config_url.is_valid()) {
+    return std::nullopt;
+  }
+  if (!url::IsSameOriginWith(base_url, config_url)) {
     return std::nullopt;
   }
 
@@ -331,7 +365,8 @@ NavigationInterceptor::RequestBuilder::Build(
   }
 
   auto idp_config = blink::mojom::IdentityProviderConfig::New();
-  idp_config->config_url = GURL(*config_url);
+  idp_config->config_url = config_url;
+
   idp_config->client_id = *client_id;
 
   idp_options->config = std::move(idp_config);

@@ -83,9 +83,6 @@ namespace net {
 
 namespace {
 
-static constexpr int kMinutesInTwelveHours = 12 * 60;
-static constexpr int kMinutesInTwentyFourHours = 24 * 60;
-
 std::string_view CanonicalCookieFromStorageCallSiteToString(
     CanonicalCookieFromStorageCallSite call_site) {
   switch (call_site) {
@@ -261,47 +258,6 @@ Time CanonicalCookie::ParseExpiration(const ParsedCookie& pc,
     return Time();
   }
   Time adjusted_expiry = parsed_expiry + (current - server_time);
-
-  static base::MetricsSubSampler metrics_subsampler;
-  if (metrics_subsampler.ShouldSample(kHistogramSampleProbability)) {
-    // Record metrics related to prevalence of clock skew.
-    base::TimeDelta clock_skew = (current - server_time);
-    // Record the magnitude (absolute value) of the skew in minutes.
-    int clock_skew_magnitude = clock_skew.magnitude().InMinutes();
-    // Determine the new expiry with clock skew factored in.
-    if (clock_skew.is_positive() || clock_skew.is_zero()) {
-      base::UmaHistogramCustomCounts("Cookie.ClockSkew.AddMinutes.Subsampled",
-                                     clock_skew_magnitude, 1,
-                                     kMinutesInTwelveHours, 100);
-      base::UmaHistogramCustomCounts(
-          "Cookie.ClockSkew.AddMinutes12To24Hours.Subsampled",
-          clock_skew_magnitude, kMinutesInTwelveHours,
-          kMinutesInTwentyFourHours, 100);
-      // Also record the range of minutes added that allowed the cookie to
-      // avoid expiring immediately.
-      if (parsed_expiry <= Time::Now() && adjusted_expiry > Time::Now()) {
-        base::UmaHistogramCustomCounts(
-            "Cookie.ClockSkew.WithoutAddMinutesExpires.Subsampled",
-            clock_skew_magnitude, 1, kMinutesInTwentyFourHours, 100);
-      }
-    } else if (clock_skew.is_negative()) {
-      // These histograms only support positive numbers, so negative skews
-      // will be converted to positive (via magnitude) before recording.
-      base::UmaHistogramCustomCounts(
-          "Cookie.ClockSkew.SubtractMinutes.Subsampled", clock_skew_magnitude,
-          1, kMinutesInTwelveHours, 100);
-      base::UmaHistogramCustomCounts(
-          "Cookie.ClockSkew.SubtractMinutes12To24Hours.Subsampled",
-          clock_skew_magnitude, kMinutesInTwelveHours,
-          kMinutesInTwentyFourHours, 100);
-    }
-    // Record if we were going to expire the cookie before we added the clock
-    // skew.
-    base::UmaHistogramBoolean(
-        "Cookie.ClockSkew.ExpiredWithoutSkew.Subsampled",
-        parsed_expiry <= Time::Now() && adjusted_expiry > Time::Now());
-  }
-
   return adjusted_expiry;
 }
 
@@ -400,6 +356,13 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
   if (parsed_cookie.Name().empty()) {
     UMA_HISTOGRAM_BOOLEAN("Cookie.Parse.EmptyNameAmbiguousValue",
                           parsed_cookie.Value().contains('='));
+
+    if (base::FeatureList::IsEnabled(
+            net::features::kCookieParseRejectEmptyNameAmbiguous) &&
+        parsed_cookie.Value().contains('=')) {
+      status->AddExclusionReason(CookieInclusionStatus::ExclusionReason::
+                                     EXCLUDE_AMBIGUOUS_SERIALIZATION);
+    }
   }
 
   std::optional<std::string> cookie_domain =
@@ -842,10 +805,10 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateUnsafeCookieForTesting(
     bool httponly,
     CookieSameSite same_site,
     CookiePriority priority,
+    CookieSourceType source_type,
     std::optional<CookiePartitionKey> partition_key,
     CookieSourceScheme source_scheme,
-    int source_port,
-    CookieSourceType source_type) {
+    int source_port) {
   return std::make_unique<CanonicalCookie>(
       base::PassKey<CanonicalCookie>(), name, value, domain, path, creation,
       expiration, last_access, last_update, secure, httponly, same_site,
@@ -855,11 +818,11 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateUnsafeCookieForTesting(
 // static
 std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateForTesting(
     const GURL& url,
-    const std::string& cookie_line,
+    std::string_view cookie_line,
     base::Time creation_time,
+    CookieSourceType source_type,
     std::optional<base::Time> server_time,
     std::optional<CookiePartitionKey> cookie_partition_key,
-    CookieSourceType source_type,
     CookieInclusionStatus* status) {
   return CanonicalCookie::Create(url, cookie_line, creation_time, server_time,
                                  cookie_partition_key, source_type, status);

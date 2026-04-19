@@ -14,8 +14,6 @@ source_set("coordinator") {
     "gemini_first_run_mediator.h",
     "gemini_first_run_mediator.mm",
     "gemini_first_run_mediator_delegate.h",
-    "gemini_promo_scene_agent.h",
-    "gemini_promo_scene_agent.mm",
   ]
   deps = [
     "//base",
@@ -26,10 +24,11 @@ source_set("coordinator") {
     "//ios/chrome/browser/intelligence/bwg/metrics",
     "//ios/chrome/browser/intelligence/bwg/model:browser_agent",
     "//ios/chrome/browser/intelligence/bwg/model:bwg_service",
-    "//ios/chrome/browser/intelligence/bwg/model:bwg_service_factory",
+    "//ios/chrome/browser/intelligence/bwg/model:gemini_service_factory",
     "//ios/chrome/browser/intelligence/bwg/model:tab_helper",
     "//ios/chrome/browser/intelligence/bwg/ui",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
+    "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/promos_manager/coordinator:promos",
@@ -54,7 +53,6 @@ source_set("unit_tests") {
   sources = [
     "gemini_coordinator_unittest.mm",
     "gemini_first_run_coordinator_unittest.mm",
-    "gemini_promo_scene_agent_unittest.mm",
   ]
 
   deps = [

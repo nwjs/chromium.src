@@ -68,6 +68,11 @@ bool RequirePersistentModeForFeature(mojom::OnDeviceFeature feature) {
   }
 }
 
+on_device_model::Capabilities AICoreModelCapabilities() {
+  // AICore interface supports image input but doesn't support audio input.
+  return {on_device_model::CapabilityFlags::kImageInput};
+}
+
 class SolutionImpl : public ModelBrokerImpl::Solution {
  public:
   SolutionImpl(base::WeakPtr<ModelBrokerAndroid> parent,
@@ -80,7 +85,6 @@ class SolutionImpl : public ModelBrokerImpl::Solution {
   // ModelBrokerImpl::Solution:
   bool IsValid() const override;
   mojom::ModelSolutionConfigPtr MakeConfig() const override;
-  const OnDeviceModelFeatureAdapter* GetAdapter() const override;
 
   // mojom::ModelSolution
   void CreateSession(
@@ -119,15 +123,11 @@ mojom::ModelSolutionConfigPtr SolutionImpl::MakeConfig() const {
   config->feature_config = mojo_base::ProtoWrapper(adapter_->config());
   config->model_versions =
       mojo_base::ProtoWrapper(GetModelVersions(spec_, adaptation_version_));
-  config->max_tokens = adapter_->GetTokenLimits().max_tokens;
   // TODO: crbug.com/442914748 - Add safety config.
   config->text_safety_config =
       mojo_base::ProtoWrapper(proto::FeatureTextSafetyConfiguration());
+  config->model_capabilities = AICoreModelCapabilities();
   return config;
-}
-
-const OnDeviceModelFeatureAdapter* SolutionImpl::GetAdapter() const {
-  return adapter_.get();
 }
 
 void SolutionImpl::CreateSession(
@@ -176,8 +176,8 @@ class ModelBrokerAndroid::SolutionFactory final
 
  private:
   // UsageTracker::Observer
-  void OnDeviceEligibleFeatureFirstUsed(
-      mojom::OnDeviceFeature feature) override;
+  void OnDeviceEligibleUseCaseUsed(const std::string& use_case_name,
+                                   bool is_first_usage) override;
 
   // Asks AICore to download the base model.
   void MaybeStartDownload(mojom::OnDeviceFeature feature);
@@ -237,9 +237,18 @@ ModelBrokerAndroid::SolutionFactory::~SolutionFactory() {
   parent_->usage_tracker_.RemoveObserver(this);
 }
 
-void ModelBrokerAndroid::SolutionFactory::OnDeviceEligibleFeatureFirstUsed(
-    mojom::OnDeviceFeature feature) {
-  MaybeStartDownload(feature);
+void ModelBrokerAndroid::SolutionFactory::OnDeviceEligibleUseCaseUsed(
+    const std::string& use_case_name,
+    bool is_first_usage) {
+  if (!is_first_usage) {
+    return;
+  }
+  auto feature = GetFeatureForUseCase(use_case_name);
+  if (!feature) {
+    return;
+  }
+
+  MaybeStartDownload(*feature);
 }
 
 void ModelBrokerAndroid::SolutionFactory::MaybeStartDownload(
@@ -354,38 +363,6 @@ void ModelBrokerAndroid::BindModelBroker(
   }
 }
 
-std::optional<SamplingParamsConfig> ModelBrokerAndroid::GetSamplingParamsConfig(
-    mojom::OnDeviceFeature feature) {
-  if (!features::IsOnDeviceExecutionEnabled()) {
-    return std::nullopt;
-  }
-
-  const auto& solution = impl_.GetSolutionProvider(feature).solution();
-  if (!solution.has_value()) {
-    return std::nullopt;
-  }
-
-  // Solution owns the scoped_refptr to the adapter, so the return pointer of
-  // GetAdapter() is always safe to use.
-  return solution.value()->GetAdapter()->GetSamplingParamsConfig();
-}
-
-std::optional<const proto::Any> ModelBrokerAndroid::GetFeatureMetadata(
-    mojom::OnDeviceFeature feature) {
-  if (!features::IsOnDeviceExecutionEnabled()) {
-    return std::nullopt;
-  }
-
-  const auto& solution = impl_.GetSolutionProvider(feature).solution();
-  if (!solution.has_value()) {
-    return std::nullopt;
-  }
-
-  // Solution owns the scoped_refptr to the adapter, so the return pointer of
-  // GetAdapter() is always safe to use.
-  return solution.value()->GetAdapter()->GetFeatureMetadata();
-}
-
 mojo::Remote<on_device_model::mojom::OnDeviceModel>&
 ModelBrokerAndroid::GetOrCreateModelRemote(
     proto::ModelExecutionFeature feature) {
@@ -407,11 +384,12 @@ ModelBrokerAndroid::GetOrCreateModelRemote(
 }
 
 void ModelBrokerAndroid::EnsureSolutionFactory(
-    base::OnceClosure done_callback) {
+    ModelBrokerImpl::InitCallback done_callback) {
   if (!solution_factory_) {
     solution_factory_ = std::make_unique<SolutionFactory>(*this);
   }
-  std::move(done_callback).Run();
+
+  std::move(done_callback).Run(AICoreModelCapabilities());
 }
 
 void ModelBrokerAndroid::OnModelDisconnected(

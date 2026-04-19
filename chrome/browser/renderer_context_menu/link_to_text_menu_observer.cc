@@ -35,6 +35,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/process_manager.h"
+#include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/annotation/annotation.mojom.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
@@ -147,7 +148,6 @@ void LinkToTextMenuObserver::InitMenu(
             l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_REMOVELINKTOTEXT));
         break;
       case blink::mojom::AnnotationType::kTextFinder:
-      case blink::mojom::AnnotationType::kUserNote:
       case blink::mojom::AnnotationType::kScrollOnly:
         NOTIMPLEMENTED();
     }
@@ -412,7 +412,6 @@ void LinkToTextMenuObserver::RemoveHighlights() {
       return;
     }
     case blink::mojom::AnnotationType::kTextFinder:
-    case blink::mojom::AnnotationType::kUserNote:
     case blink::mojom::AnnotationType::kScrollOnly:
       NOTIMPLEMENTED();
   }

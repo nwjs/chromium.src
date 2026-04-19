@@ -34,7 +34,6 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/ash/wallpaper/wallpaper_controller_client_impl.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user.h"
@@ -49,7 +48,9 @@
 namespace ash {
 
 ViewsScreenLocker::ViewsScreenLocker()
-    : system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>()),
+    : system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>(
+          // TODO(crbug.com/404133029): Avoid using g_browser_process.
+          g_browser_process->platform_part()->browser_policy_connector_ash())),
       auth_performer_(UserDataAuthClient::Get()) {
   LoginScreenClientImpl::Get()->SetDelegate(this);
 
@@ -57,10 +58,13 @@ ViewsScreenLocker::ViewsScreenLocker()
   PrefService* local_state = g_browser_process->local_state();
   ApplicationLocaleStorage* application_locale_storage =
       g_browser_process->GetFeatures()->application_locale_storage();
+  scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory =
+      g_browser_process->shared_url_loader_factory();
   policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash =
       g_browser_process->platform_part()->browser_policy_connector_ash();
   user_selection_screen_ = std::make_unique<ChromeUserSelectionScreen>(
-      local_state, application_locale_storage, browser_policy_connector_ash,
+      local_state, application_locale_storage,
+      std::move(shared_url_loader_factory), browser_policy_connector_ash,
       DisplayedScreen::LOCK_SCREEN);
 }
 

@@ -7,13 +7,27 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
+#include "cc/input/touch_action.h"
+#include "cc/trees/render_frame_metadata.h"
+#include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
+#include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
+#include "net/dns/mock_host_resolver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/frame/frame_visual_properties.h"
+#include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
+#include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
+#include "ui/base/cursor/cursor.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace content {
 
@@ -45,59 +59,76 @@ class SurfaceEmbedConnectorImplBrowserTest : public ContentBrowserTest {
   WebContentsImpl* GetParentWebContents() {
     return static_cast<WebContentsImpl*>(shell()->web_contents());
   }
+
+  struct SetViewTestContext {
+    std::unique_ptr<WebContents> child_web_contents;
+    raw_ptr<RenderWidgetHostViewChildFrame> rwhvcf;
+    std::unique_ptr<WebContents> parent_web_contents;
+    raw_ptr<SurfaceEmbedConnectorImpl> connector;
+  };
+
+  SetViewTestContext SetupSetViewTest(
+      MockSurfaceEmbedConnectorDelegate* delegate) {
+    SetViewTestContext context;
+
+    WebContents::CreateParams create_params(
+        GetParentWebContents()->GetBrowserContext());
+    context.parent_web_contents = WebContents::Create(create_params);
+    WebContentsImpl* parent_web_contents_impl =
+        static_cast<WebContentsImpl*>(context.parent_web_contents.get());
+
+    context.child_web_contents = WebContents::Create(create_params);
+    WebContentsImpl* child_web_contents_impl =
+        static_cast<WebContentsImpl*>(context.child_web_contents.get());
+
+    SurfaceEmbedConnector::Attach(child_web_contents_impl,
+                                  parent_web_contents_impl, delegate);
+
+    context.connector = static_cast<SurfaceEmbedConnectorImpl*>(
+        child_web_contents_impl->GetSurfaceEmbedConnector());
+    context.rwhvcf = static_cast<RenderWidgetHostViewChildFrame*>(
+        child_web_contents_impl->GetRenderWidgetHostView());
+
+    EXPECT_TRUE(context.rwhvcf);
+
+    return context;
+  }
 };
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest, BasicConnection) {
-  // Create the child WebContents.
-  WebContents::CreateParams create_params(
-      GetParentWebContents()->GetBrowserContext());
-  std::unique_ptr<WebContents> child_web_contents =
-      WebContents::Create(create_params);
-
   MockSurfaceEmbedConnectorDelegate delegate;
-
-  // Create the connector.
-  auto connector = std::make_unique<SurfaceEmbedConnectorImpl>(
-      child_web_contents.get(), GetParentWebContents(), &delegate);
+  auto context = SetupSetViewTest(&delegate);
+  auto* connector = context.connector.get();
+  auto* parent_impl =
+      static_cast<WebContentsImpl*>(context.parent_web_contents.get());
 
   // Verify initial state and basic getters.
-  EXPECT_EQ(connector->GetParentWebContentsView(),
-            GetParentWebContents()->GetView());
+  EXPECT_EQ(connector->GetParentWebContentsView(), parent_impl->GetView());
   EXPECT_EQ(connector->GetParentRenderViewHostDelegateView(),
-            GetParentWebContents()->GetDelegateView());
+            parent_impl->GetDelegateView());
   EXPECT_EQ(connector->GetInputEventRouter(),
-            GetParentWebContents()->GetInputEventRouter());
+            parent_impl->GetInputEventRouter());
 
   // Verify delegate access.
   EXPECT_EQ(connector->GetDelegate(), &delegate);
 
   // Verify TextInputManager is forwarded.
   EXPECT_EQ(connector->GetTextInputManager(),
-            GetParentWebContents()->GetTextInputManager());
+            parent_impl->GetTextInputManager());
 }
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest,
                        ParentDestruction) {
-  // Create a separate parent WebContents so we can destroy it during the
-  // test.
-  WebContents::CreateParams parent_params(
-      GetParentWebContents()->GetBrowserContext());
-  std::unique_ptr<WebContents> parent = WebContents::Create(parent_params);
-  WebContentsImpl* parent_impl = static_cast<WebContentsImpl*>(parent.get());
-
-  // Create the child WebContents.
-  WebContents::CreateParams child_params(
-      GetParentWebContents()->GetBrowserContext());
-  std::unique_ptr<WebContents> child = WebContents::Create(child_params);
-
   MockSurfaceEmbedConnectorDelegate delegate;
-  auto connector = std::make_unique<SurfaceEmbedConnectorImpl>(
-      child.get(), parent_impl, &delegate);
+  auto context = SetupSetViewTest(&delegate);
+  auto* connector = context.connector.get();
+  auto* parent_impl =
+      static_cast<WebContentsImpl*>(context.parent_web_contents.get());
 
   EXPECT_EQ(connector->GetParentWebContentsView(), parent_impl->GetView());
 
   // Destroy the parent.
-  parent.reset();
+  context.parent_web_contents.reset();
 
   // Verify connector handles missing parent gracefully where checks exist.
   EXPECT_EQ(connector->GetParentWebContentsView(), nullptr);
@@ -109,25 +140,161 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest, ConstGetters) {
-  // Create the child WebContents.
-  WebContents::CreateParams create_params(
-      GetParentWebContents()->GetBrowserContext());
-  std::unique_ptr<WebContents> child_web_contents =
-      WebContents::Create(create_params);
-
   MockSurfaceEmbedConnectorDelegate delegate;
-
-  // Create the connector.
-  auto connector = std::make_unique<SurfaceEmbedConnectorImpl>(
-      child_web_contents.get(), GetParentWebContents(), &delegate);
+  auto context = SetupSetViewTest(&delegate);
+  auto* connector = context.connector.get();
+  auto* parent_impl =
+      static_cast<WebContentsImpl*>(context.parent_web_contents.get());
 
   const SurfaceEmbedConnectorImpl& const_connector = *connector;
 
   // Verify getters can be called on a const reference.
-  EXPECT_EQ(const_connector.GetParentWebContentsView(),
-            GetParentWebContents()->GetView());
+  EXPECT_EQ(const_connector.GetParentWebContentsView(), parent_impl->GetView());
   EXPECT_EQ(const_connector.GetParentRenderViewHostDelegateView(),
-            GetParentWebContents()->GetDelegateView());
+            parent_impl->GetDelegateView());
 }
 
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest, Attach) {
+  MockSurfaceEmbedConnectorDelegate delegate;
+  auto context = SetupSetViewTest(&delegate);
+  auto* parent_impl =
+      static_cast<WebContentsImpl*>(context.parent_web_contents.get());
+
+  // Verify the connector is attached to the child WebContents.
+  auto* connector = context.child_web_contents->GetSurfaceEmbedConnector();
+  ASSERT_TRUE(connector);
+
+  // Verify properties.
+  EXPECT_EQ(connector->GetDelegate(), &delegate);
+  EXPECT_EQ(static_cast<SurfaceEmbedConnectorImpl*>(connector)
+                ->GetParentWebContentsView(),
+            parent_impl->GetView());
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest,
+                       FrameConnectorImplementation) {
+  MockSurfaceEmbedConnectorDelegate delegate;
+  auto context = SetupSetViewTest(&delegate);
+  auto* connector = context.connector.get();
+
+  // Verify FrameConnector implementation defaults.
+  //
+  // TODO(cammie): Many of these expectations will need to change when the stub
+  // implementations in SurfaceEmbedConnectorImpl are replaced with real ones.
+  // For example, methods like HasSize(), IsInert(), and LockPointer() currently
+  // return hardcoded default values (false, false, and kUnknownError
+  // respectively). These tests should be updated to verify the actual behavior
+  // once implemented.
+
+  EXPECT_EQ(connector->GetParentRenderWidgetHostView(), nullptr);
+  EXPECT_TRUE(
+      NavigateToURL(context.parent_web_contents.get(), GURL("about:blank")));
+  EXPECT_NE(connector->GetParentRenderWidgetHostView(), nullptr);
+  EXPECT_EQ(connector->GetRootRenderWidgetHostView(),
+            connector->GetParentRenderWidgetHostView());
+
+  // These return void, just call them to ensure no crash.
+  connector->RenderProcessGone();
+  connector->FirstSurfaceActivation(viz::SurfaceInfo());
+  connector->SendIntrinsicSizingInfoToParent(nullptr);
+  connector->SynchronizeVisualProperties(blink::FrameVisualProperties(), false);
+  connector->UpdateCursor(ui::Cursor());
+
+  EXPECT_EQ(connector->HasFocus(),
+            FrameConnector::RootViewFocusState::kNullView);
+
+  connector->FocusRootView();  // void
+
+  EXPECT_EQ(connector->LockPointer(false),
+            blink::mojom::PointerLockResult::kUnknownError);
+  EXPECT_EQ(connector->ChangePointerLock(false),
+            blink::mojom::PointerLockResult::kUnknownError);
+
+  connector->UnlockPointer();  // void
+
+  EXPECT_FALSE(connector->HasSize());
+
+  // Just check they return valid references/values
+  connector->GetScreenInfos();
+  connector->GetLocalSurfaceId();
+  connector->GetIntersectionState();
+
+  EXPECT_EQ(connector->GetCaptureSequenceNumber(), 0u);
+
+  connector->GetRectInParentViewInDip();
+  connector->GetLocalFrameSizeInDip();
+  connector->GetLocalFrameSizeInPixels();
+
+  EXPECT_EQ(connector->GetCssZoomFactor(), 1.0);
+
+  connector->EnableAutoResize(gfx::Size(), gfx::Size());  // void
+  connector->DisableAutoResize();                         // void
+
+  EXPECT_FALSE(connector->IsInert());
+  EXPECT_EQ(connector->InheritedEffectiveTouchAction(), cc::TouchAction::kAuto);
+  EXPECT_FALSE(connector->IsHidden());
+  EXPECT_FALSE(connector->IsThrottled());
+  EXPECT_FALSE(connector->IsSubtreeThrottled());
+  EXPECT_FALSE(connector->IsDisplayLocked());
+
+  connector->DidUpdateVisualProperties(cc::RenderFrameMetadata());  // void
+  connector->SetVisibilityForChildViews(true);                      // void
+  connector->SetLocalFrameSize(gfx::Size());                        // void
+  connector->SetRectInParentView(gfx::Rect());                      // void
+  connector->OnVisibilityChanged(
+      blink::mojom::FrameVisibility::kRenderedInViewport);  // void
+
+  EXPECT_TRUE(connector->IsVisible());
+
+  connector->DelegateWasShown();  // void
+
+  EXPECT_EQ(connector->EmbedderVisibility(), Visibility::VISIBLE);
+
+  EXPECT_EQ(connector->GetParentViewInput(),
+            connector->GetParentRenderWidgetHostView());
+  EXPECT_EQ(connector->GetRootViewInput(),
+            connector->GetParentRenderWidgetHostView());
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest, SetView) {
+  MockSurfaceEmbedConnectorDelegate delegate;
+  auto context = SetupSetViewTest(&delegate);
+
+  EXPECT_CALL(delegate, SetFrameSinkId(testing::_)).Times(1);
+  FrameConnector* original_connector =
+      context.rwhvcf->FrameConnectorForTesting();
+
+  context.connector->SetView(context.rwhvcf, false);
+
+  EXPECT_EQ(context.rwhvcf->FrameConnectorForTesting(), context.connector);
+
+  context.connector->SetView(nullptr, false);
+
+  EXPECT_EQ(context.rwhvcf->FrameConnectorForTesting(), nullptr);
+  context.rwhvcf->SetFrameConnector(original_connector);
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorImplBrowserTest,
+                       SetViewReplacesViewAndVisibility) {
+  MockSurfaceEmbedConnectorDelegate delegate;
+  auto context = SetupSetViewTest(&delegate);
+
+  FrameConnector* original_connector =
+      context.rwhvcf->FrameConnectorForTesting();
+
+  EXPECT_CALL(delegate, SetFrameSinkId(testing::_)).Times(3);
+
+  context.connector->SetView(context.rwhvcf, false);
+
+  // Call it again to hit the `if (view_)` replacement path and coverage.
+  context.connector->SetView(context.rwhvcf, false);
+
+  // Now test SetView when visibility is not kRenderedInViewport.
+  context.connector->OnVisibilityChanged(
+      blink::mojom::FrameVisibility::kNotRendered);
+  context.connector->SetView(context.rwhvcf, false);
+
+  context.connector->SetView(nullptr, false);
+  context.rwhvcf->SetFrameConnector(original_connector);
+}
 }  // namespace content

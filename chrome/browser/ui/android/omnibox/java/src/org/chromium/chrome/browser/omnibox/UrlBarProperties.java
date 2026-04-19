@@ -41,17 +41,21 @@ class UrlBarProperties {
         /** Specifies how the text should be selected in the focused state. */
         public final Range<Integer> selection;
 
+        public final boolean originChanged;
+
         public UrlBarTextState(
                 CharSequence text,
                 CharSequence textForAutofillServices,
                 @ScrollType int scrollType,
                 int scrollToIndex,
-                Range<Integer> selection) {
+                Range<Integer> selection,
+                boolean originChanged) {
             this.text = text;
             this.textForAutofillServices = textForAutofillServices;
             this.scrollType = scrollType;
             this.scrollToIndex = scrollToIndex;
             this.selection = selection;
+            this.originChanged = originChanged;
         }
 
         @Override
@@ -116,6 +120,10 @@ class UrlBarProperties {
     /** Whether focus should be allowed on the view. */
     public static final WritableBooleanPropertyKey ALLOW_FOCUS = new WritableBooleanPropertyKey();
 
+    /** Whether multiline input should be allowed on the view. */
+    public static final WritableBooleanPropertyKey ALLOW_MULTILINE_INPUT =
+            new WritableBooleanPropertyKey();
+
     /** Specified the autocomplete text to be shown to the user. */
     public static final WritableObjectPropertyKey<AutocompleteText> AUTOCOMPLETE_TEXT =
             new WritableObjectPropertyKey<>();
@@ -146,9 +154,6 @@ class UrlBarProperties {
     public static final WritableBooleanPropertyKey INCOGNITO_COLORS_ENABLED =
             new WritableBooleanPropertyKey();
 
-    /** Whether UrlBar is running in Cct. */
-    public static final WritableBooleanPropertyKey IS_IN_CCT = new WritableBooleanPropertyKey();
-
     /** The callback to be notified on url key events. */
     public static final WritableObjectPropertyKey<View.OnKeyListener> KEY_DOWN_LISTENER =
             new WritableObjectPropertyKey<>();
@@ -171,6 +176,10 @@ class UrlBarProperties {
     /** The callback to be notified on url text changes. */
     public static final WritableObjectPropertyKey<Callback<String>> TEXT_CHANGE_LISTENER =
             new WritableObjectPropertyKey<>();
+
+    /** The callback to be notified on raw url text changes (rich context). */
+    public static final WritableObjectPropertyKey<Callback<UrlBarTextChangeInfo>>
+            RICH_TEXT_CHANGE_LISTENER = new WritableObjectPropertyKey<>();
 
     /** Specifies the color for url bar text. */
     public static final WritableIntPropertyKey TEXT_COLOR = new WritableIntPropertyKey();
@@ -199,6 +208,7 @@ class UrlBarProperties {
             new PropertyKey[] {
                 ACTION_MODE_CALLBACK,
                 ALLOW_FOCUS,
+                ALLOW_MULTILINE_INPUT,
                 AUTOCOMPLETE_TEXT,
                 DELEGATE,
                 FOCUS_CHANGE_CALLBACK,
@@ -206,13 +216,13 @@ class UrlBarProperties {
                 HINT_TEXT,
                 HINT_TEXT_COLOR,
                 INCOGNITO_COLORS_ENABLED,
-                IS_IN_CCT,
                 KEY_DOWN_LISTENER,
                 LONG_CLICK_LISTENER,
                 SELECT_ALL_ON_FOCUS,
                 SHOW_CURSOR,
                 SHOW_HINT_TEXT,
                 TEXT_CHANGE_LISTENER,
+                RICH_TEXT_CHANGE_LISTENER,
                 TEXT_COLOR,
                 TEXT_CONTEXT_MENU_DELEGATE,
                 TEXT_STATE,

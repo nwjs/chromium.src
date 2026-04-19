@@ -42,6 +42,7 @@ class Configurator;
 }
 
 namespace extensions {
+class ChromeProcessManagerDelegate;
 class ComponentExtensionResourceManager;
 class EventRouterForwarder;
 class ExtensionCache;
@@ -195,6 +196,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   std::unique_ptr<ScopedBrowserContextKeepAlive> CreateCrxInstallerKeepAlive(
       content::BrowserContext* context) override;
   bool IsActivityLoggingEnabled(content::BrowserContext* context) override;
+  bool IsTelemetryLoggingEnabled(content::BrowserContext* context) override;
   void GetTabAndWindowIdForWebContents(content::WebContents* web_contents,
                                        int* tab_id,
                                        int* window_id) override;
@@ -308,6 +310,15 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   InstallStageTracker* GetInstallStageTracker(
       content::BrowserContext* context) override;
   InstallTracker* GetInstallTracker(content::BrowserContext* context) override;
+  InstallVerifier* GetInstallVerifier(
+      content::BrowserContext* context) override;
+  SharedModuleService* GetSharedModuleService(
+      content::BrowserContext* context) override;
+  void UpdateCheckIfEnabled(content::BrowserContext* context) override;
+  base::FilePath GetUserDataDir() override;
+  scoped_refptr<CrxInstaller> CreateCrxInstallerFromDownloadItem(
+      content::BrowserContext* context,
+      const download::DownloadItem& download) override;
 
   static void set_did_chrome_update_for_testing(bool did_update);
 
@@ -327,7 +338,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
       const std::string& extra);
 
   // Support for ProcessManager. May be null on some platforms (e.g. Android).
-  std::unique_ptr<ProcessManagerDelegate> process_manager_delegate_;
+  std::unique_ptr<ChromeProcessManagerDelegate> process_manager_delegate_;
 
   // May be null on some platforms (e.g. Android).
   std::unique_ptr<ComponentExtensionResourceManager> resource_manager_;

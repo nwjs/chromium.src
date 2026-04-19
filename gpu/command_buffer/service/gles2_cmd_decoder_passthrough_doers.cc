@@ -10,7 +10,6 @@
 #include "base/compiler_specific.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_number_conversions.h"
@@ -39,6 +38,9 @@
 #include "ui/gl/gl_utils.h"
 #include "ui/gl/gl_version_info.h"
 #include "ui/gl/scoped_make_current.h"
+#include "base/time/time.h"
+#include "base/check_op.h"
+#include "base/check.h"
 
 namespace gpu {
 namespace gles2 {
@@ -742,12 +744,10 @@ error::Error GLES2DecoderPassthroughImpl::DoCompressedTexImage2D(
     GLsizei height,
     GLint border,
     GLsizei image_size,
-    GLsizei data_size,
     const void* data) {
   CheckErrorCallbackState();
-  api()->glCompressedTexImage2DRobustANGLEFn(target, level, internalformat,
-                                             width, height, border, image_size,
-                                             data_size, data);
+  api()->glCompressedTexImage2DFn(target, level, internalformat, width, height,
+                                  border, image_size, data);
   if (CheckErrorCallbackState()) {
     return error::kNoError;
   }
@@ -770,11 +770,9 @@ error::Error GLES2DecoderPassthroughImpl::DoCompressedTexSubImage2D(
     GLsizei height,
     GLenum format,
     GLsizei image_size,
-    GLsizei data_size,
     const void* data) {
-  api()->glCompressedTexSubImage2DRobustANGLEFn(target, level, xoffset, yoffset,
-                                                width, height, format,
-                                                image_size, data_size, data);
+  api()->glCompressedTexSubImage2DFn(target, level, xoffset, yoffset, width,
+                                     height, format, image_size, data);
 
   // Texture data upload can be slow.  Exit command processing to allow for
   // context preemption and GPU watchdog checks.
@@ -792,12 +790,10 @@ error::Error GLES2DecoderPassthroughImpl::DoCompressedTexImage3D(
     GLsizei depth,
     GLint border,
     GLsizei image_size,
-    GLsizei data_size,
     const void* data) {
   CheckErrorCallbackState();
-  api()->glCompressedTexImage3DRobustANGLEFn(target, level, internalformat,
-                                             width, height, depth, border,
-                                             image_size, data_size, data);
+  api()->glCompressedTexImage3DFn(target, level, internalformat, width, height,
+                                  depth, border, image_size, data);
   if (CheckErrorCallbackState()) {
     return error::kNoError;
   }
@@ -822,11 +818,10 @@ error::Error GLES2DecoderPassthroughImpl::DoCompressedTexSubImage3D(
     GLsizei depth,
     GLenum format,
     GLsizei image_size,
-    GLsizei data_size,
     const void* data) {
-  api()->glCompressedTexSubImage3DRobustANGLEFn(
-      target, level, xoffset, yoffset, zoffset, width, height, depth, format,
-      image_size, data_size, data);
+  api()->glCompressedTexSubImage3DFn(target, level, xoffset, yoffset, zoffset,
+                                     width, height, depth, format, image_size,
+                                     data);
 
   // Texture data upload can be slow.  Exit command processing to allow for
   // context preemption and GPU watchdog checks.
@@ -4324,8 +4319,9 @@ GLES2DecoderPassthroughImpl::DoGetTransformFeedbackVaryingsCHROMIUM(
   api()->glGetProgramivFn(service_program, GL_TRANSFORM_FEEDBACK_VARYINGS,
                           &num_transform_feedback_varyings);
 
-  // Resize the data to fit the headers and info objects so that strings can be
-  // appended.
+  // Resize the data to fit the headers and info objects. Strings will be
+  // appended at the end of the buffer and info objects will point to the
+  // strings using their offset in the buffer.
   const base::CheckedNumeric<size_t> buffer_header_size(
       sizeof(TransformFeedbackVaryingsHeader));
   const base::CheckedNumeric<size_t> buffer_block_size(
@@ -4362,12 +4358,15 @@ GLES2DecoderPassthroughImpl::DoGetTransformFeedbackVaryingsCHROMIUM(
     varying_info.size = size;
     varying_info.type = type;
 
+    // Add the string at the end and make the info object point at it using its
+    // offset.
     DCHECK(length + 1 <= max_transform_feedback_varying_length);
-    varying_info.name_length = data->size();
+    varying_info.name_offset = data->size();
     varying_info.name_length = length + 1;
     AppendStringToBuffer(data, transform_feedback_varying_name_buf.data(),
                          length + 1);
 
+    // Put the header info in the previously reserved space in the buffer.
     InsertValueIntoBuffer(
         data, varying_info,
         (buffer_header_size +
@@ -5163,6 +5162,38 @@ GLES2DecoderPassthroughImpl::DoGetFramebufferPixelLocalStorageParameterivANGLE(
   }
 
   if (PatchGetFramebufferPixelLocalStorageParameterivANGLE(
+          plane, pname, *length, params) != error::kNoError) {
+    *length = 0;
+    return error::kInvalidArguments;
+  }
+
+  return error::kNoError;
+}
+
+error::Error
+GLES2DecoderPassthroughImpl::DoGetFramebufferPixelLocalStorageParameteruivANGLE(
+    GLint plane,
+    GLenum pname,
+    GLsizei bufsize,
+    GLsizei* length,
+    GLuint* params) {
+  if (IsEmulatedFramebufferBound(GL_DRAW_FRAMEBUFFER)) {
+    InsertError(GL_INVALID_OPERATION, kPLSDefaultFramebufferBound);
+    *length = 0;
+    return error::kNoError;
+  }
+
+  CheckErrorCallbackState();
+
+  api()->glGetFramebufferPixelLocalStorageParameteruivRobustANGLEFn(
+      plane, pname, bufsize, length, params);
+
+  if (CheckErrorCallbackState()) {
+    *length = 0;
+    return error::kNoError;
+  }
+
+  if (PatchGetFramebufferPixelLocalStorageParameteruivANGLE(
           plane, pname, *length, params) != error::kNoError) {
     *length = 0;
     return error::kInvalidArguments;

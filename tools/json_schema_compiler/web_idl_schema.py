@@ -199,9 +199,20 @@ def _ExtractNodeComment(node: IDLNode) -> str:
   if ext_attribute_node is not None:
     return _ExtractNodeComment(ext_attribute_node)
 
-  # Since we do the logic above for extended attributes, the 'parent' is
-  # actually the grandparent for them.
-  if node.GetClass() == 'ExtAttributes':
+  # Similarly to extended attributes, the type can also be on a preceding line
+  # from the identifier, so we also check for it. However, in some cases (like
+  # callback definitions) the type can be after the identifier, so we only use
+  # it if it's on a preceding or the same line.
+  type_node = node.GetOneOf('Type')
+  if type_node is not None:
+    _, type_line_number = type_node.GetFileAndLine()
+    _, node_line_number = node.GetFileAndLine()
+    if type_line_number <= node_line_number:
+      return _ExtractNodeComment(type_node)
+
+  # Since we do the logic above for extended attributes and types, the 'parent'
+  # is actually the grandparent for them.
+  if node.GetClass() in ['ExtAttributes', 'Type']:
     parent_node = node.GetParent().GetParent()
   else:
     parent_node = node.GetParent()
@@ -632,7 +643,13 @@ class DictionaryMember(TypedProperty):
   def Process(self) -> dict:
     # TODO(crbug.com/340297705): Add support for extended attributes on custom
     # type members.
-    self.properties['name'] = self.node.GetName()
+    name = self.node.GetName()
+    self.properties['name'] = name
+    # If this member is for a callback with a return (e.g. has a 'returns'
+    # property) the name specified on the 'returns' is actually inherited from
+    # the member name.
+    if 'returns' in self.properties:
+      self.properties['returns']['name'] = name
 
     if not self.node.GetProperty('REQUIRED'):
       self.properties['optional'] = True

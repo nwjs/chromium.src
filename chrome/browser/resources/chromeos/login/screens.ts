@@ -61,6 +61,7 @@ import './screens/osauth/enter_old_password.js';
 import './screens/osauth/osauth_error.js';
 import './screens/osauth/password_selection.js';
 import './screens/osauth/pin_setup.js';
+import './screens/osauth/remove_local_auth_factors.js';
 // AUTHENTICATION SCREENS USED DURING THE LOGIN FLOW
 import './screens/osauth/cryptohome_recovery.js';
 // SCREENS USED DURING THE LOGIN FLOW
@@ -78,6 +79,8 @@ import './screens/oobe/demo_setup.js';
 import './screens/oobe/enable_debugging.js';
 import './screens/oobe/enterprise_enrollment.js';
 import './screens/oobe/fjord_fw_update.js';
+import './screens/oobe/fjord_image_download.js';
+import './screens/oobe/fjord_image_selection.js';
 import './screens/oobe/fjord_station_setup.js';
 import './screens/oobe/fjord_touch_controller.js';
 import './screens/oobe/hid_detection.js';
@@ -213,6 +216,7 @@ export const commonScreensList: OobeTypes.ScreensList = [
     id: 'user-allowlist-check-screen',
   },
   {tag: 'wrong-hwid-element', id: 'wrong-hwid'},
+  {tag: 'remove-local-auth-factors-element', id: 'remove-local-auth-factors'}
 ];
 
 /**
@@ -258,6 +262,16 @@ export const oobeScreensList: OobeTypes.ScreensList = [
     tag: 'fjord-fw-update-element',
     id: 'fjord-fw-update',
     condition: 'isFjordOobeEnabled',
+  },
+  {
+    tag: 'fjord-image-selection-element',
+    id: 'fjord-image-selection',
+    condition: 'isFjordOobeImageSwitchEnabled',
+  },
+  {
+    tag: 'fjord-image-download-element',
+    id: 'fjord-image-download',
+    condition: 'isFjordOobeImageSwitchEnabled',
   },
   {
     tag: 'fjord-station-setup-element',

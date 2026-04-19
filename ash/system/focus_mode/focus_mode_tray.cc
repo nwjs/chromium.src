@@ -35,6 +35,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/animation_builder.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout_view.h"
 
@@ -170,17 +171,15 @@ BEGIN_METADATA(FocusModeTray, TaskItemView)
 END_METADATA
 
 FocusModeTray::FocusModeTray(Shelf* shelf)
-    : TrayBackgroundView(shelf,
-                         TrayBackgroundViewCatalogName::kFocusMode,
-                         RoundedCornerBehavior::kAllRounded),
-      image_view_(tray_container()->AddChildView(
-          std::make_unique<views::ImageView>())) {
+    : ImagedTrayIcon(
+          shelf,
+          ui::ImageModel::FromVectorIcon(kFocusModeLampIcon,
+                                         cros_tokens::kCrosSysOnSurface),
+          /*tooltip=*/std::u16string(),
+          /*accessibility_name=*/std::u16string(),
+          TrayBackgroundViewCatalogName::kFocusMode) {
   SetCallback(base::BindRepeating(&FocusModeTray::FocusModeIconActivated,
                                   weak_ptr_factory_.GetWeakPtr()));
-
-  image_view_->SetHorizontalAlignment(views::ImageView::Alignment::kCenter);
-  image_view_->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
-  image_view_->SetPreferredSize(gfx::Size(kTrayItemSize, kTrayItemSize));
 
   tray_container()->SetPaintToLayer();
   tray_container()->layer()->SetFillsBoundsOpaquely(false);
@@ -362,11 +361,6 @@ void FocusModeTray::UpdateTrayItemColor(bool is_active) {
   UpdateTrayIcon();
 }
 
-void FocusModeTray::OnThemeChanged() {
-  TrayBackgroundView::OnThemeChanged();
-  UpdateTrayIcon();
-}
-
 void FocusModeTray::OnAnimationEnded() {
   TrayBackgroundView::OnAnimationEnded();
 
@@ -511,8 +505,8 @@ void FocusModeTray::Layout(PassKey) {
   // orientation and tablet mode, but there is already logic to keep the image
   // view centered that we can use.
   gfx::Rect progress_bounds = gfx::Rect(views::View::ConvertRectToTarget(
-      /*source=*/image_view_,
-      /*target=*/tray_container(), image_view_->GetImageBounds()));
+      /*source=*/image_view(),
+      /*target=*/tray_container(), image_view()->GetImageBounds()));
   progress_bounds.Inset(kProgressIndicatorInsets);
   progress_indicator_->layer()->SetBounds(progress_bounds);
 }
@@ -548,11 +542,10 @@ void FocusModeTray::CreateTaskItemView(const std::string& task_title) {
 }
 
 void FocusModeTray::UpdateTrayIcon() {
-  SkColor color = GetColorProvider()->GetColor(
-      is_active() ? cros_tokens::kCrosSysSystemOnPrimaryContainer
-                  : cros_tokens::kCrosSysOnSurface);
-  image_view_->SetImage(
-      ui::ImageModel::FromVectorIcon(kFocusModeLampIcon, color));
+  image_view()->SetImage(ui::ImageModel::FromVectorIcon(
+      kFocusModeLampIcon, is_active()
+                              ? cros_tokens::kCrosSysSystemOnPrimaryContainer
+                              : cros_tokens::kCrosSysOnSurface));
 }
 
 void FocusModeTray::FocusModeIconActivated(const ui::Event& event) {
@@ -708,7 +701,7 @@ void FocusModeTray::CloseBubbleAndMaybeReset(bool should_reset) {
 void FocusModeTray::UpdateAccessibleName() {
   if (!session_snapshot_) {
     GetViewAccessibility().RemoveName();
-    image_view_->SetTooltipText(std::u16string());
+    SetTooltip(std::u16string());
     return;
   }
 
@@ -730,10 +723,8 @@ void FocusModeTray::UpdateAccessibleName() {
         duration_string);
   }
 
-  GetViewAccessibility().SetName(name);
-  if (image_view_) {
-    image_view_->SetTooltipText(name);
-  }
+  SetAccessibilityName(name);
+  SetTooltip(name);
 }
 
 BEGIN_METADATA(FocusModeTray)

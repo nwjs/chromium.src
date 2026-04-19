@@ -28,6 +28,7 @@
 #include "cc/metrics/compositor_timing_history.h"
 #include "cc/scheduler/headless_scheduler_state_machine.h"
 #include "cc/scheduler/scheduler_state_machine.h"
+#include "cc/scheduler/slim_scheduler_state_machine.h"
 #include "cc/scheduler/webview_scheduler_state_machine.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/delay_based_time_source.h"
@@ -65,6 +66,9 @@ Scheduler::Scheduler(
              base::FeatureList::IsEnabled(
                  features::kWebviewSchedulerStateMachine)) {
     state_machine_ = std::make_unique<WebviewSchedulerStateMachine>(settings);
+  } else if (base::FeatureList::IsEnabled(features::kSlimScheduler) &&
+             !settings_.single_threaded_proxy) {
+    state_machine_ = std::make_unique<SlimSchedulerStateMachine>(settings);
   } else {
     state_machine_ = std::make_unique<SchedulerStateMachine>(settings);
   }
@@ -226,10 +230,9 @@ void Scheduler::DidReceiveCompositorFrameAck() {
 
 void Scheduler::SetTreePrioritiesAndScrollState(
     TreePriority tree_priority,
-    ScrollHandlerState scroll_handler_state,
     bool is_current_scroll_main_painted) {
   state_machine_->SetTreePrioritiesAndScrollState(
-      tree_priority, scroll_handler_state, is_current_scroll_main_painted);
+      tree_priority, is_current_scroll_main_painted);
   ProcessScheduledActions();
 }
 
@@ -301,23 +304,6 @@ void Scheduler::NotifyBeginMainFrameStarted(
 
 base::TimeTicks Scheduler::LastBeginImplFrameTime() {
   return begin_impl_frame_tracker_.Current().frame_time;
-}
-
-void Scheduler::BeginMainFrameNotExpectedUntil(base::TimeTicks time) {
-  TRACE_EVENT1("cc", "Scheduler::BeginMainFrameNotExpectedUntil",
-               "remaining_time", (time - Now()).InMillisecondsF());
-
-  DCHECK(!inside_scheduled_action_);
-  base::AutoReset<bool> mark_inside(&inside_scheduled_action_, true);
-  client_->ScheduledActionBeginMainFrameNotExpectedUntil(time);
-}
-
-void Scheduler::BeginMainFrameNotExpectedSoon() {
-  TRACE_EVENT0("cc", "Scheduler::BeginMainFrameNotExpectedSoon");
-
-  DCHECK(!inside_scheduled_action_);
-  base::AutoReset<bool> mark_inside(&inside_scheduled_action_, true);
-  client_->SendBeginMainFrameNotExpectedSoon();
 }
 
 void Scheduler::StartOrStopBeginFrames() {
@@ -917,12 +903,6 @@ void Scheduler::SetPauseRendering(bool pause_rendering) {
   ProcessScheduledActions();
 }
 
-void Scheduler::SetMainThreadWantsBeginMainFrameNotExpected(bool new_state) {
-  state_machine_->SetMainThreadWantsBeginMainFrameNotExpectedMessages(
-      new_state);
-  ProcessScheduledActions();
-}
-
 void Scheduler::ProcessScheduledActions() {
   // Do not perform actions during compositor shutdown.
   if (stopped_)
@@ -957,17 +937,6 @@ void Scheduler::ProcessScheduledActions() {
         state_machine_->WillSendBeginMainFrame();
         client_->ScheduledActionSendBeginMainFrame(begin_main_frame_args_);
         last_dispatched_begin_main_frame_args_ = begin_main_frame_args_;
-        break;
-      case SchedulerStateMachine::Action::
-          NOTIFY_BEGIN_MAIN_FRAME_NOT_EXPECTED_UNTIL:
-        state_machine_->WillNotifyBeginMainFrameNotExpectedUntil();
-        BeginMainFrameNotExpectedUntil(begin_main_frame_args_.frame_time +
-                                       begin_main_frame_args_.interval);
-        break;
-      case SchedulerStateMachine::Action::
-          NOTIFY_BEGIN_MAIN_FRAME_NOT_EXPECTED_SOON:
-        state_machine_->WillNotifyBeginMainFrameNotExpectedSoon();
-        BeginMainFrameNotExpectedSoon();
         break;
       case SchedulerStateMachine::Action::COMMIT:
         state_machine_->WillCommit(/*commit_had_no_updates=*/false);

@@ -43,6 +43,7 @@ bool IsSameSiteWithAncestors(const url::Origin& origin,
                              RenderFrameHost* render_frame_host);
 
 void SetIdpSigninStatus(BrowserContext* context,
+                        network::mojom::RequestDestination destination,
                         FrameTreeNodeId frame_tree_node_id,
                         const url::Origin& origin,
                         blink::mojom::IdpSigninStatus status);
@@ -120,6 +121,7 @@ bool DidNavigationHandleHaveActivation(NavigationHandle* handle);
 // Creates a Perfetto track for the class pointed to by `class_pointer`.
 perfetto::NamedTrack CreatePerfettoTrackForFedCM(void* class_pointer);
 
+bool HasEmbedderLoginRequest(RenderFrameHost* rfh);
 }  // namespace webid
 
 }  // namespace content

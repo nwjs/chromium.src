@@ -34,6 +34,10 @@ class CORE_EXPORT HTMLDivElement : public HTMLElement {
  public:
   explicit HTMLDivElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLDivElement;
+  }
+
  private:
   void CollectStyleForPresentationAttribute(
       const QualifiedName&,

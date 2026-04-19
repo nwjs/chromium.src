@@ -10,6 +10,10 @@ import android.os.IBinder;
 
 import org.chromium.base.Log;
 
+/**
+ * Helper service to provide a bridge between instrumentation tests and the
+ * AccessibilityTestService.
+ */
 public class AccessibilityTestHelperService extends Service {
     private static final String TAG = "A11yTestHelperSvc";
 
@@ -32,6 +36,12 @@ public class AccessibilityTestHelperService extends Service {
                 public boolean performActionOnNode(String className, String text, int action) {
                     Log.i(TAG, "performActionOnNode called in HelperService");
                     return AccessibilityTestService.tryPerformActionOnNode(className, text, action);
+                }
+
+                @Override
+                public String dumpWebContentsAccessibilityTree() {
+                    Log.i(TAG, "dumpWebContentsAccessibilityTree called in HelperService");
+                    return AccessibilityTestService.dumpWebContentsAccessibilityTree();
                 }
             };
 

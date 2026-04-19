@@ -268,7 +268,10 @@ bool StylePropertySerializer::CSSPropertyValueSetForSerializer::
 int StylePropertySerializer::CSSPropertyValueSetForSerializer::
     FindPropertyIndex(const CSSProperty& property) const {
   CSSPropertyID property_id = property.PropertyID();
-  if (!HasExpandedAllProperty()) {
+  if (!need_to_expand_all_) {
+    if (HasAllProperty() && IsCSSPropertyIDWithName(property_id)) {
+      return all_index_;
+    }
     return property_set_->FindPropertyIndex(property_id);
   }
 
@@ -1496,7 +1499,7 @@ String StylePropertySerializer::FontVariantValue() const {
 
   AppendFontLonghandValueIfNotNormal(GetCSSPropertyFontVariantLigatures(),
                                      result);
-  if (result.ToString() == "none") {
+  if (result == "none") {
     is_variant_ligatures_none = true;
   }
   const unsigned variant_ligatures_result_length = result.length();
@@ -1605,10 +1608,10 @@ String StylePropertySerializer::OffsetValue() const {
   const CSSValue* anchor =
       property_set_.GetPropertyCSSValue(GetCSSPropertyOffsetAnchor());
 
-  auto is_initial_identifier_value = [](const CSSValue* value,
+  auto is_initial_identifier_value = [](const CSSValue& value,
                                         CSSValueID id) -> bool {
-    return value->IsIdentifierValue() &&
-           DynamicTo<CSSIdentifierValue>(value)->GetValueID() == id;
+    auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
+    return identifier_value && identifier_value->GetValueID() == id;
   };
 
   bool use_distance =
@@ -1616,7 +1619,7 @@ String StylePropertySerializer::OffsetValue() const {
                     To<CSSNumericLiteralValue>(*distance).DoubleValue() == 0.0);
   const auto* rotate_list_value = DynamicTo<CSSValueList>(rotate);
   bool is_rotate_auto = rotate_list_value && rotate_list_value->length() == 1 &&
-                        is_initial_identifier_value(&rotate_list_value->First(),
+                        is_initial_identifier_value(rotate_list_value->First(),
                                                     CSSValueID::kAuto);
   bool is_rotate_zero =
       rotate_list_value && rotate_list_value->length() == 1 &&
@@ -1628,20 +1631,20 @@ String StylePropertySerializer::OffsetValue() const {
       rotate_list_value->Item(1).IsNumericLiteralValue() &&
       (To<CSSNumericLiteralValue>(rotate_list_value->Item(1)).DoubleValue() ==
        0.0) &&
-      is_initial_identifier_value(&rotate_list_value->Item(0),
+      is_initial_identifier_value(rotate_list_value->Item(0),
                                   CSSValueID::kAuto);
   bool use_rotate =
       rotate && ((use_distance && is_rotate_zero) ||
-                 (!is_initial_identifier_value(rotate, CSSValueID::kAuto) &&
+                 (!is_initial_identifier_value(*rotate, CSSValueID::kAuto) &&
                   !is_rotate_auto && !is_rotate_auto_zero));
   bool use_path =
       path && (use_rotate || use_distance ||
-               !is_initial_identifier_value(path, CSSValueID::kNone));
+               !is_initial_identifier_value(*path, CSSValueID::kNone));
   bool use_position =
-      position && (!use_path ||
-                   !is_initial_identifier_value(position, CSSValueID::kNormal));
+      position && (!use_path || !is_initial_identifier_value(
+                                    *position, CSSValueID::kNormal));
   bool use_anchor =
-      anchor && (!is_initial_identifier_value(anchor, CSSValueID::kAuto));
+      anchor && (!is_initial_identifier_value(*anchor, CSSValueID::kAuto));
 
   StringBuilder result;
   if (use_position) {
@@ -2226,6 +2229,14 @@ String StylePropertySerializer::GetShorthandValueForBidirectionalGapRuleInset(
                               row_rule_interior_end_inset_value)) {
     return String();
   }
+  if (AllCSSValuesEqual(
+          {column_rule_edge_start_inset_value,
+           column_rule_edge_end_inset_value,
+           column_rule_interior_start_inset_value,
+           column_rule_interior_end_inset_value})) {
+    return column_rule_edge_start_inset_value->CssText();
+  }
+
   if (!column_rule_edge_start_inset_value->IsInitialValue()) {
     result.Append(column_rule_edge_start_inset_value->CssText());
     result.Append(' ');
@@ -2616,6 +2627,13 @@ String StylePropertySerializer::GetShorthandValueForGapDecorationsRuleInset(
   // All values must be specified.
   CHECK(rule_edge_start_inset_value && rule_edge_end_inset_value &&
         rule_interior_start_inset_value && rule_interior_end_inset_value);
+
+  if (AllCSSValuesEqual(
+          {rule_edge_start_inset_value, rule_edge_end_inset_value,
+           rule_interior_start_inset_value,
+           rule_interior_end_inset_value})) {
+    return rule_edge_start_inset_value->CssText();
+  }
 
   StringBuilder result;
   result.Append(rule_edge_start_inset_value->CssText());

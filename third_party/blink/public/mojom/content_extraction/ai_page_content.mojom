@@ -4,13 +4,13 @@
 
 module blink.mojom;
 
+import "third_party/blink/public/mojom/content_extraction/script_tools.mojom";
 import "third_party/blink/public/mojom/forms/form_control_type.mojom";
 import "third_party/blink/public/mojom/tokens/tokens.mojom";
 import "ui/accessibility/ax_enums.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
-import "third_party/blink/public/mojom/content_extraction/script_tools.mojom";
 
 // This is a mojom representation of the corresponding AnnotatedPageContent
 // proto.
@@ -171,7 +171,7 @@ enum AIPageContentClickabilityReason {
   // The node has a click event handler.
   kClickEvents,
 
-    // The node has mouse event handlers like mouseup and mousedown.
+  // The node has mouse event handlers like mouseup and mousedown.
   kMouseClick,
 
   // The node has mouse event handlers like mouseover and mouseenter.
@@ -212,6 +212,14 @@ enum AIPageContentClickabilityReason {
 
   // The node has a CSS :hover pseudo-class that would affect it on hover.
   kHoverPseudoClass,
+
+  // The node has the aria-checked or aria-pressed attribute indicating it can
+  // be toggled.
+  kAriaToggle,
+
+  // The node has the aria-selected attribute indicating it can be selected or
+  // unselected.
+  kAriaSelectable,
 };
 
 // Provides hints to indicate that interaction with the element is disabled.
@@ -226,8 +234,31 @@ struct AIPageContentNodeInteractionInfo {
   // state.
   AIPageContentScrollerInfo? scroller_info;
 
-  // Whether the content node is focusable.
+  // Whether the content node is focusable. See also `is_tabbable`.
+  // A node can be focusable even if it is not tabbable. For
+  // example, every option in a long listbox might be focusable, but
+  // only reachable using the arrow keys. In this case the options
+  // would likely have a negative tabindex, allowing them to be
+  // focused by click or by script.
   bool is_focusable;
+
+  // Whether the content node is tabbable. This is determined by whether the
+  // node is focusable and has a non-negative computed tab index (usually 0,
+  // which indicates it fits into the tab cycle in its natural order).
+  bool is_tabbable;
+
+  // Whether the content node has the aria-activedescendant attribute set. This
+  // attribute is used to indicate which element in a set of child elements is
+  // currently active.
+  bool has_aria_activedescendant;
+
+  // Secondary-action targets for a container widget as specified by the
+  // aria-actions attribute. This lets APC represent cases where both the
+  // container and the secondary action element are actionable, such as:
+  // - split buttons
+  // - tabs with close buttons
+  // - listbox options with a secondary button inside of the option
+  array<int32> aria_action_target_node_ids;
 
   // The z-order of the content node relative to other nodes in the same
   // Document. A higher value means the node is in front of other nodes with
@@ -250,7 +281,8 @@ struct AIPageContentNodeInteractionInfo {
   // events. This is false for nodes which are not hit-testable and will ignore
   // events, for example with `pointer-events: none`.
   //
-  // TODO(b/465736813): Deprecate when consumers move to `interaction_disabled_reasons`.
+  // TODO(b/465736813): Deprecate when consumers move to
+  // `interaction_disabled_reasons`.
   bool is_disabled;
 
   // Provides hints on why the interaction with the element is disabled.
@@ -410,6 +442,11 @@ struct AIPageContentIframeData {
 
 struct AIPageContentTableData {
   // The name of the table, coming from the caption.
+  // Note: this field has some quirks for backwards-compatibility reasons:
+  // 1. It is only populated if the table name is an immediate child of the
+  //    table element. Table names further down in the tree are skipped, leaving
+  //    this field empty.
+  // 2. The table name also will appear in a separate child text node.
   string? table_name;
 };
 
@@ -460,7 +497,7 @@ enum AIPageContentRedactionDecision {
   kRedacted_CustomPassword_CSS,
   // Is a password-like input detected by heuristic redaction based on a
   // JavaScript-masked value (e.g. mostly bullet-like masking characters).
-  kRedacted_CustomPassword_JS
+  kRedacted_CustomPassword_JS,
 };
 
 struct AIPageContentFormControlData {
@@ -488,8 +525,6 @@ struct AIPageContentFormControlData {
   // Whether the field is read-only.
   bool is_readonly;
 
-// Redaction decision for form fields.
-  AIPageContentRedactionDecision redaction_decision;
 };
 
 struct AIPageContentAttributes {
@@ -528,6 +563,12 @@ struct AIPageContentAttributes {
 
   // Only set if attribute_type is kFormControl.
   AIPageContentFormControlData? form_control_data;
+
+  // Redaction decision for this content node.
+  //
+  // This is the canonical redaction signal for all node types, including form
+  // controls and contenteditable controls represented as form controls.
+  AIPageContentRedactionDecision redaction_decision;
 
   // Only set if attribute_type is kTable.
   AIPageContentTableData? table_data;
@@ -611,6 +652,12 @@ enum AIPageContentMode {
   kActionableElements,
 };
 
+// Configuration for filtering out content that is not salient.
+struct NonSalientContentConfig {
+  // Whether to skip nodes and subtrees identified as ads.
+  bool exclude_ad_related = false;
+};
+
 struct AIPageContentOptions {
   // Configures which content is included in the extracted APC.
   AIPageContentMode mode;
@@ -636,7 +683,11 @@ struct AIPageContentOptions {
   // includes the browser UI in the window.
   gfx.mojom.Rect main_frame_view_rect_in_dips;
 
-  // Whether to include data for visible passwords.
+  // If enabled, the renderer will include the geometry for all nodes flagged
+  // for redaction so they can be obscured in screenshots by the browser.
+  // Note: While named "passwords" for consistency with browser-side
+  // variables, this also includes other sensitive content identified by the
+  // renderer (e.g. via -webkit-text-security).
   bool include_passwords_for_redaction = false;
 
   // Whether to include data for visible sensitive payment information.
@@ -650,6 +701,10 @@ struct AIPageContentOptions {
   // For better overall Blink performance, request node ids only for attribute
   // types that require DOM round-trip behavior.
   array<AIPageContentAttributeType>? node_id_allowlist;
+
+  // Optional configuration to exclude non-salient content from the extracted
+  // representation.
+  NonSalientContentConfig? non_salient_content_config;
 };
 
 // Used to obtain the AIPageContent representation for Documents. Lives in the

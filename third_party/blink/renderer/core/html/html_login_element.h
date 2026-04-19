@@ -24,6 +24,10 @@ class CORE_EXPORT HTMLLoginElement : public HTMLElement {
  public:
   explicit HTMLLoginElement(Document&);
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLLoginElement;
+  }
+
   ScriptValue credential(ScriptState*) const;
 
   Vector<mojom::blink::IdentityProviderRequestOptionsPtr>

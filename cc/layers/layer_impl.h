@@ -35,9 +35,9 @@
 #include "cc/tiles/tile_priority.h"
 #include "cc/trees/damage_reason.h"
 #include "cc/trees/target_property.h"
-#include "cc/trees/tracked_element_bounds.h"
 #include "components/viz/common/quads/shared_quad_state.h"
 #include "components/viz/common/surfaces/region_capture_bounds.h"
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/point3_f.h"
@@ -150,6 +150,8 @@ class CC_EXPORT LayerImpl {
                            viz::CompositorRenderPass* render_pass,
                            AppendQuadsData* append_quads_data) {}
   virtual void DidDraw(viz::ClientResourceProvider* resource_provider) {}
+
+  virtual bool ComputeCheckerboardedNeedsRecord();
 
   // Verify that the resource ids in the quad are valid.
   void ValidateQuadResources(viz::DrawQuad* quad) const {
@@ -267,7 +269,7 @@ class CC_EXPORT LayerImpl {
     // The bounds of elements marked for potential region capture, stored in
     // the coordinate space of this layer.
     viz::RegionCaptureBounds capture_bounds;
-    TrackedElementBounds tracked_element_bounds;
+    viz::TrackedElementRects tracked_element_rects;
 
     Region main_thread_scroll_hit_test_region;
     std::vector<ScrollHitTestRect> non_composited_scroll_hit_test_rects;
@@ -333,9 +335,9 @@ class CC_EXPORT LayerImpl {
     return rare_properties_ ? &rare_properties_->capture_bounds : nullptr;
   }
 
-  void SetTrackedElementBounds(TrackedElementBounds bounds);
-  const TrackedElementBounds* tracked_element_bounds() const {
-    return rare_properties_ ? &rare_properties_->tracked_element_bounds
+  void SetTrackedElementRects(viz::TrackedElementRects rects);
+  const viz::TrackedElementRects* tracked_element_rects() const {
+    return rare_properties_ ? &rare_properties_->tracked_element_rects
                             : nullptr;
   }
 
@@ -414,7 +416,11 @@ class CC_EXPORT LayerImpl {
 
   virtual std::unique_ptr<LayerImpl> CreateLayerImpl(
       LayerTreeImpl* tree_impl) const;
-  virtual void PushPropertiesTo(LayerImpl* layer);
+  // Non-destructive and can be called repeatedly with different `layer` args.
+  virtual void CopyPropertiesTo(LayerImpl* layer) const;
+  // May changed state on `this`. This does the same thing as CopyPropertiesTo
+  // and additionally destructively moves non-copied bits of state.
+  virtual void MovePropertiesToActiveLayer(LayerImpl* active_layer);
 
   // Internal to property tree construction (which only happens in tests on a
   // LayerImpl tree. See Layer::IsSnappedToPixelGridInTarget() for explanation,
@@ -557,13 +563,13 @@ class CC_EXPORT LayerImpl {
                              AppendQuadsData* append_quads_data,
                              SkColor4f color,
                              float width) const;
+  gfx::Transform GetScaledDrawTransform(float layer_to_content_scale) const;
 
   static float GetPreferredRasterScale(
       gfx::Vector2dF raster_space_scale_factor);
 
  private:
   void ValidateQuadResourcesInternal(viz::DrawQuad* quad) const;
-  gfx::Transform GetScaledDrawTransform(float layer_to_content_scale) const;
 
   const int layer_id_;
   const raw_ptr<LayerTreeImpl> layer_tree_impl_;

@@ -289,15 +289,17 @@ bool WebSocketChannelImpl::Connect(const KURL& url, const String& protocol) {
   }
 
   if (auto* scheduler = execution_context_->GetScheduler()) {
-    // Two features are registered here:
-    // - `kWebSocket`: a non-sticky feature that will disable BFCache for any
-    // page. It will be reset after the `WebSocketChannel` is closed.
-    // - `kWebSocketSticky`: a sticky feature that will only disable BFCache for
-    // the page containing "Cache-Control: no-store" header. It won't be reset
-    // even if the `WebSocketChannel` is closed.
-    feature_handle_for_scheduler_ = scheduler->RegisterFeature(
-        SchedulingPolicy::Feature::kWebSocket,
-        SchedulingPolicy{SchedulingPolicy::DisableBackForwardCache()});
+    if (!RuntimeEnabledFeatures::DisconnectWebSocketOnBFCacheEnabled()) {
+      // Two features are registered here:
+      // - `kWebSocket`: a non-sticky feature that will disable BFCache for any
+      // page. It will be reset after the `WebSocketChannel` is closed.
+      // - `kWebSocketSticky`: a sticky feature that will only disable BFCache
+      // for the page containing "Cache-Control: no-store" header. It won't be
+      // reset even if the `WebSocketChannel` is closed.
+      feature_handle_for_scheduler_ = scheduler->RegisterFeature(
+          SchedulingPolicy::Feature::kWebSocket,
+          SchedulingPolicy{SchedulingPolicy::DisableBackForwardCache()});
+    }
     scheduler->RegisterStickyFeature(
         SchedulingPolicy::Feature::kWebSocketSticky,
         SchedulingPolicy{SchedulingPolicy::DisableBackForwardCache()});
@@ -622,8 +624,14 @@ void WebSocketChannelImpl::OnDataFrame(bool fin,
   DCHECK_EQ(GetState(), State::kOpen);
   DVLOG(1) << this << " OnDataFrame(" << fin << ", " << type << ", "
            << "(data_length = " << data_length << "))";
-  pending_data_frames_.push_back(
-      DataFrame(fin, type, static_cast<uint32_t>(data_length)));
+  if (!base::IsValueInRangeForNumericType<uint32_t>(data_length)) {
+    // TODO(crbug.com/489056768): Change the mojo type to uint32_t since
+    // frames are never larger than the data pipe capacity.
+    mojo::ReportBadMessage("Frame too large");
+    return;
+  }
+  pending_data_frames_.emplace_back(fin, type,
+                                    base::checked_cast<uint32_t>(data_length));
   ConsumePendingDataFrames();
 }
 
@@ -979,7 +987,7 @@ void WebSocketChannelImpl::DidFailLoadingBlob(FileErrorCode error_code) {
   }
   // FIXME: Generate human-friendly reason message.
   FailAsError(StrCat({"Failed to load Blob: error code = ",
-                      String::Number(static_cast<unsigned>(error_code))}));
+                      String::Number(static_cast<int>(error_code))}));
 }
 
 void WebSocketChannelImpl::TearDownFailedConnection() {
@@ -1085,8 +1093,12 @@ void WebSocketChannelImpl::ConsumeDataFrame(bool fin,
       break;
   }
 
-  const size_t message_size_so_far = message_chunks_->GetSize();
-  if (message_size_so_far > std::numeric_limits<wtf_size_t>::max()) {
+  size_t message_size_so_far = message_chunks_->GetSize();
+  const base::CheckedNumeric<size_t> checked_message_size =
+      base::CheckAdd(message_size_so_far, data.size());
+  if (checked_message_size.IsInvalidOr([this](size_t message_size) {
+        return message_size > max_message_size_;
+      })) {
     message_chunks_->Clear();
     FailAsError("Message size is too large.");
     return;
@@ -1096,7 +1108,7 @@ void WebSocketChannelImpl::ConsumeDataFrame(bool fin,
   // instead.
   if (receiving_message_type_is_text_ && received_text_is_all_ascii_) {
     for (auto& i : data) {
-      if (!IsASCII(i)) {
+      if (!IsAscii(i)) {
         received_text_is_all_ascii_ = false;
         break;
       }
@@ -1111,6 +1123,7 @@ void WebSocketChannelImpl::ConsumeDataFrame(bool fin,
   Vector<base::span<const uint8_t>> chunks = message_chunks_->GetView();
   if (!data.empty()) {
     chunks.push_back(data);
+    message_size_so_far += data.size();
   }
   auto opcode = receiving_message_type_is_text_
                     ? WebSocketOpCode::kOpCodeText
@@ -1121,8 +1134,12 @@ void WebSocketChannelImpl::ConsumeDataFrame(bool fin,
       "WebSocketReceive", InspectorWebSocketTransferEvent::Data,
       execution_context_.Get(), identifier_, data.size());
   if (receiving_message_type_is_text_) {
+    // This checked_cast cannot fail as long as `max_message_size_` is less than
+    // or equal to `wtf_size_t` max value, due to the check earlier in this
+    // function. `max_message_size_` is always equal to `wtf_size_t` max value
+    // in production.
     String message = GetTextMessage(
-        chunks, static_cast<wtf_size_t>(message_size_so_far + data.size()));
+        chunks, base::checked_cast<wtf_size_t>(message_size_so_far));
     if (message.IsNull()) {
       FailAsError("Could not decode a text frame as UTF-8.");
     } else {
@@ -1205,7 +1222,7 @@ String WebSocketChannelImpl::GetTextMessage(
     span = chunks[0];
   }
   DCHECK_EQ(span.size(), size);
-  return String::FromUTF8(span);
+  return String::FromUtf8(span);
 }
 
 void WebSocketChannelImpl::OnConnectionError(const base::Location& set_from,
@@ -1220,7 +1237,7 @@ void WebSocketChannelImpl::OnConnectionError(const base::Location& set_from,
   if (description.empty()) {
     message = failure_message_;
   } else {
-    message = String::FromUTF8(description);
+    message = String::FromUtf8(description);
   }
 
   // This function is called when the implementation in the network service is

@@ -148,37 +148,24 @@ bool ShouldUseDohFallback(net::SecureDnsMode secure_dns_mode,
     return false;
   }
 
-  // DoH fallback must be enabled.
-  if (!base::FeatureList::IsEnabled(
-          net::features::kAddAutomaticWithDohFallbackMode)) {
-    return false;
-  }
-
-  // Should use DoH fallback if local state pref enables it.
-  if (doh_config_source.AutomaticModeFallbackToDohEnabled()) {
-    return true;
+  // If the feature is enabled then return the boolean value of the pref.
+  // DoH fallback is a new setting introduced in the Bundled Security Settings
+  // for Secure DNS. If the new UI is enabled to make the setting available,
+  // then just check user choice in the pref.
+  if (base::FeatureList::IsEnabled(
+          safe_browsing::kBundledSecuritySettingsSecureDnsV2)) {
+    return doh_config_source.AutomaticModeFallbackToDohEnabled();
   }
 
   // Now consider forcing DoH fallback even though it is not enabled by the
   // user. We need to do this in order to test the feature before we include it
   // in a security bundle. See: crbug.com/490045356
 
-  // Do not force DoH fallback if ESB is not enabled.
-  if (!safe_browsing::IsEnhancedProtectionEnabled(local_state)) {
-    return false;
-  }
-
-  // Do not force DoH fallback if the fallback pref is managed.
-  if (local_state.IsManagedPreference(
-          prefs::kDnsOverHttpsAutomaticModeFallbackToDoh)) {
-    return false;
-  }
-
-  // Lastly return whether the feature flag for forcing DoH fallback is enabled.
-  // The feature needs to be checked last, because checking the feature
-  // activates the field trial and marks the client as active in a study group.
-  return base::FeatureList::IsEnabled(
-      safe_browsing::kForceSecureDnsDohFallback);
+  // Since the pref is disabled we will return true to enable the feature from
+  // the perspective of the browser process, relying on the
+  // kForceSecureDnsDohFallback feature flag in the network service to actually
+  // prevent the functionality from being enabled (for the experiment).
+  return true;
 }
 
 }  // namespace
@@ -444,13 +431,14 @@ SecureDnsConfig StubResolverConfigReader::GetAndUpdateConfiguration(
         GetDnsOverHttpsConfigSource()->GetDnsOverHttpsTemplates());
     if (ShouldUseDohFallback(secure_dns_mode, *local_state_,
                              *GetDnsOverHttpsConfigSource())) {
-      bool fallback_pref_managed = local_state_->IsManagedPreference(
-          prefs::kDnsOverHttpsAutomaticModeFallbackToDoh);
-      mode_details = fallback_pref_managed
-                         ? SecureDnsModeDetailsForHistogram::
-                               kAutomaticWithDohFallbackByEnterprisePolicy
-                         : SecureDnsModeDetailsForHistogram::
-                               kAutomaticWithDohFallbackByUser;
+      if (base::FeatureList::IsEnabled(
+              safe_browsing::kBundledSecuritySettingsSecureDnsV2)) {
+        mode_details =
+            SecureDnsModeDetailsForHistogram::kAutomaticWithDohFallbackByUser;
+      } else {
+        mode_details = SecureDnsModeDetailsForHistogram::
+            kAutomaticWithDohFallbackForExperiment;
+      }
       fallback_doh_nameservers = GetFallbackDohNameservers();
     }
   }

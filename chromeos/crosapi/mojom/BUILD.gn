@@ -8,10 +8,8 @@ import("//printing/buildflags/buildflags.gni")
 mojom("mojom") {
   sources = [
     "account_manager.mojom",
-    "cros_display_config.mojom",
     "crosapi.mojom",
     "document_scan.mojom",
-    "launcher_search.mojom",
     "local_printer.mojom",
     "nullable_primitives.mojom",
     "probe_service.mojom",
@@ -20,14 +18,12 @@ mojom("mojom") {
     "telemetry_extension_exception.mojom",
     "telemetry_keyboard_event.mojom",
     "telemetry_management_service.mojom",
-    "video_conference.mojom",
   ]
   disable_variants = true
   enable_js_fuzzing = false
   cpp_only = true
 
   public_deps = [
-    ":structured_metrics_service",
     "//chromeos/components/in_session_auth/mojom",
     "//chromeos/components/payments/mojom",
     "//chromeos/components/remote_apps/mojom",
@@ -57,16 +53,4 @@ mojom("mojom") {
     "//ui/gfx/mojom",
     "//url/mojom:url_mojom_gurl",
   ]
-}
-
-# This needs a separate target, because this is also used
-# by the ChromeOS Camera App in Ash and blink bindings
-# are needed.
-mojom("structured_metrics_service") {
-  sources = [ "structured_metrics_service.mojom" ]
-  public_deps = [
-    "//components/metrics/structured/mojom",
-    "//mojo/public/mojom/base",
-  ]
-  webui_module_path = "/"
 }

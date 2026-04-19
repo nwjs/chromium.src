@@ -16,6 +16,7 @@ import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SAFETY_HUB;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SAVE_PASSWORDS_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SETUP_LIST_CELEBRATORY_PROMO;
+import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SETUP_LIST_TWO_CELL_CONTAINER;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SIGN_IN_PROMO;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.SINGLE_TAB;
 import static org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType.TAB_GROUP_PROMO;
@@ -27,6 +28,7 @@ import android.os.SystemClock;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Log;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
@@ -49,6 +51,9 @@ import java.util.Objects;
 /** Utility class for the magic stack. */
 @NullMarked
 public class HomeModulesUtils {
+
+    private static final String TAG = "XplatSyncedSetup";
+
     static final long INVALID_TIMESTAMP = -1;
     static final int INVALID_FRESHNESS_SCORE = -1;
     static final int INVALID_IMPRESSION_COUNT_BEFORE_INTERACTION = 0;
@@ -77,6 +82,7 @@ public class HomeModulesUtils {
                             SIGN_IN_PROMO,
                             SAVE_PASSWORDS_PROMO,
                             PASSWORD_CHECKUP_PROMO,
+                            SETUP_LIST_TWO_CELL_CONTAINER,
                             SETUP_LIST_CELEBRATORY_PROMO));
 
     static boolean belongsToEducationalTipModule(@ModuleType int moduleType) {
@@ -132,6 +138,7 @@ public class HomeModulesUtils {
             case SIGN_IN_PROMO:
             case SAVE_PASSWORDS_PROMO:
             case PASSWORD_CHECKUP_PROMO:
+            case SETUP_LIST_TWO_CELL_CONTAINER:
             case SETUP_LIST_CELEBRATORY_PROMO:
                 // All tips use the same name.
                 return context.getString(R.string.educational_tip_module_name);
@@ -331,6 +338,15 @@ public class HomeModulesUtils {
             // Default value should not be read since we already checked that the key was set.
             boolean value =
                     sharedPreferencesManager.readBoolean(javaKey, /* defaultValue= */ false);
+            if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.CROSS_DEVICE_PREF_TRACKER_EXTRA_LOGS)) {
+                Log.i(
+                        TAG,
+                        "HomeModulesUtils:updateBooleanUserPrefs - setting "
+                                + cKey
+                                + " to "
+                                + value);
+            }
             UserPrefs.get(profile).setBoolean(cKey, value);
         }
     }

@@ -483,7 +483,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
                         /*follow_by_enter=*/false);
     ActResultFuture future;
     actor_task().Act(ToRequestList(action), future.GetCallback());
-    const mojom::ActionResult& result = *(future.Get<0>());
+    const auto& action_results = future.Get();
+    ASSERT_EQ(action_results.size(), 1u);
+    const mojom::ActionResult& result = *action_results[0].result;
     ASSERT_EQ(result.code, mojom::ActionResultCode::kElementDisabled);
     ASSERT_FALSE(result.requires_page_stabilization);
     ASSERT_EQ(EvalJs(web_contents(), "window.scrollY"), scroll_before);
@@ -499,7 +501,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
                         /*follow_by_enter=*/false);
     ActResultFuture future;
     actor_task().Act(ToRequestList(action), future.GetCallback());
-    const mojom::ActionResult& result = *(future.Get<0>());
+    const auto& action_results = future.Get();
+    ASSERT_EQ(action_results.size(), 1u);
+    const mojom::ActionResult& result = *action_results[0].result;
     ASSERT_EQ(result.code, mojom::ActionResultCode::kElementDisabled);
     ASSERT_GT(EvalJs(web_contents(), "window.scrollY"), 0);
 
@@ -584,9 +588,9 @@ IN_PROC_BROWSER_TEST_F(ActorEarlyAddTaskTabsBrowserTest,
 
   std::optional<ActorTask::TabHandleSet> tabs_at_acting_start;
   auto subscription = actor_keyed_service().AddTaskStateChangedCallback(
-      base::BindLambdaForTesting([&](TaskId id, ActorTask::State state) {
-        CHECK(id == actor_task().id());
-        if (state == ActorTask::State::kActing) {
+      base::BindLambdaForTesting([&](ActorTask& task) {
+        CHECK(task.id() == actor_task().id());
+        if (task.GetState() == ActorTask::State::kActing) {
           tabs_at_acting_start.emplace(actor_task().GetTabs());
         }
       }));
@@ -618,7 +622,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest, ActorTaskRemovedOnStop) {
 }
 
 IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
-                       ActorTaskAvailableInStopStateCallback) {
+                       ActorTaskNoLongerAvailableInStopStateCallback) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -629,16 +633,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolAgnosticBrowserTest,
 
   std::optional<TaskId> task_at_finished_state;
   auto subscription = actor_keyed_service().AddTaskStateChangedCallback(
-      base::BindLambdaForTesting([&](TaskId id, ActorTask::State state) {
-        if (id != actor_task().id()) {
-          return;
-        }
-        if (state == ActorTask::State::kFinished) {
-          // Get the ID from the ActorTask to ensure it's still live.
-          ActorTask* task = actor_keyed_service().GetTask(task_id_);
-          if (task) {
-            task_at_finished_state = task->id();
-          }
+      base::BindLambdaForTesting([&](ActorTask& task) {
+        if (task.GetState() == ActorTask::State::kFinished) {
+          // We get a reference to the task.
+          task_at_finished_state = task.id();
+          // But the task is no longer available in ActorKeyedService.
+          CHECK(!actor_keyed_service().GetTask(task.id()));
         }
       }));
 

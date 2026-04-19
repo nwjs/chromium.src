@@ -8,9 +8,12 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_features.h"
+#include "components/accessibility_annotator/core/data_models/entity_types.h"
 #include "components/sync/model/data_batch.h"
 #include "components/sync/model/data_type_store.h"
 #include "components/sync/protocol/accessibility_annotation_specifics.pb.h"
+#include "components/sync/protocol/entity_metadata.pb.h"
 #include "components/sync/test/data_type_store_test_util.h"
 #include "components/sync/test/mock_data_type_local_change_processor.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -20,6 +23,7 @@ namespace accessibility_annotator {
 namespace {
 
 using ::testing::Property;
+using ::testing::Return;
 using ::testing::UnorderedElementsAre;
 
 class MockObserver : public AccessibilityAnnotationSyncBridge::Observer {
@@ -34,19 +38,29 @@ class MockObserver : public AccessibilityAnnotationSyncBridge::Observer {
 
 class AccessibilityAnnotationSyncBridgeTest : public testing::Test {
  protected:
-  bool AddAccessibilityAnnotation(const std::string& id) {
+  void SetUp() override {
+    ON_CALL(mock_processor_, GetEntityModificationTime(testing::_))
+        .WillByDefault(Return(base::Time::Now()));
+  }
+
+  bool AddAccessibilityAnnotationSpecifics(
+      const sync_pb::AccessibilityAnnotationSpecifics& specifics) {
     syncer::EntityChangeList add_changes;
-    sync_pb::AccessibilityAnnotationSpecifics specifics;
-    specifics.set_id(id);
     syncer::EntityData entity_data;
     *entity_data.specifics.mutable_accessibility_annotation() = specifics;
-    add_changes.push_back(
-        syncer::EntityChange::CreateAdd(id, std::move(entity_data)));
+    add_changes.push_back(syncer::EntityChange::CreateAdd(
+        specifics.id(), std::move(entity_data)));
 
     std::optional<syncer::ModelError> error =
         bridge_->ApplyIncrementalSyncChanges(
             bridge_->CreateMetadataChangeList(), std::move(add_changes));
     return !error.has_value();
+  }
+
+  bool AddAccessibilityAnnotation(const std::string& id) {
+    sync_pb::AccessibilityAnnotationSpecifics specifics;
+    specifics.set_id(id);
+    return AddAccessibilityAnnotationSpecifics(specifics);
   }
 
   bool DeleteAccessibilityAnnotation(const std::string& id) {
@@ -59,12 +73,21 @@ class AccessibilityAnnotationSyncBridgeTest : public testing::Test {
     return !error.has_value();
   }
 
-  void AddInitialSpecificsToStore(const std::string& id) {
+  void AddInitialSpecificsToStore(
+      const std::string& id,
+      base::Time modification_time = base::Time::Now()) {
     std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch =
         store_->CreateWriteBatch();
     sync_pb::AccessibilityAnnotationSpecifics specifics;
     specifics.set_id(id);
     batch->WriteData(id, specifics.SerializeAsString());
+
+    sync_pb::EntityMetadata metadata;
+    metadata.set_creation_time(
+        modification_time.InMillisecondsSinceUnixEpoch());
+    metadata.set_modification_time(
+        modification_time.InMillisecondsSinceUnixEpoch());
+    batch->GetMetadataChangeList()->UpdateMetadata(id, metadata);
 
     base::test::TestFuture<const std::optional<syncer::ModelError>&> future;
     store_->CommitWriteBatch(std::move(batch), future.GetCallback());
@@ -73,7 +96,8 @@ class AccessibilityAnnotationSyncBridgeTest : public testing::Test {
 
   AccessibilityAnnotationSyncBridge* bridge() { return bridge_.get(); }
 
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   testing::NiceMock<syncer::MockDataTypeLocalChangeProcessor> mock_processor_;
   std::unique_ptr<syncer::DataTypeStore> store_ =
       syncer::DataTypeStoreTestUtil::CreateInMemoryStoreForTest();
@@ -150,6 +174,51 @@ TEST_F(AccessibilityAnnotationSyncBridgeTest,
   bridge()->RemoveObserver(&observer);
 }
 
+TEST_F(AccessibilityAnnotationSyncBridgeTest, GetAnnotationsByTypes) {
+  sync_pb::AccessibilityAnnotationSpecifics specifics1;
+  specifics1.set_id("1");
+  specifics1.mutable_order()->set_order_id("order_123");
+
+  sync_pb::AccessibilityAnnotationSpecifics specifics2;
+  specifics2.set_id("2");
+  specifics2.mutable_shipment()->set_tracking_number("track_123");
+
+  sync_pb::AccessibilityAnnotationSpecifics specifics3;
+  specifics3.set_id("3");
+  specifics3.mutable_vehicle()->set_vehicle_make("make");
+
+  ASSERT_TRUE(AddAccessibilityAnnotationSpecifics(specifics1));
+  ASSERT_TRUE(AddAccessibilityAnnotationSpecifics(specifics2));
+  ASSERT_TRUE(AddAccessibilityAnnotationSpecifics(specifics3));
+
+  // Test single type.
+  std::vector<sync_pb::AccessibilityAnnotationSpecifics> orders =
+      bridge()->GetAnnotationsByTypes({EntityType::kOrder});
+  EXPECT_EQ(orders.size(), 1u);
+  EXPECT_EQ(orders[0].id(), "1");
+
+  // Test multiple types.
+  std::vector<sync_pb::AccessibilityAnnotationSpecifics> orders_and_vehicles =
+      bridge()->GetAnnotationsByTypes(
+          {EntityType::kOrder, EntityType::kVehicle});
+  EXPECT_EQ(orders_and_vehicles.size(), 2u);
+  EXPECT_THAT(
+      orders_and_vehicles,
+      UnorderedElementsAre(
+          Property(&sync_pb::AccessibilityAnnotationSpecifics::id, "1"),
+          Property(&sync_pb::AccessibilityAnnotationSpecifics::id, "3")));
+
+  // Test no match.
+  std::vector<sync_pb::AccessibilityAnnotationSpecifics> passports =
+      bridge()->GetAnnotationsByTypes({EntityType::kPassport});
+  EXPECT_TRUE(passports.empty());
+
+  // Test all types.
+  std::vector<sync_pb::AccessibilityAnnotationSpecifics> all_annotations =
+      bridge()->GetAnnotationsByTypes(EntityTypeEnumSet::All());
+  EXPECT_EQ(all_annotations.size(), 3u);
+}
+
 TEST_F(AccessibilityAnnotationSyncBridgeTest,
        ObserverRemovedOnIncrementalChanges) {
   ASSERT_TRUE(AddAccessibilityAnnotation("1"));
@@ -162,6 +231,80 @@ TEST_F(AccessibilityAnnotationSyncBridgeTest,
   ASSERT_TRUE(DeleteAccessibilityAnnotation("1"));
 
   bridge()->RemoveObserver(&observer);
+}
+
+TEST_F(AccessibilityAnnotationSyncBridgeTest, EnforceTTLOnStartup) {
+  const std::string kExpiredId = "expired";
+  const std::string kValidId = "valid";
+
+  // Stop the initial bridge created by the fixture and pre-populate the
+  // underlying store.
+  bridge_.reset();
+
+  base::Time expired_time =
+      base::Time::Now() -
+      accessibility_annotator::features::kAccessibilityAnnotationTTL.Get() -
+      base::Days(1);
+  base::Time valid_time = base::Time::Now() - base::Days(1);
+  AddInitialSpecificsToStore(kExpiredId, expired_time);
+  AddInitialSpecificsToStore(kValidId, valid_time);
+
+  // Re-creating the bridge will force it to read the initial data and metadata
+  // and enforce the TTL.
+  EXPECT_CALL(mock_processor_, UntrackEntityForStorageKey(kExpiredId));
+  EXPECT_CALL(mock_processor_, UntrackEntityForStorageKey(kValidId)).Times(0);
+
+  ON_CALL(mock_processor_, GetEntityModificationTime(kExpiredId))
+      .WillByDefault(Return(expired_time));
+  ON_CALL(mock_processor_, GetEntityModificationTime(kValidId))
+      .WillByDefault(Return(valid_time));
+
+  // Re-create the bridge.
+  bridge_ = std::make_unique<AccessibilityAnnotationSyncBridge>(
+      mock_processor_.CreateForwardingProcessor(),
+      syncer::DataTypeStoreTestUtil::FactoryForForwardingStore(store_.get()));
+
+  testing::NiceMock<MockObserver> observer;
+  base::RunLoop run_loop;
+  bridge_->AddObserver(&observer);
+  EXPECT_CALL(observer, OnAccessibilityAnnotationSyncBridgeLoaded())
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+  run_loop.Run();
+  bridge_->RemoveObserver(&observer);
+
+  EXPECT_EQ(bridge()->GetAllAnnotations().size(), 1u);
+  EXPECT_EQ(bridge()->GetAnnotation(kValidId).has_value(), true);
+  EXPECT_EQ(bridge()->GetAnnotation(kExpiredId).has_value(), false);
+}
+
+TEST_F(AccessibilityAnnotationSyncBridgeTest, EnforceTTLOnIncrementalChanges) {
+  const std::string kExpiredId = "expired";
+  const std::string kValidId = "valid";
+
+  ASSERT_TRUE(AddAccessibilityAnnotation(kExpiredId));
+  ASSERT_TRUE(AddAccessibilityAnnotation(kValidId));
+
+  base::Time expired_time =
+      base::Time::Now() -
+      accessibility_annotator::features::kAccessibilityAnnotationTTL.Get() -
+      base::Days(1);
+  base::Time valid_time = base::Time::Now() - base::Days(1);
+
+  ON_CALL(mock_processor_, GetEntityModificationTime(kExpiredId))
+      .WillByDefault(Return(expired_time));
+  ON_CALL(mock_processor_, GetEntityModificationTime(kValidId))
+      .WillByDefault(Return(valid_time));
+
+  EXPECT_CALL(mock_processor_, UntrackEntityForStorageKey(kExpiredId));
+
+  // Apply incremental changes to trigger TTL enforcement.
+  syncer::EntityChangeList changes;
+  bridge()->ApplyIncrementalSyncChanges(bridge()->CreateMetadataChangeList(),
+                                        std::move(changes));
+
+  EXPECT_EQ(bridge()->GetAllAnnotations().size(), 1u);
+  EXPECT_EQ(bridge()->GetAnnotation(kValidId).has_value(), true);
+  EXPECT_EQ(bridge()->GetAnnotation(kExpiredId).has_value(), false);
 }
 
 }  // namespace

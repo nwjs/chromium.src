@@ -72,6 +72,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -218,15 +219,15 @@ IN_PROC_BROWSER_TEST_F(IsolatedOriginNTPBrowserTest,
       content::SiteInstance::CreateForURL(context, isolated_url);
   EXPECT_TRUE(site_instance->RequiresDedicatedProcess());
   // Verify the isolated origin does not receive an NTP site URL scheme.
-  EXPECT_FALSE(
-      site_instance->GetSiteURL().SchemeIs(chrome::kChromeSearchScheme));
+  EXPECT_FALSE(site_instance->GetSecurityPrincipal().SchemeIs(
+      chrome::kChromeSearchScheme));
 
   // The site URL for the NTP URL should resolve to a chrome-search:// URL via
   // GetEffectiveURL(), even if the NTP URL matches an isolated origin.
   scoped_refptr<content::SiteInstance> ntp_site_instance =
       content::SiteInstance::CreateForURL(context, ntp_url);
-  EXPECT_TRUE(
-      ntp_site_instance->GetSiteURL().SchemeIs(chrome::kChromeSearchScheme));
+  EXPECT_TRUE(ntp_site_instance->GetSecurityPrincipal().SchemeIs(
+      chrome::kChromeSearchScheme));
 
   // Navigate to the NTP URL and verify that the resulting process is marked as
   // an Instant process.
@@ -560,6 +561,31 @@ IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, PrefersColorSchemeGlic) {
              base::StringPrintf(
                  "window.matchMedia('(prefers-color-scheme: %s)').matches",
                  ExpectedColorScheme())));
+}
+
+// chrome-search:// is now recognized as WebUI by SecurityPrincipal::IsWebUI(),
+// so incognito pages with this scheme should follow the browser incognito mode
+// theme - always dark for incognito, not the OS theme(dark or light) or
+// browser theme.
+IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, ChromeSearchTheme) {
+  // Open an incognito browser and navigate to search scheme.
+  Browser* incognito_browser = CreateIncognitoBrowser(browser()->profile());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      incognito_browser, GURL("chrome-search://most-visited/title.html")));
+
+  auto* incognito_ntp_web_contents =
+      incognito_browser->tab_strip_model()->GetActiveWebContents();
+  auto& security_principal = incognito_ntp_web_contents->GetPrimaryMainFrame()
+                                 ->GetSiteInstance()
+                                 ->GetSecurityPrincipal();
+
+  ASSERT_TRUE(security_principal.SchemeIs(chrome::kChromeSearchScheme));
+  ASSERT_TRUE(security_principal.IsWebUI());
+
+  EXPECT_EQ(
+      true,
+      EvalJs(incognito_ntp_web_contents,
+             "window.matchMedia('(prefers-color-scheme: dark)').matches"));
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)

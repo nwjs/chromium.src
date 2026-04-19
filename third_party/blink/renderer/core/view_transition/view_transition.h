@@ -10,6 +10,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/types/pass_key.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "third_party/blink/public/common/frame/view_transition_state.h"
@@ -87,6 +88,12 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
                                                          ViewTransitionState,
                                                          Delegate*);
 
+  // Creates a ViewTransition to display a preview of a cross-document
+  // navigation.
+  static ViewTransition* CreatePreview(Document*,
+                                       const Vector<String>& types,
+                                       Delegate*);
+
   // Script-based constructor.
   ViewTransition(PassKey,
                  Element*,
@@ -105,6 +112,8 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
                  Delegate*);
   // Navigation-initiated from-snapshot constructor.
   ViewTransition(PassKey, Document*, ViewTransitionState, Delegate*);
+  // Navigation preview constructor.
+  ViewTransition(PassKey, Document*, const Vector<String>& types, Delegate*);
 
   DOMViewTransition* GetScriptDelegate() { return script_delegate_.Get(); }
 
@@ -214,7 +223,13 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
 
   bool IsDone() const { return IsTerminalState(state_); }
 
+  bool NavigationSnapshotComplete() {
+    return state_ == State::kTransitionStateCallbackDispatched;
+  }
+
   bool HasActiveAnimations() const;
+
+  bool HasIncompatibleStyle() const;
 
   // Returns true if this object was created to cache a snapshot of the current
   // Document for a navigation.
@@ -233,6 +248,8 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
   bool IsForNavigationOnNewDocument() const {
     return creation_type_ == CreationType::kFromSnapshot;
   }
+
+  bool IsPreview() const { return creation_type_ == CreationType::kPreview; }
 
   // Notifies the transition that frames are being produced and that the
   // transition can start the animation phase (starting by capturing the
@@ -321,6 +338,10 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
     // Created when a navigation is initiated to the Document associated with
     // this ViewTransition.
     kFromSnapshot,
+
+    // Created when displaying a preview in preparation for a cross-document
+    // navigation.
+    kPreview
   };
 
   // Note the states are possibly overly verbose, and several states can
@@ -341,6 +362,7 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
     // Navigation specific states.
     kTransitionStateCallbackDispatched,
     kWaitForRenderBlock,
+    kPreview,
 
     // Callback states.
     kDOMCallbackRunning,
@@ -474,6 +496,9 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
   bool pending_skip_view_transitions_ = false;
 
   int wait_until_pending_promise_count_ = 0;
+
+  // Time at which we processed the initial state, used for metrics.
+  base::TimeTicks initial_state_processing_time_;
 
   static int next_id_;
 };

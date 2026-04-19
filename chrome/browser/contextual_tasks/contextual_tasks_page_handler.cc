@@ -12,6 +12,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_tasks/ai_mode_context_library_converter.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom-shared.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/feedback/public/feedback_source.h"
@@ -40,23 +41,22 @@
 #include "google_apis/gaia/gaia_constants.h"
 #include "net/base/url_util.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "third_party/lens_server_proto/aim_icon.pb.h"
 #include "third_party/lens_server_proto/modality_chip_props.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
-#endif
 
 namespace {
 constexpr char kMyActivityUrl[] = "https://myactivity.google.com/myactivity";
 
 void OpenUrlWithDisposition(Profile* profile,
                             const GURL& url,
-                            WindowOpenDisposition disposition) {
+                            WindowOpenDisposition disposition,
+                            BrowserWindowInterface* browser) {
   NavigateParams params(profile, url, ui::PAGE_TRANSITION_LINK);
   params.disposition = disposition;
+  params.browser = browser;
   Navigate(&params);
 }
 
@@ -111,17 +111,17 @@ PopulateContextualResources(contextual_tasks::ContextualTaskContext* context) {
   return context_items;
 }
 
-contextual_tasks::mojom::IconType IconTypeToMojom(lens::IconType icon_id) {
+contextual_tasks::mojom::IconType IconTypeToMojom(lens::AimIconType icon_id) {
   switch (icon_id) {
-    case lens::IconType::ICON_TYPE_ADD:
+    case lens::AimIconType::ICON_TYPE_ADD:
       return contextual_tasks::mojom::IconType::kAdd;
-    case lens::IconType::ICON_TYPE_CHECK:
+    case lens::AimIconType::ICON_TYPE_CHECK:
       return contextual_tasks::mojom::IconType::kCheck;
-    case lens::IconType::ICON_TYPE_FORMAT_QUOTE_FILLED:
+    case lens::AimIconType::ICON_TYPE_FORMAT_QUOTE_FILLED:
       return contextual_tasks::mojom::IconType::kFormatQuoteFilled;
-    case lens::IconType::ICON_TYPE_IMAGE:
+    case lens::AimIconType::ICON_TYPE_IMAGE:
       return contextual_tasks::mojom::IconType::kImage;
-    case lens::IconType::ICON_TYPE_DRIVE_PDF:
+    case lens::AimIconType::ICON_TYPE_DRIVE_PDF:
       return contextual_tasks::mojom::IconType::kDrivePdf;
     default:
       return contextual_tasks::mojom::IconType::kUnspecified;
@@ -202,20 +202,18 @@ void ContextualTasksPageHandler::GetUrlForTask(const base::Uuid& uuid,
     return;
   }
 
-  GURL aim_url = web_ui_controller_->GetAimUrl();
-  if (!aim_url.is_empty()) {
-    std::move(callback).Run(aim_url);
-    return;
-  }
-
   // There's a slight difference in the callback signature between the mojo
   // api (wants a reference) and the ui service (provided a moved object).
   // The latter can't provide a reference since we're not keeping it
   // long-term, hence wrapping this in a base::BindOnce.
   ui_service_->GetThreadUrlFromTaskId(
-      uuid, base::BindOnce([](GetUrlForTaskCallback callback,
-                              GURL url) { std::move(callback).Run(url); },
-                           std::move(callback)));
+      uuid,
+      base::BindOnce(
+          [](GetUrlForTaskCallback callback, GURL webui_url, GURL url) {
+            std::move(callback).Run(contextual_tasks::ContextualTasksUiService::
+                                        CopyParamsFromWebUIUrl(url, webui_url));
+          },
+          std::move(callback), web_ui_controller_->GetWebUiUrl()));
 }
 
 void ContextualTasksPageHandler::SetTaskId(const base::Uuid& uuid) {
@@ -231,11 +229,7 @@ void ContextualTasksPageHandler::SetThreadTitle(const std::string& title) {
 
 void ContextualTasksPageHandler::IsZeroState(const GURL& url,
                                              IsZeroStateCallback callback) {
-#if !BUILDFLAG(IS_ANDROID)
   std::move(callback).Run(ContextualTasksUI::IsZeroState(url, ui_service_));
-#else
-  std::move(callback).Run(false);
-#endif
 }
 
 void ContextualTasksPageHandler::IsAiPage(const GURL& url,
@@ -247,6 +241,17 @@ void ContextualTasksPageHandler::IsPendingErrorPage(
     const base::Uuid& task_id,
     IsPendingErrorPageCallback callback) {
   std::move(callback).Run(ui_service_->IsPendingErrorPage(task_id));
+}
+
+void ContextualTasksPageHandler::IsEmbeddedPageErrorDocument(
+    IsEmbeddedPageErrorDocumentCallback callback) {
+  bool is_error = false;
+  if (auto* inner_contents = web_ui_controller_->GetInnerWebContents()) {
+    if (auto* main_frame = inner_contents->GetPrimaryMainFrame()) {
+      is_error = main_frame->IsErrorDocument();
+    }
+  }
+  std::move(callback).Run(is_error);
 }
 
 void ContextualTasksPageHandler::CloseSidePanel() {
@@ -266,41 +271,41 @@ void ContextualTasksPageHandler::IsShownInTab(IsShownInTabCallback callback) {
 
 void ContextualTasksPageHandler::OpenMyActivityUi() {
   OpenUrlWithDisposition(web_ui_controller_->GetProfile(), GURL(kMyActivityUrl),
-                         WindowOpenDisposition::NEW_FOREGROUND_TAB);
+                         WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                         web_ui_controller_->GetBrowser());
 }
 
-void ContextualTasksPageHandler::OpenHelpUi() {
+void ContextualTasksPageHandler::OpenFeedbackUi() {
   if (skip_feedback_ui_for_testing_) {
+    return;
+  }
+  BrowserWindowInterface* browser = web_ui_controller_->GetBrowser();
+  if (!browser) {
     return;
   }
   GURL page_url =
       web_ui_controller_->GetWebUIWebContents()->GetLastCommittedURL();
-  if (auto* browser = web_ui_controller_->GetBrowser()) {
-    if (auto* tab_list = TabListInterface::From(browser)) {
-      if (auto* active_tab = tab_list->GetActiveTab()) {
-        page_url = active_tab->GetContents()->GetLastCommittedURL();
-      }
+  if (auto* tab_list = TabListInterface::From(browser)) {
+    if (auto* active_tab = tab_list->GetActiveTab()) {
+      page_url = active_tab->GetContents()->GetLastCommittedURL();
     }
   }
-  chrome::ShowFeedbackPage(page_url, web_ui_controller_->GetProfile(),
-                           feedback::kFeedbackSourceAI,
-                           /*description_template=*/std::string(),
-                           /*description_placeholder_text=*/
-                           l10n_util::GetStringUTF8(IDS_LENS_SEND_FEEDBACK),
-                           /*category_tag=*/"cobrowse",
-                           /*extra_diagnostics=*/std::string());
+
+  ui_service_->OpenFeedbackUi(browser, page_url);
 }
 
 void ContextualTasksPageHandler::OpenOnboardingHelpUi() {
   OpenUrlWithDisposition(
       web_ui_controller_->GetProfile(),
       GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB);
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      web_ui_controller_->GetBrowser());
 }
 
 void ContextualTasksPageHandler::OpenUrl(const GURL& url,
                                          WindowOpenDisposition disposition) {
-  OpenUrlWithDisposition(web_ui_controller_->GetProfile(), url, disposition);
+  OpenUrlWithDisposition(web_ui_controller_->GetProfile(), url, disposition,
+                         web_ui_controller_->GetBrowser());
 }
 
 void ContextualTasksPageHandler::MoveTaskUiToNewTab() {
@@ -482,7 +487,7 @@ void ContextualTasksPageHandler::UpdateContextForTask(
     return;
   }
   contextual_tasks_service_->GetContextForTask(
-      task_id, {contextual_tasks::ContextualTaskContextSource::kTabStrip},
+      task_id, {},
       std::make_unique<contextual_tasks::ContextDecorationParams>(),
       base::BindOnce(
           [](base::WeakPtr<ContextualTasksPageHandler> self,

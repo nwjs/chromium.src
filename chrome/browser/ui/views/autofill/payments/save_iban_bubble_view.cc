@@ -78,20 +78,33 @@ void SaveIbanBubbleView::Hide() {
 
 void SaveIbanBubbleView::AddedToWidget() {
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-  auto image_view = std::make_unique<views::ImageView>(
-      bundle.GetThemedLottieImageNamed(IDR_AUTOFILL_SAVE_IBAN_LOTTIE));
+  auto image_view =
+      std::make_unique<views::ImageView>(bundle.GetThemedLottieImageNamed(
+          base::FeatureList::IsEnabled(
+              features::kAutofillEnableWalletBrandingV2)
+              ? IDR_AUTOFILL_SAVE_IBAN_TO_WALLET_LOTTIE
+              : IDR_AUTOFILL_SAVE_IBAN_LOTTIE));
   image_view->GetViewAccessibility().SetIsInvisible(true);
 
   GetBubbleFrameView()->SetHeaderView(std::move(image_view));
 
   if (controller_->IsUploadSave()) {
-    GetBubbleFrameView()->SetTitleView(
-        std::make_unique<TitleWithIconAfterLabelView>(
-            GetWindowTitle(),
-            base::FeatureList::IsEnabled(
-                features::kAutofillEnableWalletBranding)
-                ? TitleWithIconAfterLabelView::Icon::GOOGLE_WALLET
-                : TitleWithIconAfterLabelView::Icon::GOOGLE_PAY));
+    if (base::FeatureList::IsEnabled(
+            features::kAutofillEnableWalletBrandingV2)) {
+      auto title_view = std::make_unique<views::Label>(
+          GetWindowTitle(), views::style::CONTEXT_DIALOG_TITLE);
+      title_view->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
+      title_view->SetMultiLine(true);
+      GetBubbleFrameView()->SetTitleView(std::move(title_view));
+    } else {
+      GetBubbleFrameView()->SetTitleView(
+          std::make_unique<TitleWithIconAfterLabelView>(
+              GetWindowTitle(),
+              base::FeatureList::IsEnabled(
+                  features::kAutofillEnableWalletBranding)
+                  ? TitleWithIconAfterLabelView::Icon::GOOGLE_WALLET
+                  : TitleWithIconAfterLabelView::Icon::GOOGLE_PAY));
+    }
   } else if (base::FeatureList::IsEnabled(
                  features::kAutofillEnableWalletBranding)) {
     // Failed server saves should not show a Google Wallet logo, as the card did
@@ -322,9 +335,15 @@ std::unique_ptr<views::View> SaveIbanBubbleView::CreateLegalMessageView() {
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           DISTANCE_RELATED_CONTROL_VERTICAL_SMALL));
 
+  bool v2_branding_enabled =
+      base::FeatureList::IsEnabled(features::kAutofillEnableWalletBrandingV2);
   legal_message_view->AddChildView(::autofill::CreateLegalMessageView(
-      message_lines, base::UTF8ToUTF16(controller()->GetAccountInfo().email),
-      GetProfileAvatar(controller()->GetAccountInfo()),
+      message_lines,
+      v2_branding_enabled
+          ? /*user_email=*/std::u16string()
+          : base::UTF8ToUTF16(controller()->GetAccountInfo().email),
+      v2_branding_enabled ? /*user_avatar=*/ui::ImageModel()
+                          : GetProfileAvatar(controller()->GetAccountInfo()),
       base::BindRepeating(&SaveIbanBubbleView::LinkClicked,
                           base::Unretained(this))));
 

@@ -9,10 +9,57 @@ import android.content.Context;
 import android.content.Intent;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileIntentUtils;
 
 /** Handles broadcast intents for Actor tasks from notifications. */
 @NullMarked
 public class ActorBroadcastReceiver extends BroadcastReceiver {
+
     @Override
-    public void onReceive(Context context, Intent intent) {}
+    public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        if (action == null) return;
+        final PendingResult pendingResult = goAsync();
+
+        ProfileIntentUtils.retrieveProfileFromIntent(
+                intent,
+                (profile) -> {
+                    try {
+                        int taskId =
+                                intent.getIntExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, -1);
+                        int source =
+                                intent.getIntExtra(
+                                        NotificationConstants.EXTRA_ACTOR_PAUSE_RESUME_SOURCE, -1);
+                        updateActorTaskForProfile(profile, action, taskId, source);
+                    } finally {
+                        pendingResult.finish();
+                    }
+                });
+    }
+
+    private void updateActorTaskForProfile(
+            @Nullable Profile profile, String action, int taskId, int source) {
+        if (profile == null) return;
+
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        if (service == null) return;
+
+        ActorTask task = service.getTask(taskId);
+        if (task == null) return;
+
+        if (NotificationConstants.ACTION_ACTOR_PAUSE.equals(action)) {
+            if (source == ActorMetrics.ActorPauseResumeSource.PIP) {
+                ActorMetrics.recordPipUserInteraction(ActorMetrics.ActorPipUserInteraction.PAUSE);
+            }
+            task.pause();
+        } else if (NotificationConstants.ACTION_ACTOR_RESUME.equals(action)) {
+            if (source == ActorMetrics.ActorPauseResumeSource.PIP) {
+                ActorMetrics.recordPipUserInteraction(ActorMetrics.ActorPipUserInteraction.RESUME);
+            }
+            task.resume();
+        }
+    }
 }

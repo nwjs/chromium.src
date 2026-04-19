@@ -994,11 +994,17 @@ const CSSValue* BackgroundBlendMode::CSSValueFromComputedStyleInternal(
   return list;
 }
 
-const CSSValue* BackgroundClip::ParseSingleValue(CSSParserTokenStream& stream,
-                                                 const CSSParserContext&,
-                                                 CSSParserLocalContext&) const {
+const CSSValue* BackgroundClip::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext&,
+    CSSParserLocalContext& local_context) const {
+  // border-area is not supported for the -webkit-background-clip alias.
+  css_parsing_utils::AllowBorderAreaValue allow_border_area =
+      local_context.UseAliasParsing()
+          ? css_parsing_utils::AllowBorderAreaValue::kForbid
+          : css_parsing_utils::AllowBorderAreaValue::kAllow;
   return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumeBackgroundBoxOrText, stream);
+      css_parsing_utils::ConsumeBackgroundClip, stream, allow_border_area);
 }
 
 const CSSValue* BackgroundClip::CSSValueFromComputedStyleInternal(
@@ -1010,7 +1016,14 @@ const CSSValue* BackgroundClip::CSSValueFromComputedStyleInternal(
   const FillLayer* curr_layer = &style.BackgroundLayers();
   for (; curr_layer; curr_layer = curr_layer->Next()) {
     EFillBox box = curr_layer->Clip();
-    list->Append(*CSSIdentifierValue::Create(box));
+    if (box == EFillBox::kBorderAreaText) {
+      list->Append(*MakeGarbageCollected<CSSValuePair>(
+          CSSIdentifierValue::Create(CSSValueID::kBorderArea),
+          CSSIdentifierValue::Create(CSSValueID::kText),
+          CSSValuePair::kDropIdenticalValues));
+    } else {
+      list->Append(*CSSIdentifierValue::Create(box));
+    }
   }
   return list;
 }
@@ -2789,9 +2802,8 @@ void ColorScheme::ApplyValue(StyleResolverState& state,
                              const CSSValue& value,
                              ValueMode) const {
   const CSSValueList* scheme_list = DynamicTo<CSSValueList>(value);
-  DCHECK(scheme_list || (value.IsIdentifierValue() &&
-                         DynamicTo<CSSIdentifierValue>(value)->GetValueID() ==
-                             CSSValueID::kNormal));
+  DCHECK(scheme_list ||
+         To<CSSIdentifierValue>(value).GetValueID() == CSSValueID::kNormal);
   ApplyColorSchemeValue(state, scheme_list);
 }
 
@@ -2972,6 +2984,12 @@ const CSSValue* RowRuleStyle::CSSValueFromComputedStyleInternal(
 }
 
 void ColumnRuleWidth::ApplyInherit(StyleResolverState& state) const {
+  if (state.GetDocument().StandardizedBrowserZoomEnabled()) {
+    if (ApplyParentValueIfZoomChanged(state)) {
+      return;
+    }
+  }
+
   // Following the resolution of CSSWG issue 11494, the computed value of
   // column-rule-width should be independent of the column-rule-style.
   // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
@@ -3512,7 +3530,7 @@ void Content::ApplyValue(StyleResolverState& state,
   for (auto& item : To<CSSValueList>(outer_list.Item(0))) {
     ContentData* next_content = nullptr;
     if (item->IsImageGeneratorValue() || item->IsImageSetValue() ||
-        item->IsImageValue()) {
+        item->IsImageValue() || item->IsLightDarkValuePair()) {
       next_content = MakeGarbageCollected<ImageContentData>(
           state.GetStyleImage(CSSPropertyID::kContent, *item));
     } else if (const auto* counter_value =
@@ -6170,6 +6188,9 @@ const CSSValue* ColumnRuleEdgeInsetEnd::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6179,6 +6200,9 @@ const CSSValue* ColumnRuleEdgeInsetEnd::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.ColumnRuleEdgeInsetEnd().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.ColumnRuleEdgeInsetEnd(), style);
 }
@@ -6187,6 +6211,9 @@ const CSSValue* RowRuleEdgeInsetEnd::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6196,6 +6223,9 @@ const CSSValue* RowRuleEdgeInsetEnd::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.RowRuleEdgeInsetEnd().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.RowRuleEdgeInsetEnd(), style);
 }
@@ -6204,6 +6234,9 @@ const CSSValue* ColumnRuleEdgeInsetStart::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6213,6 +6246,9 @@ const CSSValue* ColumnRuleEdgeInsetStart::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.ColumnRuleEdgeInsetStart().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.ColumnRuleEdgeInsetStart(), style);
 }
@@ -6221,6 +6257,9 @@ const CSSValue* RowRuleEdgeInsetStart::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6230,6 +6269,9 @@ const CSSValue* RowRuleEdgeInsetStart::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.RowRuleEdgeInsetStart().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.RowRuleEdgeInsetStart(), style);
 }
@@ -6238,6 +6280,9 @@ const CSSValue* ColumnRuleInteriorInsetEnd::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6247,6 +6292,9 @@ const CSSValue* ColumnRuleInteriorInsetEnd::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.ColumnRuleInteriorInsetEnd().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.ColumnRuleInteriorInsetEnd(), style);
 }
@@ -6255,6 +6303,9 @@ const CSSValue* RowRuleInteriorInsetEnd::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6264,6 +6315,9 @@ const CSSValue* RowRuleInteriorInsetEnd::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.RowRuleInteriorInsetEnd().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.RowRuleInteriorInsetEnd(), style);
 }
@@ -6272,6 +6326,9 @@ const CSSValue* ColumnRuleInteriorInsetStart::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6281,6 +6338,9 @@ const CSSValue* ColumnRuleInteriorInsetStart::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.ColumnRuleInteriorInsetStart().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.ColumnRuleInteriorInsetStart(), style);
 }
@@ -6289,6 +6349,9 @@ const CSSValue* RowRuleInteriorInsetStart::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  if (stream.Peek().Id() == CSSValueID::kOverlapJoin) {
+    return css_parsing_utils::ConsumeIdent(stream);
+  }
   return css_parsing_utils::ConsumeLengthOrPercent(
       stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
 }
@@ -6298,6 +6361,9 @@ const CSSValue* RowRuleInteriorInsetStart::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
+  if (style.RowRuleInteriorInsetStart().IsOverlapJoin()) {
+    return CSSIdentifierValue::Create(CSSValueID::kOverlapJoin);
+  }
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.RowRuleInteriorInsetStart(), style);
 }
@@ -8066,6 +8132,12 @@ void OutlineWidth::ApplyInitial(StyleResolverState& state) const {
 }
 
 void OutlineWidth::ApplyInherit(StyleResolverState& state) const {
+  if (state.GetDocument().StandardizedBrowserZoomEnabled()) {
+    if (ApplyParentValueIfZoomChanged(state)) {
+      return;
+    }
+  }
+
   // Following the resolution of CSSWG issue 11494, the computed value of
   // outline-width should be independent of the outline-style.
   // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
@@ -9841,12 +9913,16 @@ const CSSValue* ShapeOutside::ParseSingleValue(
   }
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   CSSValue* box_value = css_parsing_utils::ConsumeShapeBox(stream);
+  const bool allow_rect_xywh =
+      RuntimeEnabledFeatures::CSSShapeOutsideRectAndXywhSupportEnabled();
   CSSValue* shape_value = css_parsing_utils::ConsumeBasicShape(
       stream, context, local_context,
       css_parsing_utils::AllowPathValue::kForbid,
       css_parsing_utils::AllowShapeValue::kForbid,
-      css_parsing_utils::AllowBasicShapeRectValue::kForbid,
-      css_parsing_utils::AllowBasicShapeXYWHValue::kForbid);
+      allow_rect_xywh ? css_parsing_utils::AllowBasicShapeRectValue::kAllow
+                      : css_parsing_utils::AllowBasicShapeRectValue::kForbid,
+      allow_rect_xywh ? css_parsing_utils::AllowBasicShapeXYWHValue::kAllow
+                      : css_parsing_utils::AllowBasicShapeXYWHValue::kForbid);
   if (shape_value) {
     list->Append(*shape_value);
     if (!box_value) {
@@ -12890,45 +12966,42 @@ const CSSValue* WillChange::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
-  if (stream.Peek().Id() == CSSValueID::kAuto) {
-    return css_parsing_utils::ConsumeIdent(stream);
+  if (const CSSValue* ident =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kAuto>(stream)) {
+    return ident;
   }
 
-  CSSValueList* values = CSSValueList::CreateCommaSeparated();
   // Every comma-separated list of identifiers is a valid will-change value,
   // unless the list includes an explicitly disallowed identifier.
+  CSSValueList* values = CSSValueList::CreateCommaSeparated();
   while (true) {
     if (stream.Peek().GetType() != kIdentToken) {
       return nullptr;
     }
-    CSSPropertyID unresolved_property = UnresolvedCSSPropertyID(
-        context.GetExecutionContext(), stream.Peek().Value());
-    if (unresolved_property != CSSPropertyID::kInvalid &&
-        unresolved_property != CSSPropertyID::kVariable) {
-#if DCHECK_IS_ON()
-      DCHECK(CSSProperty::Get(ResolveCSSPropertyID(unresolved_property))
-                 .IsWebExposed(context.GetExecutionContext()));
-#endif
-      // Now "all" is used by both CSSValue and CSSPropertyValue.
-      // Need to return nullptr when currentValue is CSSPropertyID::kAll.
-      if (unresolved_property == CSSPropertyID::kWillChange ||
-          unresolved_property == CSSPropertyID::kAll) {
-        return nullptr;
-      }
-      values->Append(
-          *MakeGarbageCollected<CSSCustomIdentValue>(unresolved_property));
-      stream.ConsumeIncludingWhitespace();
+
+    if (const CSSValue* ident = css_parsing_utils::ConsumeIdent<
+            CSSValueID::kContents, CSSValueID::kScrollPosition>(stream)) {
+      values->Append(*ident);
+    } else if (css_parsing_utils::IdentMatches<
+                   CSSValueID::kNone, CSSValueID::kAll, CSSValueID::kAuto>(
+                   stream.Peek().Id())) {
+      // https://drafts.csswg.org/css-will-change-1/#typedef-animateable-feature
+      // "The <custom-ident> production used here excludes the keywords
+      //  will-change, none, all, auto, scroll-position, and contents, in
+      //  addition to the keywords normally excluded from <custom-ident>."
+      return nullptr;
+    } else if (const CSSPropertyID unresolved_property =
+                   UnresolvedCSSPropertyID(context.GetExecutionContext(),
+                                           stream.Peek().Value());
+               unresolved_property == CSSPropertyID::kWillChange) {
+      // See branch above.
+      return nullptr;
+    } else if (const CSSValue* custom_ident =
+                   css_parsing_utils::ConsumeCustomIdent(stream, context,
+                                                         local_context)) {
+      values->Append(*custom_ident);
     } else {
-      CSSValueID id = stream.Peek().Id();
-      if (id == CSSValueID::kContents || id == CSSValueID::kScrollPosition) {
-        values->Append(*css_parsing_utils::ConsumeIdent(stream));
-      } else if (!css_parsing_utils::IsCustomIdent<
-                     CSSValueID::kNone, CSSValueID::kAll, CSSValueID::kAuto>(
-                     id)) {
-        return nullptr;
-      } else {
-        stream.ConsumeIncludingWhitespace();
-      }
+      return nullptr;
     }
 
     if (!css_parsing_utils::ConsumeCommaIncludingWhitespace(stream)) {
@@ -12944,26 +13017,19 @@ const CSSValue* WillChange::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForWillChange(
-      style.WillChangeProperties(), style.WillChangeContents(),
-      style.WillChangeScrollPosition());
+  return ComputedStyleUtils::ValueForWillChange(style.WillChange());
 }
 
 void WillChange::ApplyInitial(StyleResolverState& state) const {
   ComputedStyleBuilder& builder = state.StyleBuilder();
-  builder.SetWillChangeContents(false);
-  builder.SetWillChangeScrollPosition(false);
-  builder.SetWillChangeProperties(Vector<CSSPropertyID>());
+  builder.SetWillChange(nullptr);
   builder.SetSubtreeWillChangeContents(
       state.ParentStyle()->SubtreeWillChangeContents());
 }
 
 void WillChange::ApplyInherit(StyleResolverState& state) const {
   ComputedStyleBuilder& builder = state.StyleBuilder();
-  builder.SetWillChangeContents(state.ParentStyle()->WillChangeContents());
-  builder.SetWillChangeScrollPosition(
-      state.ParentStyle()->WillChangeScrollPosition());
-  builder.SetWillChangeProperties(state.ParentStyle()->WillChangeProperties());
+  builder.SetWillChange(state.ParentStyle()->WillChange());
   builder.SetSubtreeWillChangeContents(
       state.ParentStyle()->SubtreeWillChangeContents());
 }
@@ -12971,34 +13037,90 @@ void WillChange::ApplyInherit(StyleResolverState& state) const {
 void WillChange::ApplyValue(StyleResolverState& state,
                             const CSSValue& value,
                             ValueMode) const {
-  bool will_change_contents = false;
-  bool will_change_scroll_position = false;
-  Vector<CSSPropertyID> will_change_properties;
+  ComputedStyleBuilder& builder = state.StyleBuilder();
 
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kAuto);
-  } else {
-    for (auto& will_change_value : To<CSSValueList>(value)) {
-      if (auto* ident_value =
-              DynamicTo<CSSCustomIdentValue>(will_change_value.Get())) {
-        will_change_properties.push_back(ident_value->ValueAsPropertyID());
-      } else if (To<CSSIdentifierValue>(*will_change_value).GetValueID() ==
-                 CSSValueID::kContents) {
-        will_change_contents = true;
-      } else if (To<CSSIdentifierValue>(*will_change_value).GetValueID() ==
-                 CSSValueID::kScrollPosition) {
-        will_change_scroll_position = true;
-      } else {
-        NOTREACHED();
+    builder.SetWillChange(nullptr);
+    builder.SetSubtreeWillChangeContents(
+        state.ParentStyle()->SubtreeWillChangeContents());
+    return;
+  }
+
+  static CSSBitset transform_properties({CSSPropertyID::kTransform,
+                                         CSSPropertyID::kPerspective,
+                                         CSSPropertyID::kTransformStyle});
+
+  static CSSBitset any_transform_properties(
+      {CSSPropertyID::kTransform, CSSPropertyID::kPerspective,
+       CSSPropertyID::kTransformStyle, CSSPropertyID::kTranslate,
+       CSSPropertyID::kScale, CSSPropertyID::kRotate,
+       CSSPropertyID::kOffsetPath, CSSPropertyID::kOffsetPosition});
+
+  const auto& value_list = To<CSSValueList>(value);
+
+  Vector<AtomicString> values;
+  values.ReserveInitialCapacity(value_list.length());
+
+  CSSBitset resolved_longhand_ids;
+  bool has_contents_value = false;
+  bool has_scroll_position_value = false;
+  bool has_transform_property = false;
+  bool has_any_transform_property = false;
+
+  auto process_longhand = [&](CSSPropertyID id) {
+    resolved_longhand_ids.Set(id);
+    if (transform_properties.Has(id)) {
+      has_transform_property = true;
+    }
+    if (any_transform_properties.Has(id)) {
+      has_any_transform_property = true;
+    }
+  };
+
+  for (const auto& item : value_list) {
+    if (const auto* ident_value = DynamicTo<CSSIdentifierValue>(*item)) {
+      const CSSValueID value_id = ident_value->GetValueID();
+      switch (value_id) {
+        case CSSValueID::kContents:
+          has_contents_value = true;
+          break;
+        case CSSValueID::kScrollPosition:
+          has_scroll_position_value = true;
+          break;
+        default:
+          NOTREACHED();
       }
+      values.push_back(GetCSSValueNameAs<AtomicString>(value_id));
+    } else if (auto* custom_ident =
+                   DynamicTo<CSSCustomIdentValue>(item.Get())) {
+      const AtomicString value_string = custom_ident->Value();
+      values.push_back(value_string);
+
+      const CSSPropertyID id = UnresolvedCSSPropertyID(
+          state.GetDocument().GetExecutionContext(), value_string);
+      if (id != CSSPropertyID::kInvalid && id != CSSPropertyID::kVariable) {
+        const CSSPropertyID resolved_id = ResolveCSSPropertyID(id);
+        StylePropertyShorthand shorthand = shorthandForProperty(resolved_id);
+        if (shorthand.length()) {
+          for (const CSSProperty* const longhand : shorthand.properties()) {
+            process_longhand(longhand->PropertyID());
+          }
+        } else {
+          process_longhand(resolved_id);
+        }
+      }
+    } else {
+      NOTREACHED();
     }
   }
-  ComputedStyleBuilder& builder = state.StyleBuilder();
-  builder.SetWillChangeContents(will_change_contents);
-  builder.SetWillChangeScrollPosition(will_change_scroll_position);
-  builder.SetWillChangeProperties(will_change_properties);
+
+  builder.SetWillChange(MakeGarbageCollected<StyleWillChangeData>(
+      std::move(values), std::move(resolved_longhand_ids),
+      has_scroll_position_value, has_transform_property,
+      has_any_transform_property));
   builder.SetSubtreeWillChangeContents(
-      will_change_contents || state.ParentStyle()->SubtreeWillChangeContents());
+      has_contents_value || state.ParentStyle()->SubtreeWillChangeContents());
 }
 
 const CSSValue* WordBreak::CSSValueFromComputedStyleInternal(

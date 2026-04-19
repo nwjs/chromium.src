@@ -55,7 +55,7 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
@@ -63,6 +63,7 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.educational_tip.EducationalTipModuleUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.logo.LogoBridge.Logo;
@@ -83,6 +84,7 @@ import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -94,8 +96,6 @@ import java.util.concurrent.TimeoutException;
 // Restrict to Phones and Tablets because Desktop Android does not show NTP at startup.
 @Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE, DeviceFormFactor.PHONE_OR_TABLET})
 @EnableFeatures({ChromeFeatureList.START_SURFACE_RETURN_TIME})
-// TODO(https://crbug.com/454091341): Enable this feature on this test suite.
-@Features.DisableFeatures({ChromeFeatureList.ANDROID_COMPOSEPLATE})
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @DoNotBatch(reason = "This test suite tests startup behaviors.")
 public class ShowNtpAtStartupTest {
@@ -122,6 +122,8 @@ public class ShowNtpAtStartupTest {
         SetupListManager.setInstanceForTesting(setupListManager);
 
         EducationalTipModuleUtils.setEducationalTipActiveForTesting(false);
+        // TODO(https://crbug.com/454091341): Enable incognito mode on this test suite.
+        IncognitoUtils.setEnabledForTesting(false);
     }
 
     @Test
@@ -209,7 +211,7 @@ public class ShowNtpAtStartupTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, ChromeFeatureList.MAGIC_STACK_ANDROID})
+    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE})
     public void testSingleTabCardGoneAfterTabClosed_MagicStack() throws IOException {
         HomeSurfaceTestUtils.prepareTabStateMetadataFile(
                 new int[] {0, 1}, new String[] {TAB_URL, TAB_URL_1}, 0);
@@ -248,7 +250,7 @@ public class ShowNtpAtStartupTest {
                 ThreadUtils.runOnUiThreadBlocking(() -> cta.getCurrentTabModel().getTabAt(0));
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ntp.showMagicStack(newTrackingTab);
+                    ntp.showHomeSurfaceUiOnNtp(newTrackingTab);
                 });
         CriteriaHelper.pollUiThread(() -> ntp.isMagicStackVisibleForTesting());
 
@@ -293,7 +295,7 @@ public class ShowNtpAtStartupTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, ChromeFeatureList.MAGIC_STACK_ANDROID})
+    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE})
     public void testSingleTabModule_MagicStack() throws IOException {
         HomeSurfaceTestUtils.prepareTabStateMetadataFile(
                 new int[] {0, 1}, new String[] {TAB_URL, TAB_URL_1}, 0);
@@ -376,7 +378,7 @@ public class ShowNtpAtStartupTest {
     @Test
     @MediumTest
     @Feature({"StartSurface"})
-    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, ChromeFeatureList.MAGIC_STACK_ANDROID})
+    @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE})
     public void testClickSingleTabCardCloseNtpHomeSurface() throws IOException {
         HomeSurfaceTestUtils.prepareTabStateMetadataFile(new int[] {0}, new String[] {TAB_URL}, 0);
         mActivityTestRule.startFromLauncherAtNtp();
@@ -488,7 +490,7 @@ public class ShowNtpAtStartupTest {
         waitForNtpLoaded(mActivityTestRule.getActivityTab());
 
         NewTabPage ntp = (NewTabPage) mActivityTestRule.getActivityTab().getNativePage();
-        NewTabPageLayout ntpLayout = ntp.getNewTabPageLayout();
+        View ntpLayout = ntp.getLayout();
         View searchBoxLayout = ntpLayout.findViewById(R.id.search_box);
 
         // Orientation changes are not supported on automotive.
@@ -567,6 +569,8 @@ public class ShowNtpAtStartupTest {
     @Feature({"StartSurface", "RenderTest"})
     @Restriction(DeviceFormFactor.PHONE)
     @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, NEW_TAB_PAGE_CUSTOMIZATION_V2})
+    // TODO(crbug.com/475816843): Remove this and update goldens once migration is complete.
+    @DisableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON})
     public void testToolbar_defaultBackground() throws IOException {
         mActivityTestRule.startFromLauncherAtNtp();
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -585,6 +589,8 @@ public class ShowNtpAtStartupTest {
     @RequiresApi(Build.VERSION_CODES.R)
     @Restriction(DeviceFormFactor.PHONE)
     @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE, NEW_TAB_PAGE_CUSTOMIZATION_V2})
+    // TODO(crbug.com/475816843): Remove this and update goldens once migration is complete.
+    @DisableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON})
     public void testToolbar_customizedColorBackground() throws IOException {
         assumeTrue(
                 NtpCustomizationUtils.canEnableEdgeToEdgeForCustomizedTheme(/* isTablet= */ false));
@@ -634,7 +640,7 @@ public class ShowNtpAtStartupTest {
             int expectedSingleTabCardBottomMargin,
             boolean isNtpHomepage,
             NewTabPage ntp) {
-        NewTabPageLayout ntpLayout = ntp.getNewTabPageLayout();
+        View ntpLayout = ntp.getLayout();
         View mvTilesContainer = ntpLayout.findViewById(R.id.mv_tiles_container);
         Assert.assertEquals(
                 "The bottom margin of the most visited tiles container is wrong.",
@@ -654,7 +660,7 @@ public class ShowNtpAtStartupTest {
             NewTabPage ntp) {
         if (!isNtpHomepage) return;
         View singleTabCardContainer =
-                ntp.getNewTabPageLayout().findViewById(R.id.tab_switcher_module_container);
+                ntp.getLayout().findViewById(R.id.tab_switcher_module_container);
         MarginLayoutParams singleTabCardContainerMarginParams =
                 (MarginLayoutParams) singleTabCardContainer.getLayoutParams();
         Assert.assertEquals(
@@ -697,7 +703,7 @@ public class ShowNtpAtStartupTest {
 
     private void verifyFakeSearchBoxWidth(
             int expectedLandScapeWidth, int expectedPortraitWidth, NewTabPage ntp) {
-        NewTabPageLayout ntpLayout = ntp.getNewTabPageLayout();
+        View ntpLayout = ntp.getLayout();
         View searchBoxLayout = ntpLayout.findViewById(R.id.search_box);
 
         // Orientation changes are not supported on automotive.
@@ -729,7 +735,7 @@ public class ShowNtpAtStartupTest {
     private void verifyFakeSearchBoxWidthForCurrentOrientation(
             int expectedLandScapeWidth,
             int expectedPortraitWidth,
-            NewTabPageLayout ntpLayout,
+            View ntpLayout,
             View searchBoxLayout) {
         int expectedWidth;
         try {
@@ -754,7 +760,7 @@ public class ShowNtpAtStartupTest {
             int expectedEdgeMargin,
             int expectedIntervalMargin,
             NewTabPage ntp) {
-        NewTabPageLayout ntpLayout = ntp.getNewTabPageLayout();
+        View ntpLayout = ntp.getLayout();
         View mvtContainer = ntpLayout.findViewById(R.id.mv_tiles_container);
         TilesLinearLayout mvTilesLayout = ntpLayout.findViewById(R.id.mv_tiles_layout);
         int mvt1LeftMargin =
@@ -808,7 +814,7 @@ public class ShowNtpAtStartupTest {
             int expectedContainerWidth,
             int expectedEdgeMargin,
             int expectedIntervalMargin,
-            NewTabPageLayout ntpLayout,
+            View ntpLayout,
             View mvtContainer,
             int mvt1LeftMargin,
             int mvt2LeftMargin) {

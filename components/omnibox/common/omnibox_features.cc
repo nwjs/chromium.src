@@ -139,13 +139,6 @@ BASE_FEATURE(kDocumentProviderEnterpriseEligibilityWhenUnknown,
              "OmniboxDocumentProviderEnterpriseEligibilityWhenUnknown",
              DISABLED);
 
-// If enabled, the requirement to be in an active Sync state is removed and
-// Drive suggestions are available to all clients who meet the other
-// requirements.
-BASE_FEATURE(kDocumentProviderNoSyncRequirement,
-             "OmniboxDocumentProviderNoSyncRequirement",
-             ENABLED);
-
 // If enabled, the omnibox popup is not presented until the mouse button is
 // released.
 BASE_FEATURE(kShowPopupOnMouseReleased,
@@ -279,6 +272,9 @@ BASE_FEATURE(kOmniboxMobileParityUpdateV2, ENABLED);
 // If enabled, the X-Geo header will include permission granularity.
 BASE_FEATURE(kOmniboxXGeoPermissionGranularity, ENABLED);
 
+// If enabled, omnibox group separators and headers will use item decorations.
+BASE_FEATURE(kOmniboxItemDecoration, DISABLED);
+
 // The features below allow tuning number of suggestions offered to users in
 // specific contexts. These features are default enabled and are used to control
 // related fieldtrial parameters.
@@ -331,6 +327,10 @@ BASE_FEATURE(kComposeboxUsesChromeComposeClient, ENABLED);
 // Controls whether or not contextual composebox should display suggestions.
 BASE_FEATURE(kComposeboxAttachmentsTypedState, DISABLED);
 
+// Whether the composebox should show a verbatim match for context in
+// zero-suggest.
+BASE_FEATURE(kComposeboxVerbatimMatchZeroSuggest, ENABLED);
+
 // Enables passthrough params to be sent to the AIM eligibility service.
 BASE_FEATURE(kAimUrlInterceptPassthrough, DISABLED);
 
@@ -373,6 +373,10 @@ BASE_FEATURE(kUrlBarWithoutLigatures, ENABLED);
 // The cached ZPS made sense on sub-4GB Android Go devices
 BASE_FEATURE(kServeJavaCachedZeroSuggest, ENABLED);
 
+// If enabled, OmniboxSuggestionsDropdown will force reset the scroll position
+// of the Omnibox suggestion list to the top during any re-layout.
+BASE_FEATURE(kResetSuggestionsScroll, DISABLED);
+
 namespace android {
 static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
   static const base::Feature* const kFeaturesExposedToJava[] = {
@@ -387,18 +391,27 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kPostDelayedTaskFocusTab,
       &kOmniboxMobileParityUpdateV2,
       &kOmniboxXGeoPermissionGranularity,
+      &kPlatformAgnosticXGeo,
       &kOmniboxSiteSearch,
       &kOmniboxMultimodalInput,
       &kMultilineEditField,
       &kOmniboxImprovementForLFF,
       &kServeJavaCachedZeroSuggest,
-      &kRemoveSearchReadyOmnibox};
+      &kRemoveSearchReadyOmnibox,
+      &kResetSuggestionsScroll,
+      &kOmniboxItemDecoration};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);
   return reinterpret_cast<int64_t>(kFeatureMap.get());
 }
 }  // namespace android
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// If enabled, X-Geo headers are sent using the platform-agnostic C++
+// implementation. On Android, enabling this flag will disable the legacy Java
+// implementation.
+BASE_FEATURE(kPlatformAgnosticXGeo, DISABLED);
+
 // Note: no new flags beyond this point.
 
 namespace flag_descriptions {

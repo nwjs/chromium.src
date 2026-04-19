@@ -6,8 +6,10 @@ import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/common/features.gni")
 import("//components/captive_portal/core/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
+import("//components/offline_pages/buildflags/features.gni")
 import("//components/on_device_translation/buildflags/features.gni")
 import("//components/signin/features.gni")
+import("//components/spellcheck/spellcheck_build_features.gni")
 import("//extensions/buildflags/buildflags.gni")
 
 # This target should be the default place for adding public interface things
@@ -52,6 +54,7 @@ source_set("profiles") {
 
   public_deps = [
     ":profile",
+    ":profile_manager",
     "//build:chromeos_buildflags",
     "//components/leveldb_proto",
   ]
@@ -108,6 +111,86 @@ source_set("profile") {
   }
   if (is_android) {
     deps += [ "//chrome/browser/profiles/android:jni_headers" ]
+  }
+}
+
+source_set("profile_manager") {
+  sources = [
+    "profile_destroyer.h",
+    "profile_manager.h",
+    "profile_metrics.h",
+    "profile_shortcut_manager.h",
+  ]
+
+  deps = [
+    ":profile",
+    "//base",
+    "//build:chromeos_buildflags",
+    "//chrome/common:buildflags",
+    "//components/profile_metrics",
+    "//content/public/browser",
+  ]
+}
+
+source_set("profile_manager_impl") {
+  sources = [
+    "profile_destroyer.cc",
+    "profile_manager.cc",
+    "profile_metrics.cc",
+    "profile_shortcut_manager.cc",
+  ]
+
+  deps = [
+    ":profile",
+    ":profile_manager",
+    ":profile_util",
+    "//base",
+    "//chrome/browser:browser_features",
+    "//chrome/browser:browser_process",
+    "//chrome/browser:buildflags",
+    "//chrome/browser/navigation_predictor",
+    "//chrome/browser/prefs",
+    "//chrome/browser/profiles/keep_alive",
+    "//chrome/browser/signin",
+    "//chrome/browser/ui:ui_features",
+    "//chrome/browser/unified_consent",
+    "//chrome/common:buildflags",
+    "//chrome/common:constants",
+    "//components/crash/core/common",
+    "//components/profile_metrics",
+    "//components/signin/core/browser",
+    "//components/signin/public/base:signin_buildflags",
+    "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/common",
+    "//components/sync/base",
+    "//components/user_manager",
+    "//content/public/browser",
+    "//extensions/buildflags",
+    "//google_apis",
+  ]
+
+  if (enable_extensions) {
+    deps += [ "//chrome/browser/extensions" ]
+  }
+
+  if (!is_android) {
+    deps += [
+      "//chrome/browser/ui:browser_list",
+      "//chrome/browser/ui/browser_window",
+      "//components/live_caption",
+    ]
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//chrome/browser/ash/account_manager",
+      "//chrome/browser/ash/arc/policy",
+      "//chrome/browser/ash/profiles",
+      "//chrome/browser/chromeos/extensions/contact_center_insights",
+      "//chrome/browser/chromeos/extensions/desk_api",
+      "//chromeos/ash/components/browser_context_helper",
+      "//chromeos/ash/experiences/arc/session:arc_base_enums",
+    ]
   }
 }
 
@@ -192,6 +275,7 @@ source_set("profile_util_impl") {
 
   deps = [
     ":profile",
+    ":profile_manager",
     ":profile_util",
     "//base",
     "//base:i18n",
@@ -273,12 +357,15 @@ source_set("profiles_extra_parts_impl") {
   sources = [ "chrome_browser_main_extra_parts_profiles.cc" ]
 
   deps = [
+    ":profile_manager",
     ":profile_util",
     ":profiles_extra_parts",
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser:font_pref",
     "//chrome/browser/accessibility_annotator",
+    "//chrome/browser/accessibility_annotator/first_run",
+    "//chrome/browser/account_settings",
     "//chrome/browser/affiliations",
     "//chrome/browser/ai",
     "//chrome/browser/autocomplete",
@@ -311,18 +398,25 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/dom_distiller",
     "//chrome/browser/domain_reliability",
     "//chrome/browser/engagement",
+    "//chrome/browser/enterprise/connectors/reporting",
     "//chrome/browser/favicon",
     "//chrome/browser/feature_engagement",
     "//chrome/browser/file_system_access",
     "//chrome/browser/finds",
+    "//chrome/browser/first_party_sets",
     "//chrome/browser/glic",
+    "//chrome/browser/glic/suggestions",
     "//chrome/browser/heavy_ad_intervention",
     "//chrome/browser/history",
     "//chrome/browser/history_clusters",
     "//chrome/browser/history_embeddings",
     "//chrome/browser/k_anonymity_service",
     "//chrome/browser/language_detection",
+    "//chrome/browser/loader",
+    "//chrome/browser/login_detection",
     "//chrome/browser/lookalikes",
+    "//chrome/browser/manta",
+    "//chrome/browser/manta:impl",
     "//chrome/browser/media/router",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/notifications",
@@ -331,8 +425,12 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/origin_trials",
     "//chrome/browser/page_content_annotations",
     "//chrome/browser/page_content_annotations:extraction_service",
+    "//chrome/browser/page_image_service",
+    "//chrome/browser/page_info",
     "//chrome/browser/passage_embeddings",
+    "//chrome/browser/password_manager/actor_login:factories",
     "//chrome/browser/password_manager/factories",
+    "//chrome/browser/payments",
     "//chrome/browser/payments/browser_binding:browser_bound_key_deleter",
     "//chrome/browser/permissions",
     "//chrome/browser/persisted_state_db",
@@ -341,7 +439,10 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/prefs",
     "//chrome/browser/preloading",
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
+    "//chrome/browser/preloading/prefetch/search_prefetch",
+    "//chrome/browser/preloading/prerender",
     "//chrome/browser/preloading/search_preload",
+    "//chrome/browser/privacy",
     "//chrome/browser/privacy_sandbox:headers",
     "//chrome/browser/privacy_sandbox/notice:factory",
     "//chrome/browser/reading_list",
@@ -353,11 +454,14 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/safe_browsing:verdict_cache_manager_factory",
     "//chrome/browser/search_engine_choice",
     "//chrome/browser/search_engines",
+    "//chrome/browser/search_provider_logos",
     "//chrome/browser/segmentation_platform",
     "//chrome/browser/send_tab_to_self",
     "//chrome/browser/serial",
     "//chrome/browser/sharing",
     "//chrome/browser/signin",
+    "//chrome/browser/speech",
+    "//chrome/browser/storage",
     "//chrome/browser/storage_access_api",
     "//chrome/browser/subscription_eligibility",
     "//chrome/browser/sync",
@@ -372,8 +476,11 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
+    "//chrome/browser/undo",
+    "//chrome/browser/unified_consent",
     "//chrome/browser/updates/announcement_notification",
     "//chrome/browser/usb",
+    "//chrome/browser/visited_url_ranking",
     "//chrome/browser/webauthn",
     "//chrome/browser/webdata_services",
     "//chrome/browser/webid",
@@ -417,6 +524,7 @@ source_set("profiles_extra_parts_impl") {
     ]
   } else {
     deps += [
+      "//chrome/browser/accessibility/phrase_segmentation",
       "//chrome/browser/accessibility/tree_fixing:service",
       "//chrome/browser/accessibility_annotator/content_annotator",
       "//chrome/browser/apps/app_service",
@@ -426,12 +534,16 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/devtools",
       "//chrome/browser/feedback",
       "//chrome/browser/hid",
+      "//chrome/browser/indigo",
       "//chrome/browser/media/router/discovery/access_code:access_code_sink_service",
+      "//chrome/browser/metrics/critical_user_journeys",
       "//chrome/browser/private_ai",
+      "//chrome/browser/profile_resetter",
       "//chrome/browser/record_replay",
       "//chrome/browser/screen_ai:screen_ai_service_router_factory",
       "//chrome/browser/search",
       "//chrome/browser/search_engine_choice",
+      "//chrome/browser/sharing_hub",
       "//chrome/browser/themes",
       "//chrome/browser/ui/desktop_to_mobile_promos:service",
       "//chrome/browser/ui/global_error",
@@ -440,7 +552,6 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/ui/media_router",
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/read_anything",
-      "//chrome/browser/ui/tabs/organization",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/views/side_panel",
       "//chrome/browser/ui/waap",
@@ -462,6 +573,7 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/ash/keyed_service",
       "//chrome/browser/ash/language_packs",
       "//chrome/browser/ash/lobster",
+      "//chrome/browser/ash/login/auth_factors_policy",
       "//chrome/browser/ash/policy/dlp",
       "//chrome/browser/ash/policy/skyvault",
       "//chrome/browser/ash/scanner",
@@ -470,6 +582,7 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/chromeos/extensions/telemetry/api:keyed_service_factory",
       "//chrome/browser/chromeos/policy/dlp",
       "//chrome/browser/policy:onc",
+      "//chrome/browser/push_notification",
       "//chrome/browser/smart_card",
     ]
   }
@@ -487,6 +600,10 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/browser_switcher",
       "//chrome/browser/search_integrity",
     ]
+  }
+
+  if (enable_spellcheck) {
+    deps += [ "//chrome/browser/spellchecker" ]
   }
 
   if (enable_extensions_core) {
@@ -528,11 +645,22 @@ source_set("profiles_extra_parts_impl") {
     deps += [ "//chrome/browser/captive_portal" ]
   }
 
+  if (is_linux) {
+    deps += [
+      "//chrome/browser/gapis",
+      "//components/gapis",
+    ]
+  }
+
   if (!is_android) {
     deps += [
-      "//chrome/browser/password_manager:startup_import",
+      "//chrome/browser/password_manager/factories:startup_import_factory",
       "//chrome/browser/ui/tabs:glic",
     ]
+  }
+
+  if (enable_offline_pages) {
+    deps += [ "//chrome/browser/offline_pages" ]
   }
 }
 
@@ -570,6 +698,7 @@ source_set("unit_tests") {
   ]
   deps = [
     ":profile_downloader",
+    ":profile_manager",
     #":profile_util",
     "//base",
     "//base/test:test_support",

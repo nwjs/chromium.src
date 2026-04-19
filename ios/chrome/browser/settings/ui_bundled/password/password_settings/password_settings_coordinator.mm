@@ -20,12 +20,13 @@
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
 #import "ios/chrome/browser/credential_exchange/coordinator/credential_export_coordinator.h"
 #import "ios/chrome/browser/credential_provider/model/features.h"
-#import "ios/chrome/browser/passwords/coordinator/password_export_handler.h"
-#import "ios/chrome/browser/passwords/coordinator/password_utils.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/metrics/ios_password_manager_metrics.h"
 #import "ios/chrome/browser/passwords/model/metrics/ios_password_manager_visits_recorder.h"
+#import "ios/chrome/browser/passwords/password_exporter/coordinator/password_export_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/create_password_manager_title_view.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_bulk_move_handler.h"
@@ -34,7 +35,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_mediator.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_metrics_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_view_controller.h"
-#import "ios/chrome/browser/settings/ui_bundled/password/password_settings/scoped_password_settings_reauth_module_override.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_in_other_apps/passwords_in_other_apps_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/reauthentication/local_reauthentication_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
@@ -188,7 +188,8 @@ constexpr const char* kDeleteAllSavedDataButtonClicked =
 - (void)start {
   ProfileIOS* profile = self.profile;
 
-  _reauthModule = password_manager::BuildReauthenticationModule();
+  _reauthModule = ReauthenticationServiceFactory::GetForProfile(self.profile)
+                      ->GetReauthModule();
 
   webauthn::PasskeyModel* passkeyModel =
       IOSPasskeyModelFactory::GetForProfile(self.browser->GetProfile());
@@ -791,7 +792,6 @@ constexpr const char* kDeleteAllSavedDataButtonClicked =
   _reauthCoordinator = [[LocalReauthenticationCoordinator alloc]
       initWithBaseNavigationController:_settingsNavigationController
                                browser:self.browser
-                reauthenticationModule:_reauthModule
                            authOnStart:authOnStart];
 
   _reauthCoordinator.delegate = self;

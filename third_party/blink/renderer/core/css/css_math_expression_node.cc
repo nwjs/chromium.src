@@ -721,10 +721,9 @@ bool CanEagerlySimplify(const CSSMathExpressionOperation::Operands& operands) {
   return true;
 }
 
-bool IsNoneKeywordLiteral(const CSSMathExpressionNode* exp_node) {
-  return exp_node->IsKeywordLiteral() &&
-         DynamicTo<CSSMathExpressionKeywordLiteral>(exp_node)->GetValue() ==
-             CSSValueID::kNone;
+bool IsNoneKeywordLiteral(const CSSMathExpressionNode& exp_node) {
+  auto* keyword_literal = DynamicTo<CSSMathExpressionKeywordLiteral>(exp_node);
+  return keyword_literal && keyword_literal->GetValue() == CSSValueID::kNone;
 }
 
 std::optional<CSSMathExpressionNode*> MaybeSimplifyComparisonFunction(
@@ -734,20 +733,20 @@ std::optional<CSSMathExpressionNode*> MaybeSimplifyComparisonFunction(
   const CSSMathExpressionNode* val = operands[1];
   const CSSMathExpressionNode* max = operands[2];
   // clamp(MIN, none, MAX) is not allowed
-  if (IsNoneKeywordLiteral(val)) {
+  if (IsNoneKeywordLiteral(*val)) {
     return nullptr;
   }
   // clamp(none, VAL, none) is equivalent to just calc(VAL)
-  if (IsNoneKeywordLiteral(min) && IsNoneKeywordLiteral(max)) {
+  if (IsNoneKeywordLiteral(*min) && IsNoneKeywordLiteral(*max)) {
     return val->Copy();
   }
   // clamp(none, VAL, MAX) is equivalent to min(VAL, MAX)
-  if (IsNoneKeywordLiteral(min)) {
+  if (IsNoneKeywordLiteral(*min)) {
     return CSSMathExpressionOperation::CreateComparisonFunction(
         {val->Copy(), max->Copy()}, CSSMathOperator::kMin);
   }
   // clamp(MIN, VAL, none) is equivalent to max(MIN, VAL)
-  if (IsNoneKeywordLiteral(max)) {
+  if (IsNoneKeywordLiteral(*max)) {
     return CSSMathExpressionOperation::CreateComparisonFunction(
         {min->Copy(), val->Copy()}, CSSMathOperator::kMax);
   }
@@ -1302,9 +1301,20 @@ CSSMathExpressionNumericLiteral::ToPixelsAndPercent(
 const CalculationExpressionNode*
 CSSMathExpressionNumericLiteral::ToCalculationExpression(
     const CSSLengthResolver& length_resolver) const {
-  if (Category() == kCalcNumber) {
-    return MakeGarbageCollected<CalculationExpressionNumberNode>(
-        value_->DoubleValue());
+  switch (Category()) {
+    case kCalcNumber:
+      return MakeGarbageCollected<CalculationExpressionNumberNode>(
+          value_->DoubleValue());
+    case kCalcTime:
+    case kCalcFrequency:
+    case kCalcResolution: {
+      std::optional<double> canonical_value = ComputeValueInCanonicalUnit();
+      DCHECK(canonical_value.has_value());
+      return MakeGarbageCollected<CalculationExpressionNumberNode>(
+          canonical_value.value());
+    }
+    default:
+      break;
   }
   return MakeGarbageCollected<CalculationExpressionPixelsAndPercentNode>(
       *ToPixelsAndPercent(length_resolver));
@@ -2248,9 +2258,9 @@ inline bool CanArithmeticOperationBeSimplified(
          !DetermineType(*left_side, *right_side, op).IsIntermediateResult();
 }
 
-bool IsClampKeywordLiteral(const CSSMathExpressionNode* exp_node) {
+bool IsClampKeywordLiteral(const CSSMathExpressionNode& exp_node) {
   return IsNoneKeywordLiteral(exp_node) &&
-         DynamicTo<CSSMathExpressionKeywordLiteral>(exp_node)->GetContext() ==
+         To<CSSMathExpressionKeywordLiteral>(exp_node).GetContext() ==
              CSSMathExpressionKeywordLiteral::Context::kClamp;
 }
 
@@ -2268,7 +2278,7 @@ CSSMathExpressionOperation::CreateArithmeticOperationSimplified(
   // 'none' keyword for clamp() upper and lower bounds is only allowed
   // as a single top level keyword, cannot be combined with other
   // <calc-sum>.
-  if (IsClampKeywordLiteral(left_side) || IsClampKeywordLiteral(right_side)) {
+  if (IsClampKeywordLiteral(*left_side) || IsClampKeywordLiteral(*right_side)) {
     return nullptr;
   }
 
@@ -2969,11 +2979,104 @@ CalculationOperator ConvertOperator(CSSMathOperator op) {
   }
 }
 
+struct ArithmeticTreeConstraints {
+  bool is_pure_arithmetic = true;
+  bool contains_typed_literal = false;
+};
+
+ArithmeticTreeConstraints CheckArithmeticTreeConstraints(
+    const CSSMathExpressionNode* node) {
+  // 1. Check restrictions that break pure arithmetic
+  if (node->IsIdentifierLiteral() || node->IsKeywordLiteral() ||
+      node->IsContainerFeature() || node->IsAnchorQuery() ||
+      node->IsRandomFunction()) {
+    return {.is_pure_arithmetic = false};
+  }
+
+  // 2. Check for typed literals that need collapse
+  if (node->IsNumericLiteral()) {
+    switch (node->Category()) {
+      case kCalcAngle:
+      case kCalcTime:
+      case kCalcFrequency:
+      case kCalcResolution:
+        return {.contains_typed_literal = true};
+      default:
+        return {};
+    }
+  }
+
+  // 3. If it's an operation, ensure it's arithmetic and check its children
+  const auto* operation = DynamicTo<CSSMathExpressionOperation>(node);
+  if (!operation) {
+    return {};
+  }
+  if (!operation->IsArithmeticOperation()) {
+    return {.is_pure_arithmetic = false};
+  }
+
+  ArithmeticTreeConstraints constraints;
+  for (const CSSMathExpressionNode* operand : operation->GetOperands()) {
+    ArithmeticTreeConstraints child_constraints =
+        CheckArithmeticTreeConstraints(operand);
+    if (!child_constraints.is_pure_arithmetic) {
+      return {.is_pure_arithmetic = false};
+    }
+    constraints.contains_typed_literal |=
+        child_constraints.contains_typed_literal;
+  }
+  return constraints;
+}
+
 }  // namespace
 
 const CalculationExpressionNode*
 CSSMathExpressionOperation::ToCalculationExpression(
     const CSSLengthResolver& length_resolver) const {
+  // Collapse pure arithmetic expressions with a canonical
+  // number/length/percent result before lowering children when they contain
+  // typed-arithmetic literal categories that the normal length-lowering path
+  // cannot descend into safely, such as 1s * (1 / 1s).
+  ArithmeticTreeConstraints arithmetic_tree_constraints =
+      CheckArithmeticTreeConstraints(this);
+  if (arithmetic_tree_constraints.is_pure_arithmetic &&
+      arithmetic_tree_constraints.contains_typed_literal &&
+      !HasUnresolvablePercentages()) {
+    switch (Category()) {
+      case kCalcNumber:
+        if (std::optional<double> value =
+                ComputeValueInCanonicalUnit(length_resolver)) {
+          return MakeGarbageCollected<CalculationExpressionNumberNode>(
+              ClampTo<float>(*value));
+        }
+        break;
+      case kCalcLength:
+        if (!HasPercentage()) {
+          if (std::optional<double> value =
+                  ComputeValueInCanonicalUnit(length_resolver)) {
+            return MakeGarbageCollected<
+                CalculationExpressionPixelsAndPercentNode>(
+                PixelsAndPercent(ClampTo<float>(*value), 0.0f,
+                                 /*has_explicit_pixels=*/true,
+                                 /*has_explicit_percent=*/false));
+          }
+        }
+        break;
+      case kCalcPercent:
+        if (std::optional<double> value =
+                ComputeValueInCanonicalUnit(length_resolver)) {
+          return MakeGarbageCollected<
+              CalculationExpressionPixelsAndPercentNode>(
+              PixelsAndPercent(0.0f, ClampTo<float>(*value),
+                               /*has_explicit_pixels=*/false,
+                               /*has_explicit_percent=*/true));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
   CalculationOperator op = ConvertOperator(operator_);
   HeapVector<Member<const CalculationExpressionNode>> operands;
   operands.reserve(operands_.size());
@@ -4865,7 +4968,7 @@ class CSSMathExpressionNodeParser {
         result = ParseValueExpression(stream, state);
         // 'none' keyword for clamp() upper and lower bounds is only allowed
         // as a single top level keyword, not inside parenthesis.
-        if (!result || !stream.AtEnd() || IsClampKeywordLiteral(result)) {
+        if (!result || !stream.AtEnd() || IsClampKeywordLiteral(*result)) {
           return nullptr;
         }
         result->SetIsNestedCalc();
@@ -5296,8 +5399,7 @@ CSSMathExpressionNode* CSSMathExpressionNode::Create(
       DCHECK_LE(children.size(), 4u);
       const RandomValueSharing* random_value_sharing =
           RandomValueSharing::Fixed(
-              DynamicTo<CalculationExpressionNumberNode>(*children[0])
-                  ->Value());
+              To<CalculationExpressionNumberNode>(*children[0]).Value());
       CSSMathExpressionOperation::Operands operands;
       for (wtf_size_t i = 1; i < children.size(); ++i) {
         operands.push_back(Create(*children[i]));

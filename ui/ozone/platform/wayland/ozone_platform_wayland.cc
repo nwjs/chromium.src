@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/files/scoped_file.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/no_destructor.h"
@@ -358,11 +359,6 @@ class OzonePlatformWayland : public OzonePlatform,
       // their position on screens and always assume they are located at some
       // arbitrary position.
       properties->supports_global_screen_coordinates = false;
-
-      // TODO(crbug.com/40800718): Revisit (and maybe remove) once proper
-      // support, probably backed by org.freedesktop.portal.Screenshot.PickColor
-      // API is implemented.
-      properties->supports_color_picker_dialog = false;
 
       initialised = true;
     }

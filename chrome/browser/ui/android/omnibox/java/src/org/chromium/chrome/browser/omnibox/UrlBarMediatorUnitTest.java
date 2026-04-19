@@ -366,13 +366,6 @@ public class UrlBarMediatorUnitTest {
     }
 
     @Test
-    public void setIsInCct() {
-        Assert.assertFalse(mModel.get(UrlBarProperties.IS_IN_CCT));
-        mMediator.setIsInCct(true);
-        Assert.assertTrue(mModel.get(UrlBarProperties.IS_IN_CCT));
-    }
-
-    @Test
     public void setShowOriginOnly() {
         UrlBarData baseData =
                 UrlBarData.create(
@@ -405,6 +398,47 @@ public class UrlBarMediatorUnitTest {
 
         mMediator.setShowOriginOnly(true);
         Assert.assertEquals("non url", mModel.get(UrlBarProperties.TEXT_STATE).text.toString());
+    }
+
+    @Test
+    public void crossOriginNavigation() {
+        UrlBarData baseData =
+                UrlBarData.create(
+                        new GURL("http://www.example.com"),
+                        spannable("www.example.com"),
+                        0,
+                        14,
+                        "Blah");
+        UrlBarData dataWithSameDomain =
+                UrlBarData.create(
+                        new GURL("http://www.example.com/bar"),
+                        spannable("www.example.com/bar"),
+                        0,
+                        14,
+                        "Blah");
+        UrlBarData dataWithDifferentDomain =
+                UrlBarData.create(
+                        new GURL("http://www.example.com.subdomain"),
+                        spannable("www.example.com.subdomain"),
+                        0,
+                        20,
+                        "Blah");
+
+        Assert.assertTrue(
+                mMediator.setUrlBarData(
+                        baseData, UrlBar.ScrollType.SCROLL_TO_TLD, UrlBarData.SELECT_END));
+        Assert.assertTrue(
+                mMediator.setUrlBarData(
+                        dataWithSameDomain,
+                        UrlBar.ScrollType.SCROLL_TO_TLD,
+                        UrlBarData.SELECT_END));
+        Assert.assertFalse(mModel.get(UrlBarProperties.TEXT_STATE).originChanged);
+        Assert.assertTrue(
+                mMediator.setUrlBarData(
+                        dataWithDifferentDomain,
+                        UrlBar.ScrollType.SCROLL_TO_TLD,
+                        UrlBarData.SELECT_END));
+        Assert.assertTrue(mModel.get(UrlBarProperties.TEXT_STATE).originChanged);
     }
 
     private static SpannableStringBuilder spannable(String text) {

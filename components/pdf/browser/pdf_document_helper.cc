@@ -16,6 +16,7 @@
 #include "content/public/common/referrer_type_converters.h"
 #include "pdf/mojom/pdf.mojom.h"
 #include "pdf/pdf_features.h"
+#include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/point_f.h"
@@ -312,7 +313,8 @@ void PDFDocumentHelper::OnManagerWillDestroy(
   touch_selection_controller_client_manager_ = nullptr;
 }
 
-bool PDFDocumentHelper::IsCommandIdEnabled(int command_id) const {
+bool PDFDocumentHelper::IsCommandIdEnabled(int command_id,
+                                           bool can_paste) const {
   // TODO(wjmaclean|dsinclair): Make PDFium send readability information in the
   // selection changed message?
   bool readable = true;
@@ -379,7 +381,7 @@ void PDFDocumentHelper::RunContextMenu() {
   touch_selection_controller->HideAndDisallowShowingAutomatically();
 }
 
-bool PDFDocumentHelper::ShouldShowQuickMenu() {
+bool PDFDocumentHelper::ShouldShowQuickMenu(bool can_paste) {
   return false;
 }
 
@@ -421,8 +423,7 @@ void PDFDocumentHelper::OnDocumentLoadComplete() {
   client_->OnDocumentLoadComplete(&render_frame_host());
 }
 
-void PDFDocumentHelper::SaveUrlAs(const GURL& url,
-                                  network::mojom::ReferrerPolicy policy) {
+void PDFDocumentHelper::SavePdf() {
   client_->OnSaveURL();
 
   // Save using the PDF embedder host.
@@ -434,7 +435,8 @@ void PDFDocumentHelper::SaveUrlAs(const GURL& url,
     return;
   }
 
-  content::Referrer referrer(url, policy);
+  const GURL& url = rfh->GetLastCommittedURL();
+  content::Referrer referrer(url, network::mojom::ReferrerPolicy::kDefault);
   referrer = content::Referrer::SanitizeForRequest(url, referrer);
   GetWebContents().SaveFrame(url, referrer, rfh);
 }

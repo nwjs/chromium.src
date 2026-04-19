@@ -69,6 +69,7 @@ source_set("autofill") {
     "//base",
     "//base:i18n",
     "//chrome/browser:global_features",
+    "//chrome/browser/actor",
     "//chrome/browser/feature_engagement",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/profiles:profile",
@@ -92,6 +93,8 @@ source_set("autofill") {
 
   if (is_android) {
     sources += [
+      "autofill_dialog_controller.h",
+      "autofill_dialog_controller_impl.h",
       "autofill_keyboard_accessory_controller.h",
       "autofill_keyboard_accessory_controller_impl.h",
       "autofill_keyboard_accessory_view.h",
@@ -134,7 +137,6 @@ source_set("autofill") {
       "update_address_bubble_controller.h",
     ]
     public_deps += [
-      "//chrome/browser/actor",
       "//components/autofill/core/browser",
       "//components/password_manager/core/browser",
       "//components/password_manager/core/browser:password_form",
@@ -163,6 +165,7 @@ source_set("impl") {
     "autofill_client_provider.cc",
     "autofill_client_provider_factory.cc",
     "autofill_popup_hide_helper.cc",
+    "autofill_popup_view.cc",
     "autofill_suggestion_controller.cc",
     "autofill_suggestion_controller_utils.cc",
     "chrome_autofill_client.cc",
@@ -180,9 +183,11 @@ source_set("impl") {
     ":autofill_ai_ui_utils_impl",
     "//chrome/browser:browser_process",
     "//chrome/browser/accessibility_annotator",
+    "//chrome/browser/account_settings",
     "//chrome/browser/actor",
     "//chrome/browser/autofill",
     "//chrome/browser/autofill/actor",
+    "//chrome/browser/consent_auditor",
     "//chrome/browser/history",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/password_manager/factories",
@@ -193,15 +198,18 @@ source_set("impl") {
     "//chrome/browser/sync",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/autofill/payments",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/hats",
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/passwords",
     "//chrome/browser/ui/plus_addresses",
     "//chrome/browser/webdata_services",
+    "//components/account_settings",
     "//components/autofill/content/browser",
     "//components/autofill/content/browser:risk_proto",
     "//components/compose/core/browser",
     "//components/compose/core/browser:features",
+    "//components/device_reauth",
     "//components/embedder_support:user_agent",
     "//components/feature_engagement/public",
     "//components/infobars/content",
@@ -227,6 +235,7 @@ source_set("impl") {
 
   if (is_android) {
     sources += [
+      "autofill_dialog_controller_impl.cc",
       "autofill_keyboard_accessory_controller.cc",
       "autofill_keyboard_accessory_controller_impl.cc",
       "autofill_message_controller_impl.cc",
@@ -261,9 +270,9 @@ source_set("impl") {
       "//chrome/app:command_ids",
       "//chrome/app/vector_icons",
       "//chrome/browser/apps/platform_apps",
-      "//chrome/browser/autofill/actor",
       "//chrome/browser/desktop_to_mobile_promos:utils",
       "//chrome/browser/feedback",
+      "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/profiles:profile_util",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/desktop_to_mobile_promos:utils",
@@ -360,6 +369,7 @@ source_set("unit_tests") {
 
   if (is_android) {
     sources += [
+      "autofill_dialog_controller_impl_unittest.cc",
       "autofill_keyboard_accessory_controller_impl_unittest.cc",
       "autofill_message_controller_impl_unittest.cc",
       "autofill_message_model_unittest.cc",
@@ -409,6 +419,10 @@ source_set("test_support") {
       "autofill_keyboard_accessory_controller_impl_test_api.h",
       "autofill_message_controller_test_api.h",
       "autofill_message_model_test_api.h",
+      "mock_autofill_dialog_controller.cc",
+      "mock_autofill_dialog_controller.h",
+      "mock_autofill_dialog_view.cc",
+      "mock_autofill_dialog_view.h",
       "mock_autofill_message_controller.cc",
       "mock_autofill_message_controller.h",
     ]
@@ -492,6 +506,8 @@ source_set("test_support_unit") {
   sources = [
     "autofill_suggestion_controller_test_base.cc",
     "autofill_suggestion_controller_test_base.h",
+    "mock_accessibility_query_service.cc",
+    "mock_accessibility_query_service.h",
     "mock_autofill_popup_view.cc",
     "mock_autofill_popup_view.h",
   ]
@@ -548,7 +564,7 @@ if (!is_android) {
       "//chrome/browser",
       "//chrome/browser/autofill",
       "//chrome/browser/autofill:test_support",
-      "//chrome/browser/password_manager/factories:password_factory_headers",
+      "//chrome/browser/password_manager/factories",
       "//chrome/browser/plus_addresses",
       "//chrome/browser/signin",
       "//chrome/browser/sync",

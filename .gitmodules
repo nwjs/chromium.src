@@ -217,8 +217,8 @@
 [submodule "third_party/fxdiv/src"]
 	path = third_party/fxdiv/src
 	url = https://chromium.googlesource.com/external/github.com/Maratyszcza/FXdiv
-[submodule "third_party/harfbuzz-ng/src"]
-	path = third_party/harfbuzz-ng/src
+[submodule "third_party/harfbuzz/src"]
+	path = third_party/harfbuzz/src
 	url = https://chromium.googlesource.com/external/github.com/harfbuzz/harfbuzz
 [submodule "third_party/ink/src"]
 	path = third_party/ink/src
@@ -408,10 +408,6 @@
 [submodule "third_party/libyuv"]
 	path = third_party/libyuv
 	url = https://chromium.googlesource.com/libyuv/libyuv
-[submodule "third_party/lighttpd"]
-	path = third_party/lighttpd
-	url = https://chromium.googlesource.com/chromium/deps/lighttpd
-	gclient-condition = checkout_mac or checkout_win
 [submodule "third_party/lss"]
 	path = third_party/lss
 	url = https://chromium.googlesource.com/linux-syscall-support
@@ -419,10 +415,6 @@
 [submodule "third_party/material_color_utilities/src"]
 	path = third_party/material_color_utilities/src
 	url = https://chromium.googlesource.com/external/github.com/material-foundation/material-color-utilities
-[submodule "third_party/material_design_icons/src"]
-	path = third_party/material_design_icons/src
-	url = https://chromium.googlesource.com/external/github.com/google/material-design-icons
-	gclient-condition = checkout_ios
 [submodule "third_party/microsoft_dxheaders/src"]
 	path = third_party/microsoft_dxheaders/src
 	url = https://chromium.googlesource.com/external/github.com/microsoft/DirectX-Headers
@@ -600,10 +592,6 @@
 [submodule "third_party/weston/src"]
 	path = third_party/weston/src
 	url = https://chromium.googlesource.com/external/anongit.freedesktop.org/git/wayland/weston
-	gclient-condition = checkout_linux
-[submodule "third_party/xdg-utils"]
-	path = third_party/xdg-utils
-	url = https://chromium.googlesource.com/chromium/deps/xdg-utils
 	gclient-condition = checkout_linux
 [submodule "third_party/xnnpack/src"]
 	path = third_party/xnnpack/src

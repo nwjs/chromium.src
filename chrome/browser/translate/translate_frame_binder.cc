@@ -14,8 +14,6 @@ namespace translate {
 void BindContentTranslateDriver(
     content::RenderFrameHost* render_frame_host,
     mojo::PendingReceiver<translate::mojom::ContentTranslateDriver> receiver) {
-  return;
-#if 0
   // Only valid for the primary main frame.
   if (!render_frame_host->IsInPrimaryMainFrame())
     return;
@@ -31,6 +29,5 @@ void BindContentTranslateDriver(
     return;
 
   translate_client->translate_driver()->AddReceiver(std::move(receiver));
-#endif
 }
 }  // namespace translate

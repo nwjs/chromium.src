@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_spacing.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_builder_stream.h"
 
 namespace blink {
 
@@ -48,14 +49,6 @@ class InlineNodeForTest : public InlineNode {
   std::string Text() const { return Data().text_content.Utf8(); }
   InlineItems& Items() { return MutableData()->items; }
   static InlineItems& Items(InlineNodeData& data) { return data.items; }
-  bool IsNGShapeCacheAllowed(const String& text_content,
-                             const Font* override_font,
-                             const InlineItems& items,
-                             ShapeResultSpacing& spacing) const {
-    return InlineNode::IsNGShapeCacheAllowed(text_content, override_font, items,
-                                             spacing);
-  }
-
   void Append(const String& text, LayoutObject* layout_object) {
     InlineNodeData* data = MutableData();
     unsigned start = data->text_content.length();
@@ -568,21 +561,20 @@ TEST_P(MinMaxTest, Data) {
   const MinMaxData& data = GetParam();
   LoadAhem();
   StringBuilder html;
-  UNSAFE_TODO(html.AppendFormat(R"HTML("
+  html << R"HTML(
     <!DOCTYPE html>
     <style>
-    #target { font: 10px Ahem;%s }
-    %s
+    #target { font: 10px Ahem;)HTML"
+       << data.target_style << " }\n    " << data.style << R"HTML(
     </style>
-    <div id="target")HTML",
-                                data.target_style, data.style));
+    <div id="target")HTML";
   if (data.lang) {
-    UNSAFE_TODO(html.AppendFormat(" lang='%s'", data.lang));
+    html << " lang='" << data.lang << "'";
     LayoutLocale::SetHyphenationForTesting(AtomicString(data.lang),
                                            MockHyphenation::Create());
   }
-  UNSAFE_TODO(html.AppendFormat(">%s</div>", data.content));
-  SetupHtml("target", html.ToString());
+  html << ">" << data.content << "</div>";
+  SetupHtml("target", html.ReleaseString());
   InlineNodeForTest node = CreateInlineNode();
   const MinMaxSizes actual_sizes = ComputeMinMaxSizes(node);
   const MinMaxSizes expected_sizezs{LayoutUnit(data.min_max[0]),
@@ -1720,35 +1712,6 @@ TEST_F(InlineNodeTest, FontFeaturesInitial) {
   };
   EXPECT_TRUE(is_initial("initial"));
   EXPECT_FALSE(is_initial("no-kern"));
-}
-
-TEST_F(InlineNodeTest, ShapeCacheMultiItems) {
-  SetupHtml("t", "<div id=t>abc<span>def</span>ghi</div>");
-  InlineNodeForTest node = CreateInlineNode();
-  node.CollectInlines();
-
-  const String& text_content(node.Text().c_str());
-  InlineItems& items = node.Items();
-  EXPECT_EQ(5u, items.size());
-  ShapeResultSpacing spacing(text_content, node.IsSvgText());
-
-  EXPECT_FALSE(
-      node.IsNGShapeCacheAllowed(text_content, nullptr, items, spacing));
-}
-
-TEST_F(InlineNodeTest, ShapeCacheSpacingRequired) {
-  SetupHtml("t",
-            "<style>div { letter-spacing: 5px; }</style>"
-            "<div id=t>abc</div>");
-  InlineNodeForTest node = CreateInlineNode();
-  node.CollectInlines();
-
-  const String& text_content(node.Text().c_str());
-  InlineItems& items = node.Items();
-  ShapeResultSpacing spacing(text_content, node.IsSvgText());
-
-  EXPECT_FALSE(
-      node.IsNGShapeCacheAllowed(text_content, nullptr, items, spacing));
 }
 
 // crbug.com/437612643

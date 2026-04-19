@@ -41,13 +41,15 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder {
     @Override
     public boolean build(
             ModuleDelegate moduleDelegate, Callback<ModuleProvider> onModuleBuiltCallback) {
-        if (!EducationalTipModuleUtils.isEducationalTipActive()) {
-            return false;
-        }
+        if (!SetupListModuleUtils.isSetupListModule(mModuleType)) {
+            if (!EducationalTipModuleUtils.isEducationalTipActive()) {
+                return false;
+            }
 
-        if (mModuleType == ModuleType.DEFAULT_BROWSER_PROMO
-                && !ChromeFeatureList.sEducationalTipDefaultBrowserPromoCard.isEnabled()) {
-            return false;
+            if (mModuleType == ModuleType.DEFAULT_BROWSER_PROMO
+                    && !ChromeFeatureList.sEducationalTipDefaultBrowserPromoCard.isEnabled()) {
+                return false;
+            }
         }
 
         EducationalTipModuleCoordinator coordinator =
@@ -94,13 +96,8 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder {
 
     @Override
     public boolean isEligible() {
-        if (SetupListModuleUtils.isSetupListActive()) {
-            // While the Setup List is active, it takes priority. Only modules acting as Setup List
-            // items (including dual-purpose ones like Default Browser) are eligible.
-            if (SetupListModuleUtils.isSetupListModule(mModuleType)) {
-                return SetupListModuleUtils.isModuleEligible(mModuleType);
-            }
-            return false;
+        if (SetupListModuleUtils.isSetupListModule(mModuleType)) {
+            return SetupListModuleUtils.isModuleEligible(mModuleType);
         }
 
         // When the Setup List is inactive, check if Educational Tips are active globally.
@@ -114,13 +111,6 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder {
 
     @Override
     public InputContext createInputContext() {
-        // TODO(crbug.com/469425754): Setup list modules should be omitted from ranking
-        // When the setup list transitions to inactive, the modules are still registered
-        // in the existing session, but don't have a manual rank anymore. As a result they will
-        // be ranked by the segmentation platform, along with other education tip modules.
-        if (SetupListModuleUtils.isSetupListModule(mModuleType)) {
-            return new InputContext();
-        }
         Profile profile = getRegularProfile(mActionDelegate.getProfileSupplier());
         Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
         return EducationalTipCardProviderSignalHandler.createInputContext(

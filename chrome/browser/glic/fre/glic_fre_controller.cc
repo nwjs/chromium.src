@@ -120,20 +120,20 @@ bool GlicFreController::CanShowFreDialog(BrowserWindowInterface* bwi) {
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-void GlicFreController::OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
-                                              mojom::InvocationSource source) {
+void GlicFreController::OpenFreDialogInNewTab(
+    base::WeakPtr<BrowserWindowInterface> bwi,
+    mojom::InvocationSource source) {
+  if (!bwi) {
+    return;
+  }
   Browser* browser = bwi->GetBrowserForMigrationOnly();
   if (!ShouldShowFreDialog()) {
     return;
   }
   chrome::AddAndReturnTabAt(browser, GURL(), /*index=*/-1, /*foreground=*/true);
-  if (CanShowFreDialog(bwi)) {
-    if (GlicEnabling::IsUnifiedFreEnabled(profile_)) {
-      GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->ToggleUI(
-          bwi, /*prevent_close=*/true, source);
-    } else {
-      ShowFreDialog(bwi, source);
-    }
+  if (CanShowFreDialog(bwi.get())) {
+    GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->ToggleUI(
+        bwi.get(), /*prevent_close=*/true, source);
   }
 }
 #endif
@@ -148,7 +148,7 @@ void GlicFreController::ShowFreDialog(BrowserWindowInterface* bwi,
 
   if (auth_controller_.CheckAuthBeforeShowSync(
           base::BindOnce(&GlicFreController::OpenFreDialogInNewTab,
-                         GetWeakPtr(), bwi, source))) {
+                         GetWeakPtr(), bwi->GetWeakPtr(), source))) {
     ShowFreDialogAfterAuthCheck(bwi, source);
   } else {
     // Sign-in required and handled by AuthController. In this case, do not
@@ -334,14 +334,7 @@ void GlicFreController::DismissFre(mojom::FreWebUiState panel) {
   web_contents_ = nullptr;
 #if !BUILDFLAG(IS_ANDROID)
   source_browser_ = nullptr;
-  if (fre_view_ || fre_widget_) {
-    auto* service = GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
-    glic::GlicProfileManager* glic_profile_manager =
-        glic::GlicProfileManager::GetInstance();
-    if (glic_profile_manager) {
-      glic_profile_manager->OnUnloadingClientForService(service);
-    }
-  }
+
   if (fre_widget_) {
     base::UmaHistogramEnumeration("Glic.FreModalWebUiState.FinishState2",
                                   webui_state_);
@@ -546,8 +539,6 @@ void GlicFreController::CreateView() {
   fre_view_ = std::make_unique<GlicFreDialogView>(profile_, this);
   web_contents_ = fre_view_->web_contents();
   web_contents_->Resize(gfx::Rect(GetFreInitialSize()));
-  auto* service = GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
-  GlicProfileManager::GetInstance()->OnLoadingClientForService(service);
 }
 #endif
 

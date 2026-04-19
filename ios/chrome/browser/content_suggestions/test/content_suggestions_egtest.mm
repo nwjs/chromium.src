@@ -21,11 +21,13 @@
 #import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
 #import "ios/chrome/browser/content_suggestions/set_up_list/public/set_up_list_constants.h"
 #import "ios/chrome/browser/content_suggestions/test/new_tab_page_app_interface.h"
+#import "ios/chrome/browser/default_browser/promo/public/features.h"
 #import "ios/chrome/browser/first_run/public/first_run_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
@@ -147,12 +149,23 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(kEnableFeedAblation);
   config.features_enabled.push_back(kMostVisitedTilesCustomizationIOS);
-  config.features_disabled.push_back(kIOSExpandedSetupList);
   config.additional_args.push_back("--test-ios-module-ranker=mvt");
   if ([self isRunningTest:@selector(testMagicStackEditButton)] ||
       [self isRunningTest:@selector
             (testMagicStackCompactedSetUpListCompleteAllItems)]) {
     config.features_disabled.push_back(kContentPushNotifications);
+  }
+
+  if ([self isRunningTest:@selector
+            (testMagicStackCompactedSetUpListCompleteAllItems)]) {
+    config.features_enabled_and_params.push_back(
+        {kIOSExpandedSetupList,
+         {{kIOSExpandedSetupListVariationParam,
+           kIOSExpandedSetupListVariationParamSafariImport}}});
+    config.features_enabled_and_params.push_back(
+        {kDefaultBrowserPictureInPicture,
+         {{kDefaultBrowserPictureInPictureParam,
+           kDefaultBrowserPictureInPictureParamDisabledDefaultApps}}});
   }
 
   return config;
@@ -320,13 +333,30 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
 
   // Tap the default browser item.
   TapView(set_up_list::kDefaultBrowserItemID);
-  // Ensure the Default Browser Promo is displayed.
-  id<GREYMatcher> defaultBrowserView = grey_accessibilityID(
-      first_run::kFirstRunDefaultBrowserScreenAccessibilityIdentifier);
-  [[EarlGrey selectElementWithMatcher:defaultBrowserView]
-      assertWithMatcher:grey_notNil()];
-  // Dismiss Default Browser Promo.
-  TapPromoStyleSecondaryActionButton();
+
+  if (@available(iOS 18.3, *)) {
+    // Ensure the Default Browser Settings is displayed.
+    id<GREYMatcher> defaultBrowserView =
+        grey_accessibilityID(kDefaultBrowserSettingsTableViewId);
+    [[EarlGrey selectElementWithMatcher:defaultBrowserView]
+        assertWithMatcher:grey_notNil()];
+
+    id<GREYMatcher> primaryButton =
+        chrome_test_util::ButtonStackPrimaryButton();
+    [ChromeEarlGrey waitForUIElementToAppearWithMatcher:primaryButton];
+    [[EarlGrey selectElementWithMatcher:primaryButton]
+        performAction:grey_tap()];
+
+    [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
+  } else {
+    // Ensure the Default Browser Promo is displayed.
+    id<GREYMatcher> defaultBrowserView = grey_accessibilityID(
+        first_run::kFirstRunDefaultBrowserScreenAccessibilityIdentifier);
+    [[EarlGrey selectElementWithMatcher:defaultBrowserView]
+        assertWithMatcher:grey_notNil()];
+    // Dismiss Default Browser Promo.
+    TapPromoStyleSecondaryActionButton();
+  }
 
   ConditionBlock condition = ^{
     return [NewTabPageAppInterface
@@ -335,24 +365,6 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   GREYAssert(
       base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(2), condition),
       @"SetUpList item Default Browser not completed.");
-
-  // TODO:(crbug.com/480153437): Enable `kIOSExpandedSetupList` and update this
-  // test to work with the new setup list.
-  // Tap the autofill item.
-  TapView(set_up_list::kAutofillItemID);
-  id<GREYMatcher> CPEPromoView =
-      grey_accessibilityID(@"kCredentialProviderPromoAccessibilityId");
-  [[EarlGrey selectElementWithMatcher:CPEPromoView]
-      assertWithMatcher:grey_notNil()];
-  // Dismiss the CPE promo.
-  TapSecondaryActionButton();
-
-  condition = ^{
-    return [NewTabPageAppInterface setUpListItemAutofillInMagicStackIsComplete];
-  };
-  GREYAssert(
-      base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(2), condition),
-      @"SetUpList item Autofill not completed.");
 
   // Completed Set Up List items last one impression
   [ChromeEarlGrey closeAllTabs];
@@ -370,6 +382,42 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   // Dismiss Notification opt-in screen.
   TapPromoStyleSecondaryActionButton();
 
+  // Completed Set Up List items last one impression
+  [ChromeEarlGrey closeAllTabs];
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey closeAllTabs];
+  [ChromeEarlGrey openNewTab];
+
+  // Tap the Safari Import item.
+  TapView(set_up_list::kSafariImportItemID);
+  id<GREYMatcher> cancelButton = chrome_test_util::NavigationBarCancelButton();
+  [[EarlGrey selectElementWithMatcher:cancelButton]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:cancelButton] performAction:grey_tap()];
+
+  condition = ^{
+    return [NewTabPageAppInterface
+        setUpListItemSafariImportInMagicStackIsComplete];
+  };
+  GREYAssert(
+      base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(2), condition),
+      @"SetUpList item Safari Import not completed.");
+
+  // Completed Set Up List items last one impression
+  [ChromeEarlGrey closeAllTabs];
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey closeAllTabs];
+  [ChromeEarlGrey openNewTab];
+
+  // Tap the autofill item.
+  TapView(set_up_list::kAutofillItemID);
+  id<GREYMatcher> CPEPromoView =
+      grey_accessibilityID(@"kCredentialProviderPromoAccessibilityId");
+  [[EarlGrey selectElementWithMatcher:CPEPromoView]
+      assertWithMatcher:grey_notNil()];
+
+  // Dismiss the CPE promo.
+  TapSecondaryActionButton();
   // Verify the All Set item is shown.
   condition = ^{
     NSError* error = nil;

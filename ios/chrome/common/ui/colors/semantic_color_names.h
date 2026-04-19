@@ -7,14 +7,14 @@
 
 #import <UIKit/UIKit.h>
 
-// LINT.IfChange(SemanticColorNames)
-
 // **************
 // Element Colors
 // **************
 
 extern NSString* const kAimInputItemTopBackgroundColor;
 extern NSString* const kAimComposeboxButtonBackgroundColor;
+extern NSString* const kAppBarColor;
+extern NSString* const kAppBarIncognitoColor;
 extern NSString* const kBackgroundColor;
 extern NSString* const kCloseButtonColor;
 extern NSString* const kDisabledTintColor;
@@ -125,6 +125,7 @@ extern NSString* const kBlue900Color;
 // Static blue palette (same color for light and dark modes).
 extern NSString* const kStaticBlueColor;
 extern NSString* const kStaticBlue400Color;
+extern NSString* const kStaticBlue600Color;
 
 // Standard green color.
 extern NSString* const kGreenColor;
@@ -200,7 +201,5 @@ extern NSString* const kStaticGrey900Color;
 
 // Grey palette
 extern NSString* const kLightOnlyGrey200Color;
-
-// LINT.ThenChange(//ios/chrome/browser/shared/ui/animated_promo/animated_promo_utils.mm:AnimationSemanticColorNames)
 
 #endif  // IOS_CHROME_COMMON_UI_COLORS_SEMANTIC_COLOR_NAMES_H_

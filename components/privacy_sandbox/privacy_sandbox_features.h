@@ -129,33 +129,10 @@ BASE_DECLARE_FEATURE(kRelatedWebsiteSetsUi);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPsDualWritePrefsToNoticeStorage);
 
-// Enables Activity Type Storage
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxActivityTypeStorage);
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const char kPrivacySandboxActivityTypeStorageLastNLaunchesName[];
-
-
 // Enables chrome://privacy-sandbox-internals/private-state-tokens DevUI
 // page. Relies on PrivacySandboxInternalsDevUI also being enabled.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivateStateTokensDevUI);
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<int>
-    kPrivacySandboxActivityTypeStorageLastNLaunches;
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const char kPrivacySandboxActivityTypeStorageWithinXDaysName[];
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<int>
-    kPrivacySandboxActivityTypeStorageWithinXDays;
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<bool>
-    kPrivacySandboxActivityTypeStorageSkipPreFirstTab;
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxAdTopicsContentParity);
@@ -175,6 +152,12 @@ BASE_DECLARE_FEATURE(kPrivacySandboxAdsApiUxEnhancements);
 // If true, enable showing notices through the notice framework.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxNoticeFramework);
+
+// If true, the Ad Topics, Site Suggested Ads, and Ad Measurement API prefs are
+// set to false for users on startup. The UX to access these Ad Privacy settings
+// will be removed from all surfaces.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxAdPrivacyUxDeprecation);
 
 }  // namespace privacy_sandbox
 

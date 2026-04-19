@@ -15,23 +15,14 @@ import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/br
 import type {AutocompleteMatch} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {RenderType, SideType} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertNull, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
-import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertStyle} from './searchbox_test_utils.js';
+import {assertStyle, MockInputState} from './searchbox_test_utils.js';
 import {TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
 
 enum Attributes {
   SELECTED = 'selected',
-}
-
-interface ClickEventDetail {
-  button: number;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
 }
 
 function createClipboardEvent(name: string): ClipboardEvent {
@@ -114,7 +105,6 @@ async function setupRealboxTest(): Promise<{
   realbox: SearchboxElement,
   testProxy: TestSearchboxBrowserProxy,
   testMetricsReporterProxy: TestMock<BrowserProxyImpl>,
-  metrics: MetricsTracker,
 }> {
   loadTimeData.overrideValues({
     contextualMenuUsePecApi: false,
@@ -139,40 +129,25 @@ async function setupRealboxTest(): Promise<{
   testMetricsReporterProxy.setResultFor('getMark', Promise.resolve(null));
   BrowserProxyImpl.setInstance(testMetricsReporterProxy);
   MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
-  const metrics = fakeMetricsPrivate();
 
   testProxy.handler.setResultFor('getInputState', {
-    state: {
-      allowedModels: [],
-      allowedTools: [],
-      allowedInputTypes: [],
-      activeModel: 0,
-      activeTool: 0,
-      disabledModels: [],
-      disabledTools: [],
-      disabledInputTypes: [],
-      inputTypeConfigs: [],
+    state: new MockInputState({
       toolConfigs: [],
-      modelConfigs: [],
-      toolsSectionConfig: null,
-      modelSectionConfig: null,
-      hintText: '',
-      maxInputsByType: {},
-      maxTotalInputs: 0,
-    },
+      toolsSectionConfig: {header: ''},
+      modelSectionConfig: {header: ''},
+    }),
   });
   const realbox = await createAndAppendRealbox();
-  return {realbox, testProxy, testMetricsReporterProxy, metrics};
+  return {realbox, testProxy, testMetricsReporterProxy};
 }
 
 suite('SearchboxTest', () => {
   let realbox: SearchboxElement;
   let testProxy: TestSearchboxBrowserProxy;
   let testMetricsReporterProxy: TestMock<BrowserProxyImpl>;
-  let metrics: MetricsTracker;
 
   setup(async () => {
-    ({realbox, testProxy, testMetricsReporterProxy, metrics} =
+    ({realbox, testProxy, testMetricsReporterProxy} =
          await setupRealboxTest());
     window.open = () => null;
   });
@@ -285,7 +260,6 @@ suite('SearchboxTest', () => {
     {
       description: 'theming refresh disabled',
       properties: {
-        composeButtonEnabled: false,
         searchboxChromeRefreshTheming: false,
         colorSourceIsBaseline: true,
       },
@@ -294,7 +268,6 @@ suite('SearchboxTest', () => {
     {
       description: 'theming refresh with baseline color',
       properties: {
-        composeButtonEnabled: false,
         searchboxChromeRefreshTheming: true,
         colorSourceIsBaseline: true,
       },
@@ -303,17 +276,7 @@ suite('SearchboxTest', () => {
     {
       description: 'theming refresh with non-baseline color',
       properties: {
-        composeButtonEnabled: false,
         searchboxChromeRefreshTheming: true,
-        colorSourceIsBaseline: false,
-      },
-      shouldUseWebkit: true,
-    },
-    {
-      description: 'compose button enabled',
-      properties: {
-        composeButtonEnabled: true,
-        searchboxChromeRefreshTheming: false,
         colorSourceIsBaseline: false,
       },
       shouldUseWebkit: true,
@@ -348,181 +311,6 @@ suite('SearchboxTest', () => {
       }
     });
   });
-
-  test('Compose button is not enabled by default.', async () => {
-    // Arrange.
-    realbox = await createAndAppendRealbox();
-
-    // Assert.
-    const composeButton =
-        realbox.shadowRoot.querySelector<HTMLElement>('#composeButton');
-    assertFalse(!!composeButton);
-  });
-
-  test('clicking composebox button emits an event.', async () => {
-    // Arrange.
-    realbox = await createAndAppendRealbox(
-        {composeButtonEnabled: true, composeboxEnabled: true});
-
-    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
-
-    // Act.
-    const composeButton =
-        realbox.shadowRoot.querySelector<HTMLElement>('#composeButton');
-    assertTrue(!!composeButton);
-
-    // Dispatch the 'compose-click' event directly, which cr-searchbox
-    // listens for. This simulates the `cr-searchbox-compose-button`
-    // child `cr-button` being clicked and its `onClick_` function being
-    // called.
-    const eventDetail: ClickEventDetail = {
-      button: 0,
-      ctrlKey: false,
-      metaKey: false,
-      shiftKey: false,
-    };
-    composeButton.dispatchEvent(new CustomEvent('compose-click', {
-      detail: eventDetail,
-      bubbles: true,
-      composed: true,
-    }));
-
-    // Assert.
-    await whenOpenComposeBox;
-
-    const metricName = 'ContextualSearch.AiModeButtonClick.NtpRealbox';
-    // One histogram and one action metric should be emitted.
-    assertEquals(2, metrics.count(metricName));
-    // Only one histogram should be recorded.
-    assertEquals(1, metrics.count(metricName, true));
-  });
-
-  test('clicking composebox button with text records user action', async () => {
-    // Arrange.
-    realbox = await createAndAppendRealbox(
-        {composeButtonEnabled: true, composeboxEnabled: true});
-    realbox.$.input.inputElement.value = 'hello';
-
-    // Act.
-    const composeButton =
-        realbox.shadowRoot.querySelector<HTMLElement>('#composeButton');
-    assertTrue(!!composeButton);
-
-    const eventDetail: ClickEventDetail = {
-      button: 0,
-      ctrlKey: false,
-      metaKey: false,
-      shiftKey: false,
-    };
-    composeButton.dispatchEvent(new CustomEvent('compose-click', {
-      detail: eventDetail,
-      bubbles: true,
-      composed: true,
-    }));
-
-    // Assert.
-    const submitMetricName =
-        'ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.NewTabPage';
-    // One histogram and one action metric should be emitted.
-    assertEquals(2, metrics.count(submitMetricName));
-    // Only one histogram should be recorded.
-    assertEquals(1, metrics.count(submitMetricName, true));
-
-    const buttonMetricName = 'ContextualSearch.AiModeButtonClick.NtpRealbox';
-    // One histogram and one action metric should be emitted.
-    assertEquals(2, metrics.count(buttonMetricName));
-    // Only one histogram should be recorded.
-    assertEquals(1, metrics.count(buttonMetricName, true));
-  });
-
-  test('hovering on composebox button plays the animation.', async () => {
-    // Arrange.
-    realbox = await createAndAppendRealbox(
-        {composeButtonEnabled: true, composeboxEnabled: true});
-
-    // Act.
-    const composeButton =
-        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
-    assertTrue(!!composeButton);
-
-    await composeButton.updateComplete;
-
-    const glowAnimationWrapper =
-        composeButton.shadowRoot.querySelector<HTMLElement>(
-            '#glowAnimationWrapper');
-    assertTrue(!!glowAnimationWrapper);
-
-    // Assert.
-    glowAnimationWrapper.classList.remove('play');
-    assertFalse(glowAnimationWrapper.classList.contains('play'));
-
-    // Simulate mouseenter event
-    glowAnimationWrapper.dispatchEvent(new MouseEvent('mouseenter'));
-    await microtasksFinished();
-
-    const gradient = glowAnimationWrapper.querySelector('.gradient');
-    const mask = glowAnimationWrapper.querySelector('.mask');
-
-    const gradientBeforeStyle = getComputedStyle(gradient!, '::before');
-    const maskBeforeStyle = getComputedStyle(mask!, '::before');
-
-    assertEquals('running', gradientBeforeStyle.animationPlayState);
-    assertEquals('running', maskBeforeStyle.animationPlayState);
-  });
-
-  test('animation plays on page load.', async () => {
-    // Arrange.
-    loadTimeData.overrideValues({
-      searchboxShowComposeAnimation: true,
-    });
-
-    realbox = await createAndAppendRealbox(
-        {composeButtonEnabled: true, composeboxEnabled: true});
-
-    // Act.
-    const composeButton =
-        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
-    assertTrue(!!composeButton);
-
-    await composeButton.updateComplete;
-
-    const glowAnimationWrapper =
-        composeButton.shadowRoot.querySelector<HTMLElement>(
-            '#glowAnimationWrapper');
-    assertTrue(!!glowAnimationWrapper);
-
-    // Assert.
-    // Animation should play if `searchboxShowComposeAnimation` is true
-    assertTrue(glowAnimationWrapper.classList.contains('play'));
-  });
-
-  test('animation does not play on page load.', async () => {
-    // Arrange.
-    loadTimeData.overrideValues({
-      searchboxShowComposeAnimation: false,
-    });
-
-    realbox = await createAndAppendRealbox(
-        {composeButtonEnabled: true, composeboxEnabled: true});
-
-    // Act.
-    const composeButton =
-        realbox.shadowRoot.querySelector('cr-searchbox-compose-button');
-    assertTrue(!!composeButton);
-
-    await composeButton.updateComplete;
-
-    const glowAnimationWrapper =
-        composeButton.shadowRoot.querySelector<HTMLElement>(
-            '#glowAnimationWrapper');
-    assertTrue(!!glowAnimationWrapper);
-
-    // Assert.
-    // Animation should not play if `searchboxShowComposeAnimation` is false
-    assertFalse(glowAnimationWrapper.classList.contains('play'));
-  });
-
-
 
   //============================================================================
   // Test Querying Autocomplete

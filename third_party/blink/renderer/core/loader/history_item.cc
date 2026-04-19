@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/network/encoded_form_data.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/uuid.h"
 #include "ui/gfx/geometry/point.h"
@@ -77,18 +78,22 @@ HistoryItem* HistoryItem::Create(const PageState& page_state) {
 
   auto* new_item = MakeGarbageCollected<HistoryItem>();
   const ExplodedFrameState& state = exploded_page_state.top;
-  new_item->SetURLString(WebString::FromUTF16(state.url_string));
-  new_item->SetReferrer(WebString::FromUTF16(state.referrer));
+  new_item->SetURLString(WebString::FromUtf16(state.url_string));
+  new_item->SetReferrer(WebString::FromUtf16(state.referrer));
+  if (state.initiator_origin) {
+    new_item->SetRequestorOrigin(
+        SecurityOrigin::CreateFromUrlOrigin(*state.initiator_origin));
+  }
   new_item->SetReferrerPolicy(state.referrer_policy);
-  new_item->SetTarget(WebString::FromUTF16(state.target));
+  new_item->SetTarget(WebString::FromUtf16(state.target));
   if (state.state_object) {
     new_item->SetStateObject(SerializedScriptValue::Create(
-        WebString::FromUTF16(*state.state_object)));
+        WebString::FromUtf16(*state.state_object)));
   }
 
   Vector<String> document_state;
   for (auto& ds : state.document_state) {
-    document_state.push_back(WebString::FromUTF16(ds));
+    document_state.push_back(WebString::FromUtf16(ds));
   }
   new_item->SetDocumentState(document_state);
 
@@ -115,26 +120,26 @@ HistoryItem* HistoryItem::Create(const PageState& page_state) {
   }
   if (state.navigation_api_key) {
     new_item->SetNavigationApiKey(
-        WebString::FromUTF16(state.navigation_api_key));
+        WebString::FromUtf16(state.navigation_api_key));
   }
   if (state.navigation_api_id) {
-    new_item->SetNavigationApiId(WebString::FromUTF16(state.navigation_api_id));
+    new_item->SetNavigationApiId(WebString::FromUtf16(state.navigation_api_id));
   }
 
   if (state.navigation_api_state) {
     new_item->SetNavigationApiState(SerializedScriptValue::Create(
-        WebString::FromUTF16(*state.navigation_api_state)));
+        WebString::FromUtf16(*state.navigation_api_state)));
   }
 
   new_item->SetFormContentType(
-      WebString::FromUTF16(state.http_body.http_content_type));
+      WebString::FromUtf16(state.http_body.http_content_type));
   if (state.http_body.request_body) {
     new_item->SetFormData(
         blink::GetWebHTTPBodyForRequestBody(*state.http_body.request_body));
   }
 
   new_item->SetScrollAnchorData(
-      {WebString::FromUTF16(state.scroll_anchor_selector),
+      {WebString::FromUtf16(state.scroll_anchor_selector),
        state.scroll_anchor_offset, state.scroll_anchor_simhash});
   return new_item;
 }
@@ -174,6 +179,11 @@ void HistoryItem::SetURL(const KURL& url) {
 
 void HistoryItem::SetReferrer(const String& referrer) {
   referrer_ = referrer;
+}
+
+void HistoryItem::SetRequestorOrigin(
+    const scoped_refptr<const SecurityOrigin>& requestor_origin) {
+  requestor_origin_ = requestor_origin;
 }
 
 void HistoryItem::SetReferrerPolicy(network::mojom::ReferrerPolicy policy) {
@@ -266,7 +276,7 @@ ResourceRequest HistoryItem::GenerateResourceRequest(
     request.SetHttpMethod(http_names::kPOST);
     request.SetHttpBody(form_data_);
     request.SetHTTPContentType(form_content_type_);
-    request.SetHTTPOriginToMatchReferrerIfNeeded();
+    request.SetHTTPOriginToMatchReferrerPolicyIfNeeded(requestor_origin_.get());
   }
   return request;
 }

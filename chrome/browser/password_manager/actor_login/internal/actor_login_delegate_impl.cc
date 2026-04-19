@@ -16,9 +16,13 @@
 #include "base/types/expected.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/password_manager/actor_login/actor_login_permission_cleaning_service_factory.h"
+#include "chrome/browser/password_manager/actor_login/actor_login_permission_service_factory.h"
 #include "chrome/browser/password_manager/actor_login/internal/actor_login_federated_credentials_fetcher.h"
 #include "chrome/browser/password_manager/actor_login/internal/actor_login_metrics_helper.h"
+#include "chrome/browser/password_manager/actor_login/internal/actor_login_permission_cleaning_service.h"
 #include "chrome/browser/password_manager/actor_login/internal/actor_login_siwg_controller.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/buildflags.h"
@@ -37,6 +41,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/identity_credential_source.h"
 #include "url/origin.h"
 
@@ -96,13 +101,14 @@ ActorLoginDelegateImpl::~ActorLoginDelegateImpl() = default;
 
 // TODO(crbug.com/434156135): move to components/ as much as possible.
 void ActorLoginDelegateImpl::GetCredentials(
+    bool has_sign_in_with_google_button,
     base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
     CredentialsOrErrorReply callback) {
   CHECK(callback);
 
   // One request at a time mechanism using pending callbacks.
   // Check if either callback is currently active.
-  if (get_credentials_helper_ || pending_attempt_login_callback_) {
+  if (get_credentials_helper_ || pending_attempt_login_done_callback_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(callback),
@@ -125,31 +131,38 @@ void ActorLoginDelegateImpl::GetCredentials(
 
   const url::Origin request_origin =
       GetWebContents().GetPrimaryMainFrame()->GetLastCommittedOrigin();
-#if 0
   mqls_logger->SetDomainAndLanguage(
       ChromeTranslateClient::GetManagerFromWebContents(&GetWebContents()),
       request_origin.GetURL());
-#endif
 
   std::vector<std::unique_ptr<ActorLoginCredentialsFetcher>> fetchers;
   fetchers.push_back(std::make_unique<ActorLoginPasswordCredentialsFetcher>(
       request_origin, client_, driver->GetPasswordManager(), mqls_logger));
 
-  auto federated_fetcher =
-      std::make_unique<ActorLoginFederatedCredentialsFetcher>(
-          request_origin,
-          base::BindRepeating(
-              [](base::WeakPtr<content::WebContents> web_contents)
-                  -> content::webid::IdentityCredentialSource* {
-                if (!web_contents) {
-                  return nullptr;
-                }
-                return content::webid::IdentityCredentialSource::FromPage(
-                    web_contents->GetPrimaryPage());
-              },
-              GetWebContents().GetWeakPtr()));
-  federated_fetcher->SetMetricsHelper(metrics_helper_.get());
-  fetchers.push_back(std::move(federated_fetcher));
+  if (has_sign_in_with_google_button) {
+    ActorLoginPermissionService* permission_service =
+        ActorLoginPermissionServiceFactory::GetForProfile(
+            Profile::FromBrowserContext(GetWebContents().GetBrowserContext()));
+    // This can be nullptr for incognito and guest profiles but these profiles
+    // cannot use actor login.
+    CHECK(permission_service);
+    auto federated_fetcher =
+        std::make_unique<ActorLoginFederatedCredentialsFetcher>(
+            request_origin,
+            base::BindRepeating(
+                [](base::WeakPtr<content::WebContents> web_contents)
+                    -> content::webid::IdentityCredentialSource* {
+                  if (!web_contents) {
+                    return nullptr;
+                  }
+                  return content::webid::IdentityCredentialSource::FromPage(
+                      web_contents->GetPrimaryPage());
+                },
+                GetWebContents().GetWeakPtr()),
+            *permission_service);
+    federated_fetcher->SetMetricsHelper(metrics_helper_.get());
+    fetchers.push_back(std::move(federated_fetcher));
+  }
 
   get_credentials_helper_ = std::make_unique<ActorLoginGetCredentialsHelper>(
       std::move(fetchers), metrics_helper_.get(),
@@ -162,15 +175,16 @@ void ActorLoginDelegateImpl::AttemptLogin(
     bool should_store_permission,
     base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
     base::TimeTicks attempt_login_tool_start_time,
-    LoginStatusResultOrErrorReply callback) {
-  CHECK(callback);
+    LoginStatusResultOrErrorReply done_callback,
+    base::WeakPtr<ActionSequenceDelegate> action_sequence_delegate) {
+  CHECK(done_callback);
 
   // One request at a time mechanism using pending callbacks.
   // Check if either callback is currently active.
-  if (get_credentials_helper_ || pending_attempt_login_callback_) {
+  if (get_credentials_helper_ || pending_attempt_login_done_callback_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
-        base::BindOnce(std::move(callback),
+        base::BindOnce(std::move(done_callback),
                        base::unexpected(ActorLoginError::kServiceBusy)));
     return;
   }
@@ -178,13 +192,17 @@ void ActorLoginDelegateImpl::AttemptLogin(
   if (!base::FeatureList::IsEnabled(password_manager::features::kActorLogin)) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
-        base::BindOnce(std::move(callback),
+        base::BindOnce(std::move(done_callback),
                        base::unexpected(ActorLoginError::kFeatureDisabled)));
     return;
   }
 
+  last_attempted_credential_ = std::make_unique<Credential>(credential);
+
   // Store the callback to mark as active
-  pending_attempt_login_callback_ = std::move(callback);
+  pending_attempt_login_done_callback_ = std::move(done_callback);
+  action_sequence_delegate_ = std::move(action_sequence_delegate);
+  action_sequence_subscription_ = {};
 
   PasswordManagerDriver* driver = driver_supplier_.Run(&GetWebContents());
   CHECK(driver);
@@ -193,11 +211,9 @@ void ActorLoginDelegateImpl::AttemptLogin(
 
   const url::Origin origin =
       GetWebContents().GetPrimaryMainFrame()->GetLastCommittedOrigin();
-#if 0
   mqls_logger->SetDomainAndLanguage(
       ChromeTranslateClient::GetManagerFromWebContents(&GetWebContents()),
       origin.GetURL());
-#endif
 
   if (!metrics_helper_) {
     metrics_helper_ = std::make_unique<ActorLoginMetricsHelper>(
@@ -206,15 +222,33 @@ void ActorLoginDelegateImpl::AttemptLogin(
   RecordAttemptLoginMetrics(credential);
 
   if (credential.type == CredentialType::kFederated) {
+    actor::ActorKeyedService* actor_service =
+        actor::ActorKeyedService::Get(GetWebContents().GetBrowserContext());
+    CHECK(actor_service);
+    actor_task_state_subscription_ = actor_service->AddTaskStateChangedCallback(
+        base::BindRepeating(&ActorLoginDelegateImpl::OnActorTaskStateChanged,
+                            weak_ptr_factory_.GetWeakPtr()));
+    const actor::ActorTask* acting_task =
+        actor_service->GetActingActorTaskForWebContents(&GetWebContents());
+    CHECK(acting_task);
+    CHECK(acting_task->IsUnderActorControl());
+    acting_task_id_ = acting_task->id();
+
+    ActorLoginPermissionService* permission_service =
+        ActorLoginPermissionServiceFactory::GetForProfile(
+            Profile::FromBrowserContext(GetWebContents().GetBrowserContext()));
+    CHECK(permission_service);
+
     siwg_controller_ = std::make_unique<ActorLoginSiwgController>(
-        &GetWebContents(), base::BindPostTaskToCurrentDefault(base::BindOnce(
-                               &ActorLoginDelegateImpl::OnAttemptLoginCompleted,
-                               weak_ptr_factory_.GetWeakPtr())));
-    siwg_controller_->SetMetricsHelper(metrics_helper_.get());
-    siwg_controller_->StartFederatedLogin(credential);
+        &GetWebContents(), credential, should_store_permission,
+        *permission_service,
+        base::BindPostTaskToCurrentDefault(
+            base::BindOnce(&ActorLoginDelegateImpl::OnAttemptLoginCompleted,
+                           weak_ptr_factory_.GetWeakPtr())),
+        action_sequence_delegate_);
+    siwg_controller_->StartFederatedLogin(std::move(metrics_helper_));
     return;
   }
-
   credential_filler_ = std::make_unique<ActorLoginCredentialFiller>(
       origin, credential, should_store_permission, client_, mqls_logger,
       attempt_login_tool_start_time,
@@ -223,12 +257,52 @@ void ActorLoginDelegateImpl::AttemptLogin(
       base::BindPostTaskToCurrentDefault(
           base::BindOnce(&ActorLoginDelegateImpl::OnAttemptLoginCompleted,
                          weak_ptr_factory_.GetWeakPtr())));
+  if (credential.type == CredentialType::kPassword && should_store_permission) {
+    observation_.Reset();
+    observation_.Observe(password_manager);
+  }
+
   credential_filler_->AttemptLogin(password_manager);
+}
+
+void ActorLoginDelegateImpl::OnLoginSuccessful(
+    const password_manager::PasswordForm& form) {
+  observation_.Reset();
+  if (!last_attempted_credential_ ||
+      last_attempted_credential_->type != CredentialType::kPassword) {
+    return;
+  }
+
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::
+              kActorLoginConflictingPermissionCleanup)) {
+    return;
+  }
+
+  // The delegate only observes the password manager for password-based logins,
+  // which are meant to store a permanent permission if successful.
+  // Still, to make sure the login does correspond to the filled credential,
+  // check the form against the cached last used credential.
+  // TODO(crbug.com/494551592): Replace url comparison with signon_realm
+  // comparison.
+  if (form.actor_login_approved &&
+      form.username_value == last_attempted_credential_->username &&
+      ActorLoginFormFinder::GetSourceSiteOrAppFromUrl(form.url) ==
+          last_attempted_credential_->source_site_or_app) {
+    auto* cleaning_service =
+        ActorLoginPermissionCleaningServiceFactory::GetForProfile(
+            Profile::FromBrowserContext(GetWebContents().GetBrowserContext()));
+    CHECK(cleaning_service);
+    cleaning_service->ClearConflictingPermissions(
+        *last_attempted_credential_, form.signon_realm, base::DoNothing());
+    last_attempted_credential_.reset();
+  }
 }
 
 void ActorLoginDelegateImpl::WebContentsDestroyed() {
   get_credentials_helper_.reset();
   credential_filler_.reset();
+  observation_.Reset();
   client_ = nullptr;
 }
 
@@ -279,14 +353,45 @@ void ActorLoginDelegateImpl::OnGetCredentialsCompleted(
 void ActorLoginDelegateImpl::OnAttemptLoginCompleted(
     base::expected<LoginStatusResult, ActorLoginError> result) {
   // There shouldn't be a pending request without a pending callback.
-  CHECK(pending_attempt_login_callback_);
+  CHECK(pending_attempt_login_done_callback_);
   credential_filler_.reset();
-  siwg_controller_.reset();
+
+  // `kRequiresButtonClick` means that the federated login is not yet done.
+  // We need to keep the controller alive so it can receive the result of the
+  // login and store permissions if needed. It will be cleaned up together with
+  // the delegate or when the current sequence of actions completes.
+  if (result.has_value() &&
+      result.value() == LoginStatusResult::kRequiresButtonClick &&
+      action_sequence_delegate_) {
+    action_sequence_subscription_ =
+        action_sequence_delegate_->RegisterActionSequenceEnded(
+            base::BindOnce(&ActorLoginDelegateImpl::OnActionSequenceEnded,
+                           weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    siwg_controller_.reset();
+  }
 
   // Record metrics by resetting the metrics helper.
   metrics_helper_.reset();
 
-  std::move(pending_attempt_login_callback_).Run(std::move(result));
+  std::move(pending_attempt_login_done_callback_).Run(std::move(result));
+}
+
+void ActorLoginDelegateImpl::OnActionSequenceEnded(bool success) {
+  siwg_controller_.reset();
+  action_sequence_subscription_ = {};
+}
+
+void ActorLoginDelegateImpl::OnActorTaskStateChanged(actor::ActorTask& task) {
+  if (acting_task_id_ != task.id()) {
+    return;
+  }
+
+  if (!task.IsUnderActorControl()) {
+    acting_task_id_ = actor::TaskId();
+    content::webid::FederatedEmbedderLoginRequest::Remove(web_contents());
+    actor_task_state_subscription_ = {};
+  }
 }
 
 void ActorLoginDelegateImpl::RecordGetCredentialsMetricsAndResetHelper(

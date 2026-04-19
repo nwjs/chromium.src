@@ -92,7 +92,7 @@ void ContextImplTflite::CreateGraphImpl(
     GraphImplTflite::CreateAndBuild(
         std::move(receiver), std::move(graph_info),
         std::move(compute_resource_info), std::move(constant_operands),
-        std::move(constant_tensor_operands), this,
+        std::move(constant_tensor_operands), *this,
         /*weights_file=*/base::File(), std::move(callback));
   } else {
     CreateWeightsFile(base::BindOnce(
@@ -123,7 +123,7 @@ void ContextImplTflite::DidCreateWeightsFile(
   GraphImplTflite::CreateAndBuild(std::move(receiver), std::move(graph_info),
                                   std::move(compute_resource_info),
                                   std::move(constant_operands),
-                                  std::move(constant_tensor_operands), this,
+                                  std::move(constant_tensor_operands), *this,
                                   std::move(weights_file), std::move(callback));
 }
 
@@ -149,6 +149,10 @@ ContextImplTflite::CreateTensorFromSharedImageImpl(
   return base::unexpected(
       mojom::Error::New(mojom::Error::Code::kNotSupportedError,
                         "WebGPU Interop is not supported."));
+}
+
+std::string_view ContextImplTflite::GetBackendName() const {
+  return "TensorFlow Lite";
 }
 
 }  // namespace webnn::tflite

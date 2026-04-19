@@ -38,6 +38,10 @@ class CORE_EXPORT HTMLMapElement final : public HTMLElement {
   explicit HTMLMapElement(Document&);
   ~HTMLMapElement() override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLMapElement;
+  }
+
   const AtomicString& GetName() const { return name_; }
 
   HTMLAreaElement* AreaForPoint(const PhysicalOffset&,

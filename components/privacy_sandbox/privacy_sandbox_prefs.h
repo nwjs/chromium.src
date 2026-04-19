@@ -6,6 +6,7 @@
 #define COMPONENTS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_PREFS_H_
 
 class PrefRegistrySimple;
+class PrefService;
 
 namespace prefs {
 
@@ -145,11 +146,6 @@ inline constexpr char kPrivacySandboxTopicsConsentLastUpdateReason[] =
 inline constexpr char kPrivacySandboxTopicsConsentTextAtLastUpdate[] =
     "privacy_sandbox.topics_consent.text_at_last_update";
 
-// Pref which contains a list of the activity type from recent chrome launches.
-// Version 2 after enum values changed.
-inline constexpr char kPrivacySandboxActivityTypeRecord2[] =
-    "privacy_sandbox.activity_type.record2";
-
 inline constexpr char kPrivacySandboxAllowNoticeFor3PCBlockedTrial[] =
     "privacy_sandbox.allow_notice_for_3PC_blocked_trial";
 
@@ -185,6 +181,10 @@ enum class TopicsConsentUpdateSource {
 
 // Registers user preferences related to privacy sandbox.
 void RegisterProfilePrefs(PrefRegistrySimple* registry);
+
+// If the Ad Privacy Deprecation feature is enabled, this function will set all
+// the Ad API prefs to false if it is already set to true.
+void ClearAdPrivacyPrefs(PrefService* pref_service);
 
 }  // namespace privacy_sandbox
 

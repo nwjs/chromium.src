@@ -78,6 +78,7 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/model/display_override.h"
@@ -372,6 +373,12 @@ class SessionRestoreTest : public InProcessBrowserTest {
     } else {
       NavigateParams params(profile, url, ui::PAGE_TRANSITION_LINK);
       Navigate(&params);
+      if (params.browser) {
+        if (auto* manager = InitialWebUIManager::From(
+                params.browser->GetBrowserForMigrationOnly())) {
+          manager->OnWebUIToolbarLoaded();
+        }
+      }
     }
 
     Browser* new_browser = chrome::FindBrowserWithTab(tab_waiter.Wait());
@@ -4589,8 +4596,8 @@ class SessionRestoreStaleSessionCookieDeletionTest : public SessionRestoreTest {
             /*last_access=*/last_access_and_update,
             /*last_update=*/last_access_and_update, /*secure=*/true,
             /*httponly=*/false, net::CookieSameSite::NO_RESTRICTION,
-            net::COOKIE_PRIORITY_MEDIUM, /*partition_key=*/std::nullopt,
-            net::CookieSourceScheme::kSecure);
+            net::COOKIE_PRIORITY_MEDIUM, net::CookieSourceType::kOther,
+            /*partition_key=*/std::nullopt, net::CookieSourceScheme::kSecure);
     EXPECT_TRUE(cookie->IsCanonicalForFromStorage());
     base::test::TestFuture<net::CookieAccessResult> future;
     cookie_manager->SetCanonicalCookie(*cookie, url,

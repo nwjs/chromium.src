@@ -189,14 +189,10 @@ std::u16string SecurePaymentConfirmationApp::GetMissingInfoLabel() const {
 }
 
 bool SecurePaymentConfirmationApp::HasEnrolledInstrument() const {
-  // If the fallback feature is disabled, the factory should only create this
+  // If the ux refresh feature is disabled, the factory should only create this
   // app if the authenticator and credentials were available. Therefore, this
-  // function can always return true with the fallback feature disabled.
-  return (authenticator_ && !credential_id_.empty()) ||
-         !(PaymentsExperimentalFeatures::IsEnabled(
-               features::kSecurePaymentConfirmationFallback) ||
-           base::FeatureList::IsEnabled(
-               blink::features::kSecurePaymentConfirmationUxRefresh));
+  // function can always return true with the ux refresh feature disabled.
+  return authenticator_ && !credential_id_.empty();
 }
 
 bool SecurePaymentConfirmationApp::NeedsInstallation() const {
@@ -205,10 +201,6 @@ bool SecurePaymentConfirmationApp::NeedsInstallation() const {
 
 std::string SecurePaymentConfirmationApp::GetId() const {
   if (credential_id_.empty()) {
-    CHECK(PaymentsExperimentalFeatures::IsEnabled(
-              features::kSecurePaymentConfirmationFallback) ||
-          base::FeatureList::IsEnabled(
-              blink::features::kSecurePaymentConfirmationUxRefresh));
     // Since there is no credential_id_ in the fallback flow, we still must
     // return a non-empty app ID.
     return "spc";
@@ -370,26 +362,14 @@ void SecurePaymentConfirmationApp::OnGetBrowserBoundKey(
       payment_entities_logos;
   blink::mojom::PaymentCredentialInstrumentPtr instrument =
       request_->instrument.Clone();
-  if (base::FeatureList::IsEnabled(
-          blink::features::kSecurePaymentConfirmationUxRefresh)) {
-    payment_entities_logos.emplace();
-    for (const PaymentApp::PaymentEntityLogo& logo : payment_entities_logos_) {
-      // When the logo could not be download or decoded, then logo.icon is null.
-      // In this case a ShownPaymentEntityLogo with an empty url is added, so
-      // that clientData includes a placeholder when images failed to download.
-      payment_entities_logos->push_back(
-          blink::mojom::ShownPaymentEntityLogo::New(
-              logo.icon ? logo.url : GURL::EmptyGURL(),
-              base::UTF16ToUTF8(logo.label)));
-    }
-  } else {
-    // If kSecurePaymentConfirmationUxRefresh is not enabled, then we did not
-    // show the instrument details in the UI, and therefore we do not include
-    // them in the clientData by setting to std::nullopt. Details should be
-    // std::nullopt here because the dictionary field is already flag protected
-    // on the render side; however, we also set it empty here on the
-    // browser-side as well.
-    instrument->details = std::nullopt;
+  payment_entities_logos.emplace();
+  for (const PaymentApp::PaymentEntityLogo& logo : payment_entities_logos_) {
+    // When the logo could not be download or decoded, then logo.icon is null.
+    // In this case a ShownPaymentEntityLogo with an empty url is added, so
+    // that clientData includes a placeholder when images failed to download.
+    payment_entities_logos->push_back(blink::mojom::ShownPaymentEntityLogo::New(
+        logo.icon ? logo.url : GURL::EmptyGURL(),
+        base::UTF16ToUTF8(logo.label)));
   }
   authenticator_->SetPaymentOptions(blink::mojom::PaymentOptions::New(
       spec_->GetTotal(/*selected_app=*/this)->amount.Clone(),
@@ -417,6 +397,7 @@ void SecurePaymentConfirmationApp::OnGetAssertion(
 
   if (status != blink::mojom::AuthenticatorStatus::SUCCESS || !response) {
     delegate->OnInstrumentDetailsError(
+        mojom::PaymentEventResponseType::PAYMENT_EVENT_REJECT,
         errors::kWebAuthnOperationTimedOutOrNotAllowed);
     RecordSystemPromptResult(
         SecurePaymentConfirmationSystemPromptResult::kCanceled);

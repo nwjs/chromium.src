@@ -40,6 +40,8 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kDefaultEnableGpuRasterization);
 // Enables dynamic allocation of shared image backings at runtime.
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kUseDynamicBackingAllocations);
 
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kUseStrongRefToSharedImageInterface);
+
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kUseCompoundImageBackingAsDefault);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
@@ -99,8 +101,6 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGpuPersistentCache);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kConditionallySkipGpuChannelFlush);
 
-GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kNoDiscardableMemoryForGpuDecodePath);
-
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kEnableDrDc);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kPruneOldTransferCacheEntries);
@@ -156,7 +156,6 @@ GPU_CONFIG_EXPORT bool IsSkiaGraphiteEnabled(
     const base::CommandLine* command_line);
 GPU_CONFIG_EXPORT bool IsSkiaGraphitePrecompilationEnabled(
     const base::CommandLine* command_line);
-GPU_CONFIG_EXPORT bool EnablePurgeGpuImageDecodeCache();
 GPU_CONFIG_EXPORT bool EnablePruneOldTransferCacheEntries();
 GPU_CONFIG_EXPORT bool IsLegacyIpcDisabled();
 

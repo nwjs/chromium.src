@@ -33,7 +33,6 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
-#include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -359,8 +358,8 @@ void TaskManagerView::ExecuteCommand(int id, int event_flags) {
 }
 
 void TaskManagerView::MenuClosed(ui::SimpleMenuModel* source) {
-  menu_model_.reset();
   menu_runner_.reset();
+  menu_model_.reset();
 }
 
 void TaskManagerView::SearchBarOnInputChanged(std::u16string_view query) {

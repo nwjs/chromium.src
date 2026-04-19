@@ -199,6 +199,10 @@ void HTMLFormControlElement::RequiredAttributeChanged() {
 }
 
 bool HTMLFormControlElement::IsReadOnly() const {
+  if (RuntimeEnabledFeatures::FixHTMLFormControlElementIsReadOnlyEnabled() &&
+      !SupportsReadOnly()) {
+    return false;
+  }
   return FastHasAttribute(html_names::kReadonlyAttr);
 }
 
@@ -230,7 +234,7 @@ bool HTMLFormControlElement::IsAutocompleteEmailUrlOrPassword() const {
       FastGetAttribute(html_names::kAutocompleteAttr);
   if (autocomplete.IsNull())
     return false;
-  return values.Contains(autocomplete.LowerASCII());
+  return values.Contains(autocomplete.ToAsciiLower());
 }
 
 const AtomicString& HTMLFormControlElement::autocapitalize() const {
@@ -351,7 +355,7 @@ bool HTMLFormControlElement::MatchesValidityPseudoClasses() const {
 }
 
 String HTMLFormControlElement::GetWebMCPParameterName() const {
-  CHECK(RuntimeEnabledFeatures::WebMCPEnabled());
+  CHECK(RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext()));
   String name = String(GetName()).StripWhiteSpace();
   // Eventually add more logic here to use the label, tool-param-name, etc.
   return name;
@@ -401,19 +405,13 @@ HTMLFormControlElement::popoverTargetElement() {
   // The default action is "toggle".
   PopoverTriggerAction action = PopoverTriggerAction::kToggle;
   auto action_value =
-      getAttribute(html_names::kPopovertargetactionAttr).LowerASCII();
+      getAttribute(html_names::kPopovertargetactionAttr).ToAsciiLower();
   if (action_value == "show") {
     action = PopoverTriggerAction::kShow;
   } else if (action_value == "hide") {
     action = PopoverTriggerAction::kHide;
   }
   return PopoverTargetElement{.popover = target_popover, .action = action};
-}
-
-bool HTMLFormControlElement::IsValidInterestInvoker(Element& target) const {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
-  // Buttons need to be enabled in order to support interest invokers.
-  return !IsDisabledFormControl();
 }
 
 void HTMLFormControlElement::DefaultEventHandler(Event& event) {

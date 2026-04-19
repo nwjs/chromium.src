@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/host/host.h"
@@ -15,7 +16,6 @@
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -48,12 +48,19 @@ content::WebContents::CreateParams MakeCreateParams(Profile* profile,
 
 }  // namespace
 
-WebUIContentsContainer::WebUIContentsContainer(Profile* profile,
-                                               bool initially_hidden)
+WebUIContentsContainer::WebUIContentsContainer()
+    : creation_time_(base::TimeTicks::Now()) {}
+WebUIContentsContainer::~WebUIContentsContainer() = default;
+
+WebUIContentsContainerImpl::WebUIContentsContainerImpl(Profile* profile,
+                                                       bool initially_hidden)
     : profile_keep_alive_(profile, ProfileKeepAliveOrigin::kGlicView),
       web_contents_(content::WebContents::Create(
           MakeCreateParams(profile, initially_hidden))),
       profile_(profile) {
+  TRACE_EVENT_INSTANT("glic",
+                      "WebUIContentsContainerImpl::WebUIContentsContainerImpl",
+                      perfetto::Flow::FromPointer(this));
   CHECK(web_contents_);
   Observe(web_contents_.get());
   web_contents_->SetPageBaseBackgroundColor(SK_ColorTRANSPARENT);
@@ -73,18 +80,12 @@ WebUIContentsContainer::WebUIContentsContainer(Profile* profile,
           GURL{chrome::kChromeUIGlicURL}));
 }
 
-WebUIContentsContainer::~WebUIContentsContainer() {
+WebUIContentsContainerImpl::~WebUIContentsContainerImpl() {
   Observe(nullptr);
   web_contents_->ClosePage();
-  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
-  if (!glic_profile_manager) {
-    return;
-  }
-  auto* glic_service = GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
-  glic_profile_manager->OnUnloadingClientForService(glic_service);
 }
 
-void WebUIContentsContainer::AttachToHost(Host* host) {
+void WebUIContentsContainerImpl::AttachToHost(Host* host) {
   // This is only allowed to be called once.
   CHECK(!host_);
   host_ = host;
@@ -93,8 +94,17 @@ void WebUIContentsContainer::AttachToHost(Host* host) {
   }
 }
 
-void WebUIContentsContainer::DidFinishNavigation(
+void WebUIContentsContainerImpl::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  if (navigation_handle->IsInPrimaryMainFrame()) {
+    TRACE_EVENT_INSTANT(
+        "glic",
+        "WebUIContentsContainerImpl::DidFinishNavigation - PrimaryMainFrame",
+        perfetto::Flow::FromPointer(this));
+    navigation_commit_time_ = base::TimeTicks::Now();
+    base::UmaHistogramTimes("Glic.Contents.NavigationCommitTime",
+                            navigation_commit_time_ - creation_time_);
+  }
   if (!host_ || !navigation_handle->IsInPrimaryMainFrame() ||
       !navigation_handle->HasCommitted()) {
     return;
@@ -112,7 +122,22 @@ void WebUIContentsContainer::DidFinishNavigation(
   }
 }
 
-void WebUIContentsContainer::PrimaryMainFrameRenderProcessGone(
+void WebUIContentsContainerImpl::PrimaryMainDocumentElementAvailable() {
+  TRACE_EVENT_INSTANT(
+      "glic", "WebUIContentsContainerImpl::PrimaryMainDocumentElementAvailable",
+      perfetto::Flow::FromPointer(this));
+}
+
+void WebUIContentsContainerImpl::DocumentOnLoadCompletedInPrimaryMainFrame() {
+  TRACE_EVENT_INSTANT(
+      "glic",
+      "WebUIContentsContainerImpl::DocumentOnLoadCompletedInPrimaryMainFrame",
+      perfetto::Flow::FromPointer(this));
+  base::UmaHistogramTimes("Glic.Contents.LoadCompleteTime",
+                          base::TimeTicks::Now() - navigation_commit_time_);
+}
+
+void WebUIContentsContainerImpl::PrimaryMainFrameRenderProcessGone(
     base::TerminationStatus status) {
   base::UmaHistogramEnumeration("Glic.Session.WebUiCrash.TerminationStatus",
                                 status, base::TERMINATION_STATUS_MAX_ENUM);
@@ -123,10 +148,12 @@ void WebUIContentsContainer::PrimaryMainFrameRenderProcessGone(
   if (GlicEnabling::IsMultiInstanceEnabled()) {
     // TODO(crbug.com/454120908): swap for a reloaded host in case of a crash.
     keyed_service->CloseAndShutdown(web_contents_->GetPrimaryMainFrame());
-  } else {
-    keyed_service->CloseAndShutdown();
   }
   // WARNING: Do not do any more work, as `this` may have been destroyed.
+}
+
+content::WebContents* WebUIContentsContainerImpl::web_contents() const {
+  return web_contents_.get();
 }
 
 }  // namespace glic

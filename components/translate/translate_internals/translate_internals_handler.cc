@@ -159,7 +159,6 @@ void TranslateInternalsHandler::OnTranslateEvent(
 }
 
 void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue& args) {
-#if 0
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
       GetTranslateClient()->GetTranslatePrefs();
 
@@ -189,7 +188,6 @@ void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue& args) {
   }
 
   SendPrefsToJs();
-#endif
 }
 
 void TranslateInternalsHandler::OnSetRecentTargetLanguage(

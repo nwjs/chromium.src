@@ -81,9 +81,6 @@
 <translation id="2703746758996815929">Jei norite gauti naudingų „Chrome“ patarimų, įjunkite pranešimus „iOS“ nustatymuose.</translation>
 <translation id="2728851697704606655">Vertimas naudojant „Google Lens“</translation>
 <translation id="2736805085127235148">„Chrome“ pranešimai šiuo metu išjungti įrenginio nustatymuose.</translation>
-<translation id="2754428955276778271">Kai kurie „Chrome“ duomenys dar neišsaugoti „Google“ paskyroje.
-
-Pabandykite palaukti kelias minutes prieš atsijungdami. Jei atsijungsite dabar, šie duomenys bus ištrinti.</translation>
 <translation id="2767464022270041271">Nėra išsaugotų slaptažodžių. „Google“ slaptažodžių tvarkyklė gali tikrinti slaptažodžius, kai juos išsaugote.</translation>
 <translation id="2788811701191021538">Atidaromas „Chrome“ mokėjimo metodų nustatymo puslapis.</translation>
 <translation id="2876628302275096482">Sužinokite daugiau, <ph name="BEGIN_LINK" />kaip „Chrome“ užtikrina jūsų duomenų privatumą<ph name="END_LINK" /></translation>
@@ -188,6 +185,7 @@ Pabandykite palaukti kelias minutes prieš atsijungdami. Jei atsijungsite dabar,
 <translation id="5395376160638294582">Užtikrinkite, kad visada galėtumėte naudoti „Chrome“ duomenis „Google“ paskyroje</translation>
 <translation id="5404252374083197467">Nustatyti „Chrome“ kaip numatytąją?</translation>
 <translation id="5439191312780166229">Įspėjama apie pavojingas svetaines, net ir apie tas, apie kurias anksčiau „Google“ nežinojo, analizuojant daugiau duomenų iš svetainių, nei taikant įprastą apsaugą. Galite pasirinkti praleisti „Chrome“ įspėjimus.</translation>
+<translation id="5453077102022695084">Vaizdo įrašas, kaip nustatyti „Chrome“ kaip numatytąją naršyklę, viso ekrano režimu</translation>
 <translation id="5460571915754665838">4. Pasirinkite „Chrome“</translation>
 <translation id="5492504007368565877">„Google“ slaptažodžių tvarkyklė negali patikrinti jūsų slaptažodžių.</translation>
 <translation id="5525095647255982834">Jei norite siųsti šį skirtuką į kitą įrenginį, prisijunkite prie „Chrome“ čia</translation>
@@ -374,7 +372,6 @@ Duomenys užšifruoti naudojant slaptafrazę <ph name="TIME" />. Įveskite ją, 
 <translation id="9176561303811134420">Mokėjimo metodų tvarkymas naršyklėje „Chrome“</translation>
 <translation id="9181628561061032322">Atidaromi „Chrome“ naujausi skirtukai.</translation>
 <translation id="924447568950697217">Nustatymas „Chrome“ numatytąja naršykle</translation>
-<translation id="93622496651329736">Vaizdo vaizde vaizdo įrašas su instrukcijomis, kaip nustatyti „Chrome“ kaip numatytąją naršyklę</translation>
 <translation id="948597495737267756">Atidaromas „Chrome“ istorijos puslapis.</translation>
 <translation id="954347330803595209">Importuokite duomenis, kad galėtumėte naudoti slaptažodžius, istoriją, žymes ir kredito korteles naršyklėje „Chrome“</translation>
 <translation id="97300214378190234">Naudokite „Chrome“ bet kada palietę nuorodas kitose programose.</translation>

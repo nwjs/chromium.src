@@ -5,13 +5,14 @@
 #include "chrome/browser/ash/eol/eol_notification.h"
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/simple_test_clock.h"
 #include "base/time/time.h"
 #include "chrome/browser/ash/extended_updates/test/mock_extended_updates_controller.h"
 #include "chrome/browser/ash/extended_updates/test/scoped_extended_updates_controller.h"
-#include "chrome/common/pref_names.h"
+#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -40,8 +41,8 @@ class EolNotificationTest : public BrowserWithTestWindowTest {
     fake_update_engine_client_ = UpdateEngineClient::InitializeFakeForTest();
     ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
     BrowserWithTestWindowTest::SetUp();
-
-    eol_notification_ = std::make_unique<EolNotification>(profile());
+    eol_notification_ = std::make_unique<EolNotification>(
+        ash::ProfileHelper::Get()->GetUserByProfile(profile()));
     clock_ = std::make_unique<base::SimpleTestClock>();
     eol_notification_->clock_ = clock_.get();
   }
@@ -272,7 +273,8 @@ TEST_F(EolNotificationTest, TestBackwardsCompatibilityFinalUpdateAlreadyShown) {
 
   // User dismissed Final Update notification prior to the addition of
   // first and second warning notifications.
-  profile()->GetPrefs()->SetBoolean(prefs::kEolNotificationDismissed, true);
+  profile()->GetPrefs()->SetBoolean(ash::prefs::kEolNotificationDismissed,
+                                    true);
 
   CheckEolInfo();
   auto* notification = GetNotification();

@@ -89,6 +89,8 @@ int GetLayoutConstant(LayoutConstant constant) {
     case LayoutConstant::kTabStripHeight:
       return GetLayoutConstant(LayoutConstant::kTabHeight) +
              GetLayoutConstant(LayoutConstant::kTabStripPadding);
+    case LayoutConstant::kDetachedTabGroupUnderlineBottomSpacing:
+      return 2;
     case LayoutConstant::kTabStripPadding:
       return 6;
     case LayoutConstant::kTabSeparatorHeight:
@@ -137,13 +139,13 @@ int GetLayoutConstant(LayoutConstant constant) {
     case LayoutConstant::kVerticalTabStripUncollapsedPadding:
       return 12;
     case LayoutConstant::kVerticalTabStripCollapsedPadding:
+      return 12;
+    case LayoutConstant::kVerticalTabStripCollapsedVerticalPadding:
       return 8;
-    case LayoutConstant::kVerticalTabStripCollapsedSeparatorWidth:
-      return 24;
-    case LayoutConstant::kVerticalTabStripTopButtonIconSize:
+    case LayoutConstant::kVerticalTabStripCollapsedSeparatorPadding:
+      return 12;
+    case LayoutConstant::kVerticalTabStripButtonIconSize:
       return 20;
-    case LayoutConstant::kVerticalTabStripBottomButtonIconSize:
-      return 18;
     case LayoutConstant::kVerticalTabStripTopButtonPadding:
       return 4;
     case LayoutConstant::kVerticalTabStripFlatEdgeButtonPadding:
@@ -207,7 +209,7 @@ gfx::Insets GetLayoutInsets(LayoutInset inset) {
       }
 
     case TOOLBAR_INTERIOR_MARGIN:
-      return touch_ui ? gfx::Insets::VH(4, 0) : gfx::Insets::VH(6, 5);
+      return touch_ui ? gfx::Insets::VH(4, 0) : gfx::Insets::VH(6, 6);
 
     case WEBUI_TAB_STRIP_TOOLBAR_INTERIOR_MARGIN:
       return gfx::Insets::VH(4, 0);

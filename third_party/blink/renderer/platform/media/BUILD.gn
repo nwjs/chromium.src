@@ -48,7 +48,6 @@ component("media") {
     "cdm_session_adapter.h",
     "create_cdm_uma_helper.cc",
     "create_cdm_uma_helper.h",
-    "interval_map.h",
     "key_system_config_selector.cc",
     "multi_buffer.cc",
     "multi_buffer.h",
@@ -113,13 +112,6 @@ component("media") {
     "//third_party/blink/renderer/platform",
     "//third_party/blink/renderer/platform:allow_discouraged_type",
   ]
-
-  if (enable_hls_demuxer) {
-    sources += [
-      "multi_buffer_data_source_factory.cc",
-      "multi_buffer_data_source_factory.h",
-    ]
-  }
 }
 
 source_set("unit_tests") {
@@ -132,7 +124,6 @@ source_set("unit_tests") {
   sources = [
     "buffered_data_source_host_impl_unittest.cc",
     "cache_util_unittest.cc",
-    "interval_map_unittest.cc",
     "key_system_config_selector_unittest.cc",
     "multi_buffer_data_source_unittest.cc",
     "multi_buffer_unittest.cc",

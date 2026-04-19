@@ -18,8 +18,8 @@ struct EnumTraits<viz::mojom::BeginFrameArgsType,
   static viz::mojom::BeginFrameArgsType ToMojom(
       viz::BeginFrameArgs::BeginFrameArgsType type);
 
-  static bool FromMojom(viz::mojom::BeginFrameArgsType input,
-                        viz::BeginFrameArgs::BeginFrameArgsType* out);
+  static viz::BeginFrameArgs::BeginFrameArgsType FromMojom(
+      viz::mojom::BeginFrameArgsType input);
 };
 
 template <>
@@ -137,6 +137,11 @@ struct StructTraits<viz::mojom::CADisplayLinkParamsDataView,
 
   static base::TimeDelta interval(const viz::CADisplayLinkParams& params) {
     return params.interval;
+  }
+
+  static base::TimeTicks ipc_begin_timestamp(
+      const viz::CADisplayLinkParams& params) {
+    return params.ipc_begin_timestamp;
   }
 
   static bool Read(viz::mojom::CADisplayLinkParamsDataView data,

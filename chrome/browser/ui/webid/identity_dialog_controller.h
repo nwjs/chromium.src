@@ -162,6 +162,9 @@ class IdentityDialogController
   void SetAccountSelectionViewForTesting(
       std::unique_ptr<AccountSelectionView> account_view);
 
+  // Set acting_task_id for testing purposes.
+  void SetActingTaskIdForTesting(actor::TaskId task_id);
+
   // Requests a UI volume recommendation from |segmentation_platform_service_|.
   void RequestUiVolumeRecommendation(
       segmentation_platform::ClassificationResultCallback callback);
@@ -190,12 +193,13 @@ class IdentityDialogController
   // Whether to show FedCM UI or not.
   bool ShouldShowFedCmUi();
 
-  void OnActorTaskStateChanged(actor::TaskId task_id,
-                               actor::ActorTask::State state);
+  void OnActorTaskStateChanged(actor::ActorTask& task);
 
   void UpdateTaskId(actor::TaskId task_id);
 
   void DidInvokeShowUi();
+
+  void NotifyEmbedderOfResult(content::webid::FederatedLoginResult result);
 
   std::unique_ptr<AccountSelectionView> account_view_{nullptr};
   AccountSelectionCallback on_account_selection_;

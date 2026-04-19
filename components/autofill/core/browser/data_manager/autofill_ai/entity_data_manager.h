@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_AUTOFILL_AI_ENTITY_DATA_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_AUTOFILL_AI_ENTITY_DATA_MANAGER_H_
 
+#include <optional>
+
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/memory/weak_ptr.h"
@@ -12,8 +14,8 @@
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
 #include "base/types/optional_ref.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_service.h"
 #include "components/autofill/core/browser/country_type.h"
-#include "components/autofill/core/browser/data_manager/autofill_ai/accessibility_annotator_data_adapter.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_instance_cleaner.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
@@ -40,7 +42,6 @@ class SyncService;
 namespace autofill {
 
 class AutofillAiSaveStrikeDatabaseByHost;
-class AccessibilityAnnotatorDataAdapter;
 
 // Loads, adds, updates, and removes EntityInstances. Deletes data from
 // AutofillAI strike databases on history deletion.
@@ -52,10 +53,11 @@ class AccessibilityAnnotatorDataAdapter;
 // their own EntityDataManager instance, they use the same underlying database.
 // Therefore, it is the responsibility of the callers to ensure that no data
 // from an incognito session is persisted unintentionally.
-class EntityDataManager : public KeyedService,
-                          public AutofillWebDataServiceObserverOnUISequence,
-                          history::HistoryServiceObserver,
-                          AccessibilityAnnotatorDataAdapter::Observer {
+class EntityDataManager
+    : public KeyedService,
+      public AutofillWebDataServiceObserverOnUISequence,
+      history::HistoryServiceObserver,
+      accessibility_annotator::EntityDataProvider::Observer {
  public:
   // Autofill AI enabled pref migration status.
   //
@@ -81,6 +83,9 @@ class EntityDataManager : public KeyedService,
 
   class Observer : public base::CheckedObserver {
    public:
+    // Fired by any operation that changes GetEntityInstances().
+    // This includes database operations as well as updates from Accessibility
+    // Annotator.
     virtual void OnEntityInstancesChanged() {}
   };
 
@@ -91,21 +96,35 @@ class EntityDataManager : public KeyedService,
       scoped_refptr<AutofillWebDataService> profile_database,
       history::HistoryService* history_service,
       strike_database::StrikeDatabaseBase* strike_database,
-      AccessibilityAnnotatorDataAdapter* accessibility_annotator_data_adapter,
+      accessibility_annotator::AccessibilityAnnotatorService*
+          accessibility_annotator_service,
       GeoIpCountryCode variation_country_code);
   EntityDataManager(const EntityDataManager&) = delete;
   EntityDataManager& operator=(const EntityDataManager&) = delete;
   ~EntityDataManager() override;
 
+  // KeyedService:
+  void Shutdown() override;
+
   // Adds an entity if it doesn't exist in the database yet; otherwise updates
   // it.
+  //
+  // Each call fires Observer::OnEntityInstancesChanged() asynchronously.
+  // So beware of calling this in a loop.
   void AddOrUpdateEntityInstance(EntityInstance entity);
 
   // Removes an entity if it exists in the database; otherwise it's a no-op.
+  //
+  // Each call fires Observer::OnEntityInstancesChanged() asynchronously.
+  // So beware of calling this in a loop.
   void RemoveEntityInstance(EntityInstance::EntityId guid);
 
   // Removes all entities in the database whose EntityInstance::date_modified()
   // is in the range.
+  //
+  // Each call fires Observer::OnEntityInstancesChanged() asynchronously.
+  // So beware of calling this in a loop.
+  //
   // Prefer this function over iterating over GetEntityInstances() and calling
   // RemoveEntityInstance() because this function also removes invalid entities.
   void RemoveEntityInstancesModifiedBetween(base::Time delete_begin,
@@ -136,9 +155,10 @@ class EntityDataManager : public KeyedService,
   void OnHistoryDeletions(history::HistoryService*,
                           const history::DeletionInfo& deletion_info) override;
 
-  // AccessibilityAnnotatorDataAdapter::Observer:
-  void OnAccessibilityAnnotatorDataChanged(
-      AccessibilityAnnotatorDataAdapter& adapter) override;
+  // accessibility_annotator::EntityDataProvider::Observer:
+  void OnEntityDataChanged(
+      accessibility_annotator::EntityDataProvider& provider,
+      accessibility_annotator::EntityTypeEnumSet entity_types) override;
 
   // Records the date an entity was used and also increments the number of times
   // it was used.
@@ -154,6 +174,14 @@ class EntityDataManager : public KeyedService,
     observers_.RemoveObserver(observer);
   }
 
+  // Updates the re-auth availability and `EnforceEntityReauthRequirements()` if
+  // the availability has changed.
+  void SetReauthAvailability(bool reauth_available);
+
+  std::optional<bool> GetReauthAvailability() const {
+    return reauth_availability_;
+  }
+
   const GeoIpCountryCode& GetVariationCountryCode() const;
 
   base::WeakPtr<EntityDataManager> GetWeakPtr() {
@@ -161,23 +189,36 @@ class EntityDataManager : public KeyedService,
   }
 
  private:
-  void LoadEntities();
+  void LoadEntitiesFromDatabase();
 
   base::optional_ref<EntityInstance> GetMutableEntityInstance(
       const EntityInstance::EntityId& guid);
 
-  // Boolean that allows the EntityDataManager to differentiate between initial
-  // data loads and data updates.
-  bool entity_data_loaded_ = false;
+  // Wallet private passes are not supported on devices without re-auth.
+  // Depending on the `reauth_availability_`, this function might remove them
+  // to avoid that they surface during filling or in settings.
+  // Unfortunately, the passes might get redownloaded in the future, in which
+  // case they are dropped again.
+  // Dropping passes happens at a data manager level (rather than a sync bridge
+  // level) because the device's re-auth state can change.
+  void EnforceEntityReauthRequirements();
+
+  // Becomes true after the response of the initial LoadEntitiesFromDatabase()
+  // and remains true from then on.
+  bool database_loaded_ = false;
+
+  // Indicates whether the device support biometric or lockscreen re-auth.
+  // Nullopt means that the availability of re-auth is unknown.
+  std::optional<bool> reauth_availability_;
 
   // Non-null except perhaps in TestEntityDataManager, which overrides all
   // functions that access it.
   const scoped_refptr<AutofillWebDataService> webdata_service_;
 
-  // The ongoing LoadEntities() query.
+  // The ongoing LoadEntitiesFromDatabase() query.
   WebDataServiceBase::Handle pending_query_{};
 
-  // The result of the last successful LoadEntities() query.
+  // Contains the entities from the database and Accessibility Annotator.
   // All entries are identifiable by their EntityInstance::guid().
   base::flat_set<EntityInstance, EntityInstance::CompareByGuid> entities_;
 
@@ -188,10 +229,11 @@ class EntityDataManager : public KeyedService,
   base::ScopedObservation<history::HistoryService, HistoryServiceObserver>
       history_service_observation_{this};
 
-  // AccessibilityAnnotatorDataAdapter will outlive the EntityDataManager.
-  base::ScopedObservation<AccessibilityAnnotatorDataAdapter,
-                          AccessibilityAnnotatorDataAdapter::Observer>
-      accessibility_annotator_data_adapter_observation_{this};
+  // AccessibilityAnnotatorService and therefore its EntityDataProvider
+  // outlives the EntityDataManager.
+  base::ScopedObservation<accessibility_annotator::EntityDataProvider,
+                          accessibility_annotator::EntityDataProvider::Observer>
+      accessibility_annotator_observation_{this};
 
   std::unique_ptr<AutofillAiSaveStrikeDatabaseByHost> save_strike_db_by_host_;
 

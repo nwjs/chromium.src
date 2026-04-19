@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
@@ -27,29 +28,51 @@
 #include "media/ffmpeg/ffmpeg_decoding_loop.h"
 #include "media/filters/ffmpeg_glue.h"
 
+// Used to check static IsCodecSupported().
+#if BUILDFLAG(ENABLE_SYMPHONIA)
+#include "media/filters/symphonia_audio_decoder.h"
+#endif
+
 namespace media {
 
+namespace {
+
 // Return the number of channels from the data in |frame|.
-static inline int DetermineChannels(AVFrame* frame) {
+inline int DetermineChannels(AVFrame* frame) {
   return frame->ch_layout.nb_channels;
 }
 
 // Called by FFmpeg's allocation routine to allocate a buffer. Uses
 // AVCodecContext.opaque to get the object reference in order to call
 // GetAudioBuffer() to do the actual allocation.
-static int GetAudioBufferImpl(struct AVCodecContext* s,
-                              AVFrame* frame,
-                              int flags) {
+int GetAudioBufferImpl(struct AVCodecContext* s, AVFrame* frame, int flags) {
   FFmpegAudioDecoder* decoder = static_cast<FFmpegAudioDecoder*>(s->opaque);
   return decoder->GetAudioBuffer(s, frame, flags);
 }
 
 // Called by FFmpeg's allocation routine to free a buffer. |opaque| is the
 // AudioBuffer allocated, so unref it.
-static void ReleaseAudioBufferImpl(void* opaque, uint8_t* data) {
+void ReleaseAudioBufferImpl(void* opaque, uint8_t* data) {
   if (opaque)
     static_cast<AudioBuffer*>(opaque)->Release();
 }
+
+// Returns true iff the FFmpegAudioDecoder should be disabled because current
+// base::Features have a different decoder enabled.
+bool IsCodecDisabledByFeatures(AudioCodec codec) {
+  // FFmpegAudioDecoder does not support Opus when this flag is enabled.
+  // OpusAudioDecoder should be used instead.
+  if (codec == AudioCodec::kOpus) {
+    return base::FeatureList::IsEnabled(kDirectOpusAudioDecoding);
+  }
+
+#if BUILDFLAG(ENABLE_SYMPHONIA)
+  return SymphoniaAudioDecoder::IsCodecSupported(codec);
+#else
+  return false;
+#endif
+}
+}  // namespace
 
 FFmpegAudioDecoder::FFmpegAudioDecoder(
     const scoped_refptr<base::SequencedTaskRunner>& task_runner,
@@ -88,11 +111,19 @@ void FFmpegAudioDecoder::Initialize(const AudioDecoderConfig& config,
 
   InitCB bound_init_cb = BindCallbackIfNeeded(std::move(init_cb));
 
+  // This decoder does not support encrypted content.
   if (config.is_encrypted()) {
+    // FFmpegAudioDecoder does not support encrypted content.
     std::move(bound_init_cb)
-        .Run(DecoderStatus(
-            DecoderStatus::Codes::kUnsupportedEncryptionMode,
-            "FFmpegAudioDecoder does not support encrypted content"));
+        .Run(DecoderStatus(DecoderStatus::Codes::kUnsupportedEncryptionMode));
+    return;
+  }
+
+  // If another decoder is enabled in features for this codec, FFmpeg should
+  // not be enabled.
+  if (IsCodecDisabledByFeatures(config.codec())) {
+    std::move(bound_init_cb)
+        .Run(DecoderStatus(DecoderStatus::Codes::kUnsupportedCodec));
     return;
   }
 

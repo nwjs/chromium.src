@@ -16,7 +16,6 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/apps/app_service/web_contents_app_id_utils.h"
-#include "chrome/browser/browser_features.h"
 #include "chrome/browser/glic/glic_tab_restore_helper.h"
 #include "chrome/browser/performance_manager/public/background_tab_loading_policy.h"
 #include "chrome/browser/profiles/profile.h"
@@ -81,8 +80,8 @@ bool ShouldCreateAppWindowForAppName(Profile* profile,
   return apps::IsInstalledApp(profile, app_id);
 }
 
-sessions::LiveTabContext* GetLiveTabContext(Browser* browser) {
-  return browser && !browser->is_delete_scheduled()
+sessions::LiveTabContext* GetLiveTabContext(BrowserWindowInterface* browser) {
+  return browser && !browser->IsDeleteScheduled()
              ? browser->GetFeatures().live_tab_context()
              : nullptr;
 }
@@ -433,14 +432,14 @@ sessions::LiveTabContext* BrowserLiveTabContext::Create(
 // static
 sessions::LiveTabContext* BrowserLiveTabContext::FindContextForWebContents(
     const WebContents* contents) {
-  Browser* const browser = chrome::FindBrowserWithTab(contents);
+  BrowserWindowInterface* const browser = chrome::FindBrowserWithTab(contents);
   return GetLiveTabContext(browser);
 }
 
 // static
 sessions::LiveTabContext* BrowserLiveTabContext::FindContextWithID(
     SessionID desired_id) {
-  Browser* const browser = chrome::FindBrowserWithID(desired_id);
+  BrowserWindowInterface* const browser = chrome::FindBrowserWithID(desired_id);
   return GetLiveTabContext(browser);
 }
 
@@ -448,6 +447,7 @@ sessions::LiveTabContext* BrowserLiveTabContext::FindContextWithID(
 sessions::LiveTabContext* BrowserLiveTabContext::FindContextWithGroup(
     tab_groups::TabGroupId group,
     Profile* profile) {
-  Browser* const browser = chrome::FindBrowserWithGroup(group, profile);
+  BrowserWindowInterface* const browser =
+      chrome::FindBrowserWithGroup(group, profile);
   return GetLiveTabContext(browser);
 }

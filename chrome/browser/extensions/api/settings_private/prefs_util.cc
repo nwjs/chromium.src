@@ -42,6 +42,7 @@
 #include "components/component_updater/pref_names.h"
 #include "components/compose/buildflags.h"
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/contextual_tasks/public/prefs.h"
 #include "components/dom_distiller/core/pref_names.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/embedder_support/pref_names.h"
@@ -242,6 +243,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kSidePanelHorizontalAlignment] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kVerticalTabsEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::prefs::kVerticalTabsExpandOnHoverEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kTabSearchRightAligned] =
       settings_api::PrefType::kBoolean;
@@ -1187,6 +1190,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kFeatureNotificationsEnabled] =
       settings_api::PrefType::kBoolean;
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  (*s_allowlist)[::prefs::kProcessIsolationEnabled] =
+      settings_api::PrefType::kBoolean;
 #endif  // BUILDFLAG(IS_WIN)
 
   // Import data
@@ -1308,6 +1313,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
       optimization_guide::UserVisibleFeatureKey::kPasswordChangeSubmission)] =
       settings_api::PrefType::kNumber;
+  (*s_allowlist)[contextual_tasks::kContextualTasksShareOpenTabsEveryThread] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[contextual_tasks::kContextualTasksSiteExclusions] =
+      settings_api::PrefType::kDictionary;
 
   // AI enterprise prefs
   (*s_allowlist)
@@ -1350,6 +1359,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
     (*s_allowlist)[glic::prefs::kGlicUserEnabledActuationOnWeb] =
         settings_api::PrefType::kBoolean;
     (*s_allowlist)[glic::prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled] =
+        settings_api::PrefType::kBoolean;
+    (*s_allowlist)[glic::prefs::kGlicExperimentalTriggeringEnabled] =
         settings_api::PrefType::kBoolean;
   }
 

@@ -7,8 +7,9 @@
 
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/autofill/android/entity_instance_android.h"
 #include "chrome/browser/autofill/android/entity_instance_with_labels.h"
 #include "chrome/browser/autofill/android/entity_type_android.h"
@@ -28,23 +29,29 @@ namespace syncer {
 class SyncService;
 }
 
+namespace account_settings {
+class AccountSettingService;
+}
+
 namespace autofill {
 
-class AccountSettingService;
+class WalletPassAccessManager;
 
 // Android wrapper of the EntityDataManager which provides access from the
 // Java layer.
 class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
  public:
-  EntityDataManagerAndroid(JNIEnv* env,
-                           const jni_zero::JavaRef<jobject>& obj,
-                           const GoogleGroupsManager* google_groups_manager,
-                           PrefService* prefs,
-                           const signin::IdentityManager* identity_manager,
-                           const syncer::SyncService* sync_service,
-                           const AccountSettingService* account_setting_service,
-                           bool is_off_the_record,
-                           EntityDataManager* entity_data_manager);
+  EntityDataManagerAndroid(
+      JNIEnv* env,
+      const jni_zero::JavaRef<jobject>& obj,
+      const GoogleGroupsManager* google_groups_manager,
+      PrefService* prefs,
+      const signin::IdentityManager* identity_manager,
+      const syncer::SyncService* sync_service,
+      const account_settings::AccountSettingService* account_setting_service,
+      bool is_off_the_record,
+      WalletPassAccessManager* wallet_pass_access_manager,
+      EntityDataManager* entity_data_manager);
 
   EntityDataManagerAndroid(const EntityDataManagerAndroid&) = delete;
   EntityDataManagerAndroid& operator=(const EntityDataManagerAndroid&) = delete;
@@ -71,8 +78,16 @@ class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
 
   // Add or replace an `EntityInstance` depending on whether it already exists
   // or not.
+  // If the user is eligible for Google Wallet private passes, entities such as
+  // passport are stored unmaked in Wallet servers, with a masked version stored
+  // on device. Otherwise, entities are always stored on device.
+  // If an attempt to store `jEntity` in Wallet servers happen but fails, either
+  // because of a failed server call or because the user became ineligible,
+  // the `on_local_save_fallback` is run, which displays the user a feedback
+  // message about their data being stored locally instead.
   void AddOrUpdateEntityInstance(JNIEnv* env,
-                                 const jni_zero::JavaRef<jobject>& jEntity);
+                                 const jni_zero::JavaRef<jobject>& jEntity,
+                                 base::OnceClosure on_local_save_fallback);
 
   // Gets information about all entities to be displayed in the management
   // service.
@@ -95,18 +110,71 @@ class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
   // logging.
   bool GetIsAutofillAiEnabledByEnterprisePolicyWithoutLogging(JNIEnv* env);
 
+  // See `AutofillAiAction::kEnableOrDisable` for details.
+  bool CanEnableOrDisableAutofillAi(JNIEnv* env);
+
+  // Returns whether the user might perform
+  // `AutofillAiAction::kListEntityInstancesInSettings`.
+  bool CanListEntityInstancesInSettings(JNIEnv* env);
+
+  // Returns true if the user can store and read public passes on Google Wallet
+  // servers. Used to display a notice in the management UI.
+  bool IsWalletPublicPassStorageEnabled(JNIEnv* env);
+
  private:
+  friend class EntityDataManagerAndroidTestApi;
+
   ~EntityDataManagerAndroid() override;
 
-  // autofill::EntityDataManager::Observer implementation.
+  bool RunMayPerformAutofillAiAction(
+      AutofillAiAction action,
+      std::optional<EntityType> entity_type) const;
+
+  // EntityDataManager::Observer implementation.
   void OnEntityInstancesChanged() override;
 
   EntityDataManager& entity_data_manager() {
     return entity_data_manager_.get();
   }
 
-  base::ScopedObservation<autofill::EntityDataManager,
-                          autofill::EntityDataManager::Observer>
+  EntityDataManager& entity_data_manager() const {
+    return entity_data_manager_.get();
+  }
+
+  // Same as `IsWalletPublicPassStorageEnabled` but without the `env` so
+  // it can be reused internally.
+  bool IsWalletPublicPassStorageEnabledHelper() const;
+
+  // Runs permission checks on whether an entity of `entity_type` can be stored
+  // on Google Wallet servers.
+  bool IsEligibleForWalletStorage(EntityType entity_type) const;
+
+  // `entity_instance` is the instance that is going to be saved either locally
+  // or to Google Wallet servers. `targeted_record_type` reflects whether the
+  // user attempted to store the entity locally or to Wallet when
+  // interacting with the management page. As an example, both can differ if
+  // syncing is disabled between the moment whe the user opens the add entity
+  // dialog and the moment the save button is clicked. In this case,
+  // `entity_instance` will have its record type as `kLocal`, while
+  // `targeted_record_type` will `kServerWallet`, which will lead to the
+  // `on_local_save_fallback` being run, displaying a feedback message to users
+  // to let them know the entity was stored locally instead.
+  void AddOrUpdateEntityInstance(
+      EntityInstance entity_instance,
+      EntityInstance::RecordType targeted_record_type,
+      base::OnceClosure on_local_save_fallback);
+
+  // Called after an attempt to save a private pass to Google Wallet.
+  // If `saved_entity` exists, it will be a masked entity which will be stored
+  // locally. `original_entity` is the unmasked entity used during saving
+  // attempt. It will be stored if `saved_entity` does not exist, likely due
+  // to a server call failure.
+  void OnSavePrivatePassToWalletFinished(
+      base::OnceClosure on_local_save_fallback,
+      EntityInstance original_entity,
+      std::optional<EntityInstance> saved_entity);
+
+  base::ScopedObservation<EntityDataManager, EntityDataManager::Observer>
       entity_data_manager_observer_{this};
 
   // Pointer to the java counterpart.
@@ -116,11 +184,15 @@ class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
   const raw_ptr<PrefService> prefs_;
   const raw_ptr<const signin::IdentityManager> identity_manager_;
   const raw_ptr<const syncer::SyncService> sync_service_;
-  const raw_ptr<const AccountSettingService> account_setting_service_;
+  const raw_ptr<const account_settings::AccountSettingService>
+      account_setting_service_;
   const bool is_off_the_record_;
+  const raw_ptr<WalletPassAccessManager> wallet_pass_access_manager_;
 
   // Pointer to the EntityDataManager.
   raw_ref<EntityDataManager> entity_data_manager_;
+
+  base::WeakPtrFactory<EntityDataManagerAndroid> weak_ptr_factory_{this};
 };
 
 }  // namespace autofill

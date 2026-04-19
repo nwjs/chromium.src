@@ -49,6 +49,8 @@ source_set("identity_manager") {
     "primary_account_mutator.h",
     "set_accounts_in_cookie_result.h",
     "signin_constants.h",
+    "token_binding_info.cc",
+    "token_binding_info.h",
   ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -143,6 +145,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//components/image_fetcher/core:test_support",
+    "//components/metrics",
     "//components/prefs",
     "//components/prefs:test_support",
     "//components/signin/internal/identity_manager",
@@ -207,6 +210,7 @@ source_set("test_support") {
 
   deps = [
     "//components/image_fetcher/core:test_support",
+    "//components/metrics",
     "//components/signin/internal/identity_manager",
     "//components/signin/internal/identity_manager:test_support",
     "//components/signin/public/base:test_support",

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/signin/public/base/account_consistency_method.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -90,7 +91,8 @@ class MockDiceWebSigninInterceptor : public DiceWebSigninInterceptor {
   explicit MockDiceWebSigninInterceptor(Profile* profile)
       : DiceWebSigninInterceptor(
             profile,
-            std::make_unique<TestDiceWebSigninInterceptorDelegate>()) {}
+            std::make_unique<TestDiceWebSigninInterceptorDelegate>(),
+            &profile_metrics_service_) {}
   ~MockDiceWebSigninInterceptor() override = default;
 
   MOCK_METHOD(void,
@@ -101,6 +103,9 @@ class MockDiceWebSigninInterceptor : public DiceWebSigninInterceptor {
                bool is_new_account,
                bool is_sync_signin),
               (override));
+
+ private:
+  metrics::ProfileMetricsService profile_metrics_service_;
 };
 
 std::unique_ptr<KeyedService> CreateMockDiceWebSigninInterceptor(
@@ -283,12 +288,10 @@ TEST_F(ProcessDiceHeaderDelegateImplTest,
 
   // Check expectations.
   delegate->CompleteChromeSignInAfterGaiaSignin(account_info_);
-  EXPECT_NE(
-      enable_sync_called_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
-  EXPECT_EQ(
-      history_sync_optin_started_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  EXPECT_NE(enable_sync_called_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
+  EXPECT_EQ(history_sync_optin_started_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
   EXPECT_FALSE(show_error_called_);
 }
 
@@ -334,12 +337,10 @@ TEST_F(ProcessDiceHeaderDelegateImplTest, NoRedirect) {
       CreateDelegateAndNavigateToSignin(/*is_sync_signin_tab=*/true,
                                         /*redirect_url=*/GURL());
   delegate->CompleteChromeSignInAfterGaiaSignin(account_info_);
-  EXPECT_NE(
-      enable_sync_called_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
-  EXPECT_EQ(
-      history_sync_optin_started_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  EXPECT_NE(enable_sync_called_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
+  EXPECT_EQ(history_sync_optin_started_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
 
   // There was no redirect.
   EXPECT_EQ(signin_url_, web_contents()->GetVisibleURL());
@@ -359,12 +360,10 @@ TEST_F(ProcessDiceHeaderDelegateImplTest, TabReuse) {
       CreateDelegateAndNavigateToSignin(/*is_sync_signin_tab=*/true,
                                         /*redirect_url=*/GURL());
   delegate->CompleteChromeSignInAfterGaiaSignin(account_info_);
-  EXPECT_NE(
-      enable_sync_called_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
-  EXPECT_EQ(
-      history_sync_optin_started_,
-      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+  EXPECT_NE(enable_sync_called_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
+  EXPECT_EQ(history_sync_optin_started_,
+            syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
   EXPECT_FALSE(show_error_called_);
 
   // Receive another Dice header in the same tab.

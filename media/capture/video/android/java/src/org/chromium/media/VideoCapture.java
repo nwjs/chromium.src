@@ -169,7 +169,7 @@ public abstract class VideoCapture {
     }
 
     @CalledByNative
-    public final int getColorspace() {
+    public final int getPixelFormat() {
         assumeNonNull(mCaptureFormat);
         switch (mCaptureFormat.mPixelFormat) {
             case ImageFormat.YV12:
@@ -299,15 +299,6 @@ public abstract class VideoCapture {
     }
 
     // JNI wrapper methods.
-    protected void onFrameAvailable(byte[] data, int length, int rotation) {
-        synchronized (mNativeVideoCaptureLock) {
-            if (mNativeVideoCaptureDeviceAndroid != 0) {
-                VideoCaptureJni.get()
-                        .onFrameAvailable(mNativeVideoCaptureDeviceAndroid, data, length, rotation);
-            }
-        }
-    }
-
     protected void onI420FrameAvailable(
             ByteBuffer yBuffer,
             int yStride,
@@ -318,7 +309,8 @@ public abstract class VideoCapture {
             int width,
             int height,
             int rotation,
-            long timestamp) {
+            long timestamp,
+            int dataSpace) {
         synchronized (mNativeVideoCaptureLock) {
             if (mNativeVideoCaptureDeviceAndroid != 0) {
                 VideoCaptureJni.get()
@@ -333,19 +325,21 @@ public abstract class VideoCapture {
                                 width,
                                 height,
                                 rotation,
-                                timestamp);
+                                timestamp,
+                                dataSpace);
             }
         }
     }
 
     protected void onHardwareBufferAvailable(
-            HardwareBuffer hardwareBuffer, int rotation, long timestamp) {
+            HardwareBuffer hardwareBuffer, int dataSpace, int rotation, long timestamp) {
         synchronized (mNativeVideoCaptureLock) {
             if (mNativeVideoCaptureDeviceAndroid != 0) {
                 VideoCaptureJni.get()
                         .onHardwareBufferAvailable(
                                 mNativeVideoCaptureDeviceAndroid,
                                 hardwareBuffer,
+                                dataSpace,
                                 rotation,
                                 timestamp);
             }
@@ -416,9 +410,6 @@ public abstract class VideoCapture {
     @NativeMethods
     interface Natives {
         // Method for VideoCapture implementations to call back native code.
-        void onFrameAvailable(
-                long nativeVideoCaptureDeviceAndroid, byte[] data, int length, int rotation);
-
         void onI420FrameAvailable(
                 long nativeVideoCaptureDeviceAndroid,
                 ByteBuffer yBuffer,
@@ -430,11 +421,13 @@ public abstract class VideoCapture {
                 int width,
                 int height,
                 int rotation,
-                long timestamp);
+                long timestamp,
+                int dataSpace);
 
         void onHardwareBufferAvailable(
                 long nativeVideoCaptureDeviceAndroid,
                 HardwareBuffer hardwareBuffer,
+                int dataSpace,
                 int rotation,
                 long timestamp);
 

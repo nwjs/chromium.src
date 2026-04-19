@@ -10,6 +10,7 @@
 #include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/i18n/rtl.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
@@ -23,25 +24,28 @@
 #include "chrome/browser/search_engine_choice/search_engine_choice_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
+#include "chrome/browser/ui/search_engines/keyword_editor_controller.h"
 #include "chrome/browser/ui/search_engines/template_url_table_model.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/omnibox/common/omnibox_features.h"
-#include "components/prefs/pref_service.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
-#include "components/search_engines/search_engines_pref_names.h"
+#include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_id.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service_observer.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
+#include "components/search_engines/ui_utils.h"
 #include "content/public/browser/web_ui.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
 #include "extensions/common/extension.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/new_window_delegate.h"
@@ -53,9 +57,6 @@ namespace {
 const char kSearchEngineField[] = "searchEngine";
 const char kKeywordField[] = "keyword";
 const char kQueryUrlField[] = "queryUrl";
-
-// Dummy number used for indicating that a new search engine is added.
-const int kNewSearchEngineIndex = -1;
 
 void ProcessGuestDsePropagation(Profile& profile,
                                 bool save_guest_choice,
@@ -84,22 +85,31 @@ void ProcessGuestDsePropagation(Profile& profile,
   choice_service->SetSavedSearchEngineBetweenGuestSessions(dse_prepopulate_id);
 }
 
+std::u16string GetDisplayName(std::u16string url_short_name, bool is_default) {
+  // TODO(crbug.com/41290309): Consider adding a special case if the short name
+  // is a URL, since those should always be displayed LTR.
+  base::i18n::AdjustStringForLocaleDirection(&url_short_name);
+  return is_default
+             ? l10n_util::GetStringFUTF16(
+                   IDS_SEARCH_ENGINES_EDITOR_DEFAULT_ENGINE, url_short_name)
+             : url_short_name;
+}
+
 }  // namespace
 
 namespace settings {
 
 SearchEnginesHandler::SearchEnginesHandler(Profile* profile)
-    : profile_(profile), list_controller_(profile) {
-  pref_change_registrar_.Init(profile_->GetPrefs());
-}
+    : profile_(profile), list_controller_(profile) {}
 
-SearchEnginesHandler::~SearchEnginesHandler() {
-  // TODO(tommycli): Refactor KeywordEditorController to be compatible with
-  // ScopedObserver so this is no longer necessary.
-  list_controller_.table_model()->SetObserver(nullptr);
-}
+SearchEnginesHandler::~SearchEnginesHandler() = default;
 
 void SearchEnginesHandler::RegisterMessages() {
+  web_ui()->RegisterMessageCallback(
+      "getCategorizedTemplateUrls",
+      base::BindRepeating(
+          &SearchEnginesHandler::HandleGetCategorizedTemplateUrls,
+          base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "getSearchEnginesList",
       base::BindRepeating(&SearchEnginesHandler::HandleGetSearchEnginesList,
@@ -149,21 +159,51 @@ void SearchEnginesHandler::RegisterMessages() {
 }
 
 void SearchEnginesHandler::OnJavascriptAllowed() {
-  list_controller_.table_model()->SetObserver(this);
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile_);
+  CHECK(template_url_service);
+  scoped_url_service_observation_.Observe(template_url_service);
+  list_controller_.UpdateIdToTemplateURLMapping();
 }
 
 void SearchEnginesHandler::OnJavascriptDisallowed() {
-  list_controller_.table_model()->SetObserver(nullptr);
-  pref_change_registrar_.RemoveAll();
+  scoped_url_service_observation_.Reset();
+}
+
+base::DictValue SearchEnginesHandler::GetCategorizedTemplateUrls() {
+  base::DictValue search_engines_data;
+  Profile* profile = Profile::FromWebUI(web_ui());
+  CHECK(profile);
+
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile);
+  CHECK(template_url_service);
+
+  TemplateURLService::CategorizedTemplateUrls data =
+      template_url_service->GetCategorizedTemplateURLs(
+          internal::GetDisabledStarterPackIds(profile));
+
+  auto transform_urls =
+      [&](const TemplateURL::TemplateURLVector& template_urls) {
+        base::ListValue transformed_list;
+        for (const auto& template_url : template_urls) {
+          transformed_list.Append(CreateDictionaryForEngine(template_url));
+        }
+        return transformed_list;
+      };
+
+  search_engines_data.Set("activeSiteShortcuts",
+                          transform_urls(data.active_site_shortcuts));
+  search_engines_data.Set("inactiveSiteShortcuts",
+                          transform_urls(data.inactive_site_shortcuts));
+  search_engines_data.Set("activeFeatureShortcuts",
+                          transform_urls(data.active_feature_shortcuts));
+  search_engines_data.Set("inactiveFeatureShortcuts",
+                          transform_urls(data.inactive_feature_shortcuts));
+  return search_engines_data;
 }
 
 base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
-  // Find the default engine.
-  const TemplateURL* default_engine =
-      list_controller_.GetDefaultSearchProvider();
-  std::optional<size_t> default_index =
-      list_controller_.table_model()->IndexOfTemplateURL(default_engine);
-
   // Build the first list (default search engines).
   base::ListValue defaults;
   size_t last_default_engine_index =
@@ -171,7 +211,8 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
 
   for (size_t i = 0; i < last_default_engine_index; ++i) {
     // Third argument is false, as the engine is not from an extension.
-    defaults.Append(CreateDictionaryForEngine(i, i == default_index));
+    defaults.Append(
+        CreateDictionaryForEngine(list_controller_.GetTemplateURLForIndex(i)));
   }
 
   // Build the second list (active search engines).
@@ -182,8 +223,8 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
   CHECK_LE(last_default_engine_index, last_active_engine_index);
   for (size_t i = last_default_engine_index; i < last_active_engine_index;
        ++i) {
-    // Third argument is false, as the engine is not from an extension.
-    actives.Append(CreateDictionaryForEngine(i, i == default_index));
+    actives.Append(
+        CreateDictionaryForEngine(list_controller_.GetTemplateURLForIndex(i)));
   }
 
   // Build the third list (other search engines).
@@ -195,7 +236,8 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
   CHECK_LE(last_active_engine_index, last_other_engine_index);
 
   for (size_t i = last_active_engine_index; i < last_other_engine_index; ++i) {
-    others.Append(CreateDictionaryForEngine(i, i == default_index));
+    others.Append(
+        CreateDictionaryForEngine(list_controller_.GetTemplateURLForIndex(i)));
   }
 
   // Build the third list (omnibox extensions).
@@ -206,7 +248,8 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
   CHECK_LE(last_other_engine_index, engine_count);
 
   for (size_t i = last_other_engine_index; i < engine_count; ++i) {
-    extensions.Append(CreateDictionaryForEngine(i, i == default_index));
+    extensions.Append(
+        CreateDictionaryForEngine(list_controller_.GetTemplateURLForIndex(i)));
   }
 
   base::DictValue search_engines_info;
@@ -217,32 +260,23 @@ base::DictValue SearchEnginesHandler::GetSearchEnginesList() {
   return search_engines_info;
 }
 
-void SearchEnginesHandler::OnModelChanged() {
+void SearchEnginesHandler::OnTemplateURLServiceChanged() {
   AllowJavascript();
-  FireWebUIListener("search-engines-changed", GetSearchEnginesList());
-}
 
-void SearchEnginesHandler::OnItemsChanged(size_t start, size_t length) {
-  OnModelChanged();
-}
+  list_controller_.UpdateIdToTemplateURLMapping();
 
-void SearchEnginesHandler::OnItemsAdded(size_t start, size_t length) {
-  OnModelChanged();
-}
-
-void SearchEnginesHandler::OnItemsRemoved(size_t start, size_t length) {
-  OnModelChanged();
+  FireWebUIListener(
+      "search-engines-changed",
+      base::FeatureList::IsEnabled(switches::kSearchSettingsUpdate)
+          ? GetCategorizedTemplateUrls()
+          : GetSearchEnginesList());
 }
 
 base::DictValue SearchEnginesHandler::CreateDictionaryForEngine(
-    size_t index,
-    bool is_default) {
-  TemplateURLTableModel* table_model = list_controller_.table_model();
-  const TemplateURL* template_url = list_controller_.GetTemplateURL(index);
-
-  // Sanity check for https://crbug.com/781703.
-  CHECK_LT(index, table_model->RowCount());
+    TemplateURL* template_url) {
   CHECK(template_url);
+
+  bool is_default = template_url == list_controller_.GetDefaultSearchProvider();
 
   // The items which are to be written into |dict| are also described in
   // chrome/browser/resources/settings/search_engines_page/
@@ -252,10 +286,9 @@ base::DictValue SearchEnginesHandler::CreateDictionaryForEngine(
   dict.Set("id", static_cast<int>(template_url->id()));
   dict.Set("name", template_url->short_name());
   dict.Set("displayName",
-           table_model->GetText(index,
-                                IDS_SEARCH_ENGINES_EDITOR_DESCRIPTION_COLUMN));
-  dict.Set("keyword", table_model->GetText(
-                          index, IDS_SEARCH_ENGINES_EDITOR_KEYWORD_COLUMN));
+           GetDisplayName(template_url->short_name(), is_default));
+  dict.Set("keyword", base::i18n::GetDisplayStringInLTRDirectionality(
+                          template_url->keyword()));
   Profile* profile = Profile::FromWebUI(web_ui());
   dict.Set("url",
            template_url->url_ref().DisplayURL(UIThreadSearchTermsData()));
@@ -267,8 +300,8 @@ base::DictValue SearchEnginesHandler::CreateDictionaryForEngine(
   if (icon_url.is_valid()) {
     dict.Set("iconURL", icon_url.spec());
   } else if (template_url->CreatedByEnterpriseSearchAggregatorPolicy()) {
-    // The icon used for search aggregator is bundled with Chrome and should be
-    // used as a fallback if the icon_url is not set.
+    // The icon used for search aggregator is bundled with Chrome and should
+    // be used as a fallback if the icon_url is not set.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     dict.Set("iconPath",
              base::FeatureList::IsEnabled(omnibox::kUseAgentspace25Logo)
@@ -294,16 +327,14 @@ base::DictValue SearchEnginesHandler::CreateDictionaryForEngine(
                            template_url->GetBuiltinImageResourceId(), "@2x"}));
   }
 
-  dict.Set("modelIndex", base::checked_cast<int>(index));
-
   dict.Set("canBeRemoved", list_controller_.CanRemove(template_url));
   dict.Set("canBeDefault", list_controller_.CanMakeDefault(template_url));
   dict.Set("default", is_default);
   dict.Set("canBeEdited", list_controller_.CanEdit(template_url));
   dict.Set("canBeActivated", list_controller_.CanActivate(template_url));
   dict.Set("canBeDeactivated", list_controller_.CanDeactivate(template_url));
-  dict.Set("shouldConfirmDeletion",
-           list_controller_.ShouldConfirmDeletion(template_url));
+  dict.Set("shouldConfirmRemoval",
+           list_controller_.ShouldConfirmRemoval(template_url));
   dict.Set("isManaged", list_controller_.IsManaged(template_url));
   TemplateURL::Type type = template_url->type();
   dict.Set("isOmniboxExtension", type == TemplateURL::OMNIBOX_API_EXTENSION);
@@ -329,6 +360,14 @@ base::DictValue SearchEnginesHandler::CreateDictionaryForEngine(
   return dict;
 }
 
+void SearchEnginesHandler::HandleGetCategorizedTemplateUrls(
+    const base::ListValue& args) {
+  CHECK_EQ(1U, args.size());
+  const base::Value& callback_id = args[0];
+  AllowJavascript();
+  ResolveJavascriptCallback(callback_id, GetCategorizedTemplateUrls());
+}
+
 void SearchEnginesHandler::HandleGetSearchEnginesList(
     const base::ListValue& args) {
   CHECK_EQ(1U, args.size());
@@ -340,11 +379,7 @@ void SearchEnginesHandler::HandleGetSearchEnginesList(
 void SearchEnginesHandler::HandleSetDefaultSearchEngine(
     const base::ListValue& args) {
   CHECK_EQ(3U, args.size());
-  int index = args[0].GetInt();
-  if (index < 0 || static_cast<size_t>(index) >=
-                       list_controller_.table_model()->RowCount()) {
-    return;
-  }
+  TemplateURLID id = args[0].GetInt();
 
   search_engines::ChoiceMadeLocation choice_made_location =
       static_cast<search_engines::ChoiceMadeLocation>(args[1].GetInt());
@@ -352,7 +387,7 @@ void SearchEnginesHandler::HandleSetDefaultSearchEngine(
             search_engines::ChoiceMadeLocation::kSearchSettings ||
         choice_made_location ==
             search_engines::ChoiceMadeLocation::kSearchEngineSettings);
-  list_controller_.MakeDefaultTemplateURL(index, choice_made_location);
+  list_controller_.MakeDefaultTemplateURL(id, choice_made_location);
   base::RecordAction(base::UserMetricsAction("Options_SearchEngineSetDefault"));
 
   if (std::optional<bool> save_guest_choice = args[2].GetIfBool();
@@ -382,28 +417,20 @@ void SearchEnginesHandler::HandleGetSaveGuestChoice(
 void SearchEnginesHandler::HandleSetIsActiveSearchEngine(
     const base::ListValue& args) {
   CHECK_EQ(2U, args.size());
-  const int index = args[0].GetInt();
+  const TemplateURLID id = args[0].GetInt();
   const bool is_active = args[1].GetBool();
 
-  if (index < 0 || static_cast<size_t>(index) >=
-                       list_controller_.table_model()->RowCount()) {
-    return;
-  }
-
-  list_controller_.SetIsActiveTemplateURL(index, is_active);
+  list_controller_.SetIsActiveTemplateURL(id, is_active);
 }
 
 void SearchEnginesHandler::HandleRemoveSearchEngine(
     const base::ListValue& args) {
   CHECK_EQ(1U, args.size());
-  int index = args[0].GetInt();
-  if (index < 0 || static_cast<size_t>(index) >=
-                       list_controller_.table_model()->RowCount()) {
-    return;
-  }
+  TemplateURLID id = args[0].GetInt();
 
-  if (list_controller_.CanRemove(list_controller_.GetTemplateURL(index))) {
-    list_controller_.RemoveTemplateURL(index);
+  TemplateURL* template_url = list_controller_.GetTemplateURL(id);
+  if (template_url && list_controller_.CanRemove(template_url)) {
+    list_controller_.RemoveTemplateURL(id);
     base::RecordAction(base::UserMetricsAction("Options_SearchEngineRemoved"));
   }
 }
@@ -411,13 +438,11 @@ void SearchEnginesHandler::HandleRemoveSearchEngine(
 void SearchEnginesHandler::HandleSearchEngineEditStarted(
     const base::ListValue& args) {
   CHECK_EQ(1U, args.size());
-  int index = args[0].GetInt();
+  TemplateURLID id = args[0].GetInt();
 
-  TemplateURL* engine = nullptr;
-  if (index >= 0 &&
-      static_cast<size_t>(index) < list_controller_.table_model()->RowCount()) {
-    engine = list_controller_.GetTemplateURL(index);
-  } else if (index != kNewSearchEngineIndex) {
+  TemplateURL* engine = list_controller_.GetTemplateURL(id);
+
+  if (!engine && id != kInvalidTemplateURLID) {
     return;
   }
 
@@ -490,8 +515,8 @@ void SearchEnginesHandler::HandleSearchEngineEditCompleted(
   const std::string& keyword = args[1].GetString();
   const std::string& query_url = args[2].GetString();
 
-  // Recheck validity. It's possible to get here with invalid input if e.g. the
-  // user calls the right JS functions directly from the web inspector.
+  // Recheck validity. It's possible to get here with invalid input if e.g.
+  // the user calls the right JS functions directly from the web inspector.
   if (CheckFieldValidity(kSearchEngineField, search_engine) &&
       CheckFieldValidity(kKeywordField, keyword) &&
       CheckFieldValidity(kQueryUrlField, query_url)) {

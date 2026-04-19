@@ -16,10 +16,12 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_everything_menu.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tab_search_bubble_host.h"
 #include "chrome/browser/ui/views/tabs/projects/projects_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_flat_edge_button.h"
@@ -38,6 +40,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 
 namespace {
 constexpr base::TimeDelta kHideTabSearchButtonDelay = base::Seconds(2);
@@ -51,11 +54,16 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabStripComboButton,
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabStripComboButton,
                                       kEverythingMenuUnpinMenuItem);
 
-TabStripComboButton::TabStripComboButton(BrowserWindowInterface* browser)
+TabStripComboButton::TabStripComboButton(BrowserWindowInterface* browser,
+                                         Context context)
     : browser_(browser),
+      context_(context),
       action_view_controller_(std::make_unique<views::ActionViewController>()) {
-  start_button_animation_.SetSlideDuration(kAnimationDuration);
-  end_button_animation_.SetSlideDuration(kAnimationDuration);
+  base::TimeDelta animation_duration =
+      gfx::Animation::ShouldRenderRichAnimation() ? kAnimationDuration
+                                                  : base::TimeDelta();
+  start_button_animation_.SetSlideDuration(animation_duration);
+  end_button_animation_.SetSlideDuration(animation_duration);
   SetProperty(views::kElementIdentifierKey, kTabStripComboButtonElementId);
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
@@ -63,26 +71,30 @@ TabStripComboButton::TabStripComboButton(BrowserWindowInterface* browser)
           LayoutConstant::kVerticalTabStripFlatEdgeButtonPadding)));
 
   std::unique_ptr<TabStripFlatEdgeButton> start_button;
-  if (projects_panel::IsProjectsPanelVisibleForProfile(browser->GetProfile())) {
-    start_button = CreateFlatEdgeButtonFor(
-        kActionToggleProjectsPanel, kVerticalTabStripProjectsButtonElementId);
-    projects_panel_button_subscription_ =
-        start_button->RegisterWillInvokeActionCallback(base::BindRepeating(
-            &TabStripComboButton::OnProjectsPanelButtonPressed,
-            base::Unretained(this)));
-  } else if (tab_groups::SavedTabGroupUtils::IsEnabledForProfile(
-                 browser_->GetProfile())) {
-    start_button = CreateFlatEdgeButtonFor(kActionTabGroupsMenu,
-                                           kSavedTabGroupButtonElementId);
+  if (context_ == Context::kVerticalTabStrip ||
+      tabs::kHorizontalTabStripComboButtonShowStartOnly.Get()) {
+    if (projects_panel::IsProjectsPanelVisibleForProfile(
+            browser->GetProfile())) {
+      start_button = CreateFlatEdgeButtonFor(
+          kActionToggleProjectsPanel, kVerticalTabStripProjectsButtonElementId);
+      projects_panel_button_subscription_ =
+          start_button->RegisterWillInvokeActionCallback(base::BindRepeating(
+              &TabStripComboButton::OnProjectsPanelButtonPressed,
+              base::Unretained(this)));
+    } else if (tab_groups::SavedTabGroupUtils::IsEnabledForProfile(
+                   browser_->GetProfile())) {
+      start_button = CreateFlatEdgeButtonFor(kActionTabGroupsMenu,
+                                             kSavedTabGroupButtonElementId);
 
-    auto controller = std::make_unique<views::MenuButtonController>(
-        start_button.get(),
-        base::BindRepeating(&TabStripComboButton::ShowEverythingMenu,
-                            base::Unretained(this)),
-        std::make_unique<views::Button::DefaultButtonControllerDelegate>(
-            start_button.get()));
-    everything_menu_controller_ = controller.get();
-    start_button->SetButtonController(std::move(controller));
+      auto controller = std::make_unique<views::MenuButtonController>(
+          start_button.get(),
+          base::BindRepeating(&TabStripComboButton::ShowEverythingMenu,
+                              base::Unretained(this)),
+          std::make_unique<views::Button::DefaultButtonControllerDelegate>(
+              start_button.get()));
+      everything_menu_controller_ = controller.get();
+      start_button->SetButtonController(std::move(controller));
+    }
   }
 
   if (start_button) {
@@ -140,13 +152,15 @@ void TabStripComboButton::UpdateButtonsVisibility() {
       tab_groups::IsProjectsPanelFeatureEnabled()
           ? prefs::kProjectsPanelPinnedToTabstrip
           : prefs::kEverythingMenuPinnedToTabstrip;
-  update_button_visibility(GetStartButtonActionItem(), start_button_animation_,
-                           prefs->GetBoolean(pref_name));
 
-  update_button_visibility(
-      GetEndButtonActionItem(), end_button_animation_,
-      prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip) ||
-          show_tab_search_ephemerally_);
+  if (start_button_) {
+    update_button_visibility(GetStartButtonActionItem(),
+                             start_button_animation_,
+                             prefs->GetBoolean(pref_name));
+  }
+
+  update_button_visibility(GetEndButtonActionItem(), end_button_animation_,
+                           IsTabSearchPinned() || show_tab_search_ephemerally_);
 }
 
 void TabStripComboButton::OnTabSearchBubbleShown() {
@@ -283,6 +297,10 @@ void TabStripComboButton::ShowContextMenuForViewImpl(
       element_id = kEverythingMenuUnpinMenuItem;
     }
   } else if (source == end_button_) {
+    if (context_ == Context::kHorizontalTabStrip &&
+        tabs::kHorizontalTabStripComboButtonShowStartOnly.Get()) {
+      return;
+    }
     command_id = IDC_TAB_SEARCH_TOGGLE_PIN;
     pref_name = prefs::kTabSearchPinnedToTabstrip;
     string_id = prefs->GetBoolean(pref_name)
@@ -321,8 +339,10 @@ void TabStripComboButton::ExecuteCommand(int command_id, int event_flags) {
   std::string_view pref_name;
   if (command_id == IDC_TAB_SEARCH_TOGGLE_PIN) {
     pref_name = prefs::kTabSearchPinnedToTabstrip;
-    show_tab_search_ephemerally_ = false;
-    hide_tab_search_timer_.Stop();
+    if (!tabs::kHorizontalTabStripComboButtonShowStartOnly.Get()) {
+      show_tab_search_ephemerally_ = false;
+      hide_tab_search_timer_.Stop();
+    }
   } else if (command_id == IDC_PROJECTS_PANEL_TOGGLE_PIN) {
     pref_name = prefs::kProjectsPanelPinnedToTabstrip;
   } else if (command_id == IDC_EVERYTHING_MENU_TOGGLE_PIN) {
@@ -330,14 +350,35 @@ void TabStripComboButton::ExecuteCommand(int command_id, int event_flags) {
   } else {
     return;
   }
-  prefs->SetBoolean(pref_name, !prefs->GetBoolean(pref_name));
+
+  const bool is_pinned = prefs->GetBoolean(pref_name);
+  if (command_id == IDC_TAB_SEARCH_TOGGLE_PIN) {
+    base::RecordAction(base::UserMetricsAction(
+        is_pinned ? "TabStripComboButton.TabSearch.Unpinned"
+                  : "TabStripComboButton.TabSearch.Pinned"));
+  } else if (command_id == IDC_PROJECTS_PANEL_TOGGLE_PIN) {
+    base::RecordAction(base::UserMetricsAction(
+        is_pinned ? "TabStripComboButton.ProjectsPanel.Unpinned"
+                  : "TabStripComboButton.ProjectsPanel.Pinned"));
+  } else if (command_id == IDC_EVERYTHING_MENU_TOGGLE_PIN) {
+    base::RecordAction(base::UserMetricsAction(
+        is_pinned ? "TabStripComboButton.EverythingMenu.Unpinned"
+                  : "TabStripComboButton.EverythingMenu.Pinned"));
+  }
+
+  prefs->SetBoolean(pref_name, !is_pinned);
 }
 
 void TabStripComboButton::OnBubbleInitializing() {
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser_);
+  CHECK(browser_view);
+  CHECK(browser_view->tab_strip_view());
+  expand_on_hover_lock_ = browser_view->tab_strip_view()->GetExpandOnHoverLock(
+      ExpandOnHoverLockType::kKeepExpanded);
+
   OnTabSearchBubbleShown();
 
-  PrefService* prefs = browser_->GetProfile()->GetPrefs();
-  if (prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip)) {
+  if (IsTabSearchPinned()) {
     return;
   }
 
@@ -346,8 +387,9 @@ void TabStripComboButton::OnBubbleInitializing() {
 }
 
 void TabStripComboButton::OnBubbleDestroying() {
-  PrefService* prefs = browser_->GetProfile()->GetPrefs();
-  if (prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip)) {
+  expand_on_hover_lock_.reset();
+
+  if (IsTabSearchPinned()) {
     return;
   }
 
@@ -371,7 +413,7 @@ void TabStripComboButton::SetTabSearchBubbleHost(TabSearchBubbleHost* host) {
 
 void TabStripComboButton::MaybeShowIPH() {
   PrefService* prefs = browser_->GetProfile()->GetPrefs();
-  if (prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip) &&
+  if (IsTabSearchPinned() &&
       prefs->GetBoolean(tab_search_prefs::kTabSearchUsed)) {
     if (auto* const user_education =
             BrowserUserEducationInterface::From(browser_)) {
@@ -382,15 +424,18 @@ void TabStripComboButton::MaybeShowIPH() {
 }
 
 void TabStripComboButton::MaybeHideTabSearchButton() {
-  PrefService* prefs = browser_->GetProfile()->GetPrefs();
-
-  if (prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip) ||
-      (menu_runner_ && menu_runner_->IsRunning())) {
+  if (IsTabSearchPinned() || (menu_runner_ && menu_runner_->IsRunning())) {
     return;
   }
 
   show_tab_search_ephemerally_ = false;
   UpdateButtonsVisibility();
+}
+
+bool TabStripComboButton::IsTabSearchPinned() {
+  PrefService* prefs = browser_->GetProfile()->GetPrefs();
+  return prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip) &&
+         !tabs::kHorizontalTabStripComboButtonShowStartOnly.Get();
 }
 
 actions::ActionItem* TabStripComboButton::GetStartButtonActionItem() {
@@ -445,7 +490,7 @@ void TabStripComboButton::AnimationProgressed(const gfx::Animation* animation) {
 void TabStripComboButton::AnimationEnded(const gfx::Animation* animation) {
   AnimationProgressed(animation);
   if (animation->GetCurrentValue() == 0.0) {
-    if (animation == &start_button_animation_) {
+    if (start_button_ && animation == &start_button_animation_) {
       GetStartButtonActionItem()->SetVisible(false);
     } else if (animation == &end_button_animation_) {
       GetEndButtonActionItem()->SetVisible(false);

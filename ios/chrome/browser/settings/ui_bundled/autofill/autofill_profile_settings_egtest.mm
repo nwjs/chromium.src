@@ -14,6 +14,7 @@
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/autofill/ui_bundled/address_editor/autofill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
+#import "ios/chrome/browser/device_reauth/test/reauthentication_app_interface.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
@@ -123,13 +124,39 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
 
-  if ([self isRunningTest:@selector(testHomeAndWorkProfileEditPage)] ||
-      [self isRunningTest:@selector(testHomeAndWorkProfileDeleteOnEdit)] ||
-      [self isRunningTest:@selector(testHomeAndWorkProfileRemove)] ||
+  if ([self isRunningTest:@selector(DISABLED_testHomeAndWorkProfileEditPage)] ||
+      [self isRunningTest:@selector
+            (DISABLED_testHomeAndWorkProfileDeleteOnEdit)] ||
+      [self isRunningTest:@selector(DISABLED_testHomeAndWorkProfileRemove)] ||
       [self isRunningTest:@selector(testConfirmationShownOnDeletion)] ||
       [self isRunningTest:@selector(testConfirmationShownOnSwipeToDelete)]) {
     config.features_enabled.push_back(
         autofill::features::kAutofillEnableSupportForHomeAndWork);
+  }
+
+  if ([self isRunningTest:@selector(testToggleEnhancedAutofillSwitch)]) {
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiCreateEntityDataManager);
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiWithDataSchema);
+  }
+
+  if ([self isRunningTest:@selector(testVerificationSwitchReauthFailure)] ||
+      [self isRunningTest:@selector(testVerificationSwitchReauthSuccess)]) {
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiCreateEntityDataManager);
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiReauthRequired);
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiWithDataSchema);
+  }
+
+  if ([self isRunningTest:@selector(testToggleToolbarAddButtonByPolicy)] ||
+      [self isRunningTest:@selector(testToggleToolbarAddButtonBySwitch)]) {
+    config.features_disabled.push_back(
+        autofill::features::kAutofillAiWithDataSchema);
+    config.features_disabled.push_back(
+        autofill::features::kAutofillAiCreateEntityDataManager);
   }
 
   return config;
@@ -259,7 +286,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 }
 
 // Test that the edit mode for Home and Work profiles is not accessible.
-- (void)testHomeAndWorkProfileEditPage {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testHomeAndWorkProfileEditPage {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
   [self openEditProfile:kHomeProfileLabel];
@@ -543,7 +571,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 // Checks when the country field is changed to Germany in the edit mode, the
 // city is added to the required fields. When it is emptied, the save button in
 // displayed. The profile is an account profile.
-- (void)testRequiredFields {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testRequiredFields {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -617,7 +646,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that when the state data is removed, the "Done" button is enabled for
 // "Germany" but not for "India". Similarly, the "Done" is disabled for "US".
-- (void)testDoneButtonByRequirementsOfCountries {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testDoneButtonByRequirementsOfCountries {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -684,7 +714,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the footer text is correctly displayed when there are multiple
 // required empty fields.
-- (void)testFooterWithMultipleErrors {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testFooterWithMultipleErrors {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -757,7 +788,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that a local incomplete profile can be migrated to account after
 // editing the profile.
-- (void)testIncompleteProfileMigrateToAccount {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testIncompleteProfileMigrateToAccount {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleProfile];
 
@@ -832,7 +864,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the home/work address delete results in showing a confirmation
 // sheet that contains an option to remove the profile from Chrome.
-- (void)testHomeAndWorkProfileRemove {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testHomeAndWorkProfileRemove {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
 
@@ -862,7 +895,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the home/work address delete results in showing a confirmation
 // sheet that contains an option to edit the profile in the Google Account.
-- (void)testHomeAndWorkProfileDeleteOnEdit {
+// TODO(crbug.com/498593923): Fix this test.
+- (void)DISABLED_testHomeAndWorkProfileDeleteOnEdit {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
 
@@ -886,6 +920,124 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
       assertWithMatcher:grey_nil()];
 
   [SigninEarlGrey signOut];
+}
+
+// Tests that the Enhanced Autofill switch can be toggled.
+- (void)testToggleEnhancedAutofillSwitch {
+  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+
+  [self openAutofillProfilesSettings];
+
+  // Tap on the Enhanced Autofill item to open the sub-page.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kEnhancedAutofillTableViewId)]
+      performAction:grey_tap()];
+
+  id<GREYMatcher> switchMatcher =
+      grey_accessibilityID(kEnhancedAutofillSwitchViewId);
+  [[EarlGrey selectElementWithMatcher:switchMatcher]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Verify initially OFF.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
+                                   kEnhancedAutofillSwitchViewId,
+                                   /*is_toggled_on=*/NO, /*is_enabled=*/YES)]
+      assertWithMatcher:grey_notNil()];
+
+  // Toggle ON.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kEnhancedAutofillSwitchViewId)]
+      performAction:chrome_test_util::TurnTableViewSwitchOn(YES)];
+
+  // Go back to the main settings page.
+  [[EarlGrey selectElementWithMatcher:SettingsMenuBackButton(0)]
+      performAction:grey_tap()];
+
+  // Verify that the detail text is "On".
+  id<GREYMatcher> labelMatcher = grey_accessibilityLabel(
+      l10n_util::GetNSString(IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE));
+  id<GREYMatcher> valueOnMatcher =
+      grey_accessibilityValue(l10n_util::GetNSString(IDS_IOS_SETTING_ON));
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kEnhancedAutofillTableViewId),
+                                          labelMatcher, valueOnMatcher, nil)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Tap again to enter sub-page.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kEnhancedAutofillTableViewId)]
+      performAction:grey_tap()];
+
+  // Toggle OFF.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kEnhancedAutofillSwitchViewId)]
+      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+
+  // Go back.
+  [[EarlGrey selectElementWithMatcher:SettingsMenuBackButton(0)]
+      performAction:grey_tap()];
+
+  // Verify that the detail text is "Off".
+  id<GREYMatcher> valueOffMatcher =
+      grey_accessibilityValue(l10n_util::GetNSString(IDS_IOS_SETTING_OFF));
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kEnhancedAutofillTableViewId),
+                                          labelMatcher, valueOffMatcher, nil)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  [self exitSettingsMenu];
+  [SigninEarlGrey signOut];
+}
+
+// Tests that the verification switch does not change if reauthentication fails.
+- (void)testVerificationSwitchReauthFailure {
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
+                                    ReauthenticationResult::kFailure];
+  [ReauthenticationAppInterface mockReauthenticationModuleCanAttempt:YES];
+
+  [AutofillAppInterface saveExampleProfile];
+  [self openAutofillProfilesSettings];
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
+                                   kAutofillVerificationSwitchTableViewId,
+                                   /*is_toggled_on=*/YES,
+                                   /*is_enabled=*/YES)]
+      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
+                                   kAutofillVerificationSwitchTableViewId,
+                                   /*is_toggled_on=*/YES,
+                                   /*is_enabled=*/YES)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests that the verification switch changes if reauthentication succeeds.
+- (void)testVerificationSwitchReauthSuccess {
+  [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
+                                    ReauthenticationResult::kSuccess];
+  [ReauthenticationAppInterface mockReauthenticationModuleCanAttempt:YES];
+
+  [AutofillAppInterface saveExampleProfile];
+  [self openAutofillProfilesSettings];
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
+                                   kAutofillVerificationSwitchTableViewId,
+                                   /*is_toggled_on=*/YES,
+                                   /*is_enabled=*/YES)]
+      performAction:chrome_test_util::TurnTableViewSwitchOn(NO)];
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
+                                   kAutofillVerificationSwitchTableViewId,
+                                   /*is_toggled_on=*/NO,
+                                   /*is_enabled=*/YES)]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 @end

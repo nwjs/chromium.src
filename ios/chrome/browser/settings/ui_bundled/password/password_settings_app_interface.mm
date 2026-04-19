@@ -31,15 +31,11 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/webauthn/model/ios_passkey_model_factory.h"
-#import "ios/chrome/common/ui/reauthentication/mock_reauthentication_module.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
-#import "ios/chrome/test/app/password_test_util.h"
 #import "ios/public/provider/chrome/browser/passcode_settings/passcode_settings_api.h"
 #import "url/gurl.h"
 #import "url/origin.h"
 
-using chrome_test_util::
-    SetUpAndReturnMockReauthenticationModuleForPasswordManager;
 using password_manager::FakeBulkLeakCheckService;
 using password_manager::PasswordForm;
 
@@ -240,61 +236,7 @@ bool ClearPasswordStores() {
 
 }  // namespace
 
-@implementation PasswordSettingsAppInterface {
-  std::unique_ptr<ScopedPasswordSettingsReauthModuleOverride>
-      _scopedReauthOverride;
-}
-
-+ (instancetype)sharedInstance {
-  static PasswordSettingsAppInterface* sharedInstance = nil;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    sharedInstance = [[PasswordSettingsAppInterface alloc] init];
-  });
-  return sharedInstance;
-}
-
-// Helper for accessing the scoped override's module.
-+ (MockReauthenticationModule*)mockModule {
-  PasswordSettingsAppInterface* shared =
-      [PasswordSettingsAppInterface sharedInstance];
-  DCHECK(shared->_scopedReauthOverride);
-
-  return base::apple::ObjCCastStrict<MockReauthenticationModule>(
-      shared->_scopedReauthOverride->module);
-}
-
-+ (void)setUpMockReauthenticationModule {
-  PasswordSettingsAppInterface* shared =
-      [PasswordSettingsAppInterface sharedInstance];
-  shared->_scopedReauthOverride =
-      SetUpAndReturnMockReauthenticationModuleForPasswordManager();
-}
-
-+ (void)removeMockReauthenticationModule {
-  PasswordSettingsAppInterface* shared =
-      [PasswordSettingsAppInterface sharedInstance];
-  shared->_scopedReauthOverride = nullptr;
-}
-
-+ (void)mockReauthenticationModuleExpectedResult:
-    (ReauthenticationResult)expectedResult {
-  [self mockModule].expectedResult = expectedResult;
-}
-
-+ (void)mockReauthenticationModuleCanAttempt:(BOOL)canAttempt {
-  DCHECK([PasswordSettingsAppInterface sharedInstance]->_scopedReauthOverride);
-
-  [self mockModule].canAttempt = canAttempt;
-}
-
-+ (void)mockReauthenticationModuleShouldSkipReAuth:(BOOL)returnSync {
-  [self mockModule].shouldSkipReAuth = returnSync;
-}
-
-+ (void)mockReauthenticationModuleReturnMockedResult {
-  [[self mockModule] returnMockedReauthenticationResult];
-}
+@implementation PasswordSettingsAppInterface
 
 + (void)dismissSnackBar {
   id<SnackbarCommands> handler = HandlerForProtocol(

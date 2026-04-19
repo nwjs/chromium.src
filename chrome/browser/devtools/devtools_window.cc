@@ -66,7 +66,6 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync_preferences/pref_service_syncable.h"
-#include "components/vector_icons/vector_icons.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
@@ -85,6 +84,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -265,8 +265,9 @@ BrowserWindow* DevToolsToolboxDelegate::GetInspectedBrowserWindow() {
   if (!inspected_web_contents_) {
     return nullptr;
   }
-  Browser* browser = chrome::FindBrowserWithTab(inspected_web_contents_.get());
-  return browser ? browser->window() : nullptr;
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithTab(inspected_web_contents_.get());
+  return browser ? browser->GetBrowserForMigrationOnly()->window() : nullptr;
 }
 #endif
 
@@ -1064,14 +1065,15 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
     DCHECK(can_dock_);
     content::WebContents* inspected_web_contents = GetInspectedWebContents();
     DCHECK(inspected_web_contents);
-    Browser* inspected_browser =
+    BrowserWindowInterface* inspected_browser =
         chrome::FindBrowserWithTab(inspected_web_contents);
     DCHECK(inspected_browser);
 
     RegisterModalDialogManager(inspected_browser);
 
     // Tell inspected browser to update splitter and switch to inspected panel.
-    BrowserWindow* inspected_window = inspected_browser->window();
+    BrowserWindow* inspected_window =
+        inspected_browser->GetBrowserForMigrationOnly()->window();
     main_web_contents_->SetDelegate(this);
     main_web_contents_->SetIgnoreZoomGestures(true);
 
@@ -1136,13 +1138,13 @@ void DevToolsWindow::ActivateInspectedTab() {
     return;
   }
 
-  Browser* inspected_browser =
+  BrowserWindowInterface* inspected_browser =
       chrome::FindBrowserWithTab(inspected_web_contents);
   if (!inspected_browser) {
     return;
   }
 
-  TabStripModel* tab_strip_model = inspected_browser->tab_strip_model();
+  TabStripModel* tab_strip_model = inspected_browser->GetTabStripModel();
   if (tab_strip_model->GetActiveWebContents() != inspected_web_contents) {
     int inspected_tab_index =
         tab_strip_model->GetIndexOfWebContents(inspected_web_contents);
@@ -1389,13 +1391,15 @@ DevToolsWindow* DevToolsWindow::Create(
 #else
   if (inspected_web_contents) {
     // Check for a place to dock.
-    Browser* browser = chrome::FindBrowserWithTab(inspected_web_contents);
+    BrowserWindowInterface* browser =
+        chrome::FindBrowserWithTab(inspected_web_contents);
 #if BUILDFLAG(IS_MAC)
     if (browser) {
-      inspected_browser_session_id = browser->session_id();
+      inspected_browser_session_id = browser->GetSessionID();
     }
 #endif  // BUILDFLAG(IS_MAC)
-    if (!browser || !browser->window()->CanDockDevTools()) {
+    if (!browser ||
+        !browser->GetBrowserForMigrationOnly()->window()->CanDockDevTools()) {
       can_dock = false;
     }
   }
@@ -1985,11 +1989,12 @@ void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
 #if BUILDFLAG(IS_ANDROID)
   NOTIMPLEMENTED();
 #else
-  Browser* browser = chrome::FindBrowserWithTab(inspected_contents);
+  BrowserWindowInterface* browser =
+      chrome::FindBrowserWithTab(inspected_contents);
   if (!browser) {
     return;
   }
-  gfx::NativeWindow parent = browser->window()->GetNativeWindow();
+  gfx::NativeWindow parent = browser->GetWindow()->GetNativeWindow();
   ::ShowCertificateViewer(inspected_contents, parent, cert.get());
 #endif
 }
@@ -2198,12 +2203,13 @@ void DevToolsWindow::MaybeShowSharedProcessInfobar() {
     return;
   }
 
-  content::SiteInstance* site_instance =
-      inspected_web_contents->GetPrimaryMainFrame()->GetSiteInstance();
-  const GURL& site_url = site_instance->GetSiteURL();
-  if (site_url.SchemeIs(extensions::kExtensionScheme) ||
-      site_url.SchemeIs(content::kChromeDevToolsScheme) ||
-      site_url.SchemeIs(content::kChromeUIScheme)) {
+  const content::SecurityPrincipal& security_principal =
+      inspected_web_contents->GetPrimaryMainFrame()
+          ->GetSiteInstance()
+          ->GetSecurityPrincipal();
+  if (security_principal.SchemeIs(extensions::kExtensionScheme) ||
+      security_principal.SchemeIs(content::kChromeDevToolsScheme) ||
+      security_principal.SchemeIs(content::kChromeUIScheme)) {
     return;
   }
 

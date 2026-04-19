@@ -343,31 +343,25 @@ class RasterCommandsCompletedQuery : public QueryManager::Query {
       gr_context->submit();
     } else {
       CHECK(shared_context_state_->graphite_shared_context());
-      auto recording =
-          shared_context_state_->gpu_main_graphite_recorder()->snap();
-      if (recording) {
-        skgpu::graphite::InsertRecordingInfo info = {};
-        info.fRecording = recording.get();
-        info.fFinishedProc = [](void* context, skgpu::CallbackResult result) {
-          RasterCommandsCompletedQuery::FinishedProc(context);
-        };
-        info.fFinishedContext = new base::WeakPtr<RasterCommandsCompletedQuery>(
-            weak_ptr_factory_.GetWeakPtr());
-        shared_context_state_->graphite_shared_context()->insertRecording(info);
+      skgpu::graphite::SubmitInfo submit_info;
+      submit_info.fFinishedProc = [](void* context,
+                                     skgpu::CallbackResult result) {
+        RasterCommandsCompletedQuery::FinishedProc(context);
+      };
+      submit_info.fFinishedContext =
+          new base::WeakPtr<RasterCommandsCompletedQuery>(
+              weak_ptr_factory_.GetWeakPtr());
 
-        // Canvas typically uses Commands Completed query to implement
-        // backpressures. We need to flush any delayed commands to make sure the
-        // query can be completed in finite time.
-        // Furthermore, some websites use setTimeout() to implement canvas'
-        // rendering loop. Hence within a vsync interval, a canvas could be
-        // redrawn multiple times. Flushing here ensures that we send the draw
-        // commands to GPU earlier, reducing the chance the canvas' rate limiter
-        // kicks in.
-        shared_context_state_->graphite_shared_context()
-            ->submitAndFlushBackend();
-      } else {
-        finished_ = true;
-      }
+      // Canvas typically uses Commands Completed query to implement
+      // backpressures. We need to flush any delayed commands to make sure the
+      // query can be completed in finite time.
+      // Furthermore, some websites use setTimeout() to implement canvas'
+      // rendering loop. Hence within a vsync interval, a canvas could be
+      // redrawn multiple times. Flushing here ensures that we send the draw
+      // commands to GPU earlier, reducing the chance the canvas' rate limiter
+      // kicks in.
+      shared_context_state_->graphite_shared_context()->submitAndFlushBackend(
+          submit_info);
     }
   }
 
@@ -743,7 +737,11 @@ class RasterDecoderImpl final : public RasterDecoder,
                                          GLuint color_space_offset,
                                          GLuint pixels_offset,
                                          const volatile GLbyte* mailbox);
-  void DoReadbackYUVImagePixelsINTERNAL(GLuint dst_width,
+  void DoReadbackYUVImagePixelsINTERNAL(GLuint src_x,
+                                        GLuint src_y,
+                                        GLuint src_width,
+                                        GLuint src_height,
+                                        GLuint dst_width,
                                         GLuint dst_height,
                                         GLint shm_id,
                                         GLuint shm_offset,
@@ -774,6 +772,7 @@ class RasterDecoderImpl final : public RasterDecoder,
                                 GLuint font_shm_offset,
                                 GLuint font_shm_size);
   void DoEndRasterCHROMIUM();
+  void DoFlushTileRasterGraphiteCommandsCHROMIUM();
   void DoCreateTransferCacheEntryINTERNAL(GLuint entry_type,
                                           GLuint entry_id,
                                           GLuint handle_shm_id,
@@ -1181,6 +1180,8 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
   } else if (graphite_shared_context()) {
     caps.context_supports_distance_field_text = true;
     caps.texture_half_float_linear = true;
+    caps.use_deferred_graphite_submit =
+        features::kSkiaGraphiteEnableDeferredSubmit.Get();
 #if BUILDFLAG(SKIA_USE_DAWN)
     if (shared_context_state_->IsGraphiteDawn()) {
       caps.texture_norm16 =
@@ -2032,6 +2033,7 @@ void RasterDecoderImpl::DoWritePixelsINTERNAL(GLint x_offset,
   if (!written) {
     LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION, "glWritePixels",
                        "Failed to write pixels to SkCanvas");
+    return;
   }
 
   shared_context_state_->FlushWriteAccess(dest_scoped_access.get());
@@ -2444,6 +2446,10 @@ void OnReadYUVImagePixelsDone(
 }  // namespace
 
 void RasterDecoderImpl::DoReadbackYUVImagePixelsINTERNAL(
+    GLuint src_x,
+    GLuint src_y,
+    GLuint src_width,
+    GLuint src_height,
     GLuint dst_width,
     GLuint dst_height,
     GLint shm_id,
@@ -2604,7 +2610,19 @@ void RasterDecoderImpl::DoReadbackYUVImagePixelsINTERNAL(
     return;
   }
 
-  const SkIRect src_rect = SkIRect::MakeSize(sk_image->dimensions());
+  const SkIRect src_rect =
+      SkIRect::MakeXYWH(src_x, src_y, src_width, src_height);
+
+  if (!SkIRect::MakeSize(sk_image->dimensions()).contains(src_rect)) {
+    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glReadbackYUVImagePixels",
+                       "SRC rect is outside of source image dimensions");
+    source_scoped_access->ApplyBackendSurfaceEndState();
+    shared_context_state_->SubmitIfNecessary(
+        std::move(end_semaphores),
+        source_scoped_access->NeedGraphiteContextSubmit());
+    return;
+  }
+
   const SkISize dst_size = SkISize::Make(dst_width, dst_height);
 
   // Readback is potentially slow, so report progress here.
@@ -2974,6 +2992,7 @@ error::Error RasterDecoderImpl::DoRasterCHROMIUM(GLuint raster_shm_id,
   }
 
   if (deferred_raster_paint_buffer_offset_.has_value()) {
+    CHECK(*deferred_raster_paint_buffer_offset_ <= paint_buffer_size);
     paint_buffer_size -= *deferred_raster_paint_buffer_offset_;
     UNSAFE_TODO(paint_buffer_memory += *deferred_raster_paint_buffer_offset_);
     deferred_raster_paint_buffer_offset_.reset();
@@ -3123,6 +3142,26 @@ void RasterDecoderImpl::DoEndRasterCHROMIUM() {
   // flush above. Yield to the Scheduler to allow pre-emption before
   // processing more commands.
   ExitCommandProcessingEarly();
+}
+
+void RasterDecoderImpl::DoFlushTileRasterGraphiteCommandsCHROMIUM() {
+  if (!features::kSkiaGraphiteEnableDeferredSubmit.Get()) {
+    // Skip if we are not using Graphite's deferred submit feature.
+    return;
+  }
+
+  TRACE_EVENT0("gpu",
+               "RasterDecoderImpl::DoFlushTileRasterGraphiteCommandsCHROMIUM");
+
+  if (auto* graphite_context = graphite_shared_context()) {
+    // A SyncToken is not strictly required to order this flush before the
+    // compositor's Context::submit(). If this happens before the compositor's
+    // Context::submit(), it's ideal for maximizing parallelism. Otherwise,
+    // the tile raster commands will naturally be submitted together with the
+    // compositor's commands in the latter's Context::submit(), so GPU
+    // execution order is still guaranteed.
+    graphite_context->submit();
+  }
 }
 
 void RasterDecoderImpl::DoCreateTransferCacheEntryINTERNAL(

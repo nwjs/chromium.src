@@ -65,9 +65,15 @@ BASE_DECLARE_FEATURE(kApiUserScriptsMultipleWorlds);
 // Controls the availability of the odfsConfigPrivate API.
 BASE_DECLARE_FEATURE(kApiOdfsConfigPrivate);
 
+// Controls the availability of the glicPrivate API.
+BASE_DECLARE_FEATURE(kApiGlicPrivate);
+
 // Controls the availability of the
 // `enterprise.reportingPrivate.onDataMaskingRulesTriggered` API.
 BASE_DECLARE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered);
+
+// Controls the availability of Glic access from Google webpages.
+BASE_DECLARE_FEATURE(kApiGlicAccessFromGoogleWebpage);
 
 // Controls the availability of the new `proxyOverrideRulesPrivate` API.
 BASE_DECLARE_FEATURE(kApiProxyOverrideRulesPrivate);
@@ -242,7 +248,6 @@ BASE_DECLARE_FEATURE(kDeclarativeNetRequestHeaderSubstitution);
 // line switch.
 BASE_DECLARE_FEATURE(kDisableDisableExtensionsExceptCommandLineSwitch);
 
-
 // Disables the `--extensions-on-chrome-urls` flag's functionality on
 // `chrome://` URLs. Extension can still run on extension URLs using the new
 // flag `--extensions-on-extension-urls` flag.
@@ -251,10 +256,6 @@ BASE_DECLARE_FEATURE(kDisableExtensionsOnChromeUrlsSwitch);
 // If enabled, high-risk extension DOM activity is collected and reported
 // for enterprise auditing.
 BASE_DECLARE_FEATURE(kEnterpriseExtensionDOMActivityTelemetry);
-
-// Changes the chrome.userScript API to be enabled by a per-extension toggle
-// rather than the developer mode toggle on chrome://extensions.
-BASE_DECLARE_FEATURE(kUserScriptUserExtensionToggle);
 
 // Forces the debugger API/feature to always be restricted by developer mode.
 // This ensures we're always testing the developer mode API/feature restriction
@@ -286,18 +287,6 @@ BASE_DECLARE_FEATURE(kAvoidCloneArgsOnExtensionFunctionDispatch);
 // memory leaks from stale cache entries and false-positive corruption reports.
 BASE_DECLARE_FEATURE(kExtensionContentVerificationUsesExtensionRoot);
 
-// Addresses content verification race conditions during extension updates. When
-// an extension updates, a content verification job for a previous version can
-// sometimes run *after* the new version has been loaded. This can lead to two
-// issues:
-//   1) the old job might be given the hashes for the new version, or
-//   2) it might unnecessarily re-create hashes for the old version.
-//
-// When this feature is enabled, the verification job will strictly use its
-// original extension version for all hash lookups and creations, preventing
-// these inconsistencies.
-BASE_DECLARE_FEATURE(kContentVerifyJobUseJobVersionForHashing);
-
 // Enables the shouldShowPromotion API to determine which promotion to show for
 // Chrome Enterprise on CWS.
 BASE_DECLARE_FEATURE(kEnableShouldShowPromotion);
@@ -322,6 +311,14 @@ BASE_DECLARE_FEATURE(kWebRequestSecurityInfo);
 // EventRouter. If disabled, they're instead persisted by the custom mechanism
 // in WebRequestEventRouter.
 BASE_DECLARE_FEATURE(kWebRequestPersistFilteredEventsViaEventRouter);
+
+// When enabled, optimizes WebRequest proxying by strictly limiting it to
+// requests that are subject to interception. This ensures that the 'webview'
+// permission only triggers proxying for its own guest frames (e.g., <webview>
+// or Controlled Frame), rather than globally proxying all requests. This
+// avoids unnecessary performance overhead and restores navigation
+// optimizations like preconnect.
+BASE_DECLARE_FEATURE(kOptimizeWebRequestProxy);
 
 }  // namespace extensions_features
 

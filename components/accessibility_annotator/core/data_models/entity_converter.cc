@@ -80,9 +80,9 @@ Shipment ConvertShipment(
   return shipment;
 }
 
-DriverLicense ConvertDriverLicense(
+DriversLicense ConvertDriversLicense(
     const sync_pb::AccessibilityAnnotationSpecifics::DriversLicense& proto_dl) {
-  DriverLicense dl;
+  DriversLicense dl;
   if (proto_dl.has_name()) {
     dl.name = proto_dl.name();
   }
@@ -146,10 +146,10 @@ NationalId ConvertNationalId(
   return national_id;
 }
 
-Flight ConvertFlight(
+FlightReservation ConvertFlight(
     const sync_pb::AccessibilityAnnotationSpecifics::FlightReservation&
         proto_flight) {
-  Flight flight;
+  FlightReservation flight;
   if (proto_flight.has_flight_number()) {
     flight.flight_number = proto_flight.flight_number();
   }
@@ -171,6 +171,10 @@ Flight ConvertFlight(
   if (proto_flight.has_departure_date_unix_epoch_seconds()) {
     flight.departure_date = base::Time::FromSecondsSinceUnixEpoch(
         proto_flight.departure_date_unix_epoch_seconds());
+  }
+  if (proto_flight.has_arrival_date_unix_epoch_seconds()) {
+    flight.arrival_date = base::Time::FromSecondsSinceUnixEpoch(
+        proto_flight.arrival_date_unix_epoch_seconds());
   }
   return flight;
 }
@@ -202,7 +206,98 @@ Vehicle ConvertVehicle(
   return vehicle;
 }
 
+GmailSource ConvertGmailSource(
+    const sync_pb::AccessibilityAnnotationSpecifics::GmailSource& proto_gmail) {
+  GmailSource gmail;
+  if (proto_gmail.has_thread_id()) {
+    gmail.thread_id = proto_gmail.thread_id();
+  }
+  if (proto_gmail.has_message_id()) {
+    gmail.message_id = proto_gmail.message_id();
+  }
+  if (proto_gmail.has_thread_locator()) {
+    gmail.thread_locator = proto_gmail.thread_locator();
+  }
+  if (proto_gmail.has_received_time_unix_epoch_seconds()) {
+    gmail.received_time = base::Time::FromSecondsSinceUnixEpoch(
+        proto_gmail.received_time_unix_epoch_seconds());
+  }
+  return gmail;
+}
+
+CalendarSource ConvertCalendarSource(
+    const sync_pb::AccessibilityAnnotationSpecifics::CalendarSource&
+        proto_calendar) {
+  CalendarSource calendar;
+  if (proto_calendar.has_event_id()) {
+    calendar.event_id = proto_calendar.event_id();
+  }
+  if (proto_calendar.has_modified_time_unix_epoch_seconds()) {
+    calendar.modified_time = base::Time::FromSecondsSinceUnixEpoch(
+        proto_calendar.modified_time_unix_epoch_seconds());
+  }
+  return calendar;
+}
+
+PhotosSource ConvertPhotosSource(
+    const sync_pb::AccessibilityAnnotationSpecifics::PhotosSource&
+        proto_photos) {
+  PhotosSource photos;
+  if (proto_photos.has_photo_id()) {
+    photos.photo_id = proto_photos.photo_id();
+  }
+  if (proto_photos.has_creation_time_unix_epoch_seconds()) {
+    photos.creation_time = base::Time::FromSecondsSinceUnixEpoch(
+        proto_photos.creation_time_unix_epoch_seconds());
+  }
+  return photos;
+}
+
+Source ConvertSource(
+    const sync_pb::AccessibilityAnnotationSpecifics::Source& proto_source) {
+  Source source;
+  if (proto_source.has_deeplink()) {
+    source.deeplink = GURL(proto_source.deeplink());
+  }
+  switch (proto_source.source_case()) {
+    case sync_pb::AccessibilityAnnotationSpecifics::Source::kGmailSource:
+      source.specifics = ConvertGmailSource(proto_source.gmail_source());
+      break;
+    case sync_pb::AccessibilityAnnotationSpecifics::Source::kCalendarSource:
+      source.specifics = ConvertCalendarSource(proto_source.calendar_source());
+      break;
+    case sync_pb::AccessibilityAnnotationSpecifics::Source::kPhotosSource:
+      source.specifics = ConvertPhotosSource(proto_source.photos_source());
+      break;
+    case sync_pb::AccessibilityAnnotationSpecifics::Source::SOURCE_NOT_SET:
+      break;
+  }
+  return source;
+}
+
 }  // namespace
+
+std::optional<EntityType> GetEntityTypeFromSpecifics(
+    const sync_pb::AccessibilityAnnotationSpecifics& specifics) {
+#define SPECIFICS_TO_ENTITY_TYPE(specifics, entity_type)     \
+  case sync_pb::AccessibilityAnnotationSpecifics::specifics: \
+    return EntityType::entity_type;
+
+  switch (specifics.entity_case()) {
+    SPECIFICS_TO_ENTITY_TYPE(kOrder, kOrder);
+    SPECIFICS_TO_ENTITY_TYPE(kShipment, kShipment);
+    SPECIFICS_TO_ENTITY_TYPE(kDriversLicense, kDriversLicense);
+    SPECIFICS_TO_ENTITY_TYPE(kPassport, kPassport);
+    SPECIFICS_TO_ENTITY_TYPE(kNationalId, kNationalId);
+    SPECIFICS_TO_ENTITY_TYPE(kFlightReservation, kFlightReservation);
+    SPECIFICS_TO_ENTITY_TYPE(kVehicle, kVehicle);
+    case sync_pb::AccessibilityAnnotationSpecifics::ENTITY_NOT_SET:
+      return std::nullopt;
+  }
+  return std::nullopt;
+
+#undef SPECIFICS_TO_ENTITY_TYPE
+}
 
 std::optional<Entity> CreateEntityFromSpecifics(
     const sync_pb::AccessibilityAnnotationSpecifics& specifics) {
@@ -212,6 +307,11 @@ std::optional<Entity> CreateEntityFromSpecifics(
   Entity entity;
   entity.entity_id = specifics.id();
 
+  entity.sources.reserve(specifics.sources_size());
+  for (const auto& source : specifics.sources()) {
+    entity.sources.push_back(ConvertSource(source));
+  }
+
   switch (specifics.entity_case()) {
     case sync_pb::AccessibilityAnnotationSpecifics::kOrder:
       entity.specifics = ConvertOrder(specifics.order());
@@ -220,7 +320,7 @@ std::optional<Entity> CreateEntityFromSpecifics(
       entity.specifics = ConvertShipment(specifics.shipment());
       break;
     case sync_pb::AccessibilityAnnotationSpecifics::kDriversLicense:
-      entity.specifics = ConvertDriverLicense(specifics.drivers_license());
+      entity.specifics = ConvertDriversLicense(specifics.drivers_license());
       break;
     case sync_pb::AccessibilityAnnotationSpecifics::kPassport:
       entity.specifics = ConvertPassport(specifics.passport());

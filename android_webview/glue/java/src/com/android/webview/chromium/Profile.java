@@ -163,10 +163,28 @@ public class Profile {
     @UiThread
     public void setMaxPrerenders(@Nullable Integer maxPrerenders) {
         if (maxPrerenders != null && maxPrerenders < 0) {
-            Log.e(TAG, "Maximum prerenders can not be negative.");
             throw new IllegalArgumentException("Maximum prerenders can not be negative.");
         }
         mBrowserContext.setMaxPrerenders(maxPrerenders);
+    }
+
+    /**
+     * @return Max Prerenders set for the {@link Profile}
+     */
+    @UiThread
+    public int getMaxPrerenders() {
+        return mBrowserContext.getAllowedPrerenderingCount();
+    }
+
+    /**
+     * @param maxPrefetches The maximum number of prefetches.
+     */
+    @UiThread
+    public void setMaxPrefetches(int maxPrefetches) {
+        if (maxPrefetches < 0) {
+            throw new IllegalArgumentException("Maximum prefetches can not be negative.");
+        }
+        mBrowserContext.getPrefetchManager().setMaxPrefetches(maxPrefetches);
     }
 
     /**
@@ -174,10 +192,14 @@ public class Profile {
      */
     @UiThread
     public void setMaxPrefetches(@Nullable Integer maxPrefetches) {
-        if (maxPrefetches != null && maxPrefetches < 0) {
-            Log.e(TAG, "Maximum prefetches can not be negative.");
+        if (maxPrefetches == null) {
+            clearMaxPrefetches();
+        }
+
+        if (maxPrefetches < 0) {
             throw new IllegalArgumentException("Maximum prefetches can not be negative.");
         }
+
         mBrowserContext.getPrefetchManager().setMaxPrefetches(maxPrefetches);
     }
 
@@ -186,11 +208,54 @@ public class Profile {
      */
     @UiThread
     public void setPrefetchTtlSeconds(@Nullable Integer prefetchTtlSeconds) {
-        if (prefetchTtlSeconds != null && prefetchTtlSeconds < 0) {
-            Log.e(TAG, "Prefetch TTL seconds can not be negative.");
+        if (prefetchTtlSeconds == null) {
+            clearPrefetchTtl();
+        }
+
+        if (prefetchTtlSeconds < 0) {
+            throw new IllegalArgumentException("Prefetch TTL seconds can not be negative.");
+        }
+
+        mBrowserContext.getPrefetchManager().setPrefetchTtlSeconds(prefetchTtlSeconds);
+    }
+
+    /**
+     * @param prefetchTTLSeconds Sets the TTL seconds for prefetch.
+     */
+    @UiThread
+    public void setPrefetchTtlSeconds(int prefetchTtlSeconds) {
+        if (prefetchTtlSeconds < 0) {
             throw new IllegalArgumentException("Prefetch TTL seconds can not be negative.");
         }
         mBrowserContext.getPrefetchManager().setPrefetchTtlSeconds(prefetchTtlSeconds);
+    }
+
+    /** Sets the TTL seconds for prefetch to its default value. */
+    @UiThread
+    public void clearMaxPrefetches() {
+        mBrowserContext.getPrefetchManager().clearMaxPrefetches();
+    }
+
+    /** Sets the TTL seconds for prefetch to its default value. */
+    @UiThread
+    public void clearPrefetchTtl() {
+        mBrowserContext.getPrefetchManager().clearPrefetchTtl();
+    }
+
+    /**
+     * @return Max Prefetches set for the {@link Profile}
+     */
+    @UiThread
+    public int getMaxPrefetches() {
+        return mBrowserContext.getPrefetchManager().getMaxPrefetches();
+    }
+
+    /**
+     * @return The TTL seconds for the {@link Profile}.
+     */
+    @UiThread
+    public int getPrefetchTtlSeconds() {
+        return mBrowserContext.getPrefetchManager().getPrefetchTtlSeconds();
     }
 
     @UiThread

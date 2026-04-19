@@ -80,7 +80,7 @@ export class ActionChipsElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
-      showSimplifiedUI_: {
+      disablementContextMenuEnabled_: {
         type: Boolean,
         reflect: true,
       },
@@ -92,8 +92,8 @@ export class ActionChipsElement extends CrLitElement {
   protected accessor actionChips_: ActionChip[] = [];
   protected accessor showDismissalUI_: boolean =
       loadTimeData.getBoolean('ntpNextShowDismissalUIEnabled');
-  protected accessor showSimplifiedUI_: boolean =
-      loadTimeData.getBoolean('ntpNextShowSimplificationUIEnabled');
+  protected accessor disablementContextMenuEnabled_: boolean =
+      loadTimeData.getBoolean('ntpNextDisablementContextMenuEnabled');
 
   private callbackRouter: PageCallbackRouter;
   private delayTabUploads_: boolean =
@@ -114,6 +114,8 @@ export class ActionChipsElement extends CrLitElement {
         return 'icon-type-draft-spark';
       case IconType.kFavicon:
         return 'icon-type-favicon';
+      case IconType.kSearchLoopWithSparkle:
+        return 'icon-type-search-spark';
       default:
         return '';
     }
@@ -179,6 +181,10 @@ export class ActionChipsElement extends CrLitElement {
         } else if (
             chip.suggestTemplateInfo.typeIcon === IconType.kSubArrowRight) {
           this.handler.activateMetricsFunnel('DeepDiveChip');
+        } else if (
+            chip.suggestTemplateInfo.typeIcon ===
+            IconType.kSearchLoopWithSparkle) {
+          this.handler.activateMetricsFunnel('PromptSuggestionChip');
         }
         break;
       default:
@@ -256,39 +262,21 @@ export class ActionChipsElement extends CrLitElement {
   }
 
 
-  protected showDashSimplifiedUI_(chip: ActionChip) {
-    return chip.suggestTemplateInfo.typeIcon !== IconType.kSubArrowRight &&
-        this.showSimplifiedUI_;
-  }
-
   protected getChipSubtitle_(chip: ActionChip): string {
-    const subtitle = (this.showSimplifiedUI_ && chip.suggestion) ?
-        chip.suggestion :
-        (chip.suggestTemplateInfo.secondaryText?.text ?? '');
-    const prefix = (subtitle && this.showDashSimplifiedUI_(chip)) ? ' - ' : '';
-    return `${prefix}${subtitle}`;
+    return chip.suggestTemplateInfo.secondaryText?.text ?? '';
   }
 
-  protected getChipTitle_(chip: ActionChip) {
-    const suggestion = chip.suggestion;
+  protected getChipTitle_(chip: ActionChip): string {
+    const primaryText = chip.suggestTemplateInfo.primaryText;
+    const secondaryText = chip.suggestTemplateInfo.secondaryText;
 
-    if (!chip.tab) {
-      return suggestion;
+    const primary = primaryText?.a11yText || primaryText?.text || '';
+    const secondary = secondaryText?.a11yText || secondaryText?.text || '';
+
+    if (primary && secondary) {
+      return `${primary} ${secondary}`;
     }
-
-    const tabTitle = chip.tab.title;
-    const url = new URL(chip.tab.url);
-    const domain = url.hostname.replace(/^www\./, '');
-
-    if (chip.suggestTemplateInfo.typeIcon === IconType.kFavicon) {
-      return `${tabTitle}\n${domain}`;
-    }
-
-    if (chip.suggestTemplateInfo.typeIcon === IconType.kSubArrowRight) {
-      return `${suggestion}\n${domain}`;
-    }
-
-    return suggestion;
+    return primary || secondary || '';
   }
 }
 

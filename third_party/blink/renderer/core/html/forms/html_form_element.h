@@ -63,6 +63,10 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   ~HTMLFormElement() override;
   void Trace(Visitor*) const override;
 
+  ElementType GetElementType() const final {
+    return ElementType::kHTMLFormElement;
+  }
+
   HTMLFormControlsCollection* elements();
   void GetNamedElements(const AtomicString&, HeapVector<Member<Element>>&);
   bool HasNamedElements(const AtomicString&);
@@ -145,7 +149,8 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
   const HeapVector<Member<HTMLImageElement>>& ImageElements();
 
-  V8UnionElementOrRadioNodeList* AnonymousNamedGetter(const AtomicString& name);
+  bindings::OptimizedReturnProxy<V8UnionElementOrRadioNodeList>
+  AnonymousNamedGetter(ScriptState* script_state, const AtomicString& name);
   bool NamedPropertyQuery(const AtomicString& name, ExceptionState&);
   bool HasAnyNamedProperties() const;
 

@@ -10,7 +10,6 @@
 #import "base/apple/foundation_util.h"
 #import "base/auto_reset.h"
 #import "base/check_op.h"
-#import "base/containers/enum_set.h"
 #import "base/containers/fixed_flat_map.h"
 #import "base/i18n/message_formatter.h"
 #import "base/memory/raw_ptr.h"
@@ -140,8 +139,8 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
               prefService:(PrefService*)prefService {
   self = [super init];
   if (self) {
-    DCHECK(syncService);
-    CHECK(authenticationService);
+    CHECK(syncService, base::NotFatalUntil::M155);
+    CHECK(authenticationService, base::NotFatalUntil::M155);
     CHECK(authenticationService->SigninEnabled(), base::NotFatalUntil::M144);
     _syncService = syncService;
     _syncObserver = std::make_unique<SyncObserverBridge>(self, syncService);
@@ -156,6 +155,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     _chromeAccountManagerService = accountManagerService;
     _signedInIdentity = _authenticationService->GetPrimaryIdentity(
         signin::ConsentLevel::kSignin);
+    CHECK(_signedInIdentity, base::NotFatalUntil::M155);
     _prefService = prefService;
     // Register for font size change notifications
     [[NSNotificationCenter defaultCenter]
@@ -511,6 +511,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   item.text = GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_ACCOUNTS_ITEM);
   item.textColor = [UIColor colorNamed:kBlueColor];
   item.accessibilityTraits |= UIAccessibilityTraitButton;
+  item.accessibilityIdentifier = kManageAccountsOnDeviceAccessibilityIdentifier;
   [model addItem:item
       toSectionWithIdentifier:ManageAndSignOutSectionIdentifier];
 }
@@ -535,6 +536,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
       IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM);
   item.textColor = [UIColor colorNamed:kBlueColor];
   item.accessibilityTraits |= UIAccessibilityTraitButton;
+  item.accessibilityIdentifier = kUseAnotherAccountAccessibilityIdentifier;
   [model addItem:item
       toSectionWithIdentifier:SwitchAccountAndSignOutSectionIdentifier];
 
@@ -543,6 +545,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   item.text = GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM);
   item.textColor = [UIColor colorNamed:kBlueColor];
   item.accessibilityTraits |= UIAccessibilityTraitButton;
+  item.accessibilityIdentifier = kSignOutAccessibilityIdentifier;
   [model addItem:item
       toSectionWithIdentifier:SwitchAccountAndSignOutSectionIdentifier];
   if (self.forcedSigninEnabled) {

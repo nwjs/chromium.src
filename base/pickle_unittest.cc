@@ -44,8 +44,6 @@ const std::string testemptystring("");
 const std::wstring testwstring(L"Hello, world");
 const std::u16string teststring16(u"Hello, world");
 const char testrawstring[] = "Hello new world";  // Test raw string writing
-// Test raw char16_t writing, assumes UTF16 encoding is ANSI for alpha chars.
-const char16_t testrawstring16[] = {'A', 'l', 'o', 'h', 'a', 0};
 const std::array<const uint8_t, 9> testdata = {"AAA\0BBB\0"};
 
 // Pickle::Header must be a trivial type because Pickle manages memory as raw
@@ -112,10 +110,6 @@ void VerifyResult(const Pickle& pickle) {
   EXPECT_TRUE(iter.ReadStringPiece(&outstringpiece));
   EXPECT_EQ(testrawstring, outstringpiece);
 
-  std::u16string_view outstringpiece16;
-  EXPECT_TRUE(iter.ReadStringPiece16(&outstringpiece16));
-  EXPECT_EQ(testrawstring16, outstringpiece16);
-
   std::optional<base::span<const uint8_t>> outdata = iter.ReadData();
   EXPECT_TRUE(outdata.has_value());
   EXPECT_EQ(*outdata, testdata);
@@ -153,7 +147,6 @@ TEST(PickleTest, EncodeDecode) {
   pickle.WriteString(testemptystring);
   pickle.WriteString16(teststring16);
   pickle.WriteString(testrawstring);
-  pickle.WriteString16(testrawstring16);
   pickle.WriteData(testdata);
   VerifyResult(pickle);
 
@@ -375,25 +368,6 @@ TEST(PickleTest, PeekNextOverflow) {
   EXPECT_EQ(pickle_size, std::numeric_limits<uint32_t>::max() / 2);
 }
 
-TEST(PickleTest, GetReadPointerAndAdvance) {
-  Pickle pickle;
-
-  PickleIterator iter(pickle);
-  EXPECT_FALSE(iter.GetReadPointerAndAdvance(1));
-
-  pickle.WriteInt(1);
-  pickle.WriteInt(2);
-  int bytes = sizeof(int) * 2;
-
-  EXPECT_TRUE(PickleIterator(pickle).GetReadPointerAndAdvance(0));
-  EXPECT_TRUE(PickleIterator(pickle).GetReadPointerAndAdvance(1));
-  EXPECT_FALSE(PickleIterator(pickle).GetReadPointerAndAdvance(-1));
-  EXPECT_TRUE(PickleIterator(pickle).GetReadPointerAndAdvance(bytes));
-  EXPECT_FALSE(PickleIterator(pickle).GetReadPointerAndAdvance(bytes + 1));
-  EXPECT_FALSE(PickleIterator(pickle).GetReadPointerAndAdvance(INT_MAX));
-  EXPECT_FALSE(PickleIterator(pickle).GetReadPointerAndAdvance(INT_MIN));
-}
-
 TEST(PickleTest, ReadingTooMuchPreventsFutureReads) {
   Pickle pickle;
   pickle.WriteUInt32(1);
@@ -448,9 +422,7 @@ TEST(PickleTest, ReadingTooMuchPreventsFutureReads) {
   }
 }
 
-// This test documents the current behavior, which is being reconsidered in
-// https://crbug.com/479458085.
-TEST(PickleTest, NegativeLengthDoesNotPreventFutureReads) {
+TEST(PickleTest, NegativeLengthPreventsFutureReads) {
   Pickle pickle;
   pickle.WriteInt(-1);
   pickle.WriteInt(456);
@@ -460,42 +432,53 @@ TEST(PickleTest, NegativeLengthDoesNotPreventFutureReads) {
   size_t len;
   EXPECT_FALSE(iter.ReadLength(&len));
 
-  EXPECT_EQ(iter.RemainingBytes(), 4);
+  EXPECT_EQ(iter.RemainingBytes(), 0);
 
   int v;
-  EXPECT_TRUE(iter.ReadInt(&v));
-  EXPECT_EQ(v, 456);
+  EXPECT_FALSE(iter.ReadInt(&v));
+
+  // But zero-sized reads still work, perhaps surprisingly.
+  const char* data = nullptr;
+  EXPECT_TRUE(iter.ReadBytes(&data, 0));
+  EXPECT_TRUE(data);
+
+  EXPECT_TRUE(iter.ReadBytes(0));
 }
 
-// This test documents the current behavior, which is being reconsidered in
-// https://crbug.com/479458085.
-TEST(PickleTest, LongOverflowDoesNotPreventFutureReads) {
+TEST(PickleTest, LongOverflowPreventsFutureReads) {
   Pickle pickle;
   pickle.WriteInt64(std::numeric_limits<int64_t>::max());
   pickle.WriteInt(456);
 
   PickleIterator iter(pickle);
 
-  // Longs are always read as 64-bit integers. But how overflow is handled while
-  // reading into a long varies by platform: On 32-bit platforms, it's possible
-  // to keep reading despite the failure.
-  //
-  // Ideally this discrepancy would be avoided.
-
+  // Long overflow will only happen in this case.
   if (sizeof(long) < sizeof(int64_t)) {
     long v;
     EXPECT_FALSE(iter.ReadLong(&v));
+
+    EXPECT_EQ(iter.RemainingBytes(), 0);
+
+    int v_int;
+    EXPECT_FALSE(iter.ReadInt(&v_int));
+
+    // But zero-sized reads still work, perhaps surprisingly.
+    const char* data = nullptr;
+    EXPECT_TRUE(iter.ReadBytes(&data, 0));
+    EXPECT_TRUE(data);
+
+    EXPECT_TRUE(iter.ReadBytes(0));
   } else {
     long v;
     EXPECT_TRUE(iter.ReadLong(&v));
     EXPECT_EQ(v, std::numeric_limits<long>::max());
+
+    EXPECT_EQ(iter.RemainingBytes(), 4);
+
+    int v_int;
+    EXPECT_TRUE(iter.ReadInt(&v_int));
+    EXPECT_EQ(v_int, 456);
   }
-
-  EXPECT_EQ(iter.RemainingBytes(), 4);
-
-  int v;
-  EXPECT_TRUE(iter.ReadInt(&v));
-  EXPECT_EQ(v, 456);
 }
 
 TEST(PickleTest, Resize) {

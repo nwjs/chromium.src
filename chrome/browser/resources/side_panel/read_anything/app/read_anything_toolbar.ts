@@ -28,8 +28,8 @@ import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {CrLitElement, html, type TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
-import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement, html} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues, TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {DEFAULT_SETTINGS, SettingsOption, ToolbarEvent} from '../content/read_anything_types.js';
 import type {LineFocusMovement, LineFocusStyle, SettingsPrefs} from '../content/read_anything_types.js';
@@ -151,7 +151,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       isReadAnythingPinned: {type: Boolean},
       isImmersiveEnabled_: {type: Boolean},
       lineFocusStyle: {type: Object},
-      lineFocusMovement: {type: Object},
+      lineFocusMovement: {type: Number},
     };
   }
 
@@ -174,7 +174,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   accessor localeToDisplayName: {[lang: string]: string} = {};
   accessor previewVoicePlaying: SpeechSynthesisVoice|null = null;
   accessor settingsPrefs: SettingsPrefs = DEFAULT_SETTINGS;
-  accessor selectedVoice: SpeechSynthesisVoice|undefined;
+  accessor selectedVoice: SpeechSynthesisVoice|null = null;
   accessor pageLanguage: string = '';
   accessor isImmersiveMode: boolean = false;
   accessor lineFocusStyle: LineFocusStyle|null = null;
@@ -811,7 +811,6 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
     const showAtConfig = {
       minY: 0,
-      anchorAlignmentX: AnchorAlignment.BEFORE_START,
       anchorAlignmentY: AnchorAlignment.AFTER_START,
     };
     const currentMenu = this.settingsMenu_[id];

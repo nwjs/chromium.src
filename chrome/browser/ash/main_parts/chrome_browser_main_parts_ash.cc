@@ -18,7 +18,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/keyboard/ui/resources/keyboard_resource_util.h"
-#include "ash/public/ash_interfaces.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "ash/public/cpp/keyboard/keyboard_controller.h"
 #include "ash/public/cpp/session/session_controller.h"
@@ -188,7 +187,6 @@
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
@@ -824,7 +822,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
 
   // Initialize NSS database for system token.
   system_token_certdb_initializer_ =
-      std::make_unique<SystemTokenCertDBInitializer>();
+      std::make_unique<SystemTokenCertDBInitializer>(
+          g_browser_process->local_state());
 
   system_token_key_permissions_manager_ = platform_keys::
       KeyPermissionsManagerImpl::CreateSystemTokenKeyPermissionsManager(
@@ -845,7 +844,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
       std::make_unique<CameraGeneralSurveyHandler>();
 
   content::MediaCaptureDevices::GetInstance()->AddVideoCaptureObserver(
-      CrasAudioHandler::Get());
+      CrasAudioHandler::Get()->GetVideoCaptureObserver(
+          content::GetIOThreadTaskRunner({})));
 
 #if !BUILDFLAG(IS_CHROMEOS_DEVICE)
   // While on ChromeOS devices in production, /var/cache/display_profiles
@@ -870,7 +870,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
 
   // Start loading machine statistics here. StatisticsProvider::Shutdown()
   // will ensure that loading is aborted on early exit.
-  bool load_oem_statistics = !StartupUtils::IsOobeCompleted();
+  bool load_oem_statistics = !StartupUtils::IsOobeCompleted(
+      CHECK_DEREF(g_browser_process->local_state()));
   system::StatisticsProvider::GetInstance()->StartLoadingMachineStatistics(
       load_oem_statistics);
 
@@ -1184,7 +1185,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
     // DemoSession::started().
     DemoSession::StartIfInDemoMode(
         g_browser_process->local_state(),
-        g_browser_process->GetFeatures()->application_locale_storage());
+        g_browser_process->GetFeatures()->application_locale_storage(),
+        g_browser_process->platform_part()->component_manager_ash());
 
     VLOG(1) << "Relaunching browser for user: " << account_id.Serialize()
             << " with hash: " << username_hash;
@@ -1297,7 +1299,7 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
             *g_browser_process->local_state());
 
     if (base::FeatureList::IsEnabled(
-            ::features::kHappinessTrackingSystemBluetoothRevamp)) {
+            ash::features::kHappinessTrackingSystemBluetoothRevamp)) {
       hats_bluetooth_revamp_trigger_ =
           std::make_unique<ash::HatsBluetoothRevampTriggerImpl>();
     }
@@ -1803,9 +1805,7 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   // TokenHandleStore needs to outlive the Profile, which
   // is destroyed inside ChromeBrowserMainPartsLinux::PostMainMessageLoopRun().
-  if (ash::features::IsUseTokenHandleStoreEnabled()) {
-    TokenHandleStoreFactory::Get()->DestroyTokenHandleStore();
-  }
+  TokenHandleStoreFactory::Get()->DestroyTokenHandleStore();
 
   magic_boost_controller_.reset();
 

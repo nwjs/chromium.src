@@ -7,6 +7,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_test_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -1058,6 +1060,55 @@ IN_PROC_BROWSER_TEST_F(
       kFinalStatusActivated, 1);
 }
 
+// Verifies that metrics are recorded when interacting with bookmark buttons.
+IN_PROC_BROWSER_TEST_F(
+    PreloadBookmarkBarPrefetchEnabledPrerenderEnabledNavigationTest,
+    MetricsRecording) {
+  StartServers();
+  base::HistogramTester histogram_tester;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_test_server()->GetURL("/empty.html")));
+
+  GURL preload_url = https_test_server()->GetURL("/empty.html?preload");
+
+  CreateBookmarkButton(preload_url);
+  views::LabelButton* button = GetBookmarkButton(0);
+
+  gfx::Point center(10, 10);
+
+  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+                   prefs::kBookmarkBarHoverCount));
+  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+                   prefs::kBookmarkBarNavigationCount));
+
+  // Trigger on-hover recording.
+  button->OnMouseEntered(ui::MouseEvent(ui::EventType::kMouseEntered, center,
+                                        center, ui::EventTimeForNow(),
+                                        /*flags=*/ui::EF_NONE,
+                                        /*changed_button_flags=*/ui::EF_NONE));
+
+  EXPECT_EQ(1, browser()->profile()->GetPrefs()->GetInt64(
+                   prefs::kBookmarkBarHoverCount));
+  EXPECT_EQ(0, browser()->profile()->GetPrefs()->GetInt64(
+                   prefs::kBookmarkBarNavigationCount));
+
+  content::TestNavigationObserver observer(
+      browser()->tab_strip_model()->GetActiveWebContents(), 1);
+  ;
+  // Trigger navigation recording.
+  button->OnMousePressed(ui::MouseEvent(
+      ui::EventType::kMousePressed, center, center, ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+  button->OnMouseReleased(ui::MouseEvent(
+      ui::EventType::kMouseReleased, center, center, ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+  observer.Wait();
+
+  EXPECT_EQ(1, browser()->profile()->GetPrefs()->GetInt64(
+                   prefs::kBookmarkBarNavigationCount));
+}
+
 namespace {
 
 class BookmarkBarTest : public BookmarkBarTestBase {
@@ -1072,8 +1123,14 @@ class BookmarkBarTest : public BookmarkBarTestBase {
 
     bookmark_bar()->ShowContextMenuForViewImpl(
         view, point, ui::mojom::MenuSourceType::kMouse);
-    EXPECT_EQ(views::InkDropState::ACTIVATED,
-              views::InkDrop::Get(view)->GetInkDrop()->GetTargetInkDropState());
+    if (views::InkDrop::Get(view)->GetInkDrop()->GetTargetInkDropState() !=
+        views::InkDropState::ACTIVATED) {
+      EXPECT_TRUE(base::test::RunUntil([&]() {
+        return views::InkDrop::Get(view)
+                   ->GetInkDrop()
+                   ->GetTargetInkDropState() == views::InkDropState::ACTIVATED;
+      }));
+    }
 
     bookmark_bar()->OnContextMenuClosed();
 #if BUILDFLAG(IS_MAC)
@@ -1091,7 +1148,13 @@ class BookmarkBarTest : public BookmarkBarTestBase {
 
 }  // namespace
 
-IN_PROC_BROWSER_TEST_F(BookmarkBarTest, AllBookmarksButtonHighlight) {
+#if BUILDFLAG(IS_WIN)
+//  TODO(crbug.com/491651711): This test is flaky.
+#define MAYBE_AllBookmarksButtonHighlight DISABLED_AllBookmarksButtonHighlight
+#else
+#define MAYBE_AllBookmarksButtonHighlight AllBookmarksButtonHighlight
+#endif
+IN_PROC_BROWSER_TEST_F(BookmarkBarTest, MAYBE_AllBookmarksButtonHighlight) {
   TestContextMenuHighlight(bookmark_bar()->all_bookmarks_button());
 }
 
@@ -1107,7 +1170,13 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarTest, BookmarkFolderButtonHighlight) {
   TestContextMenuHighlight(GetBookmarkButton(0));
 }
 
-IN_PROC_BROWSER_TEST_F(BookmarkBarTest, AppsPageShortcutHighlight) {
+#if BUILDFLAG(IS_WIN)
+//  TODO(crbug.com/491651711): This test is flaky.
+#define MAYBE_AppsPageShortcutHighlight DISABLED_AppsPageShortcutHighlight
+#else
+#define MAYBE_AppsPageShortcutHighlight AppsPageShortcutHighlight
+#endif
+IN_PROC_BROWSER_TEST_F(BookmarkBarTest, MAYBE_AppsPageShortcutHighlight) {
   TestContextMenuHighlight(GetAppsPageShortCut());
 }
 

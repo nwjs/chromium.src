@@ -34,7 +34,7 @@ source_set("impl") {
     sources += [
       "pinned_toolbar_actions_model.cc",
       "pinned_toolbar_actions_model_factory.cc",
-      #"pinned_translate_action_listener.cc",
+      "pinned_translate_action_listener.cc",
       "tab_search_toolbar_button_controller.cc",
     ]
     deps = [

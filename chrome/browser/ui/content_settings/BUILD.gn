@@ -11,10 +11,12 @@ source_set("content_settings") {
     "//base",
     "//chrome/app/vector_icons",
     "//chrome/browser/ui/blocked_content",
+    "//components/browser_apis/ui_controllers/toolbar:mojom_data_model",
     "//components/content_settings/browser",
     "//components/content_settings/core/common",
     "//components/custom_handlers",
     "//services/device/public/cpp/geolocation:buildflags",
+    "//ui/base/interaction",
   ]
 
   if (!is_android) {
@@ -23,6 +25,7 @@ source_set("content_settings") {
       "content_setting_bubble_model_delegate.h",
       "content_setting_image_model.h",
       "content_setting_image_model_states.h",
+      "content_setting_image_view_delegate.h",
     ]
     public_deps += [ "//chrome/app/vector_icons" ]
   }

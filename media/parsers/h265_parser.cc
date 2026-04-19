@@ -1120,6 +1120,7 @@ H265Parser::Result H265Parser::ParseSliceHeader(const H265NALU& nalu,
   shdr->nalu_data = nalu.data.data();
   shdr->nalu_size = nalu.data.size();
   shdr->temporal_id = nalu.nuh_temporal_id_plus1 - 1;
+  shdr->nuh_layer_id = nalu.nuh_layer_id;
 
   READ_BOOL_OR_RETURN(&shdr->first_slice_segment_in_pic_flag);
   shdr->irap_pic = (shdr->nal_unit_type >= H265NALU::BLA_W_LP &&
@@ -1154,6 +1155,14 @@ H265Parser::Result H265Parser::ParseSliceHeader(const H265NALU& nalu,
       DVLOG(1) << "Cannot parse dependent slice w/out prior slice data";
       return kInvalidStream;
     }
+
+    // 7.4.7.1
+    if (shdr->nuh_layer_id != prior_shdr->nuh_layer_id) {
+      DVLOG(1) << "Dependent slice segment must have the same nuh_layer_id "
+               << "as the prior slice";
+      return kInvalidStream;
+    }
+
     // Copy everything in the structure starting at |slice_type| going forward.
     // This is copying the dependent slice data that we do not parse below.
     size_t skip_amount = offsetof(H265SliceHeader, slice_type);
@@ -1513,26 +1522,29 @@ VideoCodecProfile H265Parser::ProfileIDCToVideoCodecProfile(int profile_idc) {
   }
 }
 
-gfx::HdrMetadataCta861_3 H265SEIContentLightLevelInfo::ToGfx() const {
-  return gfx::HdrMetadataCta861_3(max_content_light_level,
-                                  max_picture_average_light_level);
+skhdr::ContentLightLevelInformation H265SEIContentLightLevelInfo::ToSkHdr()
+    const {
+  return skhdr::ContentLightLevelInformation::MakeUint16(
+      /*maxCLL=*/max_content_light_level,
+      /*maxFALL=*/max_picture_average_light_level);
 }
 
-gfx::HdrMetadataSmpteSt2086 H265SEIMasteringDisplayInfo::ToGfx() const {
+skhdr::MasteringDisplayColorVolume H265SEIMasteringDisplayInfo::ToSkHdr()
+    const {
   constexpr auto kChromaDenominator = 50000.0f;
   constexpr auto kLumaDenoninator = 10000.0f;
   // display primaries are in G/B/R order in MDCV SEI.
-  return gfx::HdrMetadataSmpteSt2086(
-      {display_primaries[2][0] / kChromaDenominator,
-       display_primaries[2][1] / kChromaDenominator,
-       display_primaries[0][0] / kChromaDenominator,
-       display_primaries[0][1] / kChromaDenominator,
-       display_primaries[1][0] / kChromaDenominator,
-       display_primaries[1][1] / kChromaDenominator,
-       white_points[0] / kChromaDenominator,
-       white_points[1] / kChromaDenominator},
-      /*luminance_max=*/max_luminance / kLumaDenoninator,
-      /*luminance_min=*/min_luminance / kLumaDenoninator);
+  return {
+      .fDisplayPrimaries = {display_primaries[2][0] / kChromaDenominator,
+                            display_primaries[2][1] / kChromaDenominator,
+                            display_primaries[0][0] / kChromaDenominator,
+                            display_primaries[0][1] / kChromaDenominator,
+                            display_primaries[1][0] / kChromaDenominator,
+                            display_primaries[1][1] / kChromaDenominator,
+                            white_points[0] / kChromaDenominator,
+                            white_points[1] / kChromaDenominator},
+      .fMaximumDisplayMasteringLuminance = max_luminance / kLumaDenoninator,
+      .fMinimumDisplayMasteringLuminance = min_luminance / kLumaDenoninator};
 }
 
 H265Parser::Result H265Parser::ParseProfileTierLevel(

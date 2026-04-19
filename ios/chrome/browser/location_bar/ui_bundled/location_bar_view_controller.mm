@@ -18,6 +18,7 @@
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
@@ -72,6 +73,9 @@ typedef NS_ENUM(int, TrailingButtonState) {
   kShareButton,
   kVoiceSearchButton,
 };
+
+// The scale factor of the steady view in fullscreen.
+const CGFloat kFullscreenScaleFactor = 0.87;
 
 // The size of the symbol image.
 const CGFloat kSymbolImagePointSize = 18.;
@@ -373,7 +377,10 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   CGFloat alphaValue = fmax((progress - 0.85) / 0.15, 0);
-  CGFloat scaleValue = 0.79 + 0.21 * progress;
+  CGFloat scaleValue =
+      IsChromeNextIaEnabled()
+          ? kFullscreenScaleFactor + (1 - kFullscreenScaleFactor) * progress
+          : 0.79 + 0.21 * progress;
   self.locationBarSteadyView.trailingButton.alpha = alphaValue;
   self.locationBarSteadyView.badgesContainerView.placeholderView.alpha =
       alphaValue;
@@ -418,6 +425,11 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
 - (void)setPlaceholderDefaultSearchEngineIcon:(UIImage*)icon {
   _defaultSearchEngineIconView.image = icon;
+  if (icon) {
+    _defaultSearchEngineIconView.accessibilityIdentifier = @"DSEIconNonEmpty";
+  } else {
+    _defaultSearchEngineIconView.accessibilityIdentifier = nil;
+  }
 }
 
 #pragma mark - LocationBarSteadyViewConsumer
@@ -925,20 +937,27 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
   // Used to easily trigger the Assistant sheet during development.
   if (IsAssistantContainerEnabled()) {
-    UIAction* assistantAction =
-        [UIAction actionWithTitle:l10n_util::GetNSString(
-                                      IDS_IOS_DIAMOND_PROTOTYPE_ASK_GEMINI)
-                            image:DefaultSymbolWithPointSize(
-                                      kMagicStackSymbol, kSymbolActionPointSize)
-                       identifier:nil
-                          handler:^(UIAction* action) {
-                            [weakSelf.dispatcher showAssistant];
-                          }];
+    UIAction* assistantAction = [UIAction
+        actionWithTitle:l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GEMINI)
+                  image:DefaultSymbolWithPointSize(kMagicStackSymbol,
+                                                   kSymbolActionPointSize)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf.dispatcher showAssistant];
+                }];
     [menuElements addObject:assistantAction];
   }
 
   // Show Top or Bottom Address Bar action.
-  if (IsBottomOmniboxAvailable() && IsSplitToolbarMode(self)) {
+  BOOL canShowMoveAddressBarAction = NO;
+  if (IsChromeNextIaEnabled()) {
+    canShowMoveAddressBarAction = IsBottomOmniboxAvailable();
+  } else {
+    canShowMoveAddressBarAction =
+        IsBottomOmniboxAvailable() && IsSplitToolbarMode(self);
+  }
+
+  if (canShowMoveAddressBarAction) {
     NSString* title = nil;
     UIImage* image = nil;
     ToolbarType targetToolbarType;
@@ -1144,7 +1163,7 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
     [self.geminiHandler
         startGeminiFlowWithStartupState:
             [[GeminiStartupState alloc]
-                initWithEntryPoint:gemini::EntryPoint::OmniboxChip]];
+                initWithEntryPoint:gemini::EntryPoint::DirectOmniboxBadge]];
   } else {
     RecordAIHubIconTapped();
     [self.pageActionMenuHandler showPageActionMenu];

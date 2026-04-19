@@ -29,6 +29,7 @@
 
 #include <memory>
 
+#include "base/compiler_specific.h"
 #include "base/types/to_address.h"
 #include "third_party/blink/renderer/platform/wtf/text/ascii_fast_path.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
@@ -127,7 +128,7 @@ String TextCodecLatin1::Decode(base::span<const uint8_t> bytes,
   base::span<LChar> destination = characters;
 
   while (!source.empty()) {
-    if (IsASCII(source[0])) {
+    if (IsAscii(source[0])) {
       // Fast path for ASCII. Most Latin-1 text will be ASCII.
       if (IsAlignedToMachineWord(source.data())) {
         while (source.data() < aligned_end) {
@@ -147,7 +148,7 @@ String TextCodecLatin1::Decode(base::span<const uint8_t> bytes,
         if (source.empty()) {
           break;
         }
-        if (!IsASCII(source[0])) {
+        if (!IsAscii(source[0])) {
           goto useLookupTable;
         }
       }
@@ -185,7 +186,7 @@ upConvertTo16Bit:
   destination16.take_first<1u>()[0] = kTable[source.take_first_elem()];
 
   while (!source.empty()) {
-    if (IsASCII(source[0])) {
+    if (IsAscii(source[0])) {
       // Fast path for ASCII. Most Latin-1 text will be ASCII.
       if (IsAlignedToMachineWord(source.data())) {
         while (source.data() < aligned_end) {
@@ -197,15 +198,16 @@ upConvertTo16Bit:
           }
 
           static constexpr size_t kMachineWordSize = sizeof(MachineWord);
-          CopyAsciiMachineWord(
-              chunk, destination16.take_first<kMachineWordSize>().data());
+          // SAFTEY: `take_first<kMachineWordSize>()` ensures sufficient size.
+          UNSAFE_BUFFERS(CopyAsciiMachineWord(
+              chunk, destination16.take_first<kMachineWordSize>().data()));
           source.take_first<kMachineWordSize>();
         }
 
         if (source.empty()) {
           break;
         }
-        if (!IsASCII(source[0])) {
+        if (!IsAscii(source[0])) {
           goto useLookupTable16;
         }
       }
@@ -250,12 +252,6 @@ static std::string EncodeComplexWindowsLatin1(
       std::string replacement =
           TextCodec::GetUnencodableReplacement(c, handling);
       DCHECK_GT(replacement.length(), 0UL);
-      // Only one char was initially reserved per input character, so grow if
-      // necessary.
-      target_length += replacement.length() - 1;
-      if (target_length > result.size()) {
-        result.reserve(target_length);
-      }
       result.append(replacement);
       continue;
     }

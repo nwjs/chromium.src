@@ -103,7 +103,7 @@ IN_PROC_BROWSER_TEST_F(SettingsWindowManagerTest, OpenSettingsWindow) {
   // Open a settings window.
   ShowOSSettings();
 
-  Browser* settings_browser =
+  BrowserWindowInterface* settings_browser =
       settings_manager_->FindBrowserForProfile(browser()->profile());
   ASSERT_TRUE(settings_browser);
   EXPECT_EQ(1u, GetNumberOfSettingsWindows());
@@ -128,7 +128,7 @@ IN_PROC_BROWSER_TEST_F(SettingsWindowManagerTest, OpenSettingsWindow) {
               WindowOpenDisposition::NEW_WINDOW,
               apps::LaunchSource::kFromCommandLine));
   EXPECT_EQ(contents,
-            settings_browser->tab_strip_model()->GetActiveWebContents());
+            settings_browser->GetTabStripModel()->GetActiveWebContents());
   EXPECT_EQ(1u, GetNumberOfSettingsWindows());
 
   // Close the settings window.
@@ -137,7 +137,7 @@ IN_PROC_BROWSER_TEST_F(SettingsWindowManagerTest, OpenSettingsWindow) {
 
   // Open a new settings window.
   ShowOSSettings();
-  Browser* settings_browser2 =
+  BrowserWindowInterface* settings_browser2 =
       settings_manager_->FindBrowserForProfile(browser()->profile());
   ASSERT_TRUE(settings_browser2);
   EXPECT_EQ(1u, GetNumberOfSettingsWindows());
@@ -196,16 +196,16 @@ IN_PROC_BROWSER_TEST_F(SettingsWindowManagerTest, OpenSettings) {
   EXPECT_EQ(ash::kChromeUIOSSettingsHost, web_contents->GetURL().GetHost());
 
   // Showing an OS sub-page reuses the OS settings window.
-  base::RunLoop run_loop;
+  base::test::TestFuture<apps::LaunchResult> result;
   settings_manager_->ShowChromePageForProfile(
       browser()->profile(),
       chromeos::settings::GetOSSettingsUrl(
           chromeos::settings::mojom::kBluetoothDevicesSubpagePath),
-      display::kInvalidDisplayId,
-      base::BindOnce([](apps::LaunchResult&& result) {
-        EXPECT_EQ(apps::State::kSuccess, result.state);
-      }).Then(run_loop.QuitClosure()));
-  run_loop.Run();
+      display::kInvalidDisplayId, result.GetCallback());
+
+  ASSERT_TRUE(result.Wait());
+  EXPECT_EQ(apps::LaunchResult::kSuccess, result.Get());
+
   EXPECT_EQ(1u, GetNumberOfSettingsWindows());
   EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
 

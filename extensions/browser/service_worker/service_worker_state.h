@@ -14,6 +14,7 @@
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "content/public/browser/service_worker_context.h"
+#include "content/public/common/child_process_id.h"
 #include "extensions/browser/service_worker/sequenced_context_id.h"
 #include "extensions/browser/service_worker/worker_id.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
@@ -102,8 +103,7 @@ class ServiceWorkerState
   // global JavaScript scope, and all its global event listeners have been
   // registered with the //extensions layer. It is considered the
   // "renderer-side" signal that the worker is ready.
-  // NOTE: this can be called before or after `DidStartWorkerForScope` and
-  // before or after `RendererDidInitializeServiceWorkerContext`.
+  // NOTE: this can be called before or after `DidStartWorkerForScope`.
   void RendererDidStartServiceWorkerContext(
       const SequencedContextId& context_id,
       const WorkerId& worker_id);
@@ -123,7 +123,7 @@ class ServiceWorkerState
   void DidStartWorkerForScope(const SequencedContextId& context_id,
                               base::Time start_time,
                               int64_t version_id,
-                              int process_id,
+                              content::ChildProcessId process_id,
                               int thread_id,
                               const blink::ServiceWorkerToken& token);
   // Called when the worker was requested to start, but failed.

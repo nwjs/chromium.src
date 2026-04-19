@@ -7,7 +7,10 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include <vector>
 
+#include "base/check.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"

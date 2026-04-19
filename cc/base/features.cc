@@ -23,10 +23,6 @@ std::atomic<bool> s_is_eligible_for_throttle_main_frame_to_60hz = false;
 BASE_FEATURE(kComputeRasterTranslateForExternalScale,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether the compositor should attempt to sync with the scroll handlers before
-// submitting a frame.
-BASE_FEATURE(kSynchronizedScrolling, base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDeferImplInvalidation, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(crbug.com/446920991): Reduce back to 1 frame delay once we have a
@@ -81,6 +77,10 @@ bool IsCCSlimmingEnabled() {
   static const bool enabled = base::FeatureList::IsEnabled(kCCSlimming);
   return enabled;
 }
+
+// When enabled, the scheduler will use SlimSchedulerStateMachine which ensures
+// that each action is returned only once per begin frame.
+BASE_FEATURE(kSlimScheduler, base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr const char kScrollEventDispatchModeDispatchScrollEventsImmediately[] =
     "DispatchScrollEventsImmediately";
@@ -163,8 +163,6 @@ BASE_FEATURE(kRenderThrottleFrameRate, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kRenderThrottledFrameIntervalHz{
     &kRenderThrottleFrameRate, "render-throttled-frame-interval-hz", 30};
 
-BASE_FEATURE(kFastPathNoRaster, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kInternalBeginFrameSourceOnManyDidNotProduceFrame,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -209,9 +207,6 @@ PROGRAMMATIC_SCROLL_ANIMATION_CURVE(0.4, 0.0, 0.0, 1.0, 1500);
 
 BASE_FEATURE(kSlimDirectReceiverIpc, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kOverscrollBehaviorRespectedOnAllScrollContainers,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kOverscrollEffectOnNonRootScrollers,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -244,28 +239,12 @@ BASE_FEATURE_PARAM(double,
                    "fling_continuity_threshold_pixels",
                    0.2);
 
-BASE_FEATURE(kHandleNonDamagingInputsInScrollJankV4Metric,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-constexpr const char kEmitForAllScrolls[] = "emit_for_all_scrolls";
-constexpr const char kEmitForDamagingScrolls[] = "emit_for_damaging_scrolls";
-const base::FeatureParam<std::string> kHistogramEmissionPolicy(
-    &kHandleNonDamagingInputsInScrollJankV4Metric,
-    "histogram_emission_policy",
-    kEmitForDamagingScrolls);
-
 BASE_FEATURE(kOrderScrollJankV4EventMetricsByArrivedInRendererCompositor,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kManualBeginFrame, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUnlockDuringGpuImageOperations,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kMainIdleBypassScheduler, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, UKM will be reported for compositor frames.
-BASE_FEATURE(kReportUkm, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUnlockDuringGpuImageOperations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBrowserControlsSmoothScroll, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -277,5 +256,8 @@ BASE_FEATURE(kWebviewSchedulerStateMachine, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBrowserControlsScrollSnapAnimation,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSelectionEdgeVisibilityUsesFullEdge,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

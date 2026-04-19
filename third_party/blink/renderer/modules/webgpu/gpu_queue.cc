@@ -471,11 +471,11 @@ void OnWorkDoneCallback(ScriptPromiseResolver<IDLUndefined>* resolver,
       break;
     case wgpu::QueueWorkDoneStatus::Error:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
-                                       String::FromUTF8(message));
+                                       String::FromUtf8(message));
       break;
     case wgpu::QueueWorkDoneStatus::CallbackCancelled:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
-                                       String::FromUTF8(message));
+                                       String::FromUtf8(message));
       break;
   }
 }
@@ -864,6 +864,7 @@ void GPUQueue::CopyElementImageToTextureInternal(
 
   scoped_refptr<StaticBitmapImage> image =
       context->GetElementImage(element, sx, sy, swidth, sheight, width, height,
+                               gpu::SHARED_IMAGE_USAGE_WEBGPU_READ,
                                "copyElementImageToTexture()", exception_state);
   if (!image) {
     return;

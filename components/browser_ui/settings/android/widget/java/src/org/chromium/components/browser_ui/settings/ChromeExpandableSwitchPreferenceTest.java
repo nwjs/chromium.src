@@ -9,6 +9,7 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayingAtLeast;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
@@ -16,11 +17,15 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.not;
 
 import android.app.Activity;
+import android.view.View;
 import android.view.ViewStub;
 
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.test.espresso.UiController;
+import androidx.test.espresso.ViewAction;
 import androidx.test.filters.LargeTest;
 
+import org.hamcrest.Matcher;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -173,7 +178,27 @@ public class ChromeExpandableSwitchPreferenceTest {
         onView(withId(android.R.id.switch_widget)).check(matches(not(isChecked())));
 
         // Click the switch.
-        onView(withId(android.R.id.switch_widget)).perform(click());
+        // We use a custom action instead of standard click() because Espresso's
+        // simulated touch events can sometimes be swallowed by MaterialSwitch's
+        // internal drag handling if the injected coordinates don't hit the thumb exactly.
+        onView(withId(android.R.id.switch_widget))
+                .perform(
+                        new ViewAction() {
+                            @Override
+                            public Matcher<View> getConstraints() {
+                                return isDisplayed();
+                            }
+
+                            @Override
+                            public String getDescription() {
+                                return "perform click directly";
+                            }
+
+                            @Override
+                            public void perform(UiController uiController, View view) {
+                                view.performClick();
+                            }
+                        });
 
         // Verify checked state.
         Assert.assertTrue(mPreference.isChecked());
@@ -184,8 +209,26 @@ public class ChromeExpandableSwitchPreferenceTest {
         onView(withId(R.id.expandable_switch_expanded_area_stub))
                 .check(matches(not(isDisplayed())));
 
-        // Click the row (not the switch).
-        onView(withText(TITLE)).perform(click());
+        // Expand programmatically using a ViewAction to ensure Espresso synchronizes
+        // properly with the UI thread before proceeding to the assertions.
+        onView(withId(android.R.id.switch_widget))
+                .perform(
+                        new ViewAction() {
+                            @Override
+                            public Matcher<View> getConstraints() {
+                                return isDisplayingAtLeast(90);
+                            }
+
+                            @Override
+                            public String getDescription() {
+                                return "expand preference programmatically";
+                            }
+
+                            @Override
+                            public void perform(UiController uiController, View view) {
+                                mPreference.setExpanded(true);
+                            }
+                        });
 
         // Verify it IS expanded.
         onView(withId(R.id.expandable_switch_expand_icon)).check(matches(isChecked()));

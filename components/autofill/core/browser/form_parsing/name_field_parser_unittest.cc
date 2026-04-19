@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/logging.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/form_parsing/parsing_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -33,9 +34,7 @@ class NameFieldParserTest : public FormFieldParserTestBase,
  public:
   NameFieldParserTest() {
     scoped_feature_list_.InitWithFeatures(
-        {features::kAutofillUseNegativePatternForAllAttributes,
-         features::kAutofillSupportLastNamePrefix},
-        {});
+        {features::kAutofillUseNegativePatternForAllAttributes}, {});
   }
   NameFieldParserTest(const NameFieldParserTest&) = delete;
   NameFieldParserTest& operator=(const NameFieldParserTest&) = delete;
@@ -242,33 +241,6 @@ TEST_F(NameFieldParserTest, NameSurnameNegativePatternDifferentAttributes) {
   AddTextFormFieldData("surname5", "surname", UNKNOWN_TYPE);
 
   ClassifyAndVerify(ParseResult::kNotParsed);
-}
-
-TEST_F(NameFieldParserTest, LastNamePrefix) {
-  AddTextFormFieldData("first_name", "First Name", NAME_FIRST);
-  AddTextFormFieldData("tussenvoegsel", "tussenvoegsel", NAME_LAST_PREFIX);
-  AddTextFormFieldData("last_name", "Last Name", NAME_LAST_CORE);
-
-  ClassifyAndVerify(ParseResult::kParsed);
-}
-
-TEST_F(NameFieldParserTest, LastNamePrefixWithMiddleName) {
-  AddTextFormFieldData("first_name", "First Name", NAME_FIRST);
-  AddTextFormFieldData("middle_name", "Middle Name", NAME_MIDDLE);
-  AddTextFormFieldData("tussenvoegsel", "tussenvoegsel", NAME_LAST_PREFIX);
-  AddTextFormFieldData("last_name", "Last Name", NAME_LAST_CORE);
-
-  ClassifyAndVerify(ParseResult::kParsed);
-}
-
-TEST_F(NameFieldParserTest, LastNamePrefixWithTwoLastNames) {
-  AddTextFormFieldData("first_name", "First Name", NAME_FIRST);
-  AddTextFormFieldData("tussenvoegsel", "tussenvoegsel", NAME_LAST_PREFIX);
-  AddTextFormFieldData("apellido_paterno", "apellido paterno", NAME_LAST_FIRST);
-  AddTextFormFieldData("segunda_apellido", "segunda apellido",
-                       NAME_LAST_SECOND);
-
-  ClassifyAndVerify(ParseResult::kParsed);
 }
 
 // Tests that "Last name, First name" sequence is parsed correctly.

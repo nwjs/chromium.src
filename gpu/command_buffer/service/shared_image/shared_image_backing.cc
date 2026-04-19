@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+#include "base/check.h"
+#include "base/logging.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/trace_event/process_memory_dump.h"
@@ -491,6 +493,8 @@ bool SharedImageBacking::IsImportedFromExo() {
 }
 
 AccessParams::AccessParams() = default;
+AccessParams::AccessParams(const AccessParams&) = default;
+AccessParams& AccessParams::operator=(const AccessParams&) = default;
 AccessParams::~AccessParams() = default;
 
 bool SharedImageBacking::SupportsAccess(SharedImageAccessStream stream,

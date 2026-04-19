@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -59,6 +60,7 @@
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "net/cert/ct_policy_status.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/ssl/ssl_info.h"
@@ -71,6 +73,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
@@ -84,6 +88,21 @@ void FocusNextView(views::FocusManager* focus_manager) {
       focus_manager->GetNextFocusableView(focused_view, nullptr, false, false);
   focus_manager->SetFocusedView(next_view);
 }
+
+class TestLocationBarObserver : public LocationBar::Observer {
+ public:
+  explicit TestLocationBarObserver(base::OnceClosure on_bounds_changed)
+      : on_bounds_changed_(std::move(on_bounds_changed)) {}
+
+  void OnLocationBarBoundsChanged() override {
+    ASSERT_FALSE(on_bounds_changed_.is_null());
+    std::move(on_bounds_changed_).Run();
+  }
+
+ private:
+  base::OnceClosure on_bounds_changed_;
+};
+
 }  // namespace
 
 class LocationBarViewBrowserTest : public InProcessBrowserTest {
@@ -171,6 +190,48 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, LocationBarDecoration) {
   EXPECT_FALSE(zoom_bubble_coordinator_->bubble());
 }
 
+// Ensure that middle-clicking the location icon performs a "paste and go".
+IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, MiddleClickPasteAndGo) {
+  if (!ui::Clipboard::IsMiddleClickPasteEnabled() ||
+      !ui::Clipboard::IsSupportedClipboardBuffer(
+          ui::ClipboardBuffer::kSelection)) {
+    return;
+  }
+
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL paste_url = embedded_test_server()->GetURL("/title1.html");
+
+  LocationBarView* location_bar_view = GetLocationBarView();
+  LocationIconView* location_icon_view =
+      location_bar_view->location_icon_view();
+
+  // Set some text in the selection clipboard.
+  const std::u16string kPasteText = base::UTF8ToUTF16(paste_url.spec());
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kSelection);
+    writer.WriteText(kPasteText);
+  }
+
+  // Set up an observer to wait for the navigation.
+  content::TestNavigationObserver observer(
+      browser()->tab_strip_model()->GetActiveWebContents());
+
+  // Simulate a middle-click on the location icon.
+  ui::MouseEvent middle_click_event(ui::EventType::kMousePressed, gfx::Point(),
+                                    gfx::Point(), base::TimeTicks::Now(),
+                                    ui::EF_MIDDLE_MOUSE_BUTTON,
+                                    ui::EF_MIDDLE_MOUSE_BUTTON);
+  location_icon_view->OnMousePressed(middle_click_event);
+
+  // Wait for the navigation to finish.
+  observer.Wait();
+
+  EXPECT_EQ(paste_url, browser()
+                           ->tab_strip_model()
+                           ->GetActiveWebContents()
+                           ->GetLastCommittedURL());
+}
+
 // Ensure that location bar bubbles close when the webcontents hides.
 IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, BubblesCloseOnHide) {
   content::WebContents* web_contents =
@@ -211,7 +272,7 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, ScriptBlockedIcon) {
 
   // Get the script blocked icon on the omnibox. It should be hidden.
   ContentSettingImageView& script_blocked_icon = GetContentSettingImageView(
-      ContentSettingImageModel::ImageType::JAVASCRIPT);
+      ContentSettingImageModel::ImageType::kJavaScript);
   EXPECT_FALSE(script_blocked_icon.GetVisible());
 
   // Disable javascript.
@@ -225,6 +286,19 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, ScriptBlockedIcon) {
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return script_blocked_icon.GetVisible();
   })) << "Timeout waiting for the script blocked icon to become visible.";
+}
+
+IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, BoundsObserver) {
+  // Make sure that bounds change observer gets notified.
+  base::RunLoop run_loop;
+  TestLocationBarObserver bounds_observer(run_loop.QuitClosure());
+  base::ScopedObservation<LocationBar, LocationBar::Observer> obs(
+      &bounds_observer);
+  obs.Observe(GetLocationBarView());
+  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  browser_view->SetSize(
+      gfx::Size(browser_view->width() - 100, browser_view->height()));
+  run_loop.Run();
 }
 
 class TouchLocationBarViewBrowserTest : public LocationBarViewBrowserTest {
@@ -394,7 +468,7 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewGeolocationBackForwardCacheBrowserTest,
 
   // Get the geolocation icon on the omnibox.
   ContentSettingImageView& geolocation_icon = GetContentSettingImageView(
-      ContentSettingImageModel::ImageType::GEOLOCATION);
+      ContentSettingImageModel::ImageType::kGeolocation);
 
   // Geolocation icon should be off in the beginning.
   EXPECT_FALSE(geolocation_icon.GetVisible());
@@ -621,9 +695,11 @@ class LocationBarViewAddContextButtonBrowserTest
         {{omnibox::internal::kWebUIOmniboxAimPopup,
           {{omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.name,
             "inline"}}},
-         {omnibox::kWebUIOmniboxPopup, {}}},
+         {omnibox::kWebUIOmniboxPopup, {}},
+         {omnibox::kAimEnabled, {}}},
         /*disabled_features=*/{omnibox::kAimServerEligibilityEnabled,
-                               omnibox::kAimFuseboxEligibilityCheckEnabled});
+                               omnibox::kAimFuseboxEligibilityCheckEnabled,
+                               omnibox::kAimUsePecApi});
   }
   ~LocationBarViewAddContextButtonBrowserTest() override = default;
 

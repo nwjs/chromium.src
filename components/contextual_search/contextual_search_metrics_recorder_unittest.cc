@@ -71,6 +71,8 @@ const char kContextualSearchToolModeOnSubmission[] =
     "ContextualSearch.Tools.ModeOnSubmission.Unknown";
 const char kContextualSearchModelModeOnSubmission[] =
     "ContextualSearch.Models.ModeOnSubmission.Unknown";
+const char kContextualSearchInputsTypeOnSubmission[] =
+    "ContextualSearch.Inputs.TypeOnSubmission.Unknown";
 const char kContextualSearchTabContextAdded[] =
     "ContextualSearch.TabContextAdded.V2.Unknown";
 const char kContextualSearchTabContextAddedFromSuggestionChip[] =
@@ -80,6 +82,27 @@ const char kContextualSearchTabContextAddedFromPlusButton[] =
 const char kContextualSearchTabWithDuplicateTitleClicked[] =
     "ContextualSearch.TabWithDuplicateTitleClicked.V2.Unknown";
 
+const char kContextualSearchToolModeShown[] =
+    "ContextualSearch.Tools.Shown.Unknown";
+const char kContextualSearchModelModeShown[] =
+    "ContextualSearch.Models.Shown.Unknown";
+const char kContextualSearchSessionEndNavigationResultPdf[] =
+    "ContextualSearch.SessionEnd.NavigationResult.Pdf.Unknown";
+const char kContextualSearchSessionEndNavigatedToolMode[] =
+    "ContextualSearch.SessionEnd.Navigated.ToolMode.Unknown";
+const char kContextualSearchSessionEndAbandonedToolMode[] =
+    "ContextualSearch.SessionEnd.Abandoned.ToolMode.Unknown";
+const char kContextualSearchSessionEndNavigatedModelMode[] =
+    "ContextualSearch.SessionEnd.Navigated.ModelMode.Unknown";
+const char kContextualSearchSessionEndAbandonedModelMode[] =
+    "ContextualSearch.SessionEnd.Abandoned.ModelMode.Unknown";
+const char kContextualSearchEntrypointNavigated[] =
+    "ContextualSearch.Entrypoint.Navigated";
+const char kContextualSearchEntrypointAbandoned[] =
+    "ContextualSearch.Entrypoint.Abandoned";
+
+const char kContextualSearchSubmitQuery[] =
+    "ContextualSearch.UserAction.SubmitQueryV2.Unknown";
 const char kContextualSearchSubmitQueryV2WithoutContext[] =
     "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.Unknown";
 const char kContextualSearchSubmitQueryV2WithTabContext[] =
@@ -147,7 +170,8 @@ TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithoutContext) {
                 kContextualSearchSubmitQueryV2WithoutContext),
             1);
   histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithoutContext, true, 1);
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithoutContext), 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithTabContext) {
@@ -160,29 +184,34 @@ TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithTabContext) {
   EXPECT_EQ(user_action_tester().GetActionCount(
                 kContextualSearchSubmitQueryV2WithTabContext),
             1);
-  histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithTabContext, true, 1);
+  histogram_tester().ExpectBucketCount(
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithTabContext), 1);
+  histogram_tester().ExpectBucketCount(
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithContextNoText), 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithNonTabContext) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
   metrics().NotifyQuerySubmitted(/*has_tab_context=*/false,
                                  /*has_non_tab_context=*/true,
-                                 /*query_text_length=*/0,
+                                 /*query_text_length=*/10,
                                  /*file_count=*/1);
 
   EXPECT_EQ(user_action_tester().GetActionCount(
                 kContextualSearchSubmitQueryV2WithNonTabContext),
             1);
   histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithNonTabContext, true, 1);
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithNonTabContext), 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithBothContext) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
   metrics().NotifyQuerySubmitted(/*has_tab_context=*/true,
                                  /*has_non_tab_context=*/true,
-                                 /*query_text_length=*/0,
+                                 /*query_text_length=*/10,
                                  /*file_count=*/2);
 
   // Tab context should take precedence.
@@ -190,10 +219,8 @@ TEST_F(ContextualSearchMetricsRecorderTest, SubmitQueryWithBothContext) {
                 kContextualSearchSubmitQueryV2WithTabContext),
             1);
   histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithTabContext, true, 1);
-  EXPECT_EQ(user_action_tester().GetActionCount(
-                kContextualSearchSubmitQueryV2WithNonTabContext),
-            0);
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithTabContext), 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, SessionAbandoned) {
@@ -318,11 +345,12 @@ TEST_F(ContextualSearchMetricsRecorderTest, FileOnlyQuerySubmissionSession) {
   EXPECT_EQ(user_action_tester().GetActionCount(
                 kContextualSearchSubmitQueryV2WithContextNoText),
             1);
-
-  histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithTabContext, true, 1);
-  histogram_tester().ExpectUniqueSample(
-      kContextualSearchSubmitQueryV2WithContextNoText, true, 1);
+  histogram_tester().ExpectBucketCount(
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithTabContext), 1);
+  histogram_tester().ExpectBucketCount(
+      kContextualSearchSubmitQuery,
+      static_cast<int>(ContextualSearchContextState::kWithContextNoText), 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, MultimodalQuerySubmissionSession) {
@@ -346,34 +374,42 @@ TEST_F(ContextualSearchMetricsRecorderTest, MultimodalQuerySubmissionSession) {
 
 TEST_F(ContextualSearchMetricsRecorderTest, ToolMode) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
-  metrics().RecordToolMode(composebox_query::mojom::ToolMode::kImageGen);
+  metrics().RecordToolMode(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
   DestructMetricsRecorder();
   histogram_tester().ExpectUniqueSample(
-      kContextualSearchToolMode, composebox_query::mojom::ToolMode::kImageGen,
-      1);
+      kContextualSearchToolMode, omnibox::ToolMode::TOOL_MODE_IMAGE_GEN, 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, ModelMode) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
-  metrics().RecordModelMode(composebox_query::mojom::ModelMode::kGeminiPro);
+  metrics().RecordModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
   DestructMetricsRecorder();
   histogram_tester().ExpectUniqueSample(
-      kContextualSearchModelMode,
-      composebox_query::mojom::ModelMode::kGeminiPro, 1);
+      kContextualSearchModelMode, omnibox::ModelMode::MODEL_MODE_GEMINI_PRO, 1);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, ModesOnSubmission) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
-  metrics().RecordModesOnSubmission(
-      composebox_query::mojom::ToolMode::kImageGen,
-      composebox_query::mojom::ModelMode::kGeminiPro);
+  metrics().RecordModesOnSubmission(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN,
+                                    omnibox::ModelMode::MODEL_MODE_GEMINI_PRO,
+                                    {omnibox::InputType::INPUT_TYPE_LENS_IMAGE,
+                                     omnibox::InputType::INPUT_TYPE_LENS_IMAGE,
+                                     omnibox::InputType::INPUT_TYPE_LENS_FILE});
   DestructMetricsRecorder();
-  histogram_tester().ExpectUniqueSample(
-      kContextualSearchToolModeOnSubmission,
-      composebox_query::mojom::ToolMode::kImageGen, 1);
+  histogram_tester().ExpectUniqueSample(kContextualSearchToolModeOnSubmission,
+                                        omnibox::ToolMode::TOOL_MODE_IMAGE_GEN,
+                                        1);
   histogram_tester().ExpectUniqueSample(
       kContextualSearchModelModeOnSubmission,
-      composebox_query::mojom::ModelMode::kGeminiPro, 1);
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO, 1);
+  histogram_tester().ExpectBucketCount(
+      kContextualSearchInputsTypeOnSubmission,
+      omnibox::InputType::INPUT_TYPE_LENS_IMAGE, 1);
+  histogram_tester().ExpectBucketCount(kContextualSearchInputsTypeOnSubmission,
+                                       omnibox::InputType::INPUT_TYPE_LENS_FILE,
+                                       1);
+  histogram_tester().ExpectTotalCount(kContextualSearchInputsTypeOnSubmission,
+                                      2);
 }
 
 TEST_F(ContextualSearchMetricsRecorderTest, TabContextAdded) {
@@ -745,6 +781,71 @@ INSTANTIATE_TEST_SUITE_P(
                                      ContextUploadStatus::kUploadFailed,
                                      ContextUploadStatus::kUploadExpired,
                                      ContextUploadStatus::kUploadReplaced)));
+
+TEST_F(ContextualSearchMetricsRecorderTest, ToolModeShown) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordToolModeShown(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  DestructMetricsRecorder();
+  histogram_tester().ExpectUniqueSample(kContextualSearchToolModeShown,
+                                        omnibox::ToolMode::TOOL_MODE_IMAGE_GEN,
+                                        1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, ModelModeShown) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordModelModeShown(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+  DestructMetricsRecorder();
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchModelModeShown,
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO, 1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, FileTypesOnSessionEnd) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordFileTypesOnSessionEnd({lens::MimeType::kPdf},
+                                        /*navigated=*/true);
+  DestructMetricsRecorder();
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchSessionEndNavigationResultPdf, true, 1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, ActiveModesOnSessionEnd) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordActiveModesOnSessionEnd(
+      omnibox::ToolMode::TOOL_MODE_IMAGE_GEN,
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO,
+      /*navigated=*/true);
+  metrics().RecordActiveModesOnSessionEnd(
+      omnibox::ToolMode::TOOL_MODE_CANVAS,
+      omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR,
+      /*navigated=*/false);
+  DestructMetricsRecorder();
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchSessionEndNavigatedToolMode,
+      omnibox::ToolMode::TOOL_MODE_IMAGE_GEN, 1);
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchSessionEndAbandonedToolMode,
+      omnibox::ToolMode::TOOL_MODE_CANVAS, 1);
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchSessionEndNavigatedModelMode,
+      omnibox::ModelMode::MODEL_MODE_GEMINI_PRO, 1);
+  histogram_tester().ExpectUniqueSample(
+      kContextualSearchSessionEndAbandonedModelMode,
+      omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR, 1);
+}
+
+TEST_F(ContextualSearchMetricsRecorderTest, NavigationResult) {
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordNavigationResult(/*navigated=*/true);
+  CreateMetricsRecorder();
+  metrics().NotifySessionStateChanged(SessionState::kSessionStarted);
+  metrics().RecordNavigationResult(/*navigated=*/false);
+  DestructMetricsRecorder();
+  histogram_tester().ExpectUniqueSample(kContextualSearchEntrypointNavigated,
+                                        ContextualSearchSource::kUnknown, 1);
+  histogram_tester().ExpectUniqueSample(kContextualSearchEntrypointAbandoned,
+                                        ContextualSearchSource::kUnknown, 1);
+}
 
 TEST_F(ContextualSearchMetricsRecorderTest, FunnelMetrics) {
   metrics().NotifySessionStateChanged(SessionState::kSessionStarted);

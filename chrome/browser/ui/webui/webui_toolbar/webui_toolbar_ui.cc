@@ -11,10 +11,8 @@
 #include "base/check.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -52,7 +50,12 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
     // MetricsReporter.
     : TopChromeWebUIController(web_ui,
                                /*enable_chrome_send=*/true,
-                               /*enable_chrome_histograms=*/true) {
+                               /*enable_chrome_histograms=*/true),
+      toolbar_channel_service_end_(
+          toolbar_channel_client_end_.InitWithNewPipeAndPassReceiver()),
+      browser_controls_channel_service_end_(
+          browser_controls_channel_client_end_
+              .InitWithNewPipeAndPassReceiver()) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(),
       chrome::kChromeUIWebUIToolbarHost);
@@ -63,6 +66,8 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       {"backButtonTooltip", IDS_TOOLTIP_BACK},
       {"forwardButtonAccName", IDS_ACCNAME_FORWARD},
       {"forwardButtonTooltip", IDS_TOOLTIP_FORWARD},
+      {"homeButtonAccName", IDS_ACCNAME_HOME},
+      {"homeButtonTooltip", IDS_TOOLTIP_HOME},
       {"reloadButtonAccNameReload", IDS_ACCNAME_RELOAD},
       {"reloadButtonTooltipReload", IDS_TOOLTIP_RELOAD},
       {"reloadButtonTooltipReloadWithMenu", IDS_TOOLTIP_RELOAD_WITH_MENU},
@@ -78,10 +83,13 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
 
   source->AddBoolean("enableReloadButton",
                      features::IsWebUIReloadButtonEnabled());
+  source->AddBoolean("enableHomeButton", features::IsWebUIHomeButtonEnabled());
   source->AddBoolean("enableLocationBar",
                      features::IsWebUILocationBarEnabled());
   source->AddBoolean("enableBackForwardButtons",
                      features::IsWebUIBackForwardButtonEnabled());
+  source->AddBoolean("enablePinnedToolbarActions",
+                     features::IsWebUIPinnedToolbarActionsEnabled());
 
   BrowserWindowInterface* browser =
       webui::GetBrowserWindowInterface(web_ui->GetWebContents());
@@ -104,62 +112,24 @@ bool WebUIToolbarConfig::IsWebUIEnabled(
   return features::IsWebUIToolbarEnabled();
 }
 
+bool WebUIToolbarConfig::ShouldKeepVisibleUntilFirstVisuallyNonEmptyPaint() {
+  return features::kWebUIReloadButtonKeepVisibleUntilPaint.Get();
+}
+
 void WebUIToolbarUI::BindInterface(
     mojo::PendingReceiver<browser_controls_api::mojom::BrowserControlsService>
         receiver) {
-  if (!dependency_provider_) {
-    // This can happen if the WebContents is destroyed while it is still loading
-    // (e.g. when the user closes the browser window).
-    LOG(WARNING)
-        << "Attempting a connection before Init() is called. Aborting Bind.";
-    return;
-  }
-
-  auto* command_updater = GetCommandUpdater();
-  auto is_probably_shutting_down = command_updater == nullptr;
-  if (is_probably_shutting_down) {
-    LOG(WARNING) << "Attempting a connection when the browser is probably "
-                    "shutting down. Aborting Bind.";
-    return;
-  }
-
-  auto* web_contents = web_ui()->GetWebContents();
-  MetricsReporterService* metrics_service =
-      MetricsReporterService::GetFromWebContents(web_contents);
-  CHECK(metrics_service) << "Metrics service missing from web contents";
-
-  browser_controls_service_ =
-      std::make_unique<browser_controls_api::BrowserControlsService>(
-          std::move(receiver),
-          std::make_unique<browser_controls_api::BrowserControlsAdapterImpl>(
-              webui::GetBrowserWindowInterface(web_contents), command_updater),
-          metrics_service->metrics_reporter(),
-          dependency_provider_->GetBrowserControlsDelegate());
+  CHECK(browser_controls_channel_client_end_.is_valid())
+      << "browser client end already bound";
+  CHECK(FusePipes(std::move(receiver),
+                  std::move(browser_controls_channel_client_end_)));
 }
 
 void WebUIToolbarUI::BindInterface(
     mojo::PendingReceiver<toolbar_ui_api::mojom::ToolbarUIService> receiver) {
-  if (!dependency_provider_) {
-    // This can happen if the WebContents is destroyed while it is still loading
-    // (e.g. when the user closes the browser window).
-    LOG(WARNING)
-        << "Attempting a connection before Init() is called. Aborting Bind.";
-    return;
-  }
-
-  auto* web_contents = web_ui()->GetWebContents();
-  MetricsReporterService* metrics_service =
-      MetricsReporterService::GetFromWebContents(web_contents);
-
-  // If this CHECK() starts hitting, it could be due to races with browser
-  // shutdown, similar to issues seen in the past (e.g., b/478033216#comment4).
-  CHECK(metrics_service) << "Metrics service missing from web contents";
-
-  toolbar_ui_service_ = std::make_unique<toolbar_ui_api::ToolbarUIService>(
-      std::move(receiver),
-      dependency_provider_->GetNavigationControlsStateFetcher(),
-      metrics_service->metrics_reporter(),
-      dependency_provider_->GetToolbarUIServiceDelegate());
+  CHECK(toolbar_channel_client_end_.is_valid())
+      << "toolbar client end already bound";
+  CHECK(FusePipes(std::move(receiver), std::move(toolbar_channel_client_end_)));
 }
 
 void WebUIToolbarUI::BindInterface(
@@ -185,24 +155,59 @@ void WebUIToolbarUI::OnNavigationControlsStateChanged(
 }
 
 void WebUIToolbarUI::Init(DependencyProvider* dependency_provider) {
+  CHECK(dependency_provider);
+
+  if (!dependency_provider->GetCommandUpdater()) {
+    // If the command updater is null, the browser is likely shutting down,
+    // or tearing down this specific browser window.
+    // We cannot properly initialize the WebUI Toolbar without it.
+    return;
+  }
+
+  InitBrowserControlsService(*dependency_provider);
+  InitToolbarUIService(*dependency_provider);
+}
+
+void WebUIToolbarUI::InitBrowserControlsService(
+    DependencyProvider& dependency_provider) {
   CHECK(!browser_controls_service_)
       << "Out of order initialization, the browser control service has already "
          "been instantiated.";
 
+  auto* web_contents = web_ui()->GetWebContents();
+  MetricsReporterService* metrics_service =
+      MetricsReporterService::GetFromWebContents(web_contents);
+  CHECK(metrics_service) << "Metrics service missing from web contents";
+
+  browser_controls_service_ =
+      std::make_unique<browser_controls_api::BrowserControlsService>(
+          std::move(browser_controls_channel_service_end_),
+          std::make_unique<browser_controls_api::BrowserControlsAdapterImpl>(
+              webui::GetBrowserWindowInterface(web_contents),
+              dependency_provider.GetCommandUpdater()),
+          metrics_service->metrics_reporter(),
+          dependency_provider.GetBrowserControlsDelegate());
+}
+
+void WebUIToolbarUI::InitToolbarUIService(
+    DependencyProvider& dependency_provider) {
   CHECK(!toolbar_ui_service_)
       << "Out of order initialization, the toolbar UI service has already "
          "been instantiated.";
 
-  dependency_provider_ = dependency_provider;
-}
+  auto* web_contents = web_ui()->GetWebContents();
+  MetricsReporterService* metrics_service =
+      MetricsReporterService::GetFromWebContents(web_contents);
 
-CommandUpdater* WebUIToolbarUI::GetCommandUpdater() const {
-  BrowserWindowInterface* browser_interface =
-      webui::GetBrowserWindowInterface(web_ui()->GetWebContents());
-  if (!browser_interface) {
-    return nullptr;
-  }
-  return browser_interface->GetFeatures().browser_command_controller();
+  // If this CHECK() starts hitting, it could be due to races with browser
+  // shutdown, similar to issues seen in the past (e.g., b/478033216#comment4).
+  CHECK(metrics_service) << "Metrics service missing from web contents";
+
+  toolbar_ui_service_ = std::make_unique<toolbar_ui_api::ToolbarUIService>(
+      std::move(toolbar_channel_service_end_),
+      dependency_provider.GetNavigationControlsStateFetcher(),
+      metrics_service->metrics_reporter(),
+      dependency_provider.GetToolbarUIServiceDelegate());
 }
 
 void WebUIToolbarUI::WebUIRenderFrameCreated(
@@ -230,6 +235,14 @@ void WebUIToolbarUI::PopulateLocalResourceLoaderConfig(
 }
 
 const std::vector<ui::ElementIdentifier>
-WebUIToolbarUI::GetKnownElementIdentifiers() const {
-  return {kReloadButtonElementId, kToolbarSplitTabsToolbarButtonElementId};
+WebUIToolbarUI::GetKnownElementIdentifiers() {
+  return {kLocationBarElementId,
+          kOmniboxElementId,
+          kReloadButtonElementId,
+          kToolbarSplitTabsToolbarButtonElementId,
+          kToolbarHomeButtonElementId,
+          kToolbarBackButtonElementId,
+          kToolbarForwardButtonElementId,
+          kSharedTabGroupFeedbackElementId,
+          kSharedTabGroupCommentsActionElementId};
 }

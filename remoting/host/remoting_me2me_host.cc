@@ -138,6 +138,7 @@
 
 #include "remoting/host/pam_authorization_factory_posix.h"
 #include "remoting/host/posix/signal_handler.h"
+#include "remoting/host/security_key/security_key_auth_handler_posix.h"
 #endif  // BUILDFLAG(IS_POSIX)
 
 #if BUILDFLAG(IS_APPLE)
@@ -431,9 +432,11 @@ class HostProcess : public ConfigWatcher::Delegate,
       ::mojo::PlatformHandle privileged_handle,
       ::mojo::PlatformHandle unprivileged_handle) override;
 #endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   void BindChromotingHostServices(
       mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
       int peer_pid) override;
+#endif
 
 #if BUILDFLAG(IS_MAC)
   void ConnectAgentProcessBroker();
@@ -1100,9 +1103,9 @@ void HostProcess::StartOnUiThread() {
       base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
           kAuthSocknameSwitchName);
   if (!security_key_socket_name.empty()) {
-    remoting::SecurityKeyAuthHandler::SetSecurityKeySocketName(
+    remoting::SecurityKeyAuthHandlerPosix::SetSecurityKeySocketName(
         security_key_socket_name);
-  } else {
+  } else if (!multi_process_) {
     security_key_extension_supported_ = false;
   }
 #endif  // BUILDFLAG(IS_POSIX)
@@ -1307,6 +1310,7 @@ void HostProcess::InitializePairingRegistry(
 
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 void HostProcess::BindChromotingHostServices(
     mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
     int peer_pid) {
@@ -1325,6 +1329,7 @@ void HostProcess::BindChromotingHostServices(
   }
   host_->BindChromotingHostServices(std::move(receiver), peer_pid);
 }
+#endif
 
 #if BUILDFLAG(IS_MAC)
 
@@ -2251,6 +2256,8 @@ int HostProcessMain(bool multi_process) {
             .AsUTF8Unsafe()
             .c_str());
   }
+
+  SecurityKeyAuthHandler::set_use_mojo_handler(multi_process);
 
   base::ThreadPoolInstance::CreateAndStartWithDefaultParams("Me2Me");
 

@@ -8,7 +8,9 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
+#include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/webapps/installable/installed_webapp_geolocation_context.h"
 #include "services/device/public/cpp/geolocation/geoposition.h"
@@ -38,7 +40,7 @@ InstalledWebappGeolocationBridge::~InstalledWebappGeolocationBridge() {
 void InstalledWebappGeolocationBridge::StartListeningForUpdates() {
   JNIEnv* env = base::android::AttachCurrentThread();
   if (java_ref_.is_null()) {
-    java_ref_.Reset(JInstalledWebappGeolocationBridgeClass::create(
+    java_ref_.Reset(InstalledWebappGeolocationBridgeJni::create(
         env, reinterpret_cast<intptr_t>(this),
         url::GURLAndroid::FromNativeGURL(env, url_)));
   }

@@ -5,95 +5,96 @@
 package org.chromium.chrome.browser.search_engines.settings.extensions;
 
 import android.content.Context;
-import android.graphics.Bitmap;
+
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.search_engines.ExtensionControlHandler;
 import org.chromium.chrome.browser.search_engines.R;
-import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.search_engines.settings.SearchEngineIconUtils;
-import org.chromium.chrome.browser.search_engines.settings.common.SiteSearchProperties;
-import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
-import org.chromium.components.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.search_engines.settings.common.BaseSiteSearchMediator;
+import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
+import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
+import org.chromium.components.browser_ui.widget.ListItemBuilder;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlCategory;
-import org.chromium.components.search_engines.TemplateUrlService;
-import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
+import org.chromium.ui.listmenu.ListMenuDelegate;
+import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
-import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.url.GURL;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
+/** Mediator for the search engines settings extensions section. */
 @NullMarked
-public class ExtensionSearchEngineMediator
-        implements TemplateUrlService.TemplateUrlServiceObserver {
-    private final Context mContext;
-    private final ModelList mModelList;
-    private final TemplateUrlService mTemplateUrlService;
-    private final LargeIconBridge mLargeIconBridge;
-    private final int mFaviconSize;
-    private final Map<GURL, Bitmap> mIconCache = new HashMap<GURL, Bitmap>();
+public class ExtensionSearchEngineMediator extends BaseSiteSearchMediator {
+    private static final String EXTENSION_MANAGE_URL_PREFIX = "chrome://extensions/?id=";
+    private final SettingsCustomTabLauncher mSettingsCustomTabLauncher;
+    private final ExtensionControlHandler mExtensionControlHandler;
 
-    public ExtensionSearchEngineMediator(Context context, ModelList modelList, Profile profile) {
-        mContext = context;
-        mModelList = modelList;
-        mTemplateUrlService = TemplateUrlServiceFactory.getForProfile(profile);
-        mLargeIconBridge = new LargeIconBridge(profile);
-        mFaviconSize = context.getResources().getDimensionPixelSize(R.dimen.default_favicon_size);
+    public ExtensionSearchEngineMediator(
+            Context context,
+            ModelList modelList,
+            Profile profile,
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
+        super(context, modelList, profile);
+        mSettingsCustomTabLauncher = settingsCustomTabLauncher;
+        mExtensionControlHandler = ExtensionControlHandler.createForProfile(profile);
 
-        mTemplateUrlService.addObserver(this);
-        mTemplateUrlService.runWhenLoaded(this::refreshList);
-    }
-
-    public void destroy() {
-        mTemplateUrlService.removeObserver(this);
-        mLargeIconBridge.destroy();
+        initializeTemplateUrlService();
     }
 
     @Override
-    public void onTemplateURLServiceChanged() {
-        refreshList();
-    }
-
-    private void refreshList() {
+    protected void refreshList() {
         mModelList.clear();
 
         List<TemplateUrl> urls =
                 mTemplateUrlService.getTemplateUrlsByCategory(TemplateUrlCategory.EXTENSION);
 
         for (TemplateUrl url : urls) {
-            PropertyModel model =
-                    new PropertyModel.Builder(SiteSearchProperties.ALL_KEYS)
-                            .with(SiteSearchProperties.SITE_NAME, url.getShortName())
-                            .with(SiteSearchProperties.SITE_SHORTCUT, url.getKeyword())
-                            // TODO: Add menu delegate
-                            .with(SiteSearchProperties.MENU_DELEGATE, null)
-                            .with(
-                                    SiteSearchProperties.ICON,
-                                    FaviconUtils.createGenericFaviconBitmap(
-                                            mContext, mFaviconSize, null))
-                            .build();
-
-            fetchFavicon(url, model);
-            mModelList.add(new ListItem(SiteSearchProperties.ViewType.SEARCH_ENGINE, model));
+            mModelList.add(createListItem(url));
         }
     }
 
-    private void fetchFavicon(TemplateUrl url, PropertyModel model) {
-        GURL faviconUrl = url.getFaviconURL();
-        if (faviconUrl == null) {
-            return;
+    @Override
+    protected @Nullable ListMenuDelegate createMenuDelegate(TemplateUrl url) {
+        return () -> {
+            ModelList menuItems = new ModelList();
+            menuItems.add(
+                    new ListItemBuilder()
+                            .withTitleRes(R.string.site_search_extensions_menu_manage)
+                            .build());
+            menuItems.add(
+                    new ListItemBuilder()
+                            .withTitleRes(R.string.site_search_extensions_menu_disable)
+                            .build());
+
+            return BrowserUiListMenuUtils.getBasicListMenu(
+                    mContext,
+                    menuItems,
+                    (model, view) -> {
+                        int textId = model.get(ListMenuItemProperties.TITLE_ID);
+                        onMenuItemClicked(textId, url);
+                    });
+        };
+    }
+
+    @VisibleForTesting
+    void onMenuItemClicked(int textId, TemplateUrl url) {
+        String extensionId = url.getProvidingExtensionId();
+        if (extensionId == null) return;
+
+        if (R.string.site_search_extensions_menu_manage == textId) {
+            mSettingsCustomTabLauncher.openUrlInCct(
+                    mContext, EXTENSION_MANAGE_URL_PREFIX + extensionId);
+        } else if (R.string.site_search_extensions_menu_disable == textId) {
+            mExtensionControlHandler.disableExtension(extensionId);
         }
-        SearchEngineIconUtils.updateIcon(
-                mContext,
-                model,
-                SiteSearchProperties.ICON,
-                url,
-                faviconUrl,
-                mLargeIconBridge,
-                mIconCache);
+    }
+
+    @Override
+    public void destroy() {
+        mExtensionControlHandler.destroy();
+        super.destroy();
     }
 }

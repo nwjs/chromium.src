@@ -164,6 +164,10 @@ struct CC_EXPORT ScrollJankV4FrameStage {
       // update.
       base::TimeTicks first_input_begin_frame_ts;
 
+      // Whether at least one of the scroll updates is a fling
+      // (`EventType::kInertialGestureScrollUpdate`).
+      bool has_inertial_input = false;
+
       // Trace ID of the first synthetic input in the frame, whose begin frame
       // timestamp is equal to `first_input_begin_frame_ts`.
       std::optional<EventMetrics::TraceId> first_input_trace_id;
@@ -213,19 +217,10 @@ struct CC_EXPORT ScrollJankV4FrameStage {
   // Sets `ScrollEventMetrics::scroll_jank_v4_result_id()` to `result_id` for
   // all scroll updates and ends which this method uses to calculate the stages.
   // Otherwise doesn't modify `event_metrics`.
-  //
-  // `skip_non_damaging_events` controls whether the method ignores non-damaging
-  // scroll updates. This allows us to experiment with the legacy behavior of
-  // the scroll jank v4 metric (`skip_non_damaging_events=true`) and the new
-  // logic for handling non-damaging frames (`skip_non_damaging_events=false`).
-  // See `ScrollJankV4Frame` and `ScrollJankV4Decider` for more information.
-  // TODO(crbug.com/444183591): Remove `skip_non_damaging_events`.
   static List CalculateStages(EventMetrics::List& events_metrics,
-                              uint64_t result_id,
-                              bool skip_non_damaging_events = true);
+                              uint64_t result_id);
   static List CalculateStages(std::vector<ScrollEventMetrics*>& events_metrics,
-                              uint64_t result_id,
-                              bool skip_non_damaging_events = true);
+                              uint64_t result_id);
 };
 
 template <typename T, typename... Ts>
@@ -265,6 +260,7 @@ inline std::ostream& operator<<(
     const ScrollJankV4FrameStage::ScrollUpdates::Synthetic& synthetic_updates) {
   return os << "Synthetic{first_input_begin_frame_ts: "
             << synthetic_updates.first_input_begin_frame_ts
+            << ", has_inertial_input: " << synthetic_updates.has_inertial_input
             << ", first_input_trace_id: "
             << synthetic_updates.first_input_trace_id << "}";
 }

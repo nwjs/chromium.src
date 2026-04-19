@@ -719,39 +719,43 @@ class BuyNowPayLaterAutofillOptimizationGuideDeciderTest
  protected:
   optimization_guide::proto::OptimizationType GetAffirmOptimizationType()
       const {
-    if (IsBlocklistFlagEnabled()) {
-      return optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM;
-    }
+    return IsBlocklistFlagEnabled()
 #if BUILDFLAG(IS_ANDROID)
-    return optimization_guide::proto::
-        BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM_ANDROID;
+               ? optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM_ANDROID
+               : optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM_ANDROID;
 #else
-    return optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM;
-#endif
+               ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM
+               : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM;
+#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   optimization_guide::proto::OptimizationType GetZipOptimizationType() const {
-    if (IsBlocklistFlagEnabled()) {
-      return optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_ZIP;
-    }
+    return IsBlocklistFlagEnabled()
 #if BUILDFLAG(IS_ANDROID)
-    return optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP_ANDROID;
+               ? optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_BLOCKLIST_ZIP_ANDROID
+               : optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_ALLOWLIST_ZIP_ANDROID;
 #else
-    return optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP;
-#endif
+               ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_ZIP
+               : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP;
+#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   optimization_guide::proto::OptimizationType GetKlarnaOptimizationType()
       const {
-    if (IsBlocklistFlagEnabled()) {
-      return optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA;
-    }
+    return IsBlocklistFlagEnabled()
 #if BUILDFLAG(IS_ANDROID)
-    return optimization_guide::proto::
-        BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA_ANDROID;
+               ? optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA_ANDROID
+               : optimization_guide::proto::
+                     BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA_ANDROID;
 #else
-    return optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA;
-#endif
+               ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA
+               : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA;
+#endif  // BUILDFLAG(IS_ANDROID)
   }
 };
 
@@ -1325,6 +1329,80 @@ TEST_F(AutofillOptimizationGuideDeciderTest,
       .Times(0);
 
   guide().OnDidParseForm(form_structure, payments_data_manager());
+}
+
+// Test that the `OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST` optimization type is
+// registered when payments data is loaded.
+TEST_F(AutofillOptimizationGuideDeciderTest,
+       OmniboxAutofillAllowlistRegistered) {
+  base::test::ScopedFeatureList feature{
+      features::kAutofillEnableOmniboxAutofill};
+
+  EXPECT_CALL(
+      decider(),
+      RegisterOptimizationTypes(Contains(
+          optimization_guide::proto::OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST)));
+
+  guide().OnPaymentsDataLoaded(payments_data_manager());
+}
+
+// Test that the `OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST` optimization type is
+// not registered when payments data is loaded if the feature is disabled.
+TEST_F(AutofillOptimizationGuideDeciderTest,
+       OmniboxAutofillAllowlistNotRegistered_FlagOff) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndDisableFeature(features::kAutofillEnableOmniboxAutofill);
+
+  EXPECT_CALL(
+      decider(),
+      RegisterOptimizationTypes(Contains(
+          optimization_guide::proto::OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST)))
+      .Times(0);
+
+  guide().OnPaymentsDataLoaded(payments_data_manager());
+}
+
+// Tests that the optimization guide decision on whether a URL is allowlisted
+// for iframe fill triggering via omnibox autofill is queried correctly.
+TEST_F(AutofillOptimizationGuideDeciderTest, IsUrlEligibleForOmniboxAutofill) {
+  base::test::ScopedFeatureList feature{
+      features::kAutofillEnableOmniboxAutofill};
+
+  ON_CALL(
+      decider(),
+      CanApplyOptimization(
+          _, Eq(optimization_guide::proto::OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST),
+          Matcher<optimization_guide::OptimizationMetadata*>(Eq(nullptr))))
+      .WillByDefault(WithArg<0>([](const GURL& url) {
+        return url.host() == "www.example.com"
+                   ? OptimizationGuideDecision::kTrue
+                   : OptimizationGuideDecision::kFalse;
+      }));
+
+  EXPECT_TRUE(
+      guide().IsUrlEligibleForOmniboxAutofill(GURL("https://www.example.com")));
+  EXPECT_FALSE(guide().IsUrlEligibleForOmniboxAutofill(
+      GURL("https://www.othersite.com")));
+}
+
+// Tests that the optimization guide decision on whether a URL is allowlisted
+// for iframe fill triggering via omnibox autofill always returns false if the
+// feature is disabled.
+TEST_F(AutofillOptimizationGuideDeciderTest,
+       IsUrlEligibleForOmniboxAutofill_FlagOff) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndDisableFeature(features::kAutofillEnableOmniboxAutofill);
+
+  ON_CALL(
+      decider(),
+      CanApplyOptimization(
+          _, Eq(optimization_guide::proto::OMNIBOX_AUTOFILL_IFRAME_ALLOWLIST),
+          Matcher<optimization_guide::OptimizationMetadata*>(Eq(nullptr))))
+      .WillByDefault(WithArg<0>(
+          [](const GURL& url) { return OptimizationGuideDecision::kTrue; }));
+
+  EXPECT_FALSE(
+      guide().IsUrlEligibleForOmniboxAutofill(GURL("https://www.example.com")));
 }
 
 struct BenefitOptimizationToBenefitCategoryTestCase {

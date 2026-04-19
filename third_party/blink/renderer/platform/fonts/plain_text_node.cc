@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/fonts/plain_text_node.h"
 
+#include "base/compiler_specific.h"
 #include "third_party/blink/renderer/platform/fonts/character_range.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/frame_shape_cache.h"
@@ -65,7 +66,7 @@ std::pair<String, bool> NormalizeSpacesAndMaybeBidiInternal(
     if (character != normalized && !buffer) {
       buffer.emplace(length);
       base::span<const CharType> prefix = chars.first(last_index);
-      std::copy(prefix.begin(), prefix.end(), buffer->Span().data());
+      StringImpl::CopyChars(buffer->Span().first(last_index), prefix);
       result_length = last_index;
     }
     if (buffer) {
@@ -95,14 +96,17 @@ unsigned NextWordEndIndex(StringView text, unsigned start_index) {
     return 0;
   }
 
-  if (start_index + 1u == length || IsWordDelimiter<true>(text[start_index])) {
+  // SAFETY: start index tested against length above.
+  if (start_index + 1u == length ||
+      IsWordDelimiter<true>(UNSAFE_BUFFERS(text[start_index]))) {
     return start_index + 1;
   }
 
   // 8Bit words end at IsWordDelimiter().
+  // SAFETY: start_index + 1 tested in previous if-statement.
   if (text.Is8Bit()) {
     for (unsigned i = start_index + 1;; ++i) {
-      if (i == length || IsWordDelimiter<false>(text[i])) {
+      if (i == length || IsWordDelimiter<false>(UNSAFE_BUFFERS(text[i]))) {
         return i;
       }
     }
@@ -295,7 +299,7 @@ void PlainTextNode::SegmentText(const TextRun& run,
       DCHECK(original_text[original_text.length() - 1] ==
              uchar::kPopDirectionalFormatting)
           << original_text;
-      text_content_ = text_content_.Substring(1, text_content_.length() - 2);
+      text_content_ = text_content_.substr(1, text_content_.length() - 2);
     }
     if (bidi.SetParagraph(original_text, run.Direction())) {
       base_direction_ = bidi.BaseDirection();

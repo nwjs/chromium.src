@@ -22,6 +22,7 @@ import org.chromium.cc.input.OffsetTag;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
+import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorTextButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
@@ -62,7 +63,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                                 StripLayoutGroupTitle.REORDER_BACKGROUND_PADDING_START * mDpToPx),
                         Math.round(StripLayoutGroupTitle.REORDER_BACKGROUND_PADDING_END * mDpToPx),
                         Math.round(
-                                StripLayoutGroupTitle.REORDER_BACKGROUND_CORNER_RADIUS * mDpToPx));
+                                StripLayoutGroupTitle.REORDER_BACKGROUND_CORNER_RADIUS * mDpToPx),
+                        StripLayoutTab.TAB_UNDERLINE_THICKNESS_DP * mDpToPx,
+                        StripLayoutTab.TAB_UNDERLINE_CORNER_RADIUS_DP * mDpToPx,
+                        StripLayoutTab.TAB_UNDERLINE_BOTTOM_MARGIN_DP * mDpToPx);
     }
 
     public static void setTestFlag(boolean testFlag) {
@@ -192,7 +196,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                         TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
                         newTabButton.getKeyboardFocusRingColor());
 
-        TintedCompositorButton glicButton = layoutHelper.getGlicButton();
+        TintedCompositorTextButton glicButton = layoutHelper.getGlicButton();
         if (glicButton != null) {
             boolean glicButtonVisible = glicButton.isVisible();
             TabStripSceneLayerJni.get()
@@ -262,8 +266,8 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
             StripLayoutTab[] stripTabs,
             @TabId int selectedTabId) {
         final int tabsCount = stripTabs != null ? stripTabs.length : 0;
-        final float widthToHideTabTitle =
-                StripLayoutUtils.shouldApplyMoreDensity() ? StripLayoutUtils.MIN_TAB_WIDTH_DP : 0.f;
+        @ColorInt
+        int underlineColor = TabUiThemeUtil.getTabUnderlineColor(layoutHelper.getContext());
 
         // TODO(crbug.com/40270147): Cleanup params, as some don't change and others are now
         //  unused.
@@ -289,6 +293,11 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
             @ColorInt
             int mediaIndicatorTint =
                     layoutHelper.getMediaIndicatorTintColor(mediaState, closeButtonTint);
+            boolean isPinned = st.getIsPinned();
+            float widthToHideTabTitle =
+                    (StripLayoutUtils.shouldApplyMoreDensity() || isPinned)
+                            ? StripLayoutUtils.MIN_TAB_WIDTH_DP
+                            : 0.f;
 
             TabStripSceneLayerJni.get()
                     .putStripTabLayer(
@@ -341,7 +350,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             st.getKeyboardFocusRingOffset(),
                             st.getLineWidth(),
                             Math.round(FOLIO_FOOT_LENGTH_DP * mDpToPx),
-                            st.getIsPinned());
+                            isPinned,
+                            Math.round(st.getPinnedTabFaviconOffsetX() * mDpToPx),
+                            st.isUnderlined(),
+                            underlineColor);
         }
     }
 
@@ -398,7 +410,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 int reorderBackgroundBottomMargin,
                 int reorderBackgroundPaddingShort,
                 int reorderBackgroundPaddingLong,
-                int reorderBackgroundCornerRadius);
+                int reorderBackgroundCornerRadius,
+                float tabUnderlineThickness,
+                float tabUnderlineCornerRadius,
+                float tabUnderlineBottomMargin);
 
         void beginBuildingFrame(
                 long nativeTabStripSceneLayer,
@@ -536,7 +551,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 int keyboardFocusRingOffset,
                 int strokeWidth,
                 float folioFootLength,
-                boolean isPinned);
+                boolean isPinned,
+                float pinnedIconOffsetX,
+                boolean isUnderlined,
+                @ColorInt int underlineColor);
 
         void putGroupIndicatorLayer(
                 long nativeTabStripSceneLayer,

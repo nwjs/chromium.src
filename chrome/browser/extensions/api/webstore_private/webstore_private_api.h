@@ -16,7 +16,6 @@
 #include "chrome/browser/extensions/api/webstore_private/extension_install_status.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_install_helper.h"
-#include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/supervised_user/supervised_user_extensions_metrics_recorder.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/extensions/api/webstore_private.h"
@@ -25,6 +24,7 @@
 #include "extensions/browser/active_install_data.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/supervised_user_extensions_delegate.h"
+#include "extensions/browser/webstore_installer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -108,7 +108,8 @@ class WebstorePrivateBeginInstallWithManifest3Function
 
   // Handles the result of GetWebstoreExtensionInstallStatus.
   void OnInstallStatusCheckDone(
-      extensions::ExtensionInstallStatus install_status);
+      extensions::ExtensionInstallStatus install_status,
+      std::u16string blocked_message);
 
   void RequestExtensionApproval(content::WebContents* web_contents);
 
@@ -375,7 +376,8 @@ class WebstorePrivateGetExtensionStatusFunction : public ExtensionFunction {
       const ExtensionId& extension_id);
   void OnManifestParsed(const ExtensionId& extension_id,
                         data_decoder::DataDecoder::ValueOrError result);
-  void OnInstallStatusCheckDone(ExtensionInstallStatus status);
+  void OnInstallStatusCheckDone(ExtensionInstallStatus status,
+                                std::u16string blocked_message);
 
   // ExtensionFunction:
   ExtensionFunction::ResponseAction Run() override;

@@ -194,7 +194,7 @@ Token Parser::LexString() {
 
   for (next_pos_ = start_pos; next_pos_ < data_.length(); ++next_pos_) {
     if (data_[next_pos_] == delimiter) {
-      String value = data_.Substring(start_pos, next_pos_ - start_pos);
+      String value = data_.substr(start_pos, next_pos_ - start_pos);
       if (value.IsNull())
         value = "";
       ++next_pos_;  // Consume the char.
@@ -216,7 +216,7 @@ Token Parser::LexNumber() {
     if (a_char >= 0xff)
       break;
 
-    if (a_char < '0' || a_char > '9') {
+    if (!IsAsciiDigit(a_char)) {
       if (a_char == '.' && !seen_dot)
         seen_dot = true;
       else
@@ -242,7 +242,7 @@ bool Parser::LexNCName(String& name) {
       break;
   }
 
-  name = data_.Substring(start_pos, next_pos_ - start_pos);
+  name = data_.substr(start_pos, next_pos_ - start_pos);
   return true;
 }
 
@@ -302,8 +302,9 @@ Token Parser::NextTokenInternal() {
       char next = PeekAheadHelper();
       if (next == '.')
         return MakeTokenAndAdvance(TokenType::kDotDot, 2);
-      if (next >= '0' && next <= '9')
+      if (IsAsciiDigit(next)) {
         return LexNumber();
+      }
       return MakeTokenAndAdvance('.');
     }
     case '/':
@@ -478,7 +479,7 @@ bool Parser::ExpandQName(const String& q_name,
   if (colon != kNotFound) {
     if (!resolver_)
       return false;
-    String prefix = q_name.Left(colon);
+    String prefix = q_name.substr(0, colon);
     v8::TryCatch try_catch(resolver_->GetIsolate());
     try_catch.SetVerbose(true);  // Print exceptions to console.
     String uri;
@@ -487,7 +488,7 @@ bool Parser::ExpandQName(const String& q_name,
     if (uri.IsNull())
       return false;
     namespace_uri = AtomicString(uri);
-    local_name = AtomicString(q_name.Substring(colon + 1));
+    local_name = AtomicString(q_name.subview(colon + 1));
   } else {
     local_name = AtomicString(q_name);
   }

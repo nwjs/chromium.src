@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -31,6 +32,14 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
+
+// The index that will be used to filter suggestions for showing them in tabbed
+// panes in the suggestion bubble.
+using SuggestionTabIndex = base::StrongAlias<struct SuggestionTabIndexTag, int>;
+
+// The index of the default suggestion tab which all suggestions should be
+// displayed in unless specified otherwise in `Suggestion::tab_index`.
+inline constexpr SuggestionTabIndex kDefaultSuggestionTabIndex(0);
 
 struct Suggestion {
   struct PasswordSuggestionDetails {
@@ -94,7 +103,8 @@ struct Suggestion {
 
   struct AutofillAiPayload final {
     AutofillAiPayload();
-    explicit AutofillAiPayload(EntityInstance::EntityId guid);
+    explicit AutofillAiPayload(EntityInstance::EntityId guid,
+                               bool requires_server_fetch = false);
     AutofillAiPayload(const AutofillAiPayload&);
     AutofillAiPayload(AutofillAiPayload&&);
     AutofillAiPayload& operator=(const AutofillAiPayload&);
@@ -105,6 +115,10 @@ struct Suggestion {
                            const AutofillAiPayload&) = default;
 
     EntityInstance::EntityId guid;
+
+    // Whether selecting this suggestion requires fetching data from a server.
+    // E.g. retrieving masked credentials.
+    bool requires_server_fetch = false;
   };
 
   using Guid = base::StrongAlias<class GuidTag, std::string>;
@@ -210,6 +224,7 @@ struct Suggestion {
 
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
   using InstrumentId = base::StrongAlias<class InstrumentIdTag, uint64_t>;
+  // TODO(crbug.com/477689220): Directly use BnplIssuer and remove the alias.
   using BnplIssuer = base::StrongAlias<class BnplIssuerTag, BnplIssuer>;
   using Payload = std::variant<Guid,
                                InstrumentId,
@@ -338,6 +353,7 @@ struct Suggestion {
     kLoyalty,
     kMagic,
     kOfferTag,
+    kPassport,
     kPenSpark,
     kPersonCheck,
     kPlusAddress,
@@ -363,14 +379,10 @@ struct Suggestion {
     kCardVisa,
     kIban,
     kBnplGeneric,
-    kBnplAffirmLinked,
-    kBnplAffirmUnlinked,
-    kBnplAfterpayLinked,
-    kBnplAfterpayUnlinked,
-    kBnplZipLinked,
-    kBnplZipUnlinked,
-    kBnplKlarnaLinked,
-    kBnplKlarnaUnlinked,
+    kBnplAffirm,
+    kBnplAfterpay,
+    kBnplKlarna,
+    kBnplZip,
     kSaveAndFill,
     kAndroidMessages,
   };
@@ -469,8 +481,11 @@ struct Suggestion {
         return std::holds_alternative<Guid>(payload) ||
                std::holds_alternative<PaymentsPayload>(payload);
       case SuggestionType::kBnplEntry:
-        return std::holds_alternative<PaymentsPayload>(payload) ||
-               std::holds_alternative<BnplIssuer>(payload);
+        if (base::FeatureList::IsEnabled(
+                features::kAutofillEnablePayNowPayLaterTabs)) {
+          return std::holds_alternative<BnplIssuer>(payload);
+        }
+        return std::holds_alternative<PaymentsPayload>(payload);
       case SuggestionType::kAtMemorySearchResult:
         return std::holds_alternative<AtMemoryPayload>(payload);
       case SuggestionType::kDevtoolsTestAddressEntry:
@@ -491,6 +506,14 @@ struct Suggestion {
 
   // Determines popup identifier for the suggestion.
   SuggestionType type;
+
+  // The index of the tab in which the suggestion is shown in.
+  // This index is used to filter suggestions into separate tabs
+  // when they are displayed within a tabbed pane.
+  // Note: Suggestions are typically shown in a single list.
+  // Displaying suggestions in tabbed panes is enabled only for specific cases,
+  // for example, the "Pay Now"/"Pay Later" tabs.
+  SuggestionTabIndex tab_index = kDefaultSuggestionTabIndex;
 
   // The texts that will be displayed on the first line in a suggestion. The
   // order of showing the two texts on the first line depends on whether it is

@@ -32,6 +32,7 @@
 #include "net/base/network_change_notifier.h"
 #include "net/base/priority_queue.h"
 #include "net/base/request_priority.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/log/net_log_with_source.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/client_socket_pool.h"
@@ -210,7 +211,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
       scoped_refptr<SocketParams> params,
       const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
       size_t num_sockets,
-      CompletionOnceCallback callback,
+      PreconnectCompletionCallback callback,
       const NetLogWithSource& net_log) override;
   void SetPriority(const GroupId& group_id,
                    ClientSocketHandle* handle,
@@ -237,7 +238,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   bool RequestInGroupWithHandleHasJobForTesting(
       const GroupId& group_id,
       const ClientSocketHandle* handle) const {
-    return group_map_.find(group_id)->second->RequestWithHandleHasJobForTesting(
+    return group_map_.find(group_id)->second.RequestWithHandleHasJobForTesting(
         handle);
   }
 
@@ -262,9 +263,6 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   bool HasGroupForTesting(const GroupId& group_id) const {
     return HasGroup(group_id);
   }
-
-  static bool connect_backup_jobs_enabled();
-  static bool set_connect_backup_jobs_enabled(bool enabled);
 
   // NetworkChangeNotifier::IPAddressObserver methods:
   void OnIPAddressChanged(
@@ -337,7 +335,12 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
 
     Group(const GroupId& group_id,
           TransportClientSocketPool* client_socket_pool);
+    Group(const Group&) = delete;
+    Group(Group&&) = delete;
     ~Group() override;
+
+    Group& operator=(const Group&) = delete;
+    Group& operator=(Group&&) = delete;
 
     // ConnectJob::Delegate methods:
     void OnConnectJobComplete(int result, ConnectJob* job) override;
@@ -567,7 +570,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
     int64_t generation_ = 0;
   };
 
-  using GroupMap = std::map<GroupId, raw_ptr<Group, CtnExperimental>>;
+  using GroupMap = std::map<GroupId, Group>;
 
   struct CallbackResultPair {
     CallbackResultPair();
@@ -605,19 +608,19 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
 
   // TODO(mmenke): de-inline these.
   size_t NumNeverAssignedConnectJobsInGroup(const GroupId& group_id) const {
-    return group_map_.find(group_id)->second->never_assigned_job_count();
+    return group_map_.find(group_id)->second.never_assigned_job_count();
   }
 
   size_t NumUnassignedConnectJobsInGroup(const GroupId& group_id) const {
-    return group_map_.find(group_id)->second->unassigned_job_count();
+    return group_map_.find(group_id)->second.unassigned_job_count();
   }
 
   size_t NumConnectJobsInGroup(const GroupId& group_id) const {
-    return group_map_.find(group_id)->second->ConnectJobCount();
+    return group_map_.find(group_id)->second.ConnectJobCount();
   }
 
   size_t NumActiveSocketsInGroup(const GroupId& group_id) const {
-    return group_map_.find(group_id)->second->active_socket_count();
+    return group_map_.find(group_id)->second.active_socket_count();
   }
 
   bool HasGroup(const GroupId& group_id) const;
@@ -650,7 +653,10 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   // at least one pending request. Returns true if any groups are stalled, and
   // if so (and if both |group| and |group_id| are not NULL), fills |group|
   // and |group_id| with data of the stalled group having highest priority.
-  bool FindTopStalledGroup(Group** group, GroupId* group_id) const;
+  //
+  // This is not const because it returns a non-const pointer to an object owned
+  // by `this`.
+  bool FindTopStalledGroup(Group** group, GroupId* group_id);
 
   // Removes |job| from |group|, which must already own |job|.
   void RemoveConnectJob(ConnectJob* job, Group* group);
@@ -665,6 +671,7 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   void HandOutSocket(std::unique_ptr<StreamSocket> socket,
                      ClientSocketHandle::SocketReuseType reuse_type,
                      const LoadTimingInfo::ConnectTiming& connect_timing,
+                     std::optional<ResolutionDetails> resolution_details,
                      ClientSocketHandle* handle,
                      base::TimeDelta time_idle,
                      Group* group,
@@ -694,9 +701,10 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   // reached the limit or the created connect job didn't finish synchronously.
   // In such a case, the Request with a ClientSocketHandle must be registered to
   // |group_map_| to receive the completion callback.
-  int RequestSocketInternal(const GroupId& group_id,
-                            const Request& request,
-                            base::OnceClosure preconnect_done_closure);
+  int RequestSocketInternal(
+      const GroupId& group_id,
+      const Request& request,
+      OnConnectJobCompleteCallback preconnect_done_closure);
 
   // Assigns an idle socket for the group to the request.
   // Returns |true| if an idle socket is available, false otherwise.
@@ -757,6 +765,15 @@ class NET_EXPORT_PRIVATE TransportClientSocketPool
   GroupMap::iterator RefreshGroup(GroupMap::iterator it,
                                   const base::TimeTicks& now,
                                   const char* net_log_reason_utf8);
+
+  // Called when a preconnect connect job completes.
+  void OnPreconnectConnectJobComplete(
+      PreconnectCompletionCallback callback,
+      const GroupId& group_id,
+      scoped_refptr<SocketParams> socket_params,
+      const std::optional<NetworkTrafficAnnotationTag>& proxy_annotation_tag,
+      const NetLogWithSource& net_log,
+      std::vector<int> results);
 
   GroupMap group_map_;
 

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sl">
 <translation id="1000436330784933699">Tukaj lahko odprete Lens.</translation>
+<translation id="1005291068154454184">Celozaslonski videoposnetek za nastavitev Chromiuma kot privzetega brskalnika</translation>
 <translation id="1042296835509784301">V Chromiumu odpre upravitelja gesel.</translation>
 <translation id="1047130070405668746">Izberite Chromium.</translation>
 <translation id="1091252999271033193">To pomeni, da bo Chromium vsakič zahteval spletno mesto za mobilne naprave.</translation>
@@ -70,9 +71,6 @@ Novih zaznamkov ni mogoče shraniti v račun, dokler nekaterih ne izbrišete. Č
 <translation id="2313870531055795960">Preveri URL-je, tako da jih primerja s seznamom spletnih mest, ki niso varna, shranjenim v Chromiumu. Če vam spletno mesto poskusi ukrasti geslo ali če prenašate škodljivo datoteko, lahko Chromium prav tako pošlje URL-je, vključno z delčki vsebine strani, Varnemu brskanju.</translation>
 <translation id="2314220608288760290">Chromium samodejno odpre povezave v anonimnem načinu v YouTubu v anonimnem načinu.</translation>
 <translation id="231828342043114302">Če želite prejemati osebno prilagojeno vsebino glede na zanimanja, se prijavite v Chromium.</translation>
-<translation id="2326738825692478496">Nekateri podatki v Chromiumu še niso shranjeni v računu Google.
-
-Počakajte nekaj minut, preden se odjavite. Če se odjavite zdaj, bodo ti podatki izbrisani.</translation>
 <translation id="2334943301233020675">Upravitelj gesel ni mogel uvoziti naslednjih ključev za dostop, ker se ne ujemajo z zahtevami.</translation>
 <translation id="2337722506862731008">Deljenje Chromiuma</translation>
 <translation id="2340423701577464731">Dodajanje elementa bralnega seznama v Chromiumu</translation>
@@ -103,7 +101,6 @@ Počakajte nekaj minut, preden se odjavite. Če se odjavite zdaj, bodo ti podatk
 Če želite več nastavitev, ki zaradi izboljšanja izkušnje v Chromiumu uporabljajo podatke, odprite <ph name="BEGIN_LINK" />Googlove storitve<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Iskanje z govorom v Chromiumu.</translation>
 <translation id="2843571538056574338">Uporaba Chromiuma za samodejno izpolnjevanje</translation>
-<translation id="2899085719655668655">Video navodila s sliko v sliki za nastavitev Chromiuma kot privzetega brskalnika</translation>
 <translation id="2918709798697875261">Vaša organizacija zahteva, da niste prijavljeni v Chromium.</translation>
 <translation id="2942241131342758843">Uporabljajte Chromium kot privzeto možnost odpiranja povezav, iskanja v pripomočkih in samodejnega izpolnjevanja gesel v drugih aplikacijah.</translation>
 <translation id="2977470724722393594">Chromium je posodobljen</translation>

@@ -70,6 +70,23 @@ namespace {
 // This is used for sites that change multiple things consecutively.
 constexpr base::TimeDelta kWaitTimeForDynamicForms = base::Milliseconds(200);
 
+// This function is deprecated and one should use
+// FormFieldData::IdenticalAndEquivalentDomElements(_, _, {kNotRefillRelated})
+// instead. Returns true if the fields are considered equal for refill purposes,
+// and false otherwise.
+// TODO(crbug.com/465491175): Remove when `AutofillFixFormEquality` launches.
+bool CompareFieldsForRefillDeprecated(const FormFieldData& f,
+                                      const FormFieldData& g) {
+  return f.name() == g.name() && f.label() == g.label() &&
+         f.form_control_type() == g.form_control_type() &&
+         f.autocomplete_attribute() == g.autocomplete_attribute() &&
+         f.placeholder() == g.placeholder() &&
+         f.host_frame() == g.host_frame() &&
+         f.renderer_id() == g.renderer_id() &&
+         f.max_length() == g.max_length() &&
+         f.is_focusable() == g.is_focusable() && f.options() == g.options();
+}
+
 FillDataType GetFillDataTypeFromFillingPayload(
     const FillingPayload& filling_payload) {
   return std::visit(
@@ -864,6 +881,7 @@ void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
   }
   manager_->driver().ApplyFieldAction(action_type, action_persistence,
                                       field.global_id(), value);
+  manager_->OnDidFillOrPreviewField(action_persistence, field_type_used);
 }
 
 void FormFiller::FillOrPreviewForm(
@@ -1009,10 +1027,9 @@ void FormFiller::FillOrPreviewForm(
       skip_reasons[form.fields()[i].global_id()].insert(
           FieldFillingSkipReason::kNoValueToFill);
     } else {
-      if (filled_field_type) {
-        filled_field_types.emplace(result_fields[i].global_id(),
-                                   *filled_field_type);
-      }
+      CHECK(filled_field_type);
+      filled_field_types.emplace(result_fields[i].global_id(),
+                                 *filled_field_type);
       if (may_refill_in_future) {
         refill_context->type_groups_originally_filled.insert_all(
             autofill_field.Type().GetGroups());
@@ -1118,9 +1135,7 @@ void FormFiller::FillOrPreviewForm(
           return std::pair(field.global_id(), !field.value().empty());
         });
     for (const std::unique_ptr<AutofillField>& field : form_structure) {
-      if (base::FeatureList::IsEnabled(features::kAutofillFixIsAutofilled)
-              ? !safe_filled_field_ids.contains(field->global_id())
-              : !filled_field_types.contains(field->global_id())) {
+      if (!safe_filled_field_ids.contains(field->global_id())) {
         continue;
       }
       const FieldType& autofilled_type =
@@ -1242,26 +1257,22 @@ void FormFiller::MaybeScheduleAutomaticRefill(
               refill_context->filled_form->fields(), form_structure.fields(),
               [](const FormFieldData& f,
                  const std::unique_ptr<AutofillField>& g) {
-                return FormFieldData::IdenticalAndEquivalentDomElements(
-                    f, *g,
-                    base::FeatureList::IsEnabled(
-                        features::kAutofillFewerTrivialRefills)
-                        ? DenseSet<FormFieldData::
-                                       Exclusion>{FormFieldData::Exclusion::
-                                                      kNotRefillRelated}
-                        : DenseSet<FormFieldData::Exclusion>{
-                              FormFieldData::Exclusion::kValue});
+                return base::FeatureList::IsEnabled(
+                           features::kAutofillFixFormEquality)
+                           ? FormFieldData::IdenticalAndEquivalentDomElements(
+                                 f, *g,
+                                 DenseSet<FormFieldData::Exclusion>{
+                                     FormFieldData::Exclusion::
+                                         kNotRefillRelated})
+                           : CompareFieldsForRefillDeprecated(f, *g);
               })) {
         return;
       }
       break;
     case RefillTriggerReason::kSelectOptionsChanged:
-      if (const bool allow_refill =
-              field && field->IsSelectElement() &&
-              field->Type().GetGroups().contains_any(
-                  refill_context->type_groups_originally_filled);
-          !allow_refill && base::FeatureList::IsEnabled(
-                               features::kAutofillFewerTrivialRefills)) {
+      if (!field || !field->IsSelectElement() ||
+          field->Type().GetGroups().contains_none(
+              refill_context->type_groups_originally_filled)) {
         // The element in question is not fillable as a result of this signal.
         // Do not trigger a refill as it would most likely be a trivial one.
         return;
@@ -1430,14 +1441,13 @@ FormFiller::ValueAndTypeAndOverride FormFiller::GetFieldFillingData(
       filling_payload.variant);
 
   CHECK(filling_value_and_type.filling_type != UNKNOWN_TYPE ||
-            // The skip reasons lump all Autofill AI types together because
-            // there is only a single FillingProduct for Autofill AI. Therefore,
-            // when two Autofill AI FieldTypes of different entities appear in
-            // the form, only the above std::visit() calls detects that the
-            // value is not fillable and returns UNKNOWN_TYPE in that case.
-            std::holds_alternative<AugmentedFillingPayload::EntityPayload>(
-                filling_payload.variant),
-        base::NotFatalUntil::M143);
+        // The skip reasons lump all Autofill AI types together because
+        // there is only a single FillingProduct for Autofill AI. Therefore,
+        // when two Autofill AI FieldTypes of different entities appear in
+        // the form, only the above std::visit() calls detects that the
+        // value is not fillable and returns UNKNOWN_TYPE in that case.
+        std::holds_alternative<AugmentedFillingPayload::EntityPayload>(
+            filling_payload.variant));
   return {filling_value_and_type,
           /*value_is_an_override=*/false};
 }

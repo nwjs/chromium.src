@@ -107,7 +107,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
     private final boolean mPlayServicesAvailable;
     private AuthenticationContextProvider mAuthenticationContextProvider;
     private CredManHelper mCredManHelper;
-    private final IdentityCredentialsHelper mIdentityCredentialsHelper;
+    private IdentityCredentialsHelper mIdentityCredentialsHelper;
     private Barrier mBarrier;
     // mFrameHost is null in makeCredential requests. For getAssertion requests
     // it's non-null for conditional requests and may be non-null in other
@@ -275,6 +275,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 origin,
                 options.isPaymentCredentialCreation,
                 remoteDesktopOrigin,
+                options.appidExclude,
                 (result) -> {
                     if (result.securityCheckResult != AuthenticatorStatus.SUCCESS) {
                         returnErrorAndResetCallback(
@@ -581,6 +582,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 origin,
                 payment != null,
                 remoteDesktopOrigin,
+                publicKeyOptions.extensions.appid,
                 (results) -> {
                     if (mCancellableUiState
                             == CancellableUiState.CANCEL_PENDING_RP_ID_VALIDATION_COMPLETE) {
@@ -971,8 +973,11 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                                 /* credentialRequestResult= */ null);
                         return;
                     }
-                    mIdentityCredentialsHelper.handleReportRequest(
-                            options, convertOriginToString(origin));
+                    String originString = null;
+                    if (!is(mAuthenticationContextProvider.getWebContents(), WebauthnMode.APP)) {
+                        originString = convertOriginToString(origin);
+                    }
+                    mIdentityCredentialsHelper.handleReportRequest(options, originString);
                     callback.onComplete(
                             WebauthnRequestResponse.forReport(AuthenticatorStatus.SUCCESS));
                 });
@@ -984,6 +989,10 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
 
     public void setCredManHelperForTesting(CredManHelper helper) {
         mCredManHelper = helper;
+    }
+
+    public void setIdentityCredentialsHelperForTesting(IdentityCredentialsHelper helper) {
+        mIdentityCredentialsHelper = helper;
     }
 
     public void setBarrierForTesting(Barrier barrier) {

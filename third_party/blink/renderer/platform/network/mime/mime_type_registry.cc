@@ -35,7 +35,7 @@ struct MimeRegistryPtrHolder {
 };
 
 std::string ToASCIIOrEmpty(const WebString& string) {
-  return string.ContainsOnlyASCII() ? string.Ascii() : std::string();
+  return string.ContainsOnlyAscii() ? string.Ascii() : std::string();
 }
 
 template <typename CharType>
@@ -85,7 +85,7 @@ String MIMETypeRegistry::GetWellKnownMIMETypeForExtension(
   std::string mime_type;
   net::GetWellKnownMimeTypeFromExtension(StringViewToFilePath(ext).value(),
                                          &mime_type);
-  return String::FromUTF8(mime_type);
+  return String::FromUtf8(mime_type);
 }
 
 bool MIMETypeRegistry::IsSupportedMIMEType(const String& mime_type) {
@@ -178,7 +178,7 @@ bool MIMETypeRegistry::IsSupportedFontMIMEType(const String& mime_type) {
   if (!mime_type.StartsWithIgnoringAsciiCase("font/")) {
     return false;
   }
-  String sub_type = mime_type.Substring(kFontLen).LowerASCII();
+  String sub_type = mime_type.substr(kFontLen).ToAsciiLower();
   return sub_type == "woff" || sub_type == "woff2" || sub_type == "otf" ||
          sub_type == "ttf" || sub_type == "sfnt";
 }
@@ -196,7 +196,7 @@ bool MIMETypeRegistry::IsXMLMIMEType(const String& mime_type) {
   // Per RFCs 3023 and 2045, an XML MIME type is of the form:
   // ^[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]+/[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]+\+xml$
 
-  int length = mime_type.length();
+  String::size_type length = mime_type.length();
   if (length < 7)
     return false;
 
@@ -206,14 +206,11 @@ bool MIMETypeRegistry::IsXMLMIMEType(const String& mime_type) {
   }
 
   bool has_slash = false;
-  for (int i = 0; i < length - 4; ++i) {
+  for (String::size_type i = 0; i < length - 4; ++i) {
     UChar ch = mime_type[i];
-    if (ch >= '0' && ch <= '9')
+    if (IsAsciiAlphanumeric(ch)) {
       continue;
-    if (ch >= 'a' && ch <= 'z')
-      continue;
-    if (ch >= 'A' && ch <= 'Z')
-      continue;
+    }
     switch (ch) {
       case '_':
       case '-':

@@ -509,8 +509,9 @@ const LayoutResult* BlockNode::Layout(
 
   PrepareForLayout();
 
-  LayoutAlgorithmParams params(*this, *fragment_geometry, constraint_space,
-                               break_token, early_break);
+  LayoutAlgorithmParams params(*this, *fragment_geometry, constraint_space);
+  params.break_token = break_token;
+  params.early_break = early_break;
   params.column_spanner_path = column_spanner_path;
 
   auto* block_flow = DynamicTo<LayoutBlockFlow>(box_.Get());
@@ -1544,7 +1545,8 @@ void BlockNode::UpdateShapeOutsideInfoIfNeeded(
   // computing the shape area. There may be an issue with the new fragmentation
   // model and computing the correct sizes of shapes.
   ShapeOutsideInfo* shape_outside = box_->GetShapeOutsideInfo();
-  WritingMode writing_mode = box_->ContainingBlock()->Style()->GetWritingMode();
+  WritingMode writing_mode =
+      box_->ContainingBlock()->StyleRef().GetWritingMode();
   BoxStrut margins = ComputePhysicalMargins(constraint_space, Style())
                          .ConvertToLogical({writing_mode, TextDirection::kLtr});
   shape_outside->SetReferenceBoxLogicalSize(

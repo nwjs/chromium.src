@@ -23,7 +23,7 @@
 #include "chrome/browser/ui/webui/password_manager/sync_handler.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/policy_indicator_localized_strings_provider.h"
-#include "chrome/browser/ui/webui/sanitized_image_source.h"
+#include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/settings/safety_hub_handler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -48,6 +48,7 @@
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "content/public/common/content_features.h"
 #include "device/fido/public/features.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -668,6 +669,10 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       "enableActorLoginPermissions",
       base::FeatureList::IsEnabled(password_manager::features::kActorLogin));
 
+  source->AddBoolean(
+      "fedCmEmbedderInitiatedLoginEnabled",
+      base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin));
+
   source->AddBoolean("passwordChangeAvailable",
                      PasswordChangeServiceFactory::GetForProfile(profile)
                          ->UserIsActivePasswordChangeUser());
@@ -677,9 +682,10 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       base::FeatureList::IsEnabled(
           password_manager::features::kEnablePasswordManagerMojoApi));
 
-  source->AddBoolean("enablePasswordCheckup",
-                     base::FeatureList::IsEnabled(
-                         password_manager::features::kPasswordCheckup));
+  source->AddBoolean(
+      "enablePasswordCheckup",
+      base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordCheckupPrototype));
 
   bool passwordUploadUiUpdateEnabled = false;
 #if !BUILDFLAG(IS_CHROMEOS)

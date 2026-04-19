@@ -25,6 +25,7 @@
 #include "android_webview/browser/aw_permission_manager.h"
 #include "android_webview/browser/aw_quota_manager_bridge.h"
 #include "android_webview/browser/aw_web_ui_controller_factory.h"
+#include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "android_webview/browser/cookie_manager.h"
 #include "android_webview/browser/metrics/aw_metrics_service_client.h"
 #include "android_webview/browser/network_service/net_helpers.h"
@@ -42,6 +43,7 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/map_util.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -235,6 +237,9 @@ AwBrowserContext::AwBrowserContext(std::string name,
               GetPath(),
               GetDefaultStoragePartition()->GetProtoDatabaseProvider()),
           std::make_unique<blink::TrialTokenValidator>());
+
+  content_restriction_manager_client_ =
+      std::make_unique<AwContentRestrictionManagerClient>();
 }
 
 AwBrowserContext::~AwBrowserContext() {
@@ -376,6 +381,12 @@ AwQuotaManagerBridge* AwBrowserContext::GetQuotaManagerBridge() {
     quota_manager_bridge_ = AwQuotaManagerBridge::Create(this);
   }
   return quota_manager_bridge_.get();
+}
+
+AwContentRestrictionManagerClient*
+AwBrowserContext::GetContentRestrictionManagerClient() {
+  DCHECK(content_restriction_manager_client_);
+  return content_restriction_manager_client_.get();
 }
 
 CookieManager* AwBrowserContext::GetCookieManager() {
@@ -787,11 +798,9 @@ AwBrowserContext::GetOriginMatchedHeaders() {
 
 void AwBrowserContext::AddQuicHints(JNIEnv* env,
                                     const std::vector<GURL>& origins) {
-  std::vector<url::SchemeHostPort> scheme_host_ports(origins.size());
-  for (const GURL& origin : origins) {
-    scheme_host_ports.emplace_back(origin);
-  }
-
+  auto scheme_host_ports = base::ToVector(origins, [](const GURL& origin) {
+    return url::SchemeHostPort(origin);
+  });
   GetDefaultStoragePartition()->GetNetworkContext()->AddQuicHints(
       scheme_host_ports, net::NetworkAnonymizationKey());
 }

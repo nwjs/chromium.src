@@ -6,6 +6,7 @@
 #include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/chrome_features.h"
 #include "components/compose/buildflags.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/on_device_translation/buildflags/buildflags.h"
@@ -100,22 +101,20 @@ void PopulateChromeWebUIFrameBindersPartsFeatures(
           render_frame_host->GetProcess()->GetBrowserContext()))) {
     // Register binders for all eligible profiles.
 
-    if (glic::GlicEnabling::IsUnifiedFreEnabled(Profile::FromBrowserContext(
-            render_frame_host->GetProcess()->GetBrowserContext()))) {
-      RegisterWebUIControllerInterfaceBinder<glic::mojom::FrePageHandlerFactory,
-                                             glic::GlicUI>(map);
-    } else {
-#if !BUILDFLAG(IS_ANDROID)
-      RegisterWebUIControllerInterfaceBinder<glic::mojom::FrePageHandlerFactory,
-                                             glic::GlicFreUI>(map);
-#endif
-    }
+    RegisterWebUIControllerInterfaceBinder<glic::mojom::FrePageHandlerFactory,
+                                           glic::GlicUI>(map);
     // For GlicUI, the WebUI page will check whether Glic is policy-enabled and
     // restrict access if needed. This isn't required for the GlicFreUI.
     RegisterWebUIControllerInterfaceBinder<glic::mojom::PageHandlerFactory,
                                            glic::GlicUI>(map);
     RegisterWebUIControllerInterfaceBinder<
         glic::mojom::GlicPreloadHandlerFactory, glic::GlicUI>(map);
+  }
+
+  if (glic::GlicEnabling::IsInternalsWebUIEnabled(Profile::FromBrowserContext(
+          render_frame_host->GetProcess()->GetBrowserContext()))) {
+    RegisterWebUIControllerInterfaceBinder<
+        glic::mojom::InternalsPageHandlerFactory, glic::GlicUI>(map);
   }
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   RegisterWebUIControllerInterfaceBinder<guest_view::mojom::PageHandlerFactory,

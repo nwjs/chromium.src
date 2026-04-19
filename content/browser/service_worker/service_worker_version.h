@@ -45,6 +45,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/service_worker_client_info.h"
+#include "content/public/common/child_process_id.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -247,17 +248,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
   FetchHandlerType fetch_handler_type() const;
   void set_fetch_handler_type(FetchHandlerType fetch_handler_type);
 
-  // Return the option indicating how the fetch handler should be bypassed.
-  // This is used to let the renderer know to bypass fetch handlers for
-  // subresources.
-  FetchHandlerBypassOption fetch_handler_bypass_option() {
-    return fetch_handler_bypass_option_;
-  }
-  void set_fetch_handler_bypass_option(
-      FetchHandlerBypassOption fetch_handler_bypass_option) {
-    fetch_handler_bypass_option_ = fetch_handler_bypass_option;
-  }
-
   bool has_hid_event_handlers() const { return has_hid_event_handlers_; }
   void set_has_hid_event_handlers(bool has_hid_event_handlers);
 
@@ -331,6 +321,30 @@ class CONTENT_EXPORT ServiceWorkerVersion
 
   // Schedules an update to be run 'soon'.
   void ScheduleUpdate();
+
+  // Implements the "Fire Functional Event" algorithm from the Service Worker
+  // specification. Starts the worker if needed, then runs |callback| with the
+  // result. On worker start failure, triggers a soft update check (spec step
+  // 5). Callers should use StartRequestForFunctionalEvent() (or
+  // StartRequestForFunctionalEventWithCustomTimeout()) to track the actual
+  // event dispatch; the completion soft-update (spec step 8) is handled
+  // automatically.
+  void RunAfterStartWorkerForFunctionalEvent(
+      ServiceWorkerMetrics::EventType purpose,
+      StatusCallback callback);
+
+  // Like StartRequest(), but marks the request for soft-update on completion.
+  int StartRequestForFunctionalEvent(
+      ServiceWorkerMetrics::EventType event_type,
+      StatusCallback error_callback);
+
+  // Like StartRequestWithCustomTimeout(), but marks the request for
+  // soft-update on completion.
+  int StartRequestForFunctionalEventWithCustomTimeout(
+      ServiceWorkerMetrics::EventType event_type,
+      StatusCallback error_callback,
+      const base::TimeDelta& timeout,
+      TimeoutBehavior timeout_behavior);
 
   // Starts an update now.
   void StartUpdate();
@@ -660,7 +674,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
 
   // Called by the EmbeddedWorkerInstance to determine if its worker process
   // should be kept at foreground priority.
-  bool ShouldRequireForegroundPriority(int worker_process_id) const;
+  bool ShouldRequireForegroundPriority(ChildProcessId worker_process_id) const;
 
   // Called when a controlled client's state changes in a way that might effect
   // whether the service worker should be kept at foreground priority.
@@ -694,7 +708,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
   void InitializeGlobalScope();
 
   // Returns true if |process_id| is a controllee process ID of this version.
-  bool IsControlleeProcessID(int process_id) const;
+  bool IsControlleeProcessID(ChildProcessId process_id) const;
 
   // Executes the given `script` in the associated worker. If `callback` is
   // non-empty, invokes `callback` with the result of the script after
@@ -892,8 +906,13 @@ class CONTENT_EXPORT ServiceWorkerVersion
     base::Time start_time;
     base::TimeTicks start_time_ticks;
     ServiceWorkerMetrics::EventType event_type;
-    // Points to this request's entry in |request_timeouts_|.
-    std::set<InflightRequestTimeoutInfo>::iterator timeout_iter;
+    // When true, FinishRequestWithFetchCount() will check for a stale
+    // registration and schedule a soft update (spec step 8).
+    bool soft_update_on_completion = false;
+    // Points to this request's entry in |request_timeouts_|. Please invalidate
+    // this when the corresponding entry is removed from `request_timeouts_`.
+    // TODO(crbug.com/499449324): Refactor this code by simplifying ownerships.
+    std::optional<std::set<InflightRequestTimeoutInfo>::iterator> timeout_iter;
   };
 
   // The timeout timer interval.
@@ -936,6 +955,16 @@ class CONTENT_EXPORT ServiceWorkerVersion
                               const GURL& source_url) override;
 
   void OnStartSent(blink::ServiceWorkerStatusCode status);
+
+  // Returns true if the registration is stale (i.e. context is available,
+  // no installing version, and last update check exceeds the max cache age).
+  bool IsRegistrationStale();
+
+  // Callback for RunAfterStartWorker inside
+  // RunAfterStartWorkerForFunctionalEvent. On failure, triggers a soft update
+  // check (spec step 5) before forwarding status.
+  void DidStartWorkerForFunctionalEvent(StatusCallback callback,
+                                        blink::ServiceWorkerStatusCode status);
 
   // Implements blink::mojom::ServiceWorkerHost.
   void SetCachedMetadata(const GURL& url,

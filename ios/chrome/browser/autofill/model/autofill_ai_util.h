@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#import "components/autofill/core/browser/suggestions/suggestion.h"
 
 class ProfileIOS;
 
@@ -21,17 +22,21 @@ const std::string GetCountryCodeFromVariations();
 bool IsWalletPublicPassStorageEnabled(ProfileIOS* profile);
 
 // Returns YES if the Autofill AI action can be performed for the given profile.
-bool CanPerformAutofillAiAction(ProfileIOS* profile, AutofillAiAction action);
-
-// Returns the default icon for the Autofill AI entity type.
-UIImage* DefaultIconForAutofillAiEntityType(EntityTypeName entity_type_name,
-                                            CGFloat symbol_point_size);
+bool CanPerformAutofillAiAction(
+    ProfileIOS* profile,
+    AutofillAiAction action,
+    std::optional<autofill::EntityType> entity_type = std::nullopt);
 
 // Returns whether Enhanced Autofill is enabled.
 bool IsEnhancedAutofillEnabled(ProfileIOS* profile);
 
 // Enables or disables Enhanced Autofill.
 void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled);
+
+// Returns an entity base on the guid.
+base::optional_ref<const autofill::EntityInstance> GetEntityInstance(
+    ProfileIOS* profile,
+    const autofill::Suggestion::Payload& payload);
 
 }  // namespace autofill
 

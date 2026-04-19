@@ -6,7 +6,6 @@
 
 #include <string_view>
 
-#include "base/containers/enum_set.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/notreached.h"
 #include "base/types/expected.h"
@@ -96,7 +95,7 @@ std::string_view SerializeDebugDataType(DebugDataType data_type) {
 
 #define STR_TO_TYPE(name, str) {str, DebugDataType::name},
 
-base::expected<DebugDataType, ParseError> ParseSourceDebugDataType(
+base::expected<DebugDataType, std::monostate> ParseSourceDebugDataType(
     std::string_view str) {
   static constexpr auto kTypes =
       base::MakeFixedFlatMap<std::string_view, DebugDataType>(
@@ -104,12 +103,12 @@ base::expected<DebugDataType, ParseError> ParseSourceDebugDataType(
 
   auto it = kTypes.find(str);
   if (it == kTypes.end()) {
-    return base::unexpected(ParseError());
+    return base::unexpected(std::monostate());
   }
   return it->second;
 }
 
-base::expected<DebugDataType, ParseError> ParseTriggerDebugDataType(
+base::expected<DebugDataType, std::monostate> ParseTriggerDebugDataType(
     std::string_view str) {
   static constexpr auto kTypes =
       base::MakeFixedFlatMap<std::string_view, DebugDataType>(
@@ -117,7 +116,7 @@ base::expected<DebugDataType, ParseError> ParseTriggerDebugDataType(
 
   auto it = kTypes.find(str);
   if (it == kTypes.end()) {
-    return base::unexpected(ParseError());
+    return base::unexpected(std::monostate());
   }
   return it->second;
 }

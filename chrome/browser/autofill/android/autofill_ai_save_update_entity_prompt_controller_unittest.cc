@@ -104,7 +104,7 @@ TEST_F(AutofillAiSaveUpdateEntityPromptControllerTest,
   prompt_controller().DisplayPrompt();
 
   EXPECT_CALL(prompt_closed_callback(),
-              Run(AutofillClient::AutofillAiBubbleResult::kAccepted));
+              Run(AutofillClient::AutofillAiBubbleResult::kAccepted, _));
   // Both `OnUserAccepted` and `OnPromptDismissed` are called when the user
   // clicks the positive button.
   prompt_controller().OnUserAccepted(env());
@@ -118,7 +118,7 @@ TEST_F(AutofillAiSaveUpdateEntityPromptControllerTest,
   prompt_controller().DisplayPrompt();
 
   EXPECT_CALL(prompt_closed_callback(),
-              Run(AutofillClient::AutofillAiBubbleResult::kCancelled));
+              Run(AutofillClient::AutofillAiBubbleResult::kCancelled, _));
   // Both `OnUserDeclined` and `OnPromptDismissed` are called when the user
   // clicks the negative button.
   prompt_controller().OnUserDeclined(env());
@@ -132,7 +132,7 @@ TEST_F(AutofillAiSaveUpdateEntityPromptControllerTest,
   prompt_controller().DisplayPrompt();
 
   EXPECT_CALL(prompt_closed_callback(),
-              Run(AutofillClient::AutofillAiBubbleResult::kNotInteracted));
+              Run(AutofillClient::AutofillAiBubbleResult::kNotInteracted, _));
   prompt_controller().OnPromptDismissed(env());
 }
 
@@ -195,7 +195,7 @@ TEST_F(AutofillAiSaveUpdateEntityPromptControllerTest,
       l10n_util::GetStringUTF16(IDS_AUTOFILL_GOOGLE_WALLET_TITLE);
   EXPECT_EQ(l10n_util::GetStringFUTF16(
                 IDS_AUTOFILL_AI_SAVE_OR_UPDATE_ENTITY_IN_WALLET_SOURCE_NOTICE,
-                google_wallet,
+                google_wallet, google_wallet,
                 base::UTF8ToUTF16(TestingProfile::kDefaultProfileUserName)),
             prompt_controller().GetSourceNotice());
 }

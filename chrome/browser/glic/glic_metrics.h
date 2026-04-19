@@ -130,101 +130,6 @@ enum class EntryPointStatus {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicEntryPointStatus)
 
-// LINT.IfChange(ResponseSegmentation)
-enum class ResponseSegmentation {
-  kUnknown = 0,
-  kOsButtonAttachedText = 1,
-  kOsButtonAttachedAudio = 2,
-  kOsButtonDetachedText = 3,
-  kOsButtonDetachedAudio = 4,
-  kOsButtonMenuAttachedText = 5,
-  kOsButtonMenuAttachedAudio = 6,
-  kOsButtonMenuDetachedText = 7,
-  kOsButtonMenuDetachedAudio = 8,
-  kOsHotkeyAttachedText = 9,
-  kOsHotkeyAttachedAudio = 10,
-  kOsHotkeyDetachedText = 11,
-  kOsHotkeyDetachedAudio = 12,
-  kButtonTopChromeAttachedText = 13,
-  kButtonTopChromeAttachedAudio = 14,
-  kButtonTopChromeDetachedText = 15,
-  kButtonTopChromeDetachedAudio = 16,
-  kFreAttachedText = 17,
-  kFreAttachedAudio = 18,
-  kFreDetachedText = 19,
-  kFreDetachedAudio = 20,
-  kProfilePickerAttachedText = 21,
-  kProfilePickerAttachedAudio = 22,
-  kProfilePickerDetachedText = 23,
-  kProfilePickerDetachedAudio = 24,
-  kNudgeAttachedText = 25,
-  kNudgeAttachedAudio = 26,
-  kNudgeDetachedText = 27,
-  kNudgeDetachedAudio = 28,
-  kThreeDotsMenuAttachedText = 29,
-  kThreeDotsMenuAttachedAudio = 30,
-  kThreeDotsMenuDetachedText = 31,
-  kThreeDotsMenuDetachedAudio = 32,
-  kUnsupportedAttachedText = 33,
-  kUnsupportedAttachedAudio = 34,
-  kUnsupportedDetachedText = 35,
-  kUnsupportedDetachedAudio = 36,
-  kWhatsNewAttachedText = 37,
-  kWhatsNewAttachedAudio = 38,
-  kWhatsNewDetachedText = 39,
-  kWhatsNewDetachedAudio = 40,
-  kAfterSignInAttachedText = 41,
-  kAfterSignInAttachedAudio = 42,
-  kAfterSignInDetachedText = 43,
-  kAfterSignInDetachedAudio = 44,
-  kSharedTabAttachedText = 45,
-  kSharedTabAttachedAudio = 46,
-  kSharedTabDetachedText = 47,
-  kSharedTabDetachedAudio = 48,
-  kActorTaskIconAttachedText = 49,
-  kActorTaskIconAttachedAudio = 50,
-  kActorTaskIconDetachedText = 51,
-  kActorTaskIconDetachedAudio = 52,
-  kSharedImageAttachedText = 53,
-  kSharedImageAttachedAudio = 54,
-  kSharedImageDetachedText = 55,
-  kSharedImageDetachedAudio = 56,
-  kHandoffButtonAttachedText = 57,
-  kHandoffButtonAttachedAudio = 58,
-  kHandoffButtonDetachedText = 59,
-  kHandoffButtonDetachedAudio = 60,
-  kSkillsAttachedText = 61,
-  kSkillsAttachedAudio = 62,
-  kSkillsDetachedText = 63,
-  kSkillsDetachedAudio = 64,
-  kAutoOpenedByContextualCueAttachedText = 65,
-  kAutoOpenedByContextualCueAttachedAudio = 66,
-  kAutoOpenedByContextualCueDetachedText = 67,
-  kAutoOpenedByContextualCueDetachedAudio = 68,
-  kPdfSummarizeButtonAttachedText = 69,
-  kPdfSummarizeButtonAttachedAudio = 70,
-  kPdfSummarizeButtonDetachedText = 71,
-  kPdfSummarizeButtonDetachedAudio = 72,
-  kNavigationCaptureAttachedText = 73,
-  kNavigationCaptureAttachedAudio = 74,
-  kNavigationCaptureDetachedText = 75,
-  kNavigationCaptureDetachedAudio = 76,
-  kAutoOpenedForPdfAttachedText = 77,
-  kAutoOpenedForPdfAttachedAudio = 78,
-  kAutoOpenedForPdfDetachedText = 79,
-  kAutoOpenedForPdfDetachedAudio = 80,
-  kCaptureRegionHotkeyAttachedText = 81,
-  kCaptureRegionHotkeyAttachedAudio = 82,
-  kCaptureRegionHotkeyDetachedText = 83,
-  kCaptureRegionHotkeyDetachedAudio = 84,
-  kIphAttachedText = 85,
-  kIphAttachedAudio = 86,
-  kIphDetachedText = 87,
-  kIphDetachedAudio = 88,
-  kMaxValue = kIphDetachedAudio,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
-
 // LINT.IfChange(GlicInputModesUsed)
 enum class InputModesUsed {
   kNone = 0,
@@ -269,20 +174,8 @@ enum class GlicTabPinnedForSharingResult {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicTabPinnedForSharingResult)
 
-// The different states of active tab sharing.
-// LINT.IfChange(ActiveTabSharingState)
-enum class ActiveTabSharingState {
-  kActiveTabIsShared = 0,
-  kCannotShareActiveTab = 1,
-  kNoTabCanBeShared = 2,
-  kTabContextPermissionNotGranted = 3,
-  kMaxValue = kTabContextPermissionNotGranted
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:ActiveTabSharingState)
-
 class GlicEnabling;
 class GlicSharingManager;
-class GlicWindowControllerInterface;
 
 namespace internal {
 class BrowserActivityObserver;
@@ -300,7 +193,6 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
     virtual bool IsWindowShowing() const = 0;
     virtual bool IsWindowAttached() const = 0;
     virtual content::WebContents* GetFocusedWebContents() = 0;
-    virtual ActiveTabSharingState GetActiveTabSharingState() = 0;
     virtual int32_t GetNumPinnedTabs() const = 0;
     virtual std::vector<content::WebContents*>
     GetPinnedAndSharedWebContents() = 0;
@@ -335,12 +227,12 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   void OnDetachedFromBrowser(AttachChangeReason reason);
 
   // ----Public API called by other glic classes-----
-  // Called when the "Trust-First Onboarding" flow is shown (side panel).
-  void OnTrustFirstOnboardingShown();
   // Called when the user completes the onboarding flow (consents).
   void OnTrustFirstOnboardingAccept();
-  // Called when the user dismisses the onboarding flow without consenting.
-  void OnTrustFirstOnboardingDismissed();
+  // Called when any instance is closed. This method is idempotent. If
+  // trust-first FRE was shown and not accepted, this metric logs a dismiss
+  // metric, and then clears the bit tracking FRE open.
+  void OnInstanceClosed();
   // Called when the user clicks Accept in the FRE.
   void OnFreAccepted();
   // Called when the glic window starts to open.
@@ -350,7 +242,7 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // reason (e.g, an error happened, reached a login page instead of the web
   // client, etc).
   void OnGlicWindowOpenInterrupted();
-  // Called just after the the glic window has been loaded into the UI.
+  // Called just after the glic window has been loaded into the UI.
   void OnGlicWindowShown(Browser* browser,
                          std::optional<display::Display> glic_display,
                          const gfx::Rect& glic_bounds);
@@ -362,7 +254,7 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   void OnWidgetUserResizeStarted();
   // Called when the glic window stops being resized by the user.
   void OnWidgetUserResizeEnded();
-  // Called when the glic window finishes closing.
+  // Called when the detached glic window finishes closing.
   void OnGlicWindowClose(Browser* last_active_browser,
                          std::optional<display::Display> display,
                          const gfx::Rect& glic_bounds);
@@ -395,10 +287,8 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // arbitrary tab.
   void LogGetContextForActorFromTabError(GlicGetContextFromTabError error);
 
-  // One of these three must be called immediately after constructor before any
+  // One of these must be called immediately after constructor before any
   // calls from glic.mojom.
-  void SetControllers(GlicWindowControllerInterface* window_controller,
-                      GlicSharingManager* sharing_manager);
   void SetControllersWithInstance(GlicInstance* glic_instance,
                                   GlicSharingManager* sharing_manager);
   void ClearControllers();
@@ -414,6 +304,11 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   void SetWebClientMode(mojom::WebClientMode mode);
 
  private:
+  // Called when any instance is opened. This method is used to track whether an
+  // FRE onboarding is going to be shown. If an FRE onboarding is already shown,
+  // this method is idempotent.
+  void OnInstanceOpened();
+
   // Called when `impression_timer_` fires.
   void OnImpressionTimerFired();
 
@@ -429,8 +324,8 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // Called when kGlicPinnedToTabstrip changes.
   void OnPinningPrefChanged();
 
-  // Called when kGlicTabContextEnabled changes.
-  void OnTabContextEnabledPrefChanged();
+  // Records the time from startup until Glic was enabled for the profile.
+  void RecordStartupEnablement();
 
   // Returns the area in the display a given center point is.
   DisplayPosition GetDisplayPositionOfPoint(
@@ -484,7 +379,9 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   int session_responses_ = 0;
   base::TimeTicks session_start_time_;
   mojom::InvocationSource invocation_source_ =
-      mojom::InvocationSource::kOsButton;
+      mojom::InvocationSource::kUnsupported;
+  mojom::InvocationSource onboarding_invocation_source_ =
+      mojom::InvocationSource::kUnsupported;
 
   // Used to record impressions of glic entry points.
   base::RepeatingTimer impression_timer_;
@@ -501,6 +398,10 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   // Whether Glic is enabled and FRE has been completed. Tracked to trigger
   // metric(s) on change.
   bool is_enabled_ = false;
+
+  // Whether we have already recorded the metric that tracks how long it took
+  // for Glic to be enabled since startup.
+  bool recorded_startup_enablement_ = false;
 
   std::vector<base::CallbackListSubscription> subscriptions_;
 

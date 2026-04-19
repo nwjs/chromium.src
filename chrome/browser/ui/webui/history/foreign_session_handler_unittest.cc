@@ -4,48 +4,41 @@
 
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "base/callback_list.h"
-#include "base/containers/flat_map.h"
-#include "base/memory/raw_ptr.h"
+#include "base/test/mock_callback.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
+#include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/prefs/pref_service.h"
 #include "components/sessions/core/session_id.h"
+#include "components/sessions/core/session_types.h"
+#include "components/sync_sessions/mock_open_tabs_ui_delegate.h"
 #include "components/sync_sessions/session_sync_service.h"
 #include "content/public/test/test_web_ui.h"
+#include "content/public/test/web_contents_tester.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/models/menu_model.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 
 namespace browser_sync {
 
-class MockOpenTabsUIDelegate : public sync_sessions::OpenTabsUIDelegate {
- public:
-  MockOpenTabsUIDelegate() = default;
-
-  MOCK_METHOD1(GetAllForeignSessions,
-               bool(std::vector<raw_ptr<const sync_sessions::SyncedSession,
-                                        VectorExperimental>>* sessions));
-
-  MOCK_CONST_METHOD0(GetAllForeignSessionLastModifiedTimes,
-                     base::flat_map<std::string, base::Time>());
-
-  MOCK_METHOD3(GetForeignTab,
-               bool(const std::string& tag,
-                    const SessionID tab_id,
-                    const sessions::SessionTab** tab));
-
-  MOCK_METHOD1(DeleteForeignSession, void(const std::string& tag));
-
-  MOCK_METHOD1(
-      GetForeignSession,
-      std::vector<const sessions::SessionWindow*>(const std::string& tag));
-
-  MOCK_METHOD2(GetForeignSessionTabs,
-               bool(const std::string& tag,
-                    std::vector<const sessions::SessionTab*>* tabs));
-
-  MOCK_METHOD1(GetLocalSession,
-               bool(const sync_sessions::SyncedSession** local_session));
-};
+MATCHER_P(TabHasUrl, url, "") {
+  return !arg.navigations.empty() &&
+         arg.navigations.back().virtual_url() == url;
+}
 
 // Partial SessionSyncService that can fake behavior for
 // SubscribeToForeignSessionsChanged() including the notification to
@@ -60,7 +53,7 @@ class FakeSessionSyncService : public sync_sessions::SessionSyncService {
   // SessionSyncService overrides.
   syncer::GlobalIdMapper* GetGlobalIdMapper() const override { return nullptr; }
 
-  MockOpenTabsUIDelegate* GetOpenTabsUIDelegate() override {
+  sync_sessions::MockOpenTabsUIDelegate* GetOpenTabsUIDelegate() override {
     return &mock_open_tabs_ui_delegate_;
   }
 
@@ -76,7 +69,41 @@ class FakeSessionSyncService : public sync_sessions::SessionSyncService {
 
  private:
   base::RepeatingClosureList subscriber_list_;
-  MockOpenTabsUIDelegate mock_open_tabs_ui_delegate_;
+  sync_sessions::MockOpenTabsUIDelegate mock_open_tabs_ui_delegate_;
+};
+
+class MockForeignSessionPage : public history::mojom::ForeignSessionPage {
+ public:
+  MockForeignSessionPage() = default;
+  ~MockForeignSessionPage() override = default;
+
+  mojo::PendingRemote<history::mojom::ForeignSessionPage> BindAndGetRemote() {
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+
+  MOCK_METHOD1(OnForeignSessionsChanged,
+               void(std::vector<history::mojom::ForeignSessionPtr> sessions));
+
+  mojo::Receiver<history::mojom::ForeignSessionPage> receiver_{this};
+};
+
+class MockEmbedder final : public TopChromeWebUIController::Embedder {
+ public:
+  ~MockEmbedder() = default;
+  MOCK_METHOD(void, ShowUI, (), (override));
+  MOCK_METHOD(void, CloseUI, (), (override));
+  MOCK_METHOD(void,
+              ShowContextMenu,
+              (gfx::Point point, std::unique_ptr<ui::MenuModel> menu_model),
+              (override));
+  MOCK_METHOD(void, HideContextMenu, (), (override));
+
+  base::WeakPtr<MockEmbedder> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<MockEmbedder> weak_ptr_factory_{this};
 };
 
 class ForeignSessionHandlerTest : public ChromeRenderViewHostTestHarness {
@@ -84,16 +111,15 @@ class ForeignSessionHandlerTest : public ChromeRenderViewHostTestHarness {
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
 
-    web_ui_ = std::make_unique<content::TestWebUI>();
-    web_ui_->set_web_contents(web_contents());
-
-    handler_ = std::make_unique<ForeignSessionHandler>();
-    handler_->SetWebUIForTesting(web_ui_.get());
+    handler_ = std::make_unique<ForeignSessionHandler>(
+        handler_remote_.BindNewPipeAndPassReceiver(), profile(), web_contents(),
+        restore_tab_callback_.Get(), restore_windows_callback_.Get(),
+        /*side_panel_ui=*/nullptr);
+    handler_->SetPage(page_.BindAndGetRemote());
   }
 
   void TearDown() override {
     handler_.reset();
-    web_ui_.reset();
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -113,78 +139,257 @@ class ForeignSessionHandlerTest : public ChromeRenderViewHostTestHarness {
         SessionSyncServiceFactory::GetForProfile(profile()));
   }
 
-  content::TestWebUI* web_ui() { return web_ui_.get(); }
-
   ForeignSessionHandler* handler() { return handler_.get(); }
 
- private:
-  std::unique_ptr<content::TestWebUI> web_ui_;
+ protected:
+  MockForeignSessionPage page_;
+  mojo::Remote<history::mojom::ForeignSessionPageHandler> handler_remote_;
   std::unique_ptr<ForeignSessionHandler> handler_;
+
+  base::MockCallback<ForeignSessionHandler::RestoreForeignSessionTabCallback>
+      restore_tab_callback_;
+  base::MockCallback<
+      ForeignSessionHandler::RestoreForeignSessionWindowsCallback>
+      restore_windows_callback_;
 };
 
-TEST_F(ForeignSessionHandlerTest,
-       ShouldFireForeignSessionsChangedWhileJavascriptAllowed) {
-  handler()->AllowJavascriptForTesting();
-  ASSERT_TRUE(handler()->IsJavascriptAllowed());
+TEST_F(ForeignSessionHandlerTest, ShouldFireForeignSessionsChanged) {
+  EXPECT_CALL(page_, OnForeignSessionsChanged(testing::_));
 
-  web_ui()->ClearTrackedCalls();
   session_sync_service()->NotifyForeignSessionsChanged();
-
-  ASSERT_EQ(1U, web_ui()->call_data().size());
-
-  const content::TestWebUI::CallData& call_data = *web_ui()->call_data()[0];
-  EXPECT_EQ("cr.webUIListenerCallback", call_data.function_name());
-  EXPECT_EQ("foreign-sessions-changed", call_data.arg1()->GetString());
 }
 
-TEST_F(ForeignSessionHandlerTest,
-       ShouldNotFireForeignSessionsChangedBeforeJavascriptAllowed) {
-  ASSERT_FALSE(handler()->IsJavascriptAllowed());
+TEST_F(ForeignSessionHandlerTest, OpenForeignSessionAllTabs) {
+  ::sessions::SessionWindow window1;
+  std::vector<const ::sessions::SessionWindow*> windows = {&window1};
 
-  web_ui()->ClearTrackedCalls();
-  session_sync_service()->NotifyForeignSessionsChanged();
-
-  EXPECT_EQ(0U, web_ui()->call_data().size());
-}
-
-TEST_F(ForeignSessionHandlerTest,
-       ShouldNotFireForeignSessionsChangedAfterJavascriptDisallowed) {
-  handler()->AllowJavascriptForTesting();
-  ASSERT_TRUE(handler()->IsJavascriptAllowed());
-  handler()->DisallowJavascript();
-  ASSERT_FALSE(handler()->IsJavascriptAllowed());
-
-  web_ui()->ClearTrackedCalls();
-  session_sync_service()->NotifyForeignSessionsChanged();
-
-  EXPECT_EQ(0U, web_ui()->call_data().size());
-}
-
-TEST_F(ForeignSessionHandlerTest, HandleOpenForeignSessionAllTabs) {
   EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
               GetForeignSession("my_session_tag"))
-      .Times(testing::AtLeast(1));
+      .WillOnce(testing::Return(windows));
 
-  base::ListValue list_args;
-  list_args.Append("my_session_tag");
-  handler()->HandleOpenForeignSessionAllTabs(list_args);
+  EXPECT_CALL(restore_windows_callback_, Run(profile(), windows));
+
+  handler()->OpenForeignSessionAllTabs("my_session_tag");
 }
 
-TEST_F(ForeignSessionHandlerTest, HandleOpenForeignSessionTab) {
+TEST_F(ForeignSessionHandlerTest, OpenForeignSessionTabLeftClick) {
+  ::sessions::SessionTab session_tab;
+  session_tab.navigations.emplace_back();
+  session_tab.navigations.back().set_virtual_url(
+      GURL("https://www.google.com"));
+
   EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
               GetForeignTab("my_session_tag",
                             SessionID::FromSerializedValue(456), testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(&session_tab),
+                               testing::Return(true)));
+
+  EXPECT_CALL(restore_tab_callback_,
+              Run(web_contents(), TabHasUrl(GURL("https://www.google.com")),
+                  WindowOpenDisposition::CURRENT_TAB));
+
+  ui::mojom::ClickModifiersPtr modifiers = ui::mojom::ClickModifiers::New();
+  handler_->OpenForeignSessionTab("my_session_tag", 456, std::move(modifiers));
+}
+
+TEST_F(ForeignSessionHandlerTest, OpenForeignSessionTabMiddleClick) {
+  ::sessions::SessionTab session_tab;
+  session_tab.navigations.emplace_back();
+  session_tab.navigations.back().set_virtual_url(
+      GURL("https://www.google.com"));
+
+  EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
+              GetForeignTab("my_session_tag",
+                            SessionID::FromSerializedValue(456), testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(&session_tab),
+                               testing::Return(true)));
+
+  EXPECT_CALL(restore_tab_callback_,
+              Run(web_contents(), TabHasUrl(GURL("https://www.google.com")),
+                  WindowOpenDisposition::NEW_BACKGROUND_TAB));
+
+  ui::mojom::ClickModifiersPtr modifiers = ui::mojom::ClickModifiers::New();
+  modifiers->middle_button = true;
+  handler_->OpenForeignSessionTab("my_session_tag", 456, std::move(modifiers));
+}
+
+TEST_F(ForeignSessionHandlerTest, DeleteForeignSession) {
+  EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
+              DeleteForeignSession("my_session_tag"))
       .Times(testing::AtLeast(1));
 
-  base::ListValue list_args;
-  list_args.Append("my_session_tag");
-  list_args.Append("456");
-  list_args.Append(1.0);
-  list_args.Append(false);
-  list_args.Append(false);
-  list_args.Append(false);
-  list_args.Append(false);
-  handler()->HandleOpenForeignSessionTab(list_args);
+  handler()->DeleteForeignSession("my_session_tag");
+}
+
+TEST_F(ForeignSessionHandlerTest, SetForeignSessionCollapsed) {
+  EXPECT_FALSE(profile()
+                   ->GetPrefs()
+                   ->GetDict(prefs::kNtpCollapsedForeignSessions)
+                   .FindBool("my_session_tag")
+                   .value_or(false));
+  handler()->SetForeignSessionCollapsed("my_session_tag", true);
+  EXPECT_TRUE(profile()
+                  ->GetPrefs()
+                  ->GetDict(prefs::kNtpCollapsedForeignSessions)
+                  .FindBool("my_session_tag")
+                  .value_or(false));
+  handler()->SetForeignSessionCollapsed("my_session_tag", false);
+  EXPECT_FALSE(profile()
+                   ->GetPrefs()
+                   ->GetDict(prefs::kNtpCollapsedForeignSessions)
+                   .FindBool("my_session_tag")
+                   .value_or(false));
+}
+
+class ForeignSessionHandlerSidePanelTest
+    : public ChromeRenderViewHostTestHarness {
+ public:
+  void SetUp() override {
+    ChromeRenderViewHostTestHarness::SetUp();
+
+    tab_strip_model_delegate_.SetBrowserWindowInterface(
+        &mock_browser_window_interface_);
+    tab_strip_model_ =
+        std::make_unique<TabStripModel>(&tab_strip_model_delegate_, profile());
+
+    ON_CALL(mock_browser_window_interface_, GetTabStripModel())
+        .WillByDefault(testing::Return(tab_strip_model_.get()));
+
+    // Need to have a web contents for the window.
+    tab_strip_model_->AppendWebContents(
+        content::WebContentsTester::CreateTestWebContents(profile(), nullptr),
+        true);
+  }
+
+  void CreateSidePanelUI(
+      base::WeakPtr<TopChromeWebUIController::Embedder> embedder = nullptr) {
+    webui_web_contents_ =
+        content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+    web_ui_ = std::make_unique<content::TestWebUI>();
+    web_ui_->set_web_contents(webui_web_contents_.get());
+    side_panel_ui_ =
+        std::make_unique<TabsFromOtherDevicesSidePanelUI>(web_ui_.get());
+    side_panel_ui_->SetBrowserWindowInterface(&mock_browser_window_interface_);
+    side_panel_ui_->set_embedder(embedder);
+
+    handler_ = std::make_unique<ForeignSessionHandler>(
+        handler_remote_.BindNewPipeAndPassReceiver(), profile(),
+        web_ui_->GetWebContents(), restore_tab_callback_.Get(),
+        base::DoNothing(), side_panel_ui_.get());
+    handler_->SetPage(page_.BindAndGetRemote());
+  }
+
+  void TearDown() override {
+    handler_.reset();
+    side_panel_ui_.reset();
+    web_ui_.reset();
+    webui_web_contents_.reset();
+    tab_strip_model_.reset();
+    ChromeRenderViewHostTestHarness::TearDown();
+  }
+
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    return {
+        TestingProfile::TestingFactory{
+            SessionSyncServiceFactory::GetInstance(),
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<FakeSessionSyncService>();
+            })},
+    };
+  }
+
+  FakeSessionSyncService* session_sync_service() {
+    return static_cast<FakeSessionSyncService*>(
+        SessionSyncServiceFactory::GetForProfile(profile()));
+  }
+
+ protected:
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface_;
+
+  const tabs::TabModel::PreventFeatureInitializationForTesting
+      prevent_feature_initialization_;
+  TestTabStripModelDelegate tab_strip_model_delegate_;
+  std::unique_ptr<TabStripModel> tab_strip_model_;
+
+  std::unique_ptr<content::WebContents> webui_web_contents_;
+  std::unique_ptr<content::TestWebUI> web_ui_;
+  std::unique_ptr<TabsFromOtherDevicesSidePanelUI> side_panel_ui_;
+  MockForeignSessionPage page_;
+  mojo::Remote<history::mojom::ForeignSessionPageHandler> handler_remote_;
+  std::unique_ptr<ForeignSessionHandler> handler_;
+
+  base::MockCallback<ForeignSessionHandler::RestoreForeignSessionTabCallback>
+      restore_tab_callback_;
+};
+
+TEST_F(ForeignSessionHandlerSidePanelTest, SetPageShowsSidePanelUI) {
+  auto embedder = std::make_unique<MockEmbedder>();
+  EXPECT_CALL(*embedder, ShowUI());
+  CreateSidePanelUI(embedder->GetWeakPtr());
+}
+
+TEST_F(ForeignSessionHandlerSidePanelTest,
+       OpenForeignSessionTabWithSidePanelLeftClick) {
+  CreateSidePanelUI();
+
+  // Create a fake session.
+  ::sessions::SessionTab session_tab;
+  session_tab.navigations.emplace_back();
+  session_tab.navigations.back().set_virtual_url(
+      GURL("https://www.google.com"));
+
+  const ::sessions::SessionTab* returned_session_tab = &session_tab;
+  EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
+              GetForeignTab("my_session_tag",
+                            SessionID::FromSerializedValue(456), testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(returned_session_tab),
+                               testing::Return(true)));
+
+  // Perform a left click so that it replaces the current tab.
+  ui::mojom::ClickModifiersPtr modifiers = ui::mojom::ClickModifiers::New();
+
+  // The restore callback should be run with the active WebContents (*not* the
+  // WebContents hosting the side panel), and with CURRENT_TAB corresponding to
+  // left-click.
+  EXPECT_CALL(restore_tab_callback_,
+              Run(tab_strip_model_->GetActiveWebContents(),
+                  TabHasUrl(GURL("https://www.google.com")),
+                  WindowOpenDisposition::CURRENT_TAB));
+
+  handler_->OpenForeignSessionTab("my_session_tag", 456, std::move(modifiers));
+}
+
+TEST_F(ForeignSessionHandlerSidePanelTest,
+       OpenForeignSessionTabWithSidePanelMiddleClick) {
+  CreateSidePanelUI();
+
+  // Create a fake session.
+  ::sessions::SessionTab session_tab;
+  session_tab.navigations.emplace_back();
+  session_tab.navigations.back().set_virtual_url(
+      GURL("https://www.google.com"));
+
+  const ::sessions::SessionTab* returned_session_tab = &session_tab;
+  EXPECT_CALL(*session_sync_service()->GetOpenTabsUIDelegate(),
+              GetForeignTab("my_session_tag",
+                            SessionID::FromSerializedValue(456), testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(returned_session_tab),
+                               testing::Return(true)));
+
+  // Perform a middle click so that it adds a background tab.
+  ui::mojom::ClickModifiersPtr modifiers = ui::mojom::ClickModifiers::New();
+  modifiers->middle_button = true;
+
+  // The restore callback should be run with the active WebContents (*not* the
+  // WebContents hosting the side panel), and with NEW_BACKGROUND_TAB
+  // corresponding to middle-click.
+  EXPECT_CALL(restore_tab_callback_,
+              Run(tab_strip_model_->GetActiveWebContents(),
+                  TabHasUrl(GURL("https://www.google.com")),
+                  WindowOpenDisposition::NEW_BACKGROUND_TAB));
+
+  handler_->OpenForeignSessionTab("my_session_tag", 456, std::move(modifiers));
 }
 
 }  // namespace browser_sync

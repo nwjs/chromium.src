@@ -10,7 +10,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/process/launch.h"
 #include "base/task/thread_pool.h"
 #include "build/build_config.h"
@@ -47,6 +46,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -55,7 +55,7 @@ using content::Referrer;
 SSLErrorControllerClient::SSLErrorControllerClient(
     content::WebContents* web_contents,
     const net::SSLInfo& ssl_info,
-    int cert_error,
+    net::Error cert_error,
     const GURL& request_url,
     std::unique_ptr<security_interstitials::MetricsHelper> metrics_helper,
     std::unique_ptr<security_interstitials::SettingsPageHelper>
@@ -86,9 +86,9 @@ void SSLErrorControllerClient::Proceed() {
   // Hosted Apps should not be allowed to run if there is a problem with their
   // certificate. So, when users click proceed on an interstitial, move the tab
   // to a regular Chrome window and proceed as usual there.
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
   if (web_app::AppBrowserController::IsWebApp(browser))
-    chrome::OpenInChrome(browser);
+    chrome::OpenInChrome(browser->GetBrowserForMigrationOnly());
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   Profile* profile =

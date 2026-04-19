@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <string_view>
 
 #include "base/containers/heap_array.h"
 #include "base/containers/span.h"
@@ -46,8 +47,10 @@
 #include "third_party/blink/renderer/platform/image-decoders/webp/webp_image_decoder.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/private/SkExif.h"
+#include "third_party/skia/include/private/chromium/SkCodecsICCProfileChromium.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/size_conversions.h"
+#include "ui/gfx/skia_span_util.h"
 
 #if BUILDFLAG(ENABLE_AV1_DECODER)
 #include "third_party/blink/renderer/platform/image-decoders/avif/avif_image_decoder.h"
@@ -307,7 +310,7 @@ std::unique_ptr<ImageDecoder> ImageDecoder::CreateByMimeType(
   // Note: The mime types below should match those supported by
   // MimeUtil::IsSupportedImageMimeType() (which forces lowercase).
   std::unique_ptr<ImageDecoder> decoder;
-  mime_type = mime_type.LowerASCII();
+  mime_type = mime_type.ToAsciiLower();
   if (mime_type == "image/jpeg" || mime_type == "image/pjpeg" ||
       mime_type == "image/jpg") {
     decoder = std::make_unique<JPEGImageDecoder>(alpha_option, color_behavior,
@@ -380,7 +383,7 @@ bool ImageDecoder::HasSufficientDataToSniffMimeType(const SharedBuffer& data) {
     static_assert(8 <= kLongestSignatureLength, "");
     bool ok = data.GetBytes(base::byte_span_from_ref(box));
     DCHECK(ok);
-    if (base::span(box.type) == base::span<const char>({'f', 't', 'y', 'p'})) {
+    if (std::string_view(box.type, 4) == "ftyp") {
       // Returns whether we have received the File Type Box in its entirety.
       return base::U32FromBigEndian(box.size) <= data.size();
     }
@@ -1038,22 +1041,24 @@ wtf_size_t ImagePlanes::RowBytes(cc::YUVIndex index) const {
   return row_bytes_[static_cast<wtf_size_t>(index)];
 }
 
-ColorProfile::ColorProfile(const skcms_ICCProfile& profile,
-                           base::HeapArray<uint8_t> buffer)
-    : profile_(profile), buffer_(std::move(buffer)) {}
+ColorProfile::ColorProfile(const skcms_ICCProfile& profile)
+    : profile_(profile) {}
+
+ColorProfile::ColorProfile(
+    std::unique_ptr<SkCodecs::ICCProfileChromium> skia_profile)
+    : profile_(skia_profile->GetProfile()),
+      skia_profile_(std::move(skia_profile)) {}
 
 ColorProfile::~ColorProfile() = default;
 
 std::unique_ptr<ColorProfile> ColorProfile::Create(
     base::span<const uint8_t> buffer) {
-  // After skcms_Parse, profile will have pointers into the passed buffer,
-  // so we need to copy first, then parse.
-  auto owned_buffer = base::HeapArray<uint8_t>::CopiedFrom(buffer);
-  skcms_ICCProfile profile;
-  if (skcms_Parse(owned_buffer.data(), owned_buffer.size(), &profile)) {
-    return std::make_unique<ColorProfile>(profile, std::move(owned_buffer));
+  auto owned_data = gfx::MakeSkDataFromSpanWithCopy(buffer);
+  auto skia_profile = SkCodecs::ICCProfileChromium::Make(std::move(owned_data));
+  if (!skia_profile) {
+    return nullptr;
   }
-  return nullptr;
+  return std::make_unique<ColorProfile>(std::move(skia_profile));
 }
 
 ColorProfileTransform::ColorProfileTransform(

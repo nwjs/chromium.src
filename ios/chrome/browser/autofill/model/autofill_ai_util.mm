@@ -5,11 +5,12 @@
 #import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 
 #import "base/strings/string_util.h"
+#import "components/account_settings/account_setting_service.h"
+#import "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #import "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
-#import "components/autofill/core/browser/webdata/account_settings/account_setting_service.h"
 #import "components/variations/service/variations_service.h"
-#import "ios/chrome/browser/autofill/model/ios_account_setting_service_factory.h"
+#import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_factory.h"
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -30,13 +31,18 @@ const std::string GetCountryCodeFromVariations() {
 }
 
 bool IsWalletPublicPassStorageEnabled(ProfileIOS* profile) {
-  AccountSettingService* setting_service =
+  account_settings::AccountSettingService* setting_service =
       IOSAccountSettingServiceFactory::GetForProfile(profile);
   return setting_service &&
-         setting_service->IsWalletPrivacyContextualSurfacingEnabled();
+         setting_service
+             ->GetBoolean(account_settings::kWalletPrivacyContextualSurfacing)
+             .value_or(false);
 }
 
-bool CanPerformAutofillAiAction(ProfileIOS* profile, AutofillAiAction action) {
+bool CanPerformAutofillAiAction(
+    ProfileIOS* profile,
+    AutofillAiAction action,
+    std::optional<autofill::EntityType> entity_type) {
   EntityDataManager* entity_data_manager =
       IOSAutofillEntityDataManagerFactory::GetForProfile(profile);
   if (!entity_data_manager) {
@@ -67,44 +73,7 @@ bool CanPerformAutofillAiAction(ProfileIOS* profile, AutofillAiAction action) {
       IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile()),
       SyncServiceFactory::GetForProfile(profile),
       IsWalletPublicPassStorageEnabled(profile), profile->IsOffTheRecord(),
-      GeoIpCountryCode(GetCountryCodeFromVariations()), action);
-}
-
-UIImage* DefaultIconForAutofillAiEntityType(EntityTypeName entity_type_name,
-                                            CGFloat symbol_point_size) {
-  NSString* symbol_name = nil;
-  switch (entity_type_name) {
-    case EntityTypeName::kPassport:
-      return SymbolWithPalette(
-          CustomSymbolWithPointSize(kPassportSymbol, symbol_point_size), @[
-            [UIColor colorNamed:kTextPrimaryColor],
-          ]);
-    case EntityTypeName::kDriversLicense:
-    case EntityTypeName::kNationalIdCard:
-      symbol_name = kPersonTextRectangleSymbol;
-      break;
-    case EntityTypeName::kVehicle:
-      symbol_name = kCarSymbol;
-      break;
-    case EntityTypeName::kKnownTravelerNumber:
-    case EntityTypeName::kRedressNumber:
-      symbol_name = kPersonFillCheckmarkSymbol;
-      break;
-    case EntityTypeName::kFlightReservation:
-      if (@available(iOS 26, *)) {
-        symbol_name = kAirplaneUpRightSymbol;
-      } else {
-        symbol_name = kAirplaneSymbol;
-      }
-      break;
-    default:
-      return nil;
-  }
-
-  return SymbolWithPalette(
-      DefaultSymbolWithPointSize(symbol_name, symbol_point_size), @[
-        [UIColor colorNamed:kTextPrimaryColor],
-      ]);
+      GeoIpCountryCode(GetCountryCodeFromVariations()), action, entity_type);
 }
 
 bool IsEnhancedAutofillEnabled(ProfileIOS* profile) {
@@ -127,6 +96,35 @@ void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled) {
       GeoIpCountryCode(GetCountryCodeFromVariations()),
       enabled ? autofill::AutofillAiOptInStatus::kOptedIn
               : autofill::AutofillAiOptInStatus::kOptedOut);
+}
+
+base::optional_ref<const autofill::EntityInstance> GetEntityInstance(
+    ProfileIOS* profile,
+    const autofill::Suggestion::Payload& payload) {
+  if (!profile) {
+    return std::nullopt;
+  }
+
+  if (!std::holds_alternative<autofill::Suggestion::AutofillAiPayload>(
+          payload)) {
+    return std::nullopt;
+  }
+
+  const std::string guid =
+      std::get<autofill::Suggestion::AutofillAiPayload>(payload).guid.value();
+
+  if (guid.empty()) {
+    return std::nullopt;
+  }
+
+  autofill::EntityDataManager* edm =
+      IOSAutofillEntityDataManagerFactory::GetForProfile(profile);
+  if (!edm) {
+    return std::nullopt;
+  }
+
+  return edm->GetEntityInstance(autofill::EntityInstance::EntityId(
+      base::Uuid::ParseCaseInsensitive(guid)));
 }
 
 }  // namespace autofill

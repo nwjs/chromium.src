@@ -35,7 +35,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1324107359134968521">Chromium needs Bluetooth access to explore 
  Bluetooth devices. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Detect language</translation>
-<translation id="1330742950061766891">Use Chromium recommended browser settings</translation>
 <translation id="1342274909142618978">Also delete data from Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Pinned! You can access image search again from the new button on the toolbar</translation>
 <translation id="1356661055722410047">New! You can translate both text and images on your screen</translation>
@@ -57,8 +56,10 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1594928384848033697">Chromium wants to delete your Password Manager data. Type in your Windows password to allow this.</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{Your administrator requires that you relaunch Chromium to apply an update}=1{Your administrator requires that you relaunch Chromium to apply an update. Your Incognito window won't reopen.}other{Your administrator requires that you relaunch Chromium to apply an update. Your # Incognito windows won't reopen.}}</translation>
 <translation id="1625909126243026060">Review key privacy and security controls in Chromium</translation>
+<translation id="1639380494700489405">To ask AI Mode about your tab without leaving the page, sign in to Chromium. You'll also get your passwords and more on all your devices.</translation>
 <translation id="1640672724030957280">Downloading ...</translation>
 <translation id="1680687534629375545">Ask image search about this page</translation>
+<translation id="1708414395296835197">You can use Chromium any time that you click links in messages, documents and other apps. It will also be pinned to your taskbar.</translation>
 <translation id="1709772298389099340">Provides elevated privileges for <ph name="BROWSER_NAME" />.</translation>
 <translation id="1715127912119967311">To help improve these features, Chromium sends your interactions with them to Google. This data may be read, processed and annotated by human reviewers.</translation>
 <translation id="1722488837206509557">This will allow you to select from available devices and display content on them.</translation>
@@ -198,6 +199,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3045032126857188731">Translated language: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Close feedback dialogue</translation>
 <translation id="3068187312562070417">Other Chromium profiles</translation>
+<translation id="3068290154869370196">Extensions are add-ons that let you customise Chromium. From staying organised to simplifying everyday tasks, extensions help you make Chromium your own.</translation>
 <translation id="3068515742935458733">Help make Chromium better by sending crash reports and <ph name="UMA_LINK" /> to Google</translation>
 <translation id="3079753320517721795">{NUM_DEVICES,plural, =0{1 USB device was being accessed by one or more Chromium extensions}=1{1 USB device is being accessed by one or more Chromium extensions}other{# USB devices are being accessed by one or more Chromium extensions}}</translation>
 <translation id="3095811995836568724">Chromium history</translation>
@@ -228,7 +230,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3313189106987092621">Chromium will warn you before loading any site using an insecure connection</translation>
 <translation id="3316771292331273802">You'll be signed out of most sites when you close all Chromium windows, except your Google Account if you're signed in to Chromium. To let sites remember you, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3322413454779348750">Your default search engine was changed from outside of Chromium. To protect you, Chromium reset it.</translation>
-<translation id="3331557257666250900">Sign in to Chromium to get your passwords, bookmarks and more on all your devices</translation>
 <translation id="3352986031709923790">top-right corner of search area: right <ph name="RIGHT" />%, top <ph name="TOP" />%</translation>
 <translation id="3366305173356742781">Chromium data in your account</translation>
 <translation id="3369405342922656244">Search this page with image search</translation>
@@ -439,6 +440,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="5895138241574237353">Restart</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Network sign-in</translation>
 <translation id="5924017743176219022">Connecting to the Internet…</translation>
+<translation id="5939553720811388432">Let's get your Chromium ready</translation>
 <translation id="5941711191222866238">Minimise</translation>
 <translation id="5949225980829865667">To get this bookmark and more on all your devices, sign in to Chromium</translation>
 <translation id="5953657885167112863">Make Chromium yours</translation>
@@ -592,6 +594,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7352651011704765696">Something went wrong</translation>
 <translation id="7368826207863345663">To get future Chromium updates, you'll need macOS 13 or later. This computer is using macOS 11.</translation>
 <translation id="7376384068949534168">You haven't visited recently. Chromium removed <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />.</translation>
+<translation id="73786666777299047">Open Chrome Web Store</translation>
 <translation id="7384121030444253939">This extension is no longer supported. Chromium recommends that you remove it instead.</translation>
 <translation id="7413153308467572558">Continue where you left off: Chromium restores your tabs every time you restart. To turn this off, go to</translation>
 <translation id="7427879960656355200">Import passwords to Chromium</translation>

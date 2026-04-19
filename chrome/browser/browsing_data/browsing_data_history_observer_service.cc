@@ -6,7 +6,6 @@
 
 #include <tuple>
 
-#include "base/functional/callback_helpers.h"
 #include "base/memory/singleton.h"
 #include "build/build_config.h"
 #include "chrome/browser/browsing_data/navigation_entry_remover.h"
@@ -125,6 +124,10 @@ BrowsingDataHistoryObserverService::BrowsingDataHistoryObserverService(
 
 BrowsingDataHistoryObserverService::~BrowsingDataHistoryObserverService() =
     default;
+
+void BrowsingDataHistoryObserverService::Shutdown() {
+  history_observation_.Reset();
+}
 
 void BrowsingDataHistoryObserverService::OnHistoryDeletions(
     history::HistoryService* history_service,

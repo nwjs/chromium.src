@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/core/css/cssom/css_unparsed_value.h"
 #include "third_party/blink/renderer/core/css/cssom/css_unsupported_color.h"
 #include "third_party/blink/renderer/core/css/cssom_utils.h"
+#include "third_party/blink/renderer/core/css/parser/css_property_parser.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/css/properties/shorthands.h"
@@ -65,6 +66,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_viewport_container.h"
 #include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
+#include "third_party/blink/renderer/core/page/scrolling/sticky_position_scrolling_constraints.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/position_area.h"
 #include "third_party/blink/renderer/core/style/style_intrinsic_length.h"
@@ -823,17 +825,25 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
   }
 
   if (layout_object->IsStickyPositioned()) {
-    if (offset.IsPercent() || offset.IsCalculated()) {
-      UseCounter::Count(document, WebFeature::kPercentOrCalcStickyUsedOffset);
-      const LayoutBox* scroll_container =
-          layout_object->ContainingScrollContainer();
-      DCHECK(scroll_container);
-      const LayoutUnit containing_block_size =
-          is_horizontal_property == scroll_container->IsHorizontalWritingMode()
-              ? scroll_container->ContentLogicalWidth()
-              : scroll_container->ContentLogicalHeight();
-      return ZoomAdjustedPixelValue(
-          ValueForLength(offset, containing_block_size), style);
+    const auto sticky_constraints =
+        To<LayoutBoxModelObject>(layout_object)->StickyConstraints();
+    const std::optional<LayoutUnit> inset = ([&]() {
+      switch (property.PropertyID()) {
+        case CSSPropertyID::kLeft:
+          return sticky_constraints.LeftInsetForGetComputedStyle();
+        case CSSPropertyID::kTop:
+          return sticky_constraints.TopInsetForGetComputedStyle();
+        case CSSPropertyID::kRight:
+          return sticky_constraints.RightInsetForGetComputedStyle();
+        case CSSPropertyID::kBottom:
+          return sticky_constraints.BottomInsetForGetComputedStyle();
+        default:
+          NOTREACHED();
+      }
+    })();
+
+    if (inset) {
+      return ZoomAdjustedPixelValue(*inset, style);
     }
 
     return ZoomAdjustedPixelValueForLength(offset, style);
@@ -2438,20 +2448,21 @@ CSSValue* ComputedStyleUtils::TouchActionFlagsToCSSValue(
 }
 
 CSSValue* ComputedStyleUtils::ValueForWillChange(
-    const Vector<CSSPropertyID>& will_change_properties,
-    bool will_change_contents,
-    bool will_change_scroll_position) {
+    const StyleWillChangeData* will_change) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
-  if (will_change_contents) {
-    list->Append(*CSSIdentifierValue::Create(CSSValueID::kContents));
+  if (will_change) {
+    for (const AtomicString& value : will_change->values) {
+      const CSSValueID id = CssValueKeywordID(value);
+      if (id == CSSValueID::kContents) {
+        list->Append(*CSSIdentifierValue::Create(CSSValueID::kContents));
+      } else if (id == CSSValueID::kScrollPosition) {
+        list->Append(*CSSIdentifierValue::Create(CSSValueID::kScrollPosition));
+      } else {
+        list->Append(*MakeGarbageCollected<CSSCustomIdentValue>(value));
+      }
+    }
   }
-  if (will_change_scroll_position) {
-    list->Append(*CSSIdentifierValue::Create(CSSValueID::kScrollPosition));
-  }
-  for (wtf_size_t i = 0; i < will_change_properties.size(); ++i) {
-    list->Append(
-        *MakeGarbageCollected<CSSCustomIdentValue>(will_change_properties[i]));
-  }
+
   if (!list->length()) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kAuto));
   }
@@ -2911,7 +2922,9 @@ CSSValue* ComputedStyleUtils::ValueForAnimationNameList(
     const ComputedStyle& style) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
   if (animation_data) {
-    for (AtomicString name : animation_data->NameList()) {
+    for (const auto& scoped_name : animation_data->NameList()) {
+      AtomicString name = scoped_name ? scoped_name->GetName()
+                                      : CSSAnimationData::InitialNameString();
       list->Append(*ValueForAnimationName(name));
     }
   } else {
@@ -4174,6 +4187,15 @@ CSSValueList* ComputedStyleUtils::ValuesForGapDecorationRuleInsetShorthand(
     return nullptr;
   }
 
+  if (AllCSSValuesEqual(
+          {rule_edge_start_inset_value, rule_edge_end_inset_value,
+           rule_interior_start_inset_value,
+           rule_interior_end_inset_value})) {
+    CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+    list->Append(*rule_edge_start_inset_value);
+    return list;
+  }
+
   CSSValueList* edge_values_list = CSSValueList::CreateSpaceSeparated();
   CSSValueList* interior_values_list = CSSValueList::CreateSpaceSeparated();
   CSSValueList* full_list = CSSValueList::CreateSlashSeparated();
@@ -4538,6 +4560,12 @@ const CSSValue* ComputedStyleUtils::ValuesForBidirectionalGapRuleInsetShorthand(
       !base::ValuesEquivalent(column_rule_interior_end,
                               row_rule_interior_end)) {
     return nullptr;
+  }
+
+  if (AllCSSValuesEqual(
+          {column_rule_edge_start, column_rule_edge_end,
+           column_rule_interior_start, column_rule_interior_end})) {
+    return column_rule_edge_start;
   }
 
   CSSValueList* edge_values = CSSValueList::CreateSpaceSeparated();

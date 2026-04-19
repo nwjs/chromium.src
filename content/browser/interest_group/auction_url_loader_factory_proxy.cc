@@ -38,7 +38,9 @@
 #include "net/cookies/site_for_cookies.h"
 #include "net/http/http_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/data_element.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/mojom/cookie_manager.mojom-shared.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "third_party/blink/public/common/features.h"
@@ -179,6 +181,26 @@ void AuctionURLLoaderFactoryProxy::CreateLoaderAndStart(
     }
   }
 
+  if (url_request.method != net::HttpRequestHeaders::kGetMethod) {
+    // If the request is not a GET and not a trusted signals POST, disallow the
+    // request.
+    if (url_request.method != net::HttpRequestHeaders::kPostMethod ||
+        !is_trusted_signals_request) {
+      is_request_allowed = false;
+    } else {
+      // For trusted signals POSTs only allow request bodies that contain a
+      // single byte element, since that's all the auction worklet code should
+      // produce. The most important thing here is to disallow attempts to
+      // upload files.
+      if (url_request.request_body &&
+          (url_request.request_body->elements()->size() != 1u ||
+           url_request.request_body->elements()->front().type() !=
+               network::DataElement::Tag::kBytes)) {
+        is_request_allowed = false;
+      }
+    }
+  }
+
   if (!is_request_allowed) {
     // Debugging for https://crbug.com/1448458
     SCOPED_CRASH_KEY_STRING32("fledge", "req-accept", accept_header);
@@ -218,6 +240,7 @@ void AuctionURLLoaderFactoryProxy::CreateLoaderAndStart(
 
   if (url_request.method == net::HttpRequestHeaders::kPostMethod) {
     new_request.method = std::move(url_request.method);
+    // Note that GET request bodies are ignored.
     new_request.request_body = std::move(url_request.request_body);
     std::optional<std::string> content_type =
         url_request.headers.GetHeader(net::HttpRequestHeaders::kContentType);
@@ -303,6 +326,8 @@ void AuctionURLLoaderFactoryProxy::CreateLoaderAndStart(
       }
       new_request.trusted_params->client_security_state =
           client_security_state_.Clone();
+      new_request.trusted_params->is_ad_auction_trusted_signals_request =
+          is_trusted_signals_request;
     }
   } else if (needs_cors_for_additional_bid_) {
     // For additional bid reporting, act like the frame provided it as well.
@@ -318,6 +343,8 @@ void AuctionURLLoaderFactoryProxy::CreateLoaderAndStart(
     new_request.trusted_params->isolation_info = isolation_info_;
     new_request.trusted_params->client_security_state =
         client_security_state_.Clone();
+    new_request.trusted_params->is_ad_auction_trusted_signals_request =
+        is_trusted_signals_request;
   }
 
   if (owner_frame_tree_node_id_) {

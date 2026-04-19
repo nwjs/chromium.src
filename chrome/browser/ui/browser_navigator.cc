@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/tab_helpers.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -54,6 +55,10 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_url_handler.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
@@ -142,13 +147,13 @@ Browser* GetOrCreateBrowser(Profile* profile, const NavigateParams& params) {
 }
 
 Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture) {
-  Browser* browser = chrome::FindTabbedBrowser(profile, false);
+  BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile, false);
 
   if (!browser && Browser::GetCreationStatusForProfile(profile) ==
                       Browser::CreationStatus::kOk) {
     browser = Browser::Create(Browser::CreateParams(profile, user_gesture));
   }
-  return browser;
+  return browser ? browser->GetBrowserForMigrationOnly() : nullptr;
 }
 
 bool IncognitoModeForced(const Profile* profile) {
@@ -253,6 +258,7 @@ std::tuple<BrowserWindowInterface*, int> GetBrowserAndTabForDisposition(
       [[fallthrough]];
     case WindowOpenDisposition::NEW_FOREGROUND_TAB:
     case WindowOpenDisposition::NEW_BACKGROUND_TAB:
+    case WindowOpenDisposition::NEW_SPLIT_VIEW:
       // See if we can open the tab in the window this navigator is bound to.
       if (WindowCanOpenTabs(params)) {
         return {params.browser, -1};
@@ -405,6 +411,12 @@ void NormalizeDisposition(NavigateParams* params) {
     case WindowOpenDisposition::NEW_FOREGROUND_TAB:
     case WindowOpenDisposition::SINGLETON_TAB:
       params->tabstrip_add_types |= AddTabTypes::ADD_ACTIVE;
+      break;
+
+    case WindowOpenDisposition::NEW_SPLIT_VIEW:
+      // AddToNewSplit() pairs the new tab with the active tab, so the new
+      // tab must not be active at insertion time.
+      params->tabstrip_add_types &= ~AddTabTypes::ADD_ACTIVE;
       break;
 
     default:
@@ -562,6 +574,7 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
 base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
   TRACE_EVENT1("navigation", "chrome::Navigate", "disposition",
                params->disposition);
+  CHECK(params);
   Browser* source_browser =
       params->browser ? params->browser->GetBrowserForMigrationOnly() : nullptr;
   if (source_browser) {
@@ -933,6 +946,27 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
     params->browser->GetBrowserForMigrationOnly()->tab_strip_model()->AddTab(
         std::move(tab_to_insert), params->tabstrip_index, params->transition,
         params->tabstrip_add_types, params->group);
+
+    // For NEW_SPLIT_VIEW, pair the new tab with the active tab. The
+    // "already split" case is handled in Browser::OpenURLFromTab().
+    if (params->disposition == WindowOpenDisposition::NEW_SPLIT_VIEW &&
+        contents_to_navigate_or_insert) {
+      TabStripModel* const tab_strip_model =
+          params->browser->GetBrowserForMigrationOnly()->tab_strip_model();
+      const int new_tab_index = tab_strip_model->GetIndexOfWebContents(
+          contents_to_navigate_or_insert);
+      tabs::TabInterface* const source_tab =
+          params->source_contents ? tabs::TabInterface::MaybeGetFromContents(
+                                        params->source_contents)
+                                  : nullptr;
+      if (new_tab_index != TabStripModel::kNoTab &&
+          (!source_tab || !source_tab->IsSplit())) {
+        tab_strip_model->AddToNewSplit(
+            {new_tab_index}, split_tabs::SplitTabVisualData(),
+            split_tabs::SplitTabCreatedSource::kLinkClick);
+        tab_strip_model->ActivateTabAt(new_tab_index);
+      }
+    }
   }
 
   if (singleton_index >= 0) {
@@ -1006,6 +1040,7 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
 void Navigate(NavigateParams* params,
               base::OnceCallback<void(base::WeakPtr<content::NavigationHandle>)>
                   callback) {
+  CHECK(params);
   base::WeakPtr<content::NavigationHandle> handle = Navigate(params);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), handle));

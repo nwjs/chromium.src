@@ -6,18 +6,20 @@ import {ComposeboxElement, ComposeboxProxyImpl} from 'chrome://new-tab-page/lazy
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import type {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
-import {ContextUploadStatus, InputType, ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {ContextUploadStatus, InputType} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {installMock} from '../test_support.js';
+
+export {MockInputState};
 
 export const FAKE_TOKEN_STRING = '00000000000000001234567890ABCDEF';
 export const FAKE_TOKEN_STRING_2 = '00000000000000001234567890ABCDEE';
@@ -60,49 +62,6 @@ export interface ComposeboxTestElement {
   metrics: MetricsTracker;
 }
 
-export const mockInputState: InputState = {
-  hintText: '',  // Will be set in setup
-  toolConfigs: [
-    {
-      tool: ComposeboxToolMode.kDeepSearch,
-      hintText: 'Research anything',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-    {
-      tool: ComposeboxToolMode.kImageGen,
-      hintText: 'Describe your image',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-    {
-      tool: ComposeboxToolMode.kCanvas,
-      hintText: 'Create anything',
-      menuLabel: '',
-      chipLabel: '',
-      disableActiveModelSelection: false,
-      aimUrlParams: [],
-    },
-  ],
-  modelConfigs: [],
-  allowedModels: [],
-  allowedTools: [],
-  allowedInputTypes: [],
-  activeModel: 0,
-  activeTool: 0,
-  disabledModels: [],
-  disabledTools: [],
-  disabledInputTypes: [],
-  inputTypeConfigs: [],
-  toolsSectionConfig: null,
-  modelSectionConfig: null,
-  maxInputsByType: {},
-  maxTotalInputs: 0,
-};
 
 export function setupComposeboxTest(): ComposeboxTestElement {
   // We can't return the variables initialized in setup() directly because
@@ -129,24 +88,11 @@ export function setupComposeboxTest(): ComposeboxTestElement {
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
     searchboxHandler.setPromiseResolveFor('getRecentTabs', {tabs: []});
     searchboxHandler.setPromiseResolveFor('getInputState', {
-      state: {
-        allowedModels: [],
-        allowedTools: [],
-        allowedInputTypes: [],
-        activeModel: 0,
-        activeTool: 0,
-        disabledModels: [],
-        disabledTools: [],
-        disabledInputTypes: [],
-        inputTypeConfigs: [],
+      state: new MockInputState({
         toolConfigs: [],
-        modelConfigs: [],
-        toolsSectionConfig: null,
-        modelSectionConfig: null,
-        hintText: '',
-        maxInputsByType: {},
-        maxTotalInputs: 0,
-      },
+        toolsSectionConfig: {header: ''},
+        modelSectionConfig: {header: ''},
+      }),
     });
     const searchboxCallbackRouterRemote =
         ComposeboxProxyImpl.getInstance()
@@ -162,8 +108,11 @@ export function setupComposeboxTest(): ComposeboxTestElement {
   return testProxy;
 }
 
-export function createComposeboxElement(testProxy: ComposeboxTestElement) {
+export function createComposeboxElement(
+    testProxy: ComposeboxTestElement,
+    properties: Partial<ComposeboxElement> = {}) {
   testProxy.element = new ComposeboxElement();
+  Object.assign(testProxy.element, properties);
   document.body.appendChild(testProxy.element);
 }
 
@@ -294,8 +243,19 @@ export async function addTab(testProxy: ComposeboxTestElement): Promise<string> 
 
 export function getSubmitContainer(testProxy: ComposeboxTestElement):
     HTMLElement {
-  const container = testProxy.element.shadowRoot.querySelector<HTMLElement>(
-      '#submitContainer');
+  const button = testProxy.element.shadowRoot.querySelector(
+      'cr-composebox-submit');
+  assertTrue(!!button);
+  const container = button.shadowRoot.querySelector<HTMLElement>('#submitContainer');
   assertTrue(!!container);
   return container;
+}
+
+export function getSubmitIcon(testProxy: ComposeboxTestElement): HTMLElement {
+  const button = testProxy.element.shadowRoot.querySelector(
+      'cr-composebox-submit');
+  assertTrue(!!button);
+  const submitIcon = button.shadowRoot.querySelector<HTMLElement>('#submitIcon');
+  assertTrue(!!submitIcon);
+  return submitIcon;
 }

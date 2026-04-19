@@ -11,6 +11,9 @@ import android.view.View;
 import androidx.browser.customtabs.CustomTabsIntent;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.autofill.AutofillSheetUiController;
+import org.chromium.chrome.browser.autofill.AutofillSheetUiControllerFactory;
+import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinator;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.components.autofill.payments.AutofillSaveCardUiInfo;
@@ -55,6 +58,8 @@ public class AutofillSaveCardBottomSheetCoordinator {
      * @param skipLoadingForFixFlow When true, loading is skipped due to the fix flow.
      * @param bottomSheetController The bottom sheet controller where this bottom sheet will be
      *     shown.
+     * @param anchoredDialogCoordinator The anchored dialog coordinator where this bottom sheet will
+     *     be shown.
      * @param layoutStateProvider The LayoutStateProvider used to detect when the bottom sheet needs
      *     to be hidden after a change of layout (e.g. to the tab switcher).
      * @param tabModel The TabModel used to detect when the bottom sheet needs to be hidden after a
@@ -66,6 +71,7 @@ public class AutofillSaveCardBottomSheetCoordinator {
             AutofillSaveCardUiInfo uiInfo,
             boolean skipLoadingForFixFlow,
             BottomSheetController bottomSheetController,
+            AnchoredDialogCoordinator anchoredDialogCoordinator,
             LayoutStateProvider layoutStateProvider,
             TabModel tabModel,
             NativeDelegate delegate) {
@@ -110,17 +116,26 @@ public class AutofillSaveCardBottomSheetCoordinator {
                         .with(
                                 AutofillSaveCardBottomSheetProperties.LOADING_DESCRIPTION,
                                 uiInfo.getLoadingDescription())
+                        .with(
+                                AutofillSaveCardBottomSheetProperties.GOOGLE_PAY_PILL_LOGO,
+                                uiInfo.isForUpload() && uiInfo.isChromeBrandingEnabled()
+                                        ? uiInfo.getGooglePayPillLogoId()
+                                        : 0)
                         .build();
         PropertyModelChangeProcessor.create(
                 mModel, mView, AutofillSaveCardBottomSheetViewBinder::bind);
+
+        AutofillSheetUiController uiController =
+                AutofillSheetUiControllerFactory.createUiController(
+                        mContext, bottomSheetController, anchoredDialogCoordinator);
 
         mMediator =
                 new AutofillSaveCardBottomSheetMediator(
                         new AutofillSaveCardBottomSheetContent(
                                 mView.mContentView, mView.mScrollView),
                         new AutofillSaveCardBottomSheetLifecycle(
-                                bottomSheetController, layoutStateProvider, tabModel),
-                        bottomSheetController,
+                                uiController, layoutStateProvider, tabModel),
+                        uiController,
                         mModel,
                         delegate,
                         uiInfo.isForUpload(),

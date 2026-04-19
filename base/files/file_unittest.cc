@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/files/scoped_temp_dir.h"
@@ -453,6 +454,49 @@ TEST(FileTest, Append) {
   }
 }
 
+// Test whether `FLAG_APPEND` really works - i.e. that Chromium's
+// platform-specific code correctly uses the APIs provided by the OS for locking
+// down the capabilities of a file handle.
+TEST(FileTest, AppendEffectiveness) {
+  ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  FilePath file_path = temp_dir.GetPath().AppendASCII("append_file_cant_seek");
+  File file(file_path, File::FLAG_CREATE | File::FLAG_APPEND);
+  ASSERT_TRUE(file.IsValid());
+
+  // Write "test" to the file.
+  const std::string_view kTestData = "test";
+  std::optional<size_t> bytes_written = file.Write(0, as_byte_span(kTestData));
+  EXPECT_TRUE(bytes_written.has_value());
+  EXPECT_EQ(kTestData.size(), bytes_written.value());
+
+  // Attempt to `Seek` should fail because of `FLAG_APPEND` used above.
+  //
+  // We ignore the returned value because it is irrelevant - the real
+  // verification is whether the seek actually happened which is
+  // verified via `ReadFileToString` below.
+  std::ignore = file.Seek(File::FROM_BEGIN, /*offset=*/0);
+
+  // Write "foo" to the file.
+  const std::string_view kFooData = "foo";
+  bytes_written = file.WriteAtCurrentPos(as_byte_span(kFooData));
+  EXPECT_TRUE(bytes_written.has_value());
+  EXPECT_EQ(kFooData.size(), bytes_written.value());
+
+  // Try to write "bar" at offset 0.  We expect that the offset is ignored
+  // (explicitly in `file_posix.cc`, implicitly/by-the-OS in `file_win.cc`).
+  const std::string_view kBarData = "bar";
+  bytes_written = file.Write(/*offset=*/0, as_byte_span(kBarData));
+  EXPECT_TRUE(bytes_written.has_value());
+  EXPECT_EQ(kBarData.size(), bytes_written.value());
+
+  // Close the file and re-read the contents to verify that happened above.
+  file.Close();
+  std::string actual_contents;
+  EXPECT_TRUE(ReadFileToString(file_path, &actual_contents));
+  EXPECT_EQ("testfoobar", actual_contents);
+}
+
 TEST(FileTest, Length) {
   ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -636,29 +680,6 @@ TEST(FileTest, ReadAtCurrentPositionSpans) {
   }
 }
 
-TEST(FileTest, WriteAtCurrentPosition) {
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  FilePath file_path =
-      temp_dir.GetPath().AppendASCII("write_at_current_position");
-  File file(file_path, File::FLAG_CREATE | File::FLAG_READ | File::FLAG_WRITE);
-  EXPECT_TRUE(file.IsValid());
-
-  const char kData[] = "test";
-  const int kDataSize = sizeof(kData) - 1;
-
-  int first_chunk_size = kDataSize / 2;
-  EXPECT_EQ(first_chunk_size,
-            UNSAFE_TODO(file.WriteAtCurrentPos(kData, first_chunk_size)));
-  EXPECT_EQ(kDataSize - first_chunk_size,
-            UNSAFE_TODO(file.WriteAtCurrentPos(kData + first_chunk_size,
-                                               kDataSize - first_chunk_size)));
-
-  std::array<char, kDataSize> buffer;
-  EXPECT_EQ(kDataSize, file.Read(0, as_writable_byte_span(buffer)));
-  EXPECT_EQ(std::string(base::as_string_view(buffer)), std::string(kData));
-}
-
 TEST(FileTest, WriteAtCurrentPositionSpans) {
   ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -717,7 +738,7 @@ TEST(FileTest, Duplicate) {
 
   ASSERT_EQ(0, file.Seek(File::FROM_CURRENT, 0));
   ASSERT_EQ(0, file2.Seek(File::FROM_CURRENT, 0));
-  ASSERT_EQ(kDataLen, UNSAFE_TODO(file.WriteAtCurrentPos(kData, kDataLen)));
+  ASSERT_EQ(kDataLen, file.WriteAtCurrentPos(byte_span_from_cstring(kData)));
   ASSERT_EQ(kDataLen, file.Seek(File::FROM_CURRENT, 0));
   ASSERT_EQ(kDataLen, file2.Seek(File::FROM_CURRENT, 0));
   file.Close();
@@ -961,7 +982,7 @@ TEST(FileTest, NoDeleteOnCloseWithMappedFile) {
   File file(file_path, (File::FLAG_CREATE | File::FLAG_READ | File::FLAG_WRITE |
                         File::FLAG_CAN_DELETE_ON_CLOSE));
   ASSERT_TRUE(file.IsValid());
-  ASSERT_EQ(5, UNSAFE_TODO(file.WriteAtCurrentPos("12345", 5)));
+  ASSERT_EQ(5, file.WriteAtCurrentPos(byte_span_from_cstring("12345")));
 
   {
     MemoryMappedFile mapping;
@@ -985,7 +1006,8 @@ TEST(FileTest, UseSyncApiWithAsyncFile) {
   File lying_file(file.TakePlatformFile(), false /* async */);
   ASSERT_TRUE(lying_file.IsValid());
 
-  ASSERT_EQ(UNSAFE_TODO(lying_file.WriteAtCurrentPos("12345", 5)), -1);
+  ASSERT_EQ(lying_file.WriteAtCurrentPos(byte_span_from_cstring("12345")),
+            std::nullopt);
 }
 
 TEST(FileDeathTest, InvalidFlags) {

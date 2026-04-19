@@ -91,21 +91,20 @@ import {navigateTo} from './test_util.js';
           app.$.tabsContent.selectedItem);
     });
 
-    test('routing to /grouped may update sidebar menu item', function() {
+    test('routing to /grouped may update sidebar menu item', async function() {
       assertEquals('chrome://history/', sidebar.$.history.href);
       assertEquals('history', sidebar.$.history.getAttribute('path'));
 
       navigateTo('/grouped', app);
-      return microtasksFinished().then(function() {
-        // Currently selected history view is preserved in sidebar menu item.
-        assertEquals(
-            isHistoryClustersEnabled ? 'chrome://history/grouped' :
-                                       'chrome://history/',
-            sidebar.$.history.href);
-        assertEquals(
-            isHistoryClustersEnabled ? 'grouped' : 'history',
-            sidebar.$.history.getAttribute('path'));
-      });
+      await microtasksFinished();
+      // Currently selected history view is preserved in sidebar menu item.
+      assertEquals(
+          isHistoryClustersEnabled ? 'chrome://history/grouped' :
+                                     'chrome://history/',
+          sidebar.$.history.href);
+      assertEquals(
+          isHistoryClustersEnabled ? 'grouped' : 'history',
+          sidebar.$.history.getAttribute('path'));
     });
 
     test('route updates from tabs and sidebar menu items', async function() {
@@ -399,6 +398,6 @@ suite(`routing-test-with-history-embeddings-enabled`, () => {
 
     navigateTo('/?q=test', app);
     await microtasksFinished();
-    assertEquals(null, filterChips.timeRangeStart);
+    assertEquals(undefined, filterChips.timeRangeStart);
   });
 });

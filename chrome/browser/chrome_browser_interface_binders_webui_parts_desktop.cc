@@ -27,13 +27,17 @@
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast.mojom.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast_ui.h"
+#include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog.mojom.h"
+#include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog_untrusted_ui.h"
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals.mojom.h"
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_ml_internals/autofill_ml_internals_ui.h"
 #include "chrome/browser/ui/webui/color_pipeline_internals/color_pipeline_internals_ui.h"
 #include "chrome/browser/ui/webui/commerce/shopping_insights_side_panel_ui.h"
+#include "chrome/browser/ui/webui/content_annotator_internals/content_annotator_internals_ui.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons.mojom.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing.mojom.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_ui.h"
@@ -78,6 +82,7 @@
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
+#include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h"
 #include "chrome/browser/ui/webui/suggest_internals/suggest_internals.mojom.h"
 #include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
@@ -91,6 +96,7 @@
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 #include "chrome/common/chrome_features.h"
+#include "components/accessibility_annotator/core/logging/accessibility_annotator_internals.mojom.h"
 #include "components/autofill/core/browser/ml_model/logging/autofill_ml_internals.mojom.h"
 #include "components/browser_apis/browser_controls/browser_controls_api.mojom.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api.mojom.h"
@@ -124,6 +130,7 @@
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 #include "ui/webui/resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom.h"
 #include "ui/webui/resources/cr_components/help_bubble/custom_help_bubble.mojom.h"
+#include "ui/webui/resources/cr_components/history/foreign_sessions.mojom.h"
 #include "ui/webui/resources/cr_components/history/history.mojom.h"
 #include "ui/webui/resources/cr_components/history_clusters/history_clusters.mojom.h"
 #include "ui/webui/resources/cr_components/history_embeddings/history_embeddings.mojom.h"
@@ -244,7 +251,6 @@ void BindColorChangeListener(
 void PopulateChromeWebUIFrameBindersPartsDesktop(
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
     content::RenderFrameHost* render_frame_host) {
-
   RegisterWebUIControllerInterfaceBinder<
       search_engine_choice::mojom::PageHandlerFactory, SearchEngineChoiceUI>(
       map);
@@ -294,6 +300,14 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
   } else {
     RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
                                            HistoryUI>(map);
+  }
+  if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported()) {
+    RegisterWebUIControllerInterfaceBinder<
+        history::mojom::ForeignSessionPageHandler, HistoryUI,
+        TabsFromOtherDevicesSidePanelUI>(map);
+  } else {
+    RegisterWebUIControllerInterfaceBinder<
+        history::mojom::ForeignSessionPageHandler, HistoryUI>(map);
   }
 
   RegisterWebUIControllerInterfaceBinder<
@@ -490,6 +504,10 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
       UserEducationInternalsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
+      accessibility_annotator_internals::mojom::PageHandlerFactory,
+      content_annotator_internals::ContentAnnotatorInternalsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
       ::mojom::app_service_internals::AppServiceInternalsPageHandler,
       AppServiceInternalsUI>(map);
 
@@ -554,9 +572,11 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
 
   if (is_contextual_tasks_enabled) {
     RegisterWebUIControllerInterfaceBinder<
-        contextual_tasks::mojom::PageHandlerFactory, ContextualTasksUI>(map);
-    RegisterWebUIControllerInterfaceBinder<
         omnibox::logging::mojom::PageHandlerFactory, OmniboxUI>(map);
+    RegisterWebUIControllerInterfaceBinder<
+        contextual_tasks_internals::mojom::
+            ContextualTasksInternalsPageHandlerFactory,
+        ContextualTasksUI>(map);
   }
 
   // Registering bindings for all WebUIControllers, even if only one of the
@@ -581,8 +601,7 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
       on_device_translation_internals::mojom::PageHandlerFactory,
       OnDeviceTranslationInternalsUI>(map);
 
-  if (base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
+  if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     RegisterWebUIControllerInterfaceBinder<
         history_sync_optin::mojom::PageHandlerFactory, HistorySyncOptinUI>(map);
   }
@@ -594,13 +613,6 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
     RegisterWebUIControllerInterfaceBinder<
         private_ai_internals::mojom::PrivateAiInternalsPageHandler,
         private_ai::PrivateAiInternalsUI>(map);
-  }
-
-  if (is_contextual_tasks_enabled) {
-    RegisterWebUIControllerInterfaceBinder<
-        contextual_tasks_internals::mojom::
-            ContextualTasksInternalsPageHandlerFactory,
-        ContextualTasksUI>(map);
   }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -722,6 +734,11 @@ void PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsDesktop(
   if (base::FeatureList::IsEnabled(features::kGlicRegionSelectionNew)) {
     registry.ForWebUI<glic::SelectionOverlayUntrustedUI>()
         .Add<glic::selection::SelectionOverlayPageHandlerFactory>();
+  }
+
+  if (base::FeatureList::IsEnabled(features::kAiOverlayDialog)) {
+    registry.ForWebUI<ttc::AiOverlayDialogUntrustedUI>()
+        .Add<ai_overlay_dialog::mojom::PageHandlerFactory>();
   }
 }
 

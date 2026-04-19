@@ -28,10 +28,9 @@
 #include "chrome/browser/ui/tabs/existing_window_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/glic_tab_sub_menu_model.h"
-#include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
-#include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_menu_model.h"
 #include "chrome/browser/ui/tabs/split_tab_swap_menu_model.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
@@ -177,9 +176,6 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
                                        kTabMenuIconSize));
     SetElementIdentifierAt(GetItemCount() - 1, kArrangeSplitTabsMenuItem);
   }
-  SetIsNewFeatureAt(GetItemCount() - 1,
-                    UserEducationService::MaybeShowNewBadge(
-                        tab_strip->profile(), features::kSideBySide));
 
   if (ExistingTabGroupSubMenuModel::ShouldShowSubmenu(
           tab_strip, index, tab_menu_model_delegate_)) {
@@ -218,15 +214,6 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
     AddItem(TabStripModel::CommandMoveTabsToNewWindow,
             l10n_util::GetPluralStringFUTF16(
                 IDS_TAB_CXMENU_MOVE_TABS_TO_NEW_WINDOW, num_tabs));
-  }
-
-  if (TabOrganizationUtils::GetInstance()->IsEnabled(tab_strip->profile())) {
-    auto* const tab_organization_service =
-        TabOrganizationServiceFactory::GetForProfile(tab_strip->profile());
-    if (tab_organization_service) {
-      AddItemWithStringId(TabStripModel::CommandOrganizeTabs,
-                          IDS_TAB_CXMENU_ORGANIZE_TABS);
-    }
   }
 
   AddSeparator(ui::NORMAL_SEPARATOR);
@@ -297,24 +284,7 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
 #endif
   }
 
-  AddSeparator(ui::NORMAL_SEPARATOR);
-  AddItemWithStringId(TabStripModel::CommandCloseTab, IDS_TAB_CXMENU_CLOSETAB);
-  AddItemWithStringId(TabStripModel::CommandCloseOtherTabs,
-                      IDS_TAB_CXMENU_CLOSEOTHERTABS);
-
-  if (showing_vertical_tabs) {
-    AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
-                        IDS_TAB_CXMENU_CLOSETABSBELOW);
-  } else {
-    AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
-                        base::i18n::IsRTL() ? IDS_TAB_CXMENU_CLOSETABSTOLEFT
-                                            : IDS_TAB_CXMENU_CLOSETABSTORIGHT);
-  }
-  SetEnabledAt(GetItemCount() - 1,
-               tab_strip->IsContextMenuCommandEnabled(
-                   index, TabStripModel::CommandCloseTabsToRight));
-
-  if (controller) {
+  if (tabs::kVerticalTabsToggleInTabContextMenu.Get() && controller) {
     // TODO(crbug.com/475222200): When in immersive, swapping between tab
     // strip types create duplicate tab strips. Until that is resolved,
     // disable the ability to swap between tab strips while in immersive.
@@ -339,6 +309,23 @@ void TabMenuModel::Build(TabStripModel* tab_strip, int index) {
       }
     }
   }
+
+  AddSeparator(ui::NORMAL_SEPARATOR);
+  AddItemWithStringId(TabStripModel::CommandCloseTab, IDS_TAB_CXMENU_CLOSETAB);
+  AddItemWithStringId(TabStripModel::CommandCloseOtherTabs,
+                      IDS_TAB_CXMENU_CLOSEOTHERTABS);
+
+  if (showing_vertical_tabs) {
+    AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
+                        IDS_TAB_CXMENU_CLOSETABSBELOW);
+  } else {
+    AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,
+                        base::i18n::IsRTL() ? IDS_TAB_CXMENU_CLOSETABSTOLEFT
+                                            : IDS_TAB_CXMENU_CLOSETABSTORIGHT);
+  }
+  SetEnabledAt(GetItemCount() - 1,
+               tab_strip->IsContextMenuCommandEnabled(
+                   index, TabStripModel::CommandCloseTabsToRight));
 }
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel,

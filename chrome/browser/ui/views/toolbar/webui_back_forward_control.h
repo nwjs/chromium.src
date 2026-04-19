@@ -11,7 +11,7 @@
 #include "components/browser_apis/browser_controls/browser_controls_api_data_model.mojom.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom-forward.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
-#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/menu/menu_runner.h"
 
 namespace views {
@@ -31,7 +31,7 @@ class WebUIBackForwardControl {
   ~WebUIBackForwardControl();
 
   void HandleContextMenu(views::Widget* widget,
-                         gfx::Point screen_location,
+                         const gfx::Rect& screen_rect,
                          ui::mojom::MenuSourceType source);
 
   void SetEnabled(bool enabled);
@@ -39,9 +39,13 @@ class WebUIBackForwardControl {
   bool GetVisible() const;
   void SetLeadingMargin(int margin);
 
-  toolbar_ui_api::mojom::ButtonStatePtr GetButtonState() const;
+  toolbar_ui_api::mojom::BackForwardButtonStatePtr GetButtonState() const;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
+                           CheckBackButtonColor);
+  FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
+                           CheckForwardButtonColor);
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
                            BackForwardButtonsModifierClick);
 

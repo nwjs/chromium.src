@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="uz">
 <translation id="1000436330784933699">Lensʼni shu yerdan ochish mumkin.</translation>
+<translation id="1005291068154454184">Chromiumni birlamchi brauzer sifatida sozlash haqidagi butun ekranli video</translation>
 <translation id="1042296835509784301">Chromiumda Parollar menejerini ochadi.</translation>
 <translation id="1047130070405668746">Chromium brauzerini tanlang</translation>
 <translation id="1091252999271033193">Bunda Chromium har safar saytning mobil versiyasini talab qiladi.</translation>
@@ -69,9 +70,6 @@ Ayrim bukmarklar hisobingizdan oʻchirilmaguncha yangilari saqlanmaydi. Hozir hi
 <translation id="2313870531055795960">URL manzillar Chromium bilgan zararli saytlar roʻyxati orqali tekshiriladi. Agar sayt parolingizni oʻgirlashga urinsa yoki zararli fayl yuklab olsangiz, Chromium ham URL manzillar kabi sahifa elementlarini Saytlarni xavfsiz kezish tizimiga yuborishi mumkin.</translation>
 <translation id="2314220608288760290">Chromium YouTube Inkognito havolalarini Inkognito rejimida avtomatik tarzda ochadi.</translation>
 <translation id="231828342043114302">Qiziqishlar asosida moslangan kontent olish uchun Chromium hisobiga kiring.</translation>
-<translation id="2326738825692478496">Ayrim Chromium maʼlumotlari Google hisobingizga hali saqlanmagan.
-
-Hisobdan chiqishga shoshilmang. Hozir chiqsangiz, bu maʼlumotlar oʻchib ketadi.</translation>
 <translation id="2334943301233020675">Talablarga javob bermagani sababli Parollar menejeriga quyidagi kirish kalitlari import qilinmadi.</translation>
 <translation id="2337722506862731008">Chromiumga ulashish</translation>
 <translation id="2340423701577464731">Saqlangan sahifalar bandini Chromiumga qoʻshish</translation>
@@ -102,7 +100,6 @@ Hisobdan chiqishga shoshilmang. Hozir chiqsangiz, bu maʼlumotlar oʻchib ketadi
 Chromiumni yaxshilashda ishlatiladigan maʼlumotlar qoʻshimcha sozlamalarini <ph name="BEGIN_LINK" />Google xizmatlari<ph name="END_LINK" /> sahifasida ochish mumkin.</translation>
 <translation id="2832168932648876507">Chromiumda ovoz bilan qidirish</translation>
 <translation id="2843571538056574338">Avtomatik kiritish uchun Chromium ishlating</translation>
-<translation id="2899085719655668655">Chromiumni birlamchi brauzer sifatida sozlash boʻyicha tasvir ustida tasvirli video koʻrsatmalar</translation>
 <translation id="2918709798697875261">Tashkilotingiz Chromium hisobidan chiqishingizni talab qilmoqda.</translation>
 <translation id="2942241131342758843">Havolalarni ochish, vidjetlar orqali qidiruv, boshqa ilovalarda parollar avtomatik kitilishda Chromium birlamchi ilova sifatida ishlatilsin</translation>
 <translation id="2977470724722393594">Siz Chromium brauzerining eng oxirgi versiyasidan foydalanyapsiz.</translation>

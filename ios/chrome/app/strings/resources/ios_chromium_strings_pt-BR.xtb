@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-BR">
 <translation id="1000436330784933699">Você pode abrir o Lens aqui.</translation>
+<translation id="1005291068154454184">Vídeo em tela cheia sobre como definir o Chromium como navegador padrão.</translation>
 <translation id="1042296835509784301">Abre o Gerenciador de senhas no Chromium.</translation>
 <translation id="1047130070405668746">Selecione o Chromium</translation>
 <translation id="1091252999271033193">Isso significa que o Chromium vai solicitar sempre o site para dispositivo móvel.</translation>
@@ -68,9 +69,6 @@
 <translation id="2313870531055795960">Confere se os URLs estão em uma lista de sites não seguros armazenada no Chromium. Se um site tentar roubar sua senha ou se você fizer o download de um arquivo nocivo, o Chromium também poderá enviar os URLs, incluindo partes do conteúdo da página, para o Navegação segura.</translation>
 <translation id="2314220608288760290">O Chromium abre automaticamente os links anônimos do YouTube na navegação anônima.</translation>
 <translation id="231828342043114302">Para receber conteúdo personalizado com base nos seus interesses, faça login no Chromium.</translation>
-<translation id="2326738825692478496">Alguns dos seus dados do Chromium ainda não foram salvos na sua Conta do Google.
-
-Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão excluídos.</translation>
 <translation id="2334943301233020675">As chaves de acesso a seguir não foram importadas para o Gerenciador de Senhas porque não atendem aos requisitos.</translation>
 <translation id="2337722506862731008">Compartilhar com o Chromium</translation>
 <translation id="2340423701577464731">Adicionar item da Lista de leitura ao Chromium</translation>
@@ -101,7 +99,6 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 Para conferir mais configurações que usam dados para melhorar sua experiência no Chromium, acesse os <ph name="BEGIN_LINK" />Serviços do Google<ph name="END_LINK" />.</translation>
 <translation id="2832168932648876507">Pesquise com a voz no Chromium.</translation>
 <translation id="2843571538056574338">Usar o preenchimento automático do Chromium</translation>
-<translation id="2899085719655668655">Instruções em vídeo picture-in-picture sobre como definir o Chromium como padrão</translation>
 <translation id="2918709798697875261">Sua organização exige que a conta permaneça desconectada do Chromium.</translation>
 <translation id="2942241131342758843">Use o Chromium como padrão para abrir links, pesquisar em widgets e preencher senhas automaticamente em outros apps</translation>
 <translation id="2977470724722393594">O Chromium está atualizado</translation>

@@ -1946,31 +1946,6 @@ class PortTest(LoggingTestCase):
         self.assertTrue("virtual/v2/test/test.html" in port.tests())
         self.assertTrue("virtual/v3/test/test.html" in port.tests())
 
-    def test_virtual_test_disabled(self):
-        port = self.make_port()
-        fs = port.host.filesystem
-        web_tests_dir = port.web_tests_dir()
-        fs.write_text_file(
-            fs.join(web_tests_dir, 'VirtualTestSuites'), '['
-            '{"prefix": "v1", "platforms": ["Linux"], "bases": ["test"],'
-            ' "args": ["-a"], "disabled": false},'
-            '{"prefix": "v2", "platforms": ["Linux"], "bases": ["test"],'
-            ' "args": ["-b"], "disabled": true},'
-            '{"prefix": "v3", "platforms": ["Linux"], "bases": ["test"],'
-            ' "args": ["-c"]}'
-            ']')
-        fs.write_text_file(fs.join(web_tests_dir, 'test', 'test.html'), '')
-
-        self.assertFalse(
-            port.virtual_test_skipped_due_to_disabled(
-                "virtual/v1/test/test.html"))
-        self.assertTrue(
-            port.virtual_test_skipped_due_to_disabled(
-                "virtual/v2/test/test.html"))
-        self.assertFalse(
-            port.virtual_test_skipped_due_to_disabled(
-                "virtual/v3/test/test.html"))
-
     def test_virtual_exclusive_tests(self):
         port = self.make_port()
         fs = port.host.filesystem
@@ -2208,56 +2183,6 @@ class PortTest(LoggingTestCase):
         self.assertFalse(
             port.skipped_due_to_exclusive_virtual_tests(
                 'virtual/v2/external/wpt/console/b2.any.worker.html'))
-
-    def test_virtual_skip_base_tests(self):
-        port = self.make_port()
-        fs = port.host.filesystem
-        web_tests_dir = port.web_tests_dir()
-        fs.write_text_file(
-            fs.join(web_tests_dir, 'VirtualTestSuites'), '['
-            '{"prefix": "v1", "platforms": ["Linux"], "bases": ["b1", "b2"],'
-            '"args": ["-a"], "expires": "never"},'
-            '{"prefix": "v2", "platforms": ["Linux"], "bases": ["b1"],'
-            '"skip_base_tests": "ALL",'
-            '"args": ["-a"], "expires": "never"}'
-            ']')
-        fs.write_text_file(fs.join(web_tests_dir, 'b1', 'test1.html'), '')
-        fs.write_text_file(fs.join(web_tests_dir, 'b2', 'test2.html'), '')
-
-        self.assertTrue(port.skipped_due_to_skip_base_tests('b1/test.html'))
-        self.assertFalse(
-            port.skipped_due_to_skip_base_tests('virtual/v1/b1/test1.html'))
-        self.assertFalse(port.skipped_due_to_skip_base_tests('b2/test2.html'))
-        self.assertFalse(
-            port.skipped_due_to_skip_base_tests('virtual/v1/b2/test2.html'))
-
-    # test.any.js shows up on the filesystem as one file but it effectively becomes two test files:
-    # test.any.html and test.any.worker.html. We should support skipping test.any.js.
-    def test_virtual_skip_base_tests_with_generated_tests(self):
-        port = self.make_port()
-        fs = port.host.filesystem
-        web_tests_dir = port.web_tests_dir()
-        fs.write_text_file(
-            fs.join(web_tests_dir, 'VirtualTestSuites'), '['
-            '{"prefix": "v", "platforms": ["Linux"], "bases": ["external/wpt/console/test.any.js"],'
-            '"skip_base_tests": "ALL",'
-            '"args": ["-a"], "expires": "never"}'
-            ']')
-        fs.write_text_file(
-            fs.join(web_tests_dir, 'external/wpt/console', 'test.any.js'), '')
-
-        self.assertTrue(
-            port.skipped_due_to_skip_base_tests(
-                'external/wpt/console/test.any.html'))
-        self.assertTrue(
-            port.skipped_due_to_skip_base_tests(
-                'external/wpt/console/test.any.worker.html'))
-        self.assertFalse(
-            port.skipped_due_to_skip_base_tests(
-                'virtual/v/external/wpt/console/test.any.html'))
-        self.assertFalse(
-            port.skipped_due_to_skip_base_tests(
-                'virtual/v/external/wpt/console/test.any.worker.html'))
 
     def test_default_results_directory(self):
         port = self.make_port(

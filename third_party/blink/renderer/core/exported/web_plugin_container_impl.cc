@@ -34,6 +34,7 @@
 #include "build/build_config.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_drag_data.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -188,10 +189,10 @@ void WebPluginContainerImpl::Paint(const PaintInfo& paint_info,
         visual_rect);
   }
 
-  if (element_->GetTrackedElementRect()) {
-    const auto* tracked_element_rect = element_->GetTrackedElementRect();
+  if (element_->GetTrackedElementSubRects()) {
+    const auto* sub_rects = element_->GetTrackedElementSubRects();
     context.GetPaintController().RecordTrackedElementData(
-        *GetLayoutEmbeddedContent(), *tracked_element_rect, visual_rect);
+        *GetLayoutEmbeddedContent(), visual_rect, *sub_rects);
   }
 
   if (layer_) {
@@ -1136,6 +1137,11 @@ void WebPluginContainerImpl::CalculateGeometry(gfx::Rect& window_rect,
     ComputeClipRectsForPlugin(element_, window_rect, clip_rect,
                               unobscured_rect);
   }
+}
+
+mojom::blink::WebFeature WebPluginContainerImpl::SvgFilterPaintedCounter()
+    const {
+  return mojom::blink::WebFeature::kSvgFilterPaintedOnWebPlugin;
 }
 
 }  // namespace blink

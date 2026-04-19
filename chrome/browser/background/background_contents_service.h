@@ -151,6 +151,8 @@ class BackgroundContentsService
   FRIEND_TEST_ALL_PREFIXES(BackgroundContentsServiceTest,
                            BackgroundContentsCreateDestroy);
   FRIEND_TEST_ALL_PREFIXES(BackgroundContentsServiceTest,
+                           RestartForceInstalledExtensionOnCrash);
+  FRIEND_TEST_ALL_PREFIXES(BackgroundContentsServiceTest,
                            TestApplicationIDLinkage);
 
   // Registers for various notifications.

@@ -22,6 +22,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feed.FeedSurfaceScrollDelegate;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.omnibox.status.StatusProperties;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -139,8 +140,12 @@ public class SearchBoxCoordinator {
         mMediator.setSearchBoxHintText(hint);
     }
 
-    public void applyWhiteBackgroundWithShadow(boolean apply) {
-        mMediator.applyWhiteBackgroundWithShadow(apply);
+    public void setSearchEngineIcon(StatusProperties.@Nullable StatusIconResource icon) {
+        mMediator.setSearchEngineIcon(icon);
+    }
+
+    public void applyWhiteBackground(boolean apply) {
+        mMediator.applyWhiteBackground(apply);
     }
 
     /**

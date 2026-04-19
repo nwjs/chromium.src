@@ -861,8 +861,7 @@ OutOfFlowLayoutPart::GetContainingBlockInfo(
           containing_block_fragment->IsHiddenForPaint(),
           LogicalRect(container_offset, content_size),
           std::nullopt,
-          fragmentainer_descendant.containing_block.RelativeOffset(),
-          fragmentainer_descendant.containing_block.Offset()};
+          fragmentainer_descendant.containing_block.RelativeOffset()};
 
       return containing_blocks_map_
           .insert(containing_block, containing_block_info)
@@ -1138,22 +1137,13 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
     // root so that it is relative to the fragmentation context root, instead.
     container_offset += containing_block_offset;
 
-    // If an OOF has an inline containing block, the OOF offset that is written
-    // back to legacy is relative to the containing block of the inline rather
-    // than the inline itself. |containing_block_offset| will be used when
-    // calculating this OOF offset. However, there may be some relative offset
-    // between the containing block and the inline container that should be
-    // included in the final OOF offset that is written back to legacy. Adjust
-    // for that relative offset here.
     containing_blocks_map_.insert(
         block_info.key.Get(),
-        ContainingBlockInfo{
-            inline_writing_direction,
-            /* is_scroll_container */ false,
-            block_info.value->is_hidden_for_paint,
-            LogicalRect(container_offset, inline_cb_size), std::nullopt,
-            total_relative_offset,
-            containing_block_offset - block_info.value->relative_offset});
+        ContainingBlockInfo{inline_writing_direction,
+                            /* is_scroll_container */ false,
+                            block_info.value->is_hidden_for_paint,
+                            LogicalRect(container_offset, inline_cb_size),
+                            std::nullopt, total_relative_offset});
   }
 }
 
@@ -1853,7 +1843,7 @@ AnchorEvaluatorImpl OutOfFlowLayoutPart::CreateAnchorEvaluator(
           container_builder_->GetLayoutObject();
       CHECK(container_object);
       WritingDirectionMode writing_direction =
-          container_object->Style()->GetWritingDirection();
+          container_object->StyleRef().GetWritingDirection();
 
       FragmentBuilder::PropagateChildAnchors(
           fragment, stitched_offset, *container_object, writing_direction,
@@ -2411,9 +2401,9 @@ OutOfFlowLayoutPart::TryCalculateOffset(
     return builder.ToConstraintSpace();
   })();
 
-  const LogicalAlignment alignment = ComputeAlignment(
-      candidate_style, container_info.is_scroll_container,
-      container_writing_direction, candidate_writing_direction);
+  const LogicalAlignment alignment =
+      ComputeAlignment(candidate_style, container_writing_direction,
+                       candidate_writing_direction);
 
   const LogicalOofInsets insets =
       ComputeOutOfFlowInsets(candidate_style, space.AvailableSize(), alignment,
@@ -2947,8 +2937,8 @@ void OutOfFlowLayoutPart::LayoutOOFsInFragmentainer(
   const PhysicalBoxFragment* fragmentainer = &GetChildFragment(index);
   FragmentGeometry fragment_geometry =
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
-  LayoutAlgorithmParams params(node, fragment_geometry, space,
-                               PreviousFragmentainerBreakToken(index));
+  LayoutAlgorithmParams params(node, fragment_geometry, space);
+  params.break_token = PreviousFragmentainerBreakToken(index);
   // This algorithm will be used to add new OOFs. The existing fragment passed
   // is the last fragmentainer created so far.
   SimplifiedOofLayoutAlgorithm algorithm(params, *fragmentainer);

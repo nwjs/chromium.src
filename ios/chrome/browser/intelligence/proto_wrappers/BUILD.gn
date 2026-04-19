@@ -18,12 +18,26 @@ compile_ts("dom_node_ids_ts") {
   sources = [ "resources/dom_node_ids.ts" ]
 }
 
+optimize_ts("dom_node_ids_test_ts") {
+  testonly = true
+  sources = [ "resources/dom_node_ids_test.ts" ]
+  output_name = "dom_node_ids_test"
+  deps = [
+    ":dom_node_ids_ts",
+    "//ios/web/public/js_messaging:gcrweb",
+  ]
+}
+
 compile_ts("annotated_page_content_extraction_ts") {
   sources = [ "resources/annotated_page_content_extraction.ts" ]
+
+  # TODO(crbug.com/491073038): Look into removing the dependency
+  # on autofill components.
   deps = [
     ":common_ts",
     ":dom_node_ids_ts",
     ":page_content_types_ts",
+    "//components/autofill/ios/form_util:fill_js_constants",
     "//ios/web/public/js_messaging:gcrweb",
   ]
 }
@@ -97,14 +111,18 @@ source_set("proto_wrappers") {
   ]
 
   deps = [
+    ":metrics_constants",
     ":page_context_extractor_feature",
     ":page_context_metrics",
     ":utils",
     "//base",
+    "//components/autofill/core/browser",
     "//components/autofill/core/common",
+    "//components/autofill/ios/browser",
     "//components/autofill/ios/browser:util",
     "//components/autofill/ios/form_util:child_frame_registrar",
     "//components/optimization_guide:optimization_guide_buildflags",
+    "//components/optimization_guide/core:features",
     "//components/optimization_guide/core:page_content",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/features",
@@ -176,6 +194,7 @@ source_set("page_context_wrapper_test_utils") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "dom_node_ids_js_unittest.mm",
     "frame_grafter_unittest.mm",
     "page_context_extractor_java_script_feature_unittest.mm",
     "page_context_utils_unittest.mm",
@@ -184,6 +203,7 @@ source_set("unit_tests") {
     "page_context_wrapper_unittest.mm",
   ]
   deps = [
+    ":dom_node_ids_test_ts",
     ":metrics_constants",
     ":page_context_extractor_feature",
     ":page_context_metrics",
@@ -192,7 +212,9 @@ source_set("unit_tests") {
     ":proto_wrappers",
     ":utils",
     "//base/test:test_support",
+    "//components/autofill/core/browser:test_support",
     "//components/autofill/core/common",
+    "//components/autofill/ios/browser:test_support",
     "//components/autofill/ios/browser:util",
     "//components/autofill/ios/common",
     "//components/autofill/ios/form_util:child_frame_registrar",
@@ -211,6 +233,7 @@ source_set("unit_tests") {
     "//ios/web/js_messaging:java_script_feature_manager_header",
     "//ios/web/public/js_messaging",
     "//ios/web/public/test",
+    "//ios/web/public/test:javascript_test",
     "//ios/web/public/test/fakes",
     "//net:test_support",
     "//testing/gtest",

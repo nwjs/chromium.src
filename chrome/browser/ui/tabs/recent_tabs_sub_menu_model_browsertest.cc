@@ -167,11 +167,12 @@ class RecentTabsSubMenuModelTest : public InProcessBrowserTest {
   void DisableSync() { sync_processor_->DisconnectSync(); }
 
   static std::unique_ptr<KeyedService> GetTabRestoreService(
+      os_crypt_async::OSCryptAsync* os_crypt_async,
       content::BrowserContext* browser_context) {
     return std::make_unique<sessions::TabRestoreServiceImpl>(
         base::WrapUnique(new ChromeTabRestoreServiceClient(
             Profile::FromBrowserContext(browser_context))),
-        nullptr, nullptr);
+        nullptr, nullptr, os_crypt_async);
   }
 
   void RegisterRecentTabs(RecentTabsBuilderTestHelper* helper) {
@@ -693,8 +694,7 @@ IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest,
 
 #if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(RecentTabsSubMenuModelTest, OtherDevicesAvailability) {
-  if (!base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
+  if (!syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     GTEST_SKIP();
   }
 

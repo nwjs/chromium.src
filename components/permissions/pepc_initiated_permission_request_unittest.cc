@@ -30,6 +30,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-forward.h"
 #include "url/gurl.h"
 
 namespace permissions {
@@ -160,7 +161,8 @@ class PEPCInitiatedPermissionRequestTest
     permission_request_callback_loop_->Quit();
   }
 
-  void PermissionServiceCallback(blink::mojom::PermissionStatus result) {
+  void PermissionServiceCallback(
+      blink::mojom::PermissionStatusWithDetailsPtr result) {
     permission_request_callback_loop_->Quit();
   }
 
@@ -199,7 +201,6 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestWhenSettingAllowed) {
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_CAMERA)
           .front()
           .Clone(),
-      /* user_gesture= */ true,
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallback,
           base::Unretained(this)));
@@ -242,7 +243,6 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestWhenSettingBlocked) {
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_MIC)
           .front()
           .Clone(),
-      /* user_gesture= */ true,
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallback,
           base::Unretained(this)));

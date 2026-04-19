@@ -236,7 +236,7 @@ size_t g_live_node_count_ = 0;
 // tool holding references).
 size_t g_ghost_node_count_ = 0;
 
-typedef absl::flat_hash_set<AXPlatformNodeWin*> AXPlatformNodeWinSet;
+using AXPlatformNodeWinSet = absl::flat_hash_set<AXPlatformNodeWin*>;
 // Set of all AXPlatformNodeWin objects that were the target of an
 // alert event.
 AXPlatformNodeWinSet& GetAlertTargets() {
@@ -756,16 +756,24 @@ void AXPlatformNodeWin::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
   if (AXPlatform::GetInstance().IsUiaProviderEnabled()) {
     if (std::optional<PROPERTYID> uia_property =
             MojoEventToUIAProperty(event_type);
-        uia_property.has_value() &&
-        HasEventListenerForProperty(*uia_property)) {
-      // For this event, we're not concerned with the old value.
-      base::win::ScopedVariant old_value;
-      ::VariantInit(old_value.Receive());
-      base::win::ScopedVariant new_value;
-      ::VariantInit(new_value.Receive());
-      GetPropertyValueImpl(*uia_property, new_value.Receive());
-      ::UiaRaiseAutomationPropertyChangedEvent(this, *uia_property, old_value,
-                                               new_value);
+        uia_property.has_value()) {
+      // For kValueChanged on range-value nodes (e.g. sliders), fire the
+      // range-specific UIA property to match what BrowserAccessibilityManager
+      // fires for the auto-generated RANGE_VALUE_CHANGED event.
+      if (event_type == ax::mojom::Event::kValueChanged &&
+          GetData().IsRangeValueSupported()) {
+        uia_property = UIA_RangeValueValuePropertyId;
+      }
+      if (HasEventListenerForProperty(*uia_property)) {
+        // For this event, we're not concerned with the old value.
+        base::win::ScopedVariant old_value;
+        ::VariantInit(old_value.Receive());
+        base::win::ScopedVariant new_value;
+        ::VariantInit(new_value.Receive());
+        GetPropertyValueImpl(*uia_property, new_value.Receive());
+        ::UiaRaiseAutomationPropertyChangedEvent(this, *uia_property,
+                                                 old_value, new_value);
+      }
     }
 
     if (std::optional<EVENTID> uia_event = MojoEventToUIAEvent(event_type);
@@ -803,8 +811,19 @@ void AXPlatformNodeWin::OnActiveComposition(
 void AXPlatformNodeWin::FireUiaTextEditTextChangedEvent(
     const std::wstring& active_composition_text,
     bool is_composition_committed) {
+  // When a composition is committed, the standard text change events
+  // (VALUE_IN_TEXT_FIELD_CHANGED / EDITABLE_TEXT_CHANGED) will fire
+  // separately and report the same change via UIA_Text_TextChangedEventId.
+  // Firing both causes Narrator to announce the text twice — the same
+  // class of duplicate that text_changed_nodes_ deduplicates for
+  // same-type events, but across event types.
+  // See https://crbug.com/493951242.
+  if (is_composition_committed) {
+    return;
+  }
+
   if (!AXPlatform::GetInstance().IsUiaProviderEnabled() ||
-      !HasEventListenerForEvent(UIA_Text_TextChangedEventId)) {
+      !HasEventListenerForEvent(UIA_TextEdit_TextChangedEventId)) {
     return;
   }
 
@@ -4274,7 +4293,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_columnHeaderCells(
     }
   }
 
-  *n_column_header_cells = static_cast<LONG>(column_header_ids.size());
+  *n_column_header_cells = static_cast<LONG>(index);
   return S_OK;
 }
 
@@ -4330,7 +4349,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_rowHeaderCells(
     }
   }
 
-  *n_row_header_cells = static_cast<LONG>(row_header_ids.size());
+  *n_row_header_cells = static_cast<LONG>(index);
   return S_OK;
 }
 
@@ -8094,6 +8113,10 @@ std::optional<DWORD> AXPlatformNodeWin::MojoEventToMSAAEvent(
     case ax::mojom::Event::kSelectionRemove:
       return EVENT_OBJECT_SELECTIONREMOVE;
     case ax::mojom::Event::kTextChanged:
+      // TODO(crbug.com/40672441): This mapping is incorrect for text fields
+      // where kTextChanged fires on value changes — the accessible name
+      // doesn't change, only the value does. Fixed with ViewsAX enabled,
+      // where the BAM path fires the correct events instead.
       return EVENT_OBJECT_NAMECHANGE;
     case ax::mojom::Event::kTextSelectionChanged:
       return IA2_EVENT_TEXT_CARET_MOVED;
@@ -8368,7 +8391,7 @@ HRESULT AXPlatformNodeWin::AllocateComArrayFromVector(
   DCHECK(selected);
   DCHECK(n_selected);
 
-  auto count = std::min((LONG)results.size(), max);
+  auto count = std::min(static_cast<LONG>(results.size()), max);
   *n_selected = count;
   *selected = static_cast<LONG*>(::CoTaskMemAlloc(sizeof(LONG) * count));
 

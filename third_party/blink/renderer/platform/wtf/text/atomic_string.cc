@@ -70,7 +70,7 @@ bool AtomicString::ContainsIgnoringAsciiCase(const StringView& value) const {
   return string_.FindIgnoringAsciiCase(value) != npos;
 }
 
-AtomicString AtomicString::FromUTF8(base::span<const uint8_t> bytes) {
+AtomicString AtomicString::FromUtf8(base::span<const uint8_t> bytes) {
   if (!bytes.data()) {
     return g_null_atom;
   }
@@ -80,40 +80,27 @@ AtomicString AtomicString::FromUTF8(base::span<const uint8_t> bytes) {
   return AtomicString(AtomicStringTable::Instance().AddUTF8(bytes));
 }
 
-AtomicString AtomicString::FromUTF8(const char* chars) {
-  if (!chars)
-    return g_null_atom;
-  if (!*chars)
-    return g_empty_atom;
-  return AtomicString(AtomicStringTable::Instance().AddUTF8(
-      base::as_byte_span(std::string_view(chars))));
-}
-
-AtomicString AtomicString::FromUTF8(std::string_view utf8_string) {
-  return FromUTF8(base::as_byte_span(utf8_string));
-}
-
-AtomicString AtomicString::LowerASCII(AtomicString source) {
+AtomicString AtomicString::ToAsciiLower(AtomicString source) {
   if (source.ContainsNoAsciiUpper()) [[likely]] {
     return source;
   }
   StringImpl* impl = source.Impl();
   // if impl is null, then ContainsNoAsciiUpper() should have returned true.
   DCHECK(impl);
-  String new_impl = impl->LowerASCII();
+  String new_impl = impl->ToAsciiLower();
   return AtomicString(String(std::move(new_impl)));
 }
 
-AtomicString AtomicString::LowerASCII() const {
-  return AtomicString::LowerASCII(*this);
+AtomicString AtomicString::ToAsciiLower() const {
+  return AtomicString::ToAsciiLower(*this);
 }
 
-AtomicString AtomicString::UpperASCII() const {
+AtomicString AtomicString::ToAsciiUpper() const {
   StringImpl* impl = Impl();
   if (!impl) [[unlikely]] {
     return *this;
   }
-  return AtomicString(impl->UpperASCII());
+  return AtomicString(impl->ToAsciiUpper());
 }
 
 AtomicString AtomicString::Number(double number, unsigned precision) {

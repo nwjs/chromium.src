@@ -15,9 +15,11 @@ import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 
 /** Factory for creating {@link HubManager}. */
@@ -33,6 +35,7 @@ public class HubManagerFactory {
      * @param menuOrKeyboardActionController The {@link MenuOrKeyboardActionController} for the
      *     activity.
      * @param snackbarManager The primary {@link SnackbarManager} for the activity.
+     * @param bottomSheetController The primary {@link BottomSheetController} for the activity.
      * @param tabSupplier The supplier of the current tab in the current tab model.
      * @param menuButtonCoordinator Root component for the app menu.
      * @param edgeToEdgeSupplier A supplier to the {@link EdgeToEdgeController}.
@@ -50,6 +53,8 @@ public class HubManagerFactory {
             BackPressManager backPressManager,
             MenuOrKeyboardActionController menuOrKeyboardActionController,
             SnackbarManager snackbarManager,
+            BottomSheetController bottomSheetController,
+            BottomBarHostManager bottomBarHostManager,
             NullableObservableSupplier<Tab> tabSupplier,
             MenuButtonCoordinator menuButtonCoordinator,
             HubShowPaneHelper hubShowPaneHelper,
@@ -64,6 +69,8 @@ public class HubManagerFactory {
                 backPressManager,
                 menuOrKeyboardActionController,
                 snackbarManager,
+                bottomSheetController,
+                bottomBarHostManager,
                 tabSupplier,
                 menuButtonCoordinator,
                 hubShowPaneHelper,

@@ -5,16 +5,21 @@
 #include "device/vr/android/arcore/arcore_impl.h"
 
 #include <algorithm>
+#include <array>
 #include <optional>
 
 #include "base/android/jni_android.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/dcheck_is_on.h"
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/logging.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
 #include "device/vr/android/arcore/arcore_math_utils.h"
@@ -1295,6 +1300,8 @@ std::optional<HitTestSubscriptionId> ArCoreImpl::SubscribeToHitTest(
         return std::nullopt;
       }
       break;
+    case mojom::XRNativeOriginInformation::Tag::kMeshId:
+      return std::nullopt;
   }
 
   auto subscription_id = CreateHitTestSubscriptionId();
@@ -1530,6 +1537,8 @@ bool ArCoreImpl::NativeOriginExists(
       // TODO(crbug.com/40728355): Needed for anchor creation relaitve to
       // tracked images.
       return false;
+    case mojom::XRNativeOriginInformation::Tag::kMeshId:
+      return false;
   }
 }
 
@@ -1579,6 +1588,8 @@ std::optional<gfx::Transform> ArCoreImpl::GetMojoFromNativeOrigin(
     case mojom::XRNativeOriginInformation::Tag::kImageIndex:
       // TODO(crbug.com/40728355): Needed for hit test and anchors
       // support for tracked images.
+      return std::nullopt;
+    case mojom::XRNativeOriginInformation::Tag::kMeshId:
       return std::nullopt;
   }
 }

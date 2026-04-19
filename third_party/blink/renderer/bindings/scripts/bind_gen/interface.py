@@ -592,7 +592,7 @@ def _make_reflect_process_keyword_state(cg_context):
             ["third_party/blink/renderer/core/keywords.h"]))
     nodes = [
         T("// [ReflectOnly]"),
-        T("const AtomicString reflect_value(${return_value}.LowerASCII());"),
+        T("const AtomicString reflect_value(${return_value}.ToAsciiLower());"),
         branches,
     ]
 
@@ -685,7 +685,7 @@ def _make_blink_api_call(code_node,
         arguments.append("${execution_context}")
     if "Document" in values:
         arguments.append(
-            "*bindings::ToDocumentFromExecutionContext(${execution_context})")
+            "bindings::ToDocumentFromExecutionContext(*${execution_context})")
     if "ThisValue" in values:
         arguments.append("ScriptValue(${isolate}, ${v8_receiver})")
 
@@ -2256,7 +2256,7 @@ def make_constructor_function_def(cg_context, function_name):
         text = _format(
             "V8HTMLConstructor::HtmlConstructor("
             "${info}, *${class_name}::GetWrapperTypeInfo(), "
-            "HTMLElementType::{});",
+            "ElementType::{});",
             name_style.constant(cg_context.class_like.identifier))
         body.append(T(text))
         body.accumulate(

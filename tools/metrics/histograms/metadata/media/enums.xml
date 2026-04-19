@@ -242,10 +242,33 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Recovered"/>
 </enum>
 
+<enum name="AutoplayPolicyStatus">
+  <int value="0" label="AllowedByEnterprisePolicy"/>
+  <int value="1" label="AllowedByDelegatedEnterprisePolicy"/>
+  <int value="2" label="AllowedByUserPreference"/>
+  <int value="3" label="BlockedByUserPreference"/>
+  <int value="4" label="AllowedByTWA"/>
+  <int value="5" label="AllowedByMicCameraPermission"/>
+  <int value="6" label="DefaultPolicyApplied"/>
+  <int value="7" label="AllowedByMediaEngagement"/>
+  <int value="8" label="WouldBeAllowedByMediaEngagement"/>
+</enum>
+
 <enum name="AutoplaySource">
   <int value="0" label="autoplay attribute"/>
   <int value="1" label="play() method"/>
   <int value="2" label="dual source"/>
+</enum>
+
+<enum name="AutoplayUserGestureStatus">
+  <int value="0" label="None"/>
+  <int value="1" label="On stack"/>
+  <int value="2" label="On page"/>
+  <int value="3" label="On stack + On page"/>
+  <int value="4" label="Propagated"/>
+  <int value="5" label="On stack + Propagated"/>
+  <int value="6" label="On page + Propagated"/>
+  <int value="7" label="On stack + On page + Propagated"/>
 </enum>
 
 <enum name="AVDAFrameInformation">
@@ -1154,13 +1177,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="kFailedToOpenWindowProcessHandle"/>
   <int value="3" label="kFailedToFindUWPAppCoreWindow"/>
   <int value="4" label="kFailedToGetUWPAppCoreWindowProcessId"/>
-</enum>
-
-<enum name="GetDeviceInfosResult">
-  <int value="0" label="SuccessNoRetry"/>
-  <int value="1" label="FailureNoRetry"/>
-  <int value="2" label="SucessAfterRetry"/>
-  <int value="3" label="FailureAfterRetry"/>
 </enum>
 
 <enum name="GetDisplayMediaAudioToggleStatus">
@@ -2243,6 +2259,32 @@ chromium-metrics-reviews@google.com.
   <int value="2"
       label="Prediction changes from NotSmooth to Smooth after update"/>
   <int value="3" label="Prediction stays at Smooth after update"/>
+</enum>
+
+<enum name="SymphoniaDecodeStatus">
+  <int value="0" label="Ok"/>
+  <int value="1" label="UnexpectedEndOfStream"/>
+  <int value="2" label="InvalidDecoderState"/>
+  <int value="3" label="Error"/>
+  <int value="4" label="DecodeError"/>
+  <int value="5" label="IoError"/>
+  <int value="6" label="ResetRequired"/>
+  <int value="7" label="SeekError"/>
+  <int value="8" label="Unsupported"/>
+  <int value="9" label="InsufficentData"/>
+  <int value="10" label="InvalidDecodedBufferSampleFormat"/>
+</enum>
+
+<enum name="SymphoniaInitStatus">
+  <int value="0" label="Ok"/>
+  <int value="1" label="InvalidConfig"/>
+  <int value="2" label="DecoderError"/>
+  <int value="3" label="UnsupportedCodec"/>
+  <int value="4" label="XiphVorbisUnpackError"/>
+  <int value="5" label="SymphoniaUnsupported"/>
+  <int value="6" label="SymphoniaDecodeError"/>
+  <int value="7" label="SymphoniaIoError"/>
+  <int value="8" label="SymphoniaLimitError"/>
 </enum>
 
 <enum name="SystemMediaCapturePermission">

@@ -62,9 +62,10 @@ enum FeedbackSource {
   kFeedbackSourceBorealis = 43,
   kFeedbackSourceSunfish = 44,
   kFeedbackSourceBocaApp = 45,
-  kFeedbackSourceTrackingProtections = 46,
+  // kFeedbackSourceTrackingProtections = 46, Obsolete
   kFeedbackSourceSplitView = 47,
   kFeedbackSourceVerticalTabs = 48,
+  kFeedbackSourceOnDeviceAI = 49,
 
   // ATTENTION: Before making any changes or adding to feedback collection,
   // please ensure the teams that operationalize feedback are aware and

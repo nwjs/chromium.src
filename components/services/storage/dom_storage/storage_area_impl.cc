@@ -9,6 +9,7 @@
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/single_thread_task_runner.h"
@@ -217,12 +218,12 @@ void StorageAreaImpl::Put(
     const std::vector<uint8_t>& key,
     const std::vector<uint8_t>& value,
     const std::optional<std::vector<uint8_t>>& client_old_value,
-    const std::string& source,
+    blink::mojom::StorageAreaSourcePtr source,
     PutCallback callback) {
   if (!IsMapLoaded() || IsMapUpgradeNeeded()) {
-    LoadMap(base::BindOnce(&StorageAreaImpl::Put,
-                           weak_ptr_factory_.GetWeakPtr(), key, value,
-                           client_old_value, source, std::move(callback)));
+    LoadMap(base::BindOnce(
+        &StorageAreaImpl::Put, weak_ptr_factory_.GetWeakPtr(), key, value,
+        client_old_value, std::move(source), std::move(callback)));
     return;
   }
 
@@ -240,7 +241,7 @@ void StorageAreaImpl::Put(
           // the change request, as clients may rely on this acknowledgement for
           // caching behavior.
           for (const auto& observer : observers_)
-            observer->KeyChanged(key, value, value, source);
+            observer->KeyChanged(key, value, value, source.Clone());
           std::move(callback).Run(true);  // Key already has this value.
           return;
         }
@@ -276,7 +277,7 @@ void StorageAreaImpl::Put(
         // the change request, as clients may rely on this acknowledgement for
         // caching behavior.
         for (const auto& observer : observers_)
-          observer->KeyChanged(key, value, value, source);
+          observer->KeyChanged(key, value, value, source.Clone());
         std::move(callback).Run(true);  // Key already has this value.
         return;
       }
@@ -299,7 +300,7 @@ void StorageAreaImpl::Put(
           "renderer.");
     } else {
       for (const auto& observer : observers_)
-        observer->KeyChangeFailed(key, source);
+        observer->KeyChangeFailed(key, source.Clone());
       std::move(callback).Run(false);
     }
     return;
@@ -324,23 +325,23 @@ void StorageAreaImpl::Put(
   storage_used_ = new_storage_used;
   memory_used_ += new_item_memory - old_item_memory;
   for (const auto& observer : observers_)
-    observer->KeyChanged(key, value, old_value, source);
+    observer->KeyChanged(key, value, old_value, source.Clone());
   std::move(callback).Run(true);
 }
 
 void StorageAreaImpl::Delete(
     const std::vector<uint8_t>& key,
     const std::optional<std::vector<uint8_t>>& client_old_value,
-    const std::string& source,
+    blink::mojom::StorageAreaSourcePtr source,
     DeleteCallback callback) {
   // Map upgrade check is required because the cache state could be changed
   // due to multiple bindings, and when multiple bindings are involved the
   // |client_old_value| can race. Thus any changes require checking for an
   // upgrade.
   if (!IsMapLoaded() || IsMapUpgradeNeeded()) {
-    LoadMap(base::BindOnce(&StorageAreaImpl::Delete,
-                           weak_ptr_factory_.GetWeakPtr(), key,
-                           client_old_value, source, std::move(callback)));
+    LoadMap(base::BindOnce(
+        &StorageAreaImpl::Delete, weak_ptr_factory_.GetWeakPtr(), key,
+        client_old_value, std::move(source), std::move(callback)));
     return;
   }
 
@@ -355,7 +356,7 @@ void StorageAreaImpl::Delete(
       // the change request, as clients may rely on this acknowledgement for
       // caching behavior.
       for (const auto& observer : observers_)
-        observer->KeyDeleted(key, std::nullopt, source);
+        observer->KeyDeleted(key, std::nullopt, source.Clone());
       std::move(callback).Run();
       return;
     }
@@ -391,7 +392,7 @@ void StorageAreaImpl::Delete(
       // the change request, as clients may rely on this acknowledgement for
       // caching behavior.
       for (const auto& observer : observers_)
-        observer->KeyDeleted(key, std::nullopt, source);
+        observer->KeyDeleted(key, std::nullopt, source.Clone());
       std::move(callback).Run();
       return;
     }
@@ -404,19 +405,19 @@ void StorageAreaImpl::Delete(
   }
 
   for (auto& observer : observers_)
-    observer->KeyDeleted(key, old_value, source);
+    observer->KeyDeleted(key, old_value, source.Clone());
   std::move(callback).Run();
 }
 
 void StorageAreaImpl::DeleteAll(
-    const std::string& source,
+    blink::mojom::StorageAreaSourcePtr source,
     mojo::PendingRemote<blink::mojom::StorageAreaObserver> new_observer,
     DeleteAllCallback callback) {
   // Don't check if a map upgrade is needed here and instead just create an
   // empty map ourself.
   if (!IsMapLoaded()) {
     LoadMap(base::BindOnce(&StorageAreaImpl::DeleteAll,
-                           weak_ptr_factory_.GetWeakPtr(), source,
+                           weak_ptr_factory_.GetWeakPtr(), std::move(source),
                            std::move(new_observer), std::move(callback)));
     return;
   }
@@ -434,7 +435,7 @@ void StorageAreaImpl::DeleteAll(
 
   if (already_empty) {
     for (const auto& observer : observers_)
-      observer->AllDeleted(/*was_nonempty=*/false, source);
+      observer->AllDeleted(/*was_nonempty=*/false, source.Clone());
     std::move(callback).Run();
     return;
   }
@@ -452,7 +453,7 @@ void StorageAreaImpl::DeleteAll(
   storage_used_ = 0;
   memory_used_ = 0;
   for (const auto& observer : observers_)
-    observer->AllDeleted(/*was_nonempty=*/true, source);
+    observer->AllDeleted(/*was_nonempty=*/true, source.Clone());
   std::move(callback).Run();
 }
 

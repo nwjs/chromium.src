@@ -5,11 +5,13 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_BNPL_UTIL_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_BNPL_UTIL_H_
 
+#include <optional>
 #include <string>
 
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "ui/gfx/range/range.h"
@@ -31,7 +33,14 @@ enum class BnplIssuerEligibilityForPage {
   kNotEligibleCheckoutAmountTooLow = 3,
   kNotEligibleCheckoutAmountTooHigh = 4,
   kTemporarilyEligibleCheckoutAmountNotYetKnown = 5,
-  kMaxValue = kTemporarilyEligibleCheckoutAmountNotYetKnown
+  kNotEligibleAmountExtractionErrorFailureToGenerateApc = 6,
+  kNotEligibleAmountExtractionErrorMissingServerResponse = 7,
+  kNotEligibleAmountExtractionErrorNegativeAmount = 8,
+  kNotEligibleAmountExtractionErrorAmountMissing = 9,
+  kNotEligibleAmountExtractionErrorMissingCurrency = 10,
+  kNotEligibleAmountExtractionErrorUnsupportedCurrency = 11,
+  kNotEligibleAmountExtractionErrorTimeout = 12,
+  kMaxValue = kNotEligibleAmountExtractionErrorTimeout
 };
 
 // A struct containing a BNPL issuer and the context necessary to display it.
@@ -85,14 +94,17 @@ struct BnplTosModel {
 // Return all BNPL Issuer contexts including eligibility in order of:
 // eligible + linked, eligible + unlinked, uneligible + linked,
 // uneligible + unlinked.
+// If `enforced_order` is provided and non-empty, the BNPL issuer contexts
+// will be ordered according to the issuers in `enforced_order`.
 std::vector<BnplIssuerContext> GetSortedBnplIssuerContext(
     const AutofillClient& client,
-    std::optional<int64_t> checkout_amount);
+    std::optional<int64_t> checkout_amount,
+    std::optional<AiAmountExtractionResult::Error> amount_extraction_error =
+        std::nullopt,
+    std::vector<BnplIssuer> enforced_order = {});
 
-// Returns the appropriate suggestion icon based on the issuer and its link
-// status.
-Suggestion::Icon GetBnplSuggestionIcon(BnplIssuer::IssuerId issuer_id,
-                                       bool is_linked);
+// Returns the appropriate suggestion icon based on the issuer.
+Suggestion::Icon GetBnplSuggestionIcon(BnplIssuer::IssuerId issuer_id);
 
 // Returns the selection option text for a given BNPL issuer.
 std::u16string GetBnplIssuerSelectionOptionText(
@@ -126,6 +138,9 @@ bool IsEligibleForBnpl(const AutofillClient& client);
 // have been seen by the user before.
 bool ShouldStartPayLaterWithLoadingSpinner(
     const PaymentsDataManager& payments_data_manager);
+
+// Returns true if the suggestion should display a linked BNPL issuer pill.
+bool ShouldShowBnplLinkedPill(const Suggestion& suggestion);
 
 }  // namespace payments
 

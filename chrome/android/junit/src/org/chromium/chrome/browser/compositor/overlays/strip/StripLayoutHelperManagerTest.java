@@ -86,6 +86,8 @@ import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
@@ -93,7 +95,6 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
@@ -136,11 +137,11 @@ public class StripLayoutHelperManagerTest {
     @Mock private LayoutRenderHost mRenderHost;
     @Mock private ActivityLifecycleDispatcher mLifecycleDispatcher;
     @Mock private MultiInstanceManager mMultiInstanceManager;
+    @Mock private MultiInstanceOrchestrator mMultiInstanceOrchestrator;
     @Mock private View mToolbarContainerView;
     @Mock private DragAndDropDelegate mDragDropDelegate;
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private TabCreatorManager mTabCreatorManager;
-    @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private TabModel mStandardTabModel;
     @Mock private Profile mProfile;
     @Mock private Tab mSelectedTab;
@@ -187,6 +188,7 @@ public class StripLayoutHelperManagerTest {
     @Before
     public void beforeTest() {
         TabStripSceneLayerJni.setInstanceForTesting(mTabStripSceneMock);
+        MultiInstanceOrchestratorFactory.setInstanceForTesting(mMultiInstanceOrchestrator);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         TabStripSceneLayer.setTestFlag(true);
@@ -218,10 +220,8 @@ public class StripLayoutHelperManagerTest {
     }
 
     private void initializeTest() {
-        when(mTabModelSelector.getTabGroupModelFilter(anyBoolean()))
-                .thenReturn(mTabGroupModelFilter);
         when(mTabModelSelector.getModel(anyBoolean())).thenReturn(mStandardTabModel);
-        when(mTabGroupModelFilter.getTabModel()).thenReturn(mStandardTabModel);
+        when(mStandardTabModel.getTabModel()).thenReturn(mStandardTabModel);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mStandardTabModel);
         when(mTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mTabModelSupplier);
         when(mStandardTabModel.getProfile()).thenReturn(mProfile);
@@ -788,7 +788,7 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    @Config(sdk = VERSION_CODES.Q)
+    @Config(sdk = BaseRobolectricTestRunner.MIN_SDK)
     public void testDragDropInstances_MultiInstanceNotEnabled_ReturnsNull() {
         initializeTest();
         assertNull(
@@ -1420,6 +1420,33 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
+    @Config(sdk = 30)
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    public void testGlicButtonUnfocusedOpacity() {
+        var appHeaderState =
+                new AppHeaderState(new Rect(), new Rect(), /* isInDesktopWindow= */ true);
+        when(mDesktopWindowStateManager.getAppHeaderState()).thenReturn(appHeaderState);
+        initializeTest();
+        assertNotNull("Glic button should be created.", mStripLayoutHelperManager.getGlicButton());
+
+        // Focused state
+        mStripLayoutHelperManager.onTopResumedActivityChanged(true);
+        assertEquals(
+                "Glic button opacity should be 1.0 when focused in desktop windowing mode.",
+                1.0f,
+                mStripLayoutHelperManager.getGlicButton().getOpacity(),
+                MathUtils.EPSILON);
+
+        // Unfocused state
+        mStripLayoutHelperManager.onTopResumedActivityChanged(false);
+        assertEquals(
+                "Glic button opacity should be 0.65 when unfocused in desktop windowing mode.",
+                0.65f,
+                mStripLayoutHelperManager.getGlicButton().getOpacity(),
+                MathUtils.EPSILON);
+    }
+
+    @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testIncognitoSwitcherDisabled() {
         IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
@@ -1731,5 +1758,32 @@ public class StripLayoutHelperManagerTest {
                 scrimOpacity,
                 scrimOpacityCaptor.getValue(),
                 0.01f);
+    }
+
+    @Test
+    public void testStripBottomPxSupplier_onLayerYOffsetChanged() {
+        int yOffsetPx = 10;
+        int visibleHeightPx = 40;
+        mStripLayoutHelperManager.onLayerYOffsetChanged(yOffsetPx, visibleHeightPx);
+
+        assertEquals(
+                "Unexpected bottom px value.",
+                (Integer) (yOffsetPx + visibleHeightPx),
+                mStripLayoutHelperManager.getStripBottomPxSupplier().get());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.TOP_CONTROLS_REFACTOR_V2)
+    public void testStripBottomPxSupplier_getUpdatedSceneOverlayTree() {
+        int topControlOffset = 10;
+        when(mBrowserControlStateProvider.getTopControlOffset()).thenReturn(topControlOffset);
+        when(mBrowserControlStateProvider.isVisibilityForced()).thenReturn(true);
+        mStripLayoutHelperManager.getUpdatedSceneOverlayTree(
+                new RectF(), new RectF(), mResourceManager);
+
+        assertEquals(
+                "Unexpected bottom px value.",
+                (Integer) (TAB_STRIP_HEIGHT_PX + topControlOffset),
+                mStripLayoutHelperManager.getStripBottomPxSupplier().get());
     }
 }

@@ -10,6 +10,7 @@
 #include "ash/public/cpp/ash_typography.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/public/cpp/style/dark_light_mode_controller.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_installer.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/ash/bruschetta/bruschetta_service.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_service_factory.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_thread.h"
@@ -195,6 +195,10 @@ BruschettaInstallerView::BruschettaInstallerView(Profile* profile,
       views::kMarginsKey, gfx::Insets::TLBR(kPrimaryMessageHeight, 0, 0, 0));
   primary_message_label_->SetMultiLine(false);
   primary_message_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  primary_message_label_->GetViewAccessibility().SetLiveRegionContainer(
+      views::ViewAccessibility::LiveRegionStatus::kPolite,
+      views::ViewAccessibility::kLiveRegionRelevantDefault,
+      /*atomic=*/true);
   upper_container_view->AddChildViewRaw(primary_message_label_.get());
 
   views::View* secondary_message_container_view =
@@ -506,9 +510,6 @@ void BruschettaInstallerView::OnStateUpdated() {
   }
 
   DialogModelChanged();
-  primary_message_label_->NotifyAccessibilityEventDeprecated(
-      ax::mojom::Event::kLiveRegionChanged,
-      /* send_native_event = */ true);
 }
 
 void BruschettaInstallerView::AddedToWidget() {

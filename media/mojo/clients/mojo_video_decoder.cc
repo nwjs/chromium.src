@@ -148,6 +148,11 @@ void MojoVideoDecoder::Initialize(const VideoDecoderConfig& config,
   DVLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  if (!config.IsValidConfig()) {
+    FailInit(std::move(init_cb), DecoderStatus::Codes::kUnsupportedConfig);
+    return;
+  }
+
   if (gpu_factories_)
     decoder_type_ = gpu_factories_->GetDecoderType();
 
@@ -462,26 +467,30 @@ void MojoVideoDecoder::Stop() {
 
   // |init_cb_| is likely to reentrantly destruct |this|, so we check for that
   // using an on-stack WeakPtr.
-  // TODO(sandersd): Update the VideoDecoder API to be explicit about what
-  // reentrancy is allowed, and therefore which callbacks must be posted.
-  base::WeakPtr<MojoVideoDecoder> weak_this = weak_this_;
+  auto weak_this = weak_this_;
 
-  if (init_cb_)
+  if (init_cb_) {
     std::move(init_cb_).Run(DecoderStatus::Codes::kDisconnected);
-
-  if (!weak_this)
-    return;
+    if (!weak_this) {
+      return;
+    }
+  }
 
   for (auto& pending_decode : pending_decodes_) {
     // It would be ideal if we could get a reason for the interruption.
     std::move(pending_decode.second).Run(DecoderStatus::Codes::kDisconnected);
-    if (!weak_this)
+    if (!weak_this) {
       return;
+    }
   }
   pending_decodes_.clear();
 
-  if (reset_cb_)
+  if (reset_cb_) {
     std::move(reset_cb_).Run();
+    if (!weak_this) {
+      return;
+    }
+  }
 
   // Drop any outstanding callbacks.
   weak_factory_.InvalidateWeakPtrs();

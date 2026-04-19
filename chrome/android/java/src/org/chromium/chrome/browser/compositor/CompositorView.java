@@ -22,6 +22,7 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.window.InputTransferToken;
 
+import androidx.annotation.GuardedBy;
 import androidx.core.graphics.Insets;
 
 import org.jni_zero.CalledByNative;
@@ -33,6 +34,8 @@ import org.chromium.base.ScreenOffBroadcastReceiver;
 import org.chromium.base.ScreenOffBroadcastReceiver.ScreenOffListener;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -52,6 +55,7 @@ import org.chromium.content_public.browser.InputTransferHandler;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.SurfaceInputTransferHandlerMap;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.resources.AndroidResourceType;
 import org.chromium.ui.resources.ResourceManager;
@@ -67,6 +71,12 @@ public class CompositorView extends FrameLayout
     // Cache objects that should not be created every frame
     private final Rect mCacheAppRect = new Rect();
     private @Nullable Insets mCachedWindowInsets;
+
+    // A timeout to prevent permanent deadlocks/ANRs during atomic fluid resizes.
+    // 200ms is chosen to be long enough to give the GPU process ample time to produce
+    // a new frame (12 frames at 60Hz), while still being short enough to recover
+    // gracefully before triggering a framework ANR (~5 seconds) if the renderer hangs.
+    private static final int FLUID_RESIZE_TIMEOUT_MS = 200;
 
     private CompositorSurfaceManager mCompositorSurfaceManager;
     private boolean mOverlayVideoEnabled;
@@ -90,7 +100,13 @@ public class CompositorView extends FrameLayout
 
     private @Nullable View mRootView;
     private boolean mPreloadedResources;
+    private final Object mDrawingFinishedCallbackLock = new Object();
+
+    @GuardedBy("mDrawingFinishedCallbackLock")
     private @Nullable Runnable mDrawingFinishedCallback;
+
+    @GuardedBy("mDrawingFinishedCallbackLock")
+    private int mDrawRequestId;
 
     // True while in a WebXR "immersive-ar" session with DOM Overlay enabled. This disables
     // SurfaceControl while active.
@@ -143,13 +159,14 @@ public class CompositorView extends FrameLayout
         }
     }
 
-    private ScreenStateReceiverWorkaround mScreenStateReceiver;
+    private @Nullable ScreenStateReceiverWorkaround mScreenStateReceiver;
 
     /**
      * Creates a {@link CompositorView}. This can be called only after the native library is
      * properly loaded.
-     * @param c        The Context to create this {@link CompositorView} in.
-     * @param host     The renderer host owning this view.
+     *
+     * @param c The Context to create this {@link CompositorView} in.
+     * @param host The renderer host owning this view.
      */
     public CompositorView(Context c, LayoutRenderHost host) {
         super(c);
@@ -359,6 +376,7 @@ public class CompositorView extends FrameLayout
         mResourceManager = CompositorViewJni.get().getResourceManager(mNativeCompositorView);
 
         // Redraw in case there are callbacks pending |mDrawingFinishedCallback|.
+        updateNeedsDidSwapBuffersCallback();
         CompositorViewJni.get().setNeedsComposite(mNativeCompositorView);
     }
 
@@ -502,16 +520,47 @@ public class CompositorView extends FrameLayout
         //
         // If you want to find out about a swap, please add a separate mechanism to this class to do
         // so, with more predictable semantics.
-        runDrawFinishedCallback();
-        mDrawingFinishedCallback = drawingFinished;
-        if (mHaveSwappedFramesSinceSurfaceCreated) {
-            // Don't hold onto the draw callback, since it can deadlock with ViewRootImpl performing
-            // traversals in some cases.  Only wait if the surface is newly created.  Android allows
-            // us to run the callback before returning; the default implementation of this method
-            // does exactly that.  While there are a few calls into this method that are not from
-            // the android framework, these are currently okay with this behavior.  Please do not
-            // add any more, as described above.
-            runDrawFinishedCallback();
+
+        // Always finish any previous draw request before starting a new one. This ensures we
+        // don't leak callbacks and hang the WindowManager.
+        runDrawFinishedCallbackMaybeNotOnUiThread();
+
+        final int requestId;
+        synchronized (mDrawingFinishedCallbackLock) {
+            mDrawingFinishedCallback = drawingFinished;
+            mDrawRequestId++;
+            requestId = mDrawRequestId;
+        }
+
+        if (isFluidResizeEnabledAndLff()) {
+            // Fluid resize requires atomic synchronization. We hold onto the callback until we
+            // have a frame that matches the new window size. This avoids black gutters.
+            // However, to prevent permanent deadlocks/ANRs (especially if the native side fails
+            // to produce a frame), we release the callback after a timeout from a background
+            // thread. Note that this timeout is a hack that can have false positives. The
+            // proper fix would be to have the actual IPC invoked on a different thread to
+            // allow the UI thread to be blocked, but that involves solving lifetime issues
+            // through a couple of layers and modifying the IPC mechanism.
+            PostTask.postDelayedTask(
+                    TaskTraits.USER_BLOCKING_MAY_BLOCK,
+                    () -> {
+                        synchronized (mDrawingFinishedCallbackLock) {
+                            if (mDrawRequestId == requestId && mDrawingFinishedCallback != null) {
+                                runDrawFinishedCallbackMaybeNotOnUiThread();
+                            }
+                        }
+                    },
+                    FLUID_RESIZE_TIMEOUT_MS);
+        } else {
+            if (mHaveSwappedFramesSinceSurfaceCreated) {
+                // Don't hold onto the draw callback, since it can deadlock with ViewRootImpl
+                // performing traversals in some cases.  Only wait if the surface is newly created.
+                // Android allows us to run the callback before returning; the default
+                // implementation of this method does exactly that.  While there are a few calls
+                // into this method that are not from the android framework, these are currently
+                // okay with this behavior.  Please do not add any more, as described above.
+                runDrawFinishedCallbackMaybeNotOnUiThread();
+            }
         }
         updateNeedsDidSwapBuffersCallback();
         if (mNativeCompositorView != 0) {
@@ -575,26 +624,47 @@ public class CompositorView extends FrameLayout
         CompositorViewJni.get().surfaceCreated(mNativeCompositorView);
     }
 
-    @SuppressWarnings("NewApi")
+    private boolean mInSurfaceDestroyed;
+
     @Override
+    @SuppressWarnings("NewApi")
     public void surfaceDestroyed(Surface surface, boolean androidSurfaceDestroyed) {
-        if (mNativeCompositorView == 0) return;
+        if (mNativeCompositorView == 0 || mInSurfaceDestroyed) return;
+        mInSurfaceDestroyed = true;
 
-        // When we switch from Chrome to other app we can't detach child surface controls because it
-        // leads to a visible hole: b/157439199. To avoid this we don't detach surfaces if the
-        // surface is going to be destroyed, they will be detached and freed by OS.
-        if (androidSurfaceDestroyed) {
-            CompositorViewJni.get().preserveChildSurfaceControls(mNativeCompositorView);
-        }
+        try {
+            // When we switch from Chrome to other app we can't detach child surface controls
+            // because it
+            // leads to a visible hole: b/157439199. To avoid this we don't detach surfaces if the
+            // surface is going to be destroyed, they will be detached and freed by OS.
+            if (androidSurfaceDestroyed) {
+                CompositorViewJni.get().preserveChildSurfaceControls(mNativeCompositorView);
+            }
 
-        CompositorViewJni.get().surfaceDestroyed(mNativeCompositorView);
+            CompositorViewJni.get().surfaceDestroyed(mNativeCompositorView);
 
-        if (mScreenStateReceiver != null) {
-            mScreenStateReceiver.maybeResetCompositorSurfaceManager();
-        }
-        if (InputUtils.isTransferInputToVizSupported() && mSurfaceId != null) {
-            SurfaceInputTransferHandlerMap.remove(mSurfaceId);
-            mSurfaceId = null;
+            if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.SURFACE_DESTROYED_RECREATES_MANAGER)) {
+                // TODO(yfriedman): Delete the mScreenStateReceiver when rollout completes.
+                if (mScreenStateReceiver != null) {
+                    mScreenStateReceiver.shutDown();
+                    mScreenStateReceiver = null;
+                }
+                if (mCompositorSurfaceManager != null) {
+                    mCompositorSurfaceManager.shutDown();
+                    createCompositorSurfaceManager();
+                }
+            } else {
+                if (mScreenStateReceiver != null) {
+                    mScreenStateReceiver.maybeResetCompositorSurfaceManager();
+                }
+            }
+            if (InputUtils.isTransferInputToVizSupported() && mSurfaceId != null) {
+                SurfaceInputTransferHandlerMap.remove(mSurfaceId);
+                mSurfaceId = null;
+            }
+        } finally {
+            mInSurfaceDestroyed = false;
         }
     }
 
@@ -621,7 +691,12 @@ public class CompositorView extends FrameLayout
 
     void onPhysicalBackingSizeChanged(WebContents webContents, int width, int height) {
         CompositorViewJni.get()
-                .onPhysicalBackingSizeChanged(mNativeCompositorView, webContents, width, height);
+                .onPhysicalBackingSizeChanged(
+                        mNativeCompositorView,
+                        webContents,
+                        width,
+                        height,
+                        isFluidResizeEnabledAndLff());
     }
 
     void onControlsResizeViewChanged(WebContents webContents, boolean controlsResizeView) {
@@ -677,10 +752,13 @@ public class CompositorView extends FrameLayout
     // Should be called any time the inputs used to compute `needsSwapCallback` change.
     private void updateNeedsDidSwapBuffersCallback() {
         if (mNativeCompositorView == 0) return;
-        boolean needsSwapCallback =
-                mRenderHostNeedsDidSwapBuffersCallback
-                        || mFramesUntilHideBackground > 0
-                        || mDrawingFinishedCallback != null;
+        boolean needsSwapCallback;
+        synchronized (mDrawingFinishedCallbackLock) {
+            needsSwapCallback =
+                    mRenderHostNeedsDidSwapBuffersCallback
+                            || mFramesUntilHideBackground > 0
+                            || mDrawingFinishedCallback != null;
+        }
         CompositorViewJni.get()
                 .setDidSwapBuffersCallbackEnabled(mNativeCompositorView, needsSwapCallback);
     }
@@ -733,7 +811,7 @@ public class CompositorView extends FrameLayout
         //
         // See https://crbug.com/1174273 and https://crbug.com/1223299 for more details.
         if (swappedCurrentSize) {
-            runDrawFinishedCallback();
+            runDrawFinishedCallbackMaybeNotOnUiThread();
         }
         mHaveSwappedFramesSinceSurfaceCreated = true;
 
@@ -807,17 +885,24 @@ public class CompositorView extends FrameLayout
         mCompositorSurfaceManager.setVisibility(visibility);
         // Clear out any outstanding callbacks that won't run if set to invisible.
         if (visibility == View.INVISIBLE) {
-            runDrawFinishedCallback();
+            runDrawFinishedCallbackMaybeNotOnUiThread();
         }
     }
 
-    private void runDrawFinishedCallback() {
-        Runnable runnable = mDrawingFinishedCallback;
-        mDrawingFinishedCallback = null;
+    private void runDrawFinishedCallbackMaybeNotOnUiThread() {
+        Runnable runnable;
+        synchronized (mDrawingFinishedCallbackLock) {
+            runnable = mDrawingFinishedCallback;
+            mDrawingFinishedCallback = null;
+        }
         if (runnable != null) {
             runnable.run();
+            if (ThreadUtils.runningOnUiThread()) {
+                updateNeedsDidSwapBuffersCallback();
+            } else {
+                ThreadUtils.postOnUiThread(this::updateNeedsDidSwapBuffersCallback);
+            }
         }
-        updateNeedsDidSwapBuffersCallback();
     }
 
     private void createCompositorSurfaceManager() {
@@ -837,6 +922,11 @@ public class CompositorView extends FrameLayout
 
     void setCompositorSurfaceManagerForTesting(CompositorSurfaceManager manager) {
         mCompositorSurfaceManager = manager;
+    }
+
+    private boolean isFluidResizeEnabledAndLff() {
+        return ChromeFeatureList.sFluidResize.isEnabled()
+                && DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext());
     }
 
     @NativeMethods
@@ -869,7 +959,11 @@ public class CompositorView extends FrameLayout
                 @Nullable InputTransferToken browserInputToken);
 
         void onPhysicalBackingSizeChanged(
-                long nativeCompositorView, WebContents webContents, int width, int height);
+                long nativeCompositorView,
+                WebContents webContents,
+                int width,
+                int height,
+                boolean isFluidResize);
 
         void onControlsResizeViewChanged(
                 long nativeCompositorView, WebContents webContents, boolean controlsResizeView);

@@ -42,6 +42,10 @@ namespace base {
 class ElapsedTimer;
 }  // namespace base
 
+namespace network {
+class SharedURLLoaderFactory;
+}  // namespace network
+
 namespace ash {
 class CrosSettings;
 class KioskAppId;
@@ -51,10 +55,6 @@ enum class SigninError;
 
 namespace login {
 class NetworkStateHelper;
-}
-
-namespace quick_unlock {
-class PinSaltStorage;
 }
 
 // ExistingUserController is used to handle login when someone has already
@@ -73,9 +73,11 @@ class ExistingUserController : public HttpAuthDialog::Observer,
   // All UI initialization is deferred till Init() call.
   // `local_state` and `application_locale_storage` must be non-null and must
   // outlive `this`.
+  // `shared_url_loader_factory` must be non-null.
   ExistingUserController(
       PrefService* local_state,
-      const ApplicationLocaleStorage* application_locale_storage);
+      const ApplicationLocaleStorage* application_locale_storage,
+      scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory);
 
   ExistingUserController(const ExistingUserController&) = delete;
   ExistingUserController& operator=(const ExistingUserController&) = delete;
@@ -164,6 +166,8 @@ class ExistingUserController : public HttpAuthDialog::Observer,
   void FinalizeAuthAndStartSession(const UserContext& user_context);
 
   bool MaybeShowPasswordSelectionScreen(const UserContext& user_context);
+
+  bool MaybeShowRemoveLocalAuthFactorsScreen(const UserContext& user_context);
 
   DemoLoginController* GetDemoLoginControllerForTest();
 
@@ -304,6 +308,8 @@ class ExistingUserController : public HttpAuthDialog::Observer,
 
   const raw_ref<PrefService> local_state_;
   const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
+  const scoped_refptr<network::SharedURLLoaderFactory>
+      shared_url_loader_factory_;
 
   // Public session auto-login timer.
   std::unique_ptr<base::OneShotTimer> auto_login_timer_;
@@ -390,9 +396,6 @@ class ExistingUserController : public HttpAuthDialog::Observer,
   // Used to wait for local account policy during session login, if policy is
   // not yet available when the login is attempted.
   std::unique_ptr<DeviceLocalAccountPolicyWaiter> policy_waiter_;
-
-  // The source of PIN salts. Used to retrieve PIN during TransformPinKey.
-  std::unique_ptr<quick_unlock::PinSaltStorage> pin_salt_storage_;
 
   // Manage auto login for demo mode.
   std::unique_ptr<ash::DemoLoginController> demo_login_controller_;
