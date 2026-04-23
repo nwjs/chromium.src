@@ -4,9 +4,12 @@
 
 #include "components/password_manager/core/browser/actor_login/actor_login_permissions_manager_impl.h"
 
+#include <algorithm>
+
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_permission_service.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
@@ -71,7 +74,9 @@ ActorLoginPermissionsManagerImpl::ActorLoginPermissionsManagerImpl(
                  std::move(profile_store),
                  std::move(account_store)),
       actor_login_permission_service_(actor_login_permission_service) {
-  presenter_.Init();
+  presenter_.Init(base::BindOnce(
+      &ActorLoginPermissionsManagerImpl::OnSavedPasswordsPresenterInitialized,
+      weak_ptr_factory_.GetWeakPtr()));
   presenter_.AddObserver(this);
 }
 
@@ -91,31 +96,68 @@ void ActorLoginPermissionsManagerImpl::RemoveObserver(
 
 void ActorLoginPermissionsManagerImpl::RevokePermission(
     const std::string& signon_realm,
-    const std::string& username) {
+    const std::string& username,
+    base::OnceCallback<void(bool)> callback) {
   presenter_.RevokeActorLoginPermission(signon_realm, username);
   // The service is constructed via a factory that returns a nullptr for
   // incognito and guest profiles. The settings page is not accessible for those
   // profiles, so we can assert that the service is valid.
   CHECK(actor_login_permission_service_);
-  actor_login_permission_service_->DeletePermission(
-      url::Origin::Create(GURL(signon_realm)), username,
-      base::BindOnce(&ActorLoginPermissionsManagerImpl::OnPermissionDeleted,
-                     weak_ptr_factory_.GetWeakPtr()));
+
+  if (std::ranges::any_of(
+          last_federated_permissions_,
+          [&](const FederatedPermission& permission) {
+            return permission.rp_embedder_origin.GetURL().spec() ==
+                       signon_realm &&
+                   permission.chosen_account_email == username;
+          })) {
+    actor_login_permission_service_->DeletePermission(
+        url::Origin::Create(GURL(signon_realm)), username,
+        base::BindOnce(&ActorLoginPermissionsManagerImpl::OnPermissionDeleted,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  } else {
+    // If there is no corresponding federated permission, skip the request.
+    // Delete requests for non-existent permissions result in an error, which
+    // would trigger the error toast in the UI.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), true));
+  }
 }
 
 void ActorLoginPermissionsManagerImpl::GetAllPermissions(
     const syncer::SyncService* sync_service,
     GetAllPermissionsResult callback) {
-  base::flat_set<password_manager::ActorLoginPermission>
-      saved_passwords_permissions =
-          presenter_.GetActorLoginPermissions(sync_service);
   // The service is constructed via a factory that returns a nullptr for
   // incognito and guest profiles. The settings page is not accessible for those
   // profiles, so we can assert that the service is valid.
   CHECK(actor_login_permission_service_);
-  actor_login_permission_service_->ListAllPermissions(
-      base::BindOnce(&MergePermissions, std::move(saved_passwords_permissions))
-          .Then(std::move(callback)));
+  actor_login_permission_service_->ListAllPermissions(base::BindOnce(
+      &ActorLoginPermissionsManagerImpl::OnFederatedPermissionsReceived,
+      weak_ptr_factory_.GetWeakPtr(), sync_service, std::move(callback)));
+}
+
+void ActorLoginPermissionsManagerImpl::OnFederatedPermissionsReceived(
+    const syncer::SyncService* sync_service,
+    GetAllPermissionsResult callback,
+    std::vector<FederatedPermission> federated_permissions) {
+  if (presenter_.IsWaitingForPasswordStore()) {
+    pending_get_permissions_callback_ =
+        std::move(pending_get_permissions_callback_)
+            .Then(base::BindOnce(&ActorLoginPermissionsManagerImpl::
+                                     OnFederatedPermissionsReceived,
+                                 weak_ptr_factory_.GetWeakPtr(), sync_service,
+                                 std::move(callback),
+                                 std::move(federated_permissions)));
+    return;
+  }
+
+  base::flat_set<password_manager::ActorLoginPermission>
+      saved_passwords_permissions =
+          presenter_.GetActorLoginPermissions(sync_service);
+  last_federated_permissions_ = federated_permissions;
+  std::move(callback).Run(
+      MergePermissions(std::move(saved_passwords_permissions),
+                       std::move(federated_permissions)));
 }
 
 void ActorLoginPermissionsManagerImpl::NotifyObservers() {
@@ -124,9 +166,18 @@ void ActorLoginPermissionsManagerImpl::NotifyObservers() {
   }
 }
 
-void ActorLoginPermissionsManagerImpl::OnPermissionDeleted(bool success) {
+void ActorLoginPermissionsManagerImpl::OnPermissionDeleted(
+    base::OnceCallback<void(bool)> callback,
+    bool success) {
   if (success) {
     NotifyObservers();
+  }
+  std::move(callback).Run(success);
+}
+
+void ActorLoginPermissionsManagerImpl::OnSavedPasswordsPresenterInitialized() {
+  if (pending_get_permissions_callback_) {
+    std::move(pending_get_permissions_callback_).Run();
   }
 }
 

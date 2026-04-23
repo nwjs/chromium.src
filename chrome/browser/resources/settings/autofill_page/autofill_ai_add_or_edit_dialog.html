@@ -56,10 +56,6 @@
     white-space: initial;
   }
 
-  .title-text {
-    font-weight: bold;
-  }
-
   .title-container {
     display: flex;
     justify-content: space-between;
@@ -250,8 +246,8 @@
     </template>
 
     <div id="footer"
-         hidden="[[!footerText_]]">
-      [[footerText_]]
+         hidden="[[shouldHideFooterText_(footerText_)]]"
+         inner-h-t-m-l="[[footerText_]]">
     </div>
   </div>
   <div slot="button-container">

@@ -371,7 +371,7 @@ void LocationBarView::Init() {
   }
 
   const bool web_ui_popup_dropdown_only =
-      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup) &&
+      omnibox::IsWebUIOmniboxPopupEnabled() &&
       !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup);
 
   // Default to the legacy popup view for web apps and devtools windows since
@@ -1945,6 +1945,13 @@ void LocationBarView::OnPopupStateChanged(OmniboxPopupState old_state,
   RefreshBackground();
   UpdateWithoutTabRestore();
 
+  if (base::FeatureList::IsEnabled(
+          omnibox::kOmniboxAimDeferShowUntilVisualStateReady)) {
+    // Ensure the omnibox view repaints to reflect potential placeholder text
+    // visibility changes.
+    omnibox_view_->SchedulePaint();
+  }
+
   // Update the focus ring visibility.
   if (views::FocusRing::Get(this)) {
     views::FocusRing::Get(this)->SchedulePaint();
@@ -1966,7 +1973,9 @@ void LocationBarView::ValidatePopupState(OmniboxPopupState state) {
   // popup state manager is updated. This leads to a race condition where
   // popup_state=kClassic but the popup widget is already destroyed.
   // Note: GetWidget() returns the BrowserView's widget, not the popup widget.
-  if (views::Widget* widget = GetWidget(); !widget || !widget->IsVisible()) {
+  if (views::Widget* widget = GetWidget();
+      !widget || !widget->IsVisible() ||
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
     return;
   }
 

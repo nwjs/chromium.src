@@ -312,13 +312,6 @@ const base::FeatureParam<bool> SearchboxHandler::kVoiceSearchRecordingAnimation{
     &SearchboxHandler::kVoiceSearchCoherence, "VoiceSearchRecordingAnimation",
     false};
 
-// Transitions the voice permission dialogue popup to PEPC (Page-Embedded
-// Permission Controls) to have a dynamically placed permission dialogue pop up
-// for every time it is needed.
-BASE_FEATURE(SearchboxHandler::kVoiceSearchPermissions,
-             "VoiceSearchPermissions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // static
 base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
     Profile* profile,
@@ -356,6 +349,7 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
       {"addContext", IDS_NTP_COMPOSE_ADD_CONTEXTS},
       {"addContextTitle", IDS_NTP_COMPOSE_ADD_CONTEXT_TITLE},
       {"addImage", IDS_NTP_COMPOSE_ADD_IMAGE},
+      {"addDriveFile", IDS_NTP_COMPOSE_ADD_DRIVE},
       {"addTab", IDS_NTP_COMPOSEBOX_TAB_PICKER_ADD_TABS_TITLE},
       {"dismissButton", IDS_NTP_DISMISS},
       {"lensSearchLabel", IDS_WEBUI_OMNIBOX_COMPOSE_LENS_OVERLAY},
@@ -408,6 +402,13 @@ base::DictValue SearchboxHandler::GetWebUIDataSourceDict(
       {"voiceDetails", IDS_NEW_TAB_VOICE_DETAILS},
       {"voiceListening", IDS_NEW_TAB_VOICE_LISTENING},
       {"voicePermissionError", IDS_NEW_TAB_VOICE_PERMISSION_ERROR},
+      {"audioError", IDS_NEW_TAB_VOICE_AUDIO_ERROR},
+      {"languageError", IDS_NEW_TAB_VOICE_LANGUAGE_ERROR},
+      {"networkError", IDS_NEW_TAB_VOICE_NETWORK_ERROR},
+      {"noTranslation", IDS_NEW_TAB_VOICE_NO_TRANSLATION},
+      {"noVoice", IDS_NEW_TAB_VOICE_NO_VOICE},
+      {"otherError", IDS_NEW_TAB_VOICE_OTHER_ERROR},
+      {"tryAgain", IDS_NEW_TAB_VOICE_TRY_AGAIN},
       {"composeboxContextMenuMostRecentTabs",
        IDS_CONTEXTUAL_TASKS_CONTEXT_MENU_MOST_RECENT_TABS},
       {"composeboxContextMenuGeminiModels",
@@ -864,14 +865,19 @@ SearchboxHandler::CreateAutocompleteMatch(
 
 SearchboxHandler::SearchboxHandler(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler,
+    mojo::PendingRemote<searchbox::mojom::Page> pending_page,
     Profile* profile,
     content::WebContents* web_contents,
     std::unique_ptr<OmniboxController> controller)
     : profile_(profile),
       web_contents_(web_contents),
       owned_controller_(std::move(controller)),
-      page_handler_(this, std::move(pending_page_handler)) {
+      page_handler_(this, std::move(pending_page_handler)),
+      page_(std::move(pending_page)) {
   controller_ = owned_controller_.get();
+  if (page_is_bound_callback_for_testing_) {
+    std::move(page_is_bound_callback_for_testing_).Run();
+  }
 }
 
 SearchboxHandler::~SearchboxHandler() {
@@ -879,6 +885,9 @@ SearchboxHandler::~SearchboxHandler() {
   controller_ = nullptr;
 }
 
+// TODO(crbug.com/500739761): Remove this check since searchbox.mojom uses
+// factory pattern for instantiation making the remote and receiver bound
+// at the same time.
 bool SearchboxHandler::IsRemoteBound() const {
   return page_.is_bound();
 }
@@ -897,14 +906,6 @@ void SearchboxHandler::OnContextualInputStatusChanged(
     std::optional<contextual_search::ContextUploadErrorType> error_type) {
   if (page_ && IsRemoteBound()) {
     page_->OnContextualInputStatusChanged(token, status, error_type);
-  }
-}
-
-void SearchboxHandler::SetPage(
-    mojo::PendingRemote<searchbox::mojom::Page> pending_page) {
-  page_.Bind(std::move(pending_page));
-  if (page_is_bound_callback_for_testing_) {
-    std::move(page_is_bound_callback_for_testing_).Run();
   }
 }
 
@@ -1181,6 +1182,12 @@ void SearchboxHandler::GetPlaceholderConfig(
         placeholders.emplace_back(l10n_util::GetStringUTF16(it->second));
       }
     }
+
+    // If no tools are eligible, clear the placeholders to disable cycling and
+    // fall back to the static placeholder text.
+    if (placeholders.size() <= 1) {
+      placeholders.clear();
+    }
   }
 
   const auto placeholder_config = ntp_composebox::FeatureConfig::Get()
@@ -1265,6 +1272,13 @@ omnibox::InputState SearchboxHandler::GetInputState() const {
   return omnibox::InputState();
 }
 
+void SearchboxHandler::ShouldShowDriveDisclaimer(
+    ShouldShowDriveDisclaimerCallback callback) {
+  std::move(callback).Run(false);
+}
+
+void SearchboxHandler::OnDriveDisclaimerAccepted() {}
+
 OmniboxController* SearchboxHandler::omnibox_controller() const {
   return controller_;
 }
@@ -1284,4 +1298,13 @@ void SearchboxHandler::set_page_is_bound_callback_for_testing(
 
 OmniboxEditModel* SearchboxHandler::edit_model() const {
   return omnibox_controller()->edit_model();
+}
+
+void SearchboxHandler::GetPageClassification(
+    GetPageClassificationCallback callback) {
+  metrics::OmniboxEventProto::PageClassification classification_enum =
+      omnibox_controller()->client()->GetPageClassification(
+          /*is_prefetch=*/false);
+  std::move(callback).Run(::metrics::OmniboxEventProto::PageClassification_Name(
+      classification_enum));
 }

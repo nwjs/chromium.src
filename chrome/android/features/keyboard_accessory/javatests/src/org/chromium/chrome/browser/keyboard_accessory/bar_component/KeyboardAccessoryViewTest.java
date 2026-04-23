@@ -793,6 +793,58 @@ public class KeyboardAccessoryViewTest {
 
     @Test
     @MediumTest
+    public void testScrollingNotResetOnItemUpdate() throws InterruptedException {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mModel.set(VISIBLE, true);
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        createAutofillBarItem(
+                                                "Item 1 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 2 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 3 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 4 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 5 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 6 - very long text to fill width", null),
+                                        createAutofillBarItem(
+                                                "Item 7 - very long text to fill width", null),
+                                        createSheetOpener()
+                                    });
+                });
+        KeyboardAccessoryView view = mKeyboardAccessoryView.take();
+        CriteriaHelper.pollUiThread(() -> view.mBarItemsView.getChildCount() > 0);
+
+        // Scroll the view manually
+        ThreadUtils.runOnUiThreadBlocking(() -> view.mBarItemsView.scrollBy(500, 0));
+
+        // Wait until it actually scrolled
+        CriteriaHelper.pollUiThread(() -> view.mBarItemsView.computeHorizontalScrollOffset() > 0);
+
+        int initialScrollOffset =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> view.mBarItemsView.computeHorizontalScrollOffset());
+
+        // Update an item in the middle
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillBarItem updatedItem = createAutofillBarItem("Item 3 Updated", null);
+                    updatedItem.setViewState(ActionBarItem.ViewState.LOADING);
+                    mModel.get(BAR_ITEMS).update(2, updatedItem);
+                });
+
+        // The scroll offset should not be reset to 0
+        CriteriaHelper.pollUiThread(
+                () -> view.mBarItemsView.computeHorizontalScrollOffset() == initialScrollOffset);
+    }
+
+    @Test
+    @MediumTest
     public void testNotifiesAboutPartiallyVisibleSuggestions() throws InterruptedException {
         // Ensure that the callback isn't triggered while all items are visible:
         AtomicInteger obfuscatedChildAt = new AtomicInteger(-1);
@@ -1007,6 +1059,40 @@ public class KeyboardAccessoryViewTest {
                 "Second button's left margin is incorrect.", expectedMargin, params2.leftMargin);
         assertEquals(
                 "Second button's right margin is incorrect.", expectedMargin, params2.rightMargin);
+    }
+
+    @Test
+    @MediumTest
+    public void testAccessoryButtonsEnabledState() throws InterruptedException {
+        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
+        assertEquals("Expected two buttons to be present.", 2, buttons.size());
+
+        // Initially buttons should be enabled.
+        assertTrue(buttonGroupView.isEnabled());
+        assertTrue(buttons.get(0).isEnabled());
+        assertTrue(buttons.get(1).isEnabled());
+
+        // Disable the group.
+        ThreadUtils.runOnUiThreadBlocking(() -> buttonGroupView.setEnabled(false));
+        assertFalse(buttonGroupView.isEnabled());
+        assertFalse(buttons.get(0).isEnabled());
+        assertFalse(buttons.get(1).isEnabled());
+
+        // Add a new button while the group is disabled.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        buttonGroupView.addButton(
+                                R.drawable.ic_password_manager_key, "New Key Icon"));
+        assertEquals("Expected three buttons to be present.", 3, buttons.size());
+        assertFalse("New button should inherit disabled state", buttons.get(2).isEnabled());
+
+        // Enable the group again.
+        ThreadUtils.runOnUiThreadBlocking(() -> buttonGroupView.setEnabled(true));
+        assertTrue(buttonGroupView.isEnabled());
+        assertTrue(buttons.get(0).isEnabled());
+        assertTrue(buttons.get(1).isEnabled());
+        assertTrue(buttons.get(2).isEnabled());
     }
 
     @Test

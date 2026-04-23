@@ -307,6 +307,12 @@ inline constexpr char kGlicTabRestorationName[] = "Glic Tab Restoration";
 inline constexpr char kGlicTabRestorationDescription[] =
     "Enables Glic instance restore when tabs are restored.";
 
+inline constexpr char kGlicButtonAutoSummarizeName[] =
+    "Glic Button Auto Summarize";
+inline constexpr char kGlicButtonAutoSummarizeDescription[] =
+    "Automatically triggers a summary when the Glic button is clicked on a "
+    "certain page (ex. PDF).";
+
 inline constexpr char kBundledSecuritySettingsName[] =
     "Bundled Security Settings";
 inline constexpr char kBundledSecuritySettingsDescription[] =
@@ -541,10 +547,6 @@ inline constexpr char kDesktopUAOnConnectedDisplayDescription[] =
 inline constexpr char kTabStripDeclutterName[] = "Tab Strip Declutter";
 inline constexpr char kTabStripDeclutterDescription[] =
     "Enables the Tab Strip Declutter feature on Desktop.";
-
-inline constexpr char kDetachedTabsName[] = "Detached Tabs";
-inline constexpr char kDetachedTabsDescription[] =
-    "Enables the Detached Tabs feature on Desktop.";
 
 inline constexpr char kDevToolsProjectSettingsName[] =
     "DevTools Project Settings";
@@ -805,6 +807,11 @@ inline constexpr char kAutofillAiDedupeEntitiesName[] =
     "Autofill AI dedupe entities";
 inline constexpr char kAutofillAiDedupeEntitiesDescription[] =
     "Enables periodic deduplication of Autofill AI entities.";
+
+inline constexpr char kAutofillAiNoFillingIconsExperimentName[] =
+    "Autofill AI no filling icons experiment";
+inline constexpr char kAutofillAiNoFillingIconsExperimentDescription[] =
+    "If enabled, Autofill AI filling suggestions do not have an icon.";
 
 inline constexpr char kAutofillAiReauthRequiredName[] =
     "Autofill AI re-authentication required";
@@ -2869,6 +2876,11 @@ inline constexpr char kLensUpdatedFeedbackEntrypointName[] =
 inline constexpr char kLensUpdatedFeedbackEntrypointDescription[] =
     "Enables an updated feedback entry point in the Lens side panel.";
 
+inline constexpr char kLensSidePanelUnificationName[] =
+    "Lens Side Panel Unification";
+inline constexpr char kLensSidePanelUnificationDescription[] =
+    "Unifies the Lens and Contextual Tasks side panels into a single panel.";
+
 inline constexpr char kLoadAllTabsAtStartupName[] = "Load all tabs at startup";
 inline constexpr char kLoadAllTabsAtStartupDescription[] =
     "Creates WebContents without renderers for all tabs at startup. Warning: "
@@ -2896,6 +2908,12 @@ inline constexpr char kMediaRouterCastAllowAllIPsName[] =
 inline constexpr char kMediaRouterCastAllowAllIPsDescription[] =
     "Have the Media Router connect to Cast devices on all IP addresses, not "
     "just RFC1918/RFC4193 private addresses.";
+
+inline constexpr char kMigrateEnhancedSbUserToEnhancedBundleName[] =
+    "Migrate Enhanced Safe Browsing User to Enhanced Bundle";
+inline constexpr char kMigrateEnhancedSbUserToEnhancedBundleDescription[] =
+    "Enables the migration of enhanced Safe Browsing users to the enhanced "
+    "bundle. Requires chrome://flags#bundled-security-settings to be enabled.";
 
 inline constexpr char kMigrateSyncingUserToSignedInName[] =
     "Migrate syncing user to signed in state";
@@ -3353,6 +3371,12 @@ inline constexpr char kOmniboxContextualSuggestionsName[] =
     "Omnibox contextual suggestions";
 inline constexpr char kOmniboxContextualSuggestionsDescription[] =
     "Enables omnibox contextual suggestions.";
+
+inline constexpr char kEmbeddedPermissionEnabledName[] =
+    "Searchbox embedded permission dialogue";
+inline constexpr char kEmbeddedPermissionEnabledDescription[] =
+    "Enables embedded permission dialogues for New Tab Page, omnibox popup, and contextual "
+    "tasks' permission requests.";
 
 inline constexpr char kOmniboxFocusTriggersWebAndSRPZeroSuggestName[] =
     "Omnibox on-focus suggestions on web and SRP";
@@ -5245,6 +5269,10 @@ inline constexpr char kAndroidZoomIndicatorName[] = "Android Zoom Indicator";
 inline constexpr char kAndroidZoomIndicatorDescription[] =
     "Enable zoom indicator on Android.";
 
+inline constexpr char kAndroidZoomImmersiveName[] = "Android Zoom Immersive";
+inline constexpr char kAndroidZoomImmersiveDescription[] =
+    "Enable immersive mode on Android via app menu page zoom option.";
+
 inline constexpr char kAnimatedImageDragShadowName[] =
     "Enable animated image drag shadow on Android.";
 inline constexpr char kAnimatedImageDragShadowDescription[] =
@@ -6163,6 +6191,11 @@ inline constexpr char kCastMirroringTargetPlayoutDelay300ms[] = "300ms.";
 inline constexpr char kCastMirroringTargetPlayoutDelay350ms[] = "350ms.";
 inline constexpr char kCastMirroringTargetPlayoutDelay400ms[] = "400ms.";
 
+inline constexpr char kComposeboxDriveContextMenuOptionName[] =
+    "Composebox Drive Context Menu Option";
+inline constexpr char kComposeboxDriveContextMenuOptionDescription[] =
+    "Enables Google Drive option in the Composebox context menu.";
+
 inline constexpr char kEnableHeadlessLiveCaptionName[] =
     "Headless Live Captions";
 inline constexpr char kEnableHeadlessLiveCaptionDescription[] =
@@ -6348,6 +6381,12 @@ inline constexpr char kNtpDoodleMuralsName[] = "NTP Doodle Murals";
 inline constexpr char kNtpDoodleMuralsDescription[] =
     "Enables Doodle Murals on the NTP.";
 
+inline constexpr char kNtpSimplificationBookmarkBarName[] =
+    "NTP Simplification Bookmark Bar";
+inline constexpr char kNtpSimplificationBookmarkBarDescription[] =
+    "Auto-removes the bookmark bar on the New Tab Page and updates bookmark "
+    "bar visbility settings.";
+
 inline constexpr char kNtpFooterName[] = "NTP Footer";
 inline constexpr char kNtpFooterDescription[] =
     "Adds footer to New Tab Page that encapsulates customize buttons and "
@@ -6459,6 +6498,10 @@ inline constexpr char
         "Permit a set of origins to request a uniquely identifying enterprise "
         "attestation statement from a security key when creating a Web "
         "Authentication credential.";
+
+inline constexpr char kNtpShortcutsRedesignName[] = "NTP Shortcuts Redesign";
+inline constexpr char kNtpShortcutsRedesignDescription[] =
+    "Enables the redesigned shortcuts on the New Tab Page.";
 
 // Windows ---------------------------------------------------------------------
 

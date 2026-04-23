@@ -260,6 +260,9 @@ const CGFloat kIconPointSize = 16.0;
   //  available. User state (signed-out, ineligible) is handled dynamically in
   //  the menu.
   if (IsPageActionMenuAuthFlowEnabled()) {
+    if (_isIncognito) {
+      return NO;
+    }
     if (IsDirectBWGEntryPoint()) {
       // Direct entry point retains existing Gemini-gated behavior.
       return [self isGeminiEligibleForActiveWebState];
@@ -314,9 +317,11 @@ const CGFloat kIconPointSize = 16.0;
   }
 
   if ([self isAIHubAvailable]) {
-    // Gemini-specific metrics should only fire when Gemini is actually
-    // eligible, not just when the PAM badge is visible.
-    if ([self isGeminiEligibleForActiveWebState]) {
+    // Behind the stable entrypoint flag, skip the expensive per-navigation
+    // Gemini eligibility check. The short-circuit ensures
+    // GeminiIneligibilityForProfile() is never called when the flag is on.
+    if (IsPageActionMenuAuthFlowEnabled() ||
+        [self isGeminiEligibleForActiveWebState]) {
       web::WebState* webState = [self activeWebState];
       if (webState) {
         ProfileIOS* profile =
@@ -327,9 +332,6 @@ const CGFloat kIconPointSize = 16.0;
           feature_engagement::TrackerFactory::GetForProfile(profile)
               ->NotifyEvent(feature_engagement::events::kIOSGeminiEligiblity);
         }
-        // Record Gemini entry point impression when AI Hub is available and
-        // shown.
-        RecordGeminiEntryPointImpression(gemini::EntryPoint::AIHub);
       }
     }
     [self.consumer

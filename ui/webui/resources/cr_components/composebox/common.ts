@@ -8,8 +8,8 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
-import {ContextUploadErrorType, ContextUploadStatus, InputType} from './composebox_query.mojom-webui.js';
-import type {InputState, ModelMode, ToolMode} from './composebox_query.mojom-webui.js';
+import {ContextUploadErrorType, ContextUploadStatus, InputType, ModelMode, ToolMode} from './composebox_query.mojom-webui.js';
+import type {InputState} from './composebox_query.mojom-webui.js';
 
 // LINT.IfChange(FileValidationError)
 
@@ -24,6 +24,29 @@ export enum ComposeboxFileValidationError {
 }
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:FileValidationError)
+
+// LINT.IfChange(ContextType)
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+export enum ContextType {
+  TAB = 0,
+  FILE = 1,
+  IMAGE = 2,
+  IMAGE_GEN = 3,
+  DEEP_RESEARCH = 4,
+  CANVAS = 5,
+  AUTO_MODEL = 6,
+  THINKING_MODEL = 7,
+  REGULAR_MODEL = 8,
+  PRO_NO_GEN_UI_MODEL = 9,
+  UNKNOWN = 10,
+  DRIVE = 11,
+  MAX_VALUE = DRIVE,
+}
+
+// LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.h:ContextType,
+// //tools/metrics/histograms/metadata/contextual_search/enums.xml:ContextType)
 
 // These values are sorted by precedence. The error with the highest value
 // will be the one shown to the user if multiple errors apply.
@@ -190,6 +213,157 @@ export function recordContextAdditionMethod(
   recordEnumerationValue(
       'ContextualSearch.ContextAdded.ContextAddedMethod.' + composeboxSource,
       additionMethod, ComposeboxContextAddedMethod.MAX_VALUE + 1);
+}
+
+// LINT.IfChange(getContextTypeString)
+function getContextTypeString(type: ContextType): string {
+  switch (type) {
+    case ContextType.TAB:
+      return 'Tab';
+    case ContextType.FILE:
+      return 'File';
+    case ContextType.IMAGE:
+      return 'Image';
+    case ContextType.IMAGE_GEN:
+      return 'ImageGen';
+    case ContextType.DEEP_RESEARCH:
+      return 'DeepResearch';
+    case ContextType.DRIVE:
+      return 'Drive';
+    case ContextType.CANVAS:
+      return 'Canvas';
+    case ContextType.AUTO_MODEL:
+      return 'AutoModel';
+    case ContextType.THINKING_MODEL:
+      return 'ThinkingModel';
+    case ContextType.REGULAR_MODEL:
+      return 'RegularModel';
+    case ContextType.PRO_NO_GEN_UI_MODEL:
+      return 'ProNoGenUiModel';
+    case ContextType.UNKNOWN:
+      return 'Unknown';
+    default:
+      return 'Unknown';
+  }
+}
+// LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:GetContextTypeString)
+
+export function recordContextualElementClickedMetric(
+    composeboxSource: string, popupType: string, contextType: ContextType) {
+  const metricName = `${composeboxSource}.AimEntrypoint.${
+      popupType}.ContextualElement.Clicked`;
+  recordEnumerationValue(metricName, contextType, ContextType.MAX_VALUE + 1);
+  recordUserAction(`${metricName}.${getContextTypeString(contextType)}`);
+}
+
+export function recordContextualElementShownMetric(
+    composeboxSource: string, popupType: string, contextType: ContextType) {
+  const metricName =
+      `${composeboxSource}.AimEntrypoint.${popupType}.ContextualElement.Shown`;
+  recordEnumerationValue(metricName, contextType, ContextType.MAX_VALUE + 1);
+}
+
+export function recordToolModeSelection(
+    mode: ToolMode, composeboxSource: string, popupType: string) {
+  let contextType = ContextType.UNKNOWN;
+  switch (mode) {
+    case ToolMode.kImageGen:
+      contextType = ContextType.IMAGE_GEN;
+      break;
+    case ToolMode.kDeepSearch:
+      contextType = ContextType.DEEP_RESEARCH;
+      break;
+    case ToolMode.kCanvas:
+      contextType = ContextType.CANVAS;
+      break;
+    default:
+      break;
+  }
+  recordContextualElementClickedMetric(
+      composeboxSource, popupType, contextType);
+}
+
+export function recordToolModeShown(
+    mode: ToolMode, composeboxSource: string, popupType: string) {
+  let contextType = ContextType.UNKNOWN;
+  switch (mode) {
+    case ToolMode.kImageGen:
+      contextType = ContextType.IMAGE_GEN;
+      break;
+    case ToolMode.kDeepSearch:
+      contextType = ContextType.DEEP_RESEARCH;
+      break;
+    case ToolMode.kCanvas:
+      contextType = ContextType.CANVAS;
+      break;
+    default:
+      break;
+  }
+  recordContextualElementShownMetric(composeboxSource, popupType, contextType);
+}
+
+export function recordModelModeSelection(
+    model: ModelMode, composeboxSource: string, popupType: string) {
+  let contextType = ContextType.UNKNOWN;
+  switch (model) {
+    case ModelMode.kGeminiRegular:
+      contextType = ContextType.REGULAR_MODEL;
+      break;
+    case ModelMode.kGeminiPro:
+      contextType = ContextType.THINKING_MODEL;
+      break;
+    case ModelMode.kGeminiProAutoroute:
+      contextType = ContextType.AUTO_MODEL;
+      break;
+    case ModelMode.kGeminiProNoGenUi:
+      contextType = ContextType.PRO_NO_GEN_UI_MODEL;
+      break;
+    default:
+      break;
+  }
+  recordContextualElementClickedMetric(
+      composeboxSource, popupType, contextType);
+}
+
+export function recordModelModeShown(
+    model: ModelMode, composeboxSource: string, popupType: string) {
+  let contextType = ContextType.UNKNOWN;
+  switch (model) {
+    case ModelMode.kGeminiRegular:
+      contextType = ContextType.REGULAR_MODEL;
+      break;
+    case ModelMode.kGeminiPro:
+      contextType = ContextType.THINKING_MODEL;
+      break;
+    case ModelMode.kGeminiProAutoroute:
+      contextType = ContextType.AUTO_MODEL;
+      break;
+    case ModelMode.kGeminiProNoGenUi:
+      contextType = ContextType.PRO_NO_GEN_UI_MODEL;
+      break;
+    default:
+      break;
+  }
+  recordContextualElementShownMetric(composeboxSource, popupType, contextType);
+}
+
+export function recordInputTypeShown(
+    type: InputType, composeboxSource: string, popupType: string) {
+  let contextType = ContextType.UNKNOWN;
+  switch (type) {
+    case InputType.kLensFile:
+      contextType = ContextType.FILE;
+      break;
+    case InputType.kLensImage:
+      contextType = ContextType.IMAGE;
+      break;
+    case InputType.kBrowserTab:
+      contextType = ContextType.TAB;
+      break;
+    default:
+      break;
+  }
+  recordContextualElementShownMetric(composeboxSource, popupType, contextType);
 }
 
 export function hasAllowedInputs(

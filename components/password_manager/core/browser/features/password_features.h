@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 
 namespace password_manager::features {
@@ -21,9 +22,6 @@ BASE_DECLARE_FEATURE(kActorLogin);
 // Killswitch for the conflicting permission cleanup. Conflicting permissions
 // are the ones granted for 2 different accounts on the same website.
 BASE_DECLARE_FEATURE(kActorLoginConflictingPermissionCleanup);
-// Enables a click using the actor framework for federated logins without
-// heuristics.
-BASE_DECLARE_FEATURE(kActorLoginFederatedClickFromActor);
 // Enables Actor Login form finding with async check
 BASE_DECLARE_FEATURE(kActorLoginFieldVisibilityCheck);
 BASE_DECLARE_FEATURE(kActorLoginLocalClassificationModel);
@@ -68,6 +66,7 @@ BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
 // Waits for the page to reach stability before triggering any password change
 // actions.
 BASE_DECLARE_FEATURE(kAwaitPageStabilityForPasswordChange);
+extern const base::FeatureParam<base::TimeDelta> kAwaitPageStabilityTimeout;
 
 // Undoes the effect of WebAuthnUsePasskeyFromAnotherDeviceInContextMenu by
 // adding the hybrid item back into the dropdown. It also adds the entry point

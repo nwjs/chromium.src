@@ -29,6 +29,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/site_exclusion_detail.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -42,6 +43,7 @@
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/contextual_tasks_resources.h"
@@ -280,6 +282,9 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   webui::SetupWebUIDataSource(source, kContextualTasksResources,
                               IDR_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_HTML);
 
+  AddInitialTaskStateToDataSource(source,
+                                  web_ui->GetWebContents()->GetVisibleURL());
+
   // TODO(447633840): This is a placeholder URL until the real page is ready.
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ChildSrc,
@@ -368,6 +373,13 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       contextual_tasks::GetIsContextualTasksNextboxContextMenuEnabled());
   source->AddBoolean("composeboxShowContextMenuDescription", false);
   source->AddBoolean(
+      "enablePinButton",
+      contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled());
+  source->AddBoolean(
+      "isSidePanelPinned",
+      contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
+          profile->GetPrefs()->GetBoolean(prefs::kPinContextualTaskButton));
+  source->AddBoolean(
       "showOnboardingTooltip",
       base::FeatureList::IsEnabled(
           contextual_tasks::kContextualTasksShowOnboardingTooltip));
@@ -443,6 +455,10 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   source->AddLocalizedString(
       "protectedErrorPageTopLine",
       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE);
+  source->AddLocalizedString("pinTooltip",
+                             IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP);
+  source->AddLocalizedString("unpinTooltip",
+                             IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP);
   source->AddLocalizedString(
       "protectedErrorPageBottomLine",
       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE);
@@ -731,7 +747,7 @@ void ContextualTasksUI::CreatePageHandler(
   auto handler = std::make_unique<ContextualTasksComposeboxHandler>(
       this, Profile::FromWebUI(web_ui()), web_ui()->GetWebContents(),
       std::move(pending_page_handler), std::move(pending_page),
-      std::move(pending_searchbox_handler),
+      std::move(pending_searchbox_handler), std::move(pending_searchbox_page),
       base::BindRepeating(
           &ContextualTasksUI::GetOrCreateContextualSessionHandle,
           base::Unretained(this)),
@@ -739,7 +755,6 @@ void ContextualTasksUI::CreatePageHandler(
                           base::Unretained(this)),
       base::BindRepeating(&ContextualTasksUI::TakeInputStateModel,
                           base::Unretained(this)));
-  handler->SetPage(std::move(pending_searchbox_page));
   composebox_handler_ = std::move(handler);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -755,6 +770,8 @@ ContextualTasksUI::GetOrCreateContextualSessionHandle() {
       task_id_.has_value() ? helper->GetSessionForTask(task_id_.value())
                            : helper->session_handle();
   if (existing_session) {
+    existing_session->GetMetricsRecorder()->UpdateContextualSearchSource(
+        contextual_search::ContextualSearchSource::kContextualTasks);
     return existing_session;
   }
 
@@ -870,6 +887,7 @@ void ContextualTasksUI::OnInnerWebContentsCreated(
 }
 
 void ContextualTasksUI::OnContextRetrievedForActiveTab(
+    base::WeakPtr<BrowserWindowInterface> browser,
     int32_t tab_id,
     const GURL& last_committed_url,
     std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
@@ -878,10 +896,17 @@ void ContextualTasksUI::OnContextRetrievedForActiveTab(
     return;
   }
 
+  if (!browser) {
+    return;
+  }
+  TabListInterface* tab_list = TabListInterface::From(browser.get());
+  if (!tab_list) {
+    return;
+  }
+  tabs::TabInterface* tab = tab_list->GetActiveTab();
+
   // If active tab or tab URL changed since the GetContextForTask() call, do
   // nothing.
-  tabs::TabInterface* tab =
-      TabListInterface::From(GetBrowser())->GetActiveTab();
   if (!tab || tab->GetHandle().raw_value() != tab_id ||
       tab->GetContents()->GetLastCommittedURL() != last_committed_url) {
     return;
@@ -901,6 +926,26 @@ void ContextualTasksUI::OnContextRetrievedForActiveTab(
   }
 
   UpdateSuggestedTabContext(tab);
+}
+
+void ContextualTasksUI::AddInitialTaskStateToDataSource(
+    content::WebUIDataSource* source,
+    const GURL& url) {
+  // Set initial state based on task state to avoid UI flickers.
+  std::string task_id_str;
+  base::Uuid task_id;
+  if (net::GetValueForKeyInQuery(url, contextual_tasks::kTaskQueryParam,
+                                 &task_id_str)) {
+    task_id = base::Uuid::ParseLowercase(task_id_str);
+  }
+
+  std::optional<GURL> task_creation_url =
+      ui_service_ ? ui_service_->GetCreationUrlForTask(task_id) : std::nullopt;
+  bool show_ghost_loader = task_creation_url && task_creation_url->is_empty();
+  source->AddBoolean("isGhostLoaderVisible", show_ghost_loader);
+  source->AddBoolean("isAiPage",
+                     ui_service_ && task_creation_url &&
+                         ui_service_->IsAiUrl(task_creation_url.value()));
 }
 
 void ContextualTasksUI::UpdateSuggestedTabContext(tabs::TabInterface* tab) {
@@ -983,8 +1028,9 @@ bool ContextualTasksUI::CanUpdateSuggestedTabContext(
     return false;
   }
 
-  if (!last_committed_url.is_valid() ||
-      !last_committed_url.SchemeIsHTTPOrHTTPS()) {
+  contextual_tasks::SiteExclusionDetail site_exclusion_detail;
+  if (!contextual_tasks::IsValidUrlForSuggestedTab(
+          last_committed_url, GetProfile(), site_exclusion_detail)) {
     return false;
   }
 
@@ -1000,9 +1046,10 @@ void ContextualTasksUI::OnActiveTabContextStatusChanged() {
     page_->HideErrorPage();
   }
 
-  tabs::TabInterface* tab =
-      GetBrowser() ? TabListInterface::From(GetBrowser())->GetActiveTab()
-                   : nullptr;
+  BrowserWindowInterface* browser = GetBrowser();
+  TabListInterface* tab_list =
+      browser ? TabListInterface::From(browser) : nullptr;
+  tabs::TabInterface* tab = tab_list ? tab_list->GetActiveTab() : nullptr;
   GURL last_committed_url =
       tab ? tab->GetContents()->GetLastCommittedURL() : GURL::EmptyGURL();
 
@@ -1026,7 +1073,7 @@ void ContextualTasksUI::OnActiveTabContextStatusChanged() {
            kSubmittedContextDecorator},
       std::move(context_decoration_params),
       base::BindOnce(&ContextualTasksUI::OnContextRetrievedForActiveTab,
-                     weak_ptr_factory_.GetWeakPtr(),
+                     weak_ptr_factory_.GetWeakPtr(), browser->GetWeakPtr(),
                      tab->GetHandle().raw_value(), last_committed_url));
 }
 

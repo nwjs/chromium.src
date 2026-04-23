@@ -8,16 +8,18 @@
 
 @implementation FakeAutofillAIEntityEditConsumer
 
+@synthesize mode = _mode;
+
 - (void)updateItem:(TableViewItem*)item {
   // Empty implementation to satisfy protocol.
 }
 
-- (void)showLoadingState {
-  self.showLoadingStateCalled = YES;
-}
-
-- (void)hideLoadingState {
-  self.hideLoadingStateCalled = YES;
+- (void)setLoadingState:(BOOL)loadingState {
+  if (loadingState) {
+    self.showLoadingStateCalled = YES;
+  } else {
+    self.hideLoadingStateCalled = YES;
+  }
 }
 
 - (void)didFinishSavingWithLocalFallback:(BOOL)isLocalFallback {

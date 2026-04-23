@@ -137,25 +137,6 @@ BASE_FEATURE(kNtpOneGoogleBar, base::FEATURE_ENABLED_BY_DEFAULT);
 // If enabled, outlook calendar module will be shown.
 BASE_FEATURE(kNtpOutlookCalendarModule, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, Google Photos module will be shown.
-BASE_FEATURE(kNtpPhotosModule, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, a customized title will be shown on the opt-in card.
-BASE_FEATURE(kNtpPhotosModuleCustomizedOptInTitle,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, a customized art work will be shown on the opt-in card.
-BASE_FEATURE(kNtpPhotosModuleCustomizedOptInArtWork,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, Google Photos opt-in card will show a button to soft opt-out.
-BASE_FEATURE(kNtpPhotosModuleSoftOptOut, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, the single svg image show in Photos opt-in screen will be
-// replaced by constituent images to support i18n.
-BASE_FEATURE(kNtpPhotosModuleSplitSvgOptInArtWork,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // If enabled, Following Feed module will be shown.
 BASE_FEATURE(kNtpFeedModule, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -253,6 +234,13 @@ BASE_FEATURE(kNtpAnimatedCaret, base::FEATURE_ENABLED_BY_DEFAULT);
 // If enabled, adds a Whats New Page Edition for Next Features.
 BASE_FEATURE(kLightningTakeoverEdition, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, the shortcuts will be redesigned.
+BASE_FEATURE(kNtpShortcutsRedesign, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the bookmark bar may be auto-removed on the NTP and new
+// visibility settings are added.
+BASE_FEATURE(kNtpSimplificationBookmarkBar, base::FEATURE_DISABLED_BY_DEFAULT);
+
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";
 const char kNtpModuleIgnoredHaTSDelayTimeParam[] =
@@ -287,10 +275,6 @@ const char kNtpOutlookCalendarModuleDataParam[] =
     "NtpOutlookCalendarModuleDataParam";
 const char kNtpMiddleSlotPromoDismissalParam[] =
     "NtpMiddleSlotPromoDismissalParam";
-const char kNtpPhotosModuleDataParam[] = "NtpPhotosModuleDataParam";
-const char kNtpPhotosModuleOptInTitleParam[] = "NtpPhotosModuleOptInTitleParam";
-const char kNtpPhotosModuleOptInArtWorkParam[] =
-    "NtpPhotosModuleOptInArtWorkParam";
 const char kNtpMostRelevantTabResumptionModuleDataParam[] =
     "NtpMostRelevantTabResumptionModuleDataParam";
 const char kNtpMostRelevantTabResumptionModuleMaxVisitsParam[] =
@@ -338,8 +322,10 @@ const base::FeatureParam<bool> kNtpNextDisablementContextMenuParam(
     &ntp_features::kNtpNextFeatures,
     "NtpNextDisablementContextMenuParam",
     false);
-const base::FeatureParam<int> kMaxTilesBeforeShowMore{
-    &ntp_features::kNtpNextFeatures, "max_tiles_before_show_more", 5};
+const base::FeatureParam<bool> kNtpNextDisablementParam(
+    &ntp_features::kNtpNextFeatures,
+    "NtpNextDisablementParam",
+    false);
 const base::FeatureParam<bool> kAddTabUploadDelayOnActionChipClick(
     &ntp_features::kNtpNextFeatures,
     "AddTabUploadDelayOnActionChipClick",
@@ -466,6 +452,17 @@ const base::FeatureParam<int> kStaleModulesCountThreshold(
     "StaleModulesCountThreshold",
     14);
 
+const base::FeatureParam<int> kMaxTilesInCollapsedState{
+    &ntp_features::kNtpShortcutsRedesign, "max_tiles_in_collapsed_state", 4};
+const base::FeatureParam<int> kMaxShortcutsInExpandedState{
+    &ntp_features::kNtpShortcutsRedesign, "max_shortcuts_in_expanded_state",
+    20};
+const base::FeatureParam<int> kMaxMostVisitedTilesInExpandedState{
+    &ntp_features::kNtpShortcutsRedesign,
+    "max_most_visited_tiles_in_expanded_state", 10};
+const base::FeatureParam<int> kMaxEnterpriseShortcuts{
+    &ntp_features::kNtpShortcutsRedesign, "max_enterprise_shortcuts", 10};
+
 base::TimeDelta GetModulesLoadTimeout() {
   std::string param_value = base::GetFieldTrialParamValueByFeature(
       kNtpModulesLoadTimeoutMilliseconds,
@@ -509,8 +506,29 @@ int GetWallpaperSearchButtonHideCondition() {
       kNtpWallpaperSearchButtonHideConditionParam, 2);
 }
 
-int GetMaxTilesBeforeShowMore() {
-  return kMaxTilesBeforeShowMore.Get();
+int GetMaxTilesInCollapsedState() {
+  if (!base::FeatureList::IsEnabled(kNtpShortcutsRedesign)) {
+    return 6;
+  }
+  return kMaxTilesInCollapsedState.Get();
+}
+
+int GetMaxShortcutsInExpandedState() {
+  if (!base::FeatureList::IsEnabled(kNtpShortcutsRedesign)) {
+    return 10;
+  }
+  return kMaxShortcutsInExpandedState.Get();
+}
+
+int GetMaxMostVisitedTilesInExpandedState() {
+  if (!base::FeatureList::IsEnabled(kNtpShortcutsRedesign)) {
+    return 8;
+  }
+  return kMaxMostVisitedTilesInExpandedState.Get();
+}
+
+int GetMaxEnterpriseShortcuts() {
+  return kMaxEnterpriseShortcuts.Get();
 }
 
 }  // namespace ntp_features

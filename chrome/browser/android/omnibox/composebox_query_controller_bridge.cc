@@ -194,13 +194,12 @@ ComposeboxQueryControllerBridge::
   return session_handle_.get();
 }
 
-void ComposeboxQueryControllerBridge::OnPageContextIneligible() {
-  // No-op.
-}
-
-void ComposeboxQueryControllerBridge::OnTabProcessedForQueryContextualization(
-    contextual_tasks::QueryContextualizer::TabId id) {
-  // No-op.
+void ComposeboxQueryControllerBridge::GetRelevantTabsForQuery(
+    const std::string& query_text,
+    const std::vector<GURL>& attached_context_urls,
+    base::OnceCallback<void(
+        std::vector<contextual_tasks::QueryContextualizer::TabId>)> callback) {
+  std::move(callback).Run({});
 }
 
 void ComposeboxQueryControllerBridge::NotifySessionStarted(JNIEnv* env) {
@@ -333,11 +332,14 @@ void ComposeboxQueryControllerBridge::ContextualizeAndCreateSearchUrl(
     query_contextualizer_->Contextualize(
         /*task_id=*/std::nullopt, query_text, /*tabs_to_recontextualize=*/{},
         /*tabs_to_force_contextualize=*/{},
+        /*on_ineligible_callback=*/base::DoNothing(),
+        /*on_processed_callback=*/base::DoNothing(),
         base::BindOnce(
             [](base::OnceClosure closure,
                base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
                    ignored_handle) { std::move(closure).Run(); },
-            std::move(callback)));
+            std::move(callback)),
+        /*enable_smart_tab_selection=*/false);
   } else {
     std::move(callback).Run();
   }

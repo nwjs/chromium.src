@@ -1798,6 +1798,7 @@ test("content_browsertests") {
     "../browser/web_package/signed_exchange_subresource_prefetch_browsertest.cc",
     "../browser/webid/delegation/jwt_signer_browsertest.cc",
     "../browser/webid/document_metadata_browsertest.cc",
+    "../browser/webid/idp_signin_status_browsertest.cc",
     "../browser/webid/navigation_interceptor_browsertest.cc",
     "../browser/webid/test/mock_digital_identity_provider.cc",
     "../browser/webid/test/mock_digital_identity_provider.h",
@@ -2676,6 +2677,7 @@ test("content_unittests") {
     "../browser/fenced_frame/redacted_fenced_frame_config_mojom_traits_unittest.cc",
     "../browser/file_system/browser_file_system_helper_unittest.cc",
     "../browser/file_system/file_system_operation_runner_unittest.cc",
+    "../browser/file_system_access/file_system_access_change_source_unittest.cc",
     "../browser/file_system_access/file_system_access_directory_handle_impl_unittest.cc",
     "../browser/file_system_access/file_system_access_file_handle_impl_unittest.cc",
     "../browser/file_system_access/file_system_access_file_modification_host_impl_unittest.cc",
@@ -3669,6 +3671,7 @@ test("content_unittests") {
     # Non-Android.
     sources += [
       "../browser/devtools/devtools_manager_unittest.cc",
+      "../browser/devtools/devtools_refcount_unittest.cc",
       "../browser/devtools/protocol/webauthn_handler_unittest.cc",
       "../browser/host_zoom_map_impl_unittest.cc",
       "../browser/picture_in_picture/document_picture_in_picture_navigation_throttle_unittest.cc",

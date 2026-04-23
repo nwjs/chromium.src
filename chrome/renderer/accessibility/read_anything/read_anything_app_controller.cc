@@ -459,7 +459,6 @@ ReadAnythingAppController::ReadAnythingAppController(
 }
 
 ReadAnythingAppController::~ReadAnythingAppController() {
-  RecordNumSelections();
   post_user_entry_draw_timer_->Stop();
 }
 
@@ -556,6 +555,11 @@ void ReadAnythingAppController::OnStringAttributeChanged(
 bool ReadAnythingAppController::IsUpdateProcessingPaused() const {
   if (model_.screen2x_distiller_running() ||
       read_aloud_model_.speech_playing()) {
+    return true;
+  }
+
+  // Don't trigger distillation if reading mode isn't shown.
+  if (IsHidden()) {
     return true;
   }
 
@@ -728,13 +732,11 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     return;
   }
   VLOG(1) << "On active tree changed with new id: " << tree_id;
-  RecordNumSelections();
 
   // If the previous tree was not unknown (e.g. this is not the first tree
-  // seen), log the words that were seen on the previous tree.
+  // seen), log session metrics for the previous tree.
   if (model_.active_tree_id() != ui::AXTreeIDUnknown()) {
-    RecordEstimatedWordsSeen();
-    RecordEstimatedWordsHeard();
+    RecordSessionMetricsIfShownOrRecentlyHidden();
   }
 
   // Cancel any running draw timers.
@@ -1055,7 +1057,7 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   // AXNode's language code is BCP 47. Only the base language is needed to
   // record the metric.
   std::string language = model_.GetActiveTree()->root()->GetLanguage();
-  if (!language.empty()) {
+  if (!language.empty() && !IsHidden()) {
     base::UmaHistogramSparse(
         "Accessibility.ReadAnything.Language",
         base::HashMetricName(language::ExtractBaseLanguage(language)));
@@ -1115,6 +1117,14 @@ void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
   if (IsGoogleDocs() && !model_.page_finished_loading()) {
     return;
   }
+
+  // TODO: crbug.com/463940276- Long-term, we should ensure that Draw is
+  // not being called at all when reading mode is hidden.
+  // Don't attempt to draw if reading mode is hidden.
+  if (IsHidden()) {
+    return;
+  }
+
   if (recompute_display_nodes && !model_.content_node_ids().empty()) {
     model_.ComputeDisplayNodeIdsForDistilledTree();
 
@@ -1150,6 +1160,9 @@ void ReadAnythingAppController::DrawEmptyState() {
 }
 
 void ReadAnythingAppController::LogEmptyState() {
+  if (IsHidden()) {
+    return;
+  }
   base::UmaHistogramEnumeration(ReadAnythingAppModel::kEmptyStateHistogramName,
                                 ReadAnythingAppModel::EmptyState::kShown);
 }
@@ -1298,8 +1311,6 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
       .SetProperty("isImmersiveEnabled",
                    &ReadAnythingAppController::IsImmersiveEnabled)
-      .SetProperty("isTsTextSegmentationEnabled",
-                   &ReadAnythingAppController::IsTsTextSegmentationEnabled)
       .SetProperty("isReadabilityEnabled",
                    &ReadAnythingAppController::IsReadabilityEnabled)
       .SetProperty("activeDistillationMethod",
@@ -1932,10 +1943,6 @@ bool ReadAnythingAppController::IsImmersiveEnabled() const {
   return features::IsImmersiveReadAnythingEnabled();
 }
 
-bool ReadAnythingAppController::IsTsTextSegmentationEnabled() const {
-  return features::IsReadAnythingReadAloudTSTextSegmentationEnabled();
-}
-
 // Returns true if the experimental flag allowing testing with alternative
 // distillation methods such as Readability.js is enabled.
 bool ReadAnythingAppController::IsReadabilityEnabled() const {
@@ -2003,6 +2010,11 @@ void ReadAnythingAppController::OnImageDataDownloaded(
   if (tree_id != model_.active_tree_id()) {
     return;
   }
+  // If the image no longer exists on the tree, do nothing with the downloaded
+  // image.
+  if (!model_.GetAXNode(node_id)) {
+    return;
+  }
   // Temporarily store the image so that javascript can fetch it.
   downloaded_images_[node_id] = image;
   // Notify javascript to fetch the image.
@@ -2043,7 +2055,10 @@ v8::Local<v8::Value> ReadAnythingAppController::GetImageBitmap(
     // Create an object with the image data and height, as well as a scale
     // factor.
     ui::AXNode* node = model_.GetAXNode(node_id);
-    CHECK(node);
+    DUMP_WILL_BE_CHECK(node);
+    if (!node) {
+      return v8::Undefined(isolate);
+    }
     int width = bitmap.width();
     int height = bitmap.height();
     float scale = (node->data().relative_bounds.bounds.width()) / width;
@@ -2447,9 +2462,8 @@ void ReadAnythingAppController::OnDeviceLocked() {
     read_aloud_model_.LogSpeechStop(
         ReadAloudAppModel::ReadAloudStopSource::kLockChromeosDevice);
   }
-  LogLineFocusSession();
-  RecordEstimatedWordsSeen();
-  RecordEstimatedWordsHeard();
+
+  RecordSessionMetricsIfShownOrRecentlyHidden();
   // Signal to the WebUI that the device has been locked. We'll only receive
   // this callback on ChromeOS.
   ExecuteJavaScript("chrome.readingMode.onLockScreen();");
@@ -2475,9 +2489,10 @@ void ReadAnythingAppController::OnReadingModeHidden(bool tab_active) {
           ReadAloudAppModel::ReadAloudStopSource::kCloseReadingMode);
     }
   }
-  LogLineFocusSession();
-  RecordEstimatedWordsSeen();
-  RecordEstimatedWordsHeard();
+
+  // Since it's known that reading mode was just hidden, ensure that metrics
+  // are still logged.
+  RecordSessionMetricsIfShownOrRecentlyHidden(/*just_hidden=*/true);
 }
 
 void ReadAnythingAppController::OnSpeechEngineStalled() {
@@ -2491,9 +2506,7 @@ void ReadAnythingAppController::OnTabWillDetach() {
         ReadAloudAppModel::ReadAloudStopSource::kCloseTabOrWindow);
     ReadingModeWillClose();
   }
-  LogLineFocusSession();
-  RecordEstimatedWordsSeen();
-  RecordEstimatedWordsHeard();
+  RecordSessionMetricsIfShownOrRecentlyHidden();
 }
 
 void ReadAnythingAppController::ReadingModeWillClose() {
@@ -2690,6 +2703,20 @@ void ReadAnythingAppController::LogSpeechStop(int source) {
           ToEnum<ReadAloudAppModel::ReadAloudStopSource>(source)) {
     read_aloud_model_.LogSpeechStop(maybe_enum.value());
   }
+}
+
+void ReadAnythingAppController::RecordSessionMetricsIfShownOrRecentlyHidden(
+    bool just_hidden) {
+  // Don't log session metrics if reading mode is hidden unless it is known
+  // that it was just hidden.
+  if (!just_hidden && IsHidden()) {
+    return;
+  }
+
+  LogLineFocusSession();
+  RecordNumSelections();
+  RecordEstimatedWordsHeard();
+  RecordEstimatedWordsSeen();
 }
 
 void ReadAnythingAppController::StartLineFocusSession() {
@@ -2927,4 +2954,10 @@ void ReadAnythingAppController::ApplyAccessibilityUpdatesForReadabilityLinks(
   if (didProcessAnchors) {
     ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
   }
+}
+
+bool ReadAnythingAppController::IsHidden() const {
+  return IsImmersiveEnabled() &&
+         model_.active_presentation_state() ==
+             read_anything::mojom::ReadAnythingPresentationState::kInactive;
 }

@@ -7,7 +7,6 @@
  * search engine with its name, domain and query URL.
  */
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
-import 'chrome://resources/cr_elements/cr_auto_img/cr_auto_img.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/icons.html.js';
@@ -16,7 +15,7 @@ import '/shared/settings/controls/extension_controlled_indicator.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import './search_engine_entry.css.js';
 import '../settings_shared.css.js';
-import '../site_favicon.js';
+import './search_engine_icon.js';
 
 import {ExtensionControlBrowserProxyImpl} from '/shared/settings/extension_control_browser_proxy.js';
 import type {ExtensionControlBrowserProxy} from '/shared/settings/extension_control_browser_proxy.js';
@@ -30,12 +29,6 @@ import {loadTimeData} from '../i18n_setup.js';
 import {getTemplate} from './search_engine_entry.html.js';
 import type {SearchEngine, SearchEnginesBrowserProxy} from './search_engines_browser_proxy.js';
 import {ChoiceMadeLocation, SearchEnginesBrowserProxyImpl} from './search_engines_browser_proxy.js';
-
-export interface SettingsSearchEngineEntryElement {
-  $: {
-    downloadedIcon: HTMLImageElement,
-  };
-}
 
 const SettingsSearchEngineEntryElementBase = I18nMixin(PolymerElement);
 
@@ -51,10 +44,7 @@ export class SettingsSearchEngineEntryElement extends
 
   static get properties() {
     return {
-      engine: {
-        type: Object,
-        observer: 'onEngineChanged_',
-      },
+      engine: Object,
 
       showShortcut: {type: Boolean, value: false, reflectToAttribute: true},
 
@@ -69,11 +59,6 @@ export class SettingsSearchEngineEntryElement extends
       showEditIcon_: {
         type: Boolean,
         computed: 'computeShowEditIcon_(engine)',
-      },
-
-      showDownloadedIcon_: {
-        type: Boolean,
-        value: false,
       },
 
       showSecondaryButton_: {
@@ -112,40 +97,25 @@ export class SettingsSearchEngineEntryElement extends
   private extensionBrowserProxy_: ExtensionControlBrowserProxy =
       ExtensionControlBrowserProxyImpl.getInstance();
   declare private showEditIcon_: boolean;
-  declare private showDownloadedIcon_: boolean;
   declare private showSecondaryButton_: boolean;
   declare private disableDots_: boolean;
-  private timeoutId_: number|null = null;
   declare turnOnLabel: string;
   declare turnOffLabel: string;
 
   declare private searchSettingsUpdateEnabled_: boolean;
 
-  private onEngineChanged_(
-      newEngine: SearchEngine, oldEngine: SearchEngine|undefined) {
-    if (oldEngine && newEngine.iconURL === oldEngine.iconURL) {
-      return;
-    }
-    this.showDownloadedIcon_ = false;
-    if (this.timeoutId_) {
-      clearTimeout(this.timeoutId_);
-      this.timeoutId_ = null;
-    }
-    this.timeoutId_ = setTimeout(() => {
-      if (!this.$.downloadedIcon.complete) {
-        // Reset src to cancel ongoing request.
-        this.$.downloadedIcon.src = '';
-        this.showDownloadedIcon_ = false;
-      }
-      this.timeoutId_ = null;
-    }, 1000);
-  }
-
   private closePopupMenu_() {
     this.shadowRoot!.querySelector('cr-action-menu')!.close();
   }
 
-  private canBeEdited_(): boolean {
+  private showEditOption_(): boolean {
+    // Hide the edit option for extension shortcuts except if they are the
+    // current default (e.g. by policy).
+    if (this.searchSettingsUpdateEnabled_ && this.engine.extension &&
+        !this.engine.default) {
+      return false;
+    }
+
     if (this.engine.isStarterPack) {
       return false;
     }
@@ -162,7 +132,7 @@ export class SettingsSearchEngineEntryElement extends
   }
 
   private computeShowEditIcon_(): boolean {
-    return !this.searchSettingsUpdateEnabled_ && this.canBeEdited_() &&
+    return !this.searchSettingsUpdateEnabled_ && this.showEditOption_() &&
         !this.engine.canBeActivated;
   }
 
@@ -172,6 +142,13 @@ export class SettingsSearchEngineEntryElement extends
   }
 
   private computeDisableDots_(): boolean {
+    // Disable the dots if none of the options are available for the engine.
+    if (this.searchSettingsUpdateEnabled_) {
+      return !this.showEditOption_() && !this.engine.canBeActivated &&
+          !this.engine.canBeDeactivated && !this.engine.canBeRemoved &&
+          !this.engine.canBeDefault;
+    }
+
     return this.engine.default ||
         (this.engine.isManaged && !this.engine.canBeActivated &&
          !this.engine.canBeDeactivated && !this.engine.canBeRemoved);
@@ -187,18 +164,39 @@ export class SettingsSearchEngineEntryElement extends
                                    this.i18n('searchDeactivate');
   }
 
-  private showEditOption_(): boolean {
-    return this.searchSettingsUpdateEnabled_ && this.canBeEdited_() &&
-        !this.engine.extension;
-  }
+  private showDeactivateOption_(): boolean {
+    assert(this.searchSettingsUpdateEnabled_);
 
-  private showDisableExtensionOption_(): boolean {
-    return this.searchSettingsUpdateEnabled_ && !!this.engine.extension &&
-        this.engine.extension.canBeDisabled;
+    // `canBeDeactivated` is always false if the engine is the current default,
+    // but it should be shown (and disabled) anyway. Hide the deactivate option
+    // if the engine is prepopulated, as the user should not be able to turn it
+    // off.
+    return this.engine.canBeDeactivated ||
+        (this.engine.default && !this.engine.isPrepopulated);
   }
 
   private showDeleteOption_(): boolean {
-    return this.searchSettingsUpdateEnabled_ && this.engine.canBeRemoved;
+    assert(this.searchSettingsUpdateEnabled_);
+
+    // `canBeRemoved` is always false if the engine is the current default,
+    // but it should be shown (and disabled) anyway. Hide the delete option if
+    // the engine is prepopulated, as the user should not be able to delete it.
+    return this.engine.canBeRemoved ||
+        (this.engine.default && !this.engine.isPrepopulated);
+  }
+
+  private showMakeDefaultOption_(): boolean {
+    assert(this.searchSettingsUpdateEnabled_);
+
+    // Hide the make default option for starter pack and extension shortcuts,
+    // except if they are the current default (e.g. by policy).
+    return !this.engine.isStarterPack &&
+        (!this.engine.extension || this.engine.default);
+  }
+
+  private showDisableExtensionOption_(): boolean {
+    assert(this.searchSettingsUpdateEnabled_);
+    return !!this.engine.extension && this.engine.extension.canBeDisabled;
   }
 
   private showControlledIndicator_(): boolean {
@@ -299,23 +297,6 @@ export class SettingsSearchEngineEntryElement extends
     this.closePopupMenu_();
     this.browserProxy_.setIsActiveSearchEngine(
         this.engine.id, /*is_active=*/ false);
-  }
-
-  private onDownloadedIconLoadError_() {
-    this.showDownloadedIcon_ = false;
-  }
-
-  private onDownloadedIconLoadSuccess_() {
-    this.showDownloadedIcon_ = true;
-    if (this.timeoutId_) {
-      clearTimeout(this.timeoutId_);
-    }
-    this.timeoutId_ = null;
-  }
-
-  private shouldShowDownloadedIcon_(): boolean {
-    return this.showDownloadedIcon_ && !this.engine.iconPath &&
-        !!this.engine.iconURL;
   }
 
   private getMoreActionsAriaLabel_(): string {

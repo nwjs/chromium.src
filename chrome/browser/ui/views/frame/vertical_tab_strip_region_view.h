@@ -10,6 +10,7 @@
 #include "base/callback_list.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/animation/browser_animation_types.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_view.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/events/event_handler.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/controls/resize_area_delegate.h"
@@ -203,10 +205,30 @@ class VerticalTabStripRegionView final
    private:
     raw_ptr<VerticalTabStripRegionView> region_view_;
   };
-  friend class RegionViewFocusListener;
+
+  // To avoid extra motion during expand on hover when the user doesn't need the
+  // expanded state, we reset the expand on hover timer when the user clicks on
+  // a tab to give them time to exit the tab strip before triggering the expand
+  // on hover state. This class listens for those click events to restart the
+  // timer.
+  class ClickEventHandler : public ui::EventHandler {
+   public:
+    explicit ClickEventHandler(VerticalTabStripRegionView* region_view);
+    ClickEventHandler(const ClickEventHandler&) = delete;
+    ClickEventHandler& operator=(const ClickEventHandler&) = delete;
+    ~ClickEventHandler() override = default;
+
+    // ui::EventHandler:
+    void OnMouseEvent(ui::MouseEvent* event) override;
+
+   private:
+    raw_ptr<VerticalTabStripRegionView> region_view_;
+  };
 
   // Used to create and destroy locks for the expand on hover state.
   friend class VerticalTabStripExpandOnHoverLock;
+
+  void HandleMouseExited();
 
   views::View* SetTabStripView(std::unique_ptr<views::View> view);
   void ClearTabStripView(views::View* view);
@@ -233,7 +255,12 @@ class VerticalTabStripRegionView final
   void OnChildrenRemoved();
   void OnChildMoved();
 
-  void UpdateExpandOnHoverState();
+  void OnExpandOnHoverEnabledChanged(bool enabled);
+  void UpdateExpandOnHoverState(std::optional<bool> hovered = std::nullopt);
+  void RestartExpandOnHoverTimer(const base::TimeDelta& delay);
+  void OnMouseVelocityHeuristicInterval();
+  void CalculateMouseVelocityForExpandOnHover();
+  void ResetExpandOnHoverTimers();
   void AnimateExpandOnHover(bool expand);
 
   void RegisterExpandOnHoverLock(VerticalTabStripExpandOnHoverLock* lock);
@@ -292,8 +319,9 @@ class VerticalTabStripRegionView final
   std::unique_ptr<TabHoverCardController> hover_card_controller_;
   std::unique_ptr<HoverTabSelector> hover_tab_selector_;
 
-  base::CallbackListSubscription collapsed_state_will_change_subscription_;
   base::CallbackListSubscription collapsed_state_changed_subscription_;
+  std::optional<base::CallbackListSubscription>
+      expand_on_hover_enabled_changed_subscription_;
   base::CallbackListSubscription paint_as_active_subscription_;
   std::optional<base::CallbackListSubscription> on_children_added_subscription_;
   std::optional<base::CallbackListSubscription>
@@ -324,6 +352,11 @@ class VerticalTabStripRegionView final
 
   base::OneShotTimer expand_on_hover_timer_;
   bool is_expanded_on_hover_ = false;
+  std::optional<base::TimeTicks> expand_on_hover_start_time_;
+  base::RetainingOneShotTimer expand_on_hover_heuristic_timer_;
+  std::optional<gfx::Point> point_at_expand_on_hover_timer_start_;
+  std::optional<base::TimeTicks> time_at_expand_on_hover_timer_start_;
+  int expand_on_hover_heuristic_samples_ = 0;
 
   // Given that both lock counters are non-zero, force_collapse_lock_count_ will
   // always take precedence.
@@ -339,6 +372,10 @@ class VerticalTabStripRegionView final
   std::optional<base::TimeTicks> new_tab_button_pressed_start_time_;
 
   RegionViewFocusListener focus_listener_{this};
+  ClickEventHandler click_handler_{this};
+
+  // The mouse exit event debounce timer.
+  base::OneShotTimer mouse_exit_timer_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_VERTICAL_TAB_STRIP_REGION_VIEW_H_

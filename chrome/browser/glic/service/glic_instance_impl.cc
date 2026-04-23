@@ -37,6 +37,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
+#include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/service/glic_ui_types.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service.h"
@@ -318,6 +319,10 @@ GlicInstanceImpl::instance_metrics_backwards_compatibility() {
   return instance_metrics_;
 }
 
+void GlicInstanceImpl::OnSelectionAreasChanged(int count) {
+  instance_metrics_.OnSelectionAreasChanged(count);
+}
+
 bool GlicInstanceImpl::IsShowing() const {
   return active_embedder_key_.has_value();
 }
@@ -361,7 +366,7 @@ void GlicInstanceImpl::Show(const ShowOptions& options) {
 
   // Look up the current embedder for that tab/key.
   EmbedderEntry* entry = GetEmbedderEntry(new_key);
-  bool should_log_open =
+  const bool new_embedder_will_show =
       !entry || !entry->embedder || !entry->embedder->IsShowing();
 
   GlicUiEmbedder* embedder_to_show = nullptr;
@@ -386,8 +391,10 @@ void GlicInstanceImpl::Show(const ShowOptions& options) {
   MaybeShowHostUi(embedder_to_show, options.invocation_source,
                   options.prompt_suggestion, options.auto_send,
                   options.fre_override);
-  if (should_log_open) {
+  if (new_embedder_will_show) {
     instance_metrics()->OnOpen(options.invocation_source, options);
+    service_->metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
+                                                    options.invocation_source);
   }
   embedder_to_show->Show(options);
   if (options.focus_on_show) {
@@ -473,8 +480,6 @@ bool GlicInstanceImpl::Toggle(ShowOptions&& options,
     }
     return false;
   }
-
-  service_->metrics()->OnGlicWindowStartedOpening(/*attached=*/false, source);
 
   // We assume that a toggle is user initiated so focus on show.
   options.focus_on_show = true;
@@ -567,7 +572,9 @@ tabs::TabInterface* GlicInstanceImpl::CreateTab(
     return nullptr;
   }
 
-  if (!created_tab) {
+  // TODO(b/501276046): Figure out how to ensure that instance helper is
+  // initialized when we get to this point.
+  if (!created_tab || !GlicInstanceHelper::From(created_tab)) {
     instance_metrics_.OnDaisyChain(DaisyChainSource::kGlicContents,
                                    /*success=*/false, nullptr, source_tab);
     return nullptr;

@@ -4,11 +4,9 @@
 
 #include "chrome/browser/ui/layout_constants.h"
 
-#include "base/feature_list.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/ui_base_features.h"
@@ -89,8 +87,6 @@ int GetLayoutConstant(LayoutConstant constant) {
     case LayoutConstant::kTabStripHeight:
       return GetLayoutConstant(LayoutConstant::kTabHeight) +
              GetLayoutConstant(LayoutConstant::kTabStripPadding);
-    case LayoutConstant::kDetachedTabGroupUnderlineBottomSpacing:
-      return 2;
     case LayoutConstant::kTabStripPadding:
       return 6;
     case LayoutConstant::kTabSeparatorHeight:
@@ -138,12 +134,14 @@ int GetLayoutConstant(LayoutConstant constant) {
       return 32;
     case LayoutConstant::kVerticalTabStripUncollapsedPadding:
       return 12;
-    case LayoutConstant::kVerticalTabStripCollapsedPadding:
+    case LayoutConstant::kVerticalTabStripCollapsedHorizontalPadding:
       return 12;
     case LayoutConstant::kVerticalTabStripCollapsedVerticalPadding:
       return 8;
     case LayoutConstant::kVerticalTabStripCollapsedSeparatorPadding:
       return 12;
+    case LayoutConstant::kVerticalTabStripComboButtonIconSize:
+      return 18;
     case LayoutConstant::kVerticalTabStripButtonIconSize:
       return 20;
     case LayoutConstant::kVerticalTabStripTopButtonPadding:
@@ -153,6 +151,8 @@ int GetLayoutConstant(LayoutConstant constant) {
     case LayoutConstant::kVerticalTabStripTopButtonContainerHeight:
       return 28;
     case LayoutConstant::kVerticalTabStripNewTabButtonSize:
+      return 32;
+    case LayoutConstant::kVerticalTabStripCollapseButtonSize:
       return 32;
     case LayoutConstant::kVerticalTabStripTopContainerButtonSize:
       return 28;

@@ -544,6 +544,39 @@ const FeatureEntry::FeatureVariation
     kHorizontalTabStripComboButtonVariations[] = {
         {"show start button only", kHorizontalTabStripComboButtonShowStartOnly,
          nullptr}};
+
+const FeatureEntry::FeatureParam kVerticalTabsExpandOnHover_NoClickDelay[] = {
+    {"expand_on_hover_delay", "350ms"},
+    {"expand_on_hover_click_delay", "0ms"},
+    {"expand_on_hover_default_enabled", "true"}};
+const FeatureEntry::FeatureParam kVerticalTabsExpandOnHover_AllowClickDelay[] =
+    {{"expand_on_hover_delay", "400ms"},
+     {"expand_on_hover_click_delay", "1500ms"},
+     {"expand_on_hover_default_enabled", "true"}};
+const FeatureEntry::FeatureParam
+    kVerticalTabsExpandOnHover_VelocityHeuristic_100VelocityThreshold[] = {
+        {"expand_on_hover_use_velocity_heuristic", "true"},
+        {"expand_on_hover_default_enabled", "true"},
+        {"expand_on_hover_velocity_heuristic_min_samples", "2"},
+        {"expand_on_hover_velocity_heuristic_threshold", "0.1"}};
+const FeatureEntry::FeatureParam
+    kVerticalTabsExpandOnHover_VelocityHeuristic_250VelocityThreshold[] = {
+        {"expand_on_hover_use_velocity_heuristic", "true"},
+        {"expand_on_hover_default_enabled", "true"},
+        {"expand_on_hover_velocity_heuristic_min_samples", "3"},
+        {"expand_on_hover_velocity_heuristic_threshold", "0.25"}};
+
+const FeatureEntry::FeatureVariation kVerticalTabsExpandOnHoverVariations[] = {
+    {"with 350ms hover delay / 0 click delay",
+     kVerticalTabsExpandOnHover_NoClickDelay, nullptr},
+    {"with 400ms hover delay / 1500ms click delay",
+     kVerticalTabsExpandOnHover_AllowClickDelay, nullptr},
+    {"with 100dp/s velocity heuristic",
+     kVerticalTabsExpandOnHover_VelocityHeuristic_100VelocityThreshold,
+     nullptr},
+    {"with 250dp/s velocity heuristic",
+     kVerticalTabsExpandOnHover_VelocityHeuristic_250VelocityThreshold,
+     nullptr}};
 #endif
 
 #if BUILDFLAG(ENABLE_VR)
@@ -4384,10 +4417,6 @@ const FeatureEntry::FeatureVariation kAndroidDesktopZoomScalingVariations[] = {
 const FeatureEntry::FeatureParam kArm1FullBundleWithExpandoButton[] = {
     {"ContextualTasksExpandButtonOptions", "side-panel-expand-button"}};
 const FeatureEntry::FeatureParam
-    kArm2FullBundleNoAutoSidePanelOpenWithExpandoButton[] = {
-        {"ContextualTasksExpandButtonOptions", "side-panel-expand-button"},
-        {"ContextualTasksOpenSidePanelOnLinkClicked", "false"}};
-const FeatureEntry::FeatureParam
     kArm3FullBundleWithoutLensMigrationWithExpandoButton[] = {
         {"ContextualTasksExpandButtonOptions", "side-panel-expand-button"},
         {"ContextualTasksEnableLensInContextualTasks", "false"}};
@@ -4413,8 +4442,6 @@ const FeatureEntry::FeatureParam
 const FeatureEntry::FeatureVariation kContextualTasksVariations[] = {
     {"Arm 1: Full bundle with expando button", kArm1FullBundleWithExpandoButton,
      nullptr},
-    {"Arm 2: Full bundle, no auto side panel open, expando button",
-     kArm2FullBundleNoAutoSidePanelOpenWithExpandoButton, nullptr},
     {"Arm 3: Full bundle, without Lens migration, expando button",
      kArm3FullBundleWithoutLensMigrationWithExpandoButton, nullptr},
     {"Arm 4: Full bundle, No auto added context in side panel, expando button",
@@ -4429,7 +4456,7 @@ const FeatureEntry::FeatureVariation kContextualTasksVariations[] = {
      nullptr},
     {"Arm 8: Full bundle, Ephemeral logo entrypoint, close to expand",
      kArm8FullBundleEphemeralLogoEntrypointCloseToExpandButton, nullptr}};
-// LINT.ThenChange(chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.cc)
+// LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.cc)
 
 const FeatureEntry::FeatureParam kSmartTabSharingEnabled[] = {
     {"ContextualTasksContextSmartTabSharing", "true"}};
@@ -5453,9 +5480,6 @@ const FeatureEntry kFeatureEntries[] = {
     {"tab-strip-declutter", flag_descriptions::kTabStripDeclutterName,
      flag_descriptions::kTabStripDeclutterDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kTabStripDeclutter)},
-    {"detached-tabs", flag_descriptions::kDetachedTabsName,
-     flag_descriptions::kDetachedTabsDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(features::kDetachedTabs)},
     {"enable-desktop-pwas-elided-extensions-menu",
      flag_descriptions::kDesktopPWAsElidedExtensionsMenuName,
      flag_descriptions::kDesktopPWAsElidedExtensionsMenuDescription, kOsDesktop,
@@ -6461,6 +6485,12 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(omnibox_feature_configs::ContextualSearch::
                             kOmniboxContextualSuggestions)},
 
+    {"searchbox-embedded-permission",
+     flag_descriptions::kEmbeddedPermissionEnabledName,
+     flag_descriptions::kEmbeddedPermissionEnabledDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(
+         omnibox_feature_configs::kEmbeddedPermissionEnabled)},
+
     {"lens-overlay-omnibox-entry-point",
      flag_descriptions::kLensOverlayOmniboxEntryPointName,
      flag_descriptions::kLensOverlayOmniboxEntryPointDescription, kOsDesktop,
@@ -6895,7 +6925,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"vertical-tabs-expand-on-hover",
      flag_descriptions::kVerticalTabsExpandOnHoverName,
      flag_descriptions::kVerticalTabsExpandOnHoverDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(tabs::kVerticalTabsExpandOnHover)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(tabs::kVerticalTabsExpandOnHover,
+                                    kVerticalTabsExpandOnHoverVariations,
+                                    "VerticalTabsExpandOnHover")},
 
     {"side-panel-flyover-animation",
      flag_descriptions::kSidePanelFlyoverAnimationName,
@@ -6952,6 +6984,11 @@ const FeatureEntry kFeatureEntries[] = {
          kPriceTrackingSubscriptionServiceLocaleKeyDescription,
      kOsAndroid | kOsDesktop,
      FEATURE_VALUE_TYPE(commerce::kPriceTrackingSubscriptionServiceLocaleKey)},
+
+    {"composebox-drive-context-menu-option",
+     flag_descriptions::kComposeboxDriveContextMenuOptionName,
+     flag_descriptions::kComposeboxDriveContextMenuOptionDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kComposeboxDriveContextMenuOption)},
 
     {"composebox-uses-chrome-compose-client",
      flag_descriptions::kNtpComposeboxUsesChromeComposeClientName,
@@ -7033,6 +7070,11 @@ const FeatureEntry kFeatureEntries[] = {
          ntp_features::kNtpFeatureOptimizationShortcutsRemoval,
          kNtpFeatureOptimizationShortcutsRemovalVariations,
          "NtpFeatureOptimizationShortcutsRemoval")},
+
+    {"ntp-simplification-bookmark-bar",
+     flag_descriptions::kNtpSimplificationBookmarkBarName,
+     flag_descriptions::kNtpSimplificationBookmarkBarDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(ntp_features::kNtpSimplificationBookmarkBar)},
 
     {"ntp-feature-optimization-dismiss-modules-removal",
      flag_descriptions::kNtpFeatureOptimizationDismissModulesRemovalName,
@@ -7125,6 +7167,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kNtpMicrosoftAuthenticationModuleDescription,
      kOsDesktop,
      FEATURE_VALUE_TYPE(ntp_features::kNtpMicrosoftAuthenticationModule)},
+
+    {"ntp-shortcuts-redesign", flag_descriptions::kNtpShortcutsRedesignName,
+     flag_descriptions::kNtpShortcutsRedesignDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(ntp_features::kNtpShortcutsRedesign)},
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -9333,7 +9379,7 @@ const FeatureEntry kFeatureEntries[] = {
 
     {"webui-omnibox-popup", flag_descriptions::kWebUIOmniboxPopupName,
      flag_descriptions::kWebUIOmniboxPopupDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(omnibox::kWebUIOmniboxPopup)},
+     FEATURE_VALUE_TYPE(omnibox::internal::kWebUIOmniboxPopup)},
 
     {"webui-omnibox-popup-debug",
      flag_descriptions::kWebUIOmniboxPopupDebugName,
@@ -9867,6 +9913,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAndroidZoomIndicatorDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(browser_ui::kAndroidZoomIndicator)},
 
+    {"android-zoom-immersive", flag_descriptions::kAndroidZoomImmersiveName,
+     flag_descriptions::kAndroidZoomImmersiveDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kAndroidZoomImmersive)},
+
     {"tab-bottom-sheet", flag_descriptions::kTabBottomSheetName,
      flag_descriptions::kTabBottomSheetDescription, kOsAndroid,
      FEATURE_WITH_PARAMS_VALUE_TYPE(chrome::android::kTabBottomSheet,
@@ -10361,6 +10411,11 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-lens-search-aim-m3", flag_descriptions::kLensSearchAimM3Name,
      flag_descriptions::kLensSearchAimM3Description, kOsDesktop,
      FEATURE_VALUE_TYPE(lens::features::kLensSearchAimM3)},
+
+    {"enable-lens-side-panel-unification",
+     flag_descriptions::kLensSidePanelUnificationName,
+     flag_descriptions::kLensSidePanelUnificationDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(lens::features::kLensSidePanelUnification)},
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -10593,17 +10648,21 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kGlicBindPinnedUnboundTabName,
      flag_descriptions::kGlicBindPinnedUnboundTabDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kGlicBindPinnedUnboundTab)},
+    {"glic-button-alt-label", flag_descriptions::kGlicButtonAltLabelName,
+     flag_descriptions::kGlicButtonAltLabelDescription, kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(features::kGlicButtonAltLabel,
+                                    kGlicButtonAltLabelVariations,
+                                    "GlicButtonAltLabel")},
+    {"glic-button-auto-summarize",
+     flag_descriptions::kGlicButtonAutoSummarizeName,
+     flag_descriptions::kGlicButtonAutoSummarizeDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kGlicButtonAutoSummarize)},
     {"glic-button-pressed-state",
      flag_descriptions::kGlicButtonPressedStateName,
      flag_descriptions::kGlicButtonPressedStateDescription, kOsDesktop,
      FEATURE_WITH_PARAMS_VALUE_TYPE(features::kGlicButtonPressedState,
                                     kGlicButtonPressedStateVariations,
                                     "GlicButtonPressedState")},
-    {"glic-button-alt-label", flag_descriptions::kGlicButtonAltLabelName,
-     flag_descriptions::kGlicButtonAltLabelDescription, kOsDesktop,
-     FEATURE_WITH_PARAMS_VALUE_TYPE(features::kGlicButtonAltLabel,
-                                    kGlicButtonAltLabelVariations,
-                                    "GlicButtonAltLabel")},
     {"glic-capture-region", flag_descriptions::kGlicCaptureRegionName,
      flag_descriptions::kGlicCaptureRegionDescription, kOsAll,
      FEATURE_VALUE_TYPE(features::kGlicCaptureRegion)},
@@ -12516,6 +12575,12 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAutofillAiDedupeEntitiesDescription, kOsAll,
      FEATURE_VALUE_TYPE(autofill::features::kAutofillAiDedupeEntities)},
 
+    {"autofill-ai-no-filling-icons-experiment",
+     flag_descriptions::kAutofillAiNoFillingIconsExperimentName,
+     flag_descriptions::kAutofillAiNoFillingIconsExperimentDescription, kOsAll,
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillAiNoFillingIconsExperiment)},
+
     {"autofill-ai-reauth-required",
      flag_descriptions::kAutofillAiReauthRequiredName,
      flag_descriptions::kAutofillAiReauthRequiredDescription, kOsAll,
@@ -12970,6 +13035,12 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kEnforceIncognitoIsolationDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(chrome::android::kEnforceIncognitoIsolation)},
 #endif
+
+    {"migrate-enhanced-sb-user-to-enhanced-bundle",
+     flag_descriptions::kMigrateEnhancedSbUserToEnhancedBundleName,
+     flag_descriptions::kMigrateEnhancedSbUserToEnhancedBundleDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(safe_browsing::kMigrateEnhancedSbUserToEnhancedBundle)},
 
     // Add new entries above this line.
     // NOTE: Adding a new flag requires adding a corresponding entry to enum

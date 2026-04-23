@@ -1301,8 +1301,8 @@ LayoutBox* LayoutObject::ContainingNGBox() const {
     if (parent->IsMedia()) {
       return To<LayoutBox>(parent);
     }
-    if (parent->IsCanvas() &&
-        RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+    if (parent->IsCanvas() && RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+                                  GetDocument().GetExecutionContext())) {
       return To<LayoutBox>(parent);
     }
   }
@@ -2433,7 +2433,10 @@ bool LayoutObject::MapToVisualRectInAncestorSpaceInternalFastPath(
     return false;
   }
 
-  if (ancestor == this) {
+  // Ensure that transforms are applied to the roots of frames and iframes.
+  if (ancestor == this &&
+      (!map_to_viewport || !RuntimeEnabledFeatures::
+                               FixVisualRectRemoteViewportTransformEnabled())) {
     return true;
   }
 

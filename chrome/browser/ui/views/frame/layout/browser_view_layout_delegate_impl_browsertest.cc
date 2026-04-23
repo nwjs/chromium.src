@@ -8,7 +8,6 @@
 
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
@@ -83,10 +82,7 @@ class BrowserViewLayoutDelegateImplBrowsertest
     : public InteractiveBrowserTest,
       public testing::WithParamInterface<WindowState> {
  public:
-  BrowserViewLayoutDelegateImplBrowsertest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        tabs::kHorizontalTabStripComboButton);
-  }
+  BrowserViewLayoutDelegateImplBrowsertest() = default;
   ~BrowserViewLayoutDelegateImplBrowsertest() override = default;
 
   void ApplyWindowState(Browser* browser) {
@@ -128,7 +124,6 @@ class BrowserViewLayoutDelegateImplBrowsertest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
   std::unique_ptr<ImmersiveRevealedLock> immersive_mode_lock_;
 };
@@ -175,7 +170,7 @@ IN_PROC_BROWSER_TEST_P(BrowserViewLayoutDelegateImplBrowsertest,
                  bounds.set_x(0);
                  bounds.set_width(browser_view->width());
                }),
-      Screenshot(kBrowserViewElementId, "tabstrip_region", "6956029",
+      Screenshot(kBrowserViewElementId, "tabstrip_region", "7771971",
                  std::ref(bounds)));
 }
 
@@ -194,20 +189,19 @@ IN_PROC_BROWSER_TEST_P(BrowserViewLayoutDelegateImplBrowsertest,
   ApplyWindowState(app_browser);
 
   gfx::Rect bounds;
-  RunTestSequence(
-      InContext(
-          BrowserElements::From(app_browser)->GetContext(),
-          WaitForShow(kBrowserViewElementId),
-          WithView(kBrowserViewElementId,
-                   [&bounds](BrowserView* browser_view) {
-                     WebAppFrameToolbarView* const toolbar =
-                         browser_view->web_app_frame_toolbar_for_testing();
-                     toolbar->InvalidateLayout();
-                     views::test::RunScheduledLayout(browser_view);
-                     bounds = GetBoundsInWindow(toolbar);
-                     bounds.set_x(0);
-                     bounds.set_width(browser_view->width());
-                   }),
-          Screenshot(kBrowserViewElementId, "tabstrip_region", "6956029",
-                     std::ref(bounds))));
+  RunTestSequence(InContext(
+      BrowserElements::From(app_browser)->GetContext(),
+      WaitForShow(kBrowserViewElementId),
+      WithView(kBrowserViewElementId,
+               [&bounds](BrowserView* browser_view) {
+                 WebAppFrameToolbarView* const toolbar =
+                     browser_view->web_app_frame_toolbar_for_testing();
+                 toolbar->InvalidateLayout();
+                 views::test::RunScheduledLayout(browser_view);
+                 bounds = GetBoundsInWindow(toolbar);
+                 bounds.set_x(0);
+                 bounds.set_width(browser_view->width());
+               }),
+      Screenshot(kBrowserViewElementId, "tabstrip_region", "7771971",
+                 std::ref(bounds))));
 }

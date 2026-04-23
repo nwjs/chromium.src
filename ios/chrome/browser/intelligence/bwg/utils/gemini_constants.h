@@ -33,7 +33,9 @@ enum class EntryPoint {
   EditMenu = 8,
   // Gemini was opened directly from the omnibox badge, skipping the AI Hub.
   DirectOmniboxBadge = 9,
-  kMaxValue = DirectOmniboxBadge,
+  // Gemini was opened from the AI Hub after a sign-in flow.
+  AIHubSignInSheet = 10,
+  kMaxValue = AIHubSignInSheet,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiEntryPoint)
 
@@ -170,6 +172,7 @@ extern const char kURLOnLastInteractionDictKey[];
 // Links for attributed links.
 extern const char kFirstFootnoteLinkURL[];
 extern const char kSecondFootnoteLinkURL[];
+extern const char kKoreanTermsFootnoteLinkURL[];
 extern const char kFootnoteLinkURLManagedAccount[];
 extern const char kSecondBoxLinkURLManagedAccount[];
 extern const char kSecondBoxLink1URLNonManagedAccount[];
@@ -181,6 +184,7 @@ extern const char kLivePrivacyPolicyLinkURL[];
 // Action identifier on a tap on links in the footnote.
 extern NSString* const kGeminiFirstFootnoteLinkAction;
 extern NSString* const kGeminiSecondFootnoteLinkAction;
+extern NSString* const kGeminiKoreanTermsLinkAction;
 extern NSString* const kGeminiFootnoteLinkActionManagedAccount;
 extern NSString* const kGeminiSecondBoxLinkActionManagedAccount;
 extern NSString* const kGeminiSecondBoxLink1ActionNonManagedAccount;

@@ -21,6 +21,7 @@
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_state_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_metrics_session_manager.h"
@@ -128,6 +129,10 @@ void GlicInstanceMetrics::OnGlicScrollComplete(bool success) {
   } else if (turn_.pending_scroll_complete_) {
     record_scroll_metric(turn_);
   }
+}
+
+void GlicInstanceMetrics::OnSelectionAreasChanged(int count) {
+  selection_areas_count_ = count;
 }
 
 void GlicInstanceMetrics::OnPinnedTabsChanged(
@@ -309,11 +314,10 @@ void GlicInstanceMetrics::OnShowInSidePanel(tabs::TabInterface* tab) {
   if (!tab) {
     return;
   }
-  if (!initial_entrypoint_.has_value()) {
+  if (!initial_invocation_source_.has_value()) {
     // If a side panel is opened outside of the ToggleFlow (e.g. for daisy
-    // chaining on new tab) we would log the default value "Other".
-    initial_entrypoint_ =
-        GetEntrypointFromInvocationSource(last_invocation_source_);
+    // chaining on new tab) we would log the default value "Unsupported".
+    initial_invocation_source_ = last_invocation_source_;
   }
 
   if (side_panel_open_times_.contains(tab->GetHandle())) {
@@ -403,10 +407,11 @@ void GlicInstanceMetrics::OnSidePanelClosed(
 
   if (!first_side_panel_close_recorded_) {
     first_side_panel_close_recorded_ = true;
-    GlicEntrypoint entrypoint =
-        initial_entrypoint_.value_or(GlicEntrypoint::kOther);
+    mojom::InvocationSource source = initial_invocation_source_.value_or(
+        mojom::InvocationSource::kUnsupported);
     base::UmaHistogramCustomTimes(
-        base::StrCat({"Glic.Instance.", GetEntrypointString(entrypoint),
+        base::StrCat({"Glic.InvocationSource.",
+                      GetInvocationSourceString(source),
                       ".SidePanelFirstOpenDuration"}),
         base::TimeTicks::Now() - it->second, base::Milliseconds(1),
         base::Hours(1), 50);
@@ -440,10 +445,11 @@ void GlicInstanceMetrics::OnUnbindEmbedder(EmbedderKey key) {
                                     base::Milliseconds(1), base::Hours(1), 50);
       if (!first_side_panel_close_recorded_) {
         first_side_panel_close_recorded_ = true;
-        GlicEntrypoint entrypoint =
-            initial_entrypoint_.value_or(GlicEntrypoint::kOther);
+        mojom::InvocationSource source = initial_invocation_source_.value_or(
+            mojom::InvocationSource::kUnsupported);
         base::UmaHistogramCustomTimes(
-            base::StrCat({"Glic.Instance.", GetEntrypointString(entrypoint),
+            base::StrCat({"Glic.InvocationSource.",
+                          GetInvocationSourceString(source),
                           ".SidePanelFirstOpenDuration"}),
             base::TimeTicks::Now() - it->second, base::Milliseconds(1),
             base::Hours(1), 50);
@@ -529,8 +535,8 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
                                  const ShowOptions& options) {
   invocation_start_time_ = base::TimeTicks::Now();
   last_invocation_source_ = source;
-  if (!initial_entrypoint_.has_value()) {
-    initial_entrypoint_ = GetEntrypointFromInvocationSource(source);
+  if (!initial_invocation_source_.has_value()) {
+    initial_invocation_source_ = source;
     base::UmaHistogramEnumeration("Glic.Instance.InitialInvocationSource",
                                   source);
   }
@@ -662,11 +668,11 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
         base::UmaHistogramCustomTimes(
             base::StrCat({"Glic.Instance.WebUiLoadTime", visibility_suffix}),
             load_time, base::Milliseconds(1), base::Seconds(60), 50);
-        if (initial_entrypoint_.has_value()) {
-          std::string entrypoint_string =
-              GetEntrypointString(initial_entrypoint_.value());
+        if (initial_invocation_source_.has_value()) {
           base::UmaHistogramCustomTimes(
-              base::StrCat({"Glic.Instance.", entrypoint_string,
+              base::StrCat({"Glic.InvocationSource.",
+                            GetInvocationSourceString(
+                                initial_invocation_source_.value()),
                             ".WebUiLoadTime", visibility_suffix}),
               load_time, base::Milliseconds(1), base::Seconds(60), 50);
         }
@@ -718,21 +724,25 @@ void GlicInstanceMetrics::OnClientReady(EmbedderType type) {
 
 void GlicInstanceMetrics::LogEvent(GlicInstanceEvent event) {
   base::UmaHistogramEnumeration("Glic.Instance.EventCounts", event);
-  if (initial_entrypoint_.has_value()) {
-    std::string entrypoint_string =
-        GetEntrypointString(initial_entrypoint_.value());
+  if (initial_invocation_source_.has_value()) {
     base::UmaHistogramEnumeration(
-        "Glic.Instance." + entrypoint_string + ".EventCounts", event);
+        base::StrCat(
+            {"Glic.InvocationSource.",
+             GetInvocationSourceString(initial_invocation_source_.value()),
+             ".EventCounts"}),
+        event);
   }
   if (event_counts_[event] == 0) {
     // This is recorded only the first time an event occurs within this sessions
     // lifetime.
     base::UmaHistogramEnumeration("Glic.Instance.HadEvent", event);
-    if (initial_entrypoint_.has_value()) {
-      std::string entrypoint_string =
-          GetEntrypointString(initial_entrypoint_.value());
+    if (initial_invocation_source_.has_value()) {
       base::UmaHistogramEnumeration(
-          "Glic.Instance." + entrypoint_string + ".HadEvent", event);
+          base::StrCat(
+              {"Glic.InvocationSource.",
+               GetInvocationSourceString(initial_invocation_source_.value()),
+               ".HadEvent"}),
+          event);
     }
   }
   event_counts_[event]++;
@@ -771,6 +781,10 @@ void GlicInstanceMetrics::OnUserInputSubmitted(mojom::WebClientMode mode) {
   session_manager_.OnUserInputSubmitted(mode);
   LogEvent(GlicInstanceEvent::kUserInputSubmitted);
   base::RecordAction(base::UserMetricsAction("GlicResponseInputSubmit"));
+  if (base::FeatureList::IsEnabled(features::kGlicCaptureRegion)) {
+    base::UmaHistogramExactLinear("Glic.Instance.InputSubmitted.SelectionCount",
+                                  selection_areas_count_, 10);
+  }
   // Reset turn data and start populating it for the new turn being started.
   turn_ = {};
   turn_.input_submitted_time_ = base::TimeTicks::Now();

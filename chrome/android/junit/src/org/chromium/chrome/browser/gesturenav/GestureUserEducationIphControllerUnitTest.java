@@ -40,6 +40,7 @@ import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.MotionEventTestUtils;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -183,7 +184,37 @@ public class GestureUserEducationIphControllerUnitTest {
                 ArgumentCaptor.forClass(PropertyModel.class);
         verify(mScrimManager).showScrim(scrimPropertyModelCaptor.capture());
 
-        scrimPropertyModelCaptor.getValue().get(ScrimProperties.CLICK_DELEGATE).run();
+        scrimPropertyModelCaptor
+                .getValue()
+                .get(ScrimProperties.GESTURE_DETECTOR)
+                .onTouchEvent(MotionEventTestUtils.getTrackpadTouchDownEventNoClick());
+        verify(mScrimManager).hideScrim(any(), anyBoolean());
+        Assert.assertEquals(0, mAnchorView.getChildCount());
+    }
+
+    @Test
+    public void testOnObservingDifferentTab_HidesIph() {
+        mController.setIsGestureNavModeForTesting(true);
+        when(mNavigationController.canGoToOffset(
+                        GestureUserEducationIphController.PAGE_HISTORY_MIN_OFFSET))
+                .thenReturn(true);
+        when(mBackPressManager.isBackPressHandlerConsumingBackEvent(
+                        BackPressHandler.Type.TAB_HISTORY))
+                .thenReturn(true);
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.GESTURE_USER_EDUCATION))
+                .thenReturn(true);
+
+        // Set the tab to something non-null first.
+        mActivityTabProvider.setForTesting(mTab);
+
+        var tabObserver = mController.getTabObserverForTesting();
+        tabObserver.onPageLoadFinished(mTab, JUnitTestGURLs.EXAMPLE_URL);
+
+        Assert.assertTrue(mAnchorView.getChildCount() > 0);
+
+        // Switch to a different tab (null in this case).
+        mActivityTabProvider.setForTesting(null);
+
         verify(mScrimManager).hideScrim(any(), anyBoolean());
         Assert.assertEquals(0, mAnchorView.getChildCount());
     }

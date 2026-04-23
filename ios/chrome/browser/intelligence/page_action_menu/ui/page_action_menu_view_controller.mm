@@ -156,6 +156,24 @@ const CGFloat kDividerWidth = 1.0;
   }
 }
 
+- (void)updateGeminiLoadingState:(BOOL)loading {
+  if (!_BWGButton) {
+    return;
+  }
+  UIButtonConfiguration* config = [_BWGButton.configuration copy];
+  config.showsActivityIndicator = loading;
+  if (loading) {
+    config.attributedTitle = nil;
+    config.image = nil;
+  }
+  _BWGButton.configuration = config;
+  _BWGButton.userInteractionEnabled = !loading;
+
+  if (!loading) {
+    [self updateGeminiAvailability];
+  }
+}
+
 #pragma mark - Public
 
 - (CGFloat)resolveDetentValueForSheetPresentation:
@@ -508,8 +526,7 @@ const CGFloat kDividerWidth = 1.0;
   [button addTarget:self
                 action:@selector(handleBWGTapped:)
       forControlEvents:UIControlEventTouchUpInside];
-
-  [self updateButton:button enabled:[self.mutator geminiEntryPoint].enabled];
+  [self updateGeminiAvailabilityForButton:button];
 
   return button;
 }
@@ -587,6 +604,14 @@ const CGFloat kDividerWidth = 1.0;
 
 // Dismisses this view controller and starts the BWG overlay.
 - (void)handleBWGTapped:(UIButton*)button {
+  // Signed-out: notify delegate to handle the sign-in flow.
+  if (IsPageActionMenuAuthFlowEnabled() && ![self.mutator isUserSignedIn]) {
+    RecordAIHubAction(IOSAIHubAction::kGeminiSignedOut);
+    [self.delegate viewControllerDidTapSignedOutGemini:self];
+    return;
+  }
+
+  // Signed-in and eligible: start Gemini.
   RecordAIHubAction(IOSAIHubAction::kGemini);
   PageActionMenuViewController* __weak weakSelf = self;
   [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
@@ -713,6 +738,16 @@ const CGFloat kDividerWidth = 1.0;
              enabled:[self.mutator
                          lensEntryPointForTraitCollection:traitCollection]
                          .enabled];
+}
+
+
+- (void)updateGeminiAvailability {
+  [self updateGeminiAvailabilityForButton:_BWGButton];
+}
+
+- (void)updateGeminiAvailabilityForButton:(UIButton*)button {
+  PageActionMenuContentEntryPoint* entryPoint = [self.mutator geminiEntryPoint];
+  [self updateButton:button enabled:entryPoint.enabled];
 }
 
 // Updates a `button` for whether it's `enabled`.

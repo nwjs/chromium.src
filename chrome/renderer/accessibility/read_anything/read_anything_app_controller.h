@@ -480,6 +480,12 @@ class ReadAnythingAppController
   // perform cleaning operations on it.
   void ReadingModeWillClose();
 
+  // Helper method for recording all reading mode per-session metrics. If
+  // reading mode is hidden, this will no-op unless overridden with the
+  // recently_hidden parameter.
+  void RecordSessionMetricsIfShownOrRecentlyHidden(
+      bool recently_hidden = false);
+
   // Records the number of selections that occurred for the active page. Called
   // when the active tree changes.
   void RecordNumSelections();
@@ -534,6 +540,8 @@ class ReadAnythingAppController
   // This function is expected to be called just once. There would be a mismatch
   // between the training protos and the screenshot if it runs more than once.
   void DistillAndScreenshot();
+
+  bool IsHidden() const;
 
   std::unique_ptr<AXTreeDistiller> distiller_;
   mojo::Remote<read_anything::mojom::UntrustedPageHandlerFactory>

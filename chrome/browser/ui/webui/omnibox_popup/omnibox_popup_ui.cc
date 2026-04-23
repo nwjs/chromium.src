@@ -62,7 +62,7 @@ bool OmniboxPopupUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
   return omnibox::IsAimPopupFeatureEnabled() ||
          base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) ||
-         base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup) ||
+         omnibox::IsWebUIOmniboxPopupEnabled() ||
          features::IsWebUILocationBarEnabled();
 }
 
@@ -160,6 +160,8 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                      omnibox::kShowSmartCompose.Get());
   source->AddBoolean("hideClassicContextButton",
                      omnibox::kHideClassicContextButton.Get());
+  source->AddBoolean("composeboxForkEnabled",
+                     omnibox::kUseComposeboxFork.Get());
   auto searchbox_layout_mode = AddContextButtonVariantToSearchboxLayoutMode(
       omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.Get());
   source->AddString("searchboxLayoutMode", searchbox_layout_mode);
@@ -195,6 +197,16 @@ WEB_UI_CONTROLLER_TYPE_IMPL(OmniboxPopupUI)
 
 void OmniboxPopupUI::BindInterface(
     content::RenderFrameHost* host,
+    mojo::PendingReceiver<searchbox::mojom::PageHandlerFactory>
+        pending_page_handler) {
+  if (searchbox_page_factory_receiver_.is_bound()) {
+    searchbox_page_factory_receiver_.reset();
+  }
+  searchbox_page_factory_receiver_.Bind(std::move(pending_page_handler));
+}
+
+void OmniboxPopupUI::CreatePageHandler(
+    mojo::PendingRemote<searchbox::mojom::Page> page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler) {
   auto* omnibox_controller =
       OmniboxPopupWebContentsHelper::GetOrCreateForWebContents(
@@ -205,7 +217,7 @@ void OmniboxPopupUI::BindInterface(
   MetricsReporterService* metrics_reporter_service =
       MetricsReporterService::GetFromWebContents(web_ui()->GetWebContents());
   omnibox_handler_ = std::make_unique<WebuiOmniboxHandler>(
-      std::move(pending_page_handler),
+      std::move(pending_page_handler), std::move(page),
       metrics_reporter_service->metrics_reporter(), omnibox_controller,
       web_ui(),
       base::BindRepeating(&OmniboxPopupUI::GetOrCreateContextualSessionHandle,
@@ -259,15 +271,12 @@ void OmniboxPopupUI::CreatePageHandler(
 
   composebox_handler_ = std::make_unique<OmniboxComposeboxHandler>(
       std::move(pending_page_handler), std::move(pending_page),
-      std::move(pending_searchbox_handler), profile_,
-      web_ui()->GetWebContents(),
+      std::move(pending_searchbox_handler), std::move(pending_searchbox_page),
+      profile_, web_ui()->GetWebContents(),
       base::BindRepeating(&OmniboxPopupUI::GetOrCreateContextualSessionHandle,
                           base::Unretained(this)),
       base::BindRepeating(&OmniboxPopupUI::ClearContextualSessionHandle,
                           base::Unretained(this)));
-
-  // TODO(crbug.com/435288212): Move searchbox mojom to use factory pattern.
-  composebox_handler_->SetPage(std::move(pending_searchbox_page));
 }
 
 contextual_search::ContextualSearchSessionHandle*

@@ -2485,8 +2485,10 @@ RenderFrameHostManager::UnsetSpeculativeRenderFrameHost(
                   kSpeculativeMainFrameForNavigationCancelled);
   } else {
     // TODO(dcheng): Upgrade this to a CHECK()?
-    CHECK_EQ(speculative_render_frame_host_->lifecycle_state(),
-             LifecycleStateImpl::kPendingCommit);
+    // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_EQ(speculative_render_frame_host_->lifecycle_state(),
+              LifecycleStateImpl::kPendingCommit);
 
     // A reasonable person might wonder: shouldn't a RenderFrameHostImpl in
     // kPendingCommit always have a... pending commit?
@@ -4564,7 +4566,9 @@ RenderFrameHostManager::CreateSpeculativeRenderFrame(
     render_view_host->GetWidget()->GetView()->Hide();
   }
 
-  CHECK(render_view_host->IsRenderViewLive());
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(render_view_host->IsRenderViewLive());
   // RenderViewHost for |instance| might exist prior to calling
   // CreateRenderFrame. In such a case, InitRenderView will not create the
   // RenderFrame in the renderer process and it needs to be done
@@ -4638,7 +4642,9 @@ void RenderFrameHostManager::CreateRenderFrameProxy(
       SCOPED_CRASH_KEY_STRING64("Bug1400009", "parent_lifecycle",
                                 RenderFrameHostImpl::LifecycleStateImplToString(
                                     parent_rfh->lifecycle_state()));
-      CHECK(render_view_host);
+      // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK
+      // once we are sure this isn't hit.
+      DCHECK(render_view_host);
     }
     if (!render_view_host) {
       // Before creating a new RenderFrameProxyHost, ensure a RenderViewHost
@@ -5791,7 +5797,9 @@ void RenderFrameHostManager::CreateOpenerProxies(
 
     auto opener_frame_token =
         node->render_manager()->GetOpenerFrameToken(group);
-    CHECK(opener_frame_token);
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK(opener_frame_token);
     proxy->GetAssociatedRemoteFrame()->UpdateOpener(opener_frame_token);
   }
 

@@ -281,6 +281,20 @@ suite('ContextualActionMenu', () => {
         'menuitem', $$(actionMenu, '#fileUpload')!.getAttribute('role'));
   });
 
+  test('Shows drive when allowed', async () => {
+    actionMenu.inputState = new MockInputState({
+      allowedInputTypes: [InputType.kDrive],
+      toolsSectionConfig: {header: ''},
+      modelSectionConfig: {header: ''},
+    });
+    actionMenu.showAt(actionMenu);
+    await microtasksFinished();
+
+    assertTrue(!!$$(actionMenu, '#driveUpload'));
+    assertEquals(
+        'menuitem', $$(actionMenu, '#driveUpload')!.getAttribute('role'));
+  });
+
   test('Hides image and file upload when not allowed', async () => {
     actionMenu.inputState = new MockInputState({
       allowedInputTypes: [],
@@ -292,6 +306,7 @@ suite('ContextualActionMenu', () => {
 
     assertFalse(!!$$(actionMenu, '#imageUpload'));
     assertFalse(!!$$(actionMenu, '#fileUpload'));
+    assertFalse(!!$$(actionMenu, '#driveUpload'));
   });
 
   test('Disables image and file upload when disabled', async () => {
@@ -494,6 +509,7 @@ suite('ContextualActionMenu', () => {
   });
 
   test('Uses configured menu labels', async () => {
+    const toolsHeader = 'Tools Header';
     const deepSearchLabel = 'Custom Deep Search Label';
     const geminiLabel = 'Custom Gemini Label';
     const imageUploadLabel = 'Custom Image Upload Label';
@@ -508,7 +524,7 @@ suite('ContextualActionMenu', () => {
         hintText: '',
         aimUrlParams: [],
       }],
-      toolsSectionConfig: {header: ''},
+      toolsSectionConfig: {header: toolsHeader},
       allowedModels: [ModelMode.kGeminiRegular],
       modelConfigs: [{
         model: ModelMode.kGeminiRegular,
@@ -532,7 +548,13 @@ suite('ContextualActionMenu', () => {
     const imageUpload = $$(actionMenu, '#imageUpload');
 
     assertTrue(deepSearch!.textContent.includes(deepSearchLabel));
+    assertEquals(
+        `${toolsHeader}: ${deepSearchLabel}`,
+        deepSearch!.getAttribute('aria-label'));
     assertTrue(geminiRegular!.textContent.includes(geminiLabel));
+    assertEquals(
+        `${geminiLabel}`,
+        geminiRegular!.getAttribute('aria-label'));
     assertTrue(imageUpload!.textContent.includes(imageUploadLabel));
   });
 });

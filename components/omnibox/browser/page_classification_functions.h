@@ -66,9 +66,16 @@ bool IsOmniboxComposebox(
 bool IsComposebox(
     ::metrics::OmniboxEventProto::PageClassification classification);
 
+// Return true, if page classification is the NTP composebox.
+bool IsNTPComposebox(
+    ::metrics::OmniboxEventProto::PageClassification classification);
+
 // Return true, if page classification is the NTP realbox.
 bool IsNTPRealbox(
     ::metrics::OmniboxEventProto::PageClassification classification);
+
+// Return true, if supplied page classification is an omnibox.
+bool IsOmnibox(::metrics::OmniboxEventProto::PageClassification classification);
 
 }  // namespace omnibox
 

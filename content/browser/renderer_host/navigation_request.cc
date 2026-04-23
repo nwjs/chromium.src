@@ -53,6 +53,7 @@
 #include "content/browser/browsing_topics/header_util.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/client_hints/client_hints.h"
+#include "content/browser/connection_allowlist_gating.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/devtools/network_service_devtools_observer.h"
 #include "content/browser/download/download_manager_impl.h"
@@ -1229,18 +1230,6 @@ net::StorageAccessApiStatus ShouldLoadWithStorageAccess(
   }
 }
 
-// Returns true if the parsed response headers contains a valid
-// "Connection-Allowlist" or "Connection-Allowlist-Report-Only" header.
-bool ResponseContainsConnectionAllowlist(
-    const network::mojom::URLResponseHead* response_head) {
-  return response_head && response_head->headers &&
-         response_head->parsed_headers &&
-         (response_head->parsed_headers->connection_allowlists.enforced
-              .has_value() ||
-          response_head->parsed_headers->connection_allowlists.report_only
-              .has_value());
-}
-
 const char* BeforeUnloadExecutionModeToString(
     NavigationHandle::BeforeUnloadExecutionMode mode) {
   switch (mode) {
@@ -2035,7 +2024,10 @@ NavigationRequest::NavigationRequest(
     // TODO(acolwell): Move this below so it can be enforced on all paths.
     // This requires auditing same-document and other navigations that don't
     // have |from_begin_navigation_| or |entry| set.
-    CHECK(!RequiresInitiatorBasedSourceSiteInstance() || source_site_instance_);
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK(!RequiresInitiatorBasedSourceSiteInstance() ||
+           source_site_instance_);
   }
 
   // Let the NTP override the navigation params and pretend that this is a
@@ -8467,8 +8459,12 @@ void NavigationRequest::Resume(NavigationThrottle* resuming_throttle) {
 void NavigationRequest::CancelDeferredNavigation(
     NavigationThrottle* cancelling_throttle,
     NavigationThrottle::ThrottleCheckResult result) {
-  CHECK(cancelling_throttle);
-  CHECK(throttle_registry_->GetDeferringThrottles().contains(
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(cancelling_throttle);
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(throttle_registry_->GetDeferringThrottles().contains(
       cancelling_throttle));
   CancelDeferredNavigationInternal(result);
 }
@@ -8882,9 +8878,14 @@ void NavigationRequest::DidCommitNavigation(
 
   if (!IsSameDocument() && IsInOutermostMainFrame() &&
       params.url.SchemeIsHTTPOrHTTPS()) {
+    const auto mode = GetBeforeUnloadExecutionMode();
+    const char kBaseName[] =
+        "Navigation.BeforeUnloadExecutionMode.IsInOutermostMainFrame";
+    base::UmaHistogramEnumeration(kBaseName, mode);
     base::UmaHistogramEnumeration(
-        "Navigation.BeforeUnloadExecutionMode.IsInOutermostMainFrame",
-        GetBeforeUnloadExecutionMode());
+        base::StrCat(
+            {kBaseName, IsSameOrigin() ? ".SameOrigin" : ".CrossOrigin"}),
+        mode);
   }
   TRACE_EVENT_INSTANT(
       "navigation", "BeforeUnloadExecutionMode", "BeforeUnloadExecutionMode",
@@ -9400,7 +9401,9 @@ NavigationRequest::GetOriginForURLLoaderFactoryAfterResponse() {
       !IsForMhtmlSubframe()) {
     int process_id = GetRenderFrameHost()->GetProcess()->GetDeprecatedID();
     auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
-    CHECK(policy->CanAccessOrigin(
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK(policy->CanAccessOrigin(
         process_id, origin,
         ChildProcessSecurityPolicyImpl::AccessType::kCanCommitNewOrigin));
   }
@@ -9606,9 +9609,13 @@ NavigationRequest::MakeDidCommitProvisionalLoadParamsForActivation() {
 
   CHECK_EQ(params->post_id, -1);
   params->navigation_token = commit_params().navigation_token;
-  CHECK_EQ(params->url, common_params().url);
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK_EQ(params->url, common_params().url);
   params->should_update_history = true;
-  CHECK_EQ(params->method, common_params().method);
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK_EQ(params->method, common_params().method);
   params->item_sequence_number = frame_entry_item_sequence_number_;
   params->document_sequence_number = frame_entry_document_sequence_number_;
   params->transition = ui::PageTransitionFromInt(common_params().transition);
@@ -9922,7 +9929,9 @@ NavigationRequest::GetAssociatedRFHType() const {
   // we only update the value for non-pending commit navigations (i.e. the
   // NavigationRequest owned by the FrameTreeNode). See the comments in
   // `RenderFrameHostManager::CommitPendingIfNecessary()` for more details.
-  CHECK(state_ < READY_TO_COMMIT || state_ == WILL_FAIL_REQUEST)
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(state_ < READY_TO_COMMIT || state_ == WILL_FAIL_REQUEST)
       << "Use GetRenderFrameHost() instead when the final RenderFrameHost "
          "for the navigation has been picked";
   return associated_rfh_type_;
@@ -10843,26 +10852,20 @@ void NavigationRequest::ComputePoliciesToCommit() {
   }
 
   if (ResponseContainsConnectionAllowlist(response_head_.get()) &&
-      base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
+      base::FeatureList::IsEnabled(network::features::kConnectionAllowlists) &&
+      ResponseEnablesConnectionAllowlistsOriginTrial(
+          common_params_->url, response_head_->headers.get())) {
     // Connection allowlist needs to be enforced once the allowlist response
     // header is received. The origin trial token for this feature is received
     // within the same response. The token is parsed here to query the trial
     // status, instead of waiting for the response sent to renderer process,
     // where the trial status is first available for most other web platform
     // features. See https://wicg.github.io/connection-allowlists/.
-    bool connection_allowlist_origin_trial_enabled =
-        base::FeatureList::IsEnabled(
-            blink::features::kOverrideConnectionAllowlistOriginTrial) ||
-        blink::TrialTokenValidator().RequestEnablesFeature(
-            common_params_->url, response_head_->headers.get(),
-            "ConnectionAllowlist", base::Time::Now());
-
+    //
     // The allowlist is stored in the policy container only if both origin trial
     // and base::Feature are enabled.
-    if (connection_allowlist_origin_trial_enabled) {
-      policy_container_builder_->SetConnectionAllowlists(
-          std::move(response_head_->parsed_headers->connection_allowlists));
-    }
+    policy_container_builder_->SetConnectionAllowlists(
+        std::move(response_head_->parsed_headers->connection_allowlists));
   }
 
   if (!devtools_instrumentation::ShouldBypassCSP(*this)) {
@@ -12067,7 +12070,8 @@ bool NavigationRequest::ShouldRecordNavigationTimelineUkm() const {
   return !IsSameDocument() && !IsRestore() &&
          !NavigationTypeUtils::IsHistory(common_params_->navigation_type) &&
          !NavigationTypeUtils::IsReload(common_params_->navigation_type) &&
-         common_params_->url.SchemeIsHTTPOrHTTPS() &&
+         (common_params_->url.SchemeIsHTTPOrHTTPS() ||
+          common_params_->url.SchemeIs(content::kChromeUIScheme)) &&
          !IsPrerenderedPageActivation();
 }
 
@@ -12408,6 +12412,14 @@ NavigationRequest::GenerateNavigationTimelineForMetrics(
   // `NavigationTimeline` so that it can be accessed by PageLoadMetricsObservers
   // via `NavigationRequest::GetNavigationHandleTiming()`.
   UpdateNavigationHandleTimingsFromNavigationTimeline(timeline);
+
+  // Populate the renderer process creation and launch times.
+  if (GetRenderFrameHost() && GetRenderFrameHost()->GetProcess()) {
+    timeline.renderer_process_created =
+        GetRenderFrameHost()->GetProcess()->GetLastInitTime();
+    timeline.renderer_process_launched =
+        GetRenderFrameHost()->GetProcess()->GetProcessLaunchedTime();
+  }
 
   return timeline;
 }

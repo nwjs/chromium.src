@@ -33,7 +33,9 @@ import static org.chromium.chrome.browser.autofill.editors.common.text_field.Tex
 import static org.chromium.chrome.browser.autofill.editors.utils.TestUtils.setDropdownValue;
 
 import android.app.Activity;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.ClickableSpan;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -88,6 +90,7 @@ import org.chromium.ui.modelutil.ListModel;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 @RunWith(BaseRobolectricTestRunner.class)
@@ -131,6 +134,7 @@ public class EntityEditorModuleTest {
                     /* isReadOnly= */ false,
                     /* isEnabled= */ true,
                     /* isEligibleForWalletStorage= */ false,
+                    /* isMaskedStorageSupported= */ true,
                     /* typeNameAsString= */ "Passport",
                     /* typeNameAsMetricsString= */ "Passport",
                     /* addEntityTypeString= */ "Add passport",
@@ -143,6 +147,71 @@ public class EntityEditorModuleTest {
                             PASSPORT_ISSUE_DATE_TYPE,
                             PASSPORT_EXPIRATION_DATE_TYPE),
                     /* requiredAttributes= */ List.of(PASSPORT_NUMBER_ATTRIBUTE_TYPE));
+
+    private static final AttributeType sVehicleMakeType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_MAKE,
+                    /* typeNameAsString= */ "Make",
+                    /* dataType= */ DataType.STRING,
+                    /* fieldType= */ FieldType.VEHICLE_MAKE);
+    private static final AttributeType sVehicleModelType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_MODEL,
+                    /* typeNameAsString= */ "Model",
+                    /* dataType= */ DataType.STRING,
+                    /* fieldType= */ FieldType.VEHICLE_MODEL);
+    private static final AttributeType sVehicleYearType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_YEAR,
+                    /* typeNameAsString= */ "Year",
+                    /* dataType= */ DataType.STRING,
+                    /* fieldType= */ FieldType.VEHICLE_YEAR);
+    private static final AttributeType sVehicleOwnerType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_OWNER,
+                    /* typeNameAsString= */ "Owner",
+                    /* dataType= */ DataType.NAME,
+                    /* fieldType= */ FieldType.NAME_FULL);
+    private static final AttributeType sVehicleLicensePlateType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_PLATE_NUMBER,
+                    /* typeNameAsString= */ "License place",
+                    /* dataType= */ DataType.STRING,
+                    /* fieldType= */ FieldType.VEHICLE_LICENSE_PLATE);
+    private static final AttributeType sVehiclePlateStateType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_PLATE_STATE,
+                    /* typeNameAsString= */ "State",
+                    /* dataType= */ DataType.STATE,
+                    /* fieldType= */ FieldType.VEHICLE_PLATE_STATE);
+    private static final AttributeType sVehicleVinType =
+            new AttributeType(
+                    /* typeName= */ AttributeTypeName.VEHICLE_VIN,
+                    /* typeNameAsString= */ "VIN",
+                    /* dataType= */ DataType.STRING,
+                    /* fieldType= */ FieldType.VEHICLE_VIN);
+
+    private static final EntityType sVehicleType =
+            new EntityType(
+                    EntityTypeName.VEHICLE,
+                    /* isReadOnly= */ false,
+                    /* isEnabled= */ true,
+                    /* isEligibleForWalletStorage= */ true,
+                    /* isMaskedStorageSupported= */ true,
+                    /* typeNameAsString= */ "Vehicle",
+                    /* typeNameAsMetricsString= */ "Vehicle",
+                    /* addEntityTypeString= */ "Add vehicle",
+                    /* editEntityTypeString= */ "Edit vehicle",
+                    /* deleteEntityTypeString= */ "Delete vehicle",
+                    /* attributeTypes= */ List.of(
+                            sVehicleMakeType,
+                            sVehicleModelType,
+                            sVehicleYearType,
+                            sVehicleOwnerType,
+                            sVehicleLicensePlateType,
+                            sVehiclePlateStateType,
+                            sVehicleVinType),
+                    /* requiredAttributes= */ List.of(sVehicleLicensePlateType, sVehicleVinType));
 
     private static final EntityInstance LOCAL_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
@@ -167,6 +236,14 @@ public class EntityEditorModuleTest {
                     .setUseCount(0)
                     .build();
 
+    private static final EntityInstance NEW_WALLET_PASSPORT =
+            new EntityInstance.Builder(PASSPORT_TYPE)
+                    .setGUID("")
+                    .setRecordType(RecordType.SERVER_WALLET)
+                    .setModifiedDate(LocalDate.of(2026, 2, 15))
+                    .setUseCount(0)
+                    .build();
+
     private static final EntityInstance WALLET_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
                     .setGUID("guid")
@@ -181,6 +258,15 @@ public class EntityEditorModuleTest {
                                     PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Germany"))
                     .build();
 
+    private static final EntityInstance PRIVATE_WALLET_PASSPORT =
+            new EntityInstance.Builder(PASSPORT_TYPE)
+                    .setGUID("guid")
+                    .setRecordType(RecordType.SERVER_WALLET)
+                    .setIsMaskedServerEntity(true)
+                    .setModifiedDate(LocalDate.of(2026, 2, 15))
+                    .setUseCount(0)
+                    .build();
+
     private final CoreAccountInfo mAccountInfo =
             CoreAccountInfo.createFromEmailAndGaiaId(USER_EMAIL, new GaiaId("gaia_id"));
 
@@ -192,7 +278,7 @@ public class EntityEditorModuleTest {
                     new DropdownKeyValue("DE", "Germany"),
                     new DropdownKeyValue("CU", "Cuba"));
 
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.LENIENT);
     @Mock private Delegate mDelegate;
     @Mock private Profile mProfile;
     @Mock private IdentityManager mIdentityManager;
@@ -250,6 +336,21 @@ public class EntityEditorModuleTest {
         showEditorDialog(NEW_LOCAL_PASSPORT);
         EditorDialogToolbar toolbar = mContainerView.findViewById(R.id.action_bar);
         assertEquals(PASSPORT_TYPE.getAddEntityTypeString(), toolbar.getTitle());
+        assertFalse(toolbar.getBrandingIconForTest().isVisible());
+        assertTrue(mCoordinator.getEditorModelForTest().get(EntityEditorProperties.VISIBLE));
+    }
+
+    @Test
+    @SmallTest
+    public void testShowEditorDialogForNewWalletEntity() {
+        when(mPersonalDataManager.getDefaultCountryCodeForNewAddress()).thenReturn("US");
+        showEditorDialog(NEW_WALLET_PASSPORT);
+        EditorDialogToolbar toolbar = mContainerView.findViewById(R.id.action_bar);
+        assertEquals(PASSPORT_TYPE.getAddEntityTypeString(), toolbar.getTitle());
+        assertTrue(toolbar.getBrandingIconForTest().isVisible());
+        assertEquals(
+                mActivity.getString(R.string.autofill_google_wallet_title),
+                toolbar.getBrandingIconForTest().getTitle());
         assertTrue(mCoordinator.getEditorModelForTest().get(EntityEditorProperties.VISIBLE));
     }
 
@@ -260,6 +361,7 @@ public class EntityEditorModuleTest {
         showEditorDialog(LOCAL_PASSPORT);
         EditorDialogToolbar toolbar = mContainerView.findViewById(R.id.action_bar);
         assertEquals(PASSPORT_TYPE.getEditEntityTypeString(), toolbar.getTitle());
+        assertFalse(toolbar.getBrandingIconForTest().isVisible());
         assertTrue(mCoordinator.getEditorModelForTest().get(EntityEditorProperties.VISIBLE));
     }
 
@@ -373,9 +475,13 @@ public class EntityEditorModuleTest {
         showEditorDialog(LOCAL_PASSPORT);
 
         PropertyModel model = mCoordinator.getEditorModelForTest();
+        verifyRequiredFieldsItem(
+                model.get(EntityEditorProperties.EDITOR_FIELDS),
+                mActivity.getString(R.string.payments_required_field_message));
         verifySourceNotice(
                 model.get(EntityEditorProperties.EDITOR_FIELDS),
-                mActivity.getString(R.string.autofill_ai_local_entity_editor_source_notice));
+                mActivity.getString(
+                        R.string.autofill_ai_save_or_update_local_entity_source_notice));
     }
 
     @Test
@@ -384,12 +490,45 @@ public class EntityEditorModuleTest {
         when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(mAccountInfo);
         showEditorDialog(WALLET_PASSPORT);
 
-        PropertyModel model = mCoordinator.getEditorModelForTest();
-        verifySourceNotice(
-                model.get(EntityEditorProperties.EDITOR_FIELDS),
+        String walletTitle = mActivity.getString(R.string.autofill_google_wallet_title);
+        String expectedNoticeText =
                 mActivity
-                        .getString(R.string.autofill_ai_wallet_entity_editor_source_notice)
-                        .replace("$1", USER_EMAIL));
+                        .getString(
+                                R.string.autofill_ai_save_or_update_entity_in_wallet_source_notice)
+                        .replace("$1", walletTitle)
+                        .replace("$2", walletTitle)
+                        .replace("$3", USER_EMAIL)
+                        .replace("<link>", "")
+                        .replace("</link>", "");
+
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        verifySourceNotice(model.get(EntityEditorProperties.EDITOR_FIELDS), expectedNoticeText);
+    }
+
+    @Test
+    @SmallTest
+    public void testWalletEntitySourceNotice_ClickLink() {
+        when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(mAccountInfo);
+        showEditorDialog(WALLET_PASSPORT);
+
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
+
+        clickSourceNoticeLink();
+        verify(mDelegate).onOpenGoogleWallet(false);
+    }
+
+    @Test
+    @SmallTest
+    public void testPrivateWalletEntitySourceNotice_ClickLink() {
+        when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(mAccountInfo);
+        showEditorDialog(PRIVATE_WALLET_PASSPORT);
+
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
+
+        clickSourceNoticeLink();
+        verify(mDelegate).onOpenGoogleWallet(true);
     }
 
     @Test
@@ -505,11 +644,9 @@ public class EntityEditorModuleTest {
         showEditorDialog(entity);
 
         ViewGroup content = mCoordinator.getEntityEditorViewForTest().getContentView();
-        DateFieldView issueDate = (DateFieldView) content.getChildAt(3);
 
         PropertyModel model = mCoordinator.getEditorModelForTest();
         ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
-        // Make sure that the fields order is correct before editing them.
         EditorItem passportNameItem = editorFields.get(0);
         EditorItem passportNumberItem = editorFields.get(2);
 
@@ -534,6 +671,90 @@ public class EntityEditorModuleTest {
                 updatedEntityInstance
                         .getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE)
                         .getAttributeValue());
+    }
+
+    @Test
+    @SmallTest
+    public void testCommitChangesWithTwoRequiredFields() {
+        EntityInstance localVehicle =
+                new EntityInstance.Builder(sVehicleType)
+                        .setGUID("guid")
+                        .setRecordType(RecordType.LOCAL)
+                        .setIsMaskedServerEntity(false)
+                        .setModifiedDate(LocalDate.of(2026, 2, 15))
+                        .setUseCount(0)
+                        .build();
+        showEditorDialog(localVehicle);
+
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
+        EditorItem vehicleLicensePlate = editorFields.get(4);
+        EditorItem vehicleIdentificationNumber = editorFields.get(6);
+
+        // Make sure both fields are required.
+        assertTrue(vehicleLicensePlate.model.get(IS_REQUIRED));
+        assertTrue(vehicleIdentificationNumber.model.get(IS_REQUIRED));
+
+        mContainerView.findViewById(R.id.editor_dialog_done_button).performClick();
+        // The entity should not be saved because all required fields are left empty.
+        verify(mDelegate, times(0)).onDone(any());
+        assertFalse(TextUtils.isEmpty(vehicleLicensePlate.model.get(ERROR_MESSAGE)));
+        assertFalse(TextUtils.isEmpty(vehicleIdentificationNumber.model.get(ERROR_MESSAGE)));
+
+        vehicleLicensePlate.model.set(VALUE, "AA123456BB");
+        // Click the "Done" button and make sure that the editor is closed because only one required
+        // attribute is required to save the entity.
+        mContainerView.findViewById(R.id.editor_dialog_done_button).performClick();
+        verify(mDelegate).onDone(mEntityInstanceCaptor.capture());
+
+        EntityInstance updatedEntityInstance = mEntityInstanceCaptor.getValue();
+        // The name attribute should not be added to the entity because it wasn't set before.
+        assertTrue(updatedEntityInstance.hasAttribute(sVehicleLicensePlateType));
+        assertEquals(
+                new StringValue("AA123456BB"),
+                updatedEntityInstance.getAttribute(sVehicleLicensePlateType).getAttributeValue());
+    }
+
+    @Test
+    @SmallTest
+    public void testCommitChangesWithNoRequiredFields() {
+        when(mPersonalDataManager.getDefaultCountryCodeForNewAddress()).thenReturn("US");
+        EntityType passportTypeWithNoRequiredFields =
+                new EntityType(
+                        /* typeName= */ EntityTypeName.PASSPORT,
+                        /* isReadOnly= */ false,
+                        /* isEnabled= */ true,
+                        /* isEligibleForWalletStorage= */ false,
+                        /* isMaskedStorageSupported= */ true,
+                        /* typeNameAsString= */ "Passport",
+                        /* typeNameAsMetricsString= */ "Passport",
+                        /* addEntityTypeString= */ "Add passport",
+                        /* editEntityTypeString= */ "Edit passport",
+                        /* deleteEntityTypeString= */ "Delete passport",
+                        /* attributeTypes= */ List.of(
+                                PASSPORT_NAME_ATTRIBUTE_TYPE,
+                                PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                PASSPORT_ISSUE_DATE_TYPE,
+                                PASSPORT_EXPIRATION_DATE_TYPE),
+                        /* requiredAttributes= */ Collections.emptyList());
+        EntityInstance passportEntity =
+                new EntityInstance.Builder(passportTypeWithNoRequiredFields)
+                        .setGUID("guid")
+                        .setRecordType(RecordType.LOCAL)
+                        .setIsMaskedServerEntity(false)
+                        .setModifiedDate(LocalDate.of(2026, 2, 15))
+                        .setUseCount(0)
+                        .build();
+        showEditorDialog(passportEntity);
+
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
+
+        // Click the "Done" button and make sure that the editor is closed because there are no
+        // required fields in the provided entity.
+        mContainerView.findViewById(R.id.editor_dialog_done_button).performClick();
+        verify(mDelegate).onDone(mEntityInstanceCaptor.capture());
     }
 
     private void showEditorDialog(EntityInstance entityInstance) {
@@ -594,11 +815,44 @@ public class EntityEditorModuleTest {
         assertEquals(value, item.model.get(VALUE));
     }
 
+    private void verifyRequiredFieldsItem(ListModel<EditorItem> editorFields, String expectedText) {
+        for (EditorItem item : editorFields) {
+            if (item.type == NOTICE && expectedText.equals(item.model.get(NOTICE_TEXT))) {
+                assertFalse(item.model.get(SHOW_BACKGROUND));
+                assertFalse(item.model.get(IMPORTANT_FOR_ACCESSIBILITY));
+                return;
+            }
+        }
+        fail("Required fields notice not found");
+    }
+
     private void verifySourceNotice(ListModel<EditorItem> editorFields, String expectedNoticeText) {
         for (EditorItem item : editorFields) {
-            if (item.type == NOTICE && expectedNoticeText.equals(item.model.get(NOTICE_TEXT))) {
+            if (item.type == NOTICE
+                    && expectedNoticeText.equals(item.model.get(NOTICE_TEXT).toString())) {
                 assertTrue(item.model.get(SHOW_BACKGROUND));
                 assertTrue(item.model.get(IMPORTANT_FOR_ACCESSIBILITY));
+                return;
+            }
+        }
+        fail("Source notice not found");
+    }
+
+    private void clickClickableSpan(CharSequence text) {
+        Spanned spanned = (Spanned) text;
+        ClickableSpan[] spans = spanned.getSpans(0, text.length(), ClickableSpan.class);
+        assertEquals(1, spans.length);
+        spans[0].onClick(null);
+    }
+
+    private void clickSourceNoticeLink() {
+        PropertyModel model = mCoordinator.getEditorModelForTest();
+        ListModel<EditorItem> editorFields = model.get(EntityEditorProperties.EDITOR_FIELDS);
+
+        for (EditorItem item : editorFields) {
+            if (item.type == NOTICE && item.model.get(SHOW_BACKGROUND)) {
+                CharSequence noticeText = item.model.get(NOTICE_TEXT);
+                clickClickableSpan(noticeText);
                 return;
             }
         }

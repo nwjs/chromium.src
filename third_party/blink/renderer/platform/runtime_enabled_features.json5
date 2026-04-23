@@ -376,16 +376,12 @@
       name: "AIPromptAPI",
       public: true,
       status: {
-        "Win": "experimental",
-        "Mac": "experimental",
-        "Linux": "experimental",
-        "ChromeOS": "experimental",
+        "Win": "stable",
+        "Mac": "stable",
+        "Linux": "stable",
+        "ChromeOS": "stable",
         "default": "",
       },
-      origin_trial_feature_name: "AIPromptAPIMultimodalInput",
-      origin_trial_os: ["win", "mac", "linux", "chromeos"],
-      origin_trial_allows_third_party: true,
-      implied_by: ["AIPromptAPIMultimodalInput"],
     },
     {
       // Extension access to "AIPromptAPI".
@@ -422,17 +418,12 @@
     {
       name: "AIPromptAPIMultimodalInput",
       status: {
-        "Win": "experimental",
-        "Mac": "experimental",
-        "Linux": "experimental",
-        "ChromeOS": "experimental",
+        "Win": "stable",
+        "Mac": "stable",
+        "Linux": "stable",
+        "ChromeOS": "stable",
         "default": "",
       },
-      origin_trial_feature_name: "AIPromptAPIMultimodalInput",
-      origin_trial_os: ["win", "mac", "linux", "chromeos"],
-      origin_trial_allows_third_party: true,
-      base_feature_status: "enabled",
-      copied_from_base_feature_if: "overridden",
     },
     {
       // Gates access to inference parameter enhancements for "AIPromptAPI".
@@ -991,7 +982,8 @@
       // https://github.com/WICG/html-in-canvas/blob/main/README.md
       // Note the API name has changed to `drawElementImage`.
       name: "CanvasDrawElement",
-      status: "test",
+      origin_trial_feature_name: "HTMLInCanvas",
+      status: "experimental",
     },
     {
       name: "CanvasFloatingPoint",
@@ -2052,11 +2044,13 @@
     {
       name: "DeclarativeCSSModules",
       status: "experimental",
+      origin_trial_feature_name: "DeclarativeCSSModules",
     },
     // https://crbug.com/448174611
     {
       name: "DeclarativeCSSModulesStyleTag",
       implied_by: ["DeclarativeCSSModules"],
+      origin_trial_feature_name: "DeclarativeCSSModules",
     },
     {
       // https://chromestatus.com/feature/5133099851317248
@@ -2811,6 +2805,12 @@
       // Fix for strikethrough toggle not working in empty
       // contenteditable. See https://crbug.com/427915243
       name: "FixStrikethroughToggleInEmptyContentEditable",
+      status: "stable",
+    },
+    // Fix LayoutView viewport mapping in the GeometryMapper fast path for
+    // OOPIFs.
+    {
+      name: "FixVisualRectRemoteViewportTransform",
       status: "stable",
     },
     {
@@ -5240,6 +5240,7 @@
     {
       name: "ShadowRootAdoptedStyleSheet",
       implied_by: ["DeclarativeCSSModules"],
+      origin_trial_feature_name: "DeclarativeCSSModules",
     },
     {
       // Reference Target allows IDREF attributes to refer inside Shadow DOM.
@@ -5283,8 +5284,9 @@
     {
       // If enabled, SharedWorker supports extendedLifetime
       // https://github.com/whatwg/html/issues/10997
+      // https://issues.chromium.org/issues/400473072
       name: "SharedWorkerExtendedLifetime",
-      status: "experimental",
+      status: "stable",
       origin_trial_feature_name: "SharedWorkerExtendedLifetime",
       origin_trial_allows_third_party: true,
     },

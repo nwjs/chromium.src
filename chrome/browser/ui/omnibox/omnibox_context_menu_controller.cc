@@ -17,6 +17,7 @@
 #include "base/feature_list.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -55,8 +56,10 @@
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/omnibox/common/omnibox_metrics_utils.h"
 #include "components/omnibox/composebox/composebox_query.mojom.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "third_party/omnibox_proto/input_type.pb.h"
@@ -103,6 +106,12 @@ bool IsThinkingModel(omnibox::ModelMode model) {
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OmniboxContextMenuController,
                                       kDeepResearchIdForTesting);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OmniboxContextMenuController,
+                                      kFirstTabMenuItemIdForTesting);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OmniboxContextMenuController,
+                                      kImageUploadMenuItemIdForTesting);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OmniboxContextMenuController,
+                                      kFileUploadMenuItemIdForTesting);
 
 OmniboxContextMenuController::OmniboxContextMenuController(
     OmniboxPopupFileSelector* file_selector,
@@ -215,6 +224,7 @@ void OmniboxContextMenuController::AddRecentTabItems() {
   }
   std::vector<OmniboxContextMenuController::TabInfo> tabs = GetRecentTabs();
 
+  const size_t first_tab_index = menu_model_->GetItemCount();
   for (const auto& tab : tabs) {
     AddItemWithIcon(next_command_id_, tab.title,
                     favicon::GetDefaultFaviconModel());
@@ -222,6 +232,10 @@ void OmniboxContextMenuController::AddRecentTabItems() {
     input_type_for_command_id_[next_command_id_] =
         omnibox::InputType::INPUT_TYPE_BROWSER_TAB;
     next_command_id_ += 1;
+  }
+  if (!tabs.empty()) {
+    menu_model_->SetElementIdentifierAt(first_tab_index,
+                                        kFirstTabMenuItemIdForTesting);
   }
   // Remove header if no tabs to show.
   if (tabs.empty()) {
@@ -247,6 +261,13 @@ void OmniboxContextMenuController::AddContextualInputItems() {
       auto& menu_item_info = input_type_info_[input_type];
       AddItemWithIcon(next_command_id_, menu_item_info.menu_label,
                       menu_item_info.menu_icon);
+      if (input_type == omnibox::InputType::INPUT_TYPE_LENS_IMAGE) {
+        menu_model_->SetElementIdentifierAt(menu_model_->GetItemCount() - 1,
+                                            kImageUploadMenuItemIdForTesting);
+      } else if (input_type == omnibox::InputType::INPUT_TYPE_LENS_FILE) {
+        menu_model_->SetElementIdentifierAt(menu_model_->GetItemCount() - 1,
+                                            kFileUploadMenuItemIdForTesting);
+      }
       input_type_for_command_id_[next_command_id_] = input_type;
       next_command_id_++;
     }
@@ -556,6 +577,8 @@ omnibox::ContextType OmniboxContextMenuController::CommandIdToEnum(
           return omnibox::ContextType::kImage;
         case omnibox::InputType::INPUT_TYPE_LENS_FILE:
           return omnibox::ContextType::kFile;
+        case omnibox::InputType::INPUT_TYPE_DRIVE:
+          return omnibox::ContextType::kDrive;
         default:
           return omnibox::ContextType::kUnknown;
       }
@@ -613,6 +636,22 @@ omnibox::ContextType OmniboxContextMenuController::CommandIdToEnum(
   }
 }
 
+void OmniboxContextMenuController::RecordContextMenuItemSelection(
+    const std::string& prefix,
+    omnibox::ContextType context_type) {
+  base::UmaHistogramEnumeration(prefix, context_type);
+  std::string action_name =
+      base::StrCat({prefix, ".", omnibox::GetContextTypeString(context_type)});
+
+  base::RecordAction(base::UserMetricsAction(action_name.c_str()));
+}
+
+void OmniboxContextMenuController::RecordContextMenuItemSelection(
+    const std::string& prefix,
+    int command_id) {
+  RecordContextMenuItemSelection(prefix, CommandIdToEnum(command_id));
+}
+
 const omnibox::InputTypeConfig*
 OmniboxContextMenuController::GetInputTypeConfig(
     omnibox::InputType input_type) const {
@@ -646,6 +685,8 @@ std::u16string OmniboxContextMenuController::GetMenuLabelForInputType(
       return l10n_util::GetStringUTF16(IDS_NTP_COMPOSE_ADD_IMAGE);
     case omnibox::InputType::INPUT_TYPE_LENS_FILE:
       return l10n_util::GetStringUTF16(IDS_NTP_COMPOSE_ADD_FILE);
+    case omnibox::InputType::INPUT_TYPE_DRIVE:
+      return l10n_util::GetStringUTF16(IDS_NTP_COMPOSE_ADD_DRIVE);
     default:
       return u"";
   }
@@ -662,6 +703,16 @@ ui::ImageModel OmniboxContextMenuController::GetIconForInputType(
       return ui::ImageModel::FromVectorIcon(
           kAttachFileIcon, ui::kColorMenuIcon,
           ui::SimpleMenuModel::kDefaultIconSize);
+    // The Google Drive icon is only available in Google Chrome branded builds.
+    // This guard is necessary to prevent compilation errors in Chromium.
+    case omnibox::InputType::INPUT_TYPE_DRIVE:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      return ui::ImageModel::FromVectorIcon(
+          vector_icons::kGoogleDriveIcon, ui::kColorMenuIcon,
+          ui::SimpleMenuModel::kDefaultIconSize);
+#else
+      return ui::ImageModel();
+#endif
     default:
       return ui::ImageModel();
   }
@@ -832,7 +883,7 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
       const auto& tab_info = tabs[tab_index_in_menu];
       AddTabContext(tab_info);
     }
-    base::UmaHistogramEnumeration(sliced_prefix, CommandIdToEnum(id));
+    RecordContextMenuItemSelection(sliced_prefix, id);
   } else {
     auto omnibox_popup_ui = GetOmniboxPopupUI();
     auto* composebox_handler =
@@ -877,8 +928,7 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
           composebox_handler->RecordToolSelectionAction(it->second);
         }
 
-        base::UmaHistogramEnumeration(sliced_prefix,
-                                      CommandIdToEnum(it->first));
+        RecordContextMenuItemSelection(sliced_prefix, id);
         GetEditModel()->OpenAiMode(/*via_keyboard=*/false,
                                    /*via_context_menu=*/true);
         return;
@@ -894,8 +944,8 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
             omnibox_popup_ui->popup_aim_handler()) {
           omnibox_popup_ui->popup_aim_handler()->FocusInput();
         }
-        base::UmaHistogramEnumeration(sliced_prefix,
-                                      CommandIdToEnum(it->first));
+
+        RecordContextMenuItemSelection(sliced_prefix, id);
         GetEditModel()->OpenAiMode(/*via_keyboard=*/false,
                                    /*via_context_menu=*/true);
         return;
@@ -925,8 +975,7 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
           composebox_handler->RecordToolSelectionAction(
               omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
         }
-
-        base::UmaHistogramEnumeration(sliced_prefix, CommandIdToEnum(id));
+        RecordContextMenuItemSelection(sliced_prefix, id);
         GetEditModel()->OpenAiMode(/*via_keyboard=*/false,
                                    /*via_context_menu=*/true);
         break;
@@ -937,8 +986,7 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
           composebox_handler->RecordToolSelectionAction(
               omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
         }
-
-        base::UmaHistogramEnumeration(sliced_prefix, CommandIdToEnum(id));
+        RecordContextMenuItemSelection(sliced_prefix, id);
         GetEditModel()->OpenAiMode(/*via_keyboard=*/false,
                                    /*via_context_menu=*/true);
         break;
@@ -949,8 +997,7 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
           composebox_handler->RecordToolSelectionAction(
               omnibox::ToolMode::TOOL_MODE_CANVAS);
         }
-
-        base::UmaHistogramEnumeration(sliced_prefix, CommandIdToEnum(id));
+        RecordContextMenuItemSelection(sliced_prefix, id);
         GetEditModel()->OpenAiMode(/*via_keyboard=*/false,
                                    /*via_context_menu=*/true);
         break;

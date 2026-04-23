@@ -134,7 +134,10 @@ void QueryContextualizer::Contextualize(
     const std::string& query_text,
     const std::vector<TabId>& tabs_to_recontextualize,
     const std::vector<TabId>& tabs_to_force_contextualize,
-    ContextualizedCallback callback) {
+    PageContextIneligibleCallback on_ineligible_callback,
+    TabProcessedCallback on_processed_callback,
+    ContextualizedCallback callback,
+    bool enable_smart_tab_selection) {
   auto context_decoration_params = std::make_unique<ContextDecorationParams>();
   base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
       session_handle;
@@ -142,7 +145,7 @@ void QueryContextualizer::Contextualize(
   // If there are tabs to contextualize, or a task id is provided, get or create
   // the session handle.
   if (task_id.has_value() || !tabs_to_recontextualize.empty() ||
-      !tabs_to_force_contextualize.empty()) {
+      !tabs_to_force_contextualize.empty() || enable_smart_tab_selection) {
     auto* handle = delegate_->GetOrCreateSessionHandleForQueryContextualizer();
     if (handle) {
       session_handle = handle->AsWeakPtr();
@@ -151,10 +154,43 @@ void QueryContextualizer::Contextualize(
     }
   }
 
+  // TODO(crbug.com/502639860): Actually using this in
+  // contextual_searchbox_handler, setting enable_smart_tab_selection to true,
+  // and removing legacy logic will happen in a followup CL.
+  if (enable_smart_tab_selection) {
+    std::vector<GURL> attached_context_urls;
+    if (session_handle && session_handle->GetController()) {
+      const auto& file_info_list =
+          session_handle->GetController()->GetFileInfoList();
+      for (const auto* file_info : file_info_list) {
+        if (file_info->tab_url.has_value() && !file_info->is_superceded) {
+          attached_context_urls.push_back(file_info->tab_url.value());
+        }
+      }
+    }
+    for (TabId id : tabs_to_recontextualize) {
+      attached_context_urls.push_back(delegate_->GetTabUrl(id));
+    }
+    for (TabId id : tabs_to_force_contextualize) {
+      attached_context_urls.push_back(delegate_->GetTabUrl(id));
+    }
+
+    delegate_->GetRelevantTabsForQuery(
+        query_text, attached_context_urls,
+        base::BindOnce(&QueryContextualizer::OnRelevantTabsFetched,
+                       weak_factory_.GetWeakPtr(), task_id, query_text,
+                       tabs_to_recontextualize, tabs_to_force_contextualize,
+                       session_handle, on_ineligible_callback,
+                       on_processed_callback, std::move(callback)));
+    return;
+  }
+
   if (!task_id.has_value()) {
     OnContextRetrieved(/*task_id=*/std::nullopt, query_text,
                        tabs_to_recontextualize, tabs_to_force_contextualize,
-                       session_handle, std::move(callback),
+                       /*smart_tabs_to_contextualize=*/{}, session_handle,
+                       on_ineligible_callback, on_processed_callback,
+                       std::move(callback),
                        /*context=*/nullptr);
     return;
   }
@@ -166,7 +202,46 @@ void QueryContextualizer::Contextualize(
       base::BindOnce(&QueryContextualizer::OnContextRetrieved,
                      weak_factory_.GetWeakPtr(), task_id, query_text,
                      tabs_to_recontextualize, tabs_to_force_contextualize,
-                     session_handle, std::move(callback)));
+                     /*smart_tabs_to_contextualize=*/std::vector<TabId>(),
+                     session_handle, on_ineligible_callback,
+                     on_processed_callback, std::move(callback)));
+}
+
+void QueryContextualizer::OnRelevantTabsFetched(
+    const std::optional<base::Uuid>& task_id,
+    const std::string& query_text,
+    const std::vector<TabId>& tabs_to_recontextualize,
+    const std::vector<TabId>& tabs_to_force_contextualize,
+    base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
+        session_handle,
+    PageContextIneligibleCallback on_ineligible_callback,
+    TabProcessedCallback on_processed_callback,
+    ContextualizedCallback callback,
+    std::vector<TabId> smart_tabs) {
+  auto context_decoration_params = std::make_unique<ContextDecorationParams>();
+  if (session_handle) {
+    context_decoration_params->contextual_search_session_handle =
+        session_handle;
+  }
+
+  if (!task_id.has_value()) {
+    OnContextRetrieved(/*task_id=*/std::nullopt, query_text,
+                       tabs_to_recontextualize, tabs_to_force_contextualize,
+                       smart_tabs, session_handle, on_ineligible_callback,
+                       on_processed_callback, std::move(callback),
+                       /*context=*/nullptr);
+    return;
+  }
+
+  service_->GetContextForTask(
+      task_id.value(),
+      {ContextualTaskContextSource::kSubmittedContextDecorator},
+      std::move(context_decoration_params),
+      base::BindOnce(&QueryContextualizer::OnContextRetrieved,
+                     weak_factory_.GetWeakPtr(), task_id, query_text,
+                     tabs_to_recontextualize, tabs_to_force_contextualize,
+                     smart_tabs, session_handle, on_ineligible_callback,
+                     on_processed_callback, std::move(callback)));
 }
 
 void QueryContextualizer::OnContextRetrieved(
@@ -174,8 +249,11 @@ void QueryContextualizer::OnContextRetrieved(
     const std::string& query_text,
     const std::vector<TabId>& tabs_to_recontextualize,
     const std::vector<TabId>& tabs_to_force_contextualize,
+    const std::vector<TabId>& smart_tabs_to_contextualize,
     base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
         session_handle,
+    PageContextIneligibleCallback on_ineligible_callback,
+    TabProcessedCallback on_processed_callback,
     ContextualizedCallback callback,
     std::unique_ptr<ContextualTaskContext> context) {
   // Fail early if the task id was specified but there was no context for the
@@ -247,8 +325,9 @@ void QueryContextualizer::OnContextRetrieved(
     }
   }
 
-  std::vector<TabUpdate> tabs_to_update = GetTabsToUpdate(
-      context.get(), tabs_to_recontextualize, tabs_to_force_contextualize);
+  std::vector<TabUpdate> tabs_to_update =
+      GetTabsToUpdate(context.get(), tabs_to_recontextualize,
+                      tabs_to_force_contextualize, smart_tabs_to_contextualize);
 
   if (tabs_to_update.empty()) {
     if (upload_tracker) {
@@ -280,7 +359,8 @@ void QueryContextualizer::OnContextRetrieved(
             context ? std::make_unique<ContextualTaskContext>(*context)
                     : nullptr,
             barrier_closure, update.id, update.is_recontextualization,
-            session_handle, upload_tracker));
+            update.is_smart_selection, session_handle, upload_tracker,
+            on_ineligible_callback, on_processed_callback));
   }
 }
 
@@ -290,22 +370,26 @@ void QueryContextualizer::OnTabContextualizationFetched(
     base::RepeatingClosure barrier_closure,
     TabId tab_id,
     bool is_recontextualization,
+    bool is_smart_selection,
     base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
         session_handle,
     scoped_refptr<UploadTracker> upload_tracker,
+    PageContextIneligibleCallback on_ineligible_callback,
+    TabProcessedCallback on_processed_callback,
     std::unique_ptr<lens::ContextualInputData> page_content_data) {
   if (!page_content_data) {
-    delegate_->OnTabProcessedForQueryContextualization(tab_id);
+    on_processed_callback.Run(tab_id);
     barrier_closure.Run();
     return;
   }
 
   page_content_data->is_implicit_upload = is_recontextualization;
+  page_content_data->was_smart_tab_selection = is_smart_selection;
 
   if (GetIsProtectedPageErrorEnabled() &&
       !page_content_data->is_page_context_eligible.value_or(false)) {
-    delegate_->OnPageContextIneligible();
-    delegate_->OnTabProcessedForQueryContextualization(tab_id);
+    on_ineligible_callback.Run();
+    on_processed_callback.Run(tab_id);
     barrier_closure.Run();
     return;
   }
@@ -318,19 +402,19 @@ void QueryContextualizer::OnTabContextualizationFetched(
 
   if (CheckIfContextChangedAndPrepareUploadData(
           maybe_context_id, *page_content_data, session_handle)) {
-    delegate_->OnTabProcessedForQueryContextualization(tab_id);
+    on_processed_callback.Run(tab_id);
     barrier_closure.Run();
     return;
   }
 
   if (!session_handle) {
-    delegate_->OnTabProcessedForQueryContextualization(tab_id);
+    on_processed_callback.Run(tab_id);
     barrier_closure.Run();
     return;
   }
 
   if (!delegate_->IsTabValid(tab_id)) {
-    delegate_->OnTabProcessedForQueryContextualization(tab_id);
+    on_processed_callback.Run(tab_id);
     barrier_closure.Run();
     return;
   }
@@ -346,7 +430,7 @@ void QueryContextualizer::OnTabContextualizationFetched(
       context_token, std::move(page_content_data),
       delegate_->GetTabViewportEncodingOptionsForQueryContextualizer());
 
-  delegate_->OnTabProcessedForQueryContextualization(tab_id);
+  on_processed_callback.Run(tab_id);
   barrier_closure.Run();
 }
 
@@ -354,32 +438,40 @@ std::vector<QueryContextualizer::TabUpdate>
 QueryContextualizer::GetTabsToUpdate(
     const ContextualTaskContext* context,
     const std::vector<TabId>& tabs_to_recontextualize,
-    const std::vector<TabId>& tabs_to_force_contextualize) {
+    const std::vector<TabId>& tabs_to_force_contextualize,
+    const std::vector<TabId>& smart_tabs_to_contextualize) {
   std::vector<TabUpdate> tabs_to_update;
   std::set<TabId> added_tabs;
 
   for (TabId id : tabs_to_force_contextualize) {
     if (!added_tabs.contains(id)) {
-      tabs_to_update.push_back({id, /*is_recontextualization=*/false});
+      tabs_to_update.push_back(
+          {id, /*is_recontextualization=*/false, /*is_smart_selection=*/false});
       added_tabs.insert(id);
     }
   }
 
-  // Support cases in which the contextual task context is not yet available.
-  if (!context) {
-    return tabs_to_update;
+  if (context) {
+    for (TabId id : tabs_to_recontextualize) {
+      if (added_tabs.contains(id)) {
+        continue;
+      }
+
+      GURL url = delegate_->GetTabUrl(id);
+      SessionID session_id = delegate_->GetTabSessionId(id);
+
+      if (GetMatchingAttachment(*context, url, session_id)) {
+        tabs_to_update.push_back({id, /*is_recontextualization=*/true,
+                                  /*is_smart_selection=*/false});
+        added_tabs.insert(id);
+      }
+    }
   }
 
-  for (TabId id : tabs_to_recontextualize) {
-    if (added_tabs.contains(id)) {
-      continue;
-    }
-
-    GURL url = delegate_->GetTabUrl(id);
-    SessionID session_id = delegate_->GetTabSessionId(id);
-
-    if (GetMatchingAttachment(*context, url, session_id)) {
-      tabs_to_update.push_back({id, /*is_recontextualization=*/true});
+  for (TabId id : smart_tabs_to_contextualize) {
+    if (!added_tabs.contains(id)) {
+      tabs_to_update.push_back(
+          {id, /*is_recontextualization=*/false, /*is_smart_selection=*/true});
       added_tabs.insert(id);
     }
   }

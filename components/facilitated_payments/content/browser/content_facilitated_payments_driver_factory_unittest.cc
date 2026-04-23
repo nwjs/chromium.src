@@ -38,7 +38,8 @@ class MockContentFacilitatedPaymentsDriver
                const std::optional<GURL>& iframe_url,
                const url::Origin& main_frame_origin,
                const std::u16string& copied_text,
-               ukm::SourceId ukm_source_id),
+               ukm::SourceId ukm_source_id,
+               bool is_same_origin),
               (override));
 };
 
@@ -144,7 +145,8 @@ TEST_F(
           /*main_frame_url=*/main_frame->GetLastCommittedURL(),
           /*iframe_url=*/std::make_optional(iframe->GetLastCommittedURL()),
           /*main_frame_origin=*/main_frame->GetLastCommittedOrigin(),
-          kValidPixCode, iframe->GetPageUkmSourceId()));
+          kValidPixCode, iframe->GetPageUkmSourceId(),
+          /*is_same_origin=*/testing::_));
 
   factory_->OnTextCopiedToClipboard(iframe, kValidPixCode);
 }

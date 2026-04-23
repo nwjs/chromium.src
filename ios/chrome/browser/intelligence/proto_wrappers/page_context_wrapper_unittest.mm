@@ -4339,6 +4339,112 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_MediaData_Video) {
   EXPECT_TRUE(media_data.is_playing());
 }
 
+// Tests that media data for video is omitted if duration is Infinity.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_MediaData_Video_InfinityDuration) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure =
+      HtmlPage("Media Page", RawHtml("<video id='test-video' controls>"
+                                     "<source src='movie.mp4' type='video/mp4'>"
+                                     "</video>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  // Inject JS to mock video state with Infinity duration.
+  CallJavascript(R"(
+    (function() {
+      const v = document.getElementById('test-video');
+      if (!v) return "Video not found";
+
+      Object.defineProperty(v, 'duration', { value: Infinity });
+      Object.defineProperty(v, 'currentTime', { value: 10.0 });
+      Object.defineProperty(v, 'paused', { value: false });
+      Object.defineProperty(v, 'ended', { value: false });
+
+      return "Video mocked";
+    })()
+  )");
+
+  PageContextWrapperConfigBuilder builder;
+  builder.SetUseRefactoredExtractor(true);
+  builder.SetUseRichExtraction(true);
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), builder.Build(), ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  const auto& main_frame_data =
+      page_context->annotated_page_content().main_frame_data();
+  // Media data should be omitted because duration is Infinity.
+  EXPECT_FALSE(main_frame_data.has_media_data());
+}
+
+// Tests that media data for video is omitted if currentTime is Infinity.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_MediaData_Video_InfinityCurrentTime) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure =
+      HtmlPage("Media Page", RawHtml("<video id='test-video' controls>"
+                                     "<source src='movie.mp4' type='video/mp4'>"
+                                     "</video>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  // Inject JS to mock video state with Infinity currentTime.
+  CallJavascript(R"(
+    (function() {
+      const v = document.getElementById('test-video');
+      if (!v) return "Video not found";
+
+      Object.defineProperty(v, 'duration', { value: 120.5 });
+      Object.defineProperty(v, 'currentTime', { value: Infinity });
+      Object.defineProperty(v, 'paused', { value: false });
+      Object.defineProperty(v, 'ended', { value: false });
+
+      return "Video mocked";
+    })()
+  )");
+
+  PageContextWrapperConfigBuilder builder;
+  builder.SetUseRefactoredExtractor(true);
+  builder.SetUseRichExtraction(true);
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), builder.Build(), ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  const auto& main_frame_data =
+      page_context->annotated_page_content().main_frame_data();
+  // Media data should be omitted because currentTime is Infinity.
+  EXPECT_FALSE(main_frame_data.has_media_data());
+}
+
 // Tests that media data for audio is correctly extracted from the page.
 TEST_P(PageContextWrapperTest, PopulatePageContext_MediaData_Audio) {
   if (!IsRefactored()) {
@@ -5388,6 +5494,67 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_AriaRole_ActionableMode) {
   // No Role -> AX_ROLE_UNKNOWN. Node is preserved due to tabindex.
   EXPECT_EQ(root_node.children_nodes(2).content_attributes().aria_role(),
             optimization_guide::proto::AX_ROLE_UNKNOWN);
+}
+
+// Tests that the extraction pipeline prunes the entire subtree of rejected
+// nodes, leaving no descendants.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_RichExtraction_PruningNodes) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure = HtmlPage(
+      "Pruning Check", Paragraph("Accept 1"),
+      // Rejected branch 1: <script> tag containing string elements.
+      // According to TAGS_TO_REJECT, <script> should be skipped completely.
+      RawHtml("<script>var x = 'skip_me';</script>"),
+      // Rejected branch 2: display: none div wrapped neatly.
+      RawHtml("<div><div style='display: none;'><p>Nested in Display "
+              "None</p></div></div>"),
+      Paragraph("Accept 2"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRefactoredExtractor(IsRefactored())
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  // Ensure only the strictly accepted top-level paragraphs survived pruning.
+  ASSERT_EQ(root.children_nodes_size(), 2);
+
+  // Validate that structural payload maps accurately.
+  EXPECT_EQ(root.children_nodes(0)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Accept 1");
+  EXPECT_EQ(root.children_nodes(1)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Accept 2");
 }
 
 INSTANTIATE_TEST_SUITE_P(,

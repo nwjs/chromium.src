@@ -7,6 +7,7 @@
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
@@ -14,7 +15,10 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -32,6 +36,7 @@
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
+#include "components/contextual_tasks/public/prefs.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/signin/public/base/consent_level.h"
@@ -47,6 +52,7 @@
 #include "content/public/test/test_web_ui.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
@@ -72,6 +78,7 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
               (const std::vector<uint8_t>& message),
               (override));
   MOCK_METHOD(void, OnHandshakeComplete, (), (override));
+  MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
   MOCK_METHOD(void,
               OnContextUpdated,
               (std::vector<contextual_tasks::mojom::ContextInfoPtr>),
@@ -223,6 +230,15 @@ class ContextualTasksUIBrowserTest : public InProcessBrowserTest {
         controller_->composebox_handler_.get());
   }
 
+  void CallOnContextRetrievedForActiveTab(
+      base::WeakPtr<BrowserWindowInterface> browser,
+      int32_t tab_id,
+      const GURL& last_committed_url,
+      std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
+    controller_->OnContextRetrievedForActiveTab(
+        browser, tab_id, last_committed_url, std::move(context));
+  }
+
  protected:
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_environment_adaptor_;
@@ -298,8 +314,6 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   side_panel_controller->OnSidePanelStateChanged();
   run_loop.Run();
 }
-
-
 IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest, HandleLensButtonClick) {
   // Setup LensController
   auto override =
@@ -449,6 +463,90 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
+                       CanUpdateSuggestedTabContext_ValidSchemes) {
+  tabs::TabInterface* tab = TabListInterface::From(browser())->GetActiveTab();
+  ASSERT_TRUE(tab);
+
+  // No composebox_handler_ initialized yet.
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("http://example.com")));
+
+  mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;
+  mojo::Remote<composebox::mojom::PageHandler> handler_remote(
+      handler_receiver.InitWithNewPipeAndPassRemote());
+  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
+  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
+  mojo::PendingReceiver<searchbox::mojom::PageHandler>
+      searchbox_handler_receiver;
+  mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
+  std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
+
+  controller_->CreatePageHandler(
+      std::move(composebox_page), std::move(handler_receiver),
+      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+
+  // Should succeed for http/https/file URLs.
+  EXPECT_TRUE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("http://example.com")));
+  EXPECT_TRUE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("https://example.com")));
+  EXPECT_TRUE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("file:///tmp/test.txt")));
+
+  // Should fail for other schemes.
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("chrome://settings")));
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("data:text/html,test")));
+  EXPECT_FALSE(
+      controller_->CanUpdateSuggestedTabContext(tab, GURL("about:blank")));
+
+  // Should fail if tab is null.
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      nullptr, GURL("http://example.com")));
+
+  // Should fail for invalid URL.
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(tab, GURL()));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
+                       CanUpdateSuggestedTabContext_SiteExclusion) {
+  tabs::TabInterface* tab = TabListInterface::From(browser())->GetActiveTab();
+  ASSERT_TRUE(tab);
+
+  // No composebox_handler_ initialized yet.
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("http://example.com")));
+
+  mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;
+  mojo::Remote<composebox::mojom::PageHandler> handler_remote(
+      handler_receiver.InitWithNewPipeAndPassRemote());
+  mojo::PendingRemote<composebox::mojom::Page> composebox_page;
+  std::ignore = composebox_page.InitWithNewPipeAndPassReceiver();
+  mojo::PendingReceiver<searchbox::mojom::PageHandler>
+      searchbox_handler_receiver;
+  mojo::PendingRemote<searchbox::mojom::Page> searchbox_page;
+  std::ignore = searchbox_page.InitWithNewPipeAndPassReceiver();
+
+  controller_->CreatePageHandler(
+      std::move(composebox_page), std::move(handler_receiver),
+      std::move(searchbox_page), std::move(searchbox_handler_receiver));
+
+  // Add a couple of exclusions and save to prefs.
+  base::Time now = base::Time::Now();
+  base::DictValue site_exclusions;
+  site_exclusions.Set("excluded.com",
+                      static_cast<double>(now.InMillisecondsSinceUnixEpoch()));
+  contextual_tasks::SaveSiteExclusionsToPrefs(GetProfile()->GetPrefs(),
+                                              site_exclusions);
+
+  EXPECT_TRUE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("http://example.com")));
+  EXPECT_FALSE(controller_->CanUpdateSuggestedTabContext(
+      tab, GURL("http://excluded.com")));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
                        RecordsHttpResponseCodeHistograms) {
   base::HistogramTester histogram_tester;
 
@@ -514,6 +612,30 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
       zoom::ZoomController::FromWebContents(side_panel_contents.get());
   ASSERT_EQ(zoom::ZoomController::ZoomMode::ZOOM_MODE_DISABLED,
             zoom_controller->zoom_mode());
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
+                       InitSidePanelWithGhostLoader_WaitUntilPanelOpen) {
+  auto* service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->profile());
+  auto* tab = TabListInterface::From(browser())->GetActiveTab();
+
+  // Call InitSidePanelWithGhostLoader.
+  service->InitSidePanelWithGhostLoader(browser(), tab, nullptr);
+
+  // Wait for side panel to open and load WebUI.
+  auto* controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(controller);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->IsPanelOpenForContextualTask(); }));
+
+  content::WebContents* web_contents = controller->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  // Wait for load stop on that web_contents.
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
@@ -656,4 +778,20 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   EXPECT_TRUE(content::WaitForLoadStop(inner_contents.get()));
   EXPECT_EQ(handler->input_state_model()->get_state_for_testing().active_model,
             omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_AUTOROUTE);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksUIBrowserTest,
+    OnContextRetrievedForActiveTab_NullBrowser_DoesNotCrash) {
+  // Call OnContextRetrievedForActiveTab with a null weak pointer.
+  base::WeakPtr<BrowserWindowInterface> null_browser;
+  int32_t tab_id = 1;
+  GURL url("https://example.com");
+  contextual_tasks::ContextualTask task(base::Uuid::GenerateRandomV4());
+  auto context =
+      std::make_unique<contextual_tasks::ContextualTaskContext>(task);
+
+  // This should return early and not crash.
+  CallOnContextRetrievedForActiveTab(null_browser, tab_id, url,
+                                     std::move(context));
 }

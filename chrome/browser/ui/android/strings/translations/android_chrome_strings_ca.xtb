@@ -293,6 +293,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="2251809247798634662">Finestra d'incògnit nova</translation>
 <translation id="2253927598983295051">Tria què vols compartir amb <ph name="APP_NAME" /></translation>
 <translation id="2261570557291037252">Més informació sobre l'aplicació</translation>
+<translation id="2270544918551255912">Llisca des de l'extrem per tornar enrere</translation>
 <translation id="2276696007612801991">Inicia la sessió al teu Compte de Google per comprovar les contrasenyes</translation>
 <translation id="2281243904606300427"><ph name="TAB_TITLE" />, pestanya d'incògnit seleccionada</translation>
 <translation id="2286841657746966508">Adreça de facturació</translation>
@@ -480,6 +481,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="2989523299700148168">Visitats últimament</translation>
 <translation id="2992473221983447149">Descripcions d'imatges</translation>
 <translation id="2996291259634659425">Creeu una frase de contrasenya</translation>
+<translation id="2996682533106928201">Toca per ignorar</translation>
 <translation id="2996809686854298943">Es necessita un URL</translation>
 <translation id="3024215143424744261">Preferències del mode de lectura tancades</translation>
 <translation id="3026955690410463085">Inclou l'enllaç</translation>
@@ -640,6 +642,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="3739455665973395693">No hi ha cap contrasenya en perill al teu Compte de Google</translation>
 <translation id="3739899004075612870">Afegit a les adreces de: <ph name="PRODUCT_NAME" /></translation>
 <translation id="3740525748616366977">La cerca per veu no està disponible en aquest dispositiu</translation>
+<translation id="3763110477555836428">S'utilitzarà un número de targeta virtual per a l'emplenament quan tramitis una compra amb aquesta targeta a fi de protegir les teves dades reals. Gestiona-ho a Google Wallet. <ph name="BEGIN_LINK1" />Més informació sobre les targetes virtuals<ph name="END_LINK1" /></translation>
 <translation id="376561056759077985">Encara no s\u2019han desat algunes dades</translation>
 <translation id="3770620323585347665">Posa nom a la finestra</translation>
 <translation id="3771033907050503522">Pestanyes d'incògnit</translation>
@@ -683,6 +686,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3931947361983910192">de les quatre últimes setmanes</translation>
 <translation id="393697183122708255">La cerca per veu no està disponible</translation>
+<translation id="3941718885865495207">Full inferior d'activació de les troballes de Chrome</translation>
 <translation id="3943322906274039960"><ph name="TAB_TITLE" />, pestanya fixada d'imatge sobre imatge</translation>
 <translation id="3950820424414687140">Inicia la sessió</translation>
 <translation id="395377504920307820">Utilitza sense cap compte</translation>
@@ -1188,6 +1192,7 @@ Només les persones que sàpiguen la teva frase de contrasenya podran llegir les
 <translation id="6011308810877101166">Millora els suggeriments de cerca</translation>
 <translation id="6013305291643746595">S'ordena per més antics</translation>
 <translation id="6022659036123304283">Personalitza Chrome</translation>
+<translation id="6023820583797130428">Obre el menú per tornar enrere</translation>
 <translation id="6026538407078977628">Desplega en pantalla completa</translation>
 <translation id="6030719887161080597">Gestiona la informació que utilitzen els llocs web per mesurar el rendiment dels anuncis</translation>
 <translation id="6039379616847168523">Ves a la pestanya següent</translation>
@@ -1632,6 +1637,7 @@ Per canviar aquesta opció de configuració, <ph name="BEGIN_LINK" />suprimeix l
 <translation id="7597601275223325603">{NUMBER_OF_TABS,plural, =1{<ph name="TABS_COUNT_ONE" /> pestanya estàndard}other{<ph name="TABS_COUNT_MANY" /> pestanyes estàndard}}</translation>
 <translation id="7603168929588204083">La data no és vàlida</translation>
 <translation id="7605594153474022051">La sincronització no funciona</translation>
+<translation id="7608245556672190037">El full d'activació de les troballes de Chrome s'ha obert a alçada completa</translation>
 <translation id="7612619742409846846">Has iniciat la sessió a Google com a</translation>
 <translation id="7612989789287281429">S'està iniciant la sessió…</translation>
 <translation id="7619072057915878432">No s'ha pogut baixar <ph name="FILE_NAME" /> a causa d'errors a la xarxa.</translation>
@@ -1639,6 +1645,7 @@ Per canviar aquesta opció de configuració, <ph name="BEGIN_LINK" />suprimeix l
 <translation id="7628417132421583481">Ves al gestor de contrasenyes</translation>
 <translation id="7630202231528827509">URL del proveïdor</translation>
 <translation id="7638584964844754484">La frase de contrasenya és incorrecta</translation>
+<translation id="764047009170754705">S'ha tancat el full d'activació de les troballes de Chrome</translation>
 <translation id="7646499124171960488">T'avisa de llocs web públics no segurs</translation>
 <translation id="7646772052135772216">La sincronització de contrasenyes no funciona</translation>
 <translation id="7655240423373329753">7 darrers dies</translation>
@@ -1863,6 +1870,7 @@ Per canviar aquesta opció de configuració, <ph name="BEGIN_LINK" />suprimeix l
 <translation id="8473863474539038330">Adreces i més</translation>
 <translation id="847433688444405067">Navega per tots els dispositius</translation>
 <translation id="8477178913400731244">Suprimeix les dades</translation>
+<translation id="8481771036036087705">El full d'activació de les troballes de Chrome s'ha obert a mitja alçada</translation>
 <translation id="8485434340281759656"><ph name="FILE_SIZE" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
 <translation id="8491317241605644838">No hi ha cap finestra inactiva</translation>
 <translation id="8493948351860045254">Allibera espai</translation>

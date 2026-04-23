@@ -556,6 +556,19 @@ constexpr MessageInfo kChromeLatencyInfo2 = {
 constexpr int kEventTimingIndices[] = {1, 3, 4, 5, 6, 7, 8, 9, -1};
 constexpr MessageInfo kEventTiming = {kEventTimingIndices, nullptr};
 
+// Proto Message: FrameTimeline
+constexpr int kFrameTimelineIndices[] = {1, 2, 3, -1};
+constexpr MessageInfo kFrameTimeline = {kFrameTimelineIndices, nullptr};
+
+// Proto Message: AndroidChoreographerFrameCallbackData
+constexpr int kAndroidChoreographerFrameCallbackDataIndices[] = {1, 2, 3, -1};
+constexpr MessageInfo const*
+    kAndroidChoreographerFrameCallbackDataComplexMessages[] = {
+        nullptr, &kFrameTimeline, nullptr};
+constexpr MessageInfo kAndroidChoreographerFrameCallbackData = {
+    kAndroidChoreographerFrameCallbackDataIndices,
+    kAndroidChoreographerFrameCallbackDataComplexMessages};
+
 // Proto Message: CurrentTask
 constexpr int kCurrentTaskIndices[] = {1, 2, -1};
 constexpr MessageInfo kCurrentTask = {kCurrentTaskIndices, nullptr};
@@ -608,6 +621,10 @@ constexpr MessageInfo const* kFrameIntervalDeciderComplexMessages[] = {&kResult,
 constexpr MessageInfo kFrameIntervalDecider = {
     kFrameIntervalDeciderIndices, kFrameIntervalDeciderComplexMessages};
 
+// Proto Message: BeginFrameArgsV2
+constexpr int kBeginFrameArgsV2Indices[] = {4, 6, -1};
+constexpr MessageInfo kBeginFrameArgsV2 = {kBeginFrameArgsV2Indices, nullptr};
+
 // Proto Message: TrackEvent
 constexpr int kTrackEventIndices[] = {
     1,    2,    3,    5,    6,    9,    10,   11,   12,   16,   17,   22,
@@ -617,8 +634,8 @@ constexpr int kTrackEventIndices[] = {
     1015, 1016, 1017, 1018, 1019, 1020, 1021, 1022, 1023, 1024, 1025, 1028,
     1031, 1032, 1033, 1034, 1036, 1038, 1039, 1040, 1041, 1042, 1046, 1047,
     1048, 1049, 1050, 1051, 1052, 1053, 1054, 1055, 1056, 1057, 1058, 1059,
-    1060, 1061, 1064, 1065, 1066, 1067, 1068, 1069, 1071, 1075, 1076, 1077,
-    1078, 1079, 1080, 1081, -1};
+    1060, 1061, 1064, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1075, 1076,
+    1077, 1078, 1079, 1080, 1081, 1082, -1};
 constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     nullptr,
     nullptr,
@@ -712,6 +729,7 @@ constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     &kMainFramePipeline,
     &kChromeLatencyInfo2,
     &kEventTiming,
+    &kAndroidChoreographerFrameCallbackData,
     &kCurrentTask,
     &kChromeFrameReporter2,
     &kInputTransferHandler,
@@ -719,7 +737,8 @@ constexpr MessageInfo const* kTrackEventComplexMessages[] = {
     &kScrollJankV4Result,
     &kMemoryDumpProvider,
     &kChromeAccessibilityWinNotifyWinEvent,
-    &kFrameIntervalDecider};
+    &kFrameIntervalDecider,
+    &kBeginFrameArgsV2};
 constexpr MessageInfo kTrackEvent = {kTrackEventIndices,
                                      kTrackEventComplexMessages};
 

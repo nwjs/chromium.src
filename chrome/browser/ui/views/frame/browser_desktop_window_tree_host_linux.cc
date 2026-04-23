@@ -189,7 +189,8 @@ void BrowserDesktopWindowTreeHostLinux::UpdateFrameHints() {
     }
   }
 
-  if (ui::OzonePlatform::GetInstance()->IsWindowCompositingSupported()) {
+  if (ui::OzonePlatform::GetInstance()->IsWindowCompositingSupported() &&
+      !browser_view_->browser()->is_transparent()) { // NWJS#7975
     // Set the opaque region.
     std::vector<gfx::Rect> opaque_region;
     if (IsShowingFrame(native_widget_->UseCustomFrame(), window_state)) {

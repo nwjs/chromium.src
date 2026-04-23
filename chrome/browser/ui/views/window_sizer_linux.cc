@@ -26,8 +26,7 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
   // Pre-populate the window state with our default.
   *show_state = GetWindowDefaultShowState(browser);
   *bounds = specified_bounds;
-  sizer.DetermineWindowBoundsAndShowState(specified_bounds, bounds, show_state);
-  return true;
+  return sizer.DetermineWindowBoundsAndShowState(specified_bounds, bounds, show_state);
 }
 
 WindowSizerLinux::WindowSizerLinux(

@@ -998,34 +998,35 @@ bool LocalFrameView::InvalidationDisallowed() const {
   return GetFrame().LocalFrameRoot().View()->invalidation_disallowed_;
 }
 
-void LocalFrameView::WillBeginImplCommit() {
-  bool needs_post_lifecycle_steps_before_impl_commit = false;
-  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+void LocalFrameView::WillCommit() {
+  bool needs_post_lifecycle_steps_before_commit = false;
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+          GetFrame().GetDocument()->GetExecutionContext())) {
     ForAllNonThrottledLocalFrameViews(
-        [&needs_post_lifecycle_steps_before_impl_commit](
+        [&needs_post_lifecycle_steps_before_commit](
             LocalFrameView& frame_view) -> bool {
-          if (!needs_post_lifecycle_steps_before_impl_commit &&
+          if (!needs_post_lifecycle_steps_before_commit &&
               frame_view.canvas_elements_needing_onpaint_.empty()) {
             // Keep traversing
             return true;
           }
-          needs_post_lifecycle_steps_before_impl_commit = true;
+          needs_post_lifecycle_steps_before_commit = true;
           // Stop traversing
           return false;
         });
   }
 
-  if (needs_post_lifecycle_steps_before_impl_commit) {
+  if (needs_post_lifecycle_steps_before_commit) {
     RunPostLifecycleSteps();
-    did_run_post_lifecycle_steps_before_impl_commit_ = true;
+    did_run_post_lifecycle_steps_before_commit_ = true;
   }
 }
 
 void LocalFrameView::DidBeginMainFrame() {
-  if (!did_run_post_lifecycle_steps_before_impl_commit_) {
+  if (!did_run_post_lifecycle_steps_before_commit_) {
     RunPostLifecycleSteps();
   }
-  did_run_post_lifecycle_steps_before_impl_commit_ = false;
+  did_run_post_lifecycle_steps_before_commit_ = false;
 }
 
 void LocalFrameView::RunPostLifecycleSteps() {
@@ -1054,7 +1055,8 @@ void LocalFrameView::RunPostLifecycleSteps() {
 }
 
 void LocalFrameView::RunCanvasOnpaintSteps() {
-  if (!RuntimeEnabledFeatures::CanvasDrawElementEnabled()) {
+  if (!RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+          GetFrame().GetDocument()->GetExecutionContext())) {
     return;
   }
 
@@ -5084,7 +5086,8 @@ bool LocalFrameView::HasDominantVideoElement() const {
 
 void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
                                          Element& child) {
-  DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
+  DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+      GetFrame().GetDocument()->GetExecutionContext()));
   if (IsUpdatingLifecycle()) {
     auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
     if (add_result.is_new_entry) {
@@ -5096,7 +5099,8 @@ void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
 }
 
 void LocalFrameView::RequestCanvasOnpaint(HTMLCanvasElement& canvas) {
-  DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
+  DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled(
+      GetFrame().GetDocument()->GetExecutionContext()));
   auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
   if (add_result.is_new_entry) {
     add_result.stored_value->value =

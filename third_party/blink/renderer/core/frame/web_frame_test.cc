@@ -14219,6 +14219,9 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
   helper.InitializeRemote();
   WebLocalFrameImpl* local_frame =
       helper.CreateLocalChild(*helper.RemoteMainFrame(), "frameName");
+
+  local_frame->FrameWidgetImpl()->Resize(gfx::Size(200, 100));
+
   frame_test_helpers::LoadHTMLString(local_frame, R"HTML(
       <!DOCTYPE html>
       <style>
@@ -14257,6 +14260,9 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
           viewport_intersection, mainframe_intersection, viewport_intersection,
           occlusion_state, gfx::Size(), gfx::Point(), viewport_transform));
 
+  local_frame->FrameWidgetImpl()->UpdateAllLifecyclePhases(
+      DocumentUpdateReason::kTest);
+
   // The viewport intersection should be applied by the layout geometry mapping
   // code when these flags are used.
   int viewport_intersection_flags =
@@ -14283,6 +14289,23 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
       ->MapToVisualRectInAncestorSpace(nullptr, mainframe_rect,
                                        kDontApplyMainFrameOverflowClip);
   EXPECT_EQ(PhysicalRect(7, -11, 25, 35), mainframe_rect);
+
+  constexpr auto kGeometryMapperFlags = static_cast<VisualRectFlags>(
+      kUseGeometryMapper | kVisualRectApplyRemoteViewportTransform |
+      kIgnoreFilters);
+
+  // Translate (0,0) by (7, -11) => (7, -11)
+  // Clip against parent viewport (0, 0, 200, 140):
+  // Resulting Rect Top: max(-11, 0) = 0.
+  // Resulting Rect Height: 35 - 11 = 24.
+  // Final Result: (7, 0, 25, 24).
+  PhysicalRect geometry_mapper_rect(0, 0, 25, 35);
+  local_frame->GetFrame()
+      ->GetDocument()
+      ->GetLayoutView()
+      ->MapToVisualRectInAncestorSpace(nullptr, geometry_mapper_rect,
+                                       kGeometryMapperFlags);
+  EXPECT_EQ(PhysicalRect(7, 0, 25, 24), geometry_mapper_rect);
 }
 
 class TestUpdateFaviconURLLocalFrameHost : public FakeLocalFrameHost {
@@ -14910,26 +14933,6 @@ TEST_F(WebFrameTest, SandboxedIframePopupCtrlClick) {
   EXPECT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 1);
 }
 
-// Tests that a FrameLoadRequest for a POST request made from an opaque origin
-// results in a ResourceRequest with an Origin header of "null".
-TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTOpaque) {
-  frame_test_helpers::WebViewHelper web_view_helper;
-  web_view_helper.Initialize();
-  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
-  auto* window = frame->DomWindow();
-
-  window->GetSecurityContext().SetSecurityOriginForTesting(
-      SecurityOrigin::CreateUniqueOpaque());
-
-  ResourceRequest resource_request(KURL("https://destination.test/"));
-  resource_request.SetHttpMethod(http_names::kPOST);
-
-  FrameLoadRequest frame_load_request(window, resource_request);
-
-  EXPECT_EQ("null", frame_load_request.GetResourceRequest().HttpHeaderField(
-                        http_names::kOrigin));
-}
-
 // Tests that a FrameLoadRequest for a GET request made from an opaque origin
 // results in a ResourceRequest with no Origin header.
 TEST_F(WebFrameTest, FrameLoadRequestOriginGETOpaque) {
@@ -14949,53 +14952,6 @@ TEST_F(WebFrameTest, FrameLoadRequestOriginGETOpaque) {
   EXPECT_TRUE(frame_load_request.GetResourceRequest()
                   .HttpHeaderField(http_names::kOrigin)
                   .IsNull());
-}
-
-// Tests that a FrameLoadRequest for a POST request made from a document with
-// URL "about:blank" and origin "https://example.test" results in a
-// ResourceRequest with an Origin header of "https://example.test".
-TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTAboutBlank) {
-  frame_test_helpers::WebViewHelper web_view_helper;
-  web_view_helper.Initialize();
-  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
-  auto* window = frame->DomWindow();
-
-  frame->GetDocument()->SetURL(BlankUrl());
-  window->GetSecurityContext().SetSecurityOriginForTesting(
-      SecurityOrigin::CreateFromString("https://example.test"));
-
-  ResourceRequest resource_request(KURL("https://destination.test/"));
-  resource_request.SetHttpMethod(http_names::kPOST);
-
-  FrameLoadRequest frame_load_request(window, resource_request);
-
-  EXPECT_EQ("https://example.test",
-            frame_load_request.GetResourceRequest().HttpHeaderField(
-                http_names::kOrigin));
-}
-
-// Tests that a FrameLoadRequest for a POST request made from a document with
-// URL "about:blank" and origin "https://example.test" with a referrer policy of
-// "no-referrer" results in a ResourceRequest with an Origin header of "null".
-TEST_F(WebFrameTest, FrameLoadRequestOriginPOSTAboutBlankNoReferrer) {
-  frame_test_helpers::WebViewHelper web_view_helper;
-  web_view_helper.Initialize();
-  auto* frame = web_view_helper.LocalMainFrame()->GetFrame();
-  auto* window = frame->DomWindow();
-
-  KURL about_blank = BlankUrl();
-  frame->GetDocument()->SetURL(about_blank);
-  window->GetSecurityContext().SetSecurityOriginForTesting(
-      SecurityOrigin::CreateFromString("https://example.test"));
-  window->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever);
-
-  ResourceRequest resource_request(KURL("https://destination.test/"));
-  resource_request.SetHttpMethod(http_names::kPOST);
-
-  FrameLoadRequest frame_load_request(window, resource_request);
-
-  EXPECT_EQ("null", frame_load_request.GetResourceRequest().HttpHeaderField(
-                        http_names::kOrigin));
 }
 
 }  // namespace blink

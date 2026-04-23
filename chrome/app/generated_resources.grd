@@ -8696,6 +8696,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_NTP_COMPOSE_ADD_FILE" desc="Text for a button label that opens a menu so users can add a file to their search.">
         Add file
       </message>
+      <message name="IDS_NTP_COMPOSE_ADD_DRIVE" desc="Placeholder text for a button label that opens a menu so users can add a Google Drive file to their search." translateable="false">
+         Add from Drive
+      </message>
       <message name="IDS_NTP_COMPOSE_ADD_CONTEXT" desc="The text to display to ask user to add context to their search e.g. pdf or image.">
         Add a tab and more
       </message>
@@ -8726,7 +8729,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_NTP_COMPOSE_MODELS_LABEL" desc="The label for the models label in the context menu in the composebox.">
         Models
       </message>
-      <message name="IDS_NTP_COMPOSE_AUTO_MODEL" desc="The label for the Auto model button in the context menu in the composebox as well as the chip that indicates that the user is using the Auto model." formatter_data="android_java">
+      <message name="IDS_NTP_COMPOSE_AUTO_MODEL" desc="The label for the Auto model button in the context menu in the composebox as well as the chip that indicates that the user is using the Auto model.">
         Auto
       </message>
       <message name="IDS_NTP_COMPOSE_THINKING_3_PRO" desc="The label for the Thinking 3 Pro model button in the context menu in the composebox as well as the chip that indicates that the user is using the Thinking 3 Pro model.">
@@ -10358,6 +10361,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_VERTICAL_TABS_IPH_BODY" desc="The body for the vertical tabs IPH tutorial.">
         See entire tab titles, easily manage tab groups, and free up vertical space by moving your tabs to the side.
       </message>
+      <message name="IDS_VERTICAL_TABS_EXPAND_ON_HOVER_DEFAULT_ENABLED_IPH_BODY" desc="The body for the vertical tabs expand on hover IPH, when expand on hover is default enabled.">
+        You can now expand your tabs by hovering over them. To turn this off, right-click here.
+      </message>
+      <message name="IDS_VERTICAL_TABS_EXPAND_ON_HOVER_DEFAULT_DISABLED_IPH_BODY" desc="The body for the vertical tabs expand on hover IPH, when expand on hover is default disabled.">
+        You can now expand your tabs by hovering over them. To turn this on, right-click here.
+      </message>
       <message name="IDS_VERTICAL_RESIZE_AREA" is_accessibility_with_no_ui="true" desc="The accessibility label for the resize area in the vertical tab strip.">
             Vertical Tab Strip Resize Handle (Draggable)
       </message>
@@ -10442,6 +10451,22 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_OPEN_AI_MODE_THREAD_ACCESSIBILITY_LABEL" desc="Screenreader label for a button that opens an AI Mode thread." is_accessibility_with_no_ui="true">
         Open "<ph name="THREAD_NAME">$1<ex>Compact SUV Comparison</ex></ph>" in AI Mode
       </message>
+      <if expr="use_titlecase">
+        <message name="IDS_TAB_STRIP_UNPIN_TAB_SEARCH" desc="In Title Case: Name of the tab strip system menu item for unpinning tab search.">
+          Unpin Tab Search
+        </message>
+        <message name="IDS_TAB_STRIP_PIN_TAB_SEARCH" desc="In Title Case: Name of the tab strip system menu item for pinning tab search.">
+          Pin Tab Search
+        </message>
+      </if>
+      <if expr="not use_titlecase">
+        <message name="IDS_TAB_STRIP_UNPIN_TAB_SEARCH" desc="Name of the tab strip system menu item for unpinning tab search.">
+          Unpin tab search
+        </message>
+        <message name="IDS_TAB_STRIP_PIN_TAB_SEARCH" desc="Name of the tab strip system menu item for pinning tab search.">
+          Pin tab search
+        </message>
+      </if>
       <message name="IDS_TAB_SEARCH_BUTTON_CXMENU_UNPIN" desc="Name of the tab search button context menu item for unpinning tab search.">
         Unpin
       </message>

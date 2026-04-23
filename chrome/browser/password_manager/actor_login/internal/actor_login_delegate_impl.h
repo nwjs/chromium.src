@@ -92,13 +92,28 @@ class ActorLoginDelegateImpl
   // Private helper methods for handling task completion. They should be
   // invoked asynchronously.
   void OnGetCredentialsCompleted(CredentialsOrErrorReply callback,
-                                 CredentialsOrError result);
+                                 CredentialsOrError result,
+                                 bool conflicting_permissions);
   void OnAttemptLoginCompleted(
+      base::expected<LoginStatusResult, ActorLoginError> result);
+
+  // Called when `OnAttemptLoginCompleted` is invoked with a result for
+  // a federated credential login.
+  void ProcessFederatedResult(
       base::expected<LoginStatusResult, ActorLoginError> result);
 
   void OnActorTaskStateChanged(actor::ActorTask& task);
 
   void OnActionSequenceEnded(bool success);
+
+  bool ShouldCleanUpConflictingPermissions(
+      const password_manager::PasswordForm& form) const;
+
+  // Calls the permissions cleaning service to clean up conflicting permissions.
+  // If the login attempt was performed with a password credential,
+  // `signon_realm`, is used to identify it, so that we don't clean the
+  // permission granted after disambiguation.
+  void ClearConflictingPermissions(std::optional<std::string> signon_realm);
 
   // Helper methods for recording metrics.
   void RecordGetCredentialsMetricsAndResetHelper(
@@ -135,7 +150,6 @@ class ActorLoginDelegateImpl
   // and click the SiwG button. After the prototype, the click will be done
   // through `ExecutionEngine`.
   // Scoped to one `AttemptLogin` request.
-  // TODO(crbug.com/479505793): Implement the click without heuristics.
   std::unique_ptr<ActorLoginSiwgController> siwg_controller_;
 
   // Track the currently acting task to know when we can remove the
@@ -148,6 +162,12 @@ class ActorLoginDelegateImpl
   // Stores the credential with which the latest `AttemptLogin` request was
   // made. This is used to clean up the permission after the login attempt.
   std::unique_ptr<Credential> last_attempted_credential_;
+
+  // Set to true whenever we find conflicting permissions in the
+  // `GetCredentials` step. Reset when the login process completes. If the login
+  // is successful the conflicting permissions will be cleaned up.
+  // TODO(crbug.com/486089293): Reset on federated login completion as well.
+  bool found_conflicting_permissions_ = false;
 
   // Used to listen to whether the password login was successful.
   base::ScopedObservation<password_manager::PasswordManagerInterface,

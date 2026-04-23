@@ -11,7 +11,7 @@ import type {PageHandlerRemote} from '//resources/cr_components/composebox/compo
 import {LensOverlayDismissalSource} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from '//resources/cr_components/composebox/composebox_proxy.js';
-import {GlowAnimationState} from '//resources/cr_components/search/constants.js';
+import {GlowAnimationState, VoiceSearchState} from '//resources/cr_components/search/constants.js';
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
@@ -26,7 +26,6 @@ import {WindowOpenDisposition} from 'chrome://resources/mojo/ui/base/mojom/windo
 
 import {getCss} from './composebox.css.js';
 import {getHtml} from './composebox.html.js';
-import {VoiceSearchState} from './constants.js';
 import {IconType} from './contextual_tasks.mojom-webui.js';
 import type {PageHandlerInterface} from './contextual_tasks.mojom-webui.js';
 import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
@@ -135,6 +134,7 @@ export class ContextualTasksComposeboxElement extends I18nMixinLit
       enableFileHint_: {type: Boolean},
       lensButtonDisabled_: {type: Boolean},
       isCanvasQuerySubmitted: {type: Boolean},
+      caretAnimationsEnabled_: {type: Boolean},
     };
   }
 
@@ -177,7 +177,15 @@ export class ContextualTasksComposeboxElement extends I18nMixinLit
   private searchboxListenerIds_: number[] = [];
   // Tracks the resize of the composebox to provide height updates.
   private resizeObserver_: ResizeObserver|null = null;
-  protected caretAnimationsEnabled_: boolean =
+  // Glif animation should trigger when:
+  // - One time when the panel loads/opens zero state
+  // - A query is submitted through the nextbox
+  // Animation should NOT trigger when:
+  // - User submits a query into zero state/the window switches to
+  //   non-zero state
+  // - User clicks on a suggestion
+  private forceSkipSubmitGlifAnimation_: boolean = false;
+  protected accessor caretAnimationsEnabled_: boolean =
       loadTimeData.getBoolean('caretAnimationEnabled');
 
   constructor() {
@@ -210,7 +218,23 @@ export class ContextualTasksComposeboxElement extends I18nMixinLit
         composebox.animationState = GlowAnimationState.NONE;
       });
       this.eventTracker_.add(composebox, 'composebox-submit', () => {
+        // Don't play the submit animation when transitioning away from zero
+        // state or on match click.
+        if (this.isZeroState || this.forceSkipSubmitGlifAnimation_) {
+          this.forceSkipSubmitGlifAnimation_ = false;
+          composebox.animationState = GlowAnimationState.NONE;
+          this.clearInputAndFocus(/* querySubmitted= */ true);
+          return;
+        }
+        // Force animation to replay visibly on subsequent submissions.
+        composebox.animationState = GlowAnimationState.NONE;
+        requestAnimationFrame(() => {
+          composebox.animationState = GlowAnimationState.SUBMITTING;
+        });
         this.clearInputAndFocus(/* querySubmitted= */ true);
+      });
+      this.eventTracker_.add(composebox, 'match-click', () => {
+        this.forceSkipSubmitGlifAnimation_ = true;
       });
       this.eventTracker_.add(
           composebox, 'carousel-resize', (e: CustomEvent<{height: number}>) => {
@@ -292,6 +316,8 @@ export class ContextualTasksComposeboxElement extends I18nMixinLit
     if (changedProperties.has('isZeroState')) {
       if (this.isZeroState) {
         this.isCanvasQuerySubmitted = false;
+        // Opening zero state triggers animation.
+        this.$.composebox.animationState = GlowAnimationState.SUBMITTING;
       }
       if (this.isZeroState && !this.isSidePanel) {
         // Get zero state autocomplete matches. In the side panel, we wait for
@@ -310,15 +336,15 @@ export class ContextualTasksComposeboxElement extends I18nMixinLit
     this.inVoiceSearchMode_ = false;
   }
 
-  protected get showSuggestions_() {
+  protected shouldShowSuggestions_() {
     return this.isZeroState;
   }
 
-  protected get dropdownNeeded_() {
-    return !this.showSuggestions_;
+  protected isDropdownNeeded_() {
+    return !this.shouldShowSuggestions_();
   }
 
-  get showLensButton_() {
+  protected shouldShowLensButton_() {
     return this.isSidePanel;
   }
 

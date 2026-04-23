@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_gen204_controller.h"
+#include "chrome/browser/ui/lens/lens_preselection_bubble.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/lens/test_lens_search_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
@@ -341,12 +342,8 @@ class LensOverlayControllerCUJTest : public InteractiveFeaturePromoTest {
       auto* router = controller->query_router();
       auto file_token = router->overlay_tab_context_file_token();
 
-      auto* session_handle = lens::LensQueryFlowRouterTestApi(router)
-                                 .GetContextualSearchSessionHandle();
-      auto* context_controller = static_cast<ComposeboxQueryController*>(
-          session_handle->GetController());
-      context_controller->update_context_upload_status_for_testing(
-          *file_token,
+      router->OnContextUploadStatusChangedForTesting(
+          *file_token, lens::MimeType::kImage,
           contextual_search::ContextUploadStatus::kUploadSuccessful,
           std::nullopt);
     }));
@@ -1132,11 +1129,12 @@ class LensPreselectionBubbleInteractiveUiTest
 //  (3) The overlay should close.
 IN_PROC_BROWSER_TEST_F(LensPreselectionBubbleInteractiveUiTest,
                        PermissionBubbleOffline) {
-  RunTestSequence(EnsureNotPresent(kLensPreselectionBubbleExitButtonElementId),
-                  SetConnectionOffline(), OpenLensOverlay(),
-                  WaitForShow(kLensPreselectionBubbleExitButtonElementId),
-                  PressButton(kLensPreselectionBubbleExitButtonElementId),
-                  WaitForHide(LensOverlayController::kOverlayId));
+  RunTestSequence(
+      EnsureNotPresent(lens::LensPreselectionBubble::kExitButtonElementId),
+      SetConnectionOffline(), OpenLensOverlay(),
+      WaitForShow(lens::LensPreselectionBubble::kExitButtonElementId),
+      PressButton(lens::LensPreselectionBubble::kExitButtonElementId),
+      WaitForHide(LensOverlayController::kOverlayId));
 }
 
 using LensOverlayControllerReturnToPageCUJTest = LensOverlayControllerCUJTest;
@@ -1895,16 +1893,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
       WaitForShow(kContextualTasksSidePanelWebViewElementId));
 }
 
-// TODO(crbug.com/499019946): Re-enable this test on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_ComposeboxLensButtonClearsThenTogglesOverlay \
-  DISABLED_ComposeboxLensButtonClearsThenTogglesOverlay
-#else
-#define MAYBE_ComposeboxLensButtonClearsThenTogglesOverlay \
-  ComposeboxLensButtonClearsThenTogglesOverlay
-#endif  // BUILDFLAG(IS_CHROMEOS)
+// TODO(crbug.com/499004589): Re-enable this test when it's fixed.
 IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
-                       MAYBE_ComposeboxLensButtonClearsThenTogglesOverlay) {
+                       DISABLED_ComposeboxLensButtonClearsThenTogglesOverlay) {
   WaitForTemplateURLServiceToLoad();
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);

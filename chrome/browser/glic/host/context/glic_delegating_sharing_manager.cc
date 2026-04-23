@@ -86,6 +86,13 @@ bool GlicDelegatingSharingManagerBase::IsTabPinned(
              : false;
 }
 
+bool GlicDelegatingSharingManagerBase::IsTabFocused(
+    tabs::TabHandle tab_handle) const {
+  return sharing_manager_delegate_
+             ? sharing_manager_delegate_->IsTabFocused(tab_handle)
+             : false;
+}
+
 base::CallbackListSubscription
 GlicDelegatingSharingManagerBase::AddFocusedBrowserChangedCallback(
     FocusedBrowserChangedCallback callback) {
@@ -129,6 +136,17 @@ int32_t GlicDelegatingSharingManagerBase::SetMaxPinnedTabs(
   return sharing_manager_delegate_
              ? sharing_manager_delegate_->SetMaxPinnedTabs(max_pinned_tabs)
              : 0;
+}
+
+std::optional<GlicGetContextError>
+GlicDelegatingSharingManagerBase::CheckPreliminaryContextSharingEligibility(
+    tabs::TabHandle tab_handle) const {
+  return sharing_manager_delegate_
+             ? sharing_manager_delegate_
+                   ->CheckPreliminaryContextSharingEligibility(tab_handle)
+             : GlicGetContextError{
+                   GlicGetContextFromTabError::kPageContextNotEligible,
+                   "tab not eligible"};
 }
 
 void GlicDelegatingSharingManagerBase::GetContextFromTab(

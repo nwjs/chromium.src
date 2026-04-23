@@ -7,11 +7,14 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_constants.h"
+#import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
 #import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_save_entity_mutator.h"
 #import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_save_entity_table_view_controller.h"
+#import "ios/chrome/browser/autofill/autofill_ai/ui/autofill_ai_save_entity_table_view_controller_delegate.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/elements/branded_navigation_item_title_view.h"
 #import "ios/chrome/common/ui/util/chrome_button.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -20,6 +23,10 @@ constexpr CGFloat kButtonStackSpacing = 8;
 constexpr CGFloat kButtonStackHorizontalMargin = 16;
 constexpr CGFloat kButtonStackVerticalMargin = 16;
 }  // namespace
+
+@interface AutofillAISaveEntityContainerViewController () <
+    AutofillAISaveEntityTableViewControllerDelegate>
+@end
 
 @implementation AutofillAISaveEntityContainerViewController {
   // The table view containing the entity attributes.
@@ -37,7 +44,7 @@ constexpr CGFloat kButtonStackVerticalMargin = 16;
   // Button title.
   NSString* _buttonTitle;
 
-  // Denotes if the save is synchronous or not.
+  // Denotes if the save is synchronous.
   BOOL _saveIsSynchronous;
 }
 
@@ -47,6 +54,7 @@ constexpr CGFloat kButtonStackVerticalMargin = 16;
     _saveButtonEnabled = YES;
     _tableViewController = [[AutofillAISaveEntityTableViewController alloc]
         initWithStyle:ChromeTableViewStyle()];
+    _tableViewController.delegate = self;
   }
   return self;
 }
@@ -95,7 +103,8 @@ constexpr CGFloat kButtonStackVerticalMargin = 16;
   // Layout: Table view on top, button stack pinned to the bottom safe area.
   [NSLayoutConstraint activateConstraints:@[
     [tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-    [tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+    [tableView.topAnchor
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
     [tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
 
     // Pin bottom of the table view to the top of the button stack.
@@ -126,7 +135,19 @@ constexpr CGFloat kButtonStackVerticalMargin = 16;
                            oldEntity:oldEntity
                            userEmail:userEmail];
 
-  self.title = base::SysUTF16ToNSString(newEntity.type().GetNameForI18n());
+  autofill::EntityTypeName typeName = newEntity.type().name();
+  NSString* titleString =
+      oldEntity.has_value() ? autofill::GetDialogTitleForUpdateEntity(typeName)
+                            : autofill::GetDialogTitleForSaveEntity(typeName);
+
+  if (newEntity.record_type() !=
+      autofill::EntityInstance::RecordType::kServerWallet) {
+    self.navigationItem.titleView = nil;
+    self.title = titleString;
+  } else {
+    self.navigationItem.titleView =
+        autofill::CreateBrandedTitleForWalletSave(titleString);
+  }
   _saveIsSynchronous = saveIsSynchronous;
 
   // Update the button title based on whether it's an update or save.
@@ -174,6 +195,12 @@ constexpr CGFloat kButtonStackVerticalMargin = 16;
   if (_saveIsSynchronous) {
     [self.autofillHandler dismissSaveEntityDialog];
   }
+}
+
+#pragma mark - AutofillAISaveEntityTableViewControllerDelegate
+
+- (void)didTapLinkWithURL:(CrURL*)url {
+  [self.delegate didTapLinkWithURL:url];
 }
 
 @end

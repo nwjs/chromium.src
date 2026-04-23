@@ -175,6 +175,10 @@ BASE_FEATURE(kHideAimEntrypointOnUserInput,
 
 // When enabled, removes the Search Ready Omnibox feature.
 BASE_FEATURE(kRemoveSearchReadyOmnibox, DISABLED);
+// When enabled, the AIM WebUI popup will defer showing until the WebUI has
+// painted a clean frame, avoiding the issue of the popup being shown with a
+// stale frame.
+BASE_FEATURE(kOmniboxAimDeferShowUntilVisualStateReady, ENABLED);
 
 // Feature used to default typed navigations to use HTTPS instead of HTTP.
 // This only applies to navigations that don't have a scheme such as
@@ -326,6 +330,9 @@ BASE_FEATURE(kComposeboxUsesChromeComposeClient, ENABLED);
 
 // Controls whether or not contextual composebox should display suggestions.
 BASE_FEATURE(kComposeboxAttachmentsTypedState, DISABLED);
+
+// Whether to enable Google Drive context menu option in the composebox.
+BASE_FEATURE(kComposeboxDriveContextMenuOption, DISABLED);
 
 // Whether the composebox should show a verbatim match for context in
 // zero-suggest.

@@ -62,6 +62,9 @@ enum class OmniboxPopupState;
 class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kDeepResearchIdForTesting);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kFirstTabMenuItemIdForTesting);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kImageUploadMenuItemIdForTesting);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kFileUploadMenuItemIdForTesting);
   explicit OmniboxContextMenuController(OmniboxPopupFileSelector* file_selector,
                                         content::WebContents* web_contents);
   struct TabInfo {
@@ -92,6 +95,9 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   void UpdateSearchboxContext(std::optional<TabInfo> tab_info,
                               std::optional<omnibox::ToolMode> tool_mode);
 
+  static void RecordContextMenuItemSelection(const std::string& prefix,
+                                             omnibox::ContextType context_type);
+
  private:
   FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
                            IsCommandIdEnabledHelper_InitialState);
@@ -105,6 +111,8 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
                            IsCommandIdEnabledHelper_MaxFiles);
   FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
                            GetMaxTabSuggestions_UsesServerLimit);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
+                           GetIconForInputType_Drive);
 
   // Keeps track of various bits of info that are necessary to dynamically
   // render the contents of the context menu, based on the InputState received
@@ -161,6 +169,9 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   int GetMaxTabSuggestions() const;
 
   omnibox::ContextType CommandIdToEnum(int command_id) const;
+
+  void RecordContextMenuItemSelection(const std::string& prefix,
+                                      int command_id);
 
   /* Helpers for InputType input_state fields. */
   const omnibox::InputTypeConfig* GetInputTypeConfig(

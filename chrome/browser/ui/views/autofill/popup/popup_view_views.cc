@@ -25,6 +25,7 @@
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/favicon/large_icon_service_factory.h"
@@ -327,10 +328,9 @@ bool PopupViewViews::Show(
     }
   }
 
-  MaybeAnnounceCurrentTab();
+  MaybeAnnounceCurrentTabAndFootnote();
   MaybeAnnouncePasswordRecoveryPopup();
   MaybeAnnounceLoadingState();
-  MaybeAnnounceBnplFootnotePopup();
   MaybeA11yFocusInformationalSuggestion();
 
   return !CanActivate() || (GetWidget() && GetWidget()->IsActive());
@@ -772,10 +772,8 @@ void PopupViewViews::OnSuggestionsChanged(bool prefer_prev_arrow_side) {
     return;
   }
 
-  MaybeAnnounceCurrentTab();
   MaybeAnnouncePasswordRecoveryPopup();
   MaybeAnnounceLoadingState();
-  MaybeAnnounceBnplFootnotePopup();
   MaybeA11yFocusInformationalSuggestion();
   ShowIPHFeaturePromos();
 }
@@ -872,6 +870,7 @@ bool PopupViewViews::SearchBarHandleKeyPressed(const ui::KeyEvent& event) {
 void PopupViewViews::TabSelectedAt(int index) {
   CHECK_LT(base::checked_cast<size_t>(index), tabbed_pane_config_->tabs.size());
   controller_->OnTabSelected(index, tabbed_pane_config_->tabs[index].type);
+  MaybeAnnounceCurrentTabAndFootnote();
 }
 
 void PopupViewViews::SetSelectedCell(
@@ -964,16 +963,6 @@ void PopupViewViews::ShowIPHFeaturePromos() {
   }
 }
 
-void PopupViewViews::MaybeAnnounceCurrentTab() {
-  if (tabbed_pane_) {
-    a11y_announcer_.Run(
-        std::u16string(
-            tabbed_pane_->GetTabAt(tabbed_pane_->GetSelectedTabIndex())
-                ->GetTitleText()),
-        /*polite=*/true);
-  }
-}
-
 void PopupViewViews::MaybeAnnouncePasswordRecoveryPopup() {
   if (!controller_ || controller_->GetSuggestions().empty()) {
     return;
@@ -1001,12 +990,40 @@ void PopupViewViews::MaybeAnnounceLoadingState() {
   }
 }
 
-void PopupViewViews::MaybeAnnounceBnplFootnotePopup() {
+void PopupViewViews::MaybeAnnounceCurrentTabAndFootnote() {
+  std::u16string announcement;
+
+  if (tabbed_pane_) {
+    size_t index = tabbed_pane_->GetSelectedTabIndex();
+    size_t total = tabbed_pane_->GetTabCount();
+    std::u16string tab_title(tabbed_pane_->GetTabAt(index)->GetTitleText());
+
+    announcement = l10n_util::GetStringFUTF16(
+        IDS_AUTOFILL_PAY_NOW_PAY_LATER_TAB_ACCESSIBILITY_ANNOUNCEMENT,
+        tab_title, base::NumberToString16(index + 1),
+        base::NumberToString16(total));
+  }
+
+  std::u16string footnote_text;
   for (const RowPointer& row : rows_) {
     if (const auto* footnote = std::get_if<PopupBnplFootnoteView*>(&row)) {
-      a11y_announcer_.Run((*footnote)->GetFullText(), /*polite=*/true);
-      return;
+      footnote_text = (*footnote)->GetFullText();
+      break;
     }
+  }
+
+  if (!footnote_text.empty()) {
+    if (!announcement.empty()) {
+      announcement = l10n_util::GetStringFUTF16(
+          IDS_AUTOFILL_A11Y_ANNOUNCEMENT_CONCATENATE_TWO_STRINGS, announcement,
+          footnote_text);
+    } else {
+      announcement = footnote_text;
+    }
+  }
+
+  if (!announcement.empty()) {
+    a11y_announcer_.Run(announcement, /*polite=*/true);
   }
 }
 

@@ -91,8 +91,6 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--tab-height";
     case kTabStripHeight:
       return "--tab-strip-height";
-    case kDetachedTabGroupUnderlineBottomSpacing:
-      return "--detached-tab-group-underline-bottom-spacing";
     case kTabStripPadding:
       return "--tab-strip-padding";
     case kTabSeparatorHeight:
@@ -135,12 +133,14 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--vertical-tab-pinned-border-thickness";
     case kVerticalTabStripUncollapsedPadding:
       return "--vertical-tab-strip-uncollapsed-padding";
-    case kVerticalTabStripCollapsedPadding:
-      return "--vertical-tab-strip-collapsed-padding";
+    case kVerticalTabStripCollapsedHorizontalPadding:
+      return "--vertical-tab-strip-collapsed-horizontal-padding";
     case kVerticalTabStripCollapsedVerticalPadding:
       return "--vertical-tab-strip-collapsed-vertical-padding";
     case kVerticalTabStripCollapsedSeparatorPadding:
       return "--vertical-tab-strip-collapsed-separator-padding";
+    case kVerticalTabStripComboButtonIconSize:
+      return "--vertical-tab-strip-combo-button-icon-size";
     case kVerticalTabStripButtonIconSize:
       return "--vertical-tab-strip-button-icon-size";
     case kVerticalTabStripTopButtonPadding:
@@ -151,6 +151,8 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--vertical-tab-strip-top-button-container-height";
     case kVerticalTabStripNewTabButtonSize:
       return "--vertical-tab-strip-new-tab-button-size";
+    case kVerticalTabStripCollapseButtonSize:
+      return "--vertical-tab-strip-collapse-button-size";
     case kVerticalTabStripTopContainerButtonSize:
       return "--vertical-tab-strip-top-container-button-size";
     case kWebAppMenuButtonSize:

@@ -118,9 +118,12 @@ class ComposeboxQueryControllerBridge
   GetTabViewportEncodingOptionsForQueryContextualizer() override;
   contextual_search::ContextualSearchSessionHandle*
   GetOrCreateSessionHandleForQueryContextualizer() override;
-  void OnPageContextIneligible() override;
-  void OnTabProcessedForQueryContextualization(
-      contextual_tasks::QueryContextualizer::TabId id) override;
+  void GetRelevantTabsForQuery(
+      const std::string& query_text,
+      const std::vector<GURL>& attached_context_urls,
+      base::OnceCallback<void(
+          std::vector<contextual_tasks::QueryContextualizer::TabId>)> callback)
+      override;
 
  private:
   void OnGetPageContentFromCache(

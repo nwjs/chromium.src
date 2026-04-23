@@ -99,8 +99,17 @@ bool IsComposebox(OEP::PageClassification classification) {
          IsOmniboxComposebox(classification);
 }
 
+bool IsNTPComposebox(OEP::PageClassification classification) {
+  return classification == OEP::NTP_COMPOSEBOX;
+}
+
 bool IsNTPRealbox(OEP::PageClassification classification) {
   return classification == OEP::NTP_REALBOX;
+}
+
+bool IsOmnibox(OEP::PageClassification classification) {
+  return IsNtpOmnibox(classification) || IsSearchResultsPage(classification) ||
+         classification == OEP::OTHER;
 }
 
 }  // namespace omnibox

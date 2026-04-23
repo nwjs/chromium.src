@@ -356,6 +356,9 @@
       <message name="IDS_IOS_AI_HUB_HIDE_READER_MODE_LABEL" desc="The button label for hiding Reader mode when it's active from the AI hub.">
         Hide Reader
       </message>
+      <message name="IDS_IOS_AI_HUB_INELIGIBLE_ACCOUNT_SNACKBAR" translateable="false" desc="Snackbar message shown when a user taps Ask Gemini but their account is ineligible.">
+        This account won't work with Gemini. Sign in with a different Google Account.
+      </message>
       <message name="IDS_IOS_AI_HUB_LENS_LABEL" desc="The button label for the Lens entry point of the AI hub.">
         Search screen
       </message>
@@ -500,7 +503,10 @@
       <message name="IDS_IOS_APP_BAR_ALL_TABS" desc="Title of the button opening the TabGrid where all the tabs are visible. Note that if the translation is too long, the 'all' can be dropped and translate only 'Tabs'. [CHAR_LIMIT=14]" meaning="Tap this button to see all your tabs.">
           All tabs
           </message>
-      <message name="IDS_IOS_APP_BAR_ASK_GEMINI" desc="Title of the button opening a gemini prompt. [CHAR_LIMIT=14]" meaning="Tap this button to ask something to Gemini">
+      <message name="IDS_IOS_APP_BAR_ASK" desc="Title of the button opening a gemini prompt when the text is too long to fit in one line. [CHAR_LIMIT=14]" meaning="Tap this button to ask something to Gemini">
+          Ask
+          </message>
+      <message name="IDS_IOS_APP_BAR_ASK_GEMINI" desc="Title of the button opening a gemini prompt." meaning="Tap this button to ask something to Gemini">
           Ask Gemini
           </message>
       <message name="IDS_IOS_APP_BAR_CONTEXT_MENU_NEW_TAB_GROUP" desc="The text for the button opening a new tab group from the app bar's context menu in the tab groups page of the tab grid.">
@@ -1370,8 +1376,20 @@
       <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_NON_MANAGED_LINK_2" desc="Text for the second link in the BWG consent footnote.">
           Gemini Apps Privacy Notice
       </message>
-      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_NON_MANAGED_TEXT" desc="Format string for the BWG consent footnote for non-managed accounts.">
+      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_NON_MANAGED_TEXT" desc="Format string for the Gemini consent footnote for non-managed accounts.">
           <ph name="GOOGLE_TERMS">$1<ex>Google Terms</ex></ph> and the <ph name="GEMINI_APPS_PRIVACY">$2<ex>Gemini Apps Privacy Notice</ex></ph> apply. Gemini can make mistakes, so double-check it.
+      </message>
+      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA" desc="Format string for the Gemini consent footnote for accounts in South Korea.">
+          Our <ph name="TERMS">$1<ex>Terms</ex></ph>, <ph name="KOREAN_LOCATION_TERMS">$2<ex>Korean Location Terms</ex></ph>, and <ph name="PRIVACY_NOTICE">$3<ex>Privacy Notice</ex></ph> apply. Gemini is AI and can make mistakes, including about people.
+      </message>
+      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA_LINK_1" desc="Text for the first link in the Gemini consent footnote for South Korea.">
+          Terms
+      </message>
+      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA_LINK_2" desc="Text for the second link in the Gemini consent footnote for South Korea.">
+          Korean Location Terms
+      </message>
+      <message name="IDS_IOS_BWG_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA_LINK_3" desc="Text for the third link in the Gemini consent footnote for South Korea.">
+          Privacy Notice
       </message>
       <message name="IDS_IOS_BWG_CONSENT_MANAGED_FIRST_BOX_BODY" desc="First box body text for the Gemini Consent page for managed accounts.">
           By default, your current tab is shared when you start a new chat. When tabs are shared, their contents and URLs are sent to Google but won’t be used to improve generative AI models. You can change this setting anytime.

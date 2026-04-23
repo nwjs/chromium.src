@@ -170,6 +170,21 @@ BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
 // Sessions.
 BASE_FEATURE(kDeviceBoundSessionsDevTools, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// This feature enables the fix for double releases of
+// WorkerOrWorkletDevToolsAgentHost to prevent UAF.
+BASE_FEATURE(kWorkerOrWorkletAgentDoubleReleaseFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This feature gates the entry to ServiceWorkerDevToolsAgentHost to ensure
+// it is only accessible when DevTools is actually attached.
+BASE_FEATURE(kServiceWorkerDevToolsWorkerReadyCheck,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This feature gates the entry to SharedWorkerDevToolsAgentHost to ensure
+// it is only accessible when DevTools is actually attached.
+BASE_FEATURE(kSharedWorkerDevToolsWorkerReadyCheck,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // Disables the auto_resize_output_surface feature in the Viz process.
 // This prevents visual artifacts (blue gutters) during window resizing on
@@ -683,6 +698,10 @@ BASE_FEATURE(kServiceWorkerSrcdocSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 // crbug.com/340949948 for more details.
 BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enforce CORP check for Service Worker Static Router's cache source.
+BASE_FEATURE(kServiceWorkerStaticRouterCORPCheck,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // crbug.com/495999481: When this is enabled, the navigation request should be
 // blocked when it receives an opaque response from the service worker static

@@ -829,7 +829,8 @@ void ReadAnythingAppModel::ResetTextSize() {
 }
 
 void ReadAnythingAppModel::SetDefaultDistillationMethod() {
-  if (features::IsReadAnythingWithReadabilityEnabled()) {
+  if (features::IsReadAnythingWithReadabilityEnabled() &&
+      !features::IsReadAnythingReadAloudPhraseHighlightingEnabled()) {
     next_distillation_method_ = DistillationMethod::kReadability;
     current_content_distillation_method_ = DistillationMethod::kReadability;
   } else {
@@ -840,6 +841,12 @@ void ReadAnythingAppModel::SetDefaultDistillationMethod() {
 
 void ReadAnythingAppModel::OnScroll(bool on_selection,
                                     bool from_reading_mode) const {
+  // Scroll events shouldn't be logged when reading mode is inactive.
+  if (features::IsImmersiveReadAnythingEnabled() &&
+      active_presentation_state_ ==
+          read_anything::mojom::ReadAnythingPresentationState::kInactive) {
+    return;
+  }
   // Enum for logging how a scroll occurs.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.

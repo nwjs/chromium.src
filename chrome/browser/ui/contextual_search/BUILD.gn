@@ -14,6 +14,8 @@ source_set("contextual_search") {
 
   if (!is_android) {
     sources += [
+      "desktop_query_contextualizer_delegate.cc",
+      "desktop_query_contextualizer_delegate.h",
       "searchbox_context_data.cc",
       "searchbox_context_data.h",
     ]
@@ -23,8 +25,13 @@ source_set("contextual_search") {
 
   deps = [
     "//base",
+    "//chrome/browser/contextual_tasks",
     "//chrome/browser/page_content_annotations:extraction_service",
     "//chrome/browser/profiles",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//components/contextual_tasks/public:feature_list",
+    "//components/contextual_tasks/public:query_contextualizer",
     "//components/lens",
     "//components/omnibox/browser:mojo_bindings",
     "//components/optimization_guide/content/browser",

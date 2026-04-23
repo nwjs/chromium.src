@@ -116,6 +116,7 @@ test("components_unittests") {
       "test/data/autofill/",
       "test/data/bookmarks/",
       "test/data/browsing_topics/",
+      "test/data/contextual_tasks/",
       "test/data/crx_file/",
       "test/data/custom_handlers/",
       "test/data/device_signals/",
@@ -765,7 +766,6 @@ test("components_unittests") {
       "//components/headless/console_message_logger:unit_tests",
       "//components/headless/screen_info:unit_tests",
       "//components/live_caption:unit_tests",
-      "//components/private_ai:unit_tests",
 
       # TODO(crbug.com/470475787): Enable this test on Android.
       "//components/password_manager/core/browser/actor_login/internal:unit_tests",
@@ -777,7 +777,11 @@ test("components_unittests") {
   }
 
   if (!is_android && !is_ios && !is_fuchsia && !is_castos) {
-    deps += [ "//components/accessibility_annotator/content/content_annotator:unit_tests" ]
+    deps += [
+      "//components/accessibility_annotator/content/content_annotator:unit_tests",
+      "//components/accessibility_annotator/core/live_tab_context:unit_tests",
+      "//components/private_ai:unit_tests",
+    ]
   }
 
   if (enable_guest_contents) {

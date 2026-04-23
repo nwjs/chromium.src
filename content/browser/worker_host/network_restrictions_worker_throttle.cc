@@ -6,6 +6,7 @@
 
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "content/browser/connection_allowlist_gating.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
@@ -19,22 +20,25 @@ std::unique_ptr<NetworkRestrictionsWorkerThrottle>
 NetworkRestrictionsWorkerThrottle::Create(
     base::WeakPtr<StoragePartitionImpl> storage_partition,
     const base::UnguessableToken& network_restrictions_id,
-    PolicyContainerPolicies creator_policies) {
+    PolicyContainerPolicies creator_policies,
+    base::WeakPtr<RenderFrameHost> ancestor_render_frame_host) {
   if (!base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
     return nullptr;
   }
   return std::make_unique<NetworkRestrictionsWorkerThrottle>(
       std::move(storage_partition), network_restrictions_id,
-      std::move(creator_policies));
+      std::move(creator_policies), ancestor_render_frame_host);
 }
 
 NetworkRestrictionsWorkerThrottle::NetworkRestrictionsWorkerThrottle(
     base::WeakPtr<StoragePartitionImpl> storage_partition,
     const base::UnguessableToken& network_restrictions_id,
-    PolicyContainerPolicies creator_policies)
+    PolicyContainerPolicies creator_policies,
+    base::WeakPtr<RenderFrameHost> ancestor_render_frame_host)
     : storage_partition_(std::move(storage_partition)),
       network_restrictions_id_(network_restrictions_id),
-      creator_policies_(std::move(creator_policies)) {}
+      creator_policies_(std::move(creator_policies)),
+      ancestor_render_frame_host_(ancestor_render_frame_host) {}
 
 NetworkRestrictionsWorkerThrottle::~NetworkRestrictionsWorkerThrottle() =
     default;
@@ -48,12 +52,17 @@ void NetworkRestrictionsWorkerThrottle::WillProcessResponse(
   }
 
   PolicyContainerPolicies policies;
+  // Feature `network::features::kConnectionAllowlists` is not checked here
+  // because the throttle cannot be created if the feature is disabled.
   if (response_url.SchemeIsLocal()) {
     policies.connection_allowlists = creator_policies_.connection_allowlists;
-  } else {
-    if (!response_head || !response_head->parsed_headers) {
-      return;
-    }
+  } else if (ResponseContainsConnectionAllowlist(response_head) &&
+             ResponseEnablesConnectionAllowlistsOriginTrial(
+                 response_url, response_head->headers.get())) {
+    // Connection allowlist needs to be enforced for workers once the allowlist
+    // response header is received. The origin trial token for this feature is
+    // received within the same response. The token is parsed here to query the
+    // trial status. See https://wicg.github.io/connection-allowlists/.
     policies.connection_allowlists =
         response_head->parsed_headers->connection_allowlists;
   }
@@ -61,6 +70,12 @@ void NetworkRestrictionsWorkerThrottle::WillProcessResponse(
   if (!policies.connection_allowlists.enforced &&
       !policies.connection_allowlists.report_only) {
     return;
+  }
+
+  if (ancestor_render_frame_host_) {
+    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+        ancestor_render_frame_host_.get(),
+        blink::mojom::WebFeature::kConnectionAllowlist);
   }
 
   if (policies.connection_allowlists.enforced) {

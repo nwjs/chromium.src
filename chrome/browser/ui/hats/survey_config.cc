@@ -25,6 +25,7 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/variations/service/google_groups_manager.h"
+#include "extensions/common/extension_features.h"
 #include "media/base/media_switches.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -330,7 +331,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
 
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopSEHijacking,
-      kHatsSurveyTriggerSEHijacking, "e4BYNZZ5u0ugnJ3q1cK0Q9A3oP6L");
+      kHatsSurveyTriggerSEHijacking,
+      base::FeatureList::IsEnabled(
+          extensions_features::kSearchEngineExplicitChoiceDialog)
+          ? "e4BYNZZ5u0ugnJ3q1cK0Q9A3oP6L"
+          : "9yoU8xqnq0ugnJ3q1cK0WjmeXHFn");
 
   // NTP modules survey.
   survey_configs.emplace_back(
@@ -346,7 +351,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       /*product_specific_string_data_fields=*/
       std::vector<std::string>{"Experiment ID",
                                "ContextualTasksExpandButtonOptions",
-                               "ContextualTasksOpenSidePanelOnLinkClicked",
                                "ContextualTasksEnableLensInContextualTasks",
                                "ContextualTasksTabAutoSuggestionChipEnabled"});
 
@@ -799,6 +803,16 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       &metrics::kHappinessTrackingSurveysForDownloadJourney,
       metrics::kHatsSurveyTriggerDownloadJourney,
       /*presupplied_trigger_id=*/"Y2We4jMf70ugnJ3q1cK0QFVzpBEr");
+
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForPinExtensionJourney,
+      metrics::kHatsSurveyTriggerPinExtensionJourney,
+      /*presupplied_trigger_id=*/"ZPGYEfdNz0ugnJ3q1cK0WdJNwYC3");
+
+  survey_configs.emplace_back(
+      &metrics::kHappinessTrackingSurveysForClearBrowsingHistory,
+      metrics::kHatsSurveyTriggerClearBrowsingHistory,
+      /*presupplied_trigger_id=*/"uAmt8ZyqJ0ugnJ3q1cK0PAWUdnZB");
 
   // Lens overlay surveys.
   survey_configs.emplace_back(

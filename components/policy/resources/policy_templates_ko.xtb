@@ -107,7 +107,7 @@
 <translation id="1060020040574767394">맞춤 워터마크 설정 구성</translation>
 <translation id="1062011392452772310">기기에 대한 원격 인증을 사용합니다.</translation>
 <translation id="1062407476771304334">바꾸기</translation>
-<translation id="1063860513136880926">정책을 '사용'으로 설정하면 단축키나 확장 프로그램 API를 통해 스크린샷을 캡처할 수 없습니다. 정책을 설정하지 않거나 '사용 안함'으로 설정하면 스크린샷을 캡처할 수 있습니다.
+<translation id="1063860513136880926">정책을 '사용'으로 설정하면 키보드 단축키나 확장 프로그램 API를 통해 스크린샷을 캡처할 수 없습니다. 정책을 설정하지 않거나 '사용 안함'으로 설정하면 스크린샷을 캡처할 수 있습니다.
 
 정책 설정과 관계없이 <ph name="MS_WIN_NAME" />, <ph name="MAC_OS_NAME" />, <ph name="LINUX_OS_NAME" />에서는 운영체제나 서드 파티 애플리케이션으로 찍은 스크린샷이 차단되지 않습니다.</translation>
 <translation id="1065175969514496951">정책을 설정하면 로그인 화면 및 잠금 화면 등 인증 중에 나열된 URL에 액세스할 수 있습니다. <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />는 예외입니다. 목록 항목의 형식은 정책 설명을 확인하세요. 예를 들어 <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />를 <ph name="WILDCARD_VALUE" /> 기호로 설정하면 모든 요청이 차단되며 이 정책을 사용하여 제한된 URL 목록에 액세스하도록 허용할 수 있습니다. 또한 https://support.google.com/chrome/a?p=url_blocklist_filter_format에 지정된 형식을 사용하여 특정 스키마, 다른 도메인의 하위 도메인, 포트, 특정 경로에 대한 예외 목록을 열 수도 있습니다. 가장 구체적인 필터에 따라 URL 차단 또는 허용 여부가 결정됩니다. <ph name="DEVICE_AUTHENTICATION_URL_ALLOWLIST_POLICY_NAME" /> 정책은 <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />보다 우선 적용됩니다. 정책의 항목은 1,000개로 제한됩니다.
@@ -438,8 +438,8 @@ https://chromeenterprise.google/policies/url-patterns/ 페이지를 참고하세
 <translation id="1354280967938151061">ARC 사용 안함</translation>
 <translation id="1354349503792572661"><ph name="PRODUCT_OS_NAME" />에서 Native Client(NaCl)를 실행할 수 있도록 강제 적용합니다.</translation>
 <translation id="1354424209129232709">최대:</translation>
-<translation id="1355050231181289439"> 이 정책은 개선된 국제 키보드 단축키 매핑을 사용할지 제어합니다.
-      이 기능을 사용하면 단축키가 국제 키보드 레이아웃과 일관되게 작동하며 기존 단축키는 지원 중단됩니다.
+<translation id="1355050231181289439">이 정책은 개선된 국제 키보드 단축키 매핑을 사용할지 제어합니다.
+      이 기능을 사용하면 키보드 단축키가 국제 키보드 레이아웃과 일관되게 작동하며 기존 단축키는 지원 중단됩니다.
 
       정책을 사용 중지하면 개선된 국제 키보드 단축키가 사용 중지됩니다.
       정책을 사용 설정하면 개선된 국제 키보드 단축키가 사용됩니다.
@@ -1667,6 +1667,7 @@ URL로 입력된 측정항목 수집이 허용되거나 사용자가 이를 사�
 <translation id="2149957154942061013">내부용</translation>
 <translation id="2151831603578119302">접근성 기능 단축키 사용</translation>
 <translation id="2156132677421487971">사용자가 탭, 사이트 또는 데스크톱의 콘텐츠를 브라우저에서 원격 디스플레이와 사운드 시스템으로 전송하도록 해 주는 기능인 <ph name="PRODUCT_NAME" />의 정책을 설정합니다.</translation>
+<translation id="2156359411909638496">Chrome Finds 설정</translation>
 <translation id="2156755242840687300">외부 프린트 서버가 사용 설정됨</translation>
 <translation id="2157842368188031417">이 정책은 관리되는 게스트 세션에만 적용됩니다. Imprivata의 공유 워크스테이션 모드에서 세션 내 사용자 전환을 허용하려면 이 정책이 사용 설정되어야 합니다.
       정책을 True로 설정하면 기능에 대한 특정 정책을 강제로 재정의하고, 그 결과 민감한 사용자 데이터가 보관되며 Imprivata 공유 워크스테이션 모드의 세션 내 사용자 전환에서 사용되는 삭제 메커니즘에 의해 처리되지 않습니다.
@@ -1762,9 +1763,9 @@ URL로 입력된 측정항목 수집이 허용되거나 사용자가 이를 사�
 <translation id="2183338188392346527">기기 런타임 카운터 보고 안함</translation>
 <translation id="2183838844225082873">정책을 0(기본값)으로 설정하면 개발자 도구와 JavaScript 콘솔에 액세스할 수 있지만 기업 정책으로 설치한 확장 프로그램의 컨텍스트나 버전 114 이상을 사용 중이며 관리 사용자인 경우 브라우저에 내장된 확장 프로그램의 컨텍스트에서는 액세스할 수 없습니다. 정책을 1로 설정하면 기업 정책으로 설치한 확장 프로그램을 비롯한 모든 컨텍스트에서 개발자 도구 및 JavaScript 콘솔에 액세스할 수 있습니다. 정책을 2로 설정하면 개발자 도구에 액세스할 수 없으며 웹사이트 요소를 검사할 수 없습니다.
 
-또한 이 설정은 개발자 도구 또는 JavaScript 콘솔을 여는 단축키, 메뉴 항목, 컨텍스트 메뉴 항목의 사용을 중지합니다.
+또한 이 설정은 개발자 도구 또는 JavaScript 콘솔을 여는 키보드 단축키, 메뉴 항목, 컨텍스트 메뉴 항목의 사용을 중지합니다.
 
-<ph name="PRODUCT_NAME" /> 버전 99부터는 '페이지 소스 보기' 기능의 진입점도 제어합니다. 이 정책을 'DeveloperToolsDisallowed'(값 2)로 설정하면 사용자가 단축키 또는 컨텍스트 메뉴를 통해 소스 보기에 액세스할 수 없습니다. 소스 보기를 완전히 차단하려면 <ph name="URL_BLOCKLIST_POLICY_NAME" /> 정책에 'view-source:*'도 추가해야 합니다.
+<ph name="PRODUCT_NAME" /> 버전 99부터는 '페이지 소스 보기' 기능의 진입점도 제어합니다. 이 정책을 'DeveloperToolsDisallowed'(값 2)로 설정하면 사용자가 키보드 단축키 또는 컨텍스트 메뉴를 통해 소스 보기에 액세스할 수 없습니다. 소스 보기를 완전히 차단하려면 <ph name="URL_BLOCKLIST_POLICY_NAME" /> 정책에 'view-source:*'도 추가해야 합니다.
 
 <ph name="PRODUCT_NAME" /> 버전 119부터 이 설정으로 분리형 웹 앱의 개발자 모드 활성화 및 사용 여부도 제어할 수 있습니다.
 
@@ -4111,6 +4112,7 @@ HTTPS용 RSA 인증서에 두 가지를 모두 포함해야 합니다.</translat
 <translation id="3749511622128647337">오디오 출력 사용 중지</translation>
 <translation id="3750220015372671395">이 사이트에서 키 생성 차단</translation>
 <translation id="3753267109888284695">HTTP 허용 목록</translation>
+<translation id="3753514818525019935">Chrome Finds를 허용하지 않습니다.</translation>
 <translation id="3753959315989102457">기기 위치 보고 사용 중지</translation>
 <translation id="3755237588083934849">정책을 설정하면 기기 상태 업로드를 전송할 빈도를 밀리초 단위로 결정할 수 있습니다. 허용된 최솟값은 60초입니다.
 
@@ -4220,7 +4222,7 @@ HTTPS용 RSA 인증서에 두 가지를 모두 포함해야 합니다.</translat
 <translation id="3811407842708673996">정책을 설정하지 않거나 '사용'으로 설정하면 사용자가 컨텍스트 메뉴에서 <ph name="GOOGLE_LENS_PRODUCT_NAME" /> 영역 검색 메뉴 항목을 보고 사용할 수 있습니다. 정책을 '사용 안함'으로 설정하면 <ph name="GOOGLE_LENS_PRODUCT_NAME" /> 영역 검색이 지원되는 경우에도 컨텍스트 메뉴에 <ph name="GOOGLE_LENS_PRODUCT_NAME" /> 영역 검색 메뉴 항목이 표시되지 않습니다.
 이 정책은 <ph name="PRODUCT_NAME" /> 147부터 지원 중단됩니다. IT 관리자는 앞으로 <ph name="SEARCH_CONTENT_SHARING_SETTINGS_POLICY_NAME" /> 정책을 사용하여 이 기능을 제어할 수 있습니다.</translation>
 <translation id="3811562426301733860">모든 사이트에서 광고 허용</translation>
-<translation id="3816312845600780067">자동 로그인 시 긴급용 단축키 사용</translation>
+<translation id="3816312845600780067">자동 로그인 시 긴급용 키보드 단축키 사용</translation>
 <translation id="3817323252437541502">고급 보호 프로그램에 등록된 사용자를 위한 추가 보호 기능 사용</translation>
 <translation id="3821861026311587684">계정 인증이 해제되면 사용자를 강제로 로그아웃합니다.</translation>
 <translation id="3822756181940590230">VM 펌웨어가 사용하는 초기 비휘발성 UEFI 데이터입니다.</translation>
@@ -5807,7 +5809,7 @@ JavaScript 최적화 정책 예외는 사이트 세부사항에서만 시행됩�
 <translation id="4860900625632464759">사용자가 휴대전화와 Chromebook 간에 SMS 메시지를 동기화하도록 허용</translation>
 <translation id="486146220825734683">사용자가 Kerberos 비밀번호를 기억하도록 허용 안함</translation>
 <translation id="4861767323695239729">사용자 세션에서 허용되는 입력 수단을 구성합니다.</translation>
-<translation id="4866159293453405598">정책을 설정하면 클립보드 사이트 권한을 사용할 수 없는 사이트를 명시하는 URL 패턴 목록을 설정할 수 있습니다. 여기에 패턴과 일치하는 출처에서 이루어진 모든 클립보드 작업이 포함되는 것은 아닙니다. 예를 들어 단축키를 사용하여 붙여넣는 작업은 클립보드 사이트 권한이 필요하지 않기 때문에 계속 가능합니다.
+<translation id="4866159293453405598">정책을 설정하면 클립보드 사이트 권한을 사용할 수 없는 사이트를 명시하는 URL 패턴 목록을 설정할 수 있습니다. 여기에 패턴과 일치하는 출처에서 이루어진 모든 클립보드 작업이 포함되는 것은 아닙니다. 예를 들어 키보드 단축키를 사용하여 붙여넣는 작업은 클립보드 사이트 권한이 필요하지 않기 때문에 계속 가능합니다.
 
       정책을 설정하지 않은 경우 <ph name="DEFAULT_CLIPBOARD_SETTING" />이 설정되어 있으면 모든 사이트에 적용됩니다. 설정되어 있지 않다면 사용자의 개인 설정이 적용됩니다.
 
@@ -6088,6 +6090,13 @@ Chrome 114까지 이 정책을 적용하려면 <ph name="SYNC_DISABLED_POLICY_NA
 <translation id="4997074784107449343">이미지로 인쇄 옵션이 사용 가능한 경우 PDF 문서의 인쇄 미리보기로 기본적으로 설정되지 않습니다.</translation>
 <translation id="500149597848135831">모든 변형 허용</translation>
 <translation id="5006222080181284191">ChromeOS '작성 지원 기능' 사용 여부 제어</translation>
+<translation id="501542798290854504"><ph name="ANDROID_NAME" />에서 Microsoft® 클라우드 ID 공급업체가 지원하는 계정에 자동 사용자 로그인을 구성합니다.
+
+정책을 1(<ph name="POLICY_VALUE_ENABLED" />)로 설정하면 기기에서 Microsoft® 생산성 애플리케이션에 로그인한 사용자가 <ph name="PRODUCT_NAME" /> 내에서 Microsoft® 웹 서비스에 자동으로 로그인할 수 있습니다. 이 기능을 사용하려면 <ph name="MS_AUTH_APP_NAME" />, <ph name="MS_ICP_NAME" />, <ph name="MS_LTW_NAME" /> 등의 Microsoft® 인증 브로커 앱이 있어야 합니다. 싱글 사인온(SSO)을 용이하게 하기 위해 필요한 인증 데이터가 Microsoft® 클라우드 ID 공급업체와 공유됩니다.
+
+정책을 0(<ph name="POLICY_VALUE_DISABLED" />)으로 설정하거나 설정하지 않으면 위에 설명된 자동 로그인이 사용 중지되며 사용자가 Microsoft® 웹 서비스의 사용자 인증 정보를 직접 제공해야 합니다.
+
+참고: 이 정책은 시크릿 모드 또는 게스트 모드에 적용되지 않습니다.</translation>
 <translation id="5017157692744444035">이 정책은 기기 이름, 네트워크 주소 등 기기 식별을 위해 사용할 수 있는 정보의 보고 여부를 제어합니다.
 
 <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> 정책이 설정되지 않거나 사용 중지되면 정책이 무시됩니다.
@@ -6479,7 +6488,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 
       정책을 사용 중지로 설정하거나 설정하지 않은 상태로 두면 기기 활동 상태가 보고되지 않습니다.
       사용으로 설정하면 사용자가 연결되어 있는 경우 기기 활동 상태가 서버에 보고되므로 서버에서 기기의 오프라인 여부를 감지할 수 있습니다.</translation>
-<translation id="5237063248422984115">정책을 설정하면 클립보드 사이트 권한을 사용할 수 있는 사이트를 명시하는 URL 패턴 목록을 설정할 수 있습니다. 여기에 패턴과 일치하는 출처에서 이루어진 모든 클립보드 작업이 포함되는 것은 아닙니다. 예를 들어 단축키를 사용하여 붙여넣는 작업은 클립보드 사이트 권한이 필요하지 않기 때문에 계속 가능합니다.
+<translation id="5237063248422984115">정책을 설정하면 클립보드 사이트 권한을 사용할 수 있는 사이트를 명시하는 URL 패턴 목록을 설정할 수 있습니다. 여기에 패턴과 일치하는 출처에서 이루어진 모든 클립보드 작업이 포함되는 것은 아닙니다. 예를 들어 키보드 단축키를 사용하여 붙여넣는 작업은 클립보드 사이트 권한이 필요하지 않기 때문에 계속 가능합니다.
 
 
       정책을 설정하지 않은 경우 <ph name="DEFAULT_CLIPBOARD_SETTING" />이 설정되어 있으면 모든 사이트에 적용됩니다. 설정되어 있지 않다면 사용자의 개인 설정이 적용됩니다.
@@ -6571,6 +6580,22 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5293285950307241933">모든 로컬 사용자 데이터 삭제</translation>
 <translation id="5293619885162445352"><ph name="PEPPER_NAME" />에서 새 동영상 디코더를 사용하도록 허용합니다.</translation>
 <translation id="529457411593078576">첫 실행 중 CCT에 서비스 약관 사용 설정</translation>
+<translation id="529718811410033393">정책을 설정하면 WebSocket이 아닌 요청에 대해 프록시 서버당 동시 연결할 수 있는 최대 수가 지정됩니다.
+
+WebSocket 요청 한도를 수정하려면 <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" /> 정책을 참고하세요.
+
+정책을 설정하지 않으면 기본값 32가 사용됩니다.
+
+일부 웹 앱은 중지 상태인 GET에 너무 많은 연결을 사용하는 것으로 알려져 있으므로 32 밑으로 낮추면 연결이 중지 상태인 웹 앱이 여러 개 열려 있을 때 브라우저 네트워크가 끊길 수 있습니다.
+일부 프록시 서버는 클라이언트당 많은 수의 동시 연결을 처리할 수 없으며 정책을 더 낮은 값으로 설정하여 해결할 수 있습니다.
+
+값은 6 이상이어야 합니다.
+이 한도 미만의 값을 설정하면 6이 사용됩니다.
+기본값(32) 밑으로 낮추는 데 따르는 위험은 사용자가 감수해야 합니다.
+
+값은 256(<ph name="PRODUCT_NAME" /> 147 이전 버전에서는 99) 이하여야 합니다.
+이 한도를 초과하는 값을 설정하면 256(<ph name="PRODUCT_NAME" /> 147 이전 버전에서는 99)이 사용됩니다.
+기본값(32)보다 높게 설정하는 데 따르는 위험은 사용자가 감수해야 합니다.</translation>
 <translation id="5297873769621042075">정책을 설정하면 HTTPS로 업그레이드되지 않고 HTTPS 우선 모드가 설정된 경우 오류 전면 광고가 표시되지 않는 호스트 이름 또는 호스트 이름 패턴(예: '[*.]example.com') 목록이 지정됩니다. 조직에서 이 정책을 사용하면 HTTPS 업그레이드 또는 HTTPS 우선 모드를 사용 중지하지 않고도 HTTPS를 지원하지 않는 서버에 대한 액세스를 유지할 수 있습니다.
 
 제공된 호스트 이름은 표준화되어야 합니다. 모든 IDN은 A 라벨 형식으로 변환되어야 하며 모든 ASCII 문자는 소문자여야 합니다.
@@ -7324,6 +7349,7 @@ Microsoft SharePoint 및 OneDrive 카드에는 추가 관리자 구성이 필요
       VPD(필수 제품 데이터)는 기기와 관련된 구성 및 정보 데이터(예: 부품 및 일련번호)의 모음입니다.</translation>
 <translation id="5760861224093391268">사용자 보안 신호를 보고할 때 퍼스트 파티 인증 사용 중지</translation>
 <translation id="5762969307102447459">주소 입력 시 자동 완성 사용 안함</translation>
+<translation id="5763723496957591166">WebSocket 요청에 대해 프록시 서버당 동시 연결할 수 있는 최대 수</translation>
 <translation id="5765780083710877561">설명:</translation>
 <translation id="5766438888216077649"><ph name="BLANK_PAGE_NAME" />을(를) 타겟팅하는 링크의 경우 <ph name="WINDOW_OPENER_PROPERTY" /> 속성을 설정하지 않음</translation>
 <translation id="5767776869128458023">대체 오류 페이지 사용 중지</translation>
@@ -7335,6 +7361,7 @@ Microsoft SharePoint 및 OneDrive 카드에는 추가 관리자 구성이 필요
 <translation id="5776485039795852974">사이트에서 데스크톱 알림을 표시할 때마다 확인</translation>
 <translation id="5776508475264864949">Gemini 앱이 웹페이지에서 작업을 실행하도록 허용하지 않습니다.</translation>
 <translation id="5783009211970309878">인쇄 머리글 및 바닥글</translation>
+<translation id="5786913136266632175">Chrome Finds를 허용하고 AI 모델을 개선합니다.</translation>
 <translation id="5789288985554424301">웹사이트가 Idle Detection API를 사용하도록 허용할지 설정할 수 있습니다.
 
 정책을 1 - <ph name="ALLOW_IDLE_DETECTION_VALUE_NAME" />으로 설정하면 웹사이트에서 사용자에게 권한을 요청하지 않고도 API를 사용할 수 있습니다.
@@ -8861,6 +8888,17 @@ false로 설정되면 Crostini 컨테이너로 포트 전달이 사용 중지됩
 
       정책을 설정하지 않으면 신호 강도 변경 이벤트에 대한 추가 텔레메트리 데이터가 보고되지 않습니다.</translation>
 <translation id="6751612743847158732">항상 마지막 세션을 복원합니다.</translation>
+<translation id="6751882390104737961">Chrome Finds는 사용자가 현재 웹페이지에서 콘텐츠를 검색하고 이해하는 데 도움이 되는 AI 기반 기능입니다.
+
+0 = 이 기능을 사용하도록 허용하면서 Google에서 관련 데이터를 사용하여 AI 모델을 개선하도록 허용합니다. 관련 데이터에는 기능에 따라 프롬프트나 입력, 출력, 소스 자료, 서면 의견이 포함될 수 있습니다. AI 모델을 개선하기 위해 사람이 데이터를 검토할 수도 있습니다. 아래에 명시된 경우를 제외하고 0이 기본값입니다.
+
+1 = 기능을 사용하도록 허용하되 Google에서 사용자 콘텐츠(프롬프트, 입력, 출력, 소스 자료, 서면 의견 등)를 사용하여 모델을 개선하도록 허용하지 않습니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자 및 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
+
+2 = 기능을 허용하지 않습니다.
+
+정책을 설정하지 않으면 <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> 정책에 따라 동작이 결정됩니다.
+
+생성형 AI 기능의 데이터 처리에 관한 자세한 내용은 https://support.google.com/chrome/a?p=generative_ai_settings 페이지를 참고하세요.</translation>
 <translation id="6752711782954612641"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" />가 사용 설정되어 있으면 <ph name="DEFAULT_SEARCH_PROVIDER_SEARCH_URL_POST_PARAMS_POLICY_NAME" /> 설정은 POST로 URL을 검색할 때의 매개변수를 지정합니다. 이 매개변수는 쉼표로 구분된 이름 값의 쌍으로 구성됩니다. 값이 <ph name="SEARCH_TERM_MARKER" />와 같은 템플릿 매개변수면 실제 검색어 데이터로 교체됩니다.
 
       <ph name="DEFAULT_SEARCH_PROVIDER_SEARCH_URL_POST_PARAMS_POLICY_NAME" />를 설정하지 않으면 GET 메서드를 사용해 검색 요청이 전송됩니다.</translation>
@@ -9740,6 +9778,7 @@ true로 설정하면 <ph name="PRODUCT_NAME" />에서는
 
       이 정책이 설정되지 않거나 공백으로 남아 있으면 사용자가 <ph name="PRODUCT_NAME" />에서 어떤 Google 계정이든 브라우저 기본 계정으로 설정할 수 있습니다.</translation>
 <translation id="723103540848640830">잠금 화면 PIN 최소 길이 설정</translation>
+<translation id="7231449913899026849">WebSocket이 아닌 요청에 대해 프록시 서버당 동시 연결할 수 있는 최대 수</translation>
 <translation id="7234280155140786597">차단된 기본 메시지 호스트의 이름(모두 차단하려면 * 값 적용)</translation>
 <translation id="723621412149834592">정책을 <ph name="BLOCK_WINDOW_PLACEMENT_POLICY_NAME" />(값 2) 정책으로 설정하면 기본적으로 창 배치 권한이 사이트에 부여되지 않도록 자동으로 거부됩니다. 이렇게 하면 사이트에서 기기 화면에 관한 정보를 본 다음, 해당 정보를 사용하여 창을 열고 배치하거나 특정 화면에서는 전체 화면을 요청하는 기능이 제한됩니다.
 
@@ -9778,7 +9817,7 @@ true로 설정하면 <ph name="PRODUCT_NAME" />에서는
 
       Developer Tools 및 자바스크립트 콘솔을 사용 중지합니다.
 
-      이 설정을 사용하면 Developer Tools에 액세스할 수 없으며 더 이상 웹사이트 요소를 검사할 수 없습니다. Developer Tools나 자바스크립트 콘솔을 열기 위한 모든 단축키와 메뉴, 컨텍스트 메뉴 항목이 사용 중지됩니다.
+      이 설정을 사용하면 Developer Tools에 액세스할 수 없으며 더 이상 웹사이트 요소를 검사할 수 없습니다. Developer Tools나 자바스크립트 콘솔을 열기 위한 모든 키보드 단축키와 메뉴, 컨텍스트 메뉴 항목이 사용 중지됩니다.
 
       이 옵션을 사용하지 않도록 설정하거나 설정하지 않은 채로 두면 사용자가 Developer Tools와 자바스크립트 콘솔을 사용할 수 있습니다.
 
@@ -10060,6 +10099,7 @@ Kyber 제공 서비스는 이전 버전과 호환됩니다. 기존 TLS 서버 �
 <translation id="7481702249684965639">사용자에게 휴지통이 사용 설정되었습니다.</translation>
 <translation id="7482768039644066614">페이지 로드 메타데이터 및 머신러닝 모델 가져오기를 사용 설정하여 브라우저 사용 환경을 개선합니다.</translation>
 <translation id="748292668225669178"><ph name="MICROSOFT_ONE_DRIVE_NAME" />의 마운트를 구성합니다.</translation>
+<translation id="7483786326602801858"><ph name="ANDROID_NAME" />에서 Microsoft® 클라우드 ID 공급업체 자동 로그인 허용</translation>
 <translation id="7485481791539008776">기본 프린터 선택 규칙</translation>
 <translation id="7486205887492534734">여러 인증서가 일치하는 경우 로그인 화면에 메시지 표시</translation>
 <translation id="748873163367340515">검색에서 필수 쿠키와 데이터만 사용합니다.</translation>
@@ -10206,6 +10246,22 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_BLOCKED_FOR_URLS_P
 
       사용자의 기기가 관리되지 않는다면 이 기능의 사용 가능 여부는 사용자가 기기 소유자인지에 따라 추가로 달라집니다.</translation>
 <translation id="7570291542739287032">클라우드 전용</translation>
+<translation id="7571158727244273239">정책을 설정하면 WebSocket 요청에 대해 프록시 서버당 동시 연결할 수 있는 최대 수가 지정됩니다.
+
+WebSocket이 아닌 요청 한도를 수정하려면 <ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" /> 정책을 참고하세요.
+
+정책을 설정하지 않으면 기본값 32가 사용됩니다.
+
+일부 웹 앱은 중지 상태인 GET에 너무 많은 연결을 사용하는 것으로 알려져 있으므로 32 밑으로 낮추면 연결이 중지 상태인 웹 앱이 여러 개 열려 있을 때 브라우저 네트워크가 끊길 수 있습니다.
+일부 프록시 서버는 클라이언트당 많은 수의 동시 연결을 처리할 수 없으며 정책을 더 낮은 값으로 설정하여 해결할 수 있습니다.
+
+값은 6 이상이어야 합니다.
+이 한도 미만의 값을 설정하면 6이 사용됩니다.
+기본값(32) 밑으로 낮추는 데 따르는 위험은 사용자가 감수해야 합니다.
+
+값은 256 이하여야 합니다.
+이 한도를 초과하는 값을 설정하면 256이 사용됩니다.
+기본값(32)보다 높게 설정하는 데 따르는 위험은 사용자가 감수해야 합니다.</translation>
 <translation id="7572641760104970905">복잡성 없음</translation>
 <translation id="757395965347379751">이 설정이 사용 설정되었다면 <ph name="PRODUCT_NAME" />은(는) 로컬에 설치된 CA 인증서를 성공적으로 확인하고 체인을 구축하는 한 SHA-1 서명 인증서를 허용합니다.
 
@@ -11956,6 +12012,7 @@ JavaScript 최적화를 사용 중지하면(이 정책의 값을 2로 설정) <p
 설치 프로그램에 '자세히 알아보기' URL이 표시되지 않습니다. 설정된 경우 https 스키마를
 사용해야 합니다.</translation>
 <translation id="8715885991031124968">다른 출처 서브프레임에서 실행된 자바스크립트 대화상자 허용</translation>
+<translation id="8720288018555457355">AI 모델을 개선하지 않고 Chrome Finds를 허용합니다.</translation>
 <translation id="8720547069538712402">사용자가 맞춤법 검사를 사용 또는 사용 중지하도록 허용</translation>
 <translation id="8721685661759544418">웹페이지 소리 내어 읽어주기(텍스트 추출 및 텍스트 음성 변환 합성) 사용</translation>
 <translation id="8726080977639508431">이 정책은 <ph name="PRODUCT_NAME" />에서 이전 브라우저 지원 기능을 위한 사이트 목록/그레이리스트를 해석하는 방식을 결정합니다. <ph name="URL_LIST_POLICY_NAME" />, <ph name="URL_GREYLIST_POLICY_NAME" />, <ph name="USE_IE_SITELIST_POLICY_NAME" />, <ph name="EXTERNAL_SITELIST_POLICY_NAME" /> 및 <ph name="EXTERNAL_GREYLIST_POLICY_NAME" /> 정책에 영향을 미칩니다.

@@ -55,6 +55,7 @@
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
+#include "chrome/browser/ui/views/tabs/tab/tab_title.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -245,7 +246,7 @@ Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
     : HoverCardAnchorTarget(this),
       tab_handle_(handle),
       controller_(controller),
-      title_(new views::Label()),
+      title_(new TabTitle()),
       title_animation_(this) {
   DCHECK(controller);
 
@@ -256,20 +257,6 @@ Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
   SetNotifyEnterExitOnChild(true);
 
   SetID(VIEW_ID_TAB);
-
-  title_->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
-  title_->SetElideBehavior(gfx::FADE_TAIL);
-  title_->SetHandlesTooltips(false);
-  title_->SetAutoColorReadabilityEnabled(false);
-  title_->SetText(CoreTabHelper::GetDefaultTitle());
-  title_->SetBackgroundColor(SK_ColorTRANSPARENT);
-  // `title_` paints on top of an opaque region (the tab background) of a
-  // non-opaque layer (the tabstrip's layer), which cannot currently be detected
-  // by the subpixel-rendering opacity check.
-  // TODO(crbug.com/40725997): Improve the check so that this case doen't
-  // need a manual suppression by detecting cases where the text is painted onto
-  // onto opaque parts of a not-entirely-opaque layer.
-  title_->SetSkipSubpixelRenderingOpacityCheck(true);
 
   AddChildViewRaw(title_.get());
 
@@ -407,27 +394,10 @@ void Tab::Layout(PassKey) {
   if (glic_tab_underline_view_) {
     gfx::Rect glic_bounds =
         contents_rect + gfx::Vector2d(0, kGlicUnderlineYOffset);
-    if (base::FeatureList::IsEnabled(features::kDetachedTabs)) {
-      // For detached tabs, the glow should align with the bottom of the tab
-      // body.
-      int tab_bottom =
-          GetLayoutConstant(LayoutConstant::kTabHeight) -
-          GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap);
-      if (group().has_value()) {
-        tab_bottom -=
-            GetLayoutConstant(
-                LayoutConstant::kDetachedTabGroupUnderlineBottomSpacing) /
-            2;
-      }
-      const int glow_height = 8;
-      glic_bounds =
-          gfx::Rect(0, tab_bottom - glow_height, size().width(), glow_height);
-    } else {
-      // Use the full width of the tab in order to accommodate small tab sizes
-      // where the width of the contents bounds is 0.
-      glic_bounds.set_x(0);
-      glic_bounds.set_width(size().width());
-    }
+    // Use the full width of the tab in order to accommodate small tab sizes
+    // where the width of the contents bounds is 0.
+    glic_bounds.set_x(0);
+    glic_bounds.set_width(size().width());
     glic_tab_underline_view_->SetBoundsRect(glic_bounds);
   }
 

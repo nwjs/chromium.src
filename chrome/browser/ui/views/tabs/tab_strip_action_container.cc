@@ -14,6 +14,8 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_button_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/host.h"
@@ -50,7 +52,10 @@
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/animation/tween.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/button.h"
@@ -390,6 +395,9 @@ void TabStripActionContainer::OnTriggerAnchoredMessage(
 
   // Set the chip text to the cue label.
   action->SetText(base::UTF8ToUTF16(label));
+  action->SetImage(ui::ImageModel::FromVectorIcon(
+      glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON),
+      ui::kColorSysOnSurface, 18));
   action->SetEnabled(true);
   action->SetVisible(true);
   action->SetInvokeActionCallback(base::BindRepeating(
@@ -421,6 +429,12 @@ void TabStripActionContainer::OnTriggerAnchoredMessage(
   // The secondary label becomes the anchored message bubble text.
   controller->SetAnchoredMessageText(kActionGlicContextualCueing,
                                      base::UTF8ToUTF16(anchored_message_text));
+  gfx::ImageSkia* icon =
+      ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+          IDR_GLIC_BUTTON_ALT_ICON);
+  controller->SetAnchoredMessageIcon(
+      kActionGlicContextualCueing,
+      icon ? ui::ImageModel::FromImageSkia(*icon) : ui::ImageModel());
   controller->SetAnchoredMessageAction(
       kActionGlicContextualCueing,
       page_actions::AnchoredMessageActionIconType::kClose, /*model=*/nullptr);
@@ -444,7 +458,13 @@ void TabStripActionContainer::OnHideGlicNudgeUI() {
 }
 
 bool TabStripActionContainer::GetIsShowingGlicNudge() {
-  return glic_button_ && glic_button_->GetIsShowingNudge();
+  return (glic_button_ && glic_button_->GetIsShowingNudge()) ||
+         !!anchored_message_subscription_;
+}
+
+void TabStripActionContainer::SetButtonController(
+    glic::GlicButtonController* controller) {
+  button_controller_ = controller;
 }
 
 void TabStripActionContainer::SetGlicShowState(bool show) {
@@ -668,14 +688,21 @@ void TabStripActionContainer::OnGlicButtonClicked() {
     prompt_suggestion = glic_nudge_controller_->GetPromptSuggestion();
     glic_nudge_controller_->ClearPromptSuggestion();
   }
+
+  glic::mojom::InvocationSource source;
+  if (button_controller_) {
+    source = button_controller_->GetInvocationSource(
+        glic_button_->GetIsShowingNudge());
+  } else {
+    source = glic_button_->GetIsShowingNudge()
+                 ? glic::mojom::InvocationSource::kNudge
+                 : glic::mojom::InvocationSource::kTopChromeButton;
+  }
+
   glic::GlicKeyedServiceFactory::GetGlicKeyedService(
       browser_window_interface_->GetProfile())
       ->ToggleUI(browser_window_interface_,
-                 /*prevent_close=*/false,
-                 glic_button_->GetIsShowingNudge()
-                     ? glic::mojom::InvocationSource::kNudge
-                     : glic::mojom::InvocationSource::kTopChromeButton,
-                 prompt_suggestion);
+                 /*prevent_close=*/false, source, prompt_suggestion);
 
   if (glic_button_->GetIsShowingNudge()) {
     glic_nudge_controller_->OnNudgeActivity(

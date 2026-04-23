@@ -185,7 +185,7 @@
                     "params": {
                         "content_annotator_classifier_relevance_values": "{\"ShoppingCart\":2}",
                         "content_annotator_classifier_semantic_match_rules": "{\"ShoppingCart\":[\"Shopping Cart\", \"Cart\", \"Shopping Bag\"]}",
-                        "content_annotator_classifier_title_keyword_rules": "{\"ShoppingCart\":[\"\\\\\\\\bcart\\\\\\\\b\",\"\\\\\\\\bbag\\\\\\\\b\",\"\\\\\\\\bbasket\\\\\\\\b\",\"\\\\\\\\bpac\\\\\\\\b\"]}",
+                        "content_annotator_classifier_title_keyword_rules": "{\"ShoppingCart\":[\"\\\\bcart\\\\b\",\"\\\\bbag\\\\b\",\"\\\\bbasket\\\\b\",\"\\\\bpac\\\\b\"]}",
                         "content_annotator_classifier_url_match_rules": "{\"ShoppingCart\":[\".*/cart(?:[/?#].*|$)\",\".*/bag(?:[/?#].*|$)\",\".*/basket(?:[/?#].*|$)\",\".*/pac(?:[/?#].*|$)\"]}"
                     },
                     "enable_features": [
@@ -193,11 +193,11 @@
                     ]
                 },
                 {
-                    "name": "ContentAnnotatorEnabledFullInnerTextAnnotation",
+                    "name": "ContentAnnotatorEnabledFullMarkdownAnnotation",
                     "params": {
                         "content_annotator_classifier_relevance_values": "{\"ShoppingCart\":2}",
                         "content_annotator_classifier_semantic_match_rules": "{\"ShoppingCart\":[\"Shopping Cart\", \"Cart\", \"Shopping Bag\"]}",
-                        "content_annotator_classifier_title_keyword_rules": "{\"ShoppingCart\":[\"\\\\\\\\bcart\\\\\\\\b\",\"\\\\\\\\bbag\\\\\\\\b\",\"\\\\\\\\bbasket\\\\\\\\b\",\"\\\\\\\\bpac\\\\\\\\b\"]}",
+                        "content_annotator_classifier_title_keyword_rules": "{\"ShoppingCart\":[\"\\\\bcart\\\\b\",\"\\\\bbag\\\\b\",\"\\\\bbasket\\\\b\",\"\\\\bpac\\\\b\"]}",
                         "content_annotator_classifier_url_match_rules": "{\"ShoppingCart\":[\".*/cart(?:[/?#].*|$)\",\".*/bag(?:[/?#].*|$)\",\".*/basket(?:[/?#].*|$)\",\".*/pac(?:[/?#].*|$)\"]}",
                         "content_annotator_enable_full_annotation": "true"
                     },
@@ -3772,8 +3772,8 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
-                    "enable_features": [
+                    "name": "Disabled",
+                    "disable_features": [
                         "BackForwardCachePauseMicrotasks"
                     ]
                 }
@@ -6397,6 +6397,46 @@
             ]
         }
     ],
+    "ComposeboxAllFileTypes": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows",
+                "android",
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "LensSendRawFileMediaTypes"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ComposeboxUrlInput": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "ios",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "LensSendUrlsInComposeboxes"
+                    ]
+                }
+            ]
+        }
+    ],
     "CompositeClipPathAnimation": [
         {
             "platforms": [
@@ -7382,6 +7422,24 @@
             ]
         }
     ],
+    "CriticalUserJourneyService": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "CriticalUserJourneyService"
+                    ]
+                }
+            ]
+        }
+    ],
     "CrosBatterySaver": [
         {
             "platforms": [
@@ -7677,6 +7735,24 @@
                     },
                     "enable_features": [
                         "DefaultBrowserFramework"
+                    ]
+                }
+            ]
+        }
+    ],
+    "DefaultBrowserPictureInPicture": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "params": {
+                        "DefaultBrowserPictureInPictureParam": "Enabled"
+                    },
+                    "enable_features": [
+                        "DefaultBrowserPictureInPicture"
                     ]
                 }
             ]
@@ -7983,33 +8059,6 @@
                     "name": "ImageErrorDetection",
                     "enable_features": [
                         "NtpBackgroundImageErrorDetection"
-                    ]
-                }
-            ]
-        }
-    ],
-    "DesktopNtpModules": [
-        {
-            "platforms": [
-                "chromeos",
-                "fuchsia",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "RecipeTasksRuleBasedDiscountDriveManagedUsersCartOptimizeRecipeTasksSAPIV2Fre_Enabled",
-                    "params": {
-                        "NtpModulesLoadTimeoutMillisecondsParam": "3000",
-                        "use_sapi_v2": "true"
-                    },
-                    "enable_features": [
-                        "NtpModulesLoadTimeoutMilliseconds",
-                        "NtpPhotosModule"
-                    ],
-                    "disable_features": [
-                        "NtpShoppingTasksModule"
                     ]
                 }
             ]
@@ -15160,24 +15209,6 @@
             ]
         }
     ],
-    "MigrateAutomaticJsOptimizer": [
-        {
-            "platforms": [
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "MigrateToBlockV8OptimizerOnUnfamiliarSites"
-                    ]
-                }
-            ]
-        }
-    ],
     "MigrateIOSKeychainAccessibility": [
         {
             "platforms": [
@@ -19298,6 +19329,26 @@
             ]
         }
     ],
+    "ReadClipboardDataOnClipboardItemGetType": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ReadClipboardDataOnClipboardItemGetType"
+                    ]
+                }
+            ]
+        }
+    ],
     "RebindServiceBatchApi": [
         {
             "platforms": [
@@ -20854,6 +20905,25 @@
                     ],
                     "disable_features": [
                         "ServiceWorkerMergeFindRegistrationForClientUrl"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ServiceWorkerStaticRouterCORPCheck": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ServiceWorkerStaticRouterCORPCheck"
                     ]
                 }
             ]

@@ -19,6 +19,7 @@ BASE_DECLARE_FEATURE(kGlicDaisyChainViaCoordinator);
 BASE_DECLARE_FEATURE(kGlicClearTurnIdOnPanelWillOpen);
 BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
 extern const base::FeatureParam<int> kGlicChromeStatusIconSizePx;
+extern const base::FeatureParam<bool> kGlicChromeStatusIconUseAltIcon;
 
 BASE_DECLARE_FEATURE(kGlicOrphanedReattachment);
 
@@ -51,6 +52,8 @@ extern const base::FeatureParam<std::string> kGlicTieredRolloutV2EligibleTiers;
 const base::flat_set<int32_t>& GetGlicTieredRolloutV2EligibleTiers();
 
 BASE_DECLARE_FEATURE(kGlicHorizontalTabToolbarButton);
+
+BASE_DECLARE_FEATURE(kGlicButtonAutoSummarize);
 
 BASE_DECLARE_FEATURE(kGlicGetTabFaviconById);
 

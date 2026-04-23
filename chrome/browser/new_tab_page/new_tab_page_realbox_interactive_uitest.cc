@@ -5,9 +5,13 @@
 #include <string_view>
 
 #include "base/check_deref.h"
+#include "base/containers/extend.h"
 #include "base/path_service.h"
+#include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/buildflag.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
@@ -24,12 +28,14 @@
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_search/mock_contextual_search_service.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
 #include "components/user_education/common/user_education_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/fake_speech_recognition_manager.h"
 #include "content/public/test/file_system_chooser_test_helpers.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/omnibox_proto/model_mode.pb.h"
@@ -74,6 +80,8 @@ static constexpr std::string_view kToolDeepSearch = "Deep search";
 // Files used for file upload tests.
 static constexpr std::string_view kImageFileName = "handbag.png";
 static constexpr std::string_view kPdfFileName = "download.pdf";
+// The host used by the Lens service for image uploads.
+static constexpr std::string_view kLensSearchURL = "lens.google.com";
 
 std::string GetModeSelector(omnibox::ToolMode mode) {
   return ".dropdown-item[data-mode='" +
@@ -88,6 +96,16 @@ std::string GetModelSelector(omnibox::ModelMode model) {
 const DeepQuery kRealbox = {"ntp-app", "ntp-searchbox", "#inputWrapper"};
 const DeepQuery kRealboxInput = {"ntp-app", "ntp-searchbox", "#input",
                                  "#input"};
+const DeepQuery kRealboxMatch = {"ntp-app", "ntp-searchbox",
+                                 "cr-searchbox-dropdown", "cr-searchbox-match",
+                                 "#suggestion"};
+const DeepQuery kRealboxMatchRemoveButton = {"ntp-app", "ntp-searchbox",
+                                             "cr-searchbox-dropdown",
+                                             "cr-searchbox-match", "#remove"};
+const DeepQuery kVoiceSearchButton = {"ntp-app", "ntp-searchbox",
+                                      "#voiceSearchButton"};
+const DeepQuery kLensSearchButton = {"ntp-app", "ntp-searchbox",
+                                     "#lensSearchButton"};
 const DeepQuery kComposeButton = {"ntp-app", "ntp-searchbox", "#composeButton",
                                   "#composeButton"};
 const DeepQuery kComposeboxVoiceSearchButton = {"ntp-app", "cr-composebox",
@@ -140,6 +158,9 @@ const DeepQuery kScrim = {"ntp-app", "#scrim"};
 const DeepQuery kSearchboxDropdown = {"ntp-app", "ntp-searchbox",
                                       "cr-searchbox-dropdown"};
 const DeepQuery kNtpLogo = {"ntp-app", "#logo"};
+const DeepQuery kLensUploadDialog = {"ntp-app", "#lensUploadDialog", "#dialog"};
+const DeepQuery kLensUploadText = {"ntp-app", "#lensUploadDialog",
+                                   "#uploadText"};
 
 // Contains variables on which these tests may be parameterized. This approach
 // makes it easy to build sets of relevant tests, vs. the brute-force
@@ -225,56 +246,6 @@ std::unique_ptr<KeyedService> BuildMockAimServiceEligibilityServiceInstance(
   return std::move(mock_aim_eligibility_service);
 }
 
-std::unique_ptr<KeyedService> BuildMockContextualSearchServiceInstance(
-    content::BrowserContext* context) {
-  auto mock_service =
-      std::make_unique<contextual_search::MockContextualSearchService>(
-          /*identity_manager=*/nullptr,
-          /*url_loader_factory=*/nullptr,
-          /*template_url_service=*/nullptr,
-          /*variations_client=*/nullptr, version_info::Channel::UNKNOWN,
-          "en-US");
-
-  ON_CALL(*mock_service, CreateSession)
-      .WillByDefault(
-          [service_ptr = mock_service.get()](
-              std::unique_ptr<
-                  contextual_search::ContextualSearchContextController::
-                      ConfigParams> params,
-              contextual_search::ContextualSearchSource source,
-              std::optional<lens::LensOverlayInvocationSource>
-                  invocation_source) {
-            auto query_controller = std::make_unique<MockQueryController>(
-                /*identity_manager=*/nullptr, /*url_loader_factory=*/nullptr,
-                version_info::Channel::UNKNOWN, "en-US",
-                /*template_url_service=*/nullptr,
-                /*variations_client=*/nullptr, std::move(params));
-
-            auto* query_controller_ptr = query_controller.get();
-
-            ON_CALL(*query_controller_ptr, GetFileInfo)
-                .WillByDefault(
-                    testing::Invoke(query_controller_ptr,
-                                    &MockQueryController::FakeGetFileInfo));
-            ON_CALL(*query_controller_ptr, StartFileUploadFlow)
-                .WillByDefault(testing::Invoke(
-                    query_controller_ptr,
-                    &MockQueryController::FakeStartFileUploadFlow));
-            ON_CALL(*query_controller_ptr, CreateSearchUrl)
-                .WillByDefault(
-                    testing::Invoke(query_controller_ptr,
-                                    &MockQueryController::FakeCreateSearchUrl));
-
-            auto metrics_recorder =
-                std::make_unique<MockContextualSearchMetricsRecorder>();
-
-            return service_ptr->CreateSessionForTesting(
-                std::move(query_controller), std::move(metrics_recorder));
-          });
-
-  return std::move(mock_service);
-}
-
 }  // namespace
 
 class NtpRealboxUiTestBase
@@ -283,6 +254,12 @@ class NtpRealboxUiTestBase
  public:
   NtpRealboxUiTestBase() = default;
   ~NtpRealboxUiTestBase() override = default;
+
+  void TearDownOnMainThread() override {
+    ui::SelectFileDialog::SetFactory(nullptr);
+    SearchboxInteractiveTestMixin<
+        WebUiInteractiveTestMixin<InteractiveBrowserTest>>::TearDownOnMainThread();
+  }
 
   MultiStep FocusAndInputText(
       const ui::ElementIdentifier& contents_id,
@@ -295,28 +272,42 @@ class NtpRealboxUiTestBase
   }
 
   auto WaitForDialogStateChange(const DeepQuery& where, bool expected_open) {
-    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kEvent);
-    WebContentsInteractionTestUtil::StateChange state_change;
-    state_change.event = kEvent;
-    state_change.where = where;
-    state_change.test_function =
-        expected_open ? "(el) => el && el.open" : "(el) => el && !el.open";
-    return WaitForStateChange(kNtpElementId, state_change);
+    return WaitForJsConditionAt(
+        kNtpElementId, where,
+        expected_open ? "(el) => el && el.open" : "(el) => el && !el.open");
   }
 
   auto WaitForElementVisibilityChange(const DeepQuery& where,
                                       bool expected_visible) {
-    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kEvent);
-    WebContentsInteractionTestUtil::StateChange state_change;
-    state_change.event = kEvent;
-    state_change.where = where;
-    state_change.test_function =
+    return WaitForJsConditionAt(
+        kNtpElementId, where,
         expected_visible ? "(el) => el && !el.hasAttribute('hidden')"
-                         : "(el) => el && el.hasAttribute('hidden')";
+                         : "(el) => el && el.hasAttribute('hidden')");
+  }
+
+  auto WaitForSubmitEnabled() {
+    return WaitForJsConditionAt(
+        kNtpElementId, kComposeboxSubmitButton,
+        "(el) => el && el.querySelector('#submitIcon') && "
+        "!el.querySelector('#submitIcon').hasAttribute('disabled')");
+  }
+
+  auto WaitForElementToNotExist(const DeepQuery& where) {
+    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kElementDoesNotExistEvent);
+    WebContentsInteractionTestUtil::StateChange state_change;
+    state_change.event = kElementDoesNotExistEvent;
+    state_change.where = where;
+    state_change.type =
+        WebContentsInteractionTestUtil::StateChange::Type::kDoesNotExist;
+
     return WaitForStateChange(kNtpElementId, state_change);
   }
 
  protected:
+  static std::vector<base::test::FeatureRef> GetDisabledFeatures() {
+    return {contextual_tasks::kContextualTasks};
+  }
+
   static std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures(
       bool compose_button_enabled = true) {
     std::vector<base::test::FeatureRefAndParams> enabled_features;
@@ -377,14 +368,11 @@ class NtpRealboxUiScreenshotTest
       disabled_features.push_back(ntp_composebox::kNtpComposebox);
     }
 
+    base::Extend(disabled_features, GetDisabledFeatures());
     feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                 disabled_features);
 
     NtpRealboxUiTestBase::SetUp();
-  }
-
-  void SetUpOnMainThread() override {
-    NtpRealboxUiTestBase::SetUpOnMainThread();
   }
 
   void SetUpBrowserContextKeyedServices(
@@ -477,24 +465,43 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxUiScreenshotTest, DISABLED_Screenshots) {
 class NtpRealboxInteractiveTest : public NtpRealboxUiTestBase {
  public:
   NtpRealboxInteractiveTest() {
-    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(), {});
+    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(),
+                                                GetDisabledFeatures());
   }
 
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
+IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest, ComposeboxTypedSuggestions) {
+  const DeepQuery kComposeboxMatch1 = {"ntp-app", "#composebox", "#matches",
+                                       "#match1", "#textContainer"};
+
+  RunTestSequence(
+      // Load NTP.
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      WaitForElementToRender(kNtpElementId, kRealbox),
+      WaitForElementToRender(kNtpElementId, kComposeButton),
+      // Click on the compose button.
+      ClickElement(kNtpElementId, kComposeButton),
+      // Observe/assert that the composebox dialog is open.
+      WaitForDialogStateChange(kComposeboxDialog, /*expected_open=*/true),
+      // Type "t" into composebox input.
+      ClickElement(kNtpElementId, kComposeboxInput),
+      SendKeyPress(kNtpElementId, ui::VKEY_T),
+      // Wait for suggestion to appear.
+      WaitForMatch(kNtpElementId, kComposeboxMatch1, "suggestion-1"),
+      // Click the match.
+      ClickElement(kNtpElementId, kComposeboxMatch1),
+      // Ensure google search occurs.
+      WaitForGoogleSearch(kNtpElementId, {{"q", "suggestion-1"}}));
+}
+
 IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest, RealboxMultilineInputTest) {
 #if BUILDFLAG(IS_CHROMEOS)
   // TODO(crbug.com/496928186): Re-enable after de-flaking.
   GTEST_SKIP() << "Flaky on ChromeOS";
-#endif
-  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kMultilineInputEvent);
-  WebContentsInteractionTestUtil::StateChange multiline_input;
-  multiline_input.event = kMultilineInputEvent;
-  multiline_input.where = kRealboxInput;
-  multiline_input.test_function = "(el) => el && el.value === 'a\\nb'";
-
+#else
   RunTestSequence(
       // Load NTP.
       AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
@@ -509,7 +516,9 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest, RealboxMultilineInputTest) {
       // Type 'b' into Realbox input.
       SendKeyPress(kNtpElementId, ui::VKEY_B),
       // Wait for Realbox input to have a newline between 'a' and 'b'.
-      WaitForStateChange(kNtpElementId, multiline_input));
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el && el.value === 'a\\nb'"));
+#endif
 }
 
 IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
@@ -563,21 +572,12 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
 
 IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
                        ContextualEntrypointAttachTabTriggersComposebox) {
-  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kSubmitEnabledEvent);
-
   const DeepQuery kFirstTabItem = {"ntp-app", "ntp-searchbox", "#context",
                                    "#menu", ".dropdown-item[data-index='0']"};
   const DeepQuery kComposeboxFirstTabItem = {
       "ntp-app",  "#composebox",
       "#context", "#contextEntrypoint",
       "#menu",    ".dropdown-item[data-index='0']"};
-
-  WebContentsInteractionTestUtil::StateChange submit_enabled;
-  submit_enabled.event = kSubmitEnabledEvent;
-  submit_enabled.where = kComposeboxSubmitButton;
-  submit_enabled.test_function =
-      "(el) => el && el.querySelector('#submitIcon') && "
-      "!el.querySelector('#submitIcon').hasAttribute('disabled')";
 
   RunTestSequence(
       // 1. Open a webpage and NTP in separate tabs.
@@ -614,10 +614,10 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
       // 11. Focus composebox input and type something.
       FocusAndInputText(kNtpElementId, kComposeboxInput),
       // 12. Wait for submit button to be enabled and click it.
-      WaitForStateChange(kNtpElementId, submit_enabled),
+      WaitForSubmitEnabled(),
       ClickElement(kNtpElementId, kComposeboxSubmitButton),
       // 13. Ensure google search occurs.
-      WaitForGoogleSearch(kNtpElementId, "test"));
+      WaitForGoogleSearch(kNtpElementId, {{"q", "test"}}));
 }
 
 struct NtpRealboxUploadInteractiveTestParams {
@@ -631,7 +631,8 @@ class NtpRealboxUploadInteractiveTest
           NtpRealboxUploadInteractiveTestParams> {
  public:
   NtpRealboxUploadInteractiveTest() {
-    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(), {});
+    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(),
+                                                GetDisabledFeatures());
   }
 
  private:
@@ -661,15 +662,6 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxUploadInteractiveTest,
   ui::SelectFileDialog::SetFactory(
       std::make_unique<content::FakeSelectFileDialogFactory>(
           std::vector<base::FilePath>{file_path}));
-
-  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kSubmitEnabledEvent);
-
-  WebContentsInteractionTestUtil::StateChange submit_enabled;
-  submit_enabled.event = kSubmitEnabledEvent;
-  submit_enabled.where = kComposeboxSubmitButton;
-  submit_enabled.test_function =
-      "(el) => el && el.querySelector('#submitIcon') && "
-      "!el.querySelector('#submitIcon').hasAttribute('disabled')";
 
   RunTestSequence(
       // Open NTP.
@@ -719,12 +711,10 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxUploadInteractiveTest,
       // Focus composebox input and type something.
       FocusAndInputText(kNtpElementId, kComposeboxInput),
       // Wait for submit button to be enabled and click it.
-      WaitForStateChange(kNtpElementId, submit_enabled),
+      WaitForSubmitEnabled(),
       ClickElement(kNtpElementId, kComposeboxSubmitButton),
       // Ensure google search occurs.
-      WaitForGoogleSearch(kNtpElementId, "test"),
-      // Clean up.
-      Do([]() { ui::SelectFileDialog::SetFactory(nullptr); }));
+      WaitForGoogleSearch(kNtpElementId, {{"q", "test"}}));
 }
 
 class NtpRealboxSubmitInteractiveTest
@@ -744,9 +734,6 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxSubmitInteractiveTest,
     GTEST_SKIP() << "Flaky on ChromeOS";
   }
 #endif
-  const DeepQuery kRealboxMatch = {"ntp-app", "ntp-searchbox",
-                                   "cr-searchbox-dropdown",
-                                   "cr-searchbox-match", "#suggestion"};
 
   RunTestSequence(
       // Wait for the realbox to render on the NTP.
@@ -771,7 +758,7 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxSubmitInteractiveTest,
              "key:'Enter', bubbles: true, cancelable: true, composed: true "
              "})); }"))),
       // Ensure google search occurs.
-      WaitForGoogleSearch(kNtpElementId, "a"));
+      WaitForGoogleSearch(kNtpElementId, {{"q", "a"}}));
 }
 
 struct NtpRealboxToolInteractiveTestParams {
@@ -785,7 +772,8 @@ class NtpRealboxToolInteractiveTest
       public testing::WithParamInterface<NtpRealboxToolInteractiveTestParams> {
  public:
   NtpRealboxToolInteractiveTest() {
-    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(), {});
+    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(),
+                                                GetDisabledFeatures());
   }
 
  private:
@@ -846,7 +834,8 @@ class NtpComposeboxSearchFulfillmentTest
       public testing::WithParamInterface<ComposeboxSearchParam> {
  public:
   NtpComposeboxSearchFulfillmentTest() {
-    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(), {});
+    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(),
+                                                GetDisabledFeatures());
   }
 
  private:
@@ -896,43 +885,29 @@ IN_PROC_BROWSER_TEST_P(NtpComposeboxSearchFulfillmentTest,
                   TriggerAimVoiceSearch(kNtpElementId, kComposeboxVoiceSearch,
                                         query))
           : Steps(FocusAndInputText(kNtpElementId, kComposeboxInput),
+                  WaitForSubmitEnabled(),
                   param.submit_via_keyboard
                       ? Steps(SendKeyPress(kNtpElementId, ui::VKEY_RETURN))
                       : Steps(ClickElement(kNtpElementId,
                                            kComposeboxSubmitButton))),
 
       // Ensure tab navigates to a Google search results page.
-      WaitForGoogleSearch(kNtpElementId, query));
+      WaitForGoogleSearch(kNtpElementId, {{"q", query}}));
 }
 
 class NtpComposeboxDismissTest : public NtpRealboxUiTestBase,
                                  public testing::WithParamInterface<bool> {
  public:
   NtpComposeboxDismissTest() {
-    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(), {});
+    feature_list_.InitWithFeaturesAndParameters(GetEnabledFeatures(),
+                                                GetDisabledFeatures());
   }
 
   bool CloseViaEscButton() const { return GetParam(); }
 
   auto WaitForComposeboxInputCleared() {
-    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kComposeboxInputClearedEvent);
-    WebContentsInteractionTestUtil::StateChange composebox_input_cleared;
-    composebox_input_cleared.event = kComposeboxInputClearedEvent;
-    composebox_input_cleared.where = kComposeboxInput;
-    composebox_input_cleared.test_function = "(el) => el && el.value === ''";
-
-    return WaitForStateChange(kNtpElementId, composebox_input_cleared);
-  }
-
-  auto WaitForComposeboxDialogClosed() {
-    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kComposeboxDialogClosedEvent);
-    WebContentsInteractionTestUtil::StateChange composebox_dialog_closed;
-    composebox_dialog_closed.event = kComposeboxDialogClosedEvent;
-    composebox_dialog_closed.where = kComposeboxDialog;
-    composebox_dialog_closed.type =
-        WebContentsInteractionTestUtil::StateChange::Type::kDoesNotExist;
-
-    return WaitForStateChange(kNtpElementId, composebox_dialog_closed);
+    return WaitForJsConditionAt(kNtpElementId, kComposeboxInput,
+                                "(el) => el && el.value === ''");
   }
 
  private:
@@ -943,7 +918,6 @@ INSTANTIATE_TEST_SUITE_P(, NtpComposeboxDismissTest, testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(NtpComposeboxDismissTest,
                        ClearsInputAndClosesComposebox) {
-
   auto TriggerDismissAction = [this]() {
     if (CloseViaEscButton()) {
       return Steps(SendKeyPress(kNtpElementId, ui::VKEY_ESCAPE));
@@ -978,7 +952,7 @@ IN_PROC_BROWSER_TEST_P(NtpComposeboxDismissTest,
       // Second dismiss action closes the dialog.
       TriggerDismissAction(),
       // Check that composebox dialog has been removed.
-      WaitForComposeboxDialogClosed());
+      WaitForElementToNotExist(kComposeboxDialog));
 }
 
 class NtpRealboxCyclingPlaceholderInteractiveTest
@@ -999,7 +973,8 @@ class NtpRealboxCyclingPlaceholderInteractiveTest
         enabled_features.push_back(feature_ref_and_params);
       }
     }
-    feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
+    feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                GetDisabledFeatures());
   }
 
  private:
@@ -1008,28 +983,18 @@ class NtpRealboxCyclingPlaceholderInteractiveTest
 
 IN_PROC_BROWSER_TEST_F(NtpRealboxCyclingPlaceholderInteractiveTest,
                        PlaceholderCycles) {
-  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kPlaceholderCyclingEvent);
-  WebContentsInteractionTestUtil::StateChange placeholder_cycling;
-  placeholder_cycling.event = kPlaceholderCyclingEvent;
-  placeholder_cycling.where = kRealboxInput;
-  placeholder_cycling.test_function =
-      "(el) => el && el.getAnimations().length > 0";
-
   RunTestSequence(
       // Load NTP.
       AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Wait and verify if placeholder text cycles.
-      WaitForStateChange(kNtpElementId, placeholder_cycling));
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el && el.getAnimations().length > 0"));
 }
 
 IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
                        ScrimAndDropdownAppearAndDisappear) {
-  const DeepQuery kRealboxMatch = {"ntp-app", "ntp-searchbox",
-                                   "cr-searchbox-dropdown",
-                                   "cr-searchbox-match", "#suggestion"};
-
   RunTestSequence(
       AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
       WaitForElementToRender(kNtpElementId, kRealboxInput),
@@ -1058,4 +1023,287 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
       // Verify dropdown is hidden.
       WaitForElementVisibilityChange(kSearchboxDropdown,
                                      /*expected_visible=*/false));
+}
+
+class NtpRealboxDefaultExperienceInteractiveTest : public NtpRealboxUiTestBase {
+ public:
+  NtpRealboxDefaultExperienceInteractiveTest() {
+    content::SpeechRecognitionManager::SetManagerForTesting(
+        &fake_speech_recognition_manager_);
+    std::vector<base::test::FeatureRef> disabled_features =
+        GetDisabledFeatures();
+    for (const auto& feature_ref_and_params : GetEnabledFeatures()) {
+      disabled_features.push_back(*feature_ref_and_params.feature);
+    }
+    disabled_features.push_back(ntp_features::kNtpNextFeatures);
+
+    feature_list_.InitWithFeaturesAndParameters({}, disabled_features);
+  }
+
+ protected:
+  content::FakeSpeechRecognitionManager fake_speech_recognition_manager_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       DefaultExperienceRealboxUI) {
+  RunTestSequence(
+      // Load NTP.
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      // Wait for Realbox to render.
+      WaitForElementToRender(kNtpElementId, kRealbox),
+      // Wait for Voice Search, Lens, and AI Mode buttons to render.
+      WaitForElementToRender(kNtpElementId, kVoiceSearchButton),
+      WaitForElementToRender(kNtpElementId, kLensSearchButton),
+      WaitForElementToRender(kNtpElementId, kComposeButton),
+      // Verify the placeholder text is steady.
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el && el.getAnimations().length === 0"),
+      // Click into the Searchbox.
+      ClickElement(kNtpElementId, kRealboxInput),
+      // Verify that the placeholder text disappears.
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el && window.getComputedStyle(el, "
+                           "'::placeholder').visibility === 'hidden'"),
+      // Type text into Realbox and click AIM Button.
+      SendKeyPress(kNtpElementId, ui::VKEY_T),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el && el.value === 't'"),
+      ClickElement(kNtpElementId, kComposeButton),
+      // Wait for the page to navigate to Google SRP.
+      WaitForGoogleSearch(kNtpElementId, {{"q", "t"}, {"udm", "50"}}));
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       ClickOutsideAndEscapeBehavior) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // TODO(crbug.com/496928186): Re-enable after de-flaking.
+  GTEST_SKIP() << "Flaky on ChromeOS";
+#else
+  RunTestSequence(
+      // Load NTP.
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      // Wait for Realbox to render.
+      WaitForElementToRender(kNtpElementId, kRealboxInput),
+      // Wait for Voice Search, Lens, and AI Mode buttons to render.
+      WaitForElementToRender(kNtpElementId, kVoiceSearchButton),
+      WaitForElementToRender(kNtpElementId, kLensSearchButton),
+      WaitForElementToRender(kNtpElementId, kComposeButton),
+      // Seed history results to ensure the dropdown is populated.
+      SeedSearchboxResult("a"),
+      // Click on Realbox.
+      ClickElement(kNtpElementId, kRealboxInput),
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/true),
+      // Verify: Only AIM Button is Visible in searchbox
+      WaitForElementVisibilityChange(kComposeButton, /*expected_visible=*/true),
+      WaitForElementToNotExist(kVoiceSearchButton),
+      WaitForElementToNotExist(kLensSearchButton),
+      // Type Something into Realbox.
+      SendKeyPress(kNtpElementId, ui::VKEY_A),
+      // Wait for the verbatim match to render.
+      WaitForVerbatimMatch(kNtpElementId, kRealboxMatch, "a"),
+      // Verify: Clicking outside the realbox should close suggestions dropdown,
+      // but leave the text inside the realbox visible.
+      MoveMouseTo(kNtpElementId, kNtpLogo), ClickMouse(),
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/false),
+      CheckJsResultAt(kNtpElementId, kRealboxInput,
+                      "(el) => el && el.value === 'a'"),
+      // Check focus is lost
+      CheckJsResultAt(kNtpElementId, kRealboxInput,
+                      "(el) => !el.matches(':focus')"),
+      // Click on realbox and press ‘ESC’ button
+      ClickElement(kNtpElementId, kRealboxInput),
+      SendKeyPress(kNtpElementId, ui::VKEY_ESCAPE),
+      // Verify: Text inside realbox is cleared, but the focus remains.
+      // Also verify that the dropdown is closed.
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/false),
+      CheckJsResultAt(kNtpElementId, kRealboxInput,
+                      "(el) => el && el.value === ''"),
+      CheckJsResultAt(kNtpElementId, kRealboxInput,
+                      "(el) => el.matches(':focus')"),
+      // Verify: Realbox contains AIM Button, Voice Search button, Lens button
+      WaitForElementVisibilityChange(kComposeButton, /*expected_visible=*/true),
+      WaitForElementToRender(kNtpElementId, kVoiceSearchButton),
+      WaitForElementToRender(kNtpElementId, kLensSearchButton));
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       VoiceSearchNavigatesToGoogleSearch) {
+  const std::string query = "testing";
+  const DeepQuery kVoiceSearchOverlayDialog = {
+      "ntp-app", "ntp-voice-search-overlay", "#dialog"};
+
+  // Configure the mock to pause before sending a response so we can verify
+  // the overlay UI.
+  fake_speech_recognition_manager_.set_should_send_fake_response(false);
+  fake_speech_recognition_manager_.SetFakeResult(query, /*is_final=*/true);
+
+  RunTestSequence(
+      // Load NTP.
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      // Wait for Realbox to render.
+      WaitForElementToRender(kNtpElementId, kRealbox),
+      // Wait for Voice Search button to render.
+      WaitForElementToRender(kNtpElementId, kVoiceSearchButton),
+      // Click on Voice Search button.
+      ClickElement(kNtpElementId, kVoiceSearchButton),
+      // Verify that the voice search overlay dialog appears and is open.
+      WaitForElementToRender(kNtpElementId, kVoiceSearchOverlayDialog),
+      WaitForDialogStateChange(kVoiceSearchOverlayDialog,
+                               /*expected_open=*/true),
+      // Send the mock response.
+      Do([&]() {
+        fake_speech_recognition_manager_.SendFakeResponse(
+            /*end_recognition=*/true,
+            /*on_fake_response_sent=*/base::DoNothing());
+      }),
+      // Wait for the page to navigate to Google SRP.
+      WaitForGoogleSearch(kNtpElementId, {{"q", query}}));
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       LensImageUploadOpensSRP) {
+  base::FilePath test_data_dir;
+  base::PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir);
+  base::FilePath file_path = test_data_dir.AppendASCII(kImageFileName);
+
+  ui::SelectFileDialog::SetFactory(
+      std::make_unique<content::FakeSelectFileDialogFactory>(
+          std::vector<base::FilePath>{file_path}));
+
+  RunTestSequence(
+      // Open the New Tab Page (NTP).
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      // Wait for the Realbox and Lens search button to render on the page.
+      WaitForElementToRender(kNtpElementId, kRealbox),
+      WaitForElementToRender(kNtpElementId, kLensSearchButton),
+      // Click on the Lens search button.
+      ClickElement(kNtpElementId, kLensSearchButton),
+      // Wait for the Lens upload dialog to become visible.
+      WaitForElementVisibilityChange(kLensUploadDialog,
+                                     /*expected_visible=*/true),
+      // Wait for the clickable "upload" text area within the dialog to render.
+      WaitForElementToRender(kNtpElementId, kLensUploadText),
+      // Simulate a user clicking the "upload" text to trigger the file picker.
+      ClickElement(kNtpElementId, kLensUploadText),
+      // Wait for the browser to navigate away from the NTP as a result of the
+      // upload.
+      WaitForWebContentsNavigation(kNtpElementId),
+      // Verify page navigation to the Lens URL.
+      CheckElement(
+          kNtpElementId,
+          [](ui::TrackedElement* el) {
+            return el->AsA<TrackedElementWebContents>()
+                ->owner()
+                ->web_contents()
+                ->GetLastCommittedURL()
+                .host();
+          },
+          // Assert that the extracted host matches the expected Lens service
+          // host.
+          std::string(kLensSearchURL)));
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       KeyboardNavigationAndIndexCycling) {
+  RunTestSequence(
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      WaitForElementToRender(kNtpElementId, kRealboxInput),
+      // Seed history results to ensure the dropdown is populated.
+      SeedSearchboxResult("h"),
+      // Click realbox input to focus it and trigger the dropdown/scrim.
+      ClickElement(kNtpElementId, kRealboxInput),
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/true),
+      SendKeyPress(kNtpElementId, ui::VKEY_H),
+      // Wait for the verbatim match to render.
+      WaitForVerbatimMatch(kNtpElementId, kRealboxMatch, "h"),
+      // Press DOWN to select the first suggestion.
+      SendKeyPress(kNtpElementId, ui::VKEY_DOWN),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'suggestion-1'"),
+      // Press DOWN to select the next suggestion.
+      SendKeyPress(kNtpElementId, ui::VKEY_DOWN),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'suggestion-2'"),
+      // Press DOWN to wrap around to the first item (which is the verbatim "").
+      SendKeyPress(kNtpElementId, ui::VKEY_DOWN),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'h'"),
+      // Press UP to wrap around to the bottom item.
+      SendKeyPress(kNtpElementId, ui::VKEY_UP),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'suggestion-2'"),
+      // Press ENTER to navigate.
+      SendKeyPress(kNtpElementId, ui::VKEY_RETURN),
+      // Ensure google search occurs.
+      WaitForGoogleSearch(kNtpElementId,
+                          {{"q", "suggestion-2"}, {"source", "chrome.rb"}}));
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       RemoveSuggestionViaClick) {
+  RunTestSequence(
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      WaitForElementToRender(kNtpElementId, kRealboxInput),
+      // Seed history results to populate the dropdown
+      SeedSearchboxResult("aimode"),
+      // Click on Realbox to show the dropdown
+      ClickElement(kNtpElementId, kRealboxInput),
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/true),
+      SendKeyPress(kNtpElementId, ui::VKEY_A),
+      // Wait for the inline autocompleted verbatim match to render.
+      WaitForVerbatimMatch(kNtpElementId, kRealboxMatch, "aimode"),
+      // Wait for the remove button to render and become visible
+      WaitForElementToRender(kNtpElementId, kRealboxMatchRemoveButton),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'aimode'"),
+      // Click the remove button
+      ClickElement(kNtpElementId, kRealboxMatchRemoveButton),
+      // After removing the inline autocomplete match, the input should revert
+      // to "a"
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'a'"));
+}
+
+IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
+                       RemoveSuggestionViaKeyboard) {
+  RunTestSequence(
+      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      WaitForElementToRender(kNtpElementId, kRealboxInput),
+      // Seed history result to populate the dropdown
+      SeedSearchboxResult("a"), SeedSearchboxResult("b"),
+      // Click on Realbox to show the dropdown
+      ClickElement(kNtpElementId, kRealboxInput),
+      WaitForElementVisibilityChange(kSearchboxDropdown,
+                                     /*expected_visible=*/true),
+      // Pressing Tab should focus the AIM button.
+      SendKeyPress(kNtpElementId, ui::VKEY_TAB),
+      WaitForJsConditionAt(kNtpElementId, kComposeButton,
+                           "(el) => el && el.matches(':focus')"),
+      // Pressing Tab again should focus the inline autocomplete match.
+      SendKeyPress(kNtpElementId, ui::VKEY_TAB),
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'b'"),
+      // Pressing Tab again should focus the remove button.
+      SendKeyPress(kNtpElementId, ui::VKEY_TAB),
+      WaitForJsConditionAt(kNtpElementId, kRealboxMatchRemoveButton,
+                           "(el) => el && el.matches(':focus')"),
+      // Trigger the remove button via ENTER
+      SendKeyPress(kNtpElementId, ui::VKEY_RETURN),
+      // After removing the current match, the next match remove button should
+      // be focused.
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === 'a'"),
+      SendKeyPress(kNtpElementId, ui::VKEY_RETURN),
+      // After all matches are removed, the input should be empty.
+      WaitForJsConditionAt(kNtpElementId, kRealboxInput,
+                           "(el) => el.value === ''"));
 }

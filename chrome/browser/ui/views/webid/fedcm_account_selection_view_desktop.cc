@@ -13,6 +13,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/actor/actor_util.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -48,6 +49,30 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
 
+namespace {
+
+// We could have a situation where the WebContents with an actor task opens a
+// popup which then triggers the dialog, so we need to check the opener.
+tabs::TabInterface* InitiatingTaskTab(tabs::TabInterface* source_tab) {
+  if (!base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin)) {
+    return nullptr;
+  }
+
+  CHECK(source_tab);
+
+  if (actor::HaveActiveTaskForContents(source_tab->GetContents())) {
+    return source_tab;
+  }
+  content::WebContents* opener =
+      source_tab->GetContents()->GetFirstWebContentsInLiveOriginalOpenerChain();
+  if (actor::HaveActiveTaskForContents(opener)) {
+    return tabs::TabInterface::GetFromContents(opener);
+  }
+  return nullptr;
+}
+
+}  // namespace
+
 // static
 int AccountSelectionView::GetBrandIconMinimumSize(
     blink::mojom::RpMode rp_mode) {
@@ -72,6 +97,13 @@ int AccountSelectionView::GetBrandIconIdealSize(blink::mojom::RpMode rp_mode) {
 namespace webid {
 
 using DismissReason = content::IdentityRequestDialogController::DismissReason;
+
+FedCmAccountSelectionView::WithheldPopupState::WithheldPopupState() = default;
+FedCmAccountSelectionView::WithheldPopupState::WithheldPopupState(
+    const GURL& url,
+    base::OnceCallback<void(content::WebContents*)> on_shown)
+    : url(url), on_shown(std::move(on_shown)) {}
+FedCmAccountSelectionView::WithheldPopupState::~WithheldPopupState() = default;
 
 FedCmAccountSelectionView::FedCmAccountSelectionView(
     AccountSelectionView::Delegate* delegate,
@@ -138,7 +170,8 @@ void FedCmAccountSelectionView::OnPageActionClicked() {
     controller->ShowSuggestionChip(kActionFederation);
     controller->Show(kActionFederation);
     state_ = State::VERIFYING;
-    NotifyDelegateOfAccountSelection(*accounts_[0], *idp_list_[0]);
+    NotifyDelegateOfAccountSelection(*accounts_[0],
+                                     *accounts_[0]->identity_provider);
   } else {
     // For sign-up users, we show a full modal dialog that gathers the necessary
     // permission from the user (e.g. privacy policies and terms of services).
@@ -769,8 +802,6 @@ void FedCmAccountSelectionView::OnLoginToIdP(const GURL& idp_config_url,
     return;
   }
 
-  delegate_->OnLoginToIdP(idp_config_url, idp_login_url);
-
   if (state_ == State::IDP_SIGNIN_STATUS_MISMATCH) {
     is_mismatch_continue_clicked_ = true;
     popup_window_state_ =
@@ -784,6 +815,8 @@ void FedCmAccountSelectionView::OnLoginToIdP(const GURL& idp_config_url,
     modal_account_chooser_state_ =
         webid::AccountChooserResult::kUseOtherAccountButton;
   }
+
+  delegate_->OnLoginToIdP(idp_config_url, idp_login_url);
 }
 
 void FedCmAccountSelectionView::OnGotIt(const ui::Event& event) {
@@ -809,7 +842,9 @@ void FedCmAccountSelectionView::OnMoreDetails(const ui::Event& event) {
 
 content::WebContents* FedCmAccountSelectionView::ShowModalDialog(
     const GURL& url,
-    blink::mojom::RpMode rp_mode) {
+    blink::mojom::RpMode rp_mode,
+    content::IdentityRequestDialogController::ShownModalAsyncCallback
+        on_shown_async) {
   if (popup_window_) {
     // TODO(crbug.com/324052630): Support add account with multi IDP API. An add
     // account pop-up of a different IDP might be open, so this might need to
@@ -835,13 +870,19 @@ content::WebContents* FedCmAccountSelectionView::ShowModalDialog(
   // better UX.
   UpdateDialogVisibilityAndPosition();
 
-  // The FedCM dialog should not be dismissed if the use other account pop-up is
-  // closed, which can only be triggered from account selection. On the other
-  // hand, if the popup is from another flow, then closing the popup should also
-  // exit out of the entire FedCM flow.
-  bool user_close_cancels_flow =
-      GetSheetType() != webid::SheetType::kAccountSelection;
-  return popup_window_->ShowPopupWindow(url, user_close_cancels_flow);
+  if (tabs::TabInterface* initiating_task_tab = InitiatingTaskTab(tab_)) {
+    if (actor::IsRunningBackgroundActorTask(
+            *initiating_task_tab->GetContents())) {
+      tab_subscriptions_.push_back(
+          initiating_task_tab->RegisterDidActivate(base::BindRepeating(
+              &FedCmAccountSelectionView::BackgroundTaskTabForegrounded,
+              weak_ptr_factory_.GetWeakPtr())));
+      withheld_popup_state_.emplace(url, std::move(on_shown_async));
+      return nullptr;
+    }
+  }
+
+  return ShowPopupWindow(url);
 }
 
 void FedCmAccountSelectionView::CloseModalDialog() {
@@ -949,6 +990,18 @@ void FedCmAccountSelectionView::WillDetach(
 void FedCmAccountSelectionView::ModalUIChanged(tabs::TabInterface* tab) {
   if (tab == tab_.get()) {
     UpdateDialogVisibilityAndPosition();
+  }
+}
+
+void FedCmAccountSelectionView::BackgroundTaskTabForegrounded(
+    tabs::TabInterface* tab) {
+  if (withheld_popup_state_) {
+    GURL url = withheld_popup_state_->url;
+    auto on_shown = std::move(withheld_popup_state_->on_shown);
+    withheld_popup_state_.reset();
+    if (popup_window_) {
+      std::move(on_shown).Run(ShowPopupWindow(url));
+    }
   }
 }
 
@@ -1407,6 +1460,18 @@ void FedCmAccountSelectionView::ShouldShowDialog(bool& should_show) {
   }
 }
 
+content::WebContents* FedCmAccountSelectionView::ShowPopupWindow(
+    const GURL& url) {
+  CHECK(popup_window_);
+  // The FedCM dialog should not be dismissed if the use other account pop-up
+  // is closed, which can only be triggered from account selection. On the
+  // other hand, if the popup is from another flow, then closing the popup
+  // should also exit out of the entire FedCM flow.
+  bool user_close_cancels_flow =
+      GetSheetType() != webid::SheetType::kAccountSelection;
+  return popup_window_->ShowPopupWindow(url, user_close_cancels_flow);
+}
+
 bool FedCmAccountSelectionView::ShowPageAction(
     const std::vector<IdentityProviderDataPtr>& idp_list,
     const std::vector<IdentityRequestAccountPtr>& accounts) {
@@ -1425,8 +1490,11 @@ bool FedCmAccountSelectionView::ShowPageAction(
   }
 
   // We currently only support showing the page action when there is exactly one
-  // account. If there are multiple accounts, we fall back to the standard UI.
-  if (accounts.size() != 1u) {
+  // IDP and one account. If there are multiple IDPs or accounts, we fall back
+  // to the standard UI. Note that idp_list.size() != 1u is not redundant with
+  // accounts.size() != 1u because an IDP can be in a mismatch state (and thus
+  // contribute 0 accounts).
+  if (idp_list.size() != 1u || accounts.size() != 1u) {
     return false;
   }
 
@@ -1440,7 +1508,8 @@ bool FedCmAccountSelectionView::ShowPageAction(
                           accounts[0]->browser_trusted_login_state) ==
                       content::IdentityRequestAccount::LoginState::kSignIn;
 
-  std::u16string idp_name = base::UTF8ToUTF16(idp_list[0]->idp_for_display);
+  std::u16string idp_name =
+      base::UTF8ToUTF16(accounts[0]->identity_provider->idp_for_display);
   if (is_returning) {
     controller->SetAnchoredMessageText(kActionFederation,
                                        base::UTF8ToUTF16(accounts[0]->email));

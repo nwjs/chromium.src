@@ -25,6 +25,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/actor/ui/actor_overlay_web_view.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/browsing_data/browsing_data_important_sites_util.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/features.h"
@@ -53,6 +54,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -131,6 +133,9 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/devtools/devtools_policy_dialog.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/base/interaction/element_tracker.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -627,6 +632,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_TAB_SEARCH_CLOSE:
       CloseTabSearch(browser_);
+      break;
+    case IDC_TAB_SEARCH_TOGGLE_PIN:
+      ToggleTabSearchPin(browser_);
       break;
     case IDC_TOGGLE_VERTICAL_TABS:
       ToggleVerticalTabs(browser_);
@@ -1136,6 +1144,18 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       } else {
         ShowClearBrowsingDataDialog(browser_->GetBrowserForOpeningWebUi());
       }
+#if !BUILDFLAG(IS_ANDROID)
+      ui::ElementContext context =
+          BrowserElements::From(browser_)->GetContext();
+      ui::TrackedElement* const tracked_element =
+          ui::ElementTracker::GetElementTracker()->GetUniqueElement(
+              kBrowserViewElementId, context);
+      if (tracked_element) {
+        ui::ElementTracker::GetFrameworkDelegate()->NotifyCustomEvent(
+            tracked_element, browsing_data_important_sites_util::
+                                 kShowClearBrowsingDataDialogEventId);
+      }
+#endif  // !BUILDFLAG(IS_ANDROID)
       break;
     }
     case IDC_IMPORT_SETTINGS:
@@ -1768,6 +1788,8 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH,
                                         enable_tab_search_commands);
   command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH_CLOSE,
+                                        enable_tab_search_commands);
+  command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH_TOGGLE_PIN,
                                         enable_tab_search_commands);
 
   command_updater_.UpdateCommandEnabled(IDC_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL,

@@ -1000,11 +1000,12 @@ be describing additional metrics about the same event.
     all metrics in this event: 1) all detected ad types (e.g., iframes, imgs)
     are included, and 2) ads obscured by non-ad content are excluded.
   </summary>
-  <metric name="AverageViewportAdCount">
+  <metric name="AverageViewportAdCountX100">
     <summary>
       The estimated average viewport ad count accumulated over the page load
-      time, rounded to the nearest exponential bucket integer with bucket
-      spacing 1.15.
+      time, multiplied by 100 and rounded to the nearest exponential bucket
+      integer with bucket spacing 1.15. This allows for 2 decimal places of
+      precision.
     </summary>
     <aggregation>
       <history>
@@ -4630,6 +4631,14 @@ be describing additional metrics about the same event.
       call is immediately rejected.
     </summary>
   </metric>
+  <metric name="HasNonceOutsideParamsOnly" enum="BooleanHit">
+    <summary>
+      Records a 1 whenever a FedCM API call includes the nonce parameter, but
+      does not include it inside the params JSON blob. Records towards the
+      beginning of the call, except for some cases where the call is immediately
+      rejected.
+    </summary>
+  </metric>
   <metric name="HasSigninAccount" enum="Boolean">
     <summary>
       Records whether a user is signing up with the API. Records once per
@@ -4880,6 +4889,13 @@ be describing additional metrics about the same event.
       Blink.FedCm.Status.RequestIdToken.
     </summary>
   </metric>
+  <metric name="WellKnownInvalidDueToClientMetadata" enum="BooleanHit">
+    <summary>
+      Records a 1 whenever a FedCM API call includes a well-known file without
+      `accounts` or `login_url` but where the config file has `client_metadata`.
+      Records when the config and well-known files have been fetched.
+    </summary>
+  </metric>
 </event>
 
 <event name="Blink.FedCmIdp">
@@ -4966,6 +4982,14 @@ be describing additional metrics about the same event.
       Records a 1 whenever a FedCM API call includes the nonce parameter.
       Records towards the beginning of the call, except for some cases where the
       call is immediately rejected.
+    </summary>
+  </metric>
+  <metric name="HasNonceOutsideParamsOnly" enum="BooleanHit">
+    <summary>
+      Records a 1 whenever a FedCM API call includes the nonce parameter, but
+      does not include it inside the params JSON blob. Records towards the
+      beginning of the call, except for some cases where the call is immediately
+      rejected.
     </summary>
   </metric>
   <metric name="HasSigninAccount" enum="Boolean">
@@ -5129,6 +5153,13 @@ be describing additional metrics about the same event.
       Records the outcome of the verifying dialog. Recorded once per verifying
       dialog shown when the FedCM call is completed, i.e. at the same time as
       Blink.FedCm.Status.RequestIdToken.
+    </summary>
+  </metric>
+  <metric name="WellKnownInvalidDueToClientMetadata" enum="BooleanHit">
+    <summary>
+      Records a 1 whenever a FedCM API call includes a well-known file without
+      `accounts` or `login_url` but where the config file has `client_metadata`.
+      Records when the config and well-known files have been fetched.
     </summary>
   </metric>
 </event>
@@ -11099,6 +11130,18 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="ShouldViewInRoom" enum="Boolean">
+    <summary>
+      Is this an item to view in your room or house.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
 </event>
 
 <event name="IOS.PageAddedToReadingList">
@@ -15441,6 +15484,16 @@ be describing additional metrics about the same event.
     <summary>
       When the renderer process receives a CommitNavigation IPC to when the
       renderer process sends a DidCommitNavigation reply.
+    </summary>
+  </metric>
+  <metric name="RendererProcessCreated">
+    <summary>
+      The time when the renderer process was created.
+    </summary>
+  </metric>
+  <metric name="RendererProcessLaunched">
+    <summary>
+      The time when the renderer process was launched.
     </summary>
   </metric>
   <metric name="StartToBeforeUnloadPhase1Duration">

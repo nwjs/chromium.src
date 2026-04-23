@@ -64,6 +64,7 @@
 <translation id="2213327331203157297">Chrome のロックダウン モードを無効にするには、iPhone でロックダウン モードをオフにします。</translation>
 <translation id="2242467532204595597">メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome で開くよう設定できます。</translation>
 <translation id="2256384876478573507">iPhone でブラウジングしたいときに、Chrome をすばやく開けます。</translation>
+<translation id="2270691132923135296">Chrome のご利用開始に役立つ基本的な使い方をご紹介します</translation>
 <translation id="2311240109311056604">Chrome Dino ゲームを開きます。</translation>
 <translation id="2339201583852607431">パスワードは Google アカウント（<ph name="EMAIL" />）に保存されます。</translation>
 <translation id="2342919707875585281">Chrome で、許可したサイトと現在地が共有されます。</translation>
@@ -150,7 +151,6 @@
 <translation id="4693084815234024320">Chrome のシークレット モードです</translation>
 <translation id="4708857722625759026">iPad のドックから Chrome にすばやくアクセスできます。</translation>
 <translation id="4713740144985377441">Chrome に戻ってファイルをアップロードします</translation>
-<translation id="4713907610796204963">Chrome のご利用開始に役立つ基本的な使い方を紹介します</translation>
 <translation id="4724297637870447613">Chrome をどこでも使用</translation>
 <translation id="4738647308035481133">Google Chrome ページ</translation>
 <translation id="4742795653798179840">Chrome データを削除しました</translation>
@@ -296,6 +296,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="7599894504325210080">Chrome の自動入力拡張ビュー</translation>
 <translation id="7617512710641355143">Chrome は管理されています</translation>
 <translation id="7626032353295482388">Chrome へようこそ</translation>
+<translation id="7634397654061173327">Chrome でお子様の安全を守る機能を利用するには、子ども向けに設定された Google アカウントを使用するか、アカウントなしで Chrome を使用します。</translation>
 <translation id="7641448682796883218">Chrome のヒント: セーフ ブラウジング保護強化機能</translation>
 <translation id="7642373780953416937">Chrome で自動的に検出されたプライバシーとセキュリティの問題がある場合は、アラートが表示されます。</translation>
 <translation id="7660356333829433649">Chrome を最大限に活用するヒントをこちらで随時ご紹介します。</translation>
@@ -328,6 +329,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="8245080522851805544">Chrome を終了するときにデバイス認証でブラウジングのプライバシーを保護</translation>
 <translation id="8248887045858762645">Chrome のヒント</translation>
 <translation id="8265730590513812063">Chrome メニューを開く</translation>
+<translation id="8284376267694582021">お子様の安全を守る機能を利用するには、子ども向けに設定された Google アカウントを使用するか、アカウントなしで Chrome を使用します。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="8317674518145175158">お支払い方法と住所は暗号化されません。また、Chrome の閲覧履歴は同期されません。
 
 パスフレーズを知っているユーザーだけが暗号化されたデータを見ることができます。パスフレーズは Google には送信されず、保存されることもありません。パスフレーズを忘れた場合や、この設定を変更する場合は、<ph name="BEGIN_LINK" />アカウントの Chrome データを削除<ph name="END_LINK" />してください。</translation>

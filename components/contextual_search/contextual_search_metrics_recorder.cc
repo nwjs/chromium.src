@@ -72,6 +72,12 @@ ContextualSearchMetricsRecorder::ContextualSearchMetricsRecorder(
       metrics_suffix_(ContextualSearchSourceToString(source)),
       session_metrics_(std::make_unique<SessionMetrics>()) {}
 
+void ContextualSearchMetricsRecorder::UpdateContextualSearchSource(
+    ContextualSearchSource source) {
+  source_ = source;
+  metrics_suffix_ = ContextualSearchSourceToString(source);
+}
+
 ContextualSearchMetricsRecorder::~ContextualSearchMetricsRecorder() {
   // Record session abandonments and completions.
   if (session_state_ == SessionState::kSessionStarted) {
@@ -651,12 +657,12 @@ void ContextualSearchMetricsRecorder::RecordZeroSuggestClick(
     bool is_contextual) {
   std::string suffix = is_contextual ? "Contextual" : "NonContextual";
   base::RecordAction(base::UserMetricsAction(
-      base::StrCat(
-          {"ContextualSearch.ZeroSuggestClick.", suffix, ".", metrics_suffix_})
+      base::StrCat({"ContextualSearch.ZeroSuggestClickV2.", suffix, ".",
+                    metrics_suffix_})
           .c_str()));
   base::UmaHistogramBoolean(
-      base::StrCat(
-          {"ContextualSearch.ZeroSuggestClick.IsContextual.", metrics_suffix_}),
+      base::StrCat({"ContextualSearch.ZeroSuggestClickV2.IsContextual.",
+                    metrics_suffix_}),
       is_contextual);
 }
 

@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 
 #include "base/containers/to_vector.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/test/test_mock_time_task_runner.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_permissions_manager_impl.h"
 #include "components/password_manager/core/browser/actor_login/internal/actor_login_permission_service_impl.h"
@@ -129,7 +131,7 @@ TEST_F(ActorLoginPermissionsManagerTest, GetAllPermissions_OnlyPassword) {
 #endif
 }
 
-TEST_F(ActorLoginPermissionsManagerTest, RevokePermission) {
+TEST_F(ActorLoginPermissionsManagerTest, RevokePermission_Success) {
   base::RunLoop add_run_loop;
   MockObserver observer;
   permissions_manager_->AddObserver(&observer);
@@ -141,6 +143,21 @@ TEST_F(ActorLoginPermissionsManagerTest, RevokePermission) {
   add_run_loop.Run();
 
 #if !BUILDFLAG(IS_ANDROID)
+  FederatedPermission federated_permission;
+  federated_permission.rp_embedder_origin =
+      url::Origin::Create(GURL("https://example.com/"));
+  federated_permission.chosen_account_email = "user1";
+
+  std::vector<FederatedPermission> mock_federated_permissions = {
+      federated_permission};
+
+  EXPECT_CALL(actor_login_permission_service_, ListAllPermissions)
+      .WillRepeatedly(
+          [&](base::OnceCallback<void(std::vector<FederatedPermission>)>
+                  callback) {
+            std::move(callback).Run(mock_federated_permissions);
+          });
+
   base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
       add_future;
   permissions_manager_->GetAllPermissions(GetSyncService(),
@@ -149,22 +166,101 @@ TEST_F(ActorLoginPermissionsManagerTest, RevokePermission) {
 
   // Wait until the permission is revoked.
   base::RunLoop revoke_run_loop;
+  // Called twice: once after password permissions deletion and once after
+  // federated permission deletion.
   EXPECT_CALL(observer, OnPermissionsChanged)
+      .Times(2)
+      .WillOnce(testing::Return())
       .WillOnce(testing::Invoke(&revoke_run_loop, &base::RunLoop::Quit));
 
   EXPECT_CALL(
       actor_login_permission_service_,
       DeletePermission(url::Origin::Create(GURL("https://example.com/")),
-                       "user1", _));
+                       "user1", _))
+      .WillOnce([&](const url::Origin& origin, const std::string& username,
+                    base::OnceCallback<void(bool)> callback) {
+        mock_federated_permissions.clear();
+        std::move(callback).Run(true);
+      });
 
-  permissions_manager_->RevokePermission("https://example.com/", "user1");
+  base::test::TestFuture<bool> future;
+  permissions_manager_->RevokePermission("https://example.com/", "user1",
+                                         future.GetCallback());
   revoke_run_loop.Run();
+  EXPECT_TRUE(future.Get());
 
   base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
-      revoke_future;
+      after_revoke_future;
   permissions_manager_->GetAllPermissions(GetSyncService(),
-                                          revoke_future.GetCallback());
-  EXPECT_THAT(revoke_future.Get(), IsEmpty());
+                                          after_revoke_future.GetCallback());
+  EXPECT_THAT(after_revoke_future.Get(), IsEmpty());
+#else
+  // Permissions rely on passwords grouper to get credentials and the grouper is
+  // not available on Android. We still want to be able to build on Android but
+  // the actual support needs to be implemented.
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          future.GetCallback());
+  EXPECT_THAT(future.Get(), IsEmpty());
+#endif
+}
+
+TEST_F(ActorLoginPermissionsManagerTest,
+       RevokePermission_FailureInFederatedPermissionsService) {
+  base::RunLoop add_run_loop;
+  MockObserver observer;
+  permissions_manager_->AddObserver(&observer);
+
+  // Wait until the first permission is added.
+  EXPECT_CALL(observer, OnPermissionsChanged)
+      .WillOnce(testing::Invoke(&add_run_loop, &base::RunLoop::Quit));
+  profile_store_->AddLogin(CreateApprovedForm("https://example.com", u"user1"));
+  add_run_loop.Run();
+
+#if !BUILDFLAG(IS_ANDROID)
+  FederatedPermission federated_permission;
+  federated_permission.rp_embedder_origin =
+      url::Origin::Create(GURL("https://example.com/"));
+  federated_permission.chosen_account_email = "user1";
+
+  std::vector<FederatedPermission> mock_federated_permissions = {
+      federated_permission};
+
+  EXPECT_CALL(actor_login_permission_service_, ListAllPermissions)
+      .WillRepeatedly(
+          [&](base::OnceCallback<void(std::vector<FederatedPermission>)>
+                  callback) {
+            std::move(callback).Run(mock_federated_permissions);
+          });
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      add_future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          add_future.GetCallback());
+  ASSERT_EQ(add_future.Get().size(), 1u);
+
+  base::RunLoop revoke_run_loop;
+  EXPECT_CALL(observer, OnPermissionsChanged)
+      .WillOnce(testing::Invoke(&revoke_run_loop, &base::RunLoop::Quit));
+  EXPECT_CALL(
+      actor_login_permission_service_,
+      DeletePermission(url::Origin::Create(GURL("https://example.com/")),
+                       "user1", _))
+      .WillOnce(base::test::RunOnceCallback<2>(false));
+
+  base::test::TestFuture<bool> future;
+  permissions_manager_->RevokePermission("https://example.com/", "user1",
+                                         future.GetCallback());
+  revoke_run_loop.Run();
+  EXPECT_FALSE(future.Get());
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      after_revoke_future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          after_revoke_future.GetCallback());
+  // Federated permission is still present and is returned.
+  EXPECT_EQ(after_revoke_future.Get().size(), 1u);
 #else
   // Permissions rely on passwords grouper to get credentials and the grouper is
   // not available on Android. We still want to be able to build on Android but
@@ -286,6 +382,21 @@ TEST_F(ActorLoginPermissionsManagerTest,
   MockObserver observer;
   permissions_manager_->AddObserver(&observer);
 
+  FederatedPermission federated_permission;
+  federated_permission.rp_embedder_origin =
+      url::Origin::Create(GURL("https://example.com/"));
+  federated_permission.chosen_account_email = "user";
+
+  EXPECT_CALL(actor_login_permission_service_, ListAllPermissions)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          std::vector<FederatedPermission>{federated_permission}));
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          future.GetCallback());
+  EXPECT_FALSE(future.Get().empty());
+
   EXPECT_CALL(actor_login_permission_service_,
               DeletePermission(
                   url::Origin::Create(GURL("https://example.com/")), "user", _))
@@ -293,13 +404,29 @@ TEST_F(ActorLoginPermissionsManagerTest,
 
   EXPECT_CALL(observer, OnPermissionsChanged);
 
-  permissions_manager_->RevokePermission("https://example.com/", "user");
+  permissions_manager_->RevokePermission("https://example.com/", "user",
+                                         base::DoNothing());
 }
 
 TEST_F(ActorLoginPermissionsManagerTest,
        RevokePermission_FederatedPermission_DoesNotNotifyObserverOnFailure) {
   MockObserver observer;
   permissions_manager_->AddObserver(&observer);
+
+  FederatedPermission federated_permission;
+  federated_permission.rp_embedder_origin =
+      url::Origin::Create(GURL("https://example.com/"));
+  federated_permission.chosen_account_email = "user";
+
+  EXPECT_CALL(actor_login_permission_service_, ListAllPermissions)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          std::vector<FederatedPermission>{federated_permission}));
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          future.GetCallback());
+  EXPECT_FALSE(future.Get().empty());
 
   EXPECT_CALL(actor_login_permission_service_,
               DeletePermission(
@@ -308,7 +435,151 @@ TEST_F(ActorLoginPermissionsManagerTest,
 
   EXPECT_CALL(observer, OnPermissionsChanged).Times(0);
 
-  permissions_manager_->RevokePermission("https://example.com/", "user");
+  permissions_manager_->RevokePermission("https://example.com/", "user",
+                                         base::DoNothing());
+}
+
+TEST_F(ActorLoginPermissionsManagerTest,
+       RevokePermission_FederatedPermission_NotInLastSet_DoesNotDelete) {
+  MockObserver observer;
+  permissions_manager_->AddObserver(&observer);
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future;
+  permissions_manager_->GetAllPermissions(GetSyncService(),
+                                          future.GetCallback());
+  EXPECT_TRUE(future.Get().empty());
+
+  EXPECT_CALL(actor_login_permission_service_, DeletePermission).Times(0);
+  EXPECT_CALL(observer, OnPermissionsChanged).Times(0);
+
+  base::test::TestFuture<bool> revoke_future;
+  permissions_manager_->RevokePermission("https://example.com/", "user",
+                                         revoke_future.GetCallback());
+
+  EXPECT_TRUE(revoke_future.Get());
+}
+
+class ActorLoginPermissionsManagerInitializationTest : public ::testing::Test {
+ protected:
+  ActorLoginPermissionsManagerInitializationTest() {
+    profile_store_ = base::MakeRefCounted<password_manager::PasswordStore>(
+        std::make_unique<password_manager::FakePasswordStoreBackend>(
+            IsAccountStore(false), profile_store_backend_runner()));
+    profile_store_->Init(/*affiliated_match_helper=*/nullptr);
+
+    account_store_ = base::MakeRefCounted<password_manager::PasswordStore>(
+        std::make_unique<password_manager::FakePasswordStoreBackend>(
+            IsAccountStore(true), account_store_backend_runner()));
+    account_store_->Init(/*affiliated_match_helper=*/nullptr);
+
+    ON_CALL(actor_login_permission_service(), ListAllPermissions)
+        .WillByDefault(base::test::RunOnceCallbackRepeatedly<0>(
+            std::vector<FederatedPermission>()));
+  }
+
+  ~ActorLoginPermissionsManagerInitializationTest() override {
+    account_store_->ShutdownOnUIThread();
+    profile_store_->ShutdownOnUIThread();
+
+    ProcessBackendTasks(account_store_backend_runner());
+    ProcessBackendTasks(profile_store_backend_runner());
+  }
+
+  void ProcessBackendTasks(scoped_refptr<base::TestMockTimeTaskRunner> runner) {
+    runner->RunUntilIdle();
+    task_env_.RunUntilIdle();
+  }
+
+  scoped_refptr<password_manager::PasswordStore> profile_store() {
+    return profile_store_;
+  }
+  scoped_refptr<password_manager::PasswordStore> account_store() {
+    return account_store_;
+  }
+  affiliations::FakeAffiliationService& affiliation_service() {
+    return affiliation_service_;
+  }
+
+  const scoped_refptr<base::TestMockTimeTaskRunner>&
+  profile_store_backend_runner() {
+    return profile_store_backend_runner_;
+  }
+  const scoped_refptr<base::TestMockTimeTaskRunner>&
+  account_store_backend_runner() {
+    return account_store_backend_runner_;
+  }
+
+  syncer::TestSyncService* GetSyncService() { return &test_sync_service_; }
+  MockActorLoginPermissionService& actor_login_permission_service() {
+    return actor_login_permission_service_;
+  }
+
+ private:
+  base::test::SingleThreadTaskEnvironment task_env_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  scoped_refptr<base::TestMockTimeTaskRunner> profile_store_backend_runner_ =
+      base::MakeRefCounted<base::TestMockTimeTaskRunner>();
+  scoped_refptr<base::TestMockTimeTaskRunner> account_store_backend_runner_ =
+      base::MakeRefCounted<base::TestMockTimeTaskRunner>();
+
+  affiliations::FakeAffiliationService affiliation_service_;
+  scoped_refptr<password_manager::PasswordStore> profile_store_ = nullptr;
+  scoped_refptr<password_manager::PasswordStore> account_store_ = nullptr;
+  syncer::TestSyncService test_sync_service_;
+  testing::NiceMock<MockActorLoginPermissionService>
+      actor_login_permission_service_;
+};
+
+TEST_F(ActorLoginPermissionsManagerInitializationTest,
+       GetAllPermissions_WaitsForPasswordStore) {
+  ActorLoginPermissionsManagerImpl manager(&affiliation_service(),
+                                           &actor_login_permission_service(),
+                                           profile_store(), account_store());
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future;
+
+  manager.GetAllPermissions(GetSyncService(), future.GetCallback());
+
+  EXPECT_TRUE(manager.IsWaitingForPasswordStore());
+  EXPECT_FALSE(future.IsReady());
+
+  ProcessBackendTasks(profile_store_backend_runner());
+  EXPECT_TRUE(manager.IsWaitingForPasswordStore());
+  EXPECT_FALSE(future.IsReady());
+
+  ProcessBackendTasks(account_store_backend_runner());
+  EXPECT_FALSE(manager.IsWaitingForPasswordStore());
+  EXPECT_TRUE(future.IsReady());
+}
+
+TEST_F(ActorLoginPermissionsManagerInitializationTest,
+       GetAllPermissions_QueuesMultipleRequests) {
+  ActorLoginPermissionsManagerImpl manager(&affiliation_service(),
+                                           &actor_login_permission_service(),
+                                           profile_store(), account_store());
+
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future1;
+  base::test::TestFuture<base::flat_set<password_manager::ActorLoginPermission>>
+      future2;
+
+  manager.GetAllPermissions(GetSyncService(), future1.GetCallback());
+  manager.GetAllPermissions(GetSyncService(), future2.GetCallback());
+
+  EXPECT_TRUE(manager.IsWaitingForPasswordStore());
+  EXPECT_FALSE(future1.IsReady());
+  EXPECT_FALSE(future2.IsReady());
+
+  ProcessBackendTasks(profile_store_backend_runner());
+  EXPECT_TRUE(manager.IsWaitingForPasswordStore());
+  EXPECT_FALSE(future1.IsReady());
+  EXPECT_FALSE(future2.IsReady());
+
+  ProcessBackendTasks(account_store_backend_runner());
+  EXPECT_FALSE(manager.IsWaitingForPasswordStore());
+  EXPECT_TRUE(future1.IsReady());
+  EXPECT_TRUE(future2.IsReady());
 }
 
 }  // namespace actor_login

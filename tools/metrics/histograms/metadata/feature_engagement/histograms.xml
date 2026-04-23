@@ -687,6 +687,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_TranslateMenuButton" summary="translate menu button"/>
   <variant name="IPH_UpdatedConnectionSecurityIndicators"
       summary="updated omnibox connection security indicators"/>
+  <variant name="IPH_VerticalTabsExpandOnHoverFeature"
+      summary="The vertical tabstrip expand on hover IPH"/>
   <variant name="IPH_VerticalTabstripTutorialFeature"
       summary="The vertical tabstrip IPH"/>
   <variant name="IPH_VideoTutorial_NTP_ChromeIntro"
@@ -790,6 +792,19 @@ chromium-metrics-reviews@google.com.
   <summary>
     Recorded when a gestural in-product help view is dismissed, with the enum
     signifying the way the dismissal was triggered.
+  </summary>
+</histogram>
+
+<histogram name="InProductHelp.InitializationTime.Total" units="ms"
+    expires_after="2026-10-03">
+  <owner>agazal@chromium.org</owner>
+  <owner>mschillaci@chromium.org</owner>
+  <owner>nyquist@chromium.org</owner>
+  <summary>
+    Records the total end-to-end time taken for the Feature Engagement Tracker
+    to become fully initialized at startup. This includes asynchronous database
+    loading, event processing, profile-to-device migration (on iOS), and event
+    exports.
   </summary>
 </histogram>
 

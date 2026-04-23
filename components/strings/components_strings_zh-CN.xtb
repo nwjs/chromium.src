@@ -236,7 +236,6 @@
 <translation id="1358187717814494928">创建工作表</translation>
 <translation id="1358223345833465883">您在 Chromium 中使用的搜索引擎</translation>
 <translation id="1359836962251219822">厨房与餐厅</translation>
-<translation id="136059610328993645">您的信息会保存到 <ph name="ACCOUNT" /> 的 Google 钱包中。您可以在各项 Google 服务中使用它更快地填写表单。</translation>
 <translation id="1360955481084547712">若要私密地浏览网页，请打开一个新的无痕式窗口</translation>
 <translation id="1361528602584216624">每笔 Pix 交易的限额为 R$ <ph name="TRANSACTION_LIMIT" /></translation>
 <translation id="1363015776076529485">支付方式列表已按最大高度显示，选中一种支付方式即可继续付款。</translation>
@@ -465,7 +464,6 @@
 <translation id="1717218214683051432">移动传感器</translation>
 <translation id="1717494416764505390">信箱 3</translation>
 <translation id="1717688554309417925">借记卡和支票服务</translation>
-<translation id="1717882880162336471">试用 AI 模式</translation>
 <translation id="1719434663396780149">降价提醒功能已开启。您可在<ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />中更改此设置。</translation>
 <translation id="1719838434204287058">24 x 30 英寸</translation>
 <translation id="1720941539803966190">关闭教程</translation>
@@ -615,7 +613,6 @@
 <translation id="1960664692890490165">当您在 Chrome 中购物时，可看到非银行卡支付方式选项</translation>
 <translation id="196146181975453736">完成一次性安全检查，即可更快地付款</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" />书签</translation>
-<translation id="1966259577349514951">立即付款</translation>
 <translation id="1973335181906896915">序列化错误</translation>
 <translation id="1973785048533660168">文员和行政职位</translation>
 <translation id="1974060860693918893">高级</translation>
@@ -1045,6 +1042,7 @@
 <translation id="2610561535971892504">点击复制</translation>
 <translation id="2612676031748830579">卡号</translation>
 <translation id="2612993535136743634">您的设备和 Google 账号中保存的所有安全码都将删除</translation>
+<translation id="2613758321247965174">{MINUTES,plural, =1{1 分钟前曾活跃}other{# 分钟前曾活跃}}</translation>
 <translation id="2614835674900828050">无法用于此购买交易</translation>
 <translation id="2616412942031748191">搜索引擎优化与营销</translation>
 <translation id="2618206371527040026">学术会议与出版物</translation>
@@ -1056,6 +1054,7 @@
 <translation id="2627847595568876492">正在从 PDF 文件中提取文本…</translation>
 <translation id="2628025184666666186">此服务器无法证明其所在网域是 <ph name="DOMAIN" />，因为它使用的安全证书不受 Chrome 或您系统的网站流量加密配置所信任。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。</translation>
 <translation id="2628224721443278970">登录 Microsoft OneDrive</translation>
+<translation id="2631059741268498165">管理员已定位到这部停用的设备。它已重新启用，可以使用了。</translation>
 <translation id="2631387782019878060">验证码：<ph name="OTP" /></translation>
 <translation id="2634124572758952069">找不到 <ph name="HOST_NAME" /> 的服务器 IP 地址。</translation>
 <translation id="2638567100095052009">输入 @ 即可在 <ph name="FEATURED_SEARCH_LIST" /> 中搜索</translation>
@@ -1097,7 +1096,6 @@
 <translation id="2696385693639654606">借助 Chrome 企业核心版，您可以从云端管理浏览器政策、应用和扩展程序</translation>
 <translation id="2697248912349197812">问问 <ph name="KEYWORD_SHORT_NAME" /></translation>
 <translation id="2699273987028089219">子菜单可用，使用<ph name="SHORTCUT" />可找到其他选项。</translation>
-<translation id="2700335762333112350">先买后付</translation>
 <translation id="2701514975700770343">正面朝下</translation>
 <translation id="2702592986366989640">低价选项</translation>
 <translation id="2702801445560668637">阅读清单</translation>
@@ -1301,10 +1299,12 @@
 <translation id="3037177537145227281">正在跟踪价格</translation>
 <translation id="3037605927509011580">喔唷，崩溃啦！</translation>
 <translation id="3039406992698062762">家庭旅行</translation>
+<translation id="3040435070100611531">您的 Google 钱包卡券</translation>
 <translation id="3041176923638368519">查看卡福利条款</translation>
 <translation id="3041584414879052436">“先买后付”发卡机构列表已关闭。</translation>
 <translation id="3041612393474885105">证书信息</translation>
 <translation id="3045769629416806687">极限运动</translation>
+<translation id="3047054686095898948">在 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_1" />中保存信息可以提升效率，例如在不同 Google 产品中快速填写表单。您可在 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_2" />中<ph name="BEGIN_LINK" />管理<ph name="END_LINK" /> <ph name="ACCOUNT" /> 的信息</translation>
 <translation id="305162504811187366">Chrome 远程桌面历史记录，包括时间戳、主机和客户端会话 ID</translation>
 <translation id="3052868890529250114">您通常可以安全地连接到网站，但目前 Chrome 无法使用安全连接。攻击者可能会试图对您的网络连接进行窃听或修改。<ph name="BEGIN_LEARN_MORE_LINK" />详细了解此警告<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3052964831964880138"><ph name="PRODUCT_NAME" />降价 <ph name="PRICE_DROP" /></translation>
@@ -1766,7 +1766,7 @@
 <translation id="3752181611900535304">是否将地址保存到账号？</translation>
 <translation id="3752543821772132562">已忽略，因为未设置 <ph name="POLICY_NAME" />。</translation>
 <translation id="3754210790023674521">退出“画中画”模式</translation>
-<translation id="3754664361823138853">并打开历史记录页面</translation>
+<translation id="3754664361823138853">打开历史记录页面(&amp;O)</translation>
 <translation id="3759461132968374835">您最近未收到崩溃报告。崩溃报告停用时发生的崩溃不会在此处显示。</translation>
 <translation id="3760561303380396507">要改用 Windows Hello 来取代银行卡验证码 (CVC) 吗？</translation>
 <translation id="3761171036307311438">持卡人姓名：</translation>
@@ -2442,7 +2442,6 @@
 <translation id="4832388034239846146">如需分享标签页分组，请更新 Chrome</translation>
 <translation id="483241715238664915">开启警告</translation>
 <translation id="4832961164064927107">烧烤</translation>
-<translation id="4839984801146463230">保存信息可以提升操作效率，例如在不同 Google 产品中快速填写表单。针对账号 <ph name="ACCOUNT" />，您可在 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" />中<ph name="BEGIN_LINK" />管理您的信息<ph name="END_LINK" /></translation>
 <translation id="4840250757394056958">查看您的 Chrome 历史记录</translation>
 <translation id="484462545196658690">自动</translation>
 <translation id="4844937814014739139">滚动和缩放分享的标签页</translation>
@@ -2567,7 +2566,7 @@
 <translation id="5021500396464456616">请与发送此链接的人联系</translation>
 <translation id="5021557570875267742">使用 Chrome 跟踪价格</translation>
 <translation id="5023310440958281426">请查看管理员制定的政策</translation>
-<translation id="5024171724744627792">保存信用卡信息后，付款更快捷。信用卡详细信息会加密保存在您的 Google 账号中。</translation>
+<translation id="5024171724744627792">保存卡信息后，付款会更快捷。卡详细信息会加密保存在您的 Google 账号中。</translation>
 <translation id="5026466266082155886"><ph name="STARTER_PACK_HISTORY_FOCUSED_FRIENDLY_MATCH_TEXT" />，按 Enter 键可搜索历史记录</translation>
 <translation id="5030338702439866405">颁发者</translation>
 <translation id="503069730517007720">必须为“<ph name="SOFTWARE_NAME" />”安装根证书，但您尚未安装该证书。您的 IT 管理员应仔细查看“<ph name="SOFTWARE_NAME" />”的配置说明，以解决此问题。<ph name="FURTHER_EXPLANATION" /></translation>
@@ -2719,6 +2718,7 @@
 <translation id="5255833070095767006">350 x 460 毫米</translation>
 <translation id="5257739419779698609">{0,plural, =1{管理员政策不建议将这个文件复制到<ph name="DESTINATION_NAME" />}other{管理员政策不建议将这些文件复制到<ph name="DESTINATION_NAME" />}}</translation>
 <translation id="5258473597674772367">“<ph name="GROUP_NAME" />”标签页分组已不可用</translation>
+<translation id="5262342527470539728">您的信息会保存到 <ph name="ACCOUNT" /> 的 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" /></translation>
 <translation id="5263867360296733198">上传前需要检查</translation>
 <translation id="5266128565379329178">装订（顶部）</translation>
 <translation id="5269225904387178860">四孔（底部）</translation>
@@ -2800,7 +2800,7 @@
 <translation id="5385966243497224160">无法预览非 HTTPS 网址</translation>
 <translation id="5386426401304769735">此网站的证书链包含使用 SHA-1 签署的证书。</translation>
 <translation id="5391010642126249196">上次访问时间：</translation>
-<translation id="5391306025131596142">并打开历史记录页面</translation>
+<translation id="5391306025131596142">打开历史记录页面(&amp;O)</translation>
 <translation id="539203134595252721">乒乓球</translation>
 <translation id="5392506727170022660">金属（半光）</translation>
 <translation id="5394069166371280357">面向家庭的电视节目</translation>
@@ -2915,6 +2915,7 @@
 <translation id="5543564889050342791">动物园、水族馆与保护区</translation>
 <translation id="5543722831081909240">180 度</translation>
 <translation id="5544836308113951378">乘船游览与租船</translation>
+<translation id="5546252337258681768">设备已解锁</translation>
 <translation id="5547939254150808298">印刷与出版</translation>
 <translation id="554815783948612276">论坛与聊天服务</translation>
 <translation id="5548606607480005320">安全检查</translation>
@@ -2956,6 +2957,7 @@
 <translation id="5600044805561809264">您可以在浏览时轻松询问有关您正在分享的标签页的问题。</translation>
 <translation id="5603469469737324249"><ph name="ISSUER_1_NAME" />或<ph name="ISSUER_2_NAME" /></translation>
 <translation id="560412284261940334">不支持管理</translation>
+<translation id="560431066250575003">{HOURS,plural, =1{1 小时前曾活跃}other{# 小时前曾活跃}}</translation>
 <translation id="5605249000617390290">详细了解价格跟踪</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5610142619324316209">检查网络连接</translation>
@@ -3508,6 +3510,7 @@
 <translation id="6456955391422100996">已移除广告。</translation>
 <translation id="6457206614190510200">鞍式装订</translation>
 <translation id="6457455098507772300">降价提醒在桌面设备上显示为弹出式通知</translation>
+<translation id="6458519747993638565">目前活跃</translation>
 <translation id="6458606150257356946">仍然粘贴</translation>
 <translation id="6462438303393708881">取消上传</translation>
 <translation id="6464094930452079790">图片</translation>
@@ -3617,7 +3620,6 @@
 <translation id="6655085656059574817">让账号保持关联状态有助于您更快地通过<ph name="BNPL_ISSUER_NAME" />付款，不过您可以前往 <ph name="BEGIN_LINK" /><ph name="IDS_AUTOFILL_BNPL_TOS_LINK_TEXT_WALLET_LINK_TEXT" /><ph name="END_LINK" /> 解除关联</translation>
 <translation id="6656935431494847393">包括航班预订和车辆信息等</translation>
 <translation id="6657585470893396449">密码</translation>
-<translation id="6659156657345021268">您的信息仅会保存到您的设备上。下次您填写相关表单时，可选择将其保存到 Google 钱包中。</translation>
 <translation id="6659246032834639189">此价格较低</translation>
 <translation id="6660413144148052430">位置权限</translation>
 <translation id="6662457027866368246">第 1 卷</translation>
@@ -3740,7 +3742,6 @@
 <translation id="6850286078059909152">文字颜色</translation>
 <translation id="6852204201400771460">要重新加载应用吗？</translation>
 <translation id="6854691830678097752">若要加快结账速度，可将此银行卡验证码 (CVC) 保存到账号 <ph name="ACCOUNT_EMAIL" /> 中</translation>
-<translation id="6855951327659224749">清除表单才能使用先买后付选项</translation>
 <translation id="6857776781123259569">管理密码…</translation>
 <translation id="6858034839887287663">A2x4</translation>
 <translation id="6860888819347870819">可以请求进入画中画模式</translation>
@@ -4647,7 +4648,7 @@
 <translation id="8242426110754782860">继续</translation>
 <translation id="824620968958405573">自动浏览任务</translation>
 <translation id="8246482227229072868">戒指</translation>
-<translation id="8248406213705193919">要妥善保存信用卡信息吗？</translation>
+<translation id="8248406213705193919">要安全保存卡信息吗？</translation>
 <translation id="8249296373107784235">取消</translation>
 <translation id="824968735947741546">正在将（自动检测到的）<ph name="SOURCE" />翻译成<ph name="TARGET" /></translation>
 <translation id="8250094606476360498">此地址目前已保存到该设备上。如需在所有 Google 产品中使用此地址，请将它保存到您的 Google 账号 (<ph name="ACCOUNT" />) 中。</translation>
@@ -4765,6 +4766,7 @@
 更多详情：
 <ph name="DEBUG_INFO" /></translation>
 <translation id="8416874502399604126">这次可以使用麦克风</translation>
+<translation id="8421746712901926961">在 <ph name="GOOGLE_WALLET_TITLE_1" />中保存信息可以提升效率，例如在不同 Google 产品中快速填写表单。您可以在 <ph name="ACCOUNT" /> 的 <ph name="GOOGLE_WALLET_TITLE_2" />中<ph name="MANAGE_INFO_LINK" />。</translation>
 <translation id="8424582179843326029"><ph name="FIRST_LABEL" /> - <ph name="SECOND_LABEL" /> - <ph name="THIRD_LABEL" /></translation>
 <translation id="8425213833346101688">更改</translation>
 <translation id="8426945547715537628">允许替换键盘按键？</translation>
@@ -4821,6 +4823,7 @@
 <translation id="8521812709849134608">家用台面</translation>
 <translation id="8522180136695974431">信用报告与监测</translation>
 <translation id="8522552481199248698">Chrome 可以帮助您保护您的 Google 账号和更改密码。</translation>
+<translation id="852450791482410042">立即付款</translation>
 <translation id="8527228059738193856">扬声器</translation>
 <translation id="8527681393107582734">农业与林业</translation>
 <translation id="8528149813106025610">童装</translation>

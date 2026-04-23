@@ -6,6 +6,9 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
+#import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/public/autofill_ai_settings_constants.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_country_item.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_edit_date_item.h"
@@ -20,6 +23,7 @@
 #import "ios/chrome/common/ui/util/chrome_button.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
+#import "url/gurl.h"
 
 namespace {
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
@@ -50,6 +54,15 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
   // The bottom save button displayed when creating a new entity.
   ChromeButton* _saveButton;
+
+  // The title text for the view.
+  NSString* _titleText;
+
+  // Whether the loading state is currently shown.
+  BOOL _loadingState;
+
+  // Whether `setEditItems:` has completed.
+  BOOL _setEditItemsCompleted;
 }
 
 #pragma mark - UIViewController
@@ -71,6 +84,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   } else {
     self.navigationItem.rightBarButtonItem = [self editButtonItem];
   }
+  [self validateFields];
 
   [self loadModel];
 }
@@ -109,9 +123,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
       [[TableViewLinkHeaderFooterItem alloc] initWithType:ItemTypeFooter];
 
   if (_isServerWalletItem && _userEmail.length > 0) {
-    footer.text =
-        l10n_util::GetNSStringF(IDS_IOS_AUTOFILL_AI_SAVED_TO_WALLET_FOOTER,
-                                base::SysNSStringToUTF16(_userEmail));
+    footer.text = autofill::GetSaveEntityToWalletFooterText(_userEmail);
+    footer.urls =
+        @[ [[CrURL alloc] initWithGURL:autofill::GetManageYourInfoURL()] ];
   } else {
     footer.text =
         l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_SAVED_LOCALLY_FOOTER);
@@ -164,7 +178,18 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark - AutofillAIEntityEditConsumer
 
 - (void)setTitle:(NSString*)title {
-  super.title = title;
+  // Store a copy to ensure we can regenerate the title if `_isServerWalletItem`
+  // is set after this method is called.
+  _titleText = [title copy];
+  BOOL shouldUseBrandedTitle =
+      _isServerWalletItem && self.mode == AutofillAIEntityEditMode::kCreate;
+  if (shouldUseBrandedTitle) {
+    self.navigationItem.titleView =
+        autofill::CreateBrandedTitleForWalletSave(title);
+  } else {
+    self.navigationItem.titleView = nil;
+    super.title = title;
+  }
 }
 
 - (void)setEditItems:(NSArray<TableViewItem*>*)items {
@@ -176,6 +201,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
     [self loadModel];
     [self.tableView reloadData];
   }
+  [self validateFields];
+  _setEditItemsCompleted = YES;
 }
 
 - (void)setEditingAllowed:(BOOL)editingAllowed {
@@ -185,6 +212,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)setIsServerWalletItem:(BOOL)isServerWalletItem {
   _isServerWalletItem = isServerWalletItem;
+  if (_titleText.length > 0) {
+    [self setTitle:_titleText];
+  }
 }
 
 - (void)setUserEmail:(NSString*)userEmail {
@@ -198,47 +228,35 @@ typedef NS_ENUM(NSInteger, ItemType) {
     [self updateAccessoryAndSelectionStyleForCountryItem:countryItem];
   }
   [self reconfigureCellsForItems:@[ item ]];
+  [self validateFields];
 }
 
 - (void)reloadData {
   [self.tableView reloadData];
 }
 
-- (void)showLoadingState {
-  _saveButton.enabled = NO;
+- (void)setLoadingState:(BOOL)loadingState {
+  _loadingState = loadingState;
+
+  [self validateFields];
 
   UIButtonConfiguration* buttonConfig = _saveButton.configuration;
   if (buttonConfig) {
-    buttonConfig.showsActivityIndicator = YES;
+    buttonConfig.showsActivityIndicator = _loadingState;
     _saveButton.configuration = buttonConfig;
   }
 
-  // Prevent user from interacting with the form or dismissing the view.
-  self.tableView.userInteractionEnabled = NO;
-  self.navigationItem.leftBarButtonItem.enabled = NO;
-  self.navigationItem.rightBarButtonItem.enabled = NO;
+  // Prevent user from interacting with the form or dismissing the view in
+  // loading state.
+  self.tableView.userInteractionEnabled = !_loadingState;
+  self.navigationItem.leftBarButtonItem.enabled = !_loadingState;
 
-  // Prevent swipe-to-dismiss for modals.
-  self.modalInPresentation = YES;
-  // Prevent edge-swipe back gesture.
-  self.navigationController.interactivePopGestureRecognizer.enabled = NO;
-}
+  // Prevent swipe-to-dismiss for modals in loading state.
+  self.modalInPresentation = _loadingState;
 
-- (void)hideLoadingState {
-  _saveButton.enabled = YES;
-
-  UIButtonConfiguration* buttonConfig = _saveButton.configuration;
-  if (buttonConfig) {
-    buttonConfig.showsActivityIndicator = NO;
-    _saveButton.configuration = buttonConfig;
-  }
-
-  // Restore user interaction.
-  self.tableView.userInteractionEnabled = YES;
-  self.navigationItem.leftBarButtonItem.enabled = YES;
-  self.navigationItem.rightBarButtonItem.enabled = YES;
-  self.modalInPresentation = NO;
-  self.navigationController.interactivePopGestureRecognizer.enabled = YES;
+  // Prevent edge-swipe back gesture in loading state.
+  self.navigationController.interactivePopGestureRecognizer.enabled =
+      !_loadingState;
 }
 
 - (void)didFinishSavingWithLocalFallback:(BOOL)isLocalFallback {
@@ -294,7 +312,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
     __weak __typeof(self) weakSelf = self;
     [self.mutator
         requestEditingWithCompletion:^(ReauthenticationResult result) {
-          if (result == ReauthenticationResult::kSuccess) {
+          if (result != ReauthenticationResult::kFailure) {
             [weakSelf onEditingRequestSucceeded];
           }
         }];
@@ -325,6 +343,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
   }
   [self loadModel];
   [self.tableView reloadData];
+
+  if (_titleText.length > 0) {
+    [self setTitle:_titleText];
+  }
 }
 
 #pragma mark - UITableViewDelegate
@@ -357,6 +379,19 @@ typedef NS_ENUM(NSInteger, ItemType) {
       }
     }
   }
+}
+
+- (UIView*)tableView:(UITableView*)tableView
+    viewForFooterInSection:(NSInteger)section {
+  UIView* view = [super tableView:tableView viewForFooterInSection:section];
+  NSInteger sectionIdentifier =
+      [self.tableViewModel sectionIdentifierForSectionIndex:section];
+  if (sectionIdentifier == SectionIdentifierAttributes) {
+    TableViewLinkHeaderFooterView* linkView =
+        base::apple::ObjCCast<TableViewLinkHeaderFooterView>(view);
+    linkView.delegate = self;
+  }
+  return view;
 }
 
 - (NSIndexPath*)tableView:(UITableView*)tableView
@@ -395,66 +430,109 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (void)tableViewItemDidChange:(TableViewTextEditItem*)tableViewTextEditItem {
-  // We don't have to monitor every keystroke. When the user finishes editing,
-  // switches to another field, or hits the Done button or Save button, that
-  // will trigger the validation.
+  [self validateFields];
 }
 
 - (void)tableViewItemDidEndEditing:
     (TableViewTextEditItem*)tableViewTextEditItem {
-  if ([tableViewTextEditItem isKindOfClass:[AutofillAIEntityEditItem class]]) {
-    AutofillAIEntityEditItem* editItem =
-        base::apple::ObjCCastStrict<AutofillAIEntityEditItem>(
-            tableViewTextEditItem);
-    BOOL isEmpty = editItem.textFieldValue.length == 0;
-    BOOL isRequired = [self.mutator isFieldRequired:editItem.attributeType];
-    BOOL isValid = !(isRequired && isEmpty);
-    if (editItem.hasValidValueStatus != isValid) {
-      editItem.hasValidValueStatus = isValid;
-      [self reconfigureCellsForItems:@[ editItem ]];
-    }
-  }
+  [self validateFields];
+}
+
+#pragma mark - TableViewLinkHeaderFooterItemDelegate
+
+- (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
+  [self.delegate didTapLinkWithURL:URL];
 }
 
 #pragma mark - Private
 
+- (autofill::DenseSet<autofill::AttributeType>)presentAttributes {
+  autofill::DenseSet<autofill::AttributeType> present;
+  for (TableViewItem* item in _editItems) {
+    if ([item isKindOfClass:[AutofillAIEntityEditItem class]]) {
+      AutofillAIEntityEditItem* editItem =
+          base::apple::ObjCCastStrict<AutofillAIEntityEditItem>(item);
+      if (editItem.textFieldValue.length > 0) {
+        present.insert(autofill::AttributeType(editItem.attributeType));
+      }
+    } else if ([item isKindOfClass:[AutofillAIEntityCountryItem class]]) {
+      AutofillAIEntityCountryItem* countryItem =
+          base::apple::ObjCCastStrict<AutofillAIEntityCountryItem>(item);
+      if (countryItem.detailText.length > 1) {
+        present.insert(autofill::AttributeType(countryItem.attributeType));
+      }
+    } else if ([item isKindOfClass:[AutofillAIEntityEditDateItem class]]) {
+      AutofillAIEntityEditDateItem* dateItem =
+          base::apple::ObjCCastStrict<AutofillAIEntityEditDateItem>(item);
+      if (dateItem.textFieldValue.length > 0) {
+        present.insert(autofill::AttributeType(dateItem.attributeType));
+      }
+    }
+  }
+  return present;
+}
+
+- (autofill::DenseSet<autofill::AttributeType>)missingRequiredFields {
+  const autofill::DenseSet<autofill::AttributeType> presentAttributes =
+      [self presentAttributes];
+  return [self.mutator getMissingRequiredFieldsFor:presentAttributes];
+}
+
 - (BOOL)validateFields {
-  BOOL isValid = YES;
+  const autofill::DenseSet<autofill::AttributeType> missingFields =
+      [self missingRequiredFields];
+
   NSMutableArray<TableViewItem*>* itemsToReconfigure =
       [[NSMutableArray alloc] init];
   for (TableViewItem* item in _editItems) {
     if ([item isKindOfClass:[AutofillAIEntityEditItem class]]) {
       AutofillAIEntityEditItem* editItem =
           base::apple::ObjCCastStrict<AutofillAIEntityEditItem>(item);
-      BOOL isEmpty = editItem.textFieldValue.length == 0;
-      BOOL isRequired = [self.mutator isFieldRequired:editItem.attributeType];
-      BOOL itemIsValid = !(isRequired && isEmpty);
+      BOOL itemIsValid = !missingFields.contains(
+          autofill::AttributeType(editItem.attributeType));
+      if (!_setEditItemsCompleted) {
+        itemIsValid = YES;
+      }
       if (editItem.hasValidValueStatus != itemIsValid) {
         editItem.hasValidValueStatus = itemIsValid;
         [itemsToReconfigure addObject:editItem];
       }
-      if (!itemIsValid) {
-        isValid = NO;
-      }
     } else if ([item isKindOfClass:[AutofillAIEntityCountryItem class]]) {
       AutofillAIEntityCountryItem* countryItem =
           base::apple::ObjCCastStrict<AutofillAIEntityCountryItem>(item);
-      BOOL isEmpty = countryItem.detailText.length <= 1;
-      BOOL isRequired =
-          [self.mutator isFieldRequired:countryItem.attributeType];
-      BOOL itemIsValid = !(isRequired && isEmpty);
+      BOOL itemIsValid = !missingFields.contains(
+          autofill::AttributeType(countryItem.attributeType));
+      if (!_setEditItemsCompleted) {
+        itemIsValid = YES;
+      }
       if (countryItem.hasValidValueStatus != itemIsValid) {
         countryItem.hasValidValueStatus = itemIsValid;
         [itemsToReconfigure addObject:countryItem];
       }
-      if (!itemIsValid) {
-        isValid = NO;
+    } else if ([item isKindOfClass:[AutofillAIEntityEditDateItem class]]) {
+      AutofillAIEntityEditDateItem* dateItem =
+          base::apple::ObjCCastStrict<AutofillAIEntityEditDateItem>(item);
+      BOOL itemIsValid = !missingFields.contains(
+          autofill::AttributeType(dateItem.attributeType));
+      if (dateItem.hasValidValueStatus != itemIsValid) {
+        dateItem.hasValidValueStatus = itemIsValid;
+        [itemsToReconfigure addObject:dateItem];
       }
     }
   }
   if (itemsToReconfigure.count > 0) {
     [self reconfigureCellsForItems:itemsToReconfigure];
   }
+  BOOL isValid = missingFields.empty();
+  BOOL buttonEnabled = isValid && !_loadingState;
+  if (self.mode == AutofillAIEntityEditMode::kCreate) {
+    if (_saveButton) {
+      _saveButton.enabled = buttonEnabled;
+    }
+  } else {
+    self.navigationItem.rightBarButtonItem.enabled = buttonEnabled;
+  }
+
   return isValid;
 }
 
@@ -470,6 +548,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
     countryItem.editingAccessoryType = UITableViewCellAccessoryNone;
     countryItem.selectionStyle = UITableViewCellSelectionStyleNone;
   }
+}
+
+- (UIButton*)saveButton {
+  return _saveButton;
 }
 
 @end

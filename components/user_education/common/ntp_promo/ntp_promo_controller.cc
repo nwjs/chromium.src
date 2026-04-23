@@ -60,6 +60,7 @@ constexpr char kPromoMetricPrefix[] = "UserEducation.NtpPromos.Promos.";
 constexpr char kPromoMetricShownSuffix[] = ".Shown";
 constexpr char kPromoMetricClickedSuffix[] = ".Clicked";
 constexpr char kPromoMetricCompletedSuffix[] = ".Completed";
+constexpr char kPromoMetricDismissedSuffix[] = ".Dismissed";
 // LINT.ThenChange(//tools/metrics/histograms/metadata/user_education/histograms.xml:NtpPromoActions)
 
 void LogPromoMetric(const NtpPromoIdentifier& id, const std::string& suffix) {
@@ -77,6 +78,10 @@ void LogPromoClicked(const NtpPromoIdentifier& id) {
 
 void LogPromoCompleted(const NtpPromoIdentifier& id) {
   LogPromoMetric(id, kPromoMetricCompletedSuffix);
+}
+
+void LogPromoDismissed(const NtpPromoIdentifier& id) {
+  LogPromoMetric(id, kPromoMetricDismissedSuffix);
 }
 
 }  // namespace
@@ -140,6 +145,15 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
   int oldest_session = std::numeric_limits<int>::max();
   const int current_session = storage_service_->GetSessionNumber();
   NtpPromoIdentifier most_recent_promo = GetMostRecentTopSpotPromo();
+  NtpPromoIdentifier promo_shown_this_session;
+  if (!most_recent_promo.empty()) {
+    auto most_recent_prefs =
+        storage_service_->ReadNtpPromoData(most_recent_promo)
+            .value_or(NtpPromoData());
+    if (most_recent_prefs.last_session == current_session) {
+      promo_shown_this_session = most_recent_promo;
+    }
+  }
 
   for (const auto& id : registry_->GetNtpPromoIdentifiers()) {
     const auto* spec = registry_->GetNtpPromoSpecification(id);
@@ -163,6 +177,16 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
     }
 
     if (CanShowPromo(id, prefs, eligibility, now, current_session)) {
+      // This promo is able to be shown. Next, decide if it's actually the one
+      // we want to show or not.
+
+      // If we already showed a promo this session, and this wasn't it, skip it.
+      // If a promo is shown then dismissed for any reason, we won't show
+      // another promo until the next session.
+      if (!promo_shown_this_session.empty() && id != promo_shown_this_session) {
+        continue;
+      }
+
       if (prefs.last_session == current_session ||
           (id == most_recent_promo &&
            prefs.session_count_in_term < params_.max_sessions_per_term)) {
@@ -174,6 +198,8 @@ std::optional<NtpShowablePromo> NtpPromoController::GenerateShowablePromo(
 
       if (prefs.last_session < oldest_session) {
         // Fallback: keep track of the least recently shown eligible promo.
+        // This is the one to be shown if the previously-shown promo has
+        // reached its impression limit.
         oldest_session = prefs.last_session;
         selected_promo_id = id;
       }
@@ -238,6 +264,7 @@ void NtpPromoController::OnPromoDismissed(const NtpPromoIdentifier& id) {
   auto prefs = storage_service_->ReadNtpPromoData(id).value_or(NtpPromoData());
   prefs.dismissed_time = storage_service_->GetCurrentTime();
   storage_service_->SaveNtpPromoData(id, prefs);
+  LogPromoDismissed(id);
 }
 
 NtpPromoIdentifier NtpPromoController::GetMostRecentTopSpotPromo() {

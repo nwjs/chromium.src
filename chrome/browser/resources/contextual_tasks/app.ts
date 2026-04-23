@@ -126,27 +126,11 @@ function updateWebuiParams(aimUrl: Url) {
   window.history.replaceState({}, '', webuiUrl.href);
 }
 
-// Returns whether the provided URL has the appropriate params to load an
-// existing thread, as opposed to the default zero-state.
-function urlHasThreadParams(url: URL): boolean {
-  return url.searchParams.has('mstk') && url.searchParams.has('mtid') &&
-      url.searchParams.has('q');
-}
-
 // Returns whether the value of the "deb" param contains "nocobrowse1" which
 // should cause the user to be removed from the cobrowse ui.
 function hasExitCobrowseParam(url: URL): boolean {
   const debParam = url.searchParams.get(DEBUG_PARAM_KEY) || '';
   return debParam.indexOf('nocobrowse1') > -1;
-}
-
-function applyWebUiParamsToThreadUrl(threadUrl: URL, webUiUrl: URL) {
-  threadUrl.searchParams.set('mtid', webUiUrl.searchParams.get('thread') || '');
-  threadUrl.searchParams.set('mstk', webUiUrl.searchParams.get('turn') || '');
-  // This value doesn't actually influence the result provided by AI mode
-  // if thread ID and turn ID are provided, but is required to display
-  // anything other than the zero-state.
-  threadUrl.searchParams.set('q', webUiUrl.searchParams.get('title') || '');
 }
 
 export class ContextualTasksAppElement extends CrLitElement {
@@ -221,6 +205,8 @@ export class ContextualTasksAppElement extends CrLitElement {
       userName_: {type: String},
       friendlyZeroStateTitleBeforeName_: {type: String},
       friendlyZeroStateTitleAfterName_: {type: String},
+      friendlyZeroStateTitle: {type: String},
+      friendlyZeroStateSubtitle: {type: String},
       occluders_: {type: Array},
       showOnboardingTooltip_: {
         type: Boolean,
@@ -247,7 +233,7 @@ export class ContextualTasksAppElement extends CrLitElement {
   // Whether top-level navigation failed. Initialized based on online status
   // though top-level navigation could fail for numerous reasons.
   protected accessor isLoadError_: boolean = !window.navigator.onLine;
-  protected accessor isAiPage_: boolean = true;
+  protected accessor isAiPage_: boolean = loadTimeData.getBoolean('isAiPage');
   protected accessor isLensOverlayShowing_: boolean = false;
   protected accessor isOverlayOpenForAimVisualSearch_: boolean = false;
   // Indicates if in tab mode. Most start in a tab.
@@ -258,10 +244,15 @@ export class ContextualTasksAppElement extends CrLitElement {
   protected accessor threadTitle_: string = '';
   protected accessor isInBasicMode_: boolean = false;
   protected accessor isErrorPageVisible_: boolean = false;
-  protected accessor isZeroState_: boolean|undefined = undefined;
+  // Whether no queries have been submitted in the current AIM thread. This
+  // can be undefined on initial load to prevent the composebox from flashing
+  // briefly before the zero state is rendered.
+  protected accessor isZeroState_: boolean|undefined =
+      loadTimeData.getBoolean('isGhostLoaderVisible') ? false : undefined;
   protected accessor enableNativeZeroStateSuggestions_: boolean =
       loadTimeData.getBoolean('enableNativeZeroStateSuggestions');
-  protected accessor isGhostLoaderVisible_: boolean = false;
+  protected accessor isGhostLoaderVisible_: boolean =
+      loadTimeData.getBoolean('isGhostLoaderVisible');
   protected accessor useStratusDarkModeColors_: boolean =
       loadTimeData.getBoolean('useStratusDarkModeColors');
   protected accessor isInputLocked_: boolean = false;
@@ -276,9 +267,9 @@ export class ContextualTasksAppElement extends CrLitElement {
   // of the composebox are not visible to the user, and therefore not clickable.
   protected accessor occluders_: Rect[]|null = null;
 
-  protected friendlyZeroStateSubtitle: string =
+  protected accessor friendlyZeroStateSubtitle: string =
       loadTimeData.getString('friendlyZeroStateSubtitle');
-  protected friendlyZeroStateTitle: string =
+  protected accessor friendlyZeroStateTitle: string =
       loadTimeData.getString('friendlyZeroStateTitle');
   // Tracks whether the frame is currently loading. Needed to avoid race
   // condition while awaiting isAiPage.
@@ -568,8 +559,7 @@ export class ContextualTasksAppElement extends CrLitElement {
     // webview) until oauth tokens are received from the WebUI controller. This
     // prevents situations where the user is technically signed out of the
     // embedded frame and unable to save or access existing data.
-    this.pendingUrl_ =
-        this.maybeUpdateThreadUrlForRestore(threadUrlAsUrl, webUiUrlOnLoad);
+    this.pendingUrl_ = threadUrlAsUrl.href;
     this.maybeLoadPendingUrl_();
   }
 
@@ -724,9 +714,14 @@ export class ContextualTasksAppElement extends CrLitElement {
   }
 
   private async onThreadFrameLoadAbort(e: chrome.webviewTag.LoadAbortEvent) {
+    // It is possible for a redirect to abort a load before committing. To
+    // prevent ghost loader flickers in this case, only hide the ghost loader if
+    // the frame was previously set to loading.
+    if (this.isFrameLoading) {
+      this.setIsGhostLoaderVisible(false);
+    }
     this.isFrameLoading = false;
     this.isLoadingZeroStateFromResults_ = false;
-    this.setIsGhostLoaderVisible(false);
 
     // The navigation aborted, so reset the last thread frame load start event,
     // since the frame is no longer loading. Without this, every
@@ -1024,29 +1019,6 @@ export class ContextualTasksAppElement extends CrLitElement {
 
   getForcedComposeboxBoundsForTesting(): Rect|null {
     return this.forcedComposeboxBounds_;
-  }
-
-  // Conditionally update the provided thread URL so it restores an existing
-  // thread. If the thread URL already contains the params for loading a
-  // specific thread, this will return the same URL that was provided.
-  private maybeUpdateThreadUrlForRestore(threadUrl: URL, webUiUrl: URL):
-      string {
-    // Check if the provided URL is default by checking for thread ID, turn
-    // ID, and title. If those params are not present, but are present on the
-    // WebUI URL, apply them to the thread URL.
-    // TODO(470107169): The ContextualTasksService should provide this URL
-    //                  based on task ID alone.
-    const updatedThreadUrl = new URL(threadUrl.href);
-    const threadUrlHasParams = urlHasThreadParams(updatedThreadUrl);
-    const webUiUrlHasParams = urlHasThreadParams(webUiUrl);
-    if (!threadUrlHasParams && webUiUrlHasParams) {
-      applyWebUiParamsToThreadUrl(updatedThreadUrl, webUiUrl);
-      this.threadTitle_ =
-          webUiUrl.searchParams.get('q') || loadTimeData.getString('title');
-      document.title = this.threadTitle_;
-    }
-
-    return updatedThreadUrl.href;
   }
 
   private postMessageToWebview(message: number[]) {

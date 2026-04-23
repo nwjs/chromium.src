@@ -90,7 +90,7 @@
 <translation id="1144136880160289237">目前沒有任何有效主題</translation>
 <translation id="1149617035358809955">驗證你的身分，以便填入付款資訊</translation>
 <translation id="1150565364351027703">太陽眼鏡</translation>
-<translation id="1150979032973867961">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得你電腦作業系統的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="1150979032973867961">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證未取得你電腦作業系統的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="1151972924205500581">請輸入密碼</translation>
 <translation id="1156303062776767266">目前查看的是本機檔案或共用檔案</translation>
 <translation id="1158211211994409885"><ph name="HOST_NAME" /> 意外中斷連線。</translation>
@@ -236,7 +236,6 @@
 <translation id="1358187717814494928">建立試算表</translation>
 <translation id="1358223345833465883">你在 Chromium 中的搜尋引擎</translation>
 <translation id="1359836962251219822">餐廚用具</translation>
-<translation id="136059610328993645">你的資訊會儲存到 <ph name="ACCOUNT" /> 的 Google 錢包。你可以在各項 Google 服務中使用這項資訊，更快填寫表單。</translation>
 <translation id="1360955481084547712">開啟新的無痕視窗以進行私密瀏覽</translation>
 <translation id="1361528602584216624">每筆 Pix 交易的上限為 R$ <ph name="TRANSACTION_LIMIT" /> 巴西雷亞爾</translation>
 <translation id="1363015776076529485">已完整開啟可供選取的付款方式，以便繼續付款。</translation>
@@ -454,7 +453,7 @@
 <translation id="1703835215927279855">Letter</translation>
 <translation id="1705645336613358172">使用 Affirm 或 Zip 分期付款</translation>
 <translation id="1706625117072057435">縮放等級</translation>
-<translation id="1706954506755087368">{1,plural, =1{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全性憑證預定明天才生效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。}other{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全性憑證預定 # 天後才生效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。}}</translation>
+<translation id="1706954506755087368">{1,plural, =1{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全憑證預定明天才生效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。}other{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全憑證預定 # 天後才生效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。}}</translation>
 <translation id="1710259589646384581">作業系統</translation>
 <translation id="1711234383449478798">由於 <ph name="POLICY_NAME" /> 未設為 <ph name="VALUE" />，因此遭到忽略。</translation>
 <translation id="1712552549805331520"><ph name="URL" /> 要求在你的本機電腦上永久儲存資料</translation>
@@ -464,7 +463,6 @@
 <translation id="1717218214683051432">動作感應器</translation>
 <translation id="1717494416764505390">出紙槽 3</translation>
 <translation id="1717688554309417925">金融卡與簽帳服務</translation>
-<translation id="1717882880162336471">試試 AI 模式</translation>
 <translation id="1719434663396780149">降價快訊已開啟。你可以前往<ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />進行變更。</translation>
 <translation id="1719838434204287058">24 x 30 吋</translation>
 <translation id="1720941539803966190">關閉教學課程</translation>
@@ -501,7 +499,7 @@
 <translation id="1757773103848038814">等寬字型</translation>
 <translation id="1757935267918149452">「變更 Google 密碼」按鈕，啟動後即可變更 Google 帳戶密碼</translation>
 <translation id="1762779605905950734">街道名稱</translation>
-<translation id="1763864636252898013">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得你裝置作業系統的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="1763864636252898013">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證未取得你裝置作業系統的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="1768211456781949159"><ph name="BEGIN_LINK" />嘗試執行 Windows 網路診斷<ph name="END_LINK" />。</translation>
 <translation id="1777422078676229054">相紙 (典藏用)</translation>
 <translation id="1778646502362731194">JIS B0</translation>
@@ -574,7 +572,7 @@
 <translation id="1890171020361705182">在這款恐龍遊戲中，你要協助在荒野中奔馳的像素風恐龍閃避仙人掌和翼手龍。聽見提示音效時，輕觸一下即可躍過障礙物。</translation>
 <translation id="1898423065542865115">篩選</translation>
 <translation id="1898678876221454577">登入即可儲存掃描結果</translation>
-<translation id="1901443836186977402">{1,plural, =1{伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證已在昨天到期。這可能是因為設定錯誤，或是有攻擊者攔截你的連線。這台電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}other{伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證已在 # 天前到期。這可能是因為設定錯誤，或有攻擊者攔截你的連線。這台電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}}</translation>
+<translation id="1901443836186977402">{1,plural, =1{伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證已在昨天到期。這可能是因為設定錯誤，或是有攻擊者攔截你的連線。這台電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}other{伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證已在 # 天前到期。這可能是因為設定錯誤，或有攻擊者攔截你的連線。這台電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}}</translation>
 <translation id="190166348986967700">系統管理員會在 <ph name="DATE_TIME" /> 開始將你的檔案上傳到 <ph name="CLOUD_PROVIDER" />。完成之前，請勿中斷裝置連線。上傳期間，你只能讀取本機檔案。</translation>
 <translation id="1902576642799138955">有效期間</translation>
 <translation id="1908217026282415406">使用及調整攝影機</translation>
@@ -614,7 +612,6 @@
 <translation id="1960664692890490165">在 Chrome 中進行購買交易時可選擇非卡片付款方式</translation>
 <translation id="196146181975453736">完成一次性安全檢查，付款更便捷</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> 書籤</translation>
-<translation id="1966259577349514951">立即付款</translation>
 <translation id="1973335181906896915">序列化錯誤</translation>
 <translation id="1973785048533660168">文書與行政工作</translation>
 <translation id="1974060860693918893">進階</translation>
@@ -868,7 +865,7 @@
 <translation id="2348836501965732644">前往「設定」管理資訊或關閉這些建議</translation>
 <translation id="2349957959687031096">「開啟無痕分頁」按鈕，啟動後即可開啟新的無痕分頁進行私密瀏覽</translation>
 <translation id="2350796302381711542">要允許 <ph name="HANDLER_HOSTNAME" /> 取代 <ph name="REPLACED_HANDLER_TITLE" /> 開啟所有<ph name="PROTOCOL" />連結嗎？</translation>
-<translation id="2351718832234620840">這個伺服器的安全性憑證未取得 Chromium 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。</translation>
+<translation id="2351718832234620840">這個伺服器的安全憑證未取得 Chromium 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。</translation>
 <translation id="2353297238722298836">可使用攝影機和麥克風</translation>
 <translation id="2354001756790975382">其他書籤</translation>
 <translation id="2355395290879513365">攻擊者可能會看到你正在這個網站上瀏覽的圖片，並以修改圖片內容的方式讓你受騙。</translation>
@@ -918,7 +915,7 @@
 <translation id="2404715426538856682">信用卡和簽帳金融卡 · IBAN · 會員卡</translation>
 <translation id="2404884497378469141">再次嘗試複製檔案</translation>
 <translation id="2413155254802890957">舊地址</translation>
-<translation id="2413528052993050574">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證已遭撤銷。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="2413528052993050574">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證已遭撤銷。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="2414676293664737497">Markdown</translation>
 <translation id="2414886740292270097">深色</translation>
 <translation id="2429702686644080813">登入即可儲存影片</translation>
@@ -1044,6 +1041,7 @@
 <translation id="2610561535971892504">點選複製</translation>
 <translation id="2612676031748830579">卡號</translation>
 <translation id="2612993535136743634">儲存在裝置和 Google 帳戶中的所有安全碼都會刪除</translation>
+<translation id="2613758321247965174">{MINUTES,plural, =1{1 分鐘前在線上}other{# 分鐘前在線上}}</translation>
 <translation id="2614835674900828050">無法用於本次交易</translation>
 <translation id="2616412942031748191">搜尋引擎最佳化與行銷</translation>
 <translation id="2618206371527040026">學術研討會與出版品</translation>
@@ -1053,8 +1051,9 @@
 <translation id="2625385379895617796">你的時鐘時間過快</translation>
 <translation id="262745152991669301">可以要求連線至 USB 裝置</translation>
 <translation id="2627847595568876492">正在擷取 PDF 檔的文字...</translation>
-<translation id="2628025184666666186">這個伺服器的安全性憑證未取得 Chrome 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。</translation>
+<translation id="2628025184666666186">這個伺服器的安全憑證未取得 Chrome 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。</translation>
 <translation id="2628224721443278970">登入 Microsoft OneDrive</translation>
+<translation id="2631059741268498165">管理員已找到這部停用的裝置，並將其重新啟用，你可以開始使用了。</translation>
 <translation id="2631387782019878060">驗證碼：<ph name="OTP" /></translation>
 <translation id="2634124572758952069">找不到 <ph name="HOST_NAME" /> 的伺服器 IP 位址。</translation>
 <translation id="2638567100095052009">輸入 @ 即可在 <ph name="FEATURED_SEARCH_LIST" /> 上搜尋</translation>
@@ -1096,7 +1095,6 @@
 <translation id="2696385693639654606">Chrome Enterprise 基本版可讓你從雲端管理瀏覽器政策、應用程式和擴充功能</translation>
 <translation id="2697248912349197812">問問 <ph name="KEYWORD_SHORT_NAME" /></translation>
 <translation id="2699273987028089219">有可用的子選單，請使用<ph name="SHORTCUT" />前往其他選項。</translation>
-<translation id="2700335762333112350">先買後付</translation>
 <translation id="2701514975700770343">正面朝下</translation>
 <translation id="2702592986366989640">低價選項</translation>
 <translation id="2702801445560668637">閱讀清單</translation>
@@ -1233,7 +1231,7 @@
 <translation id="2938370569652058706"><ph name="ORIGIN" /> - 如要顯示游標，請切換應用程式、重新載入頁面或返回</translation>
 <translation id="2940418897281183211">PNG 圖片</translation>
 <translation id="2941878205777356567">Envelope 9 x 12 in</translation>
-<translation id="2941952326391522266">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證來自 <ph name="DOMAIN2" /> 網域。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="2941952326391522266">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證來自 <ph name="DOMAIN2" /> 網域。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="2942492342931589800">輕鬆</translation>
 <translation id="2942515540157583425">資訊科技與技術相關工作</translation>
 <translation id="2943895734390379394">上傳時間：</translation>
@@ -1300,10 +1298,12 @@
 <translation id="3037177537145227281">追蹤價格</translation>
 <translation id="3037605927509011580">糟糕！</translation>
 <translation id="3039406992698062762">家庭旅遊</translation>
+<translation id="3040435070100611531">你的 Google 錢包票證</translation>
 <translation id="3041176923638368519">查看卡片優惠措施條款</translation>
 <translation id="3041584414879052436">「先買後付」發卡機構清單已關閉。</translation>
 <translation id="3041612393474885105">憑證資訊</translation>
 <translation id="3045769629416806687">極限運動</translation>
+<translation id="3047054686095898948">將資訊儲存在 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_1" />，處理事務更有效率，例如在 Google 產品中輕鬆填寫表單。你可以前往 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE_2" /> <ph name="BEGIN_LINK" />管理 <ph name="ACCOUNT" /> 的資訊<ph name="END_LINK" /></translation>
 <translation id="305162504811187366">Chrome 遠端桌面歷史記錄，包括時間戳記、主機和用戶端工作階段 ID</translation>
 <translation id="3052868890529250114">你通常可以經由安全連線前往網站，但 Chrome 目前無法使用安全連線。攻擊者可能會試圖竊聽或修改你的網路連線。<ph name="BEGIN_LEARN_MORE_LINK" />進一步瞭解這項警告<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3052964831964880138">「<ph name="PRODUCT_NAME" />」降價 <ph name="PRICE_DROP" /></translation>
@@ -1877,7 +1877,7 @@
 <translation id="3946209740501886391">一律詢問你是否接受這個網站的要求</translation>
 <translation id="3948588869002647271">這個應用程式遺失或已毀損</translation>
 <translation id="3949297482798028668">系統管理員已禁止在此貼上這項內容。</translation>
-<translation id="3949571496842715403">這個伺服器無法證明所屬網域為 <ph name="DOMAIN" />；其安全性憑證未指定主體別名。這可能是因為設定錯誤，或是有攻擊者攔截你的連線所致。</translation>
+<translation id="3949571496842715403">這個伺服器無法證明所屬網域為 <ph name="DOMAIN" />；其安全憑證未指定主體別名。這可能是因為設定錯誤，或是有攻擊者攔截你的連線所致。</translation>
 <translation id="3949601375789751990">你的瀏覽記錄會顯示在這裡</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="3949870428812919180">未儲存任何付款方式</translation>
@@ -2182,7 +2182,7 @@
 <translation id="4371591986692297148">未啟用</translation>
 <translation id="4372948949327679948">預期的「<ph name="VALUE_TYPE" />」值。</translation>
 <translation id="437620492464254965">門窗</translation>
-<translation id="4377125064752653719">你嘗試前往 <ph name="DOMAIN" />，但是發行者已撤銷伺服器提供的憑證。在這種情況下，請勿信任伺服器提供的安全性憑證，因為你的連線對象可能是攻擊者的電腦。</translation>
+<translation id="4377125064752653719">你嘗試前往 <ph name="DOMAIN" />，但是發行者已撤銷伺服器提供的憑證。在這種情況下，請勿信任伺服器提供的安全憑證，因為你的連線對象可能是攻擊者的電腦。</translation>
 <translation id="4377869186417956230">變更這個選單項目下的所有會員卡。</translation>
 <translation id="4378154925671717803">電話</translation>
 <translation id="4382484599443659549">PDF</translation>
@@ -2205,7 +2205,7 @@
 <translation id="4415426530740016218">取件地址</translation>
 <translation id="4415748029120993980">SECG 橢圓曲線 secp384r1 (亦稱為 NIST P-384)</translation>
 <translation id="4419287616181386201">前往相關管理設定即可刪除密碼</translation>
-<translation id="4424024547088906515">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得 Chrome 的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="4424024547088906515">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證未取得 Chrome 的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="4425750422187370446">運動服飾</translation>
 <translation id="443008484043213881">工具</translation>
 <translation id="443121186588148776">序列埠</translation>
@@ -2337,7 +2337,7 @@
 <translation id="4670064810192446073">虛擬實境</translation>
 <translation id="4671339777629075741">信封 DL</translation>
 <translation id="4675391562155186035">密碼金鑰 • Chrome 設定檔</translation>
-<translation id="467662567472608290">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證含有錯誤。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="467662567472608290">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證含有錯誤。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="4677585247300749148"><ph name="URL" /> 要求回應無障礙事件</translation>
 <translation id="467809019005607715">Google 簡報</translation>
 <translation id="4678379207584374453"><ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
@@ -2444,7 +2444,6 @@
 <translation id="4832388034239846146">如要共用分頁群組，請更新 Chrome</translation>
 <translation id="483241715238664915">開啟警告</translation>
 <translation id="4832961164064927107">烤肉與燒烤</translation>
-<translation id="4839984801146463230">儲存資訊可讓你更有效率，例如能更快填妥各項 Google 產品的表單。你可以在「<ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" />」中<ph name="BEGIN_LINK" />管理<ph name="END_LINK" />「<ph name="ACCOUNT" />」的資訊</translation>
 <translation id="4840250757394056958">查看 Chrome 歷史記錄</translation>
 <translation id="484462545196658690">自動</translation>
 <translation id="4844937814014739139">捲動及縮放已分享的分頁</translation>
@@ -2608,7 +2607,7 @@
 <translation id="5089810972385038852">州</translation>
 <translation id="5093232627742069661">彈簧二摺</translation>
 <translation id="5093417502834168387">登入時發生問題嗎？試試其他方法</translation>
-<translation id="5094747076828555589">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得 Chromium 的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="5094747076828555589">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證未取得 Chromium 的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="5096066272198024688">正在儲存你的資訊...</translation>
 <translation id="5097099694988056070">CPU/RAM 使用量等裝置統計資料</translation>
 <translation id="5097468150760963273">27 x 39 吋</translation>
@@ -2721,6 +2720,7 @@
 <translation id="5255833070095767006">350 x 460 公釐</translation>
 <translation id="5257739419779698609">{0,plural, =1{根據管理員政策，建議你不要將這個檔案複製到「<ph name="DESTINATION_NAME" />」}other{根據管理員政策，建議你不要將這些檔案複製到「<ph name="DESTINATION_NAME" />」}}</translation>
 <translation id="5258473597674772367">「<ph name="GROUP_NAME" />」分頁群組已無法使用</translation>
+<translation id="5262342527470539728">這項資訊會儲存在 <ph name="ACCOUNT" /> 的 <ph name="IDS_AUTOFILL_GOOGLE_WALLET_TITLE" /></translation>
 <translation id="5263867360296733198">上傳檔案前請務必確認</translation>
 <translation id="5266128565379329178">裝訂 (頂端)</translation>
 <translation id="5269225904387178860">四孔 (底部)</translation>
@@ -2815,7 +2815,7 @@
 <translation id="5401344472773249513">名人與娛樂新聞</translation>
 <translation id="5401674281624189321">山區與滑雪勝地</translation>
 <translation id="540949333488055151">塑膠 (彩色)</translation>
-<translation id="540969355065856584">這個伺服器無法證明所屬網域為 <ph name="DOMAIN" />；其安全性憑證目前無效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線所致。</translation>
+<translation id="540969355065856584">這個伺服器無法證明所屬網域為 <ph name="DOMAIN" />；其安全憑證目前無效。這可能是因為設定錯誤，或是有攻擊者攔截您的連線所致。</translation>
 <translation id="5411462078004183575">低價選項</translation>
 <translation id="5412040515238827314">格式無效：輸入的值必須是模式清單。</translation>
 <translation id="5412245327974352290"><ph name="TRADITIONAL_TEXT" /> - <ph name="ADDITIONAL_TEXT" /></translation>
@@ -2917,6 +2917,7 @@
 <translation id="5543564889050342791">動物園、水族館與保護區</translation>
 <translation id="5543722831081909240">180 度</translation>
 <translation id="5544836308113951378">遊艇與租船</translation>
+<translation id="5546252337258681768">裝置已解除鎖定</translation>
 <translation id="5547939254150808298">印刷與出版</translation>
 <translation id="554815783948612276">論壇與即時通訊服務供應商</translation>
 <translation id="5548606607480005320">安全檢查</translation>
@@ -2958,6 +2959,7 @@
 <translation id="5600044805561809264">上網時，可以輕鬆詢問分頁的相關問題。</translation>
 <translation id="5603469469737324249">「<ph name="ISSUER_1_NAME" />」或「<ph name="ISSUER_2_NAME" />」</translation>
 <translation id="560412284261940334">系統不支援管理</translation>
+<translation id="560431066250575003">{HOURS,plural, =1{1 小時前在線上}other{# 小時前在線上}}</translation>
 <translation id="5605249000617390290">進一步瞭解價格追蹤功能</translation>
 <translation id="5605670050355397069">Ledger</translation>
 <translation id="5610142619324316209">檢查連線狀態</translation>
@@ -3511,6 +3513,7 @@
 <translation id="6456955391422100996">已移除廣告。</translation>
 <translation id="6457206614190510200">騎馬訂</translation>
 <translation id="6457455098507772300">系統會以彈出式通知形式在電腦上顯示降價快訊</translation>
+<translation id="6458519747993638565">目前在線上</translation>
 <translation id="6458606150257356946">仍要貼上</translation>
 <translation id="6462438303393708881">取消上傳</translation>
 <translation id="6464094930452079790">圖片</translation>
@@ -3620,7 +3623,6 @@
 <translation id="6655085656059574817">保持帳戶連結有助於透過「<ph name="BNPL_ISSUER_NAME" />」快速付款。如要取消連結，可以前往 <ph name="BEGIN_LINK" /><ph name="IDS_AUTOFILL_BNPL_TOS_LINK_TEXT_WALLET_LINK_TEXT" /><ph name="END_LINK" /></translation>
 <translation id="6656935431494847393">加入航班預訂和車輛資訊等相關細節</translation>
 <translation id="6657585470893396449">密碼</translation>
-<translation id="6659156657345021268">資訊僅儲存在裝置上。下次填寫相關表單時，系統會詢問你是否要將這項資訊儲存至錢包。</translation>
 <translation id="6659246032834639189">這個價格屬於低價位</translation>
 <translation id="6660413144148052430">位置</translation>
 <translation id="6662457027866368246">第一卷</translation>
@@ -3728,7 +3730,7 @@
 <translation id="6820686453637990663">信用卡驗證碼</translation>
 <translation id="6820949753458790123">輕鬆分期付款</translation>
 <translation id="6822745163454377107">將開啟的分頁分享給這個對話，加快取得更貼近需求的回覆。</translation>
-<translation id="6825578344716086703">你嘗試連上 <ph name="DOMAIN" />，但伺服器的憑證是以防護力薄弱的簽章演算法 (例如 SHA-1) 進行簽署。這代表伺服器提供的安全性憑證可能遭到偽造，而且這個伺服器可能並不是你的目標伺服器 (你的連線對象可能是攻擊者的電腦)。</translation>
+<translation id="6825578344716086703">你嘗試連上 <ph name="DOMAIN" />，但伺服器的憑證是以防護力薄弱的簽章演算法 (例如 SHA-1) 進行簽署。這代表伺服器提供的安全憑證可能遭到偽造，而且這個伺服器可能並不是你的目標伺服器 (你的連線對象可能是攻擊者的電腦)。</translation>
 <translation id="6826993739343257035">要允許 AR 嗎？</translation>
 <translation id="6828150717884939426">撥號</translation>
 <translation id="6828866289116430505">遺傳學</translation>
@@ -3743,7 +3745,6 @@
 <translation id="6850286078059909152">文字顏色</translation>
 <translation id="6852204201400771460">要重新載入應用程式嗎？</translation>
 <translation id="6854691830678097752">將這組信用卡驗證碼儲存到帳戶 (<ph name="ACCOUNT_EMAIL" />) 可加快結帳速度</translation>
-<translation id="6855951327659224749">請先清除表單，才能使用先買後付選項</translation>
 <translation id="6857776781123259569">管理密碼...</translation>
 <translation id="6858034839887287663">A2 x 4</translation>
 <translation id="6860888819347870819">可以要求進入子母畫面</translation>
@@ -4141,7 +4142,7 @@
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />進一步瞭解<ph name="END_LINK" />這個問題。</translation>
 <translation id="745208957946308667">恐龍遊戲，按下空白鍵即可遊玩</translation>
 <translation id="7453032093368223821">管理其他資料</translation>
-<translation id="7453849010505253492">這個伺服器的安全性憑證未取得 Chrome 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。<ph name="BEGIN_VIEW_CERTIFICATE_LINK" />查看憑證<ph name="END_VIEW_CERTIFICATE_LINK" /></translation>
+<translation id="7453849010505253492">這個伺服器的安全憑證未取得 Chrome 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。<ph name="BEGIN_VIEW_CERTIFICATE_LINK" />查看憑證<ph name="END_VIEW_CERTIFICATE_LINK" /></translation>
 <translation id="7454377933424667109">雲端帳戶</translation>
 <translation id="7455133967321480974">使用全域預設值 (封鎖)</translation>
 <translation id="7455452752247248289">企業技術</translation>
@@ -4223,7 +4224,7 @@
 <translation id="7561784249784255101">DVD</translation>
 <translation id="7564049878696755256">你可能會失去 <ph name="ORG_NAME" /> 帳戶存取權，或身分遭到冒用。Chrome 建議你立即變更密碼。</translation>
 <translation id="7564667064360547717">襯衫與上衣</translation>
-<translation id="7567204685887185387">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證是以欺詐方式發行。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
+<translation id="7567204685887185387">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全憑證是以欺詐方式發行。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="7568616151991626879">Google Chrome 正嘗試在「<ph name="APP_NAME" />」中填入密碼。</translation>
 <translation id="7569072768465750771">{COUNT,plural, =0{無}=1{這部裝置上的 1 個分頁}other{這部裝置上的 # 個分頁}}</translation>
 <translation id="7569490014721427265">高爾夫</translation>
@@ -4505,7 +4506,7 @@
 <translation id="799384093520583425">貴機構已禁止在此頁面使用開發人員工具</translation>
 <translation id="7995512525968007366">未指定</translation>
 <translation id="7997855386298213183">已分享的分頁</translation>
-<translation id="8001912761979890298">這個伺服器的安全性憑證未取得 Chromium 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。<ph name="BEGIN_VIEW_CERTIFICATE_LINK" />查看憑證<ph name="END_VIEW_CERTIFICATE_LINK" /></translation>
+<translation id="8001912761979890298">這個伺服器的安全憑證未取得 Chromium 或系統網路流量加密設定的信任，因此無法證明其屬於「<ph name="DOMAIN" />」網域。這可能是因為設定錯誤，或是有攻擊者攔截連線。<ph name="BEGIN_VIEW_CERTIFICATE_LINK" />查看憑證<ph name="END_VIEW_CERTIFICATE_LINK" /></translation>
 <translation id="800218591365569300">嘗試關閉其他分頁或程式，以釋出記憶體。</translation>
 <translation id="8002230960325005199">在新分頁中查看相關網站</translation>
 <translation id="8003046808285812021">「<ph name="SEARCH_TERMS" />」</translation>
@@ -4768,6 +4769,7 @@
 其他詳細資料：
 <ph name="DEBUG_INFO" /></translation>
 <translation id="8416874502399604126">這次允許使用麥克風</translation>
+<translation id="8421746712901926961">將資訊儲存在 <ph name="GOOGLE_WALLET_TITLE_1" />，處理事務更有效率，例如在 Google 產品中輕鬆填寫表單。你可以在 <ph name="GOOGLE_WALLET_TITLE_2" />中為 <ph name="ACCOUNT" /> <ph name="MANAGE_INFO_LINK" />。</translation>
 <translation id="8424582179843326029"><ph name="FIRST_LABEL" /> <ph name="SECOND_LABEL" /> <ph name="THIRD_LABEL" /></translation>
 <translation id="8425213833346101688">變更</translation>
 <translation id="8426945547715537628">要允許覆寫鍵盤嗎？</translation>
@@ -4824,6 +4826,7 @@
 <translation id="8521812709849134608">廚房流理台</translation>
 <translation id="8522180136695974431">信用報告與監控</translation>
 <translation id="8522552481199248698">Chrome 可協助你保護 Google 帳戶並變更密碼。</translation>
+<translation id="852450791482410042">立即付款</translation>
 <translation id="8527228059738193856">揚聲器</translation>
 <translation id="8527681393107582734">農林業</translation>
 <translation id="8528149813106025610">童裝</translation>

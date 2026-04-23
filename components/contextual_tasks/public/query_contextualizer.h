@@ -48,6 +48,7 @@ class QueryContextualizer {
   struct TabUpdate {
     TabId id = 0;
     bool is_recontextualization = false;
+    bool is_smart_selection = false;
   };
 
   // Delegate interface that allows clients to provide platform-specific
@@ -76,17 +77,17 @@ class QueryContextualizer {
     virtual std::optional<lens::ImageEncodingOptions>
     GetTabViewportEncodingOptionsForQueryContextualizer() = 0;
 
-    // Called when the page context is ineligible.
-    virtual void OnPageContextIneligible() = 0;
-
-    // Called when contextualization for a tab has been processed (either
-    // uploaded or skipped), to allow state cleanup.
-    virtual void OnTabProcessedForQueryContextualization(TabId id) = 0;
 
     // Returns the session handle for context upload, creating it if necessary.
     // If it cannot create one, returning nullptr is fine.
     virtual contextual_search::ContextualSearchSessionHandle*
     GetOrCreateSessionHandleForQueryContextualizer() = 0;
+
+    // Fetches relevant tabs for the given query.
+    virtual void GetRelevantTabsForQuery(
+        const std::string& query_text,
+        const std::vector<GURL>& attached_context_urls,
+        base::OnceCallback<void(std::vector<TabId>)> callback) = 0;
   };
 
   QueryContextualizer(ContextualTasksService* service, Delegate* delegate);
@@ -97,6 +98,9 @@ class QueryContextualizer {
 
   using ContextualizedCallback = base::OnceCallback<void(
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>)>;
+
+  using PageContextIneligibleCallback = base::RepeatingClosure;
+  using TabProcessedCallback = base::RepeatingCallback<void(TabId)>;
 
   // Starts the contextualization flow for the given task and tabs.
   // `task_id` is the ID of the active contextual task to contextualize for,
@@ -114,16 +118,34 @@ class QueryContextualizer {
                      const std::string& query_text,
                      const std::vector<TabId>& tabs_to_recontextualize,
                      const std::vector<TabId>& tabs_to_force_contextualize,
-                     ContextualizedCallback callback);
+                     PageContextIneligibleCallback on_ineligible_callback,
+                     TabProcessedCallback on_processed_callback,
+                     ContextualizedCallback callback,
+                     bool enable_smart_tab_selection);
 
  private:
-  void OnContextRetrieved(
+  void OnRelevantTabsFetched(
       const std::optional<base::Uuid>& task_id,
       const std::string& query_text,
       const std::vector<TabId>& tabs_to_recontextualize,
       const std::vector<TabId>& tabs_to_force_contextualize,
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
           session_handle,
+      PageContextIneligibleCallback on_ineligible_callback,
+      TabProcessedCallback on_processed_callback,
+      ContextualizedCallback callback,
+      std::vector<TabId> smart_tabs);
+
+  void OnContextRetrieved(
+      const std::optional<base::Uuid>& task_id,
+      const std::string& query_text,
+      const std::vector<TabId>& tabs_to_recontextualize,
+      const std::vector<TabId>& tabs_to_force_contextualize,
+      const std::vector<TabId>& smart_tabs_to_contextualize,
+      base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
+          session_handle,
+      PageContextIneligibleCallback on_ineligible_callback,
+      TabProcessedCallback on_processed_callback,
       ContextualizedCallback callback,
       std::unique_ptr<ContextualTaskContext> context);
 
@@ -133,15 +155,19 @@ class QueryContextualizer {
       base::RepeatingClosure barrier_closure,
       TabId tab_id,
       bool is_recontextualization,
+      bool is_smart_selection,
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
           session_handle,
       scoped_refptr<UploadTracker> upload_tracker,
+      PageContextIneligibleCallback on_ineligible_callback,
+      TabProcessedCallback on_processed_callback,
       std::unique_ptr<lens::ContextualInputData> page_content_data);
 
   std::vector<TabUpdate> GetTabsToUpdate(
       const ContextualTaskContext* context,
       const std::vector<TabId>& tabs_to_recontextualize,
-      const std::vector<TabId>& tabs_to_force_contextualize);
+      const std::vector<TabId>& tabs_to_force_contextualize,
+      const std::vector<TabId>& smart_tabs_to_contextualize);
 
   std::optional<int64_t> GetContextIdForTab(
       const ContextualTaskContext& context,

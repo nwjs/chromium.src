@@ -305,8 +305,8 @@ void ChangePasswordFormFillingSubmissionHelper::ChangePasswordFormFilled(
            generated_password_);
   form_manager_->UpdateBackupPassword(stored_password_);
 
-  capturer_ = std::make_unique<AnnotatedPageContentCapturer>(
-      web_contents_, GetAIPageContentOptions(),
+  capturer_ = AnnotatedPageContentCapturer::Create(
+      web_contents_, client_, GetAIPageContentOptions(),
       base::BindOnce(
           &ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived,
           weak_ptr_factory_.GetWeakPtr()));
@@ -384,6 +384,11 @@ void ChangePasswordFormFillingSubmissionHelper::OnExecutionResponseCallback(
         base::unexpected(SubmissionError::kSubmitButtonNotFound));
     return;
   }
+
+  // Once button is clicked timeout can cause password on a website and inside
+  // Password Manager to diverge. Better to wait for click result to avoid false
+  // negatives.
+  timeout_timer_.Stop();
 
   click_helper_ = std::make_unique<ButtonClickHelper>(
       web_contents_.get(), client_, dom_node_id,

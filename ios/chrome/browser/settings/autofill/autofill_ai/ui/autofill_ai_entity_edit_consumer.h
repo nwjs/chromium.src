@@ -9,8 +9,19 @@
 
 @class TableViewItem;
 
+// Defines the presentation and behavioral mode of the view controller.
+enum class AutofillAIEntityEditMode {
+  // Used when viewing an existing entity.
+  kViewAndEdit,
+  // Used when creating a new entity from scratch.
+  kCreate,
+};
+
 // The consumer of the Autofill AI entity view and edit mediator.
 @protocol AutofillAIEntityEditConsumer <NSObject>
+
+// The mode in which this consumer operates.
+@property(nonatomic, assign) AutofillAIEntityEditMode mode;
 
 // Sets the title of the view.
 - (void)setTitle:(NSString*)title;
@@ -30,11 +41,9 @@
 // Updates the given item.
 - (void)updateItem:(TableViewItem*)item;
 
-// Displays a loading state while the entity is being saved to the server.
-- (void)showLoadingState;
-
-// Hides the loading state.
-- (void)hideLoadingState;
+// If `loadingState` is YES, displays a loading state while the entity is being
+// saved to the server. Otherwise, hides the loading state.
+- (void)setLoadingState:(BOOL)loadingState;
 
 // Instructs the consumer that saving is complete and it can now dismiss.
 // `isLocalFallback` is YES if a server save failed and the item was saved

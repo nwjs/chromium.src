@@ -55,6 +55,11 @@ BASE_DECLARE_FEATURE(kDocumentProviderEnterpriseEligibilityWhenUnknown);
 BASE_DECLARE_FEATURE(kShowPopupOnMouseReleased);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
+BASE_DECLARE_FEATURE(kOmniboxAimDeferShowUntilVisualStateReady);
+inline constexpr base::FeatureParam<int>
+    kOmniboxAimDeferShowUntilVisualStateReadyTimeoutMs{
+        &kOmniboxAimDeferShowUntilVisualStateReady,
+        "omnibox_aim_defer_show_until_visual_state_ready_timeout_ms", 250};
 
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).
@@ -144,6 +149,9 @@ inline constexpr base::FeatureParam<std::string> kComposeboxClientOverride{
 
 // Controls whether or not contextual composebox should display suggestions.
 BASE_DECLARE_FEATURE(kComposeboxAttachmentsTypedState);
+
+// Whether to enable Google Drive context menu option in the composebox.
+BASE_DECLARE_FEATURE(kComposeboxDriveContextMenuOption);
 
 // Whether the composebox should show a verbatim match for context in
 // zero-suggest.

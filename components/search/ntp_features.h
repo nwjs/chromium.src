@@ -49,11 +49,6 @@ BASE_DECLARE_FEATURE(kNtpModulesDragAndDrop);
 BASE_DECLARE_FEATURE(kNtpModulesLoad);
 BASE_DECLARE_FEATURE(kNtpModuleSignInRequirement);
 BASE_DECLARE_FEATURE(kNtpOutlookCalendarModule);
-BASE_DECLARE_FEATURE(kNtpPhotosModule);
-BASE_DECLARE_FEATURE(kNtpPhotosModuleSoftOptOut);
-BASE_DECLARE_FEATURE(kNtpPhotosModuleCustomizedOptInTitle);
-BASE_DECLARE_FEATURE(kNtpPhotosModuleCustomizedOptInArtWork);
-BASE_DECLARE_FEATURE(kNtpPhotosModuleSplitSvgOptInArtWork);
 BASE_DECLARE_FEATURE(kNtpFeedModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBar);
 BASE_DECLARE_FEATURE(kNtpSharepointModule);
@@ -86,6 +81,8 @@ BASE_DECLARE_FEATURE(kNtpFeatureOptimizationDismissModulesRemoval);
 BASE_DECLARE_FEATURE(kNtpAnimatedDoodles);
 BASE_DECLARE_FEATURE(kNtpDoodleMurals);
 BASE_DECLARE_FEATURE(kLightningTakeoverEdition);
+BASE_DECLARE_FEATURE(kNtpShortcutsRedesign);
+BASE_DECLARE_FEATURE(kNtpSimplificationBookmarkBar);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.
@@ -137,12 +134,7 @@ extern const char kNtpModulesEligibleForHappinessTrackingSurveyParam[];
 // Parameter determining module trigger ids for HaTS for eligible module ids for
 // a given module interaction type.
 extern const char kNtpModulesInteractionBasedSurveyEligibleIdsParam[];
-// Parameter determining the type of Photos data to render.
-extern const char kNtpPhotosModuleDataParam[];
-// Parameter determining the art work in opt-in card.
-extern const char kNtpPhotosModuleOptInArtWorkParam[];
-// Parameter determining the title for the opt-in card.
-extern const char kNtpPhotosModuleOptInTitleParam[];
+
 // Parameter determining the variation of the omnibox theme matching.
 extern const char kRealboxMatchOmniboxThemeVariantParam[];
 extern const char kNtpMostRelevantTabResumptionModuleDataParam[];
@@ -237,10 +229,6 @@ extern const base::FeatureParam<base::TimeDelta>
 // Parameter determing the max number of tab groups to show in the module.
 extern const base::FeatureParam<size_t> kNtpTabGroupsModuleMaxGroupCountParam;
 
-// Parameter determining the max number of MV tiles before the "Show more"
-// button is shown.
-extern const base::FeatureParam<int> kNtpNextMaxMVTilesBeforeShowMoreParam;
-
 // Parameter determining if the Action Chips on the NTP should display static
 // text instead of real suggestions.
 extern const base::FeatureParam<bool> kNtpNextShowStaticTextParam;
@@ -264,6 +252,9 @@ extern const base::FeatureParam<bool> kNtpNextShowDismissalUIParam;
 // Parameter determining if right-clicking an action chip should display the
 // disablement context menu.
 extern const base::FeatureParam<bool> kNtpNextDisablementContextMenuParam;
+
+// Parameter determining if the disablement is enabled for NTP Next.
+extern const base::FeatureParam<bool> kNtpNextDisablementParam;
 
 // Parameter determining if the tab upload should be delayed when tab context is
 // added from an action chip.
@@ -309,9 +300,31 @@ int GetWallpaperSearchButtonAnimationShownThreshold();
 // Returns the condition to use to hide the wallpaper search button.
 int GetWallpaperSearchButtonHideCondition();
 
-// Returns the max number of tiles to show before the "show more" button is
-// shown.
-int GetMaxTilesBeforeShowMore();
+// Parameter determining the max number of tiles to show in the collapsed state.
+extern const base::FeatureParam<int> kMaxTilesInCollapsedState;
+
+// Parameter determining the max number of shortcuts to show in the expanded
+// state.
+extern const base::FeatureParam<int> kMaxShortcutsInExpandedState;
+
+// Parameter determining the max number of MV tiles to show in the expanded
+// state.
+extern const base::FeatureParam<int> kMaxMostVisitedTilesInExpandedState;
+
+// Parameter determining the max number of enterprise shortcuts allowed.
+extern const base::FeatureParam<int> kMaxEnterpriseShortcuts;
+
+// Returns the max number of tiles to show in the collapsed state.
+int GetMaxTilesInCollapsedState();
+
+// Returns the max number of shortcuts to show in the expanded state.
+int GetMaxShortcutsInExpandedState();
+
+// Returns the max number of MV tiles to show in the expanded state.
+int GetMaxMostVisitedTilesInExpandedState();
+
+// Returns the max number of enterprise shortcuts allowed.
+int GetMaxEnterpriseShortcuts();
 
 }  // namespace ntp_features
 

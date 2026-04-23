@@ -17,7 +17,6 @@ import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -109,7 +108,11 @@ public class ToolbarButtonInProductHelpController {
                                 showPriceTrackingIph(tab);
                                 showPageSummaryIph(tab);
                                 maybeShowNewTabPageThemeCustomizationIph(tab);
-                                maybeShowBackButtonIph(tab);
+                                if (appMenuCoordinator
+                                        .getAppMenuPropertiesDelegate()
+                                        .shouldShowIconRow()) {
+                                    maybeShowBackButtonIph(tab);
+                                }
                             }
 
                             private void handleIphForErrorPageShown(Tab tab) {
@@ -183,9 +186,7 @@ public class ToolbarButtonInProductHelpController {
 
     /** Attempts to show an IPH for New Tab Page theme customization. */
     private void maybeShowNewTabPageThemeCustomizationIph(Tab tab) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-                || NtpCustomizationUtils
-                        .getNtpCustomizationBottomSheetShownFromSharedPreference()) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)) {
             return;
         }
         if (tab.isIncognitoBranded() || !UrlUtilities.isNtpUrl(tab.getUrl())) return;

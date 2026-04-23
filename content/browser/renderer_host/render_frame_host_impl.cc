@@ -1940,6 +1940,18 @@ void RecordNavigationTraceEventsAndMetrics(
   }
 
   if (ukm_builder.has_value()) {
+    if (!timeline.renderer_process_created.is_null() &&
+        timeline.renderer_process_created >= timeline.start) {
+      ukm_builder->SetRendererProcessCreated(
+          (timeline.renderer_process_created - timeline.start)
+              .InMilliseconds());
+    }
+    if (!timeline.renderer_process_launched.is_null() &&
+        timeline.renderer_process_launched >= timeline.start) {
+      ukm_builder->SetRendererProcessLaunched(
+          (timeline.renderer_process_launched - timeline.start)
+              .InMilliseconds());
+    }
     ukm_builder->Record(ukm::UkmRecorder::Get());
   }
 }
@@ -7004,7 +7016,9 @@ void RenderFrameHostImpl::ProcessBeforeUnloadCompletedFromFrame(
       // supply `send_before_unload_start_time_` as the value for
       // `renderer_before_unload_start_time`, which means
       // `browser_to_renderer_ipc_time_delta` should be 0.
-      CHECK(browser_to_renderer_ipc_time_delta.is_zero());
+      // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK
+      // once we are sure this isn't hit.
+      DCHECK(browser_to_renderer_ipc_time_delta.is_zero());
     }
 
     base::TimeDelta on_before_unload_overhead_time =
@@ -8786,8 +8800,10 @@ void RenderFrameHostImpl::DispatchLoad() {
     }
   }
 
-  CHECK(lifecycle_state() == LifecycleStateImpl::kActive ||
-        lifecycle_state() == LifecycleStateImpl::kPrerendering);
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(lifecycle_state() == LifecycleStateImpl::kActive ||
+         lifecycle_state() == LifecycleStateImpl::kPrerendering);
 
   // Only frames with an out-of-process parent frame should be sending this
   // message.
@@ -11849,7 +11865,9 @@ void RenderFrameHostImpl::HandleAXEvents(
 
   for (auto& update : updates_and_events.updates) {
     if (update.has_tree_data) {
-      CHECK_EQ(tree_id, update.tree_data.tree_id);
+      // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK
+      // once we are sure this isn't hit.
+      DCHECK_EQ(tree_id, update.tree_data.tree_id);
       ax_tree_data_ = update.tree_data;
       update.tree_data = GetAXTreeData();
     }
@@ -11858,8 +11876,12 @@ void RenderFrameHostImpl::HandleAXEvents(
   if (needs_ax_root_id_) {
     // This is the first update after the tree id changed. AXTree must be sent
     // a new root id, otherwise crashes are likely to result.
-    CHECK(!updates_and_events.updates.empty());
-    CHECK_NE(ui::kInvalidAXNodeID, updates_and_events.updates[0].root_id);
+    // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK(!updates_and_events.updates.empty());
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_NE(ui::kInvalidAXNodeID, updates_and_events.updates[0].root_id);
     needs_ax_root_id_ = false;
   }
 
@@ -12750,9 +12772,11 @@ bool RenderFrameHostImpl::ShouldDispatchPagehideAndVisibilitychangeDuringCommit(
   if (!old_frame_host->IsNavigationSameSite(dest_url_info)) {
     return false;
   }
-  CHECK(is_main_frame());
-  CHECK_NE(old_frame_host, this);
-  CHECK_NE(old_frame_host->GetSiteInstance(), GetSiteInstance());
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(is_main_frame());
+  DCHECK_NE(old_frame_host, this);
+  DCHECK_NE(old_frame_host->GetSiteInstance(), GetSiteInstance());
   return GetContentClient()->browser()->ShouldDispatchPagehideDuringCommit(
       GetSiteInstance()->GetBrowserContext(), dest_url_info.url);
 }
@@ -14691,7 +14715,9 @@ void RenderFrameHostImpl::BindRenderAccessibilityHost(
   // attempt to send updates once it has created one, which happens as part of
   // the commit which in turns updates the browser's token before this method
   // could be called.
-  CHECK(GetAXTreeID().token());
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(GetAXTreeID().token());
   // `render_accessibility_host_` is reset in `TearDownMojoConnection()`, but
   // this Mojo endpoint lives on another sequence and posts tasks back to this
   // `RenderFrameHostImpl` on the UI thread. After the reset, there may still be
@@ -15295,11 +15321,15 @@ RenderFrameHostImpl::CreateNavigationRequestForSynchronousRendererCommit(
         is_same_document);
   CHECK(!is_same_document_history_api_navigation || is_same_document);
   CHECK(!IsPendingDeletion());     // IPC is filtered out by the caller.
-  CHECK(!IsInBackForwardCache());  // A page in the BackForwardCache is fully
-                                   // loaded and has no pending navigations.
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(!IsInBackForwardCache());  // A page in the BackForwardCache is fully
+                                    // loaded and has no pending navigations.
   // See `owner_` invariants about IsPendingDeletion() and
   // IsInBackForwardCache().
-  CHECK(owner_);
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: If previous DCHECK
+  // fails, this might fail in the main frame.
+  DCHECK(owner_);
 
   net::IsolationInfo isolation_info = ComputeIsolationInfoInternal(
       origin, net::IsolationInfo::RequestType::kOther, IsCredentialless(),
@@ -15512,7 +15542,9 @@ RenderFrameHostImpl::BuildClientSecurityState() const {
   // avoid crashes, this returns a maximally-restrictive value instead.
   if (!policy_container_host_) {
     // Prevent other code paths from depending on this bandaid.
-    CHECK_EQ(lifecycle_state_, LifecycleStateImpl::kSpeculative);
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_EQ(lifecycle_state_, LifecycleStateImpl::kSpeculative);
 
     // Omitted: reporting endpoint, report-only value and reporting endpoint.
     network::CrossOriginEmbedderPolicy coep;
@@ -16424,8 +16456,10 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
   // for subframes, even if the value was set to true in CommitParams in the
   // browser process.
   if (!is_same_document_navigation) {
-    CHECK_EQ(navigation_request->is_overriding_user_agent() && is_main_frame(),
-             params->is_overriding_user_agent);
+    // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_EQ(navigation_request->is_overriding_user_agent() && is_main_frame(),
+              params->is_overriding_user_agent);
     if (navigation_request->IsPrerenderedPageActivation()) {
       // Set the NavigationStart time for
       // PerformanceNavigationTiming.activationStart.
@@ -16434,8 +16468,10 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
     }
 
   } else {
-    CHECK_EQ(is_main_frame() && GetPage().is_overriding_user_agent(),
-             params->is_overriding_user_agent);
+    // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_EQ(is_main_frame() && GetPage().is_overriding_user_agent(),
+              params->is_overriding_user_agent);
   }
 
   if (is_main_frame()) {
@@ -16790,7 +16826,9 @@ void RenderFrameHostImpl::OnSameDocumentCommitProcessed(
     // OnSameDocumentCommitProcessed will be called after DidCommitNavigation on
     // successfull same-document commits, so |request| should already be deleted
     // by the time we got here.
-    CHECK_EQ(result, blink::mojom::CommitResult::Ok);
+    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK_EQ(result, blink::mojom::CommitResult::Ok);
     return;
   }
 
@@ -16798,13 +16836,17 @@ void RenderFrameHostImpl::OnSameDocumentCommitProcessed(
     // The navigation could not be committed as a same-document navigation.
     // Restart the navigation cross-document.
     // TODO(crbug.com/40252449): Explain why `owner_` exists.
-    CHECK(owner_);
+    // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+    // we are sure this isn't hit.
+    DCHECK(owner_);
     owner_->RestartNavigationAsCrossDocument(std::move(request->second));
     same_document_navigation_requests_.erase(navigation_token);
     return;
   }
 
-  CHECK_EQ(result, blink::mojom::CommitResult::Aborted);
+  // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK_EQ(result, blink::mojom::CommitResult::Aborted);
   // Note: if the commit was successful, the NavigationRequest is moved in
   // DidCommitSameDocumentNavigation.
   request->second->set_navigation_discard_reason(
@@ -17607,7 +17649,9 @@ void RenderFrameHostImpl::PostMessageEvent(
     const url::Origin* source_origin,
     const url::Origin* target_origin,
     blink::TransferableMessage message) {
-  CHECK(is_render_frame_created());
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK(is_render_frame_created());
 
   if (message.delegated_capability !=
       blink::mojom::DelegatedCapability::kNone) {
@@ -19688,7 +19732,9 @@ std::ostream& operator<<(std::ostream& o,
 net::CookieSettingOverrides RenderFrameHostImpl::GetCookieSettingOverrides() {
   // This shouldn't be called before committing the document.
   CHECK_NE(lifecycle_state(), LifecycleStateImpl::kSpeculative);
-  CHECK_NE(lifecycle_state(), LifecycleStateImpl::kPendingCommit);
+  // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+  // we are sure this isn't hit.
+  DCHECK_NE(lifecycle_state(), LifecycleStateImpl::kPendingCommit);
   auto subresource_loader_factories_config =
       SubresourceLoaderFactoriesConfig::ForLastCommittedNavigation(*this);
   return subresource_loader_factories_config.cookie_setting_overrides();

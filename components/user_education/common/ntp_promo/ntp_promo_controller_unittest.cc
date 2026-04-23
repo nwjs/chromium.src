@@ -319,10 +319,13 @@ TEST_F(NtpPromoControllerTest, MaxTermsBlocksPromo) {
 TEST_F(NtpPromoControllerTest, DismissedBlocksPromo) {
   CreateController();
   RegisterPromo(kPromoId, kEligible);
+  base::HistogramTester histogram_tester;
 
   controller().OnPromoDismissed(kPromoId);
 
   EXPECT_FALSE(ShowsAnyPromo());
+  histogram_tester.ExpectUniqueSample(
+      "UserEducation.NtpPromos.Promos.TestPromo.Dismissed", true, 1);
 }
 
 TEST_F(NtpPromoControllerTest, ShownPromos) {
@@ -411,6 +414,40 @@ TEST_F(NtpPromoControllerTest, SuppessedMultiplePromos) {
       {{"suppress-list", base::StrCat({kPromoId, ",", kPromo2Id})}});
   CreateController();
   EXPECT_TRUE(ShowsPromo(kPromo3Id));
+}
+
+TEST_F(NtpPromoControllerTest, ClickedPromoPreventsOtherPromosInSameSession) {
+  CreateController();
+  RegisterPromo(kPromoId, kEligible);
+  RegisterPromo(kPromo2Id, kEligible);
+
+  EXPECT_TRUE(ShowsPromo(kPromoId));
+  controller().OnPromoClicked(kPromoId, nullptr);
+
+  // No other promo should show in this session.
+  EXPECT_FALSE(ShowsAnyPromo());
+
+  AdvanceSession();
+
+  // In the next session, the other promo can show.
+  EXPECT_TRUE(ShowsPromo(kPromo2Id));
+}
+
+TEST_F(NtpPromoControllerTest, DismissedPromoPreventsOtherPromosInSameSession) {
+  CreateController();
+  RegisterPromo(kPromoId, kEligible);
+  RegisterPromo(kPromo2Id, kEligible);
+
+  EXPECT_TRUE(ShowsPromo(kPromoId));
+  controller().OnPromoDismissed(kPromoId);
+
+  // No other promo should show in this session.
+  EXPECT_FALSE(ShowsAnyPromo());
+
+  AdvanceSession();
+
+  // In the next session, the other promo can show.
+  EXPECT_TRUE(ShowsPromo(kPromo2Id));
 }
 
 TEST_F(NtpPromoControllerTest, MaxShowTermsExhaustionCycle) {
