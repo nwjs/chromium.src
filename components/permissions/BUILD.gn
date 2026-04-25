@@ -162,6 +162,7 @@ source_set("permissions") {
     "//device/bluetooth",
     "//device/bluetooth/public/cpp",
     "//extensions/buildflags",
+    "//extensions/common:mojom",
     "//services/device/public/cpp/geolocation",
     "//services/device/public/mojom",
     "//services/metrics/public/cpp:ukm_builders",

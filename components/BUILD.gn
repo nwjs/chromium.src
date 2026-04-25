@@ -91,9 +91,7 @@ disallowed_extension_deps_ = [
   # instead list ~all the other targets here.
   "//extensions/browser/*",
   "//extensions/common",
-  "//extensions/common:mojom",
   "//extensions/common:core_api_provider",
-  "//extensions/common/api/*",
   "//extensions/renderer/*",
   "//extensions/shell/*",
   "//extensions/components/*",

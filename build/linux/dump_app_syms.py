@@ -34,4 +34,8 @@ if not os.path.isfile(outfile) or \
     raise
 
 if strip_binary != '0':
-  subprocess.check_call(['strip', infile])
+  script_dir = os.path.dirname(os.path.abspath(__file__))
+  src_dir = os.path.dirname(os.path.dirname(script_dir))
+  llvm_strip = os.path.join(src_dir, 'third_party', 'llvm-build',
+                            'Release+Asserts', 'bin', 'llvm-strip')
+  subprocess.check_call([llvm_strip, infile])

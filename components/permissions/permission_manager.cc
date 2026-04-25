@@ -5,7 +5,7 @@
 #include "components/permissions/permission_manager.h"
 
 #include <algorithm>
-#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_registry.h"  // nogncheck
 
 #include <memory>
 #include <utility>

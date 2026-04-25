@@ -6,7 +6,7 @@
 
 #include "content/public/common/content_client.h"
 #include "content/public/browser/content_browser_client.h"
-#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_registry.h"  // nogncheck
 
 #include <stddef.h>
 
