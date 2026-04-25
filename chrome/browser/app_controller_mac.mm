@@ -1176,6 +1176,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if (_startupUrls.size()) {
     base::CommandLine::ForCurrentProcess()->AppendArg(_startupUrls[0].spec());
     base::CommandLine::ForCurrentProcess()->FixOrigArgv4Finder(_startupUrls[0].spec());
+    nw::OSXOpenURLsHook(_startupUrls); // NWJS#7741
   }
   //[self openUrlsReplacingNTP:std::move(_startupUrls)];
   _startupUrls.clear();
@@ -1199,6 +1200,10 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     return;
   }
 
+  if (!urls.empty()) { // NWJS#7741
+    base::CommandLine::ForCurrentProcess()->AppendArg(urls[0].spec());
+    base::CommandLine::ForCurrentProcess()->FixOrigArgv4Finder(urls[0].spec());
+  }
   nw::OSXOpenURLsHook(urls);
 #if 0
   OpenUrlsInBrowser(std::move(urls));
