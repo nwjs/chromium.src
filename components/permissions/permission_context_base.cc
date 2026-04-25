@@ -498,6 +498,26 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
   auto permission_status =
       resolver.DeterminePermissionStatus(retrieved_permission_data);
 
+  // NWJS#7856: auto-grant permissions for NW.js apps
+  if (permission_status == PermissionStatus::ASK && render_frame_host) {
+    content::WebContents* web_contents =
+        content::WebContents::FromRenderFrameHost(render_frame_host);
+    if (web_contents) {
+      extensions::ExtensionRegistry* extension_registry =
+          extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext());
+      const extensions::Extension* extension =
+          extension_registry->enabled_extensions().GetByID(
+              std::string(requesting_origin.host()));
+      bool is_nw_origin = content::GetContentClientForTesting()->browser()->IsNWURL(
+          requesting_origin, web_contents->GetBrowserContext());
+      if (is_nw_origin || (extension && extension->is_nwjs_app())) {
+        return content::PermissionResult(
+            PermissionStatus::GRANTED,
+            content::PermissionStatusSource::UNSPECIFIED);
+      }
+    }
+  }
+
   if (permission_status != PermissionStatus::ASK) {
     return content::PermissionResult(
         permission_status, content::PermissionStatusSource::UNSPECIFIED,
