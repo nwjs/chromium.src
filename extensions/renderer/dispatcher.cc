@@ -746,9 +746,14 @@ void Dispatcher::WillReleaseScriptContext(
   //f66545e9e5d0308c15f51764e311425894e3ad09
   
   if (context && context->extension() &&
-      context->extension()->is_nwjs_app() &&
-      script_context_set_->size() == 1) {
-    nw::OnRenderProcessShutdownHook(context);
+      context->extension()->is_nwjs_app()) {
+    if (script_context_set_->size() == 1) {
+      nw::OnRenderProcessShutdownHook(context);
+    } else if (g_queue_nw_env_for_free_fn) {
+      void* env = g_get_current_env_fn(context->v8_context());
+      if (env)
+        g_queue_nw_env_for_free_fn(env);
+    }
   }
   bindings_system_->WillReleaseScriptContext(context);
 

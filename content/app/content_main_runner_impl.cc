@@ -1127,6 +1127,15 @@ NO_STACK_PROTECTOR int ContentMainRunnerImpl::Run() {
     command_line.AppendSwitch(sandbox::policy::switches::kNoSandbox);
     command_line.AppendSwitch(switches::kNoZygote);
   }
+  if (command_line.HasSwitch("nwjs-test-mode2")) {
+#if BUILDFLAG(IS_MAC)
+    command_line.AppendSwitch("use-mock-keychain");
+    command_line.AppendSwitchASCII("auto-select-desktop-capture-source",
+                                   "Entire screen");
+#elif BUILDFLAG(IS_LINUX)
+    command_line.AppendSwitchASCII("password-store", "basic");
+#endif
+  }
   MainFunctionParams main_params(&command_line);
   main_params.ui_task = std::move(content_main_params_->ui_task);
   main_params.created_main_parts_closure =
