@@ -2513,8 +2513,7 @@ std::u16string ChromeFileSystemAccessPermissionContext::GetPickerTitle(
       break;
     case blink::mojom::TypeSpecificFilePickerOptionsUnion::Tag::
         kSaveFilePickerOptions:
-      if(!nw::package())
-        title = l10n_util::GetStringUTF16(
+      title = l10n_util::GetStringUTF16(
           IDS_FILE_SYSTEM_ACCESS_CHOOSER_OPEN_SAVE_FILE_TITLE);
       break;
     case blink::mojom::TypeSpecificFilePickerOptionsUnion::Tag::
