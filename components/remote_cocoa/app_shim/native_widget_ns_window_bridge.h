@@ -450,6 +450,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   gfx::Size content_dip_size_;
 
   NSRect bounds_before_maximize_;
+  // Tracks programmatic maximize state since NSWindowIsMaximized() (exact
+  // frame comparison) is unreliable. Set by SetMaximized(true) and
+  // SetRestoredBounds(), cleared by SetMaximized(false).
+  bool maximized_by_api_ = false;
 
   // The size of the frame most recently *received from* the compositor. Note
   // that during resize (and showing new windows), this will lag behind

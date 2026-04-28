@@ -1863,7 +1863,11 @@ void NativeWidgetNSWindowBridge::SetCanAppearInExistingFullscreenSpaces(
 }
 
 bool NativeWidgetNSWindowBridge::IsMaximized(bool* maximized) {
-  *maximized = NSWindowIsMaximized(window_);
+  // NSWindowIsMaximized() compares frame to visibleFrame with NSEqualRects,
+  // which is unreliable: the window can transiently match the screen size
+  // during init, or differ by a few pixels after setFrame:animate:. Use
+  // maximized_by_api_ as the authoritative flag for programmatic maximize.
+  *maximized = maximized_by_api_ || NSWindowIsMaximized(window_);
   return true;
 }
 
@@ -1875,6 +1879,7 @@ void NativeWidgetNSWindowBridge::IsMaximized(IsMaximizedCallback callback) {
 
 void NativeWidgetNSWindowBridge::SetRestoredBounds(const gfx::Rect& bounds) {
   bounds_before_maximize_ = gfx::ScreenRectToNSRect(bounds);
+  maximized_by_api_ = true;
 }
 
 bool NativeWidgetNSWindowBridge::GetRestoredBounds(gfx::Rect* bounds) {
@@ -1888,12 +1893,22 @@ void NativeWidgetNSWindowBridge::GetRestoredBounds(GetRestoredBoundsCallback cal
 
 void NativeWidgetNSWindowBridge::SetMaximized(bool maximized) {
   if (!maximized) {
-    if (NSWindowIsMaximized(window_))
+    if (maximized_by_api_ || NSWindowIsMaximized(window_))
       [window_ setFrame:bounds_before_maximize_ display:YES animate:YES];
+    maximized_by_api_ = false;
     return;
   }
-  if (!NSWindowIsMaximized(window_))
-    [window_ setFrame:[[window_ screen] visibleFrame] display:YES animate:YES];
+  // Always save pre-maximize bounds on first SetMaximized(true), even if
+  // NSWindowIsMaximized() already reports true (can happen when the window
+  // frame transiently matches the visible frame during creation). Without
+  // this, GetRestoredBounds() returns the maximized frame and the persisted
+  // window state saves wrong bounds.
+  if (!maximized_by_api_) {
+    bounds_before_maximize_ = [window_ frame];
+    maximized_by_api_ = true;
+    if (!NSWindowIsMaximized(window_))
+      [window_ setFrame:[[window_ screen] visibleFrame] display:YES animate:YES];
+  }
 
   if ([window_ isMiniaturized])
     [window_ deminiaturize:nil];
