@@ -141,7 +141,7 @@ void ChromeCrashReporterClient::GetProductInfo(ProductInfo* product_info) {
   product_info->product_name = product_name_;
 #endif  // defined(ADDRESS_SANITIZER)
 #elif BUILDFLAG(IS_MAC)
-  product_info->product_name = "Chrome_Mac";
+  product_info->product_name = product_name_.empty() ? "Chrome_Mac" : product_name_;
 #elif BUILDFLAG(IS_WIN)
   product_info->product_name = "Chrome";
 #else
