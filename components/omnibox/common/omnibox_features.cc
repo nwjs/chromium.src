@@ -89,6 +89,9 @@ BASE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP, DISABLED);
 // performance impact of ZPS prefetching on the remote Suggest service).
 BASE_FEATURE(kZeroSuggestPrefetchDebouncing, DISABLED);
 
+// Enables prefetching of the zero prefix suggestions for composebox contexts.
+BASE_FEATURE(kZeroSuggestPrefetchingForComposebox, DISABLED);
+
 // Enables prefetching of the zero prefix suggestions for eligible users on SRP.
 BASE_FEATURE(kZeroSuggestPrefetchingOnSRP, enable_if(!IS_ANDROID));
 
@@ -259,6 +262,9 @@ BASE_FEATURE(kAblateSearchProviderWarmup, DISABLED);
 // If enabled, hl= is reported in search requests (applicable to iOS only).
 BASE_FEATURE(kReportApplicationLanguageInSearchRequest, ENABLED);
 
+// When enabled, appends the invocation source parameter to search URLs.
+BASE_FEATURE(kOmniboxAppendInvocationSource, ENABLED);
+
 // Enable asynchronous Omnibox/Suggest view inflation.
 BASE_FEATURE(kOmniboxAsyncViewInflation, DISABLED);
 
@@ -344,9 +350,6 @@ BASE_FEATURE(kAimUrlInterceptPassthrough, DISABLED);
 BASE_FEATURE(kOmniboxDebugLogs, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThinkingModelIconUpdate, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, animates the caret in the omnibox.
-BASE_FEATURE(kOmniboxAnimatedCaret, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // Accelerates time from cold start to focused Omnibox on low-end devices,

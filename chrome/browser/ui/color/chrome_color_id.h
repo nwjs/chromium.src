@@ -269,6 +269,7 @@
   E_CPONLY(kColorNewTabPageThreadsRailIconButton) \
   E_CPONLY(kColorNewTabPageChipBackground) \
   E_CPONLY(kColorNewTabPageChipForeground) \
+  E_CPONLY(kColorNewTabPageComposeboxSubmitButtonBackground) \
   E_CPONLY(kColorComposeboxBackground) \
   E_CPONLY(kColorComposeboxFileChipSpinner) \
   E_CPONLY(kColorComposeboxFont) \
@@ -425,6 +426,7 @@
   E_CPONLY(kColorOmniboxKeywordSeparator) \
   E_CPONLY(kColorOmniboxResultsBackground) \
   E_CPONLY(kColorOmniboxResultsBackgroundHovered) \
+  E_CPONLY(kColorOmniboxResultsBackgroundHoverOverlay) \
   E_CPONLY(kColorOmniboxResultsBackgroundSelected) \
   E_CPONLY(kColorOmniboxResultsBackgroundIph) \
   E_CPONLY(kColorOmniboxResultsButtonBorder) \

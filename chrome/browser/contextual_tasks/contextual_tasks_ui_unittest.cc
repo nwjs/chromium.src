@@ -6,6 +6,7 @@
 
 #include "base/test/scoped_feature_list.h"
 #include "base/uuid.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -21,6 +22,8 @@
 #include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
+#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom.h"
 #include "url/gurl.h"
 
 using testing::_;
@@ -80,6 +83,7 @@ class MockTaskInfoDelegate : public TaskInfoDelegate {
   }
 
   void SetIsAiPage(bool is_ai_page) override {}
+  void SetInNlm(bool in_nlm) override {}
 
   content::WebContents* GetWebUIWebContents() override { return nullptr; }
 
@@ -117,7 +121,8 @@ class MockContextualTasksUiService : public ContextualTasksUiService {
                                  /*delegate=*/nullptr,
                                  contextual_tasks_service,
                                  /*identity_manager=*/nullptr,
-                                 /*aim_eligibility_service=*/nullptr) {}
+                                 /*aim_eligibility_service=*/nullptr,
+                                 /*cookie_synchronizer=*/nullptr) {}
   ~MockContextualTasksUiService() override = default;
 
   MOCK_METHOD(void,
@@ -657,6 +662,10 @@ TEST_F(ContextualTasksUiTest, DidFinishNavigation_ZeroState) {
        true},  // Other noise/params
       {GURL("https://www.google.com/search?udm=50&q=%20"),
        false},  // Whitespace
+      {GURL("https://www.google.com/search?udm=50&smstk=test"),
+       false},  // smstk present
+      {GURL("https://www.google.com/search?udm=50&smstk="),
+       true},  // smstk empty
   };
 
   ON_CALL(*service_for_nav_, IsAiUrl(GURL("https://google.com")))
@@ -896,6 +905,31 @@ TEST_F(ContextualTasksUiTest, SetAimUrlWithoutThreadId) {
   handle->set_has_committed(true);
   handle->set_is_same_document(false);
   observer->DidFinishNavigation(handle.get());
+}
+
+TEST_F(ContextualTasksUiTest, DidFinishNavigation_UpdatesThemeFromCsParam) {
+  MockTaskInfoDelegate delegate;
+  SetupMockDelegate(&delegate, std::nullopt, std::nullopt, std::nullopt);
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+  GURL url("https://www.google.com/search?udm=50&cs=1");
+  content::WebContents* wc = embedded_web_contents_.get();
+  blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
+  // Initialize to light mode to verify it changes to dark.
+  prefs.preferred_color_scheme = blink::mojom::PreferredColorScheme::kLight;
+  wc->SetWebPreferences(prefs);
+  base::Uuid task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  ContextualTask task(task_id);
+  ON_CALL(*contextual_tasks_service_, CreateTask()).WillByDefault(Return(task));
+  auto handle = CreateMockNavigationHandle(url);
+  handle->set_has_committed(true);
+  handle->set_is_same_document(true);
+  observer->DidFinishNavigation(handle.get());
+  blink::web_pref::WebPreferences updated_prefs =
+      wc->GetOrCreateWebPreferences();
+  EXPECT_EQ(updated_prefs.preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kDark);
 }
 
 }  // namespace contextual_tasks

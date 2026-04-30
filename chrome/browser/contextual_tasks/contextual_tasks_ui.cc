@@ -79,6 +79,8 @@
 #include "net/base/backoff_entry.h"
 #include "net/base/url_util.h"
 #include "net/http/http_response_headers.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
+#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/webui/webui_util.h"
@@ -151,6 +153,25 @@ std::string GetEncodedHandshakeMessage() {
   return base::Base64Encode(serialized_message);
 }
 
+void UpdateDarkModePreferenceFromUrl(content::WebContents* wc,
+                                     const GURL& url) {
+  std::optional<bool> is_dark_mode = contextual_tasks::GetDarkModeFromUrl(url);
+  if (is_dark_mode.has_value()) {
+    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
+    prefs.preferred_color_scheme =
+        is_dark_mode.value() ? blink::mojom::PreferredColorScheme::kDark
+                             : blink::mojom::PreferredColorScheme::kLight;
+    wc->SetWebPreferences(prefs);
+  } else {
+    blink::web_pref::WebPreferences prefs = wc->GetOrCreateWebPreferences();
+    ui::ColorProviderKey::ColorMode browser_color_scheme = wc->GetColorMode();
+    prefs.preferred_color_scheme =
+        browser_color_scheme == ui::ColorProviderKey::ColorMode::kLight
+            ? blink::mojom::PreferredColorScheme::kLight
+            : blink::mojom::PreferredColorScheme::kDark;
+    wc->SetWebPreferences(prefs);
+  }
+}
 }  // namespace
 
 void AddDefaultZeroStateStrings(content::WebUIDataSource* source) {
@@ -256,12 +277,6 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
               Profile::FromBrowserContext(
                   web_ui->GetWebContents()->GetBrowserContext()))) {
   Profile* profile = Profile::FromWebUI(web_ui);
-  if (contextual_tasks::ShouldEnableCookieSync()) {
-    cookie_synchronizer_ =
-        std::make_unique<contextual_tasks::ContextualTasksCookieSynchronizer>(
-            web_ui->GetWebContents()->GetBrowserContext(),
-            IdentityManagerFactory::GetForProfile(profile));
-  }
   inner_web_contents_creation_observer_ =
       std::make_unique<InnerFrameCreationObvserver>(
           web_ui->GetWebContents(),
@@ -299,8 +314,8 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   }
 
   source->AddLocalizedStrings(SearchboxHandler::GetWebUIDataSourceDict(
-      profile, /*enable_voice_search=*/true,
-      /*enable_lens_search=*/false, session_allows_drag_and_drop));
+      profile, {.enable_voice_search = true,
+                .session_allows_drag_and_drop = session_allows_drag_and_drop}));
 #endif
   // Add strings.js
   source->UseStringsJs();
@@ -316,11 +331,13 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       {"myActivity", IDS_CONTEXTUAL_TASKS_MENU_MY_ACTIVITY},
       {"newThreadTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_NEW_THREAD_TOOL_TIP},
       {"openInNewTab", IDS_CONTEXTUAL_TASKS_MENU_OPEN_IN_NEW_TAB},
+      {"pinTooltip", IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP},
       {"reopenTab", IDS_CONTEXTUAL_TASKS_REOPEN_TABS_BUTTON_TEXT},
       {"sourcesMenuTitle", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TITLE},
       {"threadHistoryTooltip",
        IDS_CONTEXTUAL_TASKS_SIDE_PANEL_HISTORY_TOOL_TIP},
       {"title", IDS_CONTEXTUAL_TASKS_AI_MODE_TITLE},
+      {"unpinTooltip", IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP},
       /* composeDeepSearchPlaceholder and
        * composeCreateImagePlaceholder are defined by searchbox_handler.cc.
        */
@@ -354,6 +371,12 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       contextual_tasks::kContextualTasksNextboxAttachmentFileTypes.Get());
   source->AddBoolean("lensSendRawFileMediaTypesEnabled",
                      lens::features::IsLensSendRawFileMediaTypesEnabled());
+
+  source->AddString("nlmUrlParam",
+                    contextual_tasks::GetContextualTasksNlmUrlParam());
+  source->AddBoolean("enableCustomNlmUi",
+                     contextual_tasks::IsCustomNlmUiEnabled());
+
   source->AddInteger(
       "composeboxFileMaxSize",
       contextual_tasks::kContextualTasksNextboxMaxFileSize.Get());
@@ -449,16 +472,15 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
           ContextualSearchSourceToString(
               contextual_search::ContextualSearchSource::kContextualTasks));
 #if !BUILDFLAG(IS_ANDROID)
-  source->AddBoolean(
-      "darkMode",
-      ThemeServiceFactory::GetForProfile(profile)->BrowserUsesDarkColors());
+  GURL url = web_ui->GetWebContents()->GetVisibleURL();
+  bool is_dark_mode =
+      ThemeServiceFactory::GetForProfile(profile)->BrowserUsesDarkColors();
+  is_dark_mode =
+      contextual_tasks::GetDarkModeFromUrl(url).value_or(is_dark_mode);
+  source->AddBoolean("darkMode", is_dark_mode);
   source->AddLocalizedString(
       "protectedErrorPageTopLine",
       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE);
-  source->AddLocalizedString("pinTooltip",
-                             IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP);
-  source->AddLocalizedString("unpinTooltip",
-                             IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP);
   source->AddLocalizedString(
       "protectedErrorPageBottomLine",
       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE);
@@ -493,6 +515,10 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   source->AddBoolean("caretAnimationEnabled",
                      base::FeatureList::IsEnabled(
                          contextual_tasks::kContextualTasksAnimatedCaret));
+
+  source->AddBoolean(
+      "energyEffectEnabled",
+      base::FeatureList::IsEnabled(contextual_tasks::kEnergyEffectInNextbox));
 
   // Set up chrome://contextual-tasks/internals debug UI.
   source->AddResourcePath(
@@ -608,6 +634,12 @@ void ContextualTasksUI::SetAimUrl(const GURL& url) {
 void ContextualTasksUI::UpdateModelModeFromUrl(const GURL& url) {
   if (composebox_handler_) {
     composebox_handler_->UpdateModelFromUrl(url);
+  }
+}
+
+void ContextualTasksUI::SetInNlm(bool in_nlm) {
+  if (page_) {
+    page_->SetInNlm(in_nlm);
   }
 }
 
@@ -858,12 +890,6 @@ void ContextualTasksUI::ShowOauthErrorDialog() {
   }
 }
 
-void ContextualTasksUI::SetCookieSynchronizerForTesting(
-    std::unique_ptr<contextual_tasks::ContextualTasksCookieSynchronizer>
-        cookie_synchronizer) {
-  cookie_synchronizer_ = std::move(cookie_synchronizer);
-}
-
 void ContextualTasksUI::OnInnerWebContentsCreated(
     content::WebContents* inner_contents) {
   // This is assumed to only be called once per WebUI lifetime. Can be called
@@ -877,13 +903,10 @@ void ContextualTasksUI::OnInnerWebContentsCreated(
       inner_contents, ui_service_, contextual_tasks_service_, this);
   embedded_web_contents_ = inner_contents->GetWeakPtr();
 
-  // If the cookie sync is enabled, trigger the cookie sync now that the
-  // embedded page is created. This is a fire and forget call, assuming the
-  // cookie sync will succeed eventually, and relying on OAuth tokens until
-  // then.
-  if (cookie_synchronizer_) {
-    cookie_synchronizer_->CopyCookiesToWebviewStoragePartition();
-  }
+  // Trigger the cookie sync now that the embedded page is created. This is a
+  // fire and forget call, assuming the cookie sync will succeed eventually, and
+  // relying on OAuth tokens until then.
+  ui_service_->EnsureCookiesSynced();
 }
 
 void ContextualTasksUI::OnContextRetrievedForActiveTab(
@@ -1186,6 +1209,14 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
   task_info_delegate_->SetIsAiPage(is_ai_page);
   task_info_delegate_->SetAimUrl(url);
 
+  bool in_nlm = false;
+  std::string value;
+  if (net::GetValueForKeyInQuery(
+          url, contextual_tasks::GetContextualTasksNlmUrlParam(), &value)) {
+    in_nlm = true;
+  }
+  task_info_delegate_->SetInNlm(in_nlm);
+
   if (base::FeatureList::IsEnabled(
           contextual_tasks::kContextualTasksUpdateModelOnNavigation)) {
     task_info_delegate_->UpdateModelModeFromUrl(url);
@@ -1213,6 +1244,13 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     task_info_delegate_->OnZeroStateChange(is_zero_state);
   }
 
+  // Adjust the preference for dark mode to respect the CS param. This prevents
+  // a UI flicker that would happen if the CS param mismatches the browser
+  // settings.
+  if (navigation_handle->IsInPrimaryMainFrame() &&
+      navigation_handle->IsSameDocument()) {
+    UpdateDarkModePreferenceFromUrl(web_contents(), url);
+  }
   bool is_url_changed = false;
   if (!ContextualTasksUI::AreUrlsEqual(
           url, last_committed_url_)) {
@@ -1361,20 +1399,24 @@ bool ContextualTasksUI::IsZeroState(
     contextual_tasks::ContextualTasksUiService* ui_service) {
   std::string query_value;
   std::string mstk_value;
+  std::string smstk_value;
   std::string vsrid_value;
   std::string cinpts_value;
   net::GetValueForKeyInQuery(url, "q", &query_value);
   net::GetValueForKeyInQuery(url, "mstk", &mstk_value);
+  net::GetValueForKeyInQuery(url, "smstk", &smstk_value);
   net::GetValueForKeyInQuery(url, "vsrid", &vsrid_value);
   net::GetValueForKeyInQuery(url, "cinpts", &cinpts_value);
 
-  // If the URL is an AI URL and there's no query or mstk, it's zero state. If
-  // there is either a query or mstk, assume it's not zero state. If there is a
-  // vsrid/cinpts, assume it's not zero state since there will soon be an mstk.
+  // If the URL is an AI URL and there's no query or (s)mstk, it's zero state.
+  // If there is either a query or (s)mstk, assume it's not zero state. If there
+  // is a vsrid/cinpts, assume it's not zero state since there will soon be an
+  // mstk.
   // TODO(crbug.com/472336339): Find a more robust way to determine if the page
   // is zero state instead of query params.
   return ui_service->IsAiUrl(url) && query_value.empty() &&
-         mstk_value.empty() && vsrid_value.empty() && cinpts_value.empty();
+         mstk_value.empty() && smstk_value.empty() && vsrid_value.empty() &&
+         cinpts_value.empty();
 }
 
 ContextualTasksUI::InnerFrameCreationObvserver::InnerFrameCreationObvserver(

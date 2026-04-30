@@ -24,7 +24,11 @@ class MockSkillsService : public SkillsService {
               GetSkills,
               (),
               (const));
-  MOCK_METHOD(const SkillsMap&, Get1PSkills, (), (const));
+  MOCK_METHOD(const SkillProtoList&, Get1PSkills, (), (const, override));
+  MOCK_METHOD(const std::vector<std::string>&,
+              Get1PTopics,
+              (),
+              (const, override));
   MOCK_METHOD(const Skill*,
               AddSkill,
               (const std::string&,
@@ -51,7 +55,10 @@ class MockSkillsService : public SkillsService {
   MOCK_METHOD(void, DeleteSkill, (std::string_view, UpdateSource));
   MOCK_METHOD(void, FetchDiscoverySkills, ());
   MOCK_METHOD(void, RefreshDiscoverySkills, ());
-  MOCK_METHOD(void, Handle1pSkillsMap, (std::unique_ptr<SkillsMap>));
+  MOCK_METHOD(void,
+              Handle1pSkills,
+              (std::unique_ptr<FirstPartySkillData>),
+              (override));
   MOCK_METHOD(void, AddObserver, (Observer*));
   MOCK_METHOD(void, RemoveObserver, (Observer*));
   MOCK_METHOD(base::WeakPtr<syncer::DataTypeControllerDelegate>,

@@ -58,6 +58,9 @@ BASE_DECLARE_FEATURE(kContextualTasksUseStratusDarkModeColors);
 // If enabled, animates the caret.
 BASE_DECLARE_FEATURE(kContextualTasksAnimatedCaret);
 
+// Enables energy effect in Nextbox.
+BASE_DECLARE_FEATURE(kEnergyEffectInNextbox);
+
 // Fixes the composebox jump.
 BASE_DECLARE_FEATURE(kContextualTasksComposeboxJumpFix);
 
@@ -75,7 +78,13 @@ BASE_DECLARE_FEATURE(kContextualTasksUpdateModelOnNavigation);
 // navigating.
 BASE_DECLARE_FEATURE(kContextualTasksVideoCitations);
 
+// Enables intercepting PDF links with page numbers to scroll to page instead of
+// navigating.
+BASE_DECLARE_FEATURE(kContextualTasksPdfCitations);
+
 bool GetIsContextualTasksUpdateModeOnNavigationEnabled();
+
+bool GetIsContextualTasksPdfCitationsEnabled();
 
 // Enum denoting which entry point can show when enabled.
 enum class EntryPointOption {
@@ -98,6 +107,9 @@ extern const base::FeatureParam<bool> kOnlyUseTitlesForSimilarity;
 extern const base::FeatureParam<double> kTabSelectionScoreThreshold;
 // Minimum score required for a tab to be considered visible.
 extern const base::FeatureParam<double> kContentVisibilityThreshold;
+
+// Task string to use for formatting the query embedding.
+extern const base::FeatureParam<std::string> kQueryEmbeddingTask;
 
 // The sample rate for logging contextual tasks context quality.
 extern const base::FeatureParam<double>
@@ -227,6 +239,10 @@ extern bool ShouldForceCountryCodeUS();
 // Returns the user agent suffix to use for requests.
 extern std::string GetContextualTasksUserAgentSuffix();
 
+// Returns the URL parameter name to check for NLM mode.
+extern std::string GetContextualTasksNlmUrlParam();
+extern bool IsCustomNlmUiEnabled();
+
 // Whether the contextual tasks context quality should be logged.
 extern bool ShouldLogContextualTasksContextQuality();
 
@@ -256,6 +272,9 @@ extern bool ShouldEnableBasicModeZOrder();
 
 // Returns whether the cookie sync should be enabled.
 extern bool ShouldEnableCookieSync();
+
+// Returns whether the cookie prefetch should be enabled.
+extern bool ShouldEnableCookiePrefetch();
 
 // Returns whether the input plate can be locked and unlocked by a message
 // from AIM.

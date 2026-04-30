@@ -402,6 +402,9 @@ std::string GetGlicWebContentsContextToken(
   if (!params.selection_text.empty() && !params.link_url.is_empty()) {
     return "TextSelectionWithLink";
   }
+  if (!params.link_url.is_empty()) {
+    return "Link";
+  }
   return "TextSelection";
 }
 
@@ -1230,7 +1233,7 @@ void RenderViewContextMenu::InitMenu() {
     AppendSearchProvider();
   }
 
-  if (!params_.selection_text.empty()) {
+  if (!params_.selection_text.empty() || !params_.link_url.is_empty()) {
     MaybeAppendOpenGlicItem();
   }
 
@@ -4475,8 +4478,13 @@ void RenderViewContextMenu::ExecGlic() {
         glic_item_executed_ = true;
         glic::GlicInvokeOptions options(
             glic::mojom::InvocationSource::kWebContentsContextMenu);
-        options.fre_override = glic::mojom::FreOverride::kTrustFirstInline;
         std::string arm = features::kGlicContextMenuArm.Get();
+        if (arm == "arm3") {
+          options.fre_override = glic::mojom::FreOverride::kTrustFirstClick;
+        } else {
+          options.fre_override = glic::mojom::FreOverride::kTrustFirstInline;
+        }
+
         if (arm == "arm2") {
           options.prompts.push_back(
               l10n_util::GetStringUTF8(IDS_GLIC_SUMMARIZE_PAGE_PROMPT));

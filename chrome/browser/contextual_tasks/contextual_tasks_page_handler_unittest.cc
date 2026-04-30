@@ -77,6 +77,8 @@ class MockPage : public mojom::Page {
               (override));
   MOCK_METHOD(void, HideInput, (), (override));
   MOCK_METHOD(void, RestoreInput, (), (override));
+  MOCK_METHOD(void, EnterBasicMode, (), (override));
+  MOCK_METHOD(void, ExitBasicMode, (), (override));
   MOCK_METHOD(void, OnZeroStateChange, (bool is_zero_state), (override));
   MOCK_METHOD(void, OnAiPageStatusChanged, (bool is_ai_page), (override));
   MOCK_METHOD(void,
@@ -112,6 +114,7 @@ class MockPage : public mojom::Page {
               (const base::UnguessableToken& file_token),
               (override));
   MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
+  MOCK_METHOD(void, SetInNlm, (bool in_nlm), (override));
 
   mojo::Receiver<mojom::Page> receiver_{this};
 };

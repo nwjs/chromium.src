@@ -18,6 +18,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/skills/internal/skills_downloader.h"
 #include "components/skills/proto/skill.pb.h"
+#include "components/skills/public/skills_types.h"
 #include "components/sync/protocol/skill_specifics.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
@@ -68,10 +69,6 @@ class SkillsService : public KeyedService {
     kReshown,
   };
 
-  // Map of id to skill.
-  using SkillsMap = absl::flat_hash_map<std::string, skills::proto::Skill>;
-  using SkillObjectsMap = absl::flat_hash_map<std::string, Skill>;
-
   // Observer for the service notifications.
   class Observer : public base::CheckedObserver {
    public:
@@ -94,9 +91,9 @@ class SkillsService : public KeyedService {
     virtual void OnStatusChanged() {}
 
     // Called when the service has completed a download of 1P skills. Receives
-    // new map or nullptr if map has not changed.
+    // new data or nullptr if data has not changed.
     virtual void OnDiscoverySkillsUpdated(
-        const SkillsService::SkillsMap* skills_map) {}
+        const FirstPartySkillData* first_party_skill_data) {}
 
     // Called when the service is shutting down. Observers should remove
     // themselves.
@@ -163,9 +160,12 @@ class SkillsService : public KeyedService {
   virtual const std::vector<std::unique_ptr<Skill>>& GetSkills() const = 0;
 
   // Returns a const reference to the currently loaded 1p skills. If skills have
-  // not been loaded yet, returns an empty map. The service does not have to be
+  // not been loaded yet, returns an empty list. The service does not have to be
   // in a kReady state since these skills are loaded from a SCS file.
-  virtual const SkillsMap& Get1PSkills() const = 0;
+  virtual const SkillProtoList& Get1PSkills() const = 0;
+
+  // Returns a const reference to the currently loaded 1p topics.
+  virtual const std::vector<std::string>& Get1PTopics() const = 0;
 
   // Registers an observer for the service notifications.
   virtual void AddObserver(Observer* observer) = 0;
@@ -180,13 +180,14 @@ class SkillsService : public KeyedService {
   virtual void RefreshDiscoverySkills() = 0;
 
   // Calls downloader to fetch 1p skills which will return updated skills to
-  // Handle1pSkillsMap. If there has been no modification since the last fetch
+  // Handle1pSkills. If there has been no modification since the last fetch
   // nullptr will be returned.
   virtual void FetchDiscoverySkills() = 0;
 
   // Called on download complete of 1p skills. If the download fails or the file
-  // has not been modified skills_map is null. Notifies observers.
-  virtual void Handle1pSkillsMap(std::unique_ptr<SkillsMap> skills_map) = 0;
+  // has not been modified first_party_skill_data is null. Notifies observers.
+  virtual void Handle1pSkills(
+      std::unique_ptr<FirstPartySkillData> first_party_skill_data) = 0;
 
   // Returns controller delegate for the sync service.
   virtual base::WeakPtr<syncer::DataTypeControllerDelegate>

@@ -199,6 +199,35 @@ void PopulateTabContext(
   }
 }
 
+void PopulateTabSelectionModeInLog(
+    mojom::TabSelectionMode mode,
+    optimization_guide::proto::ContextualTasksContextQuality* quality_log) {
+  if (!quality_log) {
+    return;
+  }
+  switch (mode) {
+    case mojom::TabSelectionMode::kStaticSignalsOnly:
+      quality_log->set_tab_selection_mode(
+          optimization_guide::proto::TabSelectionMode::
+              TAB_SELECTION_MODE_STATIC_SIGNALS);
+      break;
+    case mojom::TabSelectionMode::kMultiSignalScoring:
+      quality_log->set_tab_selection_mode(
+          optimization_guide::proto::TabSelectionMode::
+              TAB_SELECTION_MODE_STATIC_AND_ENGAGEMENT_SIGNALS);
+      break;
+    case mojom::TabSelectionMode::kStaticSignalsMlModel:
+      quality_log->set_tab_selection_mode(
+          optimization_guide::proto::TabSelectionMode::
+              TAB_SELECTION_MODE_STATIC_ML_MODEL);
+      break;
+    // Do not set any value as server side logs proto misses this mode.
+    case mojom::TabSelectionMode::kEmbeddingsMatch:
+    default:
+      break;
+  }
+}
+
 double GetTabScoreSync(const TabSelectionOptions& options,
                        const TabSignals& tab_signals) {
   switch (options.tab_selection_mode) {
@@ -238,6 +267,14 @@ const passage_embeddings::Embedding* GetTitleEmbedding(
            page_content_annotations::EmbeddingPassageType::kTitle;
   });
   return it != tab_embeddings.end() ? &it->embedding : nullptr;
+}
+
+std::string GetFormattedQueryString(const std::string& query) {
+  std::string task = kQueryEmbeddingTask.Get();
+  if (!task.empty()) {
+    return absl::StrFormat("task: %s | query: %s", task, query);
+  }
+  return query;
 }
 
 }  // namespace
@@ -323,12 +360,25 @@ void ContextualTasksContextService::GetRelevantTabsForQuery(
   // computation.
   passage_embeddings::Embedder::TaskId task_id =
       embedder_->ComputePassagesEmbeddings(
-          passage_embeddings::PassagePriority::kUrgent, {query},
+          passage_embeddings::PassagePriority::kUrgent,
+          {GetFormattedQueryString(query)},
           base::BindOnce(&ContextualTasksContextService::OnQueryEmbeddingReady,
                          weak_ptr_factory_.GetWeakPtr(), query, options, now,
                          explicit_urls, request_id));
   pending_requests_[request_id] =
       std::make_unique<PendingRequest>(task_id, std::move(callback));
+}
+
+// TODO: crbug.com/503189770 - Integrate the multi-turn ML model. For now, just
+// use the query from the current turn with the existing single-turn model.
+void ContextualTasksContextService::GetRelevantTabsForConversationThread(
+    const TabSelectionOptions& options,
+    const ConversationThread& conversation_thread,
+    const std::vector<GURL>& explicit_urls,
+    base::OnceCallback<void(std::vector<base::WeakPtr<content::WebContents>>)>
+        callback) {
+  GetRelevantTabsForQuery(options, conversation_thread.query, explicit_urls,
+                          std::move(callback));
 }
 
 void ContextualTasksContextService::OnTypedQuery() {
@@ -666,6 +716,7 @@ void ContextualTasksContextService::SelectRelevantTabs(
     base::OnceCallback<void(std::vector<base::WeakPtr<content::WebContents>>)>
         on_tab_selection_complete,
     optimization_guide::proto::ContextualTasksContextQuality* quality_log) {
+  PopulateTabSelectionModeInLog(options.tab_selection_mode, quality_log);
   QueryState query_state = CreateQueryState(query, query_embedding);
   PopulateQueryContext(query_state, quality_log);
 
@@ -854,5 +905,15 @@ ContextualTasksContextService::PendingRequest::~PendingRequest() = default;
 TabSelectionOptions::TabSelectionOptions() = default;
 TabSelectionOptions::~TabSelectionOptions() = default;
 TabSelectionOptions::TabSelectionOptions(const TabSelectionOptions&) = default;
+
+ThreadTurn::ThreadTurn() = default;
+ThreadTurn::~ThreadTurn() = default;
+ThreadTurn::ThreadTurn(const ThreadTurn&) = default;
+ThreadTurn& ThreadTurn::operator=(const ThreadTurn&) = default;
+
+ConversationThread::ConversationThread() = default;
+ConversationThread::~ConversationThread() = default;
+ConversationThread::ConversationThread(const ConversationThread&) = default;
+ConversationThread& ConversationThread::operator=(const ConversationThread&) = default;
 
 }  // namespace contextual_tasks

@@ -11,6 +11,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
+#include "base/task/sequenced_task_runner.h"
 #include "components/contextual_search/contextual_search_context_controller.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_search/contextual_search_types.h"
@@ -105,6 +106,15 @@ class UploadTracker
         controller_->RemoveObserver(this);
         controller_ = nullptr;
       }
+
+      // Delay destruction of `this` until after the current task (e.g. observer
+      // notification loop) completes, to prevent crashes in production. We do
+      // this by posting a task that captures a reference to `UploadTracker`.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::DoNothingWithBoundArgs(base::WrapRefCounted(this)));
+
+      // Run the callback synchronously so that tests (and synchronous flows)
+      // can verify it immediately.
       std::move(callback_).Run(session_handle_);
       self_ref_.reset();
     }
@@ -128,6 +138,37 @@ QueryContextualizer::QueryContextualizer(ContextualTasksService* service,
 }
 
 QueryContextualizer::~QueryContextualizer() = default;
+
+// static
+std::vector<GURL> QueryContextualizer::ExtractUrlsFromQuery(
+    const std::string& query_text) {
+  re2::StringPiece input(query_text);
+  std::string url_str;
+  // Regex to extract URLs.
+  // Matches http://, https://, ftp://, or www. followed by valid URL
+  // characters. Explicitly lists allowed characters instead of using ranges
+  // like #-; for readability. Allowed characters: alphanumeric, -, ., ~, :,
+  // /, ?, #, [, ], @, !, $, &, ', (, ), *, +, ,, ;, =, %
+  static const base::NoDestructor<re2::RE2> url_regex(
+      R"((?i)((?:(?:https?|ftp)://|www\.)[\w#$&%'()*+,\-./:;!=?@\[\]_`{|}~]+))");
+
+  std::vector<GURL> extracted_urls;
+  base::flat_set<GURL> seen_urls;
+
+  while (RE2::FindAndConsume(&input, *url_regex, &url_str)) {
+    GURL url;
+    if (base::StartsWith(url_str, "www.",
+                         base::CompareCase::INSENSITIVE_ASCII)) {
+      url = GURL("http://" + url_str);
+    } else {
+      url = GURL(url_str);
+    }
+    if (url.is_valid() && seen_urls.insert(url).second) {
+      extracted_urls.push_back(url);
+    }
+  }
+  return extracted_urls;
+}
 
 void QueryContextualizer::Contextualize(
     const std::optional<base::Uuid>& task_id,
@@ -274,31 +315,7 @@ void QueryContextualizer::OnContextRetrieved(
 
   // Extract URLs from the query text and start upload flows for them.
   if (lens::features::IsLensSendUrlsInComposeboxesEnabled()) {
-    re2::StringPiece input(query_text);
-    std::string url_str;
-    // Regex to extract URLs.
-    // Matches http://, https://, ftp://, or www. followed by valid URL
-    // characters. Explicitly lists allowed characters instead of using ranges
-    // like #-; for readability. Allowed characters: alphanumeric, -, ., ~, :,
-    // /, ?, #, [, ], @, !, $, &, ', (, ), *, +, ,, ;, =, %
-    static const base::NoDestructor<re2::RE2> url_regex(
-        R"((?i)((?:(?:https?|ftp)://|www\.)[\w#$%'()*+,\-./:;!=?@\[\]_`{|}~]+))");
-
-    std::vector<GURL> extracted_urls;
-    base::flat_set<GURL> seen_urls;
-
-    while (RE2::FindAndConsume(&input, *url_regex, &url_str)) {
-      GURL url;
-      if (base::StartsWith(url_str, "www.",
-                           base::CompareCase::INSENSITIVE_ASCII)) {
-        url = GURL("http://" + url_str);
-      } else {
-        url = GURL(url_str);
-      }
-      if (url.is_valid() && seen_urls.insert(url).second) {
-        extracted_urls.push_back(url);
-      }
-    }
+    std::vector<GURL> extracted_urls = ExtractUrlsFromQuery(query_text);
 
     // Create the session handle if it did not already exist and there are URLs
     // to upload.
@@ -311,6 +328,7 @@ void QueryContextualizer::OnContextRetrieved(
           upload_tracker = base::MakeRefCounted<UploadTracker>(
               session_handle->GetController());
         }
+        created_handle->NotifySessionStarted();
       }
     }
 
@@ -359,8 +377,8 @@ void QueryContextualizer::OnContextRetrieved(
             context ? std::make_unique<ContextualTaskContext>(*context)
                     : nullptr,
             barrier_closure, update.id, update.is_recontextualization,
-            update.is_smart_selection, session_handle, upload_tracker,
-            on_ineligible_callback, on_processed_callback));
+            update.is_smart_selection, update.is_auto_suggested, session_handle,
+            upload_tracker, on_ineligible_callback, on_processed_callback));
   }
 }
 
@@ -371,6 +389,7 @@ void QueryContextualizer::OnTabContextualizationFetched(
     TabId tab_id,
     bool is_recontextualization,
     bool is_smart_selection,
+    bool is_auto_suggested,
     base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
         session_handle,
     scoped_refptr<UploadTracker> upload_tracker,
@@ -383,7 +402,8 @@ void QueryContextualizer::OnTabContextualizationFetched(
     return;
   }
 
-  page_content_data->is_implicit_upload = is_recontextualization;
+  page_content_data->is_implicit_upload =
+      is_recontextualization || is_auto_suggested;
   page_content_data->was_smart_tab_selection = is_smart_selection;
 
   if (GetIsProtectedPageErrorEnabled() &&
@@ -445,8 +465,9 @@ QueryContextualizer::GetTabsToUpdate(
 
   for (TabId id : tabs_to_force_contextualize) {
     if (!added_tabs.contains(id)) {
-      tabs_to_update.push_back(
-          {id, /*is_recontextualization=*/false, /*is_smart_selection=*/false});
+      tabs_to_update.push_back({id, /*is_recontextualization=*/false,
+                                /*is_smart_selection=*/false,
+                                /*is_auto_suggested=*/true});
       added_tabs.insert(id);
     }
   }

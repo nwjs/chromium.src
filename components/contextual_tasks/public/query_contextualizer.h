@@ -49,6 +49,7 @@ class QueryContextualizer {
     TabId id = 0;
     bool is_recontextualization = false;
     bool is_smart_selection = false;
+    bool is_auto_suggested = false;
   };
 
   // Delegate interface that allows clients to provide platform-specific
@@ -91,7 +92,7 @@ class QueryContextualizer {
   };
 
   QueryContextualizer(ContextualTasksService* service, Delegate* delegate);
-  ~QueryContextualizer();
+  virtual ~QueryContextualizer();
 
   QueryContextualizer(const QueryContextualizer&) = delete;
   QueryContextualizer& operator=(const QueryContextualizer&) = delete;
@@ -114,14 +115,18 @@ class QueryContextualizer {
   // checks before re-uploading if they are already present (e.g.,
   // auto-suggested chips). `callback` is invoked when processing for all tabs
   // is complete and yields the session handle.
-  void Contextualize(const std::optional<base::Uuid>& task_id,
-                     const std::string& query_text,
-                     const std::vector<TabId>& tabs_to_recontextualize,
-                     const std::vector<TabId>& tabs_to_force_contextualize,
-                     PageContextIneligibleCallback on_ineligible_callback,
-                     TabProcessedCallback on_processed_callback,
-                     ContextualizedCallback callback,
-                     bool enable_smart_tab_selection);
+  virtual void Contextualize(
+      const std::optional<base::Uuid>& task_id,
+      const std::string& query_text,
+      const std::vector<TabId>& tabs_to_recontextualize,
+      const std::vector<TabId>& tabs_to_force_contextualize,
+      PageContextIneligibleCallback on_ineligible_callback,
+      TabProcessedCallback on_processed_callback,
+      ContextualizedCallback callback,
+      bool enable_smart_tab_selection);
+
+  // Extracts URLs from the query text.
+  static std::vector<GURL> ExtractUrlsFromQuery(const std::string& query_text);
 
  private:
   void OnRelevantTabsFetched(
@@ -156,6 +161,7 @@ class QueryContextualizer {
       TabId tab_id,
       bool is_recontextualization,
       bool is_smart_selection,
+      bool is_auto_suggested,
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
           session_handle,
       scoped_refptr<UploadTracker> upload_tracker,

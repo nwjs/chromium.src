@@ -110,6 +110,7 @@
 #include "components/skills/public/skill.mojom.h"
 #include "components/skills/public/skills_metrics.h"
 #include "components/skills/public/skills_service.h"
+#include "components/skills/public/skills_types.h"
 #include "components/sync/protocol/skill_specifics.pb.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/elide_url.h"
@@ -227,9 +228,13 @@ GlicUnpinTrigger FromMojomUnpinTrigger(mojom::UnpinTrigger trigger) {
 }
 
 mojom::SkillPreviewPtr ToMojomSkillPreview(const skills::proto::Skill& skill) {
+  std::optional<std::string> curated_by;
+  if (!skill.curated_by().empty()) {
+    curated_by = skill.curated_by();
+  }
   return mojom::SkillPreview::New(
       skill.id(), skill.name(), skill.icon(), mojom::SkillSource::kFirstParty,
-      skill.description(), /*image_url=*/std::nullopt);
+      skill.description(), curated_by, /*image_url=*/std::nullopt);
 }
 
 // Monitors the panel state and the browser widget state. Emits an event any
@@ -1348,7 +1353,7 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     // directly in skills::Skill..
     skills::Skill skill(request->id, request->name, request->icon,
                         request->prompt, request->description,
-                        /*image_url=*/GURL(),
+                        /*curated_by=*/"", /*image_url=*/GURL(),
                         skills::GlicMojomToSyncPbSkillSource(request->source));
     host().skills_manager().LaunchSkillsDialog(
         profile_, std::move(skill), skills::mojom::SkillsDialogType::kAdd,
@@ -1384,6 +1389,16 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     }
 
     host().skills_manager().ShowManageSkillsUi();
+  }
+
+  void ShowBrowseSkillsUi() override {
+    if (!base::FeatureList::IsEnabled(features::kSkillsEnabled)) {
+      receiver_.ReportBadMessage(
+          "ShowBrowseSkillsUi cannot be called without Skills enabled.");
+      return;
+    }
+
+    host().skills_manager().ShowBrowseSkillsUi();
   }
 
   void GetSkill(const std::string& id, GetSkillCallback callback) override {
@@ -2102,10 +2117,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   }
 
   void OnDiscoverySkillsUpdated(
-      const skills::SkillsService::SkillsMap* skills_map) override {
-    // If skills_map is null, this means we don't have an updated value so we
-    // shouldn't modify the stored 1p map.
-    if (skills_map == nullptr) {
+      const skills::FirstPartySkillData* first_party_skill_data) override {
+    // If first_party_skill_data is null, this means we don't have an updated
+    // value so we shouldn't modify the stored 1p data.
+    if (first_party_skill_data == nullptr) {
       return;
     }
     if (!web_client_) {
@@ -2444,10 +2459,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
           skills::SkillToGlicMojomSkillPreview(skill.get()));
     }
 
-    auto& first_party_skills_map = skills_service_->Get1PSkills();
+    const auto& first_party_skills_list = skills_service_->Get1PSkills();
     std::vector<mojom::SkillPreviewPtr> first_party_skills;
-    for (const auto& it : first_party_skills_map) {
-      first_party_skills.push_back(ToMojomSkillPreview(it.second));
+    for (const auto& skill : first_party_skills_list) {
+      first_party_skills.push_back(ToMojomSkillPreview(skill));
     }
 
     std::sort(first_party_skills.begin(), first_party_skills.end(),

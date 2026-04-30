@@ -9,6 +9,7 @@
 #include "chrome/browser/skills/skills_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/webui/skills/skills.mojom.h"
 #include "components/skills/public/skills_service.h"
+#include "components/skills/public/skills_types.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -60,7 +61,7 @@ class SkillsPageHandler : public skills::mojom::PageHandler,
                       SkillsService::UpdateSource update_source,
                       bool is_position_changed) override;
   void OnDiscoverySkillsUpdated(
-      const SkillsService::SkillsMap* skills_map) override;
+      const FirstPartySkillData* first_party_skill_data) override;
   void OnSkillsServiceShuttingDown() override;
   void OnTemporarySkillDisplay(
       std::string_view skill_id,

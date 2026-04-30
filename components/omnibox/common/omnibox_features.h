@@ -35,6 +35,7 @@ BASE_DECLARE_FEATURE(kHideContextualGroupHeaders);
 BASE_DECLARE_FEATURE(kHideSuggestionGroupHeaders);
 BASE_DECLARE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchDebouncing);
+BASE_DECLARE_FEATURE(kZeroSuggestPrefetchingForComposebox);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchingOnSRP);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchingOnWeb);
 // Related, kMaxZeroSuggestMatches.
@@ -101,6 +102,7 @@ BASE_DECLARE_FEATURE(kAiModeStartPack);
 // Search and Suggest requests and params.
 BASE_DECLARE_FEATURE(kAblateSearchProviderWarmup);
 BASE_DECLARE_FEATURE(kReportApplicationLanguageInSearchRequest);
+BASE_DECLARE_FEATURE(kOmniboxAppendInvocationSource);
 
 BASE_DECLARE_FEATURE(kOmniboxAsyncViewInflation);
 BASE_DECLARE_FEATURE(kUseFusedLocationProvider);
@@ -118,9 +120,6 @@ BASE_DECLARE_FEATURE(kNumWebZpsRelatedSearches);
 BASE_DECLARE_FEATURE(kNumWebZpsMostVisitedUrls);
 BASE_DECLARE_FEATURE(kNumSrpZpsRecentSearches);
 BASE_DECLARE_FEATURE(kNumSrpZpsRelatedSearches);
-
-// Caret animation for omnibox
-BASE_DECLARE_FEATURE(kOmniboxAnimatedCaret);
 
 // Enterprise search aggregators features.
 BASE_DECLARE_FEATURE(kEnableSearchAggregatorPolicy);

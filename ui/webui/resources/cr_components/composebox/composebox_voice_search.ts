@@ -35,6 +35,12 @@ const IDLE_TIMEOUT_MS: number = 1500;
  */
 const QUERY_LENGTH_LIMIT: number = 120;
 
+/**
+ * Time in milliseconds to wait before automatically closing the UI after a
+ * NO_MATCH error occurs (when the error timer is enabled).
+ */
+const ERROR_TIMEOUT_MS: number = 24000;
+
 // The set of controller states.
 enum State {
   // Initial state before voice recognition has been set up.
@@ -165,6 +171,7 @@ export class ComposeboxVoiceSearchElement extends
       error_: {type: Number},
       detailsUrl_: {type: String},
       detailedError_: {type: Number},
+      hasErrorTimer: {type: Boolean},
     };
   }
 
@@ -187,6 +194,7 @@ export class ComposeboxVoiceSearchElement extends
   private timerId_: number|null = null;
   private searchboxHandler_: SearchboxPageHandlerRemote =
       ComposeboxProxyImpl.getInstance().searchboxHandler;
+  accessor hasErrorTimer: boolean = false;
 
   constructor() {
     super();
@@ -220,9 +228,17 @@ export class ComposeboxVoiceSearchElement extends
     this.voiceRecognition_.start();
     this.state_ = State.STARTED;
     this.resetIdleTimer_();
+    // TODO(crbug.com/504726157): When the NTP searchbox migrates to use this
+    // component, it will need to log VoiceSearchAction.ACTIVATED_BY_KEYBOARD.
+    this.recordMetric_(
+        VoiceSearchMetricType.ACTION, VoiceSearchAction.ACTIVATED_BY_ICON,
+        VoiceSearchAction.MAX_VALUE + 1);
   }
 
   stop() {
+    this.recordMetric_(
+        VoiceSearchMetricType.ACTION, VoiceSearchAction.STOP_BUTTON_CLICKED,
+        VoiceSearchAction.MAX_VALUE + 1);
     this.voiceRecognition_.stop();
   }
 
@@ -359,12 +375,20 @@ export class ComposeboxVoiceSearchElement extends
     }
     const metricName = `VoiceSearch.${type}.${metricSource}`;
     chrome.metricsPrivate.recordEnumerationValue(metricName, value, max);
+
+    const aggregateMetricName = `VoiceSearch.${type}`;
+    chrome.metricsPrivate.recordEnumerationValue(
+        aggregateMetricName, value, max);
   }
 
   private onError_(error: VoiceSearchError) {
     if (this.state_ === State.ERROR_RECEIVED && this.error_ === error) {
       return;
     }
+    // Record the specific error type.
+    this.recordMetric_(
+        VoiceSearchMetricType.ERROR, error, VoiceSearchError.MAX_VALUE + 1);
+
     if (error === VoiceSearchError.ABORTED) {
       return;
     }
@@ -375,12 +399,31 @@ export class ComposeboxVoiceSearchElement extends
 
     this.errorMessage_ = this.getErrorText_(error);
 
-    this.recordMetric_(
-        VoiceSearchMetricType.ERROR, error, VoiceSearchError.MAX_VALUE + 1);
-    this.recordMetric_(
-        VoiceSearchMetricType.ACTION, VoiceSearchAction.ERROR_NON_CANCELING,
-        VoiceSearchAction.MAX_VALUE + 1);
-    this.fire('voice-search-error', /*canceled-by-error=*/ false);
+    if (this.hasErrorTimer && error === VoiceSearchError.NO_MATCH) {
+      // NO_MATCH errors with a timer auto-close after 24s (NTP Realbox Case).
+      // Log as a canceling error.
+      this.recordMetric_(
+          VoiceSearchMetricType.ACTION, VoiceSearchAction.ERROR_CANCELING,
+          VoiceSearchAction.MAX_VALUE + 1);
+
+      this.fire('voice-search-error', /*canceled-by-error=*/ true);
+
+      // Start the auto-close timer. Do not record metrics here to avoid double
+      // counting.
+      this.timerId_ = WindowProxy.getInstance().setTimeout(() => {
+        this.resetState_();
+        this.fire('voice-search-cancel', /*canceled-by-user=*/ false);
+      }, ERROR_TIMEOUT_MS);
+
+    } else {
+      // All other errors keep the UI open permanently. Log as a non-canceling
+      // error.
+      this.recordMetric_(
+          VoiceSearchMetricType.ACTION, VoiceSearchAction.ERROR_NON_CANCELING,
+          VoiceSearchAction.MAX_VALUE + 1);
+
+      this.fire('voice-search-error', /*canceled-by-error=*/ false);
+    }
   }
 
   private getErrorText_(error: VoiceSearchError): string {
