@@ -22,6 +22,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/embedder_support/user_agent_utils.h"
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -226,8 +227,11 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
       pref_service->GetBoolean(prefs::kViewSourceLineWrappingEnabled);
 
   std::string user_agent;
-  if (nw::GetUserAgentFromManifest(&user_agent))
+  if (nw::GetUserAgentFromManifest(&user_agent)) {
     prefs->user_agent_override.ua_string_override = user_agent;
+    prefs->user_agent_override.ua_metadata_override =
+        embedder_support::GetUserAgentMetadata();
+  }
 }
 
 }  // namespace renderer_preferences_util
