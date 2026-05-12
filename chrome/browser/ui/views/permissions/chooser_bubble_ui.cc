@@ -286,13 +286,24 @@ base::OnceClosure ShowDeviceChooserDialog(
 
   auto origin = owner->GetMainFrame()->GetLastCommittedOrigin();
   if (origin.scheme() == extensions::kExtensionScheme) {
-    const auto* extension =
-        extensions::ExtensionRegistry::Get(browser_context)
-            ->GetExtensionById(origin.host(),
-                               extensions::ExtensionRegistry::EVERYTHING);
-    DCHECK(extension);
-    return ShowDeviceChooserDialogForExtension(owner, extension,
-                                               std::move(controller));
+    // NW.js hosts extension-origin pages in popup Browser windows with no
+    // toolbar, so the extensions-toolbar anchor does not exist. Fall through
+    // to the generic page-anchored bubble path when that's the case.
+    auto* nw_browser = chrome::FindBrowserWithTab(contents);
+    auto* extensions_toolbar =
+        nw_browser ? BrowserView::GetBrowserViewForBrowser(nw_browser)
+                         ->toolbar_button_provider()
+                         ->GetExtensionsToolbarDesktop()
+                   : nullptr;
+    if (extensions_toolbar) {
+      const auto* extension =
+          extensions::ExtensionRegistry::Get(browser_context)
+              ->GetExtensionById(origin.host(),
+                                 extensions::ExtensionRegistry::EVERYTHING);
+      DCHECK(extension);
+      return ShowDeviceChooserDialogForExtension(owner, extension,
+                                                 std::move(controller));
+    }
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
