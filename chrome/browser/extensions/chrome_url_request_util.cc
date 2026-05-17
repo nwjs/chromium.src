@@ -281,6 +281,15 @@ bool AllowCrossRendererResourceLoad(
       *allowed = true;
       return true;
     }
+    // Also allow the extension to load its own subresources from the
+    // devtools_page (e.g. devtools.js loaded via <script> from devtools.html).
+    // The initiator in this case is the extension's own origin.
+    if (request.request_initiator &&
+        request.request_initiator->scheme() == extensions::kExtensionScheme &&
+        request.request_initiator->host() == extension->id()) {
+      *allowed = true;
+      return true;
+    }
   }
 
   // Couldn't determine if the resource is allowed or not.
